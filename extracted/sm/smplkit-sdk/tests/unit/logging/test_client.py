@@ -9,12 +9,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from smplkit import LogLevel
-from smplkit.errors import NotFoundError, ValidationError
 from smplkit._buffer import _LoggerRegistrationBuffer
+from smplkit.errors import NotFoundError, ValidationError
 from smplkit.logging.clients import (
     LoggingClient,
-    SmplLogGroup,
     SmplLogger,
+    SmplLogGroup,
     _check_response_status,
 )
 
@@ -106,7 +106,7 @@ def _make_logging_client(**kwargs):
     parent = MagicMock()
     parent._api_key = "sk_test"
     parent._environment = "test"
-    parent._service = kwargs.get("service", None)
+    parent._service = kwargs.get("service")
     transport = MagicMock()
     transport._base_url = "http://logging:8003"
     client = LoggingClient(parent=parent, transport=transport, metrics=parent._metrics)
@@ -940,7 +940,7 @@ class TestPayloadAssembly:
         adapter = StdlibLoggingAdapter(prefix="test.payload.explicit")
         discovered = adapter.discover()
         assert len(discovered) >= 1
-        name, explicit, effective = next(t for t in discovered if t[0] == "test.payload.explicit")
+        _name, explicit, effective = next(t for t in discovered if t[0] == "test.payload.explicit")
         assert explicit == _log.ERROR
         assert effective == _log.ERROR
 
@@ -1226,8 +1226,8 @@ class TestCheckResponseStatus:
 
 def _make_logger_response(key="sqlalchemy.engine", level="DEBUG", group=None):
     """Build a mock HTTP response whose .parsed is a LoggerResponse instance."""
-    from smplkit.logging.clients import LoggerResponse, LoggerResource, GenLogger
     from smplkit._generated.logging.types import UNSET
+    from smplkit.logging.clients import GenLogger, LoggerResource, LoggerResponse
 
     attrs = GenLogger(name=key, level=level, group=group or UNSET, managed=True, environments=UNSET)
     resource = LoggerResource(attributes=attrs, id=key, type_="logger")
@@ -1241,8 +1241,8 @@ def _make_logger_response(key="sqlalchemy.engine", level="DEBUG", group=None):
 
 def _make_group_response(key="db-loggers", level="WARN", parent_id=None):
     """Build a mock HTTP response whose .parsed is a LogGroupResponse instance."""
-    from smplkit.logging.clients import LogGroupResponse, LogGroupResource, GenLogGroup
     from smplkit._generated.logging.types import UNSET
+    from smplkit.logging.clients import GenLogGroup, LogGroupResource, LogGroupResponse
 
     attrs = GenLogGroup(name=key, level=level, parent_id=parent_id or UNSET, environments=UNSET)
     resource = LogGroupResource(attributes=attrs, id=key, type_="log_group")

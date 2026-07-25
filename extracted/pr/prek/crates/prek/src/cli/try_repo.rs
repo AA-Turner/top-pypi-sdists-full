@@ -147,7 +147,7 @@ async fn prepare_repo<'a>(
 
     // If repo is a local repo with uncommitted changes, create a shadow repo to commit the changes.
     if is_local && git::has_diff("HEAD", repo_path).await? {
-        warn_user!("Creating temporary repo with uncommitted changes...");
+        warn_user!("Local repository has uncommitted changes. Creating a temporary copy...");
         let shadow = clone_and_commit(repo_path, &head_rev, tmp_dir).await?;
         let head_rev = get_head_rev(&shadow).await?;
         Ok(PreparedRepo {
@@ -218,7 +218,7 @@ pub(crate) async fn try_repo(
     let store = Store::from_settings()?;
     let tmp_dir = TempDir::with_prefix_in("try-repo-", store.scratch_path())?;
 
-    let store = Store::from_path(tmp_dir.path()).init()?;
+    let store = Store::from_path(tmp_dir.path())?.init()?;
     let selectors = Selectors::load(&run_args.includes, &run_args.skips, GIT_ROOT.as_ref()?)?;
 
     let predefined_hooks = match repo.as_str() {
@@ -273,6 +273,7 @@ pub(crate) async fn try_repo(
     )?;
     writeln!(printer.stdout(), "{}", display_config_str.dimmed())?;
 
+    let file_selection = run_args.file_selection.into();
     crate::cli::run(
         &store,
         Some(config_file),
@@ -281,12 +282,7 @@ pub(crate) async fn try_repo(
         vec![],
         vec![],
         stage,
-        run_args.from_ref,
-        run_args.to_ref,
-        run_args.all_files,
-        run_args.files,
-        run_args.directory,
-        run_args.last_commit,
+        file_selection,
         run_args.show_diff_on_failure,
         flag(run_args.fail_fast, run_args.no_fail_fast),
         run_args.dry_run,

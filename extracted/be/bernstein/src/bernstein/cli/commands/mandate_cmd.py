@@ -123,16 +123,27 @@ def mandate_emit_cmd(intent_file: str, cart_file: str, settlement_file: str, wor
         console.print(f"[red]REFUSED[/red] -- {exc}")
         raise SystemExit(1) from exc
 
+    # The receipt is already anchored in the lineage spine above. The audit-
+    # chain mirror is a best-effort second write; a failure here must not raise
+    # post-anchor and orphan the operator with a traceback over a committed
+    # receipt. Warn distinctly (naming the mandate hash) and continue.
     chain = AuditChainStore(_audit_dir(root), key=key)
-    record_mandate_consent_receipt(
-        chain=chain,
-        mandate_hash=receipt.mandate_hash,
-        intent_hash=receipt.intent_hash,
-        authorized_tool_calls_hash=receipt.authorized_tool_calls_hash,
-        settlement_ref_hash=_settlement_ref_hash(settlement),
-        journal_entry_hash=receipt.journal_entry_hash,
-        task_id=receipt.task_id,
-    )
+    try:
+        record_mandate_consent_receipt(
+            chain=chain,
+            mandate_hash=receipt.mandate_hash,
+            intent_hash=receipt.intent_hash,
+            authorized_tool_calls_hash=receipt.authorized_tool_calls_hash,
+            settlement_ref_hash=_settlement_ref_hash(settlement),
+            journal_entry_hash=receipt.journal_entry_hash,
+            task_id=receipt.task_id,
+        )
+    except Exception as exc:  # best-effort mirror: never mask the anchored receipt
+        console.print(
+            f"[yellow]WARNING[/yellow] -- consent receipt anchored but audit-chain mirror "
+            f"failed for {receipt.mandate_hash}: {exc}",
+            soft_wrap=True,
+        )
 
     console.print()
     console.print("[bold]Mandate emit[/bold]")
@@ -220,9 +231,71 @@ def mandate_revoke_cmd(mandate_hash: str, reason: str, workdir: str) -> None:
         reason=reason,
         timestamp=int(time.time()),
     )
+    # The revocation is already committed to the append-only ledger above. The
+    # audit-chain mirror is a best-effort second write; a failure here must not
+    # raise after the revocation is persisted. Warn distinctly (naming the
+    # mandate hash) and continue.
     chain = AuditChainStore(_audit_dir(root), key=key)
-    record_mandate_revocation(chain=chain, mandate_hash=entry.mandate_hash, reason=entry.reason)
+    try:
+        record_mandate_revocation(chain=chain, mandate_hash=entry.mandate_hash, reason=entry.reason)
+    except Exception as exc:  # best-effort mirror: never mask the committed revocation
+        console.print(
+            f"[yellow]WARNING[/yellow] -- revocation committed but audit-chain mirror "
+            f"failed for {entry.mandate_hash}: {exc}",
+            soft_wrap=True,
+        )
 
     console.print()
     console.print(f"[bold]Mandate revoke[/bold] hash={mandate_hash[:24]}")
     console.print("[green]OK[/green] -- signed revocation appended; further actions are refused.")
+
+
+@mandate_group.command("verify-settlement")
+@click.argument("receipt_hash", required=True)
+@click.option("--intent", "intent_file", required=True, type=click.Path(exists=True, dir_okay=False))
+@click.option(
+    "--workdir",
+    "-w",
+    type=click.Path(file_okay=False, exists=True),
+    default=".",
+    show_default=True,
+    help="Project root containing .sdd/.",
+)
+def mandate_verify_settlement_cmd(receipt_hash: str, intent_file: str, workdir: str) -> None:
+    """Prove an x402 spend receipt offline (issue #2528).
+
+    Recomputes the receipt against its spine anchor, the settled WAL invocation
+    record it paid for, and the authorising consent receipt, so a provider's
+    charge is checkable against gateway execution history rather than trusted.
+
+    Exit codes: 0 = verified, 1 = no receipt / bad input, 2 = mismatch.
+    """
+    from bernstein.core.protocols.payments.mandates import IntentMandate
+    from bernstein.core.protocols.payments.x402 import verify_spend_receipt
+
+    root = Path(workdir).resolve()
+    intent = IntentMandate.from_dict(_read_json(intent_file))
+
+    result = verify_spend_receipt(
+        workdir=root,
+        lineage_root=_lineage_root(root),
+        hmac_key=_load_hmac_key(),
+        wal_sdd_dir=root / ".sdd",
+        spend_receipt_hash=receipt_hash,
+        intent=intent,
+    )
+    console.print()
+    console.print(f"[bold]Settlement verify[/bold] hash={receipt_hash[:24]}")
+    if result.ok:
+        assert result.receipt is not None
+        console.print(f"  server           {result.receipt.server_name}")
+        console.print(f"  tool             {result.receipt.tool_name}")
+        console.print(f"  amount_usd       {result.receipt.settlement_ref.amount_usd}")
+        console.print(f"  wal_invocation   {result.receipt.wal_invocation_digest[:24]}")
+        console.print("[green]OK[/green] -- settlement chains to the WAL invocation and the mandate.")
+        raise SystemExit(0)
+    if result.receipt is None:
+        console.print(f"[yellow]NO RECEIPT[/yellow] -- {result.reason}")
+        raise SystemExit(1)
+    console.print(f"[red]MISMATCH[/red] -- {result.reason}")
+    raise SystemExit(2)

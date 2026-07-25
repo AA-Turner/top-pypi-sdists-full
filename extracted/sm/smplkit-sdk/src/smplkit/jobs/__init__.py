@@ -49,7 +49,7 @@ __all__ = [
     "RetryPolicy",
     "Run",
     "RunRetry",
-    "RunsClient",
     "RunTrigger",
+    "RunsClient",
     "Usage",
 ]

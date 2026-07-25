@@ -1,19 +1,15 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.forwarder_type import check_forwarder_type
-from ..models.forwarder_type import ForwarderType
 from dateutil.parser import isoparse
-from typing import cast
-from typing import Literal
-import datetime
+
+from ..models.forwarder_type import ForwarderType, check_forwarder_type
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.forwarder_environments import ForwarderEnvironments
@@ -72,16 +68,16 @@ class Forwarder:
     name: str
     forwarder_type: ForwarderType
     configuration: ForwarderHttpConfiguration
-    description: None | str | Unset = UNSET
+    description: str | Unset | None = UNSET
     forward_smplkit_events: bool | Unset = False
-    filter_: ForwarderFilterType0 | None | Unset = UNSET
-    transform_type: Literal["JSONATA"] | None | Unset = UNSET
-    transform: Any | None | Unset = UNSET
+    filter_: ForwarderFilterType0 | Unset | None = UNSET
+    transform_type: Literal["JSONATA"] | Unset | None = UNSET
+    transform: Any | Unset | None = UNSET
     environments: ForwarderEnvironments | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    updated_at: datetime.datetime | None | Unset = UNSET
-    deleted_at: datetime.datetime | None | Unset = UNSET
-    version: int | None | Unset = UNSET
+    created_at: datetime.datetime | Unset | None = UNSET
+    updated_at: datetime.datetime | Unset | None = UNSET
+    deleted_at: datetime.datetime | Unset | None = UNSET
+    version: int | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -93,7 +89,7 @@ class Forwarder:
 
         configuration = self.configuration.to_dict()
 
-        description: None | str | Unset
+        description: str | Unset | None
         if isinstance(self.description, Unset):
             description = UNSET
         else:
@@ -101,7 +97,7 @@ class Forwarder:
 
         forward_smplkit_events = self.forward_smplkit_events
 
-        filter_: dict[str, Any] | None | Unset
+        filter_: dict[str, Any] | Unset | None
         if isinstance(self.filter_, Unset):
             filter_ = UNSET
         elif isinstance(self.filter_, ForwarderFilterType0):
@@ -109,13 +105,13 @@ class Forwarder:
         else:
             filter_ = self.filter_
 
-        transform_type: Literal["JSONATA"] | None | Unset
+        transform_type: Literal["JSONATA"] | Unset | None
         if isinstance(self.transform_type, Unset):
             transform_type = UNSET
         else:
             transform_type = self.transform_type
 
-        transform: Any | None | Unset
+        transform: Any | Unset | None
         if isinstance(self.transform, Unset):
             transform = UNSET
         else:
@@ -125,7 +121,7 @@ class Forwarder:
         if not isinstance(self.environments, Unset):
             environments = self.environments.to_dict()
 
-        created_at: None | str | Unset
+        created_at: str | Unset | None
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -133,7 +129,7 @@ class Forwarder:
         else:
             created_at = self.created_at
 
-        updated_at: None | str | Unset
+        updated_at: str | Unset | None
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -141,7 +137,7 @@ class Forwarder:
         else:
             updated_at = self.updated_at
 
-        deleted_at: None | str | Unset
+        deleted_at: str | Unset | None
         if isinstance(self.deleted_at, Unset):
             deleted_at = UNSET
         elif isinstance(self.deleted_at, datetime.datetime):
@@ -149,7 +145,7 @@ class Forwarder:
         else:
             deleted_at = self.deleted_at
 
-        version: int | None | Unset
+        version: int | Unset | None
         if isinstance(self.version, Unset):
             version = UNSET
         else:
@@ -200,7 +196,7 @@ class Forwarder:
 
         configuration = ForwarderHttpConfiguration.from_dict(d.pop("configuration"))
 
-        def _parse_description(data: object) -> None | str | Unset:
+        def _parse_description(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -211,7 +207,7 @@ class Forwarder:
 
         forward_smplkit_events = d.pop("forward_smplkit_events", UNSET)
 
-        def _parse_filter_(data: object) -> ForwarderFilterType0 | None | Unset:
+        def _parse_filter_(data: object) -> ForwarderFilterType0 | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -228,7 +224,7 @@ class Forwarder:
 
         filter_ = _parse_filter_(d.pop("filter", UNSET))
 
-        def _parse_transform_type(data: object) -> Literal["JSONATA"] | None | Unset:
+        def _parse_transform_type(data: object) -> Literal["JSONATA"] | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -241,7 +237,7 @@ class Forwarder:
 
         transform_type = _parse_transform_type(d.pop("transform_type", UNSET))
 
-        def _parse_transform(data: object) -> Any | None | Unset:
+        def _parse_transform(data: object) -> Any | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -257,7 +253,7 @@ class Forwarder:
         else:
             environments = ForwarderEnvironments.from_dict(_environments)
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -274,7 +270,7 @@ class Forwarder:
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_updated_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -291,7 +287,7 @@ class Forwarder:
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 
-        def _parse_deleted_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_deleted_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -308,7 +304,7 @@ class Forwarder:
 
         deleted_at = _parse_deleted_at(d.pop("deleted_at", UNSET))
 
-        def _parse_version(data: object) -> int | None | Unset:
+        def _parse_version(data: object) -> int | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

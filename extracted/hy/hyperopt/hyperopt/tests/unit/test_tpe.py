@@ -1,38 +1,24 @@
-from past.utils import old_div
-from functools import partial
 import os
 import unittest
-
-import nose
+from functools import partial
 
 import numpy as np
+import pytest
 
 try:
     import matplotlib.pyplot as plt
 except ImportError:
     pass
 
-from hyperopt import pyll
-from hyperopt.pyll import scope
-
-from hyperopt import Trials
-
-from hyperopt.base import miscs_to_idxs_vals, STATUS_OK
-
-from hyperopt import hp
-
-from hyperopt.tpe import adaptive_parzen_normal_orig
-from hyperopt.tpe import GMM1
-from hyperopt.tpe import GMM1_lpdf
-from hyperopt.tpe import LGMM1
-from hyperopt.tpe import LGMM1_lpdf
-
+import hyperopt.atpe as atpe
 import hyperopt.rand as rand
 import hyperopt.tpe as tpe
-import hyperopt.atpe as atpe
-from hyperopt import fmin
+from hyperopt import Trials, fmin, hp, pyll
+from hyperopt.base import STATUS_OK, miscs_to_idxs_vals
+from hyperopt.pyll import scope
+from hyperopt.tpe import GMM1, LGMM1, GMM1_lpdf, LGMM1_lpdf, adaptive_parzen_normal_orig
 
-from .test_domains import domain_constructor, CasePerDomain, NonCategoricalCasePerDomain
+from .test_domains import CasePerDomain, NonCategoricalCasePerDomain, domain_constructor
 
 DO_SHOW = int(os.getenv("HYPEROPT_SHOW", "0"))
 
@@ -116,7 +102,7 @@ class TestGMM1(unittest.TestCase):
         # x  # weights  # mu  # sigma
         llval = GMM1_lpdf(1.0, [1.0], [1.0], [2.0])
         assert llval.shape == ()
-        assert np.allclose(llval, np.log(old_div(1.0, np.sqrt(2 * np.pi * 2.0 ** 2))))
+        assert np.allclose(llval, np.log(1 / np.sqrt(2 * np.pi * 2.0**2)))
 
     def test_lpdf_scalar_N_components(self):
         llval = GMM1_lpdf(
@@ -127,13 +113,9 @@ class TestGMM1(unittest.TestCase):
         )
         print(llval)
 
-        a = 0.25 / np.sqrt(2 * np.pi * 1.0 ** 2) * np.exp(-0.5 * (1.0) ** 2)
-        a += old_div(0.25, np.sqrt(2 * np.pi * 2.0 ** 2))
-        a += (
-            0.5
-            / np.sqrt(2 * np.pi * 5.0 ** 2)
-            * np.exp(-0.5 * (old_div(1.0, 5.0)) ** 2)
-        )
+        a = 0.25 / np.sqrt(2 * np.pi * 1.0**2) * np.exp(-0.5 * (1.0) ** 2)
+        a += 0.25 / np.sqrt(2 * np.pi * 2.0**2)
+        a += 0.5 / np.sqrt(2 * np.pi * 5.0**2) * np.exp(-0.5 * (0.2) ** 2)
 
     def test_lpdf_vector_N_components(self):
         llval = GMM1_lpdf(
@@ -144,29 +126,17 @@ class TestGMM1(unittest.TestCase):
         )
 
         # case x = 1.0
-        a = 0.25 / np.sqrt(2 * np.pi * 1.0 ** 2) * np.exp(-0.5 * (1.0) ** 2)
-        a += old_div(0.25, np.sqrt(2 * np.pi * 2.0 ** 2))
-        a += (
-            0.5
-            / np.sqrt(2 * np.pi * 5.0 ** 2)
-            * np.exp(-0.5 * (old_div(1.0, 5.0)) ** 2)
-        )
+        a = 0.25 / np.sqrt(2 * np.pi * 1.0**2) * np.exp(-0.5 * (1.0) ** 2)
+        a += 0.25 / np.sqrt(2 * np.pi * 2.0**2)
+        a += 0.5 / np.sqrt(2 * np.pi * 5.0**2) * np.exp(-0.5 * (0.2) ** 2)
 
         assert llval.shape == (2,)
         assert np.allclose(llval[0], np.log(a))
 
         # case x = 0.0
-        a = old_div(0.25, np.sqrt(2 * np.pi * 1.0 ** 2))
-        a += (
-            0.25
-            / np.sqrt(2 * np.pi * 2.0 ** 2)
-            * np.exp(-0.5 * (old_div(1.0, 2.0)) ** 2)
-        )
-        a += (
-            0.5
-            / np.sqrt(2 * np.pi * 5.0 ** 2)
-            * np.exp(-0.5 * (old_div(2.0, 5.0)) ** 2)
-        )
+        a = 0.25 / np.sqrt(2 * np.pi * 1.0**2)
+        a += 0.25 / np.sqrt(2 * np.pi * 2.0**2) * np.exp(-0.5 * (0.5) ** 2)
+        a += 0.5 / np.sqrt(2 * np.pi * 5.0**2) * np.exp(-0.5 * (0.4) ** 2)
         assert np.allclose(llval[1], np.log(a))
 
     def test_lpdf_matrix_N_components(self):
@@ -179,29 +149,17 @@ class TestGMM1(unittest.TestCase):
         print(llval)
         assert llval.shape == (3, 3)
 
-        a = 0.25 / np.sqrt(2 * np.pi * 1.0 ** 2) * np.exp(-0.5 * (1.0) ** 2)
-        a += old_div(0.25, np.sqrt(2 * np.pi * 2.0 ** 2))
-        a += (
-            0.5
-            / np.sqrt(2 * np.pi * 5.0 ** 2)
-            * np.exp(-0.5 * (old_div(1.0, 5.0)) ** 2)
-        )
+        a = 0.25 / np.sqrt(2 * np.pi * 1.0**2) * np.exp(-0.5 * (1.0) ** 2)
+        a += 0.25 / np.sqrt(2 * np.pi * 2.0**2)
+        a += 0.5 / np.sqrt(2 * np.pi * 5.0**2) * np.exp(-0.5 * (0.2) ** 2)
 
         assert np.allclose(llval[0, 0], np.log(a))
         assert np.allclose(llval[1, 2], np.log(a))
 
         # case x = 0.0
-        a = old_div(0.25, np.sqrt(2 * np.pi * 1.0 ** 2))
-        a += (
-            0.25
-            / np.sqrt(2 * np.pi * 2.0 ** 2)
-            * np.exp(-0.5 * (old_div(1.0, 2.0)) ** 2)
-        )
-        a += (
-            0.5
-            / np.sqrt(2 * np.pi * 5.0 ** 2)
-            * np.exp(-0.5 * (old_div(2.0, 5.0)) ** 2)
-        )
+        a = 0.25 / np.sqrt(2 * np.pi * 1.0**2)
+        a += 0.25 / np.sqrt(2 * np.pi * 2.0**2) * np.exp(-0.5 * (0.5) ** 2)
+        a += 0.5 / np.sqrt(2 * np.pi * 5.0**2) * np.exp(-0.5 * (0.4) ** 2)
 
         assert np.allclose(llval[0, 1], np.log(a))
         assert np.allclose(llval[0, 2], np.log(a))
@@ -300,7 +258,7 @@ class TestQGMM1Math(unittest.TestCase):
             high=self.high,
             q=self.q,
         )
-        samples = old_div(GMM1(rng=self.rng, size=(self.n_samples,), **gkwargs), self.q)
+        samples = GMM1(rng=self.rng, size=(self.n_samples,), **gkwargs) / self.q
         print("drew", len(samples), "samples")
         assert np.all(samples == samples.astype("int"))
         min_max = int(samples.min()), int(samples.max())
@@ -310,7 +268,7 @@ class TestQGMM1Math(unittest.TestCase):
         xcoords = np.arange(min_max[0], min_max[1] + 1) * self.q
         prob = np.exp(GMM1_lpdf(xcoords, **gkwargs))
         assert counts.sum() == self.n_samples
-        y = old_div(counts, float(self.n_samples))
+        y = counts / float(self.n_samples)
 
         if self.show:
             plt.scatter(xcoords, y, c="r", label="empirical")
@@ -323,7 +281,7 @@ class TestQGMM1Math(unittest.TestCase):
         print(np.mean(err))
         print(np.median(err))
         if self.show:
-            raise nose.SkipTest()
+            pytest.skip()
         else:
             assert np.max(err) < 0.1
             assert np.mean(err) < 0.01
@@ -471,9 +429,7 @@ class TestQLGMM1Math(unittest.TestCase):
     def work(self, **kwargs):
         self.__dict__.update(kwargs)
         self.worked = True
-        samples = old_div(
-            LGMM1(rng=self.rng, size=(self.n_samples,), **self.kwargs), self.q
-        )
+        samples = LGMM1(rng=self.rng, size=(self.n_samples,), **self.kwargs) / self.q
         # -- we've divided the LGMM1 by self.q to get ints here
         assert np.all(samples == samples.astype("int"))
         min_max = int(samples.min()), int(samples.max())
@@ -487,7 +443,7 @@ class TestQLGMM1Math(unittest.TestCase):
         print(xcoords)
         print(prob)
         assert counts.sum() == self.n_samples
-        y = old_div(counts, float(self.n_samples))
+        y = counts / float(self.n_samples)
 
         if self.show:
             plt.scatter(xcoords, y, c="r", label="empirical")
@@ -501,7 +457,7 @@ class TestQLGMM1Math(unittest.TestCase):
         print(np.mean(err))
         print(np.median(err))
         if self.show:
-            raise nose.SkipTest()
+            pytest.skip()
         else:
             assert np.max(err) < 0.1
             assert np.mean(err) < 0.01
@@ -605,7 +561,6 @@ class TestOpt(unittest.TestCase, CasePerDomain):
         np.seterr(**self.olderr)
 
     def work(self):
-
         bandit = self.bandit
         assert bandit.name is not None
         algo = partial(
@@ -673,7 +628,6 @@ def opt_q_uniform(target):
 
 
 class TestOptQUniform:
-
     show_steps = False
     show_vars = DO_SHOW
     LEN = 25
@@ -706,8 +660,7 @@ class TestOptQUniform:
 
         losses = trials.losses()
 
-        from hyperopt.tpe import ap_split_trials
-        from hyperopt.tpe import adaptive_parzen_samplers
+        from hyperopt.tpe import adaptive_parzen_samplers, ap_split_trials
 
         qu = scope.quniform(1.01, 10, 1)
         fn = adaptive_parzen_samplers["quniform"]

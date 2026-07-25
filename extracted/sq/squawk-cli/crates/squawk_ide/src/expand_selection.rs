@@ -37,6 +37,7 @@ use crate::tokens::is_string_or_comment;
 
 const DELIMITED_LIST_KINDS: &[SyntaxKind] = &[
     SyntaxKind::ALTER_OPTION_LIST,
+    SyntaxKind::ALTER_TYPE_ATTRIBUTE_ACTION_LIST,
     SyntaxKind::ARG_LIST,
     SyntaxKind::ATTRIBUTE_LIST,
     SyntaxKind::BEGIN_FUNC_OPTION_LIST,
@@ -56,6 +57,7 @@ const DELIMITED_LIST_KINDS: &[SyntaxKind] = &[
     SyntaxKind::GROUP_BY_LIST,
     SyntaxKind::JSON_TABLE_COLUMN_LIST,
     SyntaxKind::OPERATOR_CLASS_OPTION_LIST,
+    SyntaxKind::OPTION_ALTER_OPTION_LIST,
     SyntaxKind::OPTION_ITEM_LIST,
     SyntaxKind::OP_SIG_LIST,
     SyntaxKind::PARAM_LIST,
@@ -69,7 +71,10 @@ const DELIMITED_LIST_KINDS: &[SyntaxKind] = &[
     SyntaxKind::ROLE_REF_LIST,
     SyntaxKind::ROW_LIST,
     SyntaxKind::RULE_STMT_LIST,
-    SyntaxKind::EXPR_AS_NAME_LIST,
+    SyntaxKind::EXPR_AS_COLUMN_NAME_LIST,
+    SyntaxKind::EXPR_AS_ELEMENT_TAG_LIST,
+    SyntaxKind::EXPR_AS_PROPERTY_NAME_LIST,
+    SyntaxKind::EXPR_AS_XML_ATTR_LIST,
     SyntaxKind::XML_NAMESPACE_LIST,
     SyntaxKind::SET_COLUMN_LIST,
     SyntaxKind::SET_EXPR_LIST,

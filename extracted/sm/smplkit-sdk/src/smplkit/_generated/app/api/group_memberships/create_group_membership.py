@@ -3,13 +3,12 @@ from typing import Any
 
 import httpx
 
-from ...client import AuthenticatedClient, Client
-from ...types import Response
 from ... import errors
-
+from ...client import AuthenticatedClient, Client
 from ...models.error_response import ErrorResponse
 from ...models.group_membership_request import GroupMembershipRequest
 from ...models.group_membership_response import GroupMembershipResponse
+from ...types import Response
 
 
 def _get_kwargs(

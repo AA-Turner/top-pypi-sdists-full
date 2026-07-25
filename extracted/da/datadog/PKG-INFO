@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datadog
-Version: 0.52.2
+Version: 0.53.0
 Summary: The Datadog Python library
 Project-URL: Bug Tracker, https://github.com/DataDog/datadogpy/issues
 Project-URL: Documentation, https://datadogpy.readthedocs.io/en/latest/
@@ -120,6 +120,11 @@ options = {
 initialize(**options)
 ```
 
+Alternatively, the environment variable `DD_DOGSTATSD_URL` can be used to define a UDP connection:
+`DD_DOGSTATSD_URL=udp://localhost:8125`
+
+Manually supplying a host/port takes precedence over this environment variable.
+
 See the full list of available [DogStatsD client instantiation parameters](https://docs.datadoghq.com/developers/dogstatsd/?code-lang=python#client-instantiation-parameters).
 
 #### Instantiate the DogStatsd client with UDS
@@ -135,6 +140,11 @@ options = {
 
 initialize(**options)
 ```
+
+Alternatively, the environment variable `DD_DOGSTATSD_URL` can be used to define a UDS connection:
+`DD_DOGSTATSD_URL=unix:///var/run/datadog/dsd.socket`
+
+As with the UDP variant, manually supplying a `statsd_socket_path` takes precedence over this environment variable.
 
 #### Origin detection over UDP and UDS
 

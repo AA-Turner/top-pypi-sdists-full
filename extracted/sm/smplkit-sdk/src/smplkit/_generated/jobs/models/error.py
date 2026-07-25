@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
-
-from typing import cast
 
 if TYPE_CHECKING:
     from ..models.error_source_type_0 import ErrorSourceType0
@@ -30,8 +28,8 @@ class Error:
 
     status: str
     title: str
-    detail: None | str | Unset = UNSET
-    source: ErrorSourceType0 | None | Unset = UNSET
+    detail: str | Unset | None = UNSET
+    source: ErrorSourceType0 | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -41,13 +39,13 @@ class Error:
 
         title = self.title
 
-        detail: None | str | Unset
+        detail: str | Unset | None
         if isinstance(self.detail, Unset):
             detail = UNSET
         else:
             detail = self.detail
 
-        source: dict[str, Any] | None | Unset
+        source: dict[str, Any] | Unset | None
         if isinstance(self.source, Unset):
             source = UNSET
         elif isinstance(self.source, ErrorSourceType0):
@@ -79,7 +77,7 @@ class Error:
 
         title = d.pop("title")
 
-        def _parse_detail(data: object) -> None | str | Unset:
+        def _parse_detail(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -88,7 +86,7 @@ class Error:
 
         detail = _parse_detail(d.pop("detail", UNSET))
 
-        def _parse_source(data: object) -> ErrorSourceType0 | None | Unset:
+        def _parse_source(data: object) -> ErrorSourceType0 | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

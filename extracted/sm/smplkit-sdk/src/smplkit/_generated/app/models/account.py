@@ -1,16 +1,14 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+from dateutil.parser import isoparse
 
 from ..types import UNSET, Unset
-
-from dateutil.parser import isoparse
-from typing import cast
-import datetime
 
 if TYPE_CHECKING:
     from ..models.account_product_subscriptions import AccountProductSubscriptions
@@ -50,15 +48,15 @@ class Account:
     """
 
     name: str
-    key: None | str | Unset = UNSET
+    key: str | Unset | None = UNSET
     has_stripe_customer: bool | Unset = False
-    expires_at: datetime.datetime | None | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    deleted_at: datetime.datetime | None | Unset = UNSET
-    product_subscriptions: AccountProductSubscriptions | None | Unset = UNSET
-    entry_point: None | str | Unset = UNSET
-    show_sample_data: bool | None | Unset = UNSET
-    discount_override_pct: int | None | Unset = UNSET
+    expires_at: datetime.datetime | Unset | None = UNSET
+    created_at: datetime.datetime | Unset | None = UNSET
+    deleted_at: datetime.datetime | Unset | None = UNSET
+    product_subscriptions: AccountProductSubscriptions | Unset | None = UNSET
+    entry_point: str | Unset | None = UNSET
+    show_sample_data: bool | Unset | None = UNSET
+    discount_override_pct: int | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -66,7 +64,7 @@ class Account:
 
         name = self.name
 
-        key: None | str | Unset
+        key: str | Unset | None
         if isinstance(self.key, Unset):
             key = UNSET
         else:
@@ -74,7 +72,7 @@ class Account:
 
         has_stripe_customer = self.has_stripe_customer
 
-        expires_at: None | str | Unset
+        expires_at: str | Unset | None
         if isinstance(self.expires_at, Unset):
             expires_at = UNSET
         elif isinstance(self.expires_at, datetime.datetime):
@@ -82,7 +80,7 @@ class Account:
         else:
             expires_at = self.expires_at
 
-        created_at: None | str | Unset
+        created_at: str | Unset | None
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -90,7 +88,7 @@ class Account:
         else:
             created_at = self.created_at
 
-        deleted_at: None | str | Unset
+        deleted_at: str | Unset | None
         if isinstance(self.deleted_at, Unset):
             deleted_at = UNSET
         elif isinstance(self.deleted_at, datetime.datetime):
@@ -98,7 +96,7 @@ class Account:
         else:
             deleted_at = self.deleted_at
 
-        product_subscriptions: dict[str, Any] | None | Unset
+        product_subscriptions: dict[str, Any] | Unset | None
         if isinstance(self.product_subscriptions, Unset):
             product_subscriptions = UNSET
         elif isinstance(self.product_subscriptions, AccountProductSubscriptions):
@@ -106,19 +104,19 @@ class Account:
         else:
             product_subscriptions = self.product_subscriptions
 
-        entry_point: None | str | Unset
+        entry_point: str | Unset | None
         if isinstance(self.entry_point, Unset):
             entry_point = UNSET
         else:
             entry_point = self.entry_point
 
-        show_sample_data: bool | None | Unset
+        show_sample_data: bool | Unset | None
         if isinstance(self.show_sample_data, Unset):
             show_sample_data = UNSET
         else:
             show_sample_data = self.show_sample_data
 
-        discount_override_pct: int | None | Unset
+        discount_override_pct: int | Unset | None
         if isinstance(self.discount_override_pct, Unset):
             discount_override_pct = UNSET
         else:
@@ -159,7 +157,7 @@ class Account:
         d = dict(src_dict)
         name = d.pop("name")
 
-        def _parse_key(data: object) -> None | str | Unset:
+        def _parse_key(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -170,7 +168,7 @@ class Account:
 
         has_stripe_customer = d.pop("has_stripe_customer", UNSET)
 
-        def _parse_expires_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_expires_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -187,7 +185,7 @@ class Account:
 
         expires_at = _parse_expires_at(d.pop("expires_at", UNSET))
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -204,7 +202,7 @@ class Account:
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_deleted_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_deleted_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -221,7 +219,7 @@ class Account:
 
         deleted_at = _parse_deleted_at(d.pop("deleted_at", UNSET))
 
-        def _parse_product_subscriptions(data: object) -> AccountProductSubscriptions | None | Unset:
+        def _parse_product_subscriptions(data: object) -> AccountProductSubscriptions | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -238,7 +236,7 @@ class Account:
 
         product_subscriptions = _parse_product_subscriptions(d.pop("product_subscriptions", UNSET))
 
-        def _parse_entry_point(data: object) -> None | str | Unset:
+        def _parse_entry_point(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -247,7 +245,7 @@ class Account:
 
         entry_point = _parse_entry_point(d.pop("entry_point", UNSET))
 
-        def _parse_show_sample_data(data: object) -> bool | None | Unset:
+        def _parse_show_sample_data(data: object) -> bool | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -256,7 +254,7 @@ class Account:
 
         show_sample_data = _parse_show_sample_data(d.pop("show_sample_data", UNSET))
 
-        def _parse_discount_override_pct(data: object) -> int | None | Unset:
+        def _parse_discount_override_pct(data: object) -> int | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

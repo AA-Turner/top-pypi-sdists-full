@@ -4,14 +4,15 @@
 //! only the newly fed snippet each time.
 
 use insta::assert_snapshot;
-use monty::{
-    ExtFunctionResult, MontyException, MontyObject, MontyRepl, NoLimitTracker, PrintWriter, ReplContinuationMode,
-    ReplProgress, ReplStartError, ResourceTracker, detect_repl_continuation_mode,
+use monty::{MontyRepl, ReplContinuationMode, ReplProgress, ReplStartError, detect_repl_continuation_mode};
+use monty_types::{
+    CompileOptions, ExcType, ExtFunctionResult, MontyException, MontyObject, NoLimitTracker, PrintWriter,
+    ResourceTracker,
 };
 
 #[test]
 fn repl_executes_only_new_code() {
-    let mut repl = MontyRepl::new("repl.py", NoLimitTracker);
+    let mut repl = MontyRepl::new("repl.py", NoLimitTracker, CompileOptions::default());
     let init_output = feed_run_print(&mut repl, "counter = 0").unwrap();
     assert_eq!(init_output, MontyObject::None);
 
@@ -29,7 +30,7 @@ fn feed_run_print(repl: &mut MontyRepl<impl ResourceTracker>, code: &str) -> Res
 }
 
 fn init_repl(code: &str) -> (MontyRepl<NoLimitTracker>, MontyObject) {
-    let mut repl = MontyRepl::new("repl.py", NoLimitTracker);
+    let mut repl = MontyRepl::new("repl.py", NoLimitTracker, CompileOptions::default());
     let output = feed_run_print(&mut repl, code).unwrap();
     (repl, output)
 }
@@ -67,6 +68,45 @@ fn repl_nested_function_redefinition_updates_callers() {
 
     feed_run_print(&mut repl, "def g():\n    return 41").unwrap();
     assert_eq!(feed_run_print(&mut repl, "f()").unwrap(), MontyObject::Int(42));
+}
+
+/// A later snippet's `def` for a builtin name must shadow that builtin for
+/// future calls of an earlier-defined function that references the name.
+#[test]
+fn repl_function_late_binds_user_def_over_builtin() {
+    let (mut repl, _) = init_repl("");
+    feed_run_print(&mut repl, "def call_sum():\n    return sum([1, 2, 3])").unwrap();
+    assert_eq!(
+        feed_run_print(&mut repl, "call_sum()").unwrap(),
+        MontyObject::Int(6),
+        "first call resolves via the builtin sum() fallback",
+    );
+
+    feed_run_print(&mut repl, "def sum(*args):\n    return 42").unwrap();
+    assert_eq!(
+        feed_run_print(&mut repl, "call_sum()").unwrap(),
+        MontyObject::Int(42),
+        "after `def sum`, the previously-compiled call_sum picks up the new module binding",
+    );
+}
+
+/// Similar to `repl_function_late_binds_user_def_over_builtin`, but for
+/// global variables directly.
+#[test]
+fn repl_module_scope_binds_user_def_over_builtin() {
+    let (mut repl, _) = init_repl("");
+    assert_eq!(
+        feed_run_print(&mut repl, "max(1, 2)").unwrap(),
+        MontyObject::Int(2),
+        "snippet 1: builtin max wins because nothing else is bound",
+    );
+
+    feed_run_print(&mut repl, "def max(*args):\n    return 'shadowed'").unwrap();
+    assert_eq!(
+        feed_run_print(&mut repl, "max(1, 2)").unwrap(),
+        MontyObject::String("shadowed".to_owned()),
+        "snippet 3: module-level call sees the user-defined max bound in snippet 2",
+    );
 }
 
 #[test]
@@ -317,7 +357,7 @@ fn repl_start_runtime_error_preserves_repl_state() {
         .feed_start("y = 20\nraise ValueError('boom')", vec![], PrintWriter::Stdout)
         .expect_err("expected ReplStartError");
     let ReplStartError { mut repl, error } = *err;
-    assert_eq!(error.exc_type(), monty::ExcType::ValueError);
+    assert_eq!(error.exc_type(), ExcType::ValueError);
     assert_eq!(error.message(), Some("boom"));
 
     // Variables from BEFORE the error snippet survive.
@@ -338,12 +378,12 @@ fn repl_start_runtime_error_during_external_call_preserves_repl_state() {
     let call = progress.into_function_call().expect("expected function call");
 
     // Resume with an exception from the external function.
-    let exc = monty::MontyException::new(monty::ExcType::RuntimeError, Some("ext failed".to_string()));
+    let exc = MontyException::new(ExcType::RuntimeError, Some("ext failed".to_string()));
     let err = call
         .resume(ExtFunctionResult::Error(exc), PrintWriter::Stdout)
         .expect_err("expected ReplStartError");
     let ReplStartError { mut repl, error } = *err;
-    assert_eq!(error.exc_type(), monty::ExcType::RuntimeError);
+    assert_eq!(error.exc_type(), ExcType::RuntimeError);
 
     // Variable from before the error is still accessible.
     assert_eq!(feed_run_print(&mut repl, "z").unwrap(), MontyObject::Int(99));
@@ -365,7 +405,7 @@ fn repl_dataclass_method_call_yields_function_call_with_method_flag() {
         frozen: true,
     };
 
-    let repl = MontyRepl::new("repl.py", NoLimitTracker);
+    let repl = MontyRepl::new("repl.py", NoLimitTracker, CompileOptions::default());
 
     // Calling point.sum() should yield a FunctionCall with method_call=true.
     // Pass the dataclass as an input to feed_start() so it gets a namespace slot.
@@ -417,7 +457,7 @@ fn repl_start_new_external_function_in_later_block() {
 
 /// Helper to create a REPL session pre-seeded with code for function calling.
 fn repl_with_code(code: &str) -> MontyRepl<NoLimitTracker> {
-    let mut repl = MontyRepl::new("session_test.py", NoLimitTracker);
+    let mut repl = MontyRepl::new("session_test.py", NoLimitTracker, CompileOptions::default());
     repl.feed_run(code, vec![], PrintWriter::Stdout).unwrap();
     repl
 }
@@ -671,7 +711,7 @@ fn call_function_captures_print() {
         .call_function(
             "say_hello",
             vec![MontyObject::String("world".to_owned())],
-            PrintWriter::CollectString(&mut output),
+            PrintWriter::collect_string(&mut output),
         )
         .unwrap();
     assert_eq!(result, MontyObject::None);
@@ -737,7 +777,7 @@ fn call_function_that_calls_undefined_name_fails() {
     let err = s
         .call_function("call_missing", vec![], PrintWriter::Stdout)
         .unwrap_err();
-    assert_snapshot!(err, @"NotImplementedError: MontyRepl::call_function: external functions are not yet supported in this context");
+    assert_snapshot!(err, @"NotImplementedError: MontyRepl::call_function: external function 'unknown_func' is not yet supported in this context");
 }
 
 #[test]

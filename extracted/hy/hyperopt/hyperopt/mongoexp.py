@@ -89,7 +89,7 @@ bandit.evaluate function has returned before setting the state to 2 or 3 to
 finalize the job in the database.
 
 """
-from future import standard_library
+
 import copy
 
 # import hashlib
@@ -109,33 +109,39 @@ import warnings
 import numpy
 
 try:
-    import pymongo
     import gridfs
+    import pymongo
     from bson import SON
 
     _has_mongo = True
 except:
     _has_mongo = False
 
-from .base import JOB_STATES
-from .base import JOB_STATE_NEW, JOB_STATE_RUNNING, JOB_STATE_DONE, JOB_STATE_ERROR
-from .base import Trials
-from .base import InvalidTrial
-from .base import Ctrl
-from .base import SONify
-from .base import spec_from_misc
-from .utils import coarse_utcnow
-from .utils import fast_isin
-from .utils import get_most_recent_inds
-from .utils import json_call
-from .utils import working_dir, temp_dir
-import six
+from .base import (
+    JOB_STATE_DONE,
+    JOB_STATE_ERROR,
+    JOB_STATE_NEW,
+    JOB_STATE_RUNNING,
+    JOB_STATES,
+    Ctrl,
+    InvalidTrial,
+    SONify,
+    Trials,
+    spec_from_misc,
+)
+from .utils import (
+    coarse_utcnow,
+    fast_isin,
+    get_most_recent_inds,
+    json_call,
+    temp_dir,
+    working_dir,
+)
 
 __authors__ = ["James Bergstra", "Dan Yamins"]
 __license__ = "3-clause BSD License"
 __contact__ = "github.com/hyperopt/hyperopt"
 
-standard_library.install_aliases()
 logger = logging.getLogger(__name__)
 
 try:
@@ -145,7 +151,7 @@ except Exception as e:
         'Failed to load cloudpickle, try installing cloudpickle via "pip '
         'install cloudpickle" for enhanced pickling support.'
     )
-    import six.moves.cPickle as pickler
+    import pickle as pickler
 
 
 class OperationFailure(Exception):
@@ -266,10 +272,12 @@ def connection_with_tunnel(
         # -- give the subprocess time to set up
         time.sleep(0.5)
         connection = pymongo.MongoClient(
-            "127.0.0.1", local_port, document_class=SON, w=1, j=True
+            "127.0.0.1", local_port, document_class=SON, w=1, journal=True
         )
     else:
-        connection = pymongo.MongoClient(host, port, document_class=SON, w=1, j=True)
+        connection = pymongo.MongoClient(
+            host, port, document_class=SON, w=1, journal=True
+        )
         if user:
             if not pw:
                 pw = read_pw()
@@ -281,7 +289,7 @@ def connection_with_tunnel(
 
         ssh_tunnel = None
 
-    # Note that the w=1 and j=True args to MongoClient above should:
+    # Note that the w=1 and journal=True args to MongoClient above should:
     # -- Ensure that changes are written to at least one server.
     # -- Ensure that changes are written to the journal if there is one.
 
@@ -498,9 +506,9 @@ class MongoJobs:
             raise ValueError("refusing to reserve owned job")
         else:
             cond["owner"] = None
-            cond[
-                "state"
-            ] = JOB_STATE_NEW  # theoretically this is redundant, theoretically
+            cond["state"] = (
+                JOB_STATE_NEW  # theoretically this is redundant, theoretically
+            )
 
         try:
             rval = self.jobs.find_and_modify(

@@ -5,6 +5,7 @@ from itertools import groupby
 from tqdm import trange
 import os
 import random
+from typing import List, Tuple
 
 def select_random_activeList(input_file, output_file, N):
     if not os.path.exists(input_file):
@@ -297,3 +298,114 @@ def create_dark_transparent_hot_cmap(vmin=0.0, opacity=1.0):
         for i in range(n_colors)
     ]
     return LinearSegmentedColormap.from_list('dark_transparent_hot', colors)
+
+def flip_probe(active_list_lines: List[str], y: np.ndarray) -> Tuple[np.ndarray, List[int], List[tuple]]:
+    """
+    Rearranges the columns of the Acousto-Optic (AO) measurement matrix y (dimension: Times x N) 
+    to match a full geometric flip of the probe (inverting both the piezoelectric activation 
+    patterns and the acoustic steering angles) by performing all inline transformations.
+    """
+    config_to_idx = {line.strip(): i for i, line in enumerate(active_list_lines) if line.strip()}
+    
+    new_indices = []
+    missing_configs = []
+    
+    for i, line in enumerate(active_list_lines):
+        line = line.strip()
+        if not line:
+            continue
+            
+        pattern, angle = line.split('_')
+        
+        # Inline 1: Spatial mirror inversion of the 192-bit piezoelectric pattern
+        bin_str = bin(int(pattern, 16))[2:].zfill(192)
+        flipped_pattern = hex(int(bin_str[::-1], 2))[2:].zfill(48)
+        
+        # Inline 2: Sign inversion of the acoustic beam angle
+        if angle == "000":
+            flipped_angle = "000"
+        elif angle.startswith("0"):
+            flipped_angle = "1" + angle[1:]
+        elif angle.startswith("1"):
+            flipped_angle = "0" + angle[1:]
+        else:
+            raise ValueError(f"Unknown angle format: {angle}")
+            
+        flipped_config = f"{flipped_pattern}_{flipped_angle}"
+        
+        if flipped_config in config_to_idx:
+            new_indices.append(config_to_idx[flipped_config])
+        else:
+            new_indices.append(i)
+            missing_configs.append((i, line, flipped_config))
+            
+    y_flipped = y[:, new_indices]
+    return y_flipped, new_indices, missing_configs
+
+def flip_only_angles(active_list_lines: List[str], y: np.ndarray) -> Tuple[np.ndarray, List[int], List[tuple]]:
+    """
+    Rearranges the columns of the Acousto-Optic (AO) measurement matrix y by re-indexing 
+    and routing the signals to invert ONLY the acoustic angles while keeping the 
+    piezoelectric activation patterns unchanged, with inline angle inversion logic.
+    """
+    config_to_idx = {line.strip(): i for i, line in enumerate(active_list_lines) if line.strip()}
+    new_indices = []
+    missing_configs = []
+    
+    for i, line in enumerate(active_list_lines):
+        line = line.strip()
+        if not line:
+            continue
+            
+        pattern, angle = line.split('_')
+        
+        # Inline: Sign inversion of the acoustic beam angle
+        if angle == "000":
+            flipped_angle = "000"
+        elif angle.startswith("0"):
+            flipped_angle = "1" + angle[1:]
+        elif angle.startswith("1"):
+            flipped_angle = "0" + angle[1:]
+        else:
+            raise ValueError(f"Unknown angle format: {angle}")
+            
+        target_config = f"{pattern}_{flipped_angle}"
+        
+        if target_config in config_to_idx:
+            new_indices.append(config_to_idx[target_config])
+        else:
+            new_indices.append(i)
+            missing_configs.append((i, line, target_config))
+            
+    return y[:, new_indices], new_indices, missing_configs
+
+def flip_only_piezos(active_list_lines: List[str], y: np.ndarray) -> Tuple[np.ndarray, List[int], List[tuple]]:
+    """
+    Rearranges the columns of the Acousto-Optic (AO) measurement matrix y by re-indexing 
+    and routing the signals to invert ONLY the piezoelectric activations (spatial mirror) 
+    while keeping the acoustic angles unchanged, with inline bit-reversal logic.
+    """
+    config_to_idx = {line.strip(): i for i, line in enumerate(active_list_lines) if line.strip()}
+    new_indices = []
+    missing_configs = []
+    
+    for i, line in enumerate(active_list_lines):
+        line = line.strip()
+        if not line:
+            continue
+            
+        pattern, angle = line.split('_')
+        
+        # Inline: Spatial mirror inversion of the 192-bit piezoelectric pattern
+        bin_str = bin(int(pattern, 16))[2:].zfill(192)
+        flipped_pattern = hex(int(bin_str[::-1], 2))[2:].zfill(48)
+        
+        target_config = f"{flipped_pattern}_{angle}"
+        
+        if target_config in config_to_idx:
+            new_indices.append(config_to_idx[target_config])
+        else:
+            new_indices.append(i)
+            missing_configs.append((i, line, target_config))
+            
+    return y[:, new_indices], new_indices, missing_configs

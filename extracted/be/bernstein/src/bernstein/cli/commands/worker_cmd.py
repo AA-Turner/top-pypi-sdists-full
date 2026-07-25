@@ -1,13 +1,17 @@
 """Worker command: join a Bernstein cluster as a remote worker node.
 
 Usage:
-  bernstein worker --server http://central:8052
-  bernstein worker --server http://central:8052 --name gpu-node-1 --slots 8
   bernstein worker --server http://central:8052 --token SECRET
+  bernstein worker --server http://central:8052 --token SECRET --name gpu-node-1 --slots 8
 
 The worker registers itself with the central task server, starts a
 heartbeat loop, and polls for tasks to execute locally via the CLI
 agent adapter.
+
+Cluster mode enables bearer auth on the central server, so ``--token`` (or the
+``BERNSTEIN_AUTH_TOKEN`` env var) is required: pass the value the central node
+was started with (``BERNSTEIN_AUTH_TOKEN`` or ``BERNSTEIN_CLUSTER_AUTH_SECRET``).
+When the central auto-generates one it is written to ``.sdd/runtime/auth.token``.
 """
 
 from __future__ import annotations
@@ -23,7 +27,7 @@ from pathlib import Path
 import click
 import httpx
 
-from bernstein.cli.helpers import console
+from bernstein.cli.helpers import adapter_cli_choice, console
 from bernstein.core.capacity_wake import CapacityWake, WakeReason
 from bernstein.core.poll_config import PollConfig, validate_poll_config
 
@@ -44,6 +48,28 @@ def _detect_worker_adapter() -> str:
             if agent.logged_in:
                 return agent.name
     return "claude"
+
+
+def _adapter_model_profile(adapter_name: str) -> tuple[str | None, list[str]]:
+    """Resolve ``(default_model, supported_models)`` for an adapter.
+
+    Consults the local agent-discovery cache -- the same source
+    :func:`_detect_worker_adapter` uses -- so the worker advertises and defaults
+    to the models the adapter it actually runs supports, rather than a fixed
+    Claude tier list (#2804). Returns ``(None, [])`` when the adapter is not
+    locally discoverable, leaving the caller to keep its prior behaviour.
+    """
+    with suppress(Exception):
+        from bernstein.core.agent_discovery import discover_agents_cached
+
+        for agent in discover_agents_cached().agents:
+            if agent.name == adapter_name:
+                default = agent.default_model or None
+                models = list(agent.available_models or [])
+                if default and default not in models:
+                    models = [default, *models]
+                return default, models
+    return None, []
 
 
 class WorkerLoop:
@@ -73,6 +99,7 @@ class WorkerLoop:
         workdir: Path | None = None,
         pool: str | None = None,
         pool_hash: str | None = None,
+        model: str | None = None,
     ) -> None:
         self._server_url = server_url.rstrip("/")
         self._name = name or socket.gethostname()
@@ -84,10 +111,21 @@ class WorkerLoop:
         self._pool_hash = pool_hash
         self._enrolment_keyid: str | None = None
         self._adapter_name = adapter or _detect_worker_adapter()
+        # Advertise the adapter as a node label so the cluster topology view
+        # (``bernstein cluster nodes``) can show which agent backend each node
+        # runs (#2874). An operator-supplied ``adapter`` label still wins.
+        self._labels.setdefault("adapter", self._adapter_name)
         # An adapter passed explicitly to the worker is an operator pin and
         # must not be overridden by model-name inference at spawn time
         # (#2751); an auto-detected adapter is not a pin.
         self._adapter_pinned = adapter is not None
+        self._model = model
+        # Resolve, once, what this node's adapter can run so a task with no
+        # explicit model gets an adapter-appropriate default (rather than a
+        # Claude tier name the adapter would refuse) and the node advertises a
+        # truthful capability list to server-side placement (#2804).
+        self._spawn_default_model = self._resolve_spawn_default_model()
+        self._supported_models = self._resolve_supported_models()
         # Prefer explicit PollConfig; fall back to legacy poll_interval (seconds).
         if poll_config is not None:
             self._poll_config = poll_config
@@ -101,6 +139,11 @@ class WorkerLoop:
         self._workdir = workdir or Path.cwd()
         self._running = False
         self._active_tasks: dict[str, int] = {}  # task_id -> pid
+        # Terminal outcomes reaped from finished agents, drained to the server
+        # by _report_finished. (task_id, ok, detail). Worker-side reporting is
+        # authoritative and does not depend on the in-agent completion curl
+        # (#2808): without it a finished agent leaves its task CLAIMED forever.
+        self._pending_reports: list[tuple[str, bool, str]] = []
         self._wake = CapacityWake()
 
     def _headers(self) -> dict[str, str]:
@@ -108,6 +151,46 @@ class WorkerLoop:
         if self._auth_token:
             headers["Authorization"] = f"Bearer {self._auth_token}"
         return headers
+
+    @staticmethod
+    def _is_claude_adapter(adapter_name: str) -> bool:
+        """Whether an adapter serves the Claude tier-name cascade (sonnet/opus/haiku)."""
+        with suppress(Exception):
+            from bernstein.core.bandit_router import BanditRouter
+
+            return bool(BanditRouter.router_applicable(adapter_name))
+        return adapter_name == "claude"
+
+    def _resolve_spawn_default_model(self) -> str | None:
+        """Default model to hand the spawner for tasks that carry none.
+
+        An explicit ``--model`` always wins. Claude-family adapters run the
+        tier-named cascade the planner emits, so no default is forced (leaving
+        the existing routing untouched). Non-Claude adapters get their own
+        discovered default, so an unpinned Claude tier name coerces to a model
+        the adapter can actually run instead of raising ``ModelNotConfiguredError``
+        (#2804).
+        """
+        if self._model:
+            return self._model
+        if self._is_claude_adapter(self._adapter_name):
+            return None
+        default, _models = _adapter_model_profile(self._adapter_name)
+        return default
+
+    def _resolve_supported_models(self) -> list[str]:
+        """Model set this node advertises to server-side placement.
+
+        Claude-family adapters keep advertising the tier names planner-emitted
+        tasks reference. Other adapters advertise the concrete models the local
+        discovery cache reports for them, so a qwen node stops falsely claiming
+        the Claude tiers it would refuse -- the placement filter in
+        ``best_node_for_task`` trusts this list (#2804).
+        """
+        if self._is_claude_adapter(self._adapter_name):
+            return ["sonnet", "opus", "haiku"]
+        _default, models = _adapter_model_profile(self._adapter_name)
+        return models
 
     def _resolve_pool_hash(self) -> str | None:
         """Resolve the pool hash to enrol against, if a pool was requested.
@@ -192,23 +275,41 @@ class WorkerLoop:
     def _reap_finished(self) -> bool:
         """Remove tasks whose agent process has exited.
 
+        Each reaped task is queued as a terminal outcome (success/failure from
+        the agent exit code) for _report_finished to post to the server, so a
+        finished agent transitions its task instead of leaving it CLAIMED
+        (#2808). Success/failure is derived from the exit code: a clean exit
+        (0) completes the task; a non-zero exit or signal kill fails it.
+
         Returns:
             ``True`` if at least one task was reaped (a slot became available).
         """
         from bernstein.core.platform_compat import process_alive
 
-        finished: list[str] = []
-        for task_id, pid in self._active_tasks.items():
+        finished: list[tuple[str, bool, str]] = []
+        for task_id, pid in list(self._active_tasks.items()):
+            exited = False
+            ok = True
+            detail = "worker reaped agent process (exit status unavailable)"
             try:
-                os.waitpid(pid, os.WNOHANG)
+                reaped_pid, status = os.waitpid(pid, os.WNOHANG)
             except ChildProcessError:
-                finished.append(task_id)
-                continue
-            # Check if process is still alive
-            if not process_alive(pid):
-                finished.append(task_id)
-        for task_id in finished:
+                # Already reaped elsewhere; the exit status is gone. Treat as a
+                # completion and let server-side verification have the final say.
+                exited = True
+            else:
+                if reaped_pid == pid:
+                    exited = True
+                    exit_code = os.waitstatus_to_exitcode(status)
+                    ok = exit_code == 0
+                    detail = f"agent exited with code {exit_code}"
+                elif not process_alive(pid):
+                    exited = True
+            if exited:
+                finished.append((task_id, ok, detail))
+        for task_id, ok, detail in finished:
             del self._active_tasks[task_id]
+            self._pending_reports.append((task_id, ok, detail))
         if finished:
             self._wake.signal_capacity()
         return bool(finished)
@@ -223,7 +324,7 @@ class WorkerLoop:
                 "available_slots": self.available_slots,
                 "active_agents": len(self._active_tasks),
                 "gpu_available": False,
-                "supported_models": ["sonnet", "opus", "haiku"],
+                "supported_models": self._supported_models,
             },
             "labels": self._labels,
             "cell_ids": [],
@@ -239,10 +340,37 @@ class WorkerLoop:
                 node_id = resp.json().get("id")
                 logger.info("Registered as node %s with %s", node_id, self._server_url)
                 return node_id
+            if resp.status_code in (401, 403):
+                # An auth rejection is a credential/config error, not a
+                # transient fault: re-sending the same header every 5s never
+                # succeeds and hides the real cause (#2805 / #2802). Abort.
+                self._fail_fast_auth(resp.status_code)
+                return None
             logger.warning("Registration failed: %d %s", resp.status_code, resp.text[:200])
         except httpx.HTTPError as exc:
             logger.warning("Registration error: %s", exc)
         return None
+
+    def _fail_fast_auth(self, status_code: int) -> None:
+        """Stop the worker on an unrecoverable registration auth rejection.
+
+        Prints an actionable message naming the credential the central server
+        requires and where to obtain it, then aborts the run loop instead of
+        retrying a request that cannot succeed.
+        """
+        console.print(
+            f"[red]Registration rejected ({status_code}):[/red] the central server "
+            "requires a bearer token this worker did not present (or presented an "
+            "unaccepted one)."
+        )
+        console.print(
+            "  Pass it with [bold]--token[/bold] or the [bold]BERNSTEIN_AUTH_TOKEN[/bold] env var. "
+            "When the central node auto-generates a token it writes it to "
+            "[bold].sdd/runtime/auth.token[/bold]; copy that value to this worker.\n"
+            "  In cluster mode the same token must equal BERNSTEIN_CLUSTER_AUTH_SECRET if one is set."
+        )
+        self._running = False
+        self._wake.signal_abort()
 
     def _heartbeat(self, client: httpx.Client, node_id: str) -> bool:
         """Send heartbeat with updated capacity. Returns True on success."""
@@ -252,7 +380,7 @@ class WorkerLoop:
                 "available_slots": self.available_slots,
                 "active_agents": len(self._active_tasks),
                 "gpu_available": False,
-                "supported_models": ["sonnet", "opus", "haiku"],
+                "supported_models": self._supported_models,
             },
         }
         try:
@@ -271,11 +399,17 @@ class WorkerLoop:
             logger.warning("Heartbeat error: %s", exc)
         return True  # Don't re-register on transient errors
 
-    def _claim_task(self, client: httpx.Client, role: str) -> dict | None:
-        """Try to claim the next task for a given role. Returns task dict or None."""
+    def _claim_task(self, client: httpx.Client, role: str, node_id: str | None = None) -> dict | None:
+        """Try to claim the next task for a given role. Returns task dict or None.
+
+        The worker's node id is recorded as the claim owner so the server can
+        release this node's in-flight tasks when it leaves the cluster (#2801).
+        """
+        params = {"claimed_by_session": node_id} if node_id else None
         with suppress(httpx.HTTPError):
             resp = client.get(
                 f"{self._server_url}/tasks/next/{role}",
+                params=params,
                 headers=self._headers(),
                 timeout=10.0,
             )
@@ -307,6 +441,23 @@ class WorkerLoop:
         except httpx.HTTPError as exc:
             logger.warning("Failed to report failure for %s: %s", task_id, exc)
 
+    def _report_finished(self, client: httpx.Client) -> None:
+        """Post queued terminal outcomes for reaped agents to the server.
+
+        This is what drives a remotely executed task to a terminal state: the
+        in-agent completion curl may never fire (crash, kill, wrong URL), so
+        the worker reports completion/failure itself (#2808). A task already
+        terminal server-side simply no-ops the redundant report.
+        """
+        if not self._pending_reports:
+            return
+        pending, self._pending_reports = self._pending_reports, []
+        for task_id, ok, detail in pending:
+            if ok:
+                self._complete_task(client, task_id, detail)
+            else:
+                self._fail_task(client, task_id, detail)
+
     def _spawn_agent(self, task: dict) -> int | None:
         """Spawn a CLI agent process to work on a task. Returns PID or None."""
         from bernstein import get_templates_dir
@@ -316,8 +467,6 @@ class WorkerLoop:
 
         task_id = task.get("id", "unknown")
         title = task.get("title", "")
-        description = task.get("description", "")
-        role = task.get("role", "backend")
 
         logger.info("Spawning agent for task %s: %s", task_id, title[:60])
 
@@ -328,6 +477,10 @@ class WorkerLoop:
                 templates_dir=get_templates_dir(self._workdir) / "roles",
                 workdir=self._workdir,
                 adapter_pinned=self._adapter_pinned,
+                # Adapter-appropriate default so a task carrying no explicit
+                # model coerces to a model the adapter can run instead of a
+                # Claude tier name it would refuse (#2804).
+                default_model=self._spawn_default_model,
             )
             # Spawned agents reach the central server through the standard
             # env vars. Adapters launch agents with an allowlist-filtered
@@ -337,7 +490,11 @@ class WorkerLoop:
             os.environ["BERNSTEIN_SERVER_URL"] = self._server_url
             if self._auth_token:
                 os.environ["BERNSTEIN_AUTH_TOKEN"] = self._auth_token
-            session = spawner.spawn_for_tasks([Task(id=task_id, title=title, description=description, role=role)])
+            # Reconstruct the full Task from the claimed dict so per-step
+            # model / cli / effort / scope / metadata are honoured rather than
+            # discarded (#2804). from_dict coerces enum fields and tolerates
+            # missing optionals.
+            session = spawner.spawn_for_tasks([Task.from_dict(task)])
             if session and session.pid:
                 return session.pid
         except Exception as exc:
@@ -351,6 +508,10 @@ class WorkerLoop:
             node_id = self._register(client)
             if node_id is not None:
                 break
+            if not self._running:
+                # Fail-fast path (e.g. auth rejection) already aborted the
+                # loop; do not print a misleading retry notice.
+                return None
             console.print("[yellow]Registration failed, retrying in 5s...[/yellow]")
             if self._wake.wait(timeout_s=5.0) == WakeReason.ABORT:
                 return None
@@ -380,12 +541,12 @@ class WorkerLoop:
             return None, last_heartbeat
         return new_id, time.monotonic()
 
-    def _claim_available_tasks(self, client: httpx.Client) -> None:
+    def _claim_available_tasks(self, client: httpx.Client, node_id: str | None = None) -> None:
         """Claim tasks for each role while slots remain."""
         for role in self._roles:
             if self.available_slots <= 0:
                 return
-            task = self._claim_task(client, role)
+            task = self._claim_task(client, role, node_id)
             if task is None:
                 continue
             task_id = task.get("id", "unknown")
@@ -444,11 +605,19 @@ class WorkerLoop:
                     continue
 
                 if self.available_slots > 0:
-                    self._claim_available_tasks(client)
+                    self._claim_available_tasks(client, node_id)
+
+                # Drive reaped agents to a terminal state on the server. Reading
+                # available_slots above already reaped finished agents into the
+                # pending queue.
+                self._report_finished(client)
 
                 if self._wake.wait(timeout_s=poll_s) == WakeReason.ABORT:
                     break
 
+            # Flush any outcomes reaped in the final cycle before leaving.
+            self._reap_finished()
+            self._report_finished(client)
             self._unregister(client, node_id)
 
         console.print("[bold]Worker stopped.[/bold]")
@@ -493,8 +662,16 @@ class WorkerLoop:
 @click.option(
     "--adapter",
     default=None,
-    type=click.Choice(["claude", "codex", "gemini", "qwen", "aider", "auto"], case_sensitive=False),
+    # Derived from the live adapter registry (same source as the seed ``cli:``
+    # allowlist and ``run --cli``) so a worker resolves any selectable adapter
+    # instead of a stale hardcoded subset (issue #2807).
+    type=adapter_cli_choice(),
     help="CLI agent adapter (default: auto-detect).",
+)
+@click.option(
+    "--model",
+    default=None,
+    help="Default model for tasks that carry no explicit model (default: the adapter's own default).",
 )
 @click.option(
     "--poll-interval",
@@ -532,6 +709,7 @@ def worker(
     labels: tuple[str, ...],
     token: str | None,
     adapter: str | None,
+    model: str | None,
     poll_interval: int,
     poll_interval_ms: int | None,
     heartbeat_interval_ms: int,
@@ -546,12 +724,16 @@ def worker(
     work across multiple machines.
 
     \b
+    Cluster mode requires a bearer token: pass --token (or set
+    BERNSTEIN_AUTH_TOKEN) to the value the central node was started with.
+
+    \b
     Examples:
-      bernstein worker --server http://central:8052
-      bernstein worker --server http://central:8052 --name gpu-box --slots 8
-      bernstein worker --server http://central:8052 --label gpu=true
-      bernstein worker --server http://central:8052 --poll-interval-ms 2000
-      BERNSTEIN_SERVER_URL=http://central:8052 bernstein worker
+      bernstein worker --server http://central:8052 --token SECRET
+      bernstein worker --server http://central:8052 --token SECRET --name gpu-box --slots 8
+      bernstein worker --server http://central:8052 --token SECRET --label gpu=true
+      bernstein worker --server http://central:8052 --token SECRET --poll-interval-ms 2000
+      BERNSTEIN_SERVER_URL=http://central:8052 BERNSTEIN_AUTH_TOKEN=SECRET bernstein worker
     """
     from bernstein.core.poll_config import PollConfigValidationError, validate_poll_config
 
@@ -588,6 +770,7 @@ def worker(
         labels=label_dict,
         auth_token=token,
         adapter=adapter if adapter != "auto" else None,
+        model=model,
         poll_interval=poll_interval,
         poll_config=cfg,
         pool=pool,

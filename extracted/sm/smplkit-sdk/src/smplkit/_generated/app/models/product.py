@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
-
-from typing import cast
 
 if TYPE_CHECKING:
     from ..models.product_limits import ProductLimits
@@ -38,7 +36,7 @@ class Product:
     description: str
     limits: ProductLimits
     plans: ProductPlans
-    tagline: None | str | Unset = UNSET
+    tagline: str | Unset | None = UNSET
     features: list[str] | Unset = UNSET
     metered_limits: list[str] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -52,7 +50,7 @@ class Product:
 
         plans = self.plans.to_dict()
 
-        tagline: None | str | Unset
+        tagline: str | Unset | None
         if isinstance(self.tagline, Unset):
             tagline = UNSET
         else:
@@ -99,7 +97,7 @@ class Product:
 
         plans = ProductPlans.from_dict(d.pop("plans"))
 
-        def _parse_tagline(data: object) -> None | str | Unset:
+        def _parse_tagline(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

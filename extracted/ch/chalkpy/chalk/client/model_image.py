@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import os
+import re
 import sys
 import tempfile
 import textwrap
@@ -12,6 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from chalk.ml.model_handler import CHALK_HANDLER_ARTIFACT_PATH
 from chalk.ml.utils import ModelEncoding, ModelType, model_encoding_from_proto, model_type_from_proto
 from chalk.utils._ast_extract import find_relative_imports, is_module_level_definition
+from chalk.utils.collections import FrozenOrderedSet
 
 _DEFAULT_PACKAGES: Dict[ModelType, List[str]] = {
     ModelType.PYTORCH: ["torch"],
@@ -800,6 +802,26 @@ def _chalkpy_dep_spec(user_dependencies: List[str]) -> Optional[str]:
     return f"chalkpy=={chalkpy_version}"
 
 
+_APT_INSTALL_LIBGOMP = (
+    "apt-get update && apt-get install -y --no-install-recommends libgomp1 " "&& rm -rf /var/lib/apt/lists/*"
+)
+
+# Wheels that dlopen the system OpenMP runtime (libgomp.so.1) instead of
+# vendoring their own. scikit-learn / scipy / torch / tensorflow all bundle a
+# private, auditwheel-renamed libgomp with matching RPATH, so they DON'T need
+# it — only these do.
+_LIBGOMP_PACKAGES = FrozenOrderedSet(("lightgbm", "xgboost"))
+
+
+def _needs_system_libgomp(dependencies: List[str]) -> bool:
+    for dep in dependencies:
+        # strip extras/markers/version specifiers -> bare package name
+        name = re.split(r"[<>=!~;\[ ]", dep.strip(), maxsplit=1)[0].lower()
+        if name in _LIBGOMP_PACKAGES:
+            return True
+    return False
+
+
 def build_chalk_model_handler_image(
     handler_instance: Any,
     model_type: Optional[ModelType],
@@ -843,9 +865,17 @@ def build_chalk_model_handler_image(
     if model_handler_entrypoint(handler_instance) == "predict":
         if not any(d.strip().lower().split("==")[0].split(">")[0].split("<")[0] == "chalkdf" for d in deps):
             deps.append("chalkdf")
-        img = Image.debian_slim("3.12").pip_install(deps)
+        img = Image.debian_slim("3.12")
     else:
-        img = Image.debian_slim().pip_install(deps)
+        img = Image.debian_slim()
+    # debian_slim ships without the OpenMP runtime (libgomp.so.1). LightGBM and
+    # XGBoost dlopen it by soname at import and don't vendor their own copy, so
+    # install it into the image when either is a dependency. Other OpenMP users
+    # (scikit-learn, scipy, torch, ...) bundle a private auditwheel-renamed copy
+    # and don't need the system library.
+    if _needs_system_libgomp(deps):
+        img = img.run_commands(_APT_INSTALL_LIBGOMP)
+    img = img.pip_install(deps)
 
     code_tmp_paths: List[str] = []
     try:

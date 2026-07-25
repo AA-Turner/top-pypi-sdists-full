@@ -43,20 +43,25 @@ APPROVAL_REQUEST_SUMMARY_MAX_LENGTH = 280
 
 
 _SLACK_ID_PATTERN = re.compile(r"^U[A-Z0-9]{8,}$")
+_SLACK_USERGROUP_ID_PATTERN = re.compile(r"^S[A-Z0-9]{8,}$")
 
 
 def classify_person_id(identifier: str) -> str:
-    """Classify a person identifier string.
+    """Classify a person or Slack usergroup identifier string.
 
     Args:
-        identifier: A person identifier (email, GitHub handle, or Slack ID).
+        identifier: A person or Slack usergroup identifier (email, GitHub
+            handle, Slack user ID, or Slack usergroup ID).
 
     Returns:
-        One of `"github_handle"`, `"slack_id"`, or `"email"`.
+        One of `"github_handle"`, `"slack_id"`, `"slack_usergroup_id"`, or
+        `"email"`.
     """
     identifier = identifier.strip()
     if identifier.startswith("@"):
         return "github_handle"
+    if _SLACK_USERGROUP_ID_PATTERN.match(identifier):
+        return "slack_usergroup_id"
     if _SLACK_ID_PATTERN.match(identifier):
         return "slack_id"
     if "@" in identifier and "." in identifier.split("@", 1)[-1]:
@@ -68,11 +73,13 @@ _AIRBYTE_EMAIL_DOMAIN = "@airbyte.io"
 
 
 def validate_person_id(identifier: str) -> None:
-    """Validate that a person identifier is well-formed.
+    """Validate that a person or Slack usergroup identifier is well-formed.
 
     Accepted formats:
     - GitHub handle prefixed with `@` (e.g. `@aaronsteers`)
     - Slack user ID matching `U` + uppercase alphanumeric (e.g. `U05AKF1BCC9`)
+    - Slack usergroup ID matching `S` + uppercase alphanumeric
+      (e.g. `S0BKR63VAN5`)
     - Email address ending in `@airbyte.io` (e.g. `aj@airbyte.io`)
 
     A bare string without `@` prefix that does not match the Slack ID or
@@ -80,41 +87,40 @@ def validate_person_id(identifier: str) -> None:
     explicit `@` prefix for GitHub handles.
 
     Args:
-        identifier: Raw person identifier string.
+        identifier: Raw person or Slack usergroup identifier string.
 
     Raises:
         ValueError: If the identifier does not match any recognized format.
     """
     stripped = identifier.strip()
     if not stripped:
-        raise ValueError("Person identifier is empty.")
+        raise ValueError("Identifier is empty.")
 
     # @-prefixed → GitHub handle
     if stripped.startswith("@"):
         handle = stripped[1:]
         if not handle:
-            raise ValueError(
-                "Person identifier '@' is missing the GitHub handle after '@'."
-            )
+            raise ValueError("Identifier '@' is missing the GitHub handle after '@'.")
         return
 
-    # Slack user ID
-    if _SLACK_ID_PATTERN.match(stripped):
+    # Slack user or usergroup ID
+    if _SLACK_ID_PATTERN.match(stripped) or _SLACK_USERGROUP_ID_PATTERN.match(stripped):
         return
 
     # Email
     if "@" in stripped and "." in stripped.split("@", 1)[-1]:
         if not stripped.endswith(_AIRBYTE_EMAIL_DOMAIN):
             raise ValueError(
-                f"Person identifier '{stripped}' looks like an email but does not "
+                f"Identifier '{stripped}' looks like an email but does not "
                 f"end in '{_AIRBYTE_EMAIL_DOMAIN}'. Only Airbyte emails are accepted."
             )
         return
 
     raise ValueError(
-        f"Person identifier '{stripped}' is not a recognized format. "
+        f"Identifier '{stripped}' is not a recognized format. "
         "Use '@username' for a GitHub handle, an Airbyte email address "
-        "(e.g. 'aj@airbyte.io'), or a Slack user ID (e.g. 'U05AKF1BCC9')."
+        "(e.g. 'aj@airbyte.io'), a Slack user ID (e.g. 'U05AKF1BCC9'), "
+        "or a Slack usergroup ID (e.g. 'S0BKR63VAN5')."
     )
 
 
@@ -185,8 +191,8 @@ def dispatch_escalation(
     """Dispatch a Slack notification via the GitHub Actions workflow.
 
     Triggers the `human-in-the-loop.yml` workflow which resolves person
-    identifiers to Slack user IDs (using the roster artifact) and posts
-    a formatted message to Slack.
+    identifiers to Slack user IDs (using the roster artifact), preserves
+    Slack usergroup IDs, and posts a formatted message to Slack.
 
     The `channel_override`, `header_emoji`, `header_label`, and
     `context_footer` parameters are set by the calling MCP tool and
@@ -194,7 +200,7 @@ def dispatch_escalation(
 
     Raises:
         ValueError: If `target_person` or any `cc` entry is not a
-            recognized person identifier format, or if
+            recognized person or Slack usergroup identifier format, or if
             `approval_request_summary` violates Slack confirm-dialog
             constraints.
     """

@@ -20,7 +20,6 @@ from smplkit.errors import (
     _raise_for_status,
 )
 
-
 # ---------------------------------------------------------------------------
 # _parse_error_body
 # ---------------------------------------------------------------------------
@@ -440,11 +439,10 @@ class TestConfigClientErrors:
                 ]
             },
         )
-        from smplkit.config.models import Config
-
         import datetime
 
         from smplkit import SmplClient
+        from smplkit.config.models import Config
 
         config = SmplClient(api_key="sk_test", base_domain="example.test").config
         cfg = Config(
@@ -577,9 +575,8 @@ class TestFlagsClientErrors:
                 ]
             },
         )
-        from smplkit.flags.models import Flag
-
         from smplkit import SmplClient
+        from smplkit.flags.models import Flag
 
         client = SmplClient(api_key="sk_test", base_domain="example.test")
         flag = Flag(
@@ -623,8 +620,9 @@ class TestFlagsClientErrors:
 class TestLoggingClientErrors:
     @patch("smplkit.logging.clients.update_logger.sync_detailed")
     def test_save_new_logger_upserts_via_put(self, mock_update):
-        from smplkit.errors import ConnectionError
         import httpx
+
+        from smplkit.errors import ConnectionError
 
         # Simulate PUT failing with a network error to verify a single
         # HTTP call is made (upsert — no bulk pre-step).

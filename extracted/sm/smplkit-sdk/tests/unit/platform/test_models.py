@@ -21,7 +21,6 @@ from smplkit.platform.models import (
 )
 from smplkit.platform.types import Color, EnvironmentClassification
 
-
 # ---------------------------------------------------------------------------
 # _EnvironmentBase / Environment / AsyncEnvironment
 # ---------------------------------------------------------------------------

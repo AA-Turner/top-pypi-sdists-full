@@ -13,6 +13,7 @@
 
 import logging
 import os
+from collections import deque
 from collections.abc import Callable
 from time import time
 from typing import Any
@@ -40,10 +41,7 @@ from litdata.utilities.encryption import Encryption
 from litdata.utilities.env import _DistributedEnv, _is_in_dataloader_worker, _WorkerEnv
 from litdata.utilities.format import _convert_bytes_to_int
 from litdata.utilities.hf_dataset import index_hf_dataset
-from litdata.utilities.shuffle import (
-    _find_chunks_per_workers_on_which_to_skip_deletion,
-    _map_node_worker_rank_to_chunk_indexes_to_not_delete,
-)
+from litdata.utilities.shuffle import _get_shared_chunks
 
 logger = logging.getLogger("litdata.streaming.dataset")
 
@@ -165,19 +163,26 @@ class StreamingDataset(IterableDataset):
         max_cache_size_in_bytes = int(
             _convert_bytes_to_int(max_cache_size) if isinstance(max_cache_size, str) else max_cache_size,
         )
+        # Peak on-disk cache ≈ num_workers × max_pre_download × mean_chunk_size.
+        # For ~64MB chunks and a full machine (e.g. 48 workers × prefetch 2–4), that
+        # is already ~5–12GB before in-flight downloads. Warn below 25GB so limited
+        # budgets leave headroom instead of thrashing under multi-worker streaming.
         min_cache_size_in_bytes = _convert_bytes_to_int("25GB")
         if max_cache_size_in_bytes < min_cache_size_in_bytes:
             logger.warning(
                 "The provided `max_cache_size` is less than 25GB. "
-                "This may lead to performance issues during the training process. "
-                "Consider increasing the `max_cache_size` to at least 25GB to avoid potential performance degradation."
+                "With many DataLoader workers and ~64MB chunks, peak cache is roughly "
+                "`num_workers * max_pre_download * chunk_size` (often 5–12GB). "
+                "Consider increasing `max_cache_size` to at least 25GB to avoid eviction thrash."
             )
 
         self.cache: Cache | None = None
         self.worker_env: _WorkerEnv | None = None
         self.worker_chunks: list[int] = []  # chunk indexes that the current worker will download, read & stream
         self.worker_intervals: list[list[int]] = []  # chunk index intervals for the current worker
-        self.upcoming_indexes: list[int] = []  # contains list of upcoming indexes to be processed
+        # Upcoming in-chunk sample indexes for this worker. ``deque`` keeps ``popleft`` O(1);
+        # a list ``pop(0)`` would be O(n) per sample for large chunks.
+        self.upcoming_indexes: deque[int] = deque()
 
         # which index of the array `self.worker_chunks` will we work on after this chunk is completely consumed
         self.worker_next_chunk_index = 0
@@ -359,7 +364,10 @@ class StreamingDataset(IterableDataset):
         if os.getenv("DATA_OPTIMIZER_GLOBAL_RANK"):
             self.distributed_env = _DistributedEnv.detect()
 
-        self.worker_env = _WorkerEnv.detect()
+        # Threaded StreamingDataLoader sets ``_forced_worker_env`` so each loader thread
+        # gets a distinct rank without relying on torch's process-worker ``get_worker_info``.
+        forced_worker_env = getattr(self, "_forced_worker_env", None)
+        self.worker_env = forced_worker_env if forced_worker_env is not None else _WorkerEnv.detect()
         self.cache = self._create_cache(worker_env=self.worker_env)
         self.shuffler = self._create_shuffler(self.cache)
         self.on_demand_bytes = False  # reset on_demand_bytes to False, and store chunks in the cache
@@ -381,38 +389,36 @@ class StreamingDataset(IterableDataset):
         # The max number of samples to return from `__next__` (in worker)
         self.stop_length = sum(interval[2] - interval[1] for interval in self.worker_intervals)
 
+        # Eagerly reference-count the chunks this worker shares with other workers on the node.
+        # A chunk can straddle worker boundaries and therefore be read by several workers; if a
+        # worker deletes it after finishing its own slice while a co-worker still needs it, the
+        # co-worker hits `FileNotFoundError`. Incrementing the shared chunks' reference counts now —
+        # before any item is read — guarantees every co-reader has claimed a shared chunk before any
+        # worker can finish and delete it (the reader releases them as it goes; see
+        # BinaryReader.acquire_shared_locks). This runs for BOTH fresh and resumed epochs.
+        node_size = self.distributed_env.world_size // self.distributed_env.num_nodes
+        first_rank_this_node = (self.distributed_env.global_rank // node_size) * node_size
+        num_workers_per_node = node_size * self.num_workers
+        # `workers_chunks` is a flat list indexed by `rank * num_workers + worker`, so the workers
+        # belonging to this node begin at `first_rank_this_node * self.num_workers`.
+        worker_start = first_rank_this_node * self.num_workers
+        worker_end = worker_start + num_workers_per_node
+
+        shared_chunks = _get_shared_chunks(workers_chunks[worker_start:worker_end])
+        my_shared_chunks = {chunk_index for chunk_index in self.worker_chunks if chunk_index in shared_chunks}
+        self.cache._reader.acquire_shared_locks(my_shared_chunks)
+
+        # Chunks this worker owns exclusively are safe to memory-map for faster reads; shared chunks
+        # are not (a co-worker could delete/replace one while it is mapped -> SIGSEGV).
+        my_nonshared_chunks = {chunk_index for chunk_index in self.worker_chunks if chunk_index not in shared_chunks}
+        self.cache._reader.enable_mmap_for_chunks(my_nonshared_chunks)
+
         # Handle restart
         if self._state_dict:
             self._resume(workers_chunks, workers_intervals)
         else:
-            # Find the chunks shared across all workers of the current node.
-            # For each shared chunk, find the rank and worker to use the chunk last and prevent
-            # premature deletion for the other workers.
-            node_size = self.distributed_env.world_size // self.distributed_env.num_nodes
-            first_rank_this_node = (self.distributed_env.global_rank // node_size) * node_size
-            num_workers_per_node = node_size * self.num_workers
-            worker_start = first_rank_this_node * num_workers_per_node
-            worker_end = worker_start + num_workers_per_node
-            local_rank = self.distributed_env.global_rank % node_size
-
-            chunks_indexes_skip_deletion = _find_chunks_per_workers_on_which_to_skip_deletion(
-                self.num_workers,
-                self.batch_size,
-                workers_chunks[worker_start:worker_end],
-                workers_intervals[worker_start:worker_end],
-            )
-            worker_node_rank_to_chunk_indexes = _map_node_worker_rank_to_chunk_indexes_to_not_delete(
-                chunks_indexes_skip_deletion
-            )
-
-            worker_rank_local_node = local_rank * self.num_workers + self.worker_env.rank
-            if worker_rank_local_node in worker_node_rank_to_chunk_indexes:
-                self.cache._reader.config.skip_chunk_indexes_deletion = worker_node_rank_to_chunk_indexes[
-                    worker_rank_local_node
-                ]
-
             self.num_chunks = len(self.worker_chunks)
-            self.upcoming_indexes = []
+            self.upcoming_indexes = deque()
             self.worker_next_chunk_index = 0
             self.global_index = 0
             self.consumed_sample_count_in_curr_chunk = 0
@@ -471,7 +477,7 @@ class StreamingDataset(IterableDataset):
 
         # skip any indexes already consumed
         current_indexes = current_indexes[indexes[worker_local_rank] :]
-        self.upcoming_indexes = current_indexes
+        self.upcoming_indexes = deque(current_indexes)
 
         self.global_index = indexes[worker_local_rank]
 
@@ -535,14 +541,14 @@ class StreamingDataset(IterableDataset):
 
             assert self.shuffler is not None
             assert self.num_chunks is not None
-            self.upcoming_indexes = self.shuffler(
-                current_indexes, self.num_chunks, self.current_epoch, self.worker_next_chunk_index
+            self.upcoming_indexes = deque(
+                self.shuffler(current_indexes, self.num_chunks, self.current_epoch, self.worker_next_chunk_index)
             )
 
             self.worker_next_chunk_index += 1  # bump the chunk_index
 
-        # Get the first index
-        index = self.upcoming_indexes.pop(0)
+        # Get the first index (O(1) with deque)
+        index = self.upcoming_indexes.popleft()
 
         chunk_indexes = None if self.has_triggered_download else self.worker_chunks[self.worker_next_chunk_index - 1 :]
         is_last_index = (self.worker_next_chunk_index) == self.num_chunks and len(self.upcoming_indexes) == 0

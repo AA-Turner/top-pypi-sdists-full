@@ -4,13 +4,11 @@ from urllib.parse import quote
 
 import httpx
 
-from ...client import AuthenticatedClient, Client
-from ...types import Response, UNSET
 from ... import errors
-
+from ...client import AuthenticatedClient, Client
 from ...models.forwarder_delivery_list_response import ForwarderDeliveryListResponse
 from ...models.list_forwarder_deliveries_sort import ListForwarderDeliveriesSort
-from ...types import Unset
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
@@ -27,42 +25,42 @@ def _get_kwargs(
 
     params: dict[str, Any] = {}
 
-    json_filterenvironment: None | str | Unset
+    json_filterenvironment: str | Unset | None
     if isinstance(filterenvironment, Unset):
         json_filterenvironment = UNSET
     else:
         json_filterenvironment = filterenvironment
     params["filter[environment]"] = json_filterenvironment
 
-    json_filterstatus: None | str | Unset
+    json_filterstatus: str | Unset | None
     if isinstance(filterstatus, Unset):
         json_filterstatus = UNSET
     else:
         json_filterstatus = filterstatus
     params["filter[status]"] = json_filterstatus
 
-    json_filtercreated_at: None | str | Unset
+    json_filtercreated_at: str | Unset | None
     if isinstance(filtercreated_at, Unset):
         json_filtercreated_at = UNSET
     else:
         json_filtercreated_at = filtercreated_at
     params["filter[created_at]"] = json_filtercreated_at
 
-    json_filterevent: None | str | Unset
+    json_filterevent: str | Unset | None
     if isinstance(filterevent, Unset):
         json_filterevent = UNSET
     else:
         json_filterevent = filterevent
     params["filter[event]"] = json_filterevent
 
-    json_pagesize: int | None | Unset
+    json_pagesize: int | Unset | None
     if isinstance(pagesize, Unset):
         json_pagesize = UNSET
     else:
         json_pagesize = pagesize
     params["page[size]"] = json_pagesize
 
-    json_pageafter: None | str | Unset
+    json_pageafter: str | Unset | None
     if isinstance(pageafter, Unset):
         json_pageafter = UNSET
     else:

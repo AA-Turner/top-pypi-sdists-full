@@ -530,10 +530,10 @@ def test_run_auto_advance_empty_workflow_started_dry_run_does_not_finalize(
 
 
 @pytest.mark.unit
-def test_run_auto_advance_unavailable_estimate_skips(
+def test_run_auto_advance_unavailable_estimate_holds(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """An unavailable estimate skips rather than finalizing a tier it can't confirm."""
+    """An unavailable estimate holds rather than finalizing a tier it can't confirm."""
     row = {
         "rollout_id": "rollout-1",
         "actor_definition_id": "def-1",
@@ -565,9 +565,162 @@ def test_run_auto_advance_unavailable_estimate_skips(
     )
 
     assert not result.actions
-    assert len(result.skipped) == 1
+    assert len(result.holds) == 1
 
 
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "sibling_state,sibling_reason,paused_reason,blocked",
+    [
+        pytest.param(
+            "failed_rolled_back",
+            "rollback completed",
+            None,
+            True,
+            id="failed_rolled_back",
+        ),
+        pytest.param(
+            "canceled",
+            "operator requested cancellation",
+            None,
+            True,
+            id="operator_cancel",
+        ),
+        pytest.param("succeeded", "healthy", None, False, id="succeeded"),
+        pytest.param("errored", "workflow error", None, True, id="errored"),
+        pytest.param("paused", None, "manual pause", True, id="paused_with_reason"),
+    ],
+)
+def test_blocking_sibling_reason_uses_recorded_outcome(
+    sibling_state: str,
+    sibling_reason: str | None,
+    paused_reason: str | None,
+    blocked: bool,
+) -> None:
+    """The RC gate blocks recorded non-success or safety-stop outcomes."""
+    current = autopilot.ConnectorRolloutRecord.from_db_row(
+        {
+            "rollout_id": "current",
+            "actor_definition_id": "def-1",
+            "state": "in_progress",
+            "rc_docker_repository": "airbyte/source-faker",
+            "rc_docker_image_tag": "1.2.3",
+            "tag": "TIER_1",
+        }
+    )
+    sibling = autopilot.ConnectorRolloutRecord.from_db_row(
+        {
+            "rollout_id": "sibling",
+            "actor_definition_id": "def-1",
+            "state": sibling_state,
+            "rc_docker_repository": "airbyte/source-faker",
+            "rc_docker_image_tag": "1.2.3",
+            "tag": "TIER_2",
+            "error_msg": sibling_reason,
+            "failed_reason": sibling_reason,
+            "paused_reason": paused_reason,
+        }
+    )
+
+    reason = autopilot.blocking_sibling_reason(current, [current, sibling])
+
+    assert (reason is not None) is blocked
+
+
+@pytest.mark.unit
+def test_run_auto_advance_stale_workflow_started_holds_without_restart(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stale workflow-started row is held and never sent to `manual_start`."""
+    row = {
+        "rollout_id": "rollout-stale",
+        "actor_definition_id": "def-1",
+        "state": "workflow_started",
+        "rc_docker_repository": "airbyte/source-faker",
+        "rc_docker_image_tag": "7.2.0-rc.1",
+        "tag": "TIER_1",
+        "current_target_rollout_pct": 0,
+        "final_target_rollout_pct": 100,
+        "updated_at": "2020-01-01T00:00:00Z",
+    }
+    monkeypatch.setattr(autopilot, "query_connector_rollouts", lambda **_: [row])
+    monkeypatch.setattr(autopilot, "get_admin_user_id", lambda **_: "user-1")
+    monkeypatch.setattr(
+        autopilot, "get_connector_rollout_config", _autopilot_config_for
+    )
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "start_connector_rollout",
+        lambda **_: pytest.fail("stale recovery must not call manual_start"),
+    )
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "progress_connector_rollout",
+        lambda **_: pytest.fail("stale recovery must not progress"),
+    )
+
+    result = autopilot.run_auto_advance(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert len(result.holds) == 1
+    assert result.holds[0].action == "hold"
+    assert "unchanged for" in result.holds[0].message
+
+
+@pytest.mark.unit
+def test_run_auto_advance_holds_when_sibling_hit_failure_threshold(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A recorded failure-terminal sibling blocks recovery of the remaining tier."""
+    active = {
+        "rollout_id": "rollout-tier-1",
+        "actor_definition_id": "def-1",
+        "state": "workflow_started",
+        "rc_docker_repository": "airbyte/destination-clickhouse",
+        "rc_docker_image_tag": "2.1.25",
+        "tag": "TIER_1",
+        "current_target_rollout_pct": 0,
+        "final_target_rollout_pct": 100,
+        "updated_at": "2099-01-01T00:00:00Z",
+    }
+    sibling = {
+        **active,
+        "rollout_id": "rollout-tier-2",
+        "state": "canceled",
+        "tag": "TIER_2",
+        "error_msg": (
+            "Failure threshold exceeded: Failure threshold hit: 2 failures "
+            "(threshold=1). Pause/rollback recommended."
+        ),
+    }
+    monkeypatch.setattr(
+        autopilot,
+        "query_connector_rollouts",
+        lambda **kwargs: (
+            [active, sibling] if kwargs.get("active_only") is False else [active]
+        ),
+    )
+    monkeypatch.setattr(autopilot, "get_admin_user_id", lambda **_: "user-1")
+    monkeypatch.setattr(
+        autopilot, "get_connector_rollout_config", _autopilot_config_for
+    )
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "start_connector_rollout",
+        lambda **_: pytest.fail("sibling failure must block manual_start"),
+    )
+
+    result = autopilot.run_auto_advance(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert len(result.holds) == 1
+    assert "rollout-tier-2" in result.holds[0].message
+    assert "canceled" in result.holds[0].message
+
+
+@pytest.mark.unit
 @pytest.mark.unit
 def test_run_auto_promote_ga_when_no_later_tier_has_actors(
     monkeypatch: pytest.MonkeyPatch,

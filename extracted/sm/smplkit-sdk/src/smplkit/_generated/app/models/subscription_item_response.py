@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
-
-from typing import cast
-from uuid import UUID
-
 
 T = TypeVar("T", bound="SubscriptionItemResponse")
 
@@ -37,8 +34,8 @@ class SubscriptionItemResponse:
     product: str
     plan: str
     price_monthly_cents: int
-    pending_plan_change: None | str | Unset = UNSET
-    scheduled_change_effective_at: None | str | Unset = UNSET
+    pending_plan_change: str | Unset | None = UNSET
+    scheduled_change_effective_at: str | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -50,13 +47,13 @@ class SubscriptionItemResponse:
 
         price_monthly_cents = self.price_monthly_cents
 
-        pending_plan_change: None | str | Unset
+        pending_plan_change: str | Unset | None
         if isinstance(self.pending_plan_change, Unset):
             pending_plan_change = UNSET
         else:
             pending_plan_change = self.pending_plan_change
 
-        scheduled_change_effective_at: None | str | Unset
+        scheduled_change_effective_at: str | Unset | None
         if isinstance(self.scheduled_change_effective_at, Unset):
             scheduled_change_effective_at = UNSET
         else:
@@ -90,7 +87,7 @@ class SubscriptionItemResponse:
 
         price_monthly_cents = d.pop("price_monthly_cents")
 
-        def _parse_pending_plan_change(data: object) -> None | str | Unset:
+        def _parse_pending_plan_change(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -99,7 +96,7 @@ class SubscriptionItemResponse:
 
         pending_plan_change = _parse_pending_plan_change(d.pop("pending_plan_change", UNSET))
 
-        def _parse_scheduled_change_effective_at(data: object) -> None | str | Unset:
+        def _parse_scheduled_change_effective_at(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

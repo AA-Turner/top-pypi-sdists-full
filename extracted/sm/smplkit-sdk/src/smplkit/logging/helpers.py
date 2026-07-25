@@ -12,17 +12,17 @@ from smplkit._generated.logging.models.logger import Logger as GenLogger
 from smplkit._generated.logging.models.logger_environments_type_0 import LoggerEnvironmentsType0
 from smplkit._generated.logging.models.logger_resource import LoggerResource
 from smplkit._generated.logging.models.logger_response import LoggerResponse
-from smplkit.logging.models import AsyncSmplLogGroup, AsyncSmplLogger, SmplLogGroup, SmplLogger
+from smplkit.logging.models import AsyncSmplLogger, AsyncSmplLogGroup, SmplLogger, SmplLogGroup
 
 if TYPE_CHECKING:  # pragma: no cover
     from smplkit import LogLevel
     from smplkit.logging.clients import (
-        AsyncLoggingClient,
-        LoggingClient,
-        AsyncLogGroupsClient,
         AsyncLoggersClient,
-        LogGroupsClient,
+        AsyncLoggingClient,
+        AsyncLogGroupsClient,
         LoggersClient,
+        LoggingClient,
+        LogGroupsClient,
     )
 
 

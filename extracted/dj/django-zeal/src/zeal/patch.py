@@ -565,6 +565,47 @@ def patch_global_queryset():
         patched_prefetch_related_objects
     )
 
+    # zeal attaches per-queryset closures to ``_clone``/``_fetch_all`` (and
+    # marks querysets with ``__zeal_patched``/``__zeal_skip_notify``) as
+    # *instance* attributes. Local closures have no importable qualname, so
+    # pickle -- which walks ``__dict__`` -- crashes on any queryset that went
+    # through a patched relation/prefetch path. This breaks libraries that
+    # pickle query results (e.g. django-cacheops), even outside an active
+    # zeal context, because the attributes are attached at creation time.
+    #
+    # The zeal attributes are safely reconstructible for the motivating use
+    # case (pickling evaluated querysets / model instances carrying a
+    # prefetched cache): an unpickled queryset falls back to the (still-
+    # patched) class-level methods, and accessing a relation re-patches
+    # fresh querysets via the descriptor patches. Django also pre-evaluates
+    # querysets in ``__getstate__``, so the ``_fetch_all`` notify guard
+    # (``_result_cache is None``) never fires on the unpickled queryset
+    # itself. So we simply strip them from the pickled state.
+    #
+    # Known tradeoff: N+1 detection is NOT preserved on querysets *derived*
+    # from a roundtripped related queryset (e.g.
+    # ``pickle.loads(dumps(user.posts.all())).filter(...)``), because the
+    # per-instance ``_clone`` re-patching chain is gone. This is an unusual
+    # pattern outside the cacheops scope; preserving it would require a
+    # picklable relation-tracking marker plus class-level ``_clone``/
+    # ``_fetch_all`` dispatch, touching the hot path of every queryset.
+    # https://github.com/taobojlen/django-zeal/issues/76
+    original_getstate = QuerySet.__getstate__
+    _zeal_pickle_keys = (
+        "_clone",
+        "_fetch_all",
+        "__zeal_patched",
+        "__zeal_skip_notify",
+    )
+
+    def patched_getstate(self):
+        state = original_getstate(self)
+        for key in _zeal_pickle_keys:
+            state.pop(key, None)
+        return state
+
+    QuerySet.__getstate__ = patched_getstate  # type: ignore
+
     from django.db.models import query as _query_module
 
     original_module_prefetch = _query_module.prefetch_related_objects

@@ -2,6 +2,7 @@
 
 use std::num::NonZero;
 
+use monty_types::ResourceTracker;
 use num_bigint::BigInt;
 use num_traits::{Signed, ToPrimitive, Zero};
 
@@ -9,9 +10,9 @@ use crate::{
     args::{ArgValues, FromArgs},
     bytecode::VM,
     defer_drop,
-    exception_private::{ExcType, RunResult, SimpleException},
+    exception_private::{ExcType, ExcTypeExt, RunResult, SimpleException},
     heap::{Heap, HeapData},
-    resource::{ResourceTracker, check_pow_size},
+    resource_checks::check_pow_size,
     types::{LongInt, PyTrait},
     value::Value,
 };
@@ -73,7 +74,7 @@ pub fn builtin_pow(vm: &mut VM<'_, impl ResourceTracker>, args: ArgValues) -> Ru
 /// will be renamed to `r#mod` and lose the flag when kwargs are
 /// implemented.
 #[derive(FromArgs)]
-#[from_args(name = "pow", c_error_named, at_most_total, kwargs_not_supported_yet)]
+#[from_args(name = "pow", style = c_named, at_most_total, kwargs_not_supported_yet)]
 struct PowArgs {
     base: Value,
     exp: Value,
@@ -196,7 +197,8 @@ fn two_arg_pow(base: &Value, exp: &Value, vm: &mut VM<'_, impl ResourceTracker>)
         _ => Err(ExcType::binary_type_error(
             "** or pow()",
             base.py_type(vm),
-            exp.py_type(vm),
+            base.py_type_name(vm),
+            exp.py_type_name(vm),
         )),
     }
 }

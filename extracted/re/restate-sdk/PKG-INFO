@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: restate-sdk
-Version: 1.0.2
+Version: 1.0.3
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
@@ -16,7 +16,7 @@ Requires-Dist: mypy>=1.11.2 ; extra == 'lint'
 Requires-Dist: pyright>=1.1.390 ; extra == 'lint'
 Requires-Dist: ruff>=0.6.9 ; extra == 'lint'
 Requires-Dist: openai-agents>=0.6.1 ; extra == 'openai'
-Requires-Dist: pydantic-ai-slim>=1.68.0 ; extra == 'pydantic-ai'
+Requires-Dist: pydantic-ai-slim>=2.0,<3 ; extra == 'pydantic-ai'
 Requires-Dist: dacite ; extra == 'serde'
 Requires-Dist: pydantic ; extra == 'serde'
 Requires-Dist: msgspec ; extra == 'serde'

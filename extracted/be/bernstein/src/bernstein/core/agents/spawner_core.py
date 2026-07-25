@@ -13,7 +13,7 @@ import threading
 import time
 import uuid
 from contextlib import suppress
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, cast
 
 from bernstein.adapters.base import RateLimitError, SpawnError, SpawnResult
@@ -104,6 +104,7 @@ from bernstein.core.prometheus import (
 )
 from bernstein.core.router import ProviderHealthStatus, RouterError, TierAwareRouter
 from bernstein.core.sandbox import DockerSandbox, spawn_in_sandbox
+from bernstein.core.sandbox.selector import SandboxSelectionError
 from bernstein.core.team_state import TeamStateStore
 from bernstein.core.traces import AgentTrace, TraceStore, new_trace
 from bernstein.core.worktree import WorktreeError, WorktreeManager, WorktreeSetupConfig
@@ -360,6 +361,150 @@ def extract_error_aware_reason(log_text: str, max_chars: int = _FAILURE_REASON_M
     return f"(no error pattern found, showing last {_FAILURE_REASON_FALLBACK_LINES} lines)\n{tail}"[:max_chars]
 
 
+# Roles whose spawn must never run unconfined in the operator checkout.
+# The manager/planning role is told (by prompt) not to write files, but prompt
+# text is not a boundary: an ungated CLI adapter that ignores the rule writes
+# straight into its cwd (issue #2793).
+_WRITE_BOUNDARY_ROLES = frozenset({"manager"})
+
+
+def manager_write_boundary_error(
+    role: str,
+    spawn_cwd: Path,
+    workdir: Path,
+    has_os_sandbox: bool,
+) -> str | None:
+    """Return a refusal message when a planning role has no isolation at all.
+
+    First of two layers for issue #2793. This one is the hard stop for the
+    worst case: a planning agent spawned directly in the operator checkout
+    with neither a per-session worktree nor an OS sandbox. There is then no
+    isolation whatsoever, so the spawn fails loudly instead of proceeding on
+    prompt-only protection.
+
+    A per-session worktree lifts this refusal because it confines the agent's
+    *relative* writes. It is not, however, a full boundary: an ungated CLI
+    adapter can still write an absolute or ``..`` path into the operator
+    checkout, which a worktree cwd does not confine. That residual escape is
+    handled by the second layer -- the reap-time stray-write sweep
+    (:func:`manager_stray_writes` / :func:`quarantine_manager_stray_writes`) --
+    which keeps the operator ``git status`` clean regardless of adapter.
+
+    Args:
+        role: The role being spawned.
+        spawn_cwd: The resolved working directory the agent will spawn into.
+        workdir: The operator checkout root.
+        has_os_sandbox: Whether an OS-level sandbox confines the agent.
+
+    Returns:
+        An actionable error string when the spawn must be refused, else None.
+    """
+    if role not in _WRITE_BOUNDARY_ROLES:
+        return None
+    if has_os_sandbox:
+        return None
+    if spawn_cwd.resolve() != workdir.resolve():
+        # A per-session worktree (or a separate repo checkout) confines
+        # relative writes; the reap-time sweep catches absolute/`..` escapes.
+        return None
+    return (
+        f"Refusing to spawn a {role!r} agent in the operator checkout with no write "
+        f"boundary: prompt-only protection lets a stray write land untracked in your "
+        f"working tree. Run with worktree isolation (the default) or an OS sandbox "
+        f"(e.g. --sandbox docker). See issue #2793."
+    )
+
+
+# Operator-checkout subtrees that are never a planning-agent stray write:
+# ``.sdd`` is Bernstein's own runtime state and ``.git`` is VCS metadata.
+_MANAGER_STRAY_IGNORED_TOP = frozenset({".sdd", ".git"})
+
+
+def operator_tree_untracked(workdir: Path) -> frozenset[str]:
+    """Return the untracked paths in the operator checkout (git porcelain).
+
+    Uses ``git status --porcelain --untracked-files=all`` at the operator
+    root so untracked *files* are listed individually (not collapsed to their
+    parent directory). Returns an empty set when the root is not a git repo or
+    git is unavailable, so callers degrade to a no-op rather than failing a
+    spawn or a reap.
+    """
+    from bernstein.core.git.git_basic import run_git
+
+    try:
+        result = run_git(["status", "--porcelain", "--untracked-files=all"], workdir)
+    except Exception:
+        return frozenset()
+    if not result.ok:
+        return frozenset()
+    untracked: set[str] = set()
+    for line in result.stdout.splitlines():
+        # Porcelain v1 marks untracked entries with a leading "?? ".
+        if line.startswith("?? "):
+            untracked.add(line[3:].strip().strip('"'))
+    return frozenset(untracked)
+
+
+def manager_stray_writes(workdir: Path, baseline: frozenset[str]) -> list[str]:
+    """Return operator-tree untracked paths that appeared since ``baseline``.
+
+    A planning agent is contracted to write no files in the operator checkout
+    (it creates tasks via the task server). Any untracked path present now but
+    absent at spawn time is therefore a stray write -- typically an absolute
+    or ``..`` path an ungated adapter wrote past its worktree cwd (issue
+    #2793). Entries under ``.sdd`` or ``.git`` are never counted. Result is
+    sorted for deterministic quarantine ordering.
+    """
+    stray: list[str] = []
+    for rel in sorted(operator_tree_untracked(workdir) - baseline):
+        if not rel:
+            continue
+        if PurePosixPath(rel).parts[0] in _MANAGER_STRAY_IGNORED_TOP:
+            continue
+        stray.append(rel)
+    return stray
+
+
+def quarantine_manager_stray_writes(
+    workdir: Path,
+    session_id: str,
+    stray: list[str],
+) -> Path | None:
+    """Move stray operator-tree writes into a per-session quarantine directory.
+
+    Keeps the operator ``git status`` clean -- unblocking later merge-backs --
+    while preserving the bytes for forensics under
+    ``.sdd/runtime/manager-stray/<session_id>/``. Adapter-agnostic: it acts on
+    whatever landed in the operator tree, regardless of which CLI wrote it.
+    Returns the quarantine directory when anything was moved, else None.
+    """
+    if not stray:
+        return None
+    quarantine = workdir / ".sdd" / "runtime" / "manager-stray" / session_id
+    moved: list[str] = []
+    for rel in stray:
+        src = workdir / rel
+        if not src.exists():
+            continue
+        dest = quarantine / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.move(str(src), str(dest))
+        except OSError:
+            continue
+        moved.append(rel)
+    if not moved:
+        return None
+    logger.warning(
+        "Quarantined %d stray operator-tree write(s) from planning agent %s to %s (issue #2793): %s",
+        len(moved),
+        session_id,
+        quarantine,
+        ", ".join(moved),
+    )
+    return quarantine
+
+
 def _diagnose_spawn_failure(
     session_id: str,
     spawn_cwd: Path,
@@ -445,6 +590,21 @@ def _render_signal_check(session_id: str) -> str:
     )
 
 
+def _resolve_task_server_url() -> str:
+    """Resolve the base URL agents use to reach the task server.
+
+    Remote workers export ``BERNSTEIN_SERVER_URL`` into the agent env before
+    spawning (``cli/commands/worker_cmd.py``), and it is allow-listed for
+    agents (``adapters/env_isolation.py``). Reading it here means a completion
+    POST from an agent on a worker node reaches the central server instead of
+    the worker's own loopback, and it also fixes local runs started on a
+    non-default port. Falls back to the historical local default when unset.
+    """
+    import os
+
+    return os.environ.get("BERNSTEIN_SERVER_URL", "http://127.0.0.1:8052").rstrip("/")
+
+
 def _render_auth_section(token_path: Path) -> str:
     """Return authentication instructions to inject into every agent's prompt.
 
@@ -464,6 +624,7 @@ def _render_auth_section(token_path: Path) -> str:
         Markdown block instructing the agent to authenticate all requests.
     """
     absolute = token_path if token_path.is_absolute() else token_path.resolve(strict=False)
+    base = _resolve_task_server_url()
     return (
         "\n## Task Server Authentication\n"
         "Your agent token is stored at this absolute path (do NOT print or "
@@ -505,14 +666,14 @@ def _render_auth_section(token_path: Path) -> str:
         "the command form was correct.\n"
         "Example - creating a subtask (pass the whole line to `run_command` as ONE string):\n"
         "```bash\n"
-        f"curl -sS -w '\\n%{{http_code}}' -X POST http://127.0.0.1:8052/tasks \\\n"
+        f"curl -sS -w '\\n%{{http_code}}' -X POST {base}/tasks \\\n"
         f'  -H "Authorization: Bearer $(cat {absolute})" \\\n'
         '  -H "Content-Type: application/json" \\\n'
         '  -d \'{"title": "...", "role": "backend", "description": "..."}\'\n'
         "```\n"
         "Example - marking a task complete (pass the whole line to `run_command` as ONE string):\n"
         "```bash\n"
-        f"curl -sS -w '\\n%{{http_code}}' -X POST http://127.0.0.1:8052/tasks/<TASK_ID>/complete \\\n"
+        f"curl -sS -w '\\n%{{http_code}}' -X POST {base}/tasks/<TASK_ID>/complete \\\n"
         f'  -H "Authorization: Bearer $(cat {absolute})" \\\n'
         '  -H "Content-Type: application/json" \\\n'
         '  -d \'{"result_summary": "Done"}\'\n'
@@ -734,6 +895,7 @@ def _render_batch_prompt(task: Task) -> str:
     Returns:
         Prompt string starting with ``/batch`` that triggers the batch skill.
     """
+    base = _resolve_task_server_url()
     lines: list[str] = [f"/batch {task.description}"]
     if task.owned_files:
         lines.append(f"\nAffected paths: {', '.join(task.owned_files)}")
@@ -741,7 +903,7 @@ def _render_batch_prompt(task: Task) -> str:
         (
             f"\nTask ID for completion reporting: {task.id}",
             "\nAfter all batch units are complete, run:\n"
-            f"curl -sS -X POST http://127.0.0.1:8052/tasks/{task.id}/complete "
+            f"curl -sS -X POST {base}/tasks/{task.id}/complete "
             f'-H "Content-Type: application/json" '
             f'-d \'{{"result_summary": "Batch complete: {task.title}"}}\'',
         )
@@ -921,9 +1083,10 @@ def _render_prompt(
     # agents must retry on transient connection errors (--retry-connrefused).
     # Do NOT use --retry-all-errors: it retries 4xx (e.g. 409 Conflict),
     # causing infinite loops when task state has changed.
+    completion_base = _resolve_task_server_url()
     completion_cmds = "\n".join(
         f"curl -s -w '\\n%{{http_code}}' --retry 3 --retry-delay 2 --retry-connrefused "
-        f"-X POST http://127.0.0.1:8052/tasks/{t.id}/complete "
+        f"-X POST {completion_base}/tasks/{t.id}/complete "
         f'-H "Content-Type: application/json" '
         f'-d \'{{"result_summary": "Completed: {t.title}"}}\''
         for t in tasks
@@ -1304,6 +1467,10 @@ class AgentSpawner:
         self._bulletin = bulletin
         self._context_builder = TaskContextBuilder(workdir)
         self._procs: dict[str, subprocess.Popen[bytes] | None] = {}
+        # Per-session baseline of operator-checkout untracked paths, captured
+        # at manager/planning spawn so the reap-time sweep can quarantine any
+        # stray write that escaped the worktree cwd (issue #2793).
+        self._manager_write_baselines: dict[str, frozenset[str]] = {}
         self._shutdown_event: threading.Event | None = None
         self._agent_failure_timestamps: dict[str, float] = {}  # adapter_name -> last failure ts
         self._adapter_health = AdapterHealthMonitor()
@@ -1664,6 +1831,26 @@ class AgentSpawner:
         """Write the finalized trace for a reaped session."""
         finalize_agent_trace(session, self._traces, self._trace_store)
 
+    def _sweep_manager_write_boundary(self, session: AgentSession) -> Path | None:
+        """Quarantine stray operator-tree writes a reaped planning agent made.
+
+        Second write-boundary layer for issue #2793. A per-session worktree
+        confines only the planning agent's relative writes; an ungated CLI
+        adapter can still write an absolute or ``..`` path into the operator
+        checkout despite running in a worktree. Once the agent is reaped,
+        diff the operator checkout's untracked set against the spawn-time
+        baseline and move anything new into a quarantine directory, so a stray
+        write cannot block a later merge-back. Adapter-agnostic and best-effort:
+        it acts on whatever landed in the tree and never raises into reap.
+
+        Returns the quarantine directory when anything was moved, else None.
+        """
+        baseline = self._manager_write_baselines.pop(session.id, None)
+        if baseline is None or session.role not in _WRITE_BOUNDARY_ROLES:
+            return None
+        stray = manager_stray_writes(self._workdir, baseline)
+        return quarantine_manager_stray_writes(self._workdir, session.id, stray)
+
     def reap_completed_agent(
         self,
         session: AgentSession,
@@ -1671,7 +1858,7 @@ class AgentSpawner:
         defer_cleanup: bool = False,
     ) -> MergeResult | None:
         """Terminate and wait on the subprocess for a completed agent."""
-        return _reap_completed_agent(
+        result = _reap_completed_agent(
             session,
             skip_merge=skip_merge,
             defer_cleanup=defer_cleanup,
@@ -1694,6 +1881,11 @@ class AgentSpawner:
             trace_store=self._trace_store,
             merge_queue=self._merge_queue,
         )
+        # Reap-time write-boundary sweep (#2793): keep the operator checkout
+        # clean after a planning agent exits. Best-effort; never fails a reap.
+        with suppress(Exception):
+            self._sweep_manager_write_boundary(session)
+        return result
 
     def update_trace_outcome(self, session_id: str, outcome: str) -> None:
         """Update the stored trace outcome for a session."""
@@ -2816,6 +3008,72 @@ class AgentSpawner:
                 verdict.advisory_id,
             )
 
+    def _record_adapter_capability_selection(self, adapter_name: str, tasks: list[Task]) -> None:
+        """Anchor the capability profile the routed adapter presents (#2663).
+
+        Capability-aware routing has to leave a replay-verifiable trace at the
+        dispatch boundary, or a changed adapter declaration is an unexplained
+        behaviour change rather than a named hash divergence. For an adapter
+        that ships a capability profile this records the content-addressed
+        ``profile_hash`` it presents at dispatch, so replay recomputes it and
+        detects profile drift as a divergence named by the adapter (AC3).
+
+        When the task declares capability requirements -- ``capability:`` tokens
+        on ``Task.requires`` -- the routed adapter's profile is checked against
+        them. If the profile cannot satisfy the task, a signed refusal receipt
+        is anchored and :exc:`CapabilityMismatchError` propagates, so routing
+        refuses rather than silently spawning a weaker adapter (AC2). Like the
+        security-floor preflight this runs outside the inner spawn ``try``, so
+        the refusal is a hard stop and never an alternate-adapter failover.
+
+        Untracked adapters (no profile) are a no-op, so the common
+        claude / codex / gemini path -- served by the generic fallback -- pays
+        nothing. Recording failures other than the deliberate refusal are logged
+        and swallowed: anchoring the selection must never break a spawn tick.
+
+        Args:
+            adapter_name: The adapter the spawn resolved to.
+            tasks: The task batch this spawn serves; their ``requires`` lists
+                supply the declared capability requirements.
+
+        Raises:
+            CapabilityMismatchError: The routed adapter's profile cannot satisfy
+                a declared task requirement. The refusal receipt is anchored
+                first. Not a ``SpawnError``, so the per-provider failover loop
+                never swallows it into an alternate-adapter retry.
+            ProfileValidationError: A ``capability:`` token is malformed; a
+                mistyped requirement fails loud rather than passing silently.
+        """
+        from bernstein.adapters.capability_profile import (
+            PROFILES,
+            CapabilityMismatchError,
+            capability_requirements_from_tokens,
+            route_and_record,
+        )
+
+        profile = PROFILES.get(adapter_name)
+        if profile is None:
+            return  # untracked adapter: the generic fallback owns it, nothing to anchor
+
+        tokens = [tok for task in tasks for tok in getattr(task, "requires", ())]
+        requirements = capability_requirements_from_tokens(tokens)
+        run_id = tasks[0].id if tasks else ""
+        try:
+            from bernstein.core.security.audit_chain import AuditChainStore
+
+            chain = AuditChainStore(self._workdir / ".sdd" / "audit")
+            route_and_record(requirements, profiles=[profile], audit_chain=chain, run_id=run_id)
+        except CapabilityMismatchError:
+            # AC2: the refusal receipt is already anchored inside route_and_record;
+            # re-raise so routing refuses rather than falling back.
+            raise
+        except Exception as exc:
+            logger.warning(
+                "capability routing: recording failed for %s: %s",
+                adapter_name,
+                type(exc).__name__,
+            )
+
     def _preflight_posture_drift(self) -> None:
         """Refuse a spawn when the sovereign posture drifted or is non-compliant (#2518).
 
@@ -3616,6 +3874,33 @@ class AgentSpawner:
                         "Fix: run 'bernstein stop' then restart, or delete .sdd/worktrees/ manually"
                     ) from exc
 
+        # Manager/planning write-boundary preflight (#2793). Once the working
+        # directory is resolved, refuse a planning agent that would run directly
+        # in the operator checkout with no OS sandbox: prompt text is not a
+        # boundary, and an ungated CLI adapter that ignores it writes straight
+        # into the operator tree. A per-session worktree or an OS sandbox both
+        # satisfy the boundary, so the default (worktree) flow is unaffected.
+        _boundary_error = manager_write_boundary_error(
+            role,
+            spawn_cwd,
+            self._workdir,
+            has_os_sandbox=(
+                self._sandbox is not None or self._container_mgr is not None or self._sandbox_backend is not None
+            ),
+        )
+        if _boundary_error is not None:
+            raise SpawnError(_boundary_error)
+
+        # Second write-boundary layer (#2793): a worktree cwd confines only
+        # relative writes, so snapshot the operator checkout's untracked set
+        # before the planning agent runs. Any untracked path that appears by
+        # reap time (an absolute/`..` write an ungated adapter made past its
+        # worktree) is swept in _sweep_manager_write_boundary. Snapshot only
+        # for the write-boundary roles and never let it block a spawn.
+        if role in _WRITE_BOUNDARY_ROLES:
+            with suppress(Exception):
+                self._manager_write_baselines[session_id] = operator_tree_untracked(self._workdir)
+
         # Install the in-process verification-gate policy for this session so a
         # gate-capable adapter (Claude Code) can refuse a failing completion or
         # an out-of-scope write in-session (#2360). Fail-open: installing the
@@ -3826,6 +4111,14 @@ class AgentSpawner:
                     # refusal raises out of the spawn (hard stop) instead of
                     # falling through to alternate-provider failover.
                     self._preflight_adapter_security_floor(adapter_name)
+
+                    # Capability-aware routing (#2663): anchor the profile hash
+                    # the resolved adapter presents at dispatch so replay detects
+                    # profile drift, and refuse with a signed receipt when the
+                    # task's declared capability requirements outrun that profile.
+                    # Same placement rationale as the floor preflight above: a
+                    # refusal is a hard stop, not an alternate-adapter failover.
+                    self._record_adapter_capability_selection(adapter_name, tasks)
 
                     # Per-attempt config so a failover to a different
                     # adapter never inherits another adapter's extras.
@@ -4579,6 +4872,27 @@ class AgentSpawner:
             try:
                 sbx_session = self._provision_sandbox_session(session_id)
             except Exception as exc:
+                if self._sandbox_explicitly_requested():
+                    # Issue #2809 (second fallback): the operator explicitly
+                    # requested container isolation with ``--sandbox docker``.
+                    # A live daemon whose ``bernstein-agent:latest`` image is
+                    # missing passes the wiring-time availability probe
+                    # (SDK import + daemon ping) but fails here when
+                    # containers.run raises ImageNotFound. Falling back to a
+                    # host spawn would silently drop the isolation boundary the
+                    # operator asked for, exactly the degradation #2809 reports,
+                    # so the failure is raised instead of swallowed. Auto-
+                    # selected sandboxes still degrade gracefully below.
+                    image = self._sandbox_options.get("image") or "the configured image"
+                    raise SandboxSelectionError(
+                        f"Explicit '--sandbox docker' could not provision a sandbox for "
+                        f"agent {session_id}: {exc}. Refusing to fall back to host "
+                        f"execution because container isolation was explicitly requested "
+                        f"(is the '{image}' image built and available to the Docker "
+                        f"daemon?). Re-run without --sandbox to allow automatic fallback, "
+                        f"or build/pull the image and retry.",
+                        attempted=("docker",),
+                    ) from exc
                 logger.warning(
                     "Sandbox session provisioning failed for %s, falling back to direct spawn: %s",
                     session_id,
@@ -4707,6 +5021,21 @@ class AgentSpawner:
         session.isolation = IsolationMode.CONTAINER.value
         session.runtime_backend = handle.backend_name
         return SpawnResult(pid=0, log_path=log_path)
+
+    @staticmethod
+    def _sandbox_explicitly_requested() -> bool:
+        """Whether the operator pinned the sandbox runtime with ``--sandbox``.
+
+        ``BERNSTEIN_SANDBOX_RUNTIME`` is set only by the ``--sandbox`` CLI
+        flag (see ``run_bootstrap`` and ``orchestrator``); an auto-selected
+        sandbox never sets it. Issue #2809: this is the intent signal that
+        turns a per-spawn provisioning failure from a graceful host fallback
+        into a loud :class:`SandboxSelectionError` for the explicit-docker
+        case, while leaving auto-selection's fallback intact.
+        """
+        import os
+
+        return os.environ.get("BERNSTEIN_SANDBOX_RUNTIME", "").strip().lower() == "docker"
 
     def _provision_sandbox_session(self, session_id: str) -> SandboxSession:
         """Provision a dedicated sandbox session for one spawn (issue #2162).

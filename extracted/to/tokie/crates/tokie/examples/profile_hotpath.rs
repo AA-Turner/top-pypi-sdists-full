@@ -41,21 +41,39 @@ fn main() {
     let el = t0.elapsed().as_secs_f64();
     println!("count_tokens 1T  : {:7.1} MB/s  ({} tokens)", nbytes as f64 / 1e6 / el, toks);
 
-    // Single-threaded encode via the batch hot path (PretokenCache)
+    // Single-threaded encode via the batch hot path (WorkerCaches)
     let t0 = Instant::now();
-    let mut cache = tokie::encoder::PretokenCache::new();
+    let mut cache = tokie::encoder::WorkerCaches::new();
     let mut toks_c = 0usize;
     let pretok = tok.pretokenizer().expect("pretokenizer");
     let mut out: Vec<u32> = Vec::new();
     for d in &docs {
         out.clear();
+        let db = d.as_bytes();
         for piece in pretok.split(d) {
-            tok.encoder().encode_into(piece.as_bytes(), Some(&mut cache), &mut out);
+            tok.encoder().encode_piece_into(db, piece.as_bytes(), Some(&mut cache), &mut out);
         }
         toks_c += out.len();
     }
     let el = t0.elapsed().as_secs_f64();
     println!("count cached 1T  : {:7.1} MB/s  ({} tokens)", nbytes as f64 / 1e6 / el, toks_c);
+
+    // Single-threaded encode via the bulk for_each_piece drain (the path
+    // encode_sequential_into now takes for backtracking encoders).
+    let t0 = Instant::now();
+    let mut cache_b = tokie::encoder::WorkerCaches::new();
+    let mut toks_b = 0usize;
+    let mut out_b: Vec<u32> = Vec::new();
+    for d in &docs {
+        out_b.clear();
+        let db = d.as_bytes();
+        pretok.for_each_piece(d, |piece| {
+            tok.encoder().encode_piece_into(db, piece.as_bytes(), Some(&mut cache_b), &mut out_b);
+        });
+        toks_b += out_b.len();
+    }
+    let el = t0.elapsed().as_secs_f64();
+    println!("count bulk   1T  : {:7.1} MB/s  ({} tokens)", nbytes as f64 / 1e6 / el, toks_b);
 
     // Full single-threaded encode (with Encoding build)
     let t0 = Instant::now();

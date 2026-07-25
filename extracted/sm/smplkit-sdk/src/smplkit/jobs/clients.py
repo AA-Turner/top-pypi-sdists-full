@@ -20,62 +20,86 @@ import json
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 from smplkit._config import _service_url, resolve_client_config
-from smplkit._transport import with_default_user_agent
-from smplkit._generated.jobs.types import UNSET
-from smplkit.errors import _raise_for_status
 from smplkit._generated.jobs.api.jobs import (
     create_job as _gen_create_job,
-    delete_job as _gen_delete_job,
-    get_job as _gen_get_job,
-    list_jobs as _gen_list_jobs,
-    run_job_now as _gen_run_job_now,
-    update_job as _gen_update_job,
 )
-from smplkit._generated.jobs.api.runs import (
-    cancel_run as _gen_cancel_run,
-    get_run as _gen_get_run,
-    list_runs as _gen_list_runs,
-    rerun_run as _gen_rerun_run,
+from smplkit._generated.jobs.api.jobs import (
+    delete_job as _gen_delete_job,
+)
+from smplkit._generated.jobs.api.jobs import (
+    get_job as _gen_get_job,
+)
+from smplkit._generated.jobs.api.jobs import (
+    list_jobs as _gen_list_jobs,
+)
+from smplkit._generated.jobs.api.jobs import (
+    run_job_now as _gen_run_job_now,
+)
+from smplkit._generated.jobs.api.jobs import (
+    update_job as _gen_update_job,
 )
 from smplkit._generated.jobs.api.retry_policies import (
     create_retry_policy as _gen_create_retry_policy,
+)
+from smplkit._generated.jobs.api.retry_policies import (
     delete_retry_policy as _gen_delete_retry_policy,
+)
+from smplkit._generated.jobs.api.retry_policies import (
     get_retry_policy as _gen_get_retry_policy,
+)
+from smplkit._generated.jobs.api.retry_policies import (
     list_retry_policies as _gen_list_retry_policies,
+)
+from smplkit._generated.jobs.api.retry_policies import (
     update_retry_policy as _gen_update_retry_policy,
+)
+from smplkit._generated.jobs.api.runs import (
+    cancel_run as _gen_cancel_run,
+)
+from smplkit._generated.jobs.api.runs import (
+    get_run as _gen_get_run,
+)
+from smplkit._generated.jobs.api.runs import (
+    list_runs as _gen_list_runs,
+)
+from smplkit._generated.jobs.api.runs import (
+    rerun_run as _gen_rerun_run,
 )
 from smplkit._generated.jobs.api.usage import get_usage as _gen_get_usage
 from smplkit._generated.jobs.client import AuthenticatedClient as _JobsAuthClient
 from smplkit._generated.jobs.models.job_create_request import JobCreateRequest
 from smplkit._generated.jobs.models.job_request import JobRequest
-from smplkit._generated.jobs.models.run_now_request import RunNowRequest
 from smplkit._generated.jobs.models.retry_policy_create_request import RetryPolicyCreateRequest
 from smplkit._generated.jobs.models.retry_policy_request import RetryPolicyRequest
+from smplkit._generated.jobs.models.run_now_request import RunNowRequest
+from smplkit._generated.jobs.types import UNSET
+from smplkit._transport import with_default_user_agent
+from smplkit.errors import _raise_for_status
 
 __all__ = [
+    "AsyncJob",
+    "AsyncJobsClient",
+    "AsyncRetryPoliciesClient",
+    "AsyncRetryPolicy",
+    "AsyncRun",
+    "AsyncRunsClient",
+    "Backoff",
     "HttpConfig",
+    "Job",
     "JobEnvironment",
     "JobKind",
-    "RunTrigger",
-    "Backoff",
-    "RunRetry",
-    "Job",
-    "AsyncJob",
-    "Run",
-    "AsyncRun",
-    "Usage",
-    "RetryPolicy",
-    "AsyncRetryPolicy",
-    "RunsClient",
-    "AsyncRunsClient",
-    "RetryPoliciesClient",
-    "AsyncRetryPoliciesClient",
     "JobsClient",
-    "AsyncJobsClient",
+    "RetryPoliciesClient",
+    "RetryPolicy",
+    "Run",
+    "RunRetry",
+    "RunTrigger",
+    "RunsClient",
+    "Usage",
 ]
 
 
@@ -123,7 +147,7 @@ class Backoff(str, Enum):
     FIXED = "fixed"
 
 
-def _parse_dt(value: Any) -> Optional[datetime.datetime]:
+def _parse_dt(value: Any) -> datetime.datetime | None:
     if not value:
         return None
     if isinstance(value, datetime.datetime):
@@ -136,7 +160,7 @@ def _parse_dt(value: Any) -> Optional[datetime.datetime]:
     return datetime.datetime.fromisoformat(text)
 
 
-def _coerce_policy_id(value: "RetryPolicy | AsyncRetryPolicy | str | None") -> Optional[str]:
+def _coerce_policy_id(value: RetryPolicy | AsyncRetryPolicy | str | None) -> str | None:
     """Coerce a retry-policy reference to its id.
 
     Accepts a policy id string, a :class:`RetryPolicy` / :class:`AsyncRetryPolicy`
@@ -167,7 +191,7 @@ def _jobs_transport(
     environment: str | None,
     debug: bool | None,
     extra_headers: dict[str, str] | None,
-) -> "tuple[_JobsAuthClient, str | None]":
+) -> tuple[_JobsAuthClient, str | None]:
     """Build a standalone Smpl Jobs transport and resolve the environment.
 
     Reuses the config resolver and the shared per-service URL helper, so a
@@ -201,12 +225,12 @@ class HttpConfig:
         *,
         url: str,
         method: str = "POST",
-        headers: Optional[dict[str, str]] = None,
-        body: Optional[str] = None,
+        headers: dict[str, str] | None = None,
+        body: str | None = None,
         success_status: str = "2xx",
         timeout: int = 30,
         tls_verify: bool = True,
-        ca_cert: Optional[str] = None,
+        ca_cert: str | None = None,
     ) -> None:
         """Describe the HTTP request a job sends when it fires.
 
@@ -241,7 +265,7 @@ class HttpConfig:
         """Set (or replace) a single request header by name."""
         self.headers[name] = value
 
-    def get_header(self, name: str) -> Optional[str]:
+    def get_header(self, name: str) -> str | None:
         """The value of header ``name``, or ``None`` if it is not set."""
         return self.headers.get(name)
 
@@ -258,7 +282,7 @@ class HttpConfig:
         }
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "HttpConfig":
+    def from_dict(cls, d: dict[str, Any]) -> HttpConfig:
         """Build an :class:`HttpConfig` from its dictionary representation.
 
         Args:
@@ -335,18 +359,18 @@ class JobEnvironment:
         self,
         *,
         enabled: bool = False,
-        schedule: Optional[str] = None,
-        timezone: Optional[str] = None,
-        retry_policy: "RetryPolicy | AsyncRetryPolicy | str | None" = None,
-        url: Optional[str] = None,
-        method: Optional[str] = None,
-        timeout: Optional[int] = None,
-        body: Optional[str] = None,
-        success_status: Optional[str] = None,
-        tls_verify: Optional[bool] = None,
-        ca_cert: Optional[str] = None,
-        headers: Optional[dict[str, str]] = None,
-        next_run_at: Optional[datetime.datetime] = None,
+        schedule: str | None = None,
+        timezone: str | None = None,
+        retry_policy: RetryPolicy | AsyncRetryPolicy | str | None = None,
+        url: str | None = None,
+        method: str | None = None,
+        timeout: int | None = None,
+        body: str | None = None,
+        success_status: str | None = None,
+        tls_verify: bool | None = None,
+        ca_cert: str | None = None,
+        headers: dict[str, str] | None = None,
+        next_run_at: datetime.datetime | None = None,
     ) -> None:
         self.enabled = enabled
         self.schedule = schedule
@@ -363,24 +387,24 @@ class JobEnvironment:
         self.next_run_at = next_run_at
 
     @property
-    def retry_policy(self) -> Optional[str]:
+    def retry_policy(self) -> str | None:
         return self._retry_policy
 
     @retry_policy.setter
-    def retry_policy(self, value: "RetryPolicy | AsyncRetryPolicy | str | None") -> None:
+    def retry_policy(self, value: RetryPolicy | AsyncRetryPolicy | str | None) -> None:
         self._retry_policy = _coerce_policy_id(value)
 
     def set_header(self, name: str, value: str) -> None:
         """Override (or add) a single header by name in this environment."""
         self.headers[name] = value
 
-    def get_header(self, name: str) -> Optional[str]:
+    def get_header(self, name: str) -> str | None:
         """This environment's override for header ``name``, or ``None`` when it
         does not override that header."""
         return self.headers.get(name)
 
     @classmethod
-    def _from_dict(cls, raw: dict[str, Any]) -> "JobEnvironment":
+    def _from_dict(cls, raw: dict[str, Any]) -> JobEnvironment:
         """Parse the flat leaf-path overlay the server returns (ADR-056).
 
         Header leaves arrive as ``headers.<name>`` (parsed on the first dot, so a
@@ -436,7 +460,7 @@ class JobEnvironment:
 
 
 def _normalize_environments(
-    environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]],
+    environments: dict[str, JobEnvironment | dict[str, Any]] | None,
 ) -> dict[str, JobEnvironment]:
     """Coerce a loose ``environments`` mapping into ``{key: JobEnvironment}``.
 
@@ -452,12 +476,12 @@ def _normalize_environments(
     return out
 
 
-def _run_environment(value: Optional[str]) -> "str | Any":
+def _run_environment(value: str | None) -> str | Any:
     """A run-now ``environment`` body value, or ``UNSET`` when unset."""
     return value if value is not None else UNSET
 
 
-def _birth_env_map(environment: Optional[str]) -> "Optional[dict[str, JobEnvironment]]":
+def _birth_env_map(environment: str | None) -> dict[str, JobEnvironment] | None:
     """A one-off job's birth environment as an enabled ``environments`` entry.
 
     The target environment of a one-off job is conveyed by the keys of the
@@ -470,13 +494,13 @@ def _birth_env_map(environment: Optional[str]) -> "Optional[dict[str, JobEnviron
     return {environment: JobEnvironment(enabled=True)}
 
 
-def _join_environments(environments: Optional[list[str]]) -> "str | Any":
+def _join_environments(environments: list[str] | None) -> str | Any:
     if not environments:
         return UNSET
     return ",".join(environments)
 
 
-def _resolve_environment_filter(environments: Optional[list[str]], default: Optional[str]) -> "str | Any":
+def _resolve_environment_filter(environments: list[str] | None, default: str | None) -> str | Any:
     """Resolve ``filter[environment]``: explicit list → client default → unset.
 
     An explicit ``environments`` list always wins and is comma-joined; otherwise
@@ -498,19 +522,19 @@ class _JobBase:
         *,
         id: str,
         name: str,
-        schedule: Optional[str] = None,
-        timezone: Optional[str] = None,
-        retry_policy: Optional[str] = None,
+        schedule: str | None = None,
+        timezone: str | None = None,
+        retry_policy: str | None = None,
         configuration: HttpConfig,
-        description: Optional[str] = None,
-        environments: Optional[dict[str, JobEnvironment]] = None,
-        kind: Optional[JobKind] = None,
+        description: str | None = None,
+        environments: dict[str, JobEnvironment] | None = None,
+        kind: JobKind | None = None,
         type: str = "http",
         concurrency_policy: str = "ALLOW",
-        created_at: Optional[datetime.datetime] = None,
-        updated_at: Optional[datetime.datetime] = None,
-        deleted_at: Optional[datetime.datetime] = None,
-        version: Optional[int] = None,
+        created_at: datetime.datetime | None = None,
+        updated_at: datetime.datetime | None = None,
+        deleted_at: datetime.datetime | None = None,
+        version: int | None = None,
     ) -> None:
         self.id = id
         self.name = name
@@ -552,7 +576,7 @@ class _JobBase:
         return any(env.enabled for env in self.environments.values())
 
     @property
-    def retry_policy(self) -> Optional[str]:
+    def retry_policy(self) -> str | None:
         """The base retry-policy id, or ``None`` for the built-in ``Default``.
 
         Assigning accepts a policy id string or a :class:`RetryPolicy` /
@@ -560,7 +584,7 @@ class _JobBase:
         return self._retry_policy
 
     @retry_policy.setter
-    def retry_policy(self, value: "RetryPolicy | AsyncRetryPolicy | str | None") -> None:
+    def retry_policy(self, value: RetryPolicy | AsyncRetryPolicy | str | None) -> None:
         self._retry_policy = _coerce_policy_id(value)
 
     def is_recurring(self) -> bool:
@@ -575,7 +599,7 @@ class _JobBase:
         """Whether this is a one-off job — a single ``now`` / datetime run."""
         return self.kind == JobKind.ONE_OFF
 
-    def _apply(self, other: "_JobBase") -> None:
+    def _apply(self, other: _JobBase) -> None:
         self.__dict__.update({k: v for k, v in other.__dict__.items() if not k.startswith("_client")})
 
     def environment(self, environment: str) -> JobEnvironment:
@@ -653,12 +677,12 @@ def _job_base_from_resource(resource: dict[str, Any]) -> _JobBase:
 class Job(_JobBase):
     """A job definition (sync). Mutate fields, then call :meth:`save`."""
 
-    def __init__(self, client: "Optional[JobsClient]" = None, **kwargs: Any) -> None:
+    def __init__(self, client: JobsClient | None = None, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._client = client
 
     @classmethod
-    def _from_resource(cls, resource: dict[str, Any], client: "JobsClient") -> "Job":
+    def _from_resource(cls, resource: dict[str, Any], client: JobsClient) -> Job:
         base = _job_base_from_resource(resource)
         job = cls(
             client,
@@ -684,7 +708,7 @@ class Job(_JobBase):
             raise RuntimeError("Job was constructed without a client; cannot delete")
         self._client.delete(self.id)
 
-    def trigger(self, *, environment: Optional[str] = None) -> "Run":
+    def trigger(self, *, environment: str | None = None) -> Run:
         """Trigger one immediate, manual run of this job (a ``MANUAL`` run).
 
         Args:
@@ -702,12 +726,12 @@ class Job(_JobBase):
     def list_runs(
         self,
         *,
-        environment: Optional[str] = None,
-        triggers: Optional[list[RunTrigger]] = None,
+        environment: str | None = None,
+        triggers: list[RunTrigger] | None = None,
         last_run_only: bool = False,
-        page_size: Optional[int] = None,
-        after: Optional[str] = None,
-    ) -> "list[Run]":
+        page_size: int | None = None,
+        after: str | None = None,
+    ) -> list[Run]:
         """List this job's run history, most recent first.
 
         Args:
@@ -739,12 +763,12 @@ class Job(_JobBase):
 class AsyncJob(_JobBase):
     """A job definition (async). Mutate fields, then ``await save()``."""
 
-    def __init__(self, client: "Optional[AsyncJobsClient]" = None, **kwargs: Any) -> None:
+    def __init__(self, client: AsyncJobsClient | None = None, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._client = client
 
     @classmethod
-    def _from_resource(cls, resource: dict[str, Any], client: "AsyncJobsClient") -> "AsyncJob":
+    def _from_resource(cls, resource: dict[str, Any], client: AsyncJobsClient) -> AsyncJob:
         base = _job_base_from_resource(resource)
         job = cls(
             client,
@@ -768,7 +792,7 @@ class AsyncJob(_JobBase):
             raise RuntimeError("AsyncJob was constructed without a client; cannot delete")
         await self._client.delete(self.id)
 
-    async def trigger(self, *, environment: Optional[str] = None) -> "AsyncRun":
+    async def trigger(self, *, environment: str | None = None) -> AsyncRun:
         """Trigger one immediate, manual run of this job (a ``MANUAL`` run).
 
         Args:
@@ -786,12 +810,12 @@ class AsyncJob(_JobBase):
     async def list_runs(
         self,
         *,
-        environment: Optional[str] = None,
-        triggers: Optional[list[RunTrigger]] = None,
+        environment: str | None = None,
+        triggers: list[RunTrigger] | None = None,
         last_run_only: bool = False,
-        page_size: Optional[int] = None,
-        after: Optional[str] = None,
-    ) -> "list[AsyncRun]":
+        page_size: int | None = None,
+        after: str | None = None,
+    ) -> list[AsyncRun]:
         """List this job's run history, most recent first.
 
         Args:
@@ -841,25 +865,25 @@ class _RunBase:
     def __init__(self, attributes: dict[str, Any], id: str) -> None:
         self.id = id
         self.job: str = attributes["job"]
-        self.job_version: Optional[int] = attributes.get("job_version")
+        self.job_version: int | None = attributes.get("job_version")
         self.environment: str = attributes["environment"]
         # Raw trigger string; compare against the :class:`RunTrigger` constants.
         self.trigger: str = attributes["trigger"]
-        self.rerun_of: Optional[str] = attributes.get("rerun_of")
+        self.rerun_of: str | None = attributes.get("rerun_of")
         # Retry-chain position, present only when ``trigger`` is ``RETRY``.
         retry = attributes.get("retry")
-        self.retry: Optional[RunRetry] = RunRetry(of=str(retry["of"]), attempt=retry["attempt"]) if retry else None
+        self.retry: RunRetry | None = RunRetry(of=str(retry["of"]), attempt=retry["attempt"]) if retry else None
         self.scheduled_for = _parse_dt(attributes.get("scheduled_for"))
         self.status: str = attributes["status"]
         self.started_at = _parse_dt(attributes.get("started_at"))
         self.finished_at = _parse_dt(attributes.get("finished_at"))
-        self.pending_duration_ms: Optional[int] = attributes.get("pending_duration_ms")
-        self.run_duration_ms: Optional[int] = attributes.get("run_duration_ms")
-        self.total_duration_ms: Optional[int] = attributes.get("total_duration_ms")
-        self.failure_reason: Optional[str] = attributes.get("failure_reason")
-        self.error: Optional[str] = attributes.get("error")
-        self.request: Optional[dict[str, Any]] = attributes.get("request")
-        self.result: Optional[dict[str, Any]] = attributes.get("result")
+        self.pending_duration_ms: int | None = attributes.get("pending_duration_ms")
+        self.run_duration_ms: int | None = attributes.get("run_duration_ms")
+        self.total_duration_ms: int | None = attributes.get("total_duration_ms")
+        self.failure_reason: str | None = attributes.get("failure_reason")
+        self.error: str | None = attributes.get("error")
+        self.request: dict[str, Any] | None = attributes.get("request")
+        self.result: dict[str, Any] | None = attributes.get("result")
         self.created_at = _parse_dt(attributes.get("created_at"))
 
     def __repr__(self) -> str:
@@ -869,21 +893,21 @@ class _RunBase:
 class Run(_RunBase):
     """A single execution of a job (read-only) with ``rerun`` / ``cancel`` (sync)."""
 
-    def __init__(self, attributes: dict[str, Any], id: str, runs: "Optional[RunsClient]" = None) -> None:
+    def __init__(self, attributes: dict[str, Any], id: str, runs: RunsClient | None = None) -> None:
         super().__init__(attributes, id)
         self._runs = runs
 
     @classmethod
-    def _from_resource(cls, resource: dict[str, Any], runs: "Optional[RunsClient]" = None) -> "Run":
+    def _from_resource(cls, resource: dict[str, Any], runs: RunsClient | None = None) -> Run:
         return cls(resource["attributes"], id=resource["id"], runs=runs)
 
-    def rerun(self) -> "Run":
+    def rerun(self) -> Run:
         """Start a new run that repeats this one (a ``RERUN``), in the same environment."""
         if self._runs is None:
             raise RuntimeError("Run was constructed without a client; cannot rerun")
         return self._runs.rerun(self.id)
 
-    def cancel(self) -> "Run":
+    def cancel(self) -> Run:
         """Cancel this run if it has not finished yet."""
         if self._runs is None:
             raise RuntimeError("Run was constructed without a client; cannot cancel")
@@ -893,21 +917,21 @@ class Run(_RunBase):
 class AsyncRun(_RunBase):
     """A single execution of a job (read-only) with ``rerun`` / ``cancel`` (async)."""
 
-    def __init__(self, attributes: dict[str, Any], id: str, runs: "Optional[AsyncRunsClient]" = None) -> None:
+    def __init__(self, attributes: dict[str, Any], id: str, runs: AsyncRunsClient | None = None) -> None:
         super().__init__(attributes, id)
         self._runs = runs
 
     @classmethod
-    def _from_resource(cls, resource: dict[str, Any], runs: "Optional[AsyncRunsClient]" = None) -> "AsyncRun":
+    def _from_resource(cls, resource: dict[str, Any], runs: AsyncRunsClient | None = None) -> AsyncRun:
         return cls(resource["attributes"], id=resource["id"], runs=runs)
 
-    async def rerun(self) -> "AsyncRun":
+    async def rerun(self) -> AsyncRun:
         """Start a new run that repeats this one (a ``RERUN``), in the same environment."""
         if self._runs is None:
             raise RuntimeError("AsyncRun was constructed without a client; cannot rerun")
         return await self._runs.rerun(self.id)
 
-    async def cancel(self) -> "AsyncRun":
+    async def cancel(self) -> AsyncRun:
         """Cancel this run if it has not finished yet."""
         if self._runs is None:
             raise RuntimeError("AsyncRun was constructed without a client; cannot cancel")
@@ -925,7 +949,7 @@ class Usage:
         self.active_jobs_limit: int = attributes["active_jobs_limit"]
 
     @classmethod
-    def _from_resource(cls, resource: dict[str, Any]) -> "Usage":
+    def _from_resource(cls, resource: dict[str, Any]) -> Usage:
         return cls(resource["attributes"])
 
     def __repr__(self) -> str:
@@ -943,15 +967,15 @@ class _RetryPolicyBase:
         max_retries: int,
         backoff: Backoff,
         delay_seconds: int,
-        max_delay_seconds: Optional[int] = None,
+        max_delay_seconds: int | None = None,
         retry_on_timeout: bool = False,
         retry_on_connection_error: bool = False,
-        retry_statuses: Optional[list[str]] = None,
-        retry_statuses_except: Optional[list[str]] = None,
-        created_at: Optional[datetime.datetime] = None,
-        updated_at: Optional[datetime.datetime] = None,
-        deleted_at: Optional[datetime.datetime] = None,
-        version: Optional[int] = None,
+        retry_statuses: list[str] | None = None,
+        retry_statuses_except: list[str] | None = None,
+        created_at: datetime.datetime | None = None,
+        updated_at: datetime.datetime | None = None,
+        deleted_at: datetime.datetime | None = None,
+        version: int | None = None,
     ) -> None:
         self.id = id
         self.name = name
@@ -975,7 +999,7 @@ class _RetryPolicyBase:
         self.deleted_at = deleted_at
         self.version = version
 
-    def _apply(self, other: "_RetryPolicyBase") -> None:
+    def _apply(self, other: _RetryPolicyBase) -> None:
         self.__dict__.update({k: v for k, v in other.__dict__.items() if not k.startswith("_client")})
 
     def _attributes(self) -> dict[str, Any]:
@@ -1021,12 +1045,12 @@ def _retry_policy_base_from_resource(resource: dict[str, Any]) -> _RetryPolicyBa
 class RetryPolicy(_RetryPolicyBase):
     """A named, reusable retry policy (sync). Mutate fields, then call :meth:`save`."""
 
-    def __init__(self, client: "Optional[RetryPoliciesClient]" = None, **kwargs: Any) -> None:
+    def __init__(self, client: RetryPoliciesClient | None = None, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._client = client
 
     @classmethod
-    def _from_resource(cls, resource: dict[str, Any], client: "RetryPoliciesClient") -> "RetryPolicy":
+    def _from_resource(cls, resource: dict[str, Any], client: RetryPoliciesClient) -> RetryPolicy:
         base = _retry_policy_base_from_resource(resource)
         policy = cls(
             client,
@@ -1056,12 +1080,12 @@ class RetryPolicy(_RetryPolicyBase):
 class AsyncRetryPolicy(_RetryPolicyBase):
     """A named, reusable retry policy (async). Mutate fields, then ``await save()``."""
 
-    def __init__(self, client: "Optional[AsyncRetryPoliciesClient]" = None, **kwargs: Any) -> None:
+    def __init__(self, client: AsyncRetryPoliciesClient | None = None, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._client = client
 
     @classmethod
-    def _from_resource(cls, resource: dict[str, Any], client: "AsyncRetryPoliciesClient") -> "AsyncRetryPolicy":
+    def _from_resource(cls, resource: dict[str, Any], client: AsyncRetryPoliciesClient) -> AsyncRetryPolicy:
         base = _retry_policy_base_from_resource(resource)
         policy = cls(
             client,
@@ -1124,11 +1148,11 @@ def _new_kwargs(
 
 
 def _run_list_kwargs(
-    job: Optional[str],
-    triggers: Optional[list[RunTrigger]],
+    job: str | None,
+    triggers: list[RunTrigger] | None,
     last_run_only: bool,
-    page_size: Optional[int],
-    after: Optional[str],
+    page_size: int | None,
+    after: str | None,
 ) -> dict[str, Any]:
     kwargs: dict[str, Any] = {}
     if job is not None:
@@ -1168,19 +1192,19 @@ class RunsClient:
     trigger a fresh ad-hoc run of a job, use :meth:`JobsClient.run` instead.
     """
 
-    def __init__(self, auth: _JobsAuthClient, *, environment: Optional[str] = None) -> None:
+    def __init__(self, auth: _JobsAuthClient, *, environment: str | None = None) -> None:
         self._auth = auth
         self._environment = environment
 
     def list(
         self,
         *,
-        job: Optional[str] = None,
-        environments: Optional[list[str]] = None,
-        triggers: Optional[list[RunTrigger]] = None,
+        job: str | None = None,
+        environments: list[str] | None = None,
+        triggers: list[RunTrigger] | None = None,
         last_run_only: bool = False,
-        page_size: Optional[int] = None,
-        after: Optional[str] = None,
+        page_size: int | None = None,
+        after: str | None = None,
     ) -> list[Run]:
         """List past runs, most recent first.
 
@@ -1262,19 +1286,19 @@ class AsyncRunsClient:
     :meth:`AsyncJobsClient.run` instead.
     """
 
-    def __init__(self, auth: _JobsAuthClient, *, environment: Optional[str] = None) -> None:
+    def __init__(self, auth: _JobsAuthClient, *, environment: str | None = None) -> None:
         self._auth = auth
         self._environment = environment
 
     async def list(
         self,
         *,
-        job: Optional[str] = None,
-        environments: Optional[list[str]] = None,
-        triggers: Optional[list[RunTrigger]] = None,
+        job: str | None = None,
+        environments: list[str] | None = None,
+        triggers: list[RunTrigger] | None = None,
         last_run_only: bool = False,
-        page_size: Optional[int] = None,
-        after: Optional[str] = None,
+        page_size: int | None = None,
+        after: str | None = None,
     ) -> list[AsyncRun]:
         """List past runs, most recent first.
 
@@ -1368,11 +1392,11 @@ class RetryPoliciesClient:
         max_retries: int,
         backoff: Backoff,
         delay_seconds: int,
-        max_delay_seconds: Optional[int] = None,
+        max_delay_seconds: int | None = None,
         retry_on_timeout: bool = False,
         retry_on_connection_error: bool = False,
-        retry_statuses: Optional[list[str]] = None,
-        retry_statuses_except: Optional[list[str]] = None,
+        retry_statuses: list[str] | None = None,
+        retry_statuses_except: list[str] | None = None,
     ) -> RetryPolicy:
         """Return an unsaved :class:`RetryPolicy`. Call ``.save()`` to create it.
 
@@ -1421,9 +1445,9 @@ class RetryPoliciesClient:
     def list(
         self,
         *,
-        name: Optional[str] = None,
-        page_number: Optional[int] = None,
-        page_size: Optional[int] = None,
+        name: str | None = None,
+        page_number: int | None = None,
+        page_size: int | None = None,
     ) -> list[RetryPolicy]:
         """List retry policies in the account.
 
@@ -1498,11 +1522,11 @@ class AsyncRetryPoliciesClient:
         max_retries: int,
         backoff: Backoff,
         delay_seconds: int,
-        max_delay_seconds: Optional[int] = None,
+        max_delay_seconds: int | None = None,
         retry_on_timeout: bool = False,
         retry_on_connection_error: bool = False,
-        retry_statuses: Optional[list[str]] = None,
-        retry_statuses_except: Optional[list[str]] = None,
+        retry_statuses: list[str] | None = None,
+        retry_statuses_except: list[str] | None = None,
     ) -> AsyncRetryPolicy:
         """Return an unsaved :class:`AsyncRetryPolicy`. ``await .save()`` to create it.
 
@@ -1528,9 +1552,9 @@ class AsyncRetryPoliciesClient:
     async def list(
         self,
         *,
-        name: Optional[str] = None,
-        page_number: Optional[int] = None,
-        page_size: Optional[int] = None,
+        name: str | None = None,
+        page_number: int | None = None,
+        page_size: int | None = None,
     ) -> list[AsyncRetryPolicy]:
         """List retry policies in the account.
 
@@ -1643,12 +1667,12 @@ class JobsClient:
         id: str,
         *,
         name: str,
-        schedule: Optional[str],
-        timezone: Optional[str],
-        retry_policy: Optional[str],
+        schedule: str | None,
+        timezone: str | None,
+        retry_policy: str | None,
         configuration: HttpConfig,
-        description: Optional[str],
-        environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]],
+        description: str | None,
+        environments: dict[str, JobEnvironment | dict[str, Any]] | None,
         concurrency_policy: str,
     ) -> Job:
         job = Job(
@@ -1673,11 +1697,11 @@ class JobsClient:
         *,
         name: str,
         schedule: str,
-        timezone: Optional[str] = None,
-        retry_policy: Optional[str] = None,
+        timezone: str | None = None,
+        retry_policy: str | None = None,
         configuration: HttpConfig,
-        description: Optional[str] = None,
-        environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]] = None,
+        description: str | None = None,
+        environments: dict[str, JobEnvironment | dict[str, Any]] | None = None,
         concurrency_policy: str = "ALLOW",
     ) -> Job:
         """Return an unsaved recurring :class:`Job`. Call ``.save()`` to create it.
@@ -1729,10 +1753,10 @@ class JobsClient:
         *,
         name: str,
         configuration: HttpConfig,
-        description: Optional[str] = None,
-        environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]] = None,
+        description: str | None = None,
+        environments: dict[str, JobEnvironment | dict[str, Any]] | None = None,
         concurrency_policy: str = "ALLOW",
-        retry_policy: Optional[str] = None,
+        retry_policy: str | None = None,
     ) -> Job:
         """Return an unsaved manual :class:`Job`. Call ``.save()`` to create it.
 
@@ -1781,10 +1805,10 @@ class JobsClient:
         name: str,
         schedule: datetime.datetime,
         configuration: HttpConfig,
-        description: Optional[str] = None,
+        description: str | None = None,
         concurrency_policy: str = "ALLOW",
-        retry_policy: Optional[str] = None,
-        environment: Optional[str] = None,
+        retry_policy: str | None = None,
+        environment: str | None = None,
     ) -> Job:
         """Return an unsaved one-off :class:`Job`. Call ``.save()`` to create it.
 
@@ -1825,11 +1849,11 @@ class JobsClient:
     def list(
         self,
         *,
-        kind: Optional[JobKind] = None,
-        scheduled: Optional[bool] = None,
-        name: Optional[str] = None,
-        page_number: Optional[int] = None,
-        page_size: Optional[int] = None,
+        kind: JobKind | None = None,
+        scheduled: bool | None = None,
+        name: str | None = None,
+        page_number: int | None = None,
+        page_size: int | None = None,
     ) -> list[Job]:
         """List jobs in the account.
 
@@ -1879,7 +1903,7 @@ class JobsClient:
         resp = _gen_delete_job.sync_detailed(id, client=self._auth)
         _check(resp)
 
-    def run(self, id: str, *, environment: Optional[str] = None) -> Run:
+    def run(self, id: str, *, environment: str | None = None) -> Run:
         """Trigger one immediate, manual run of a job, ignoring its schedule.
 
         This starts an ad-hoc run right now in addition to any scheduled runs;
@@ -1949,7 +1973,7 @@ class JobsClient:
                 client.close()
                 self._auth._client = None
 
-    def __enter__(self) -> "JobsClient":
+    def __enter__(self) -> JobsClient:
         return self
 
     def __exit__(self, *args: object) -> None:
@@ -1995,12 +2019,12 @@ class AsyncJobsClient:
         id: str,
         *,
         name: str,
-        schedule: Optional[str],
-        timezone: Optional[str],
-        retry_policy: Optional[str],
+        schedule: str | None,
+        timezone: str | None,
+        retry_policy: str | None,
         configuration: HttpConfig,
-        description: Optional[str],
-        environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]],
+        description: str | None,
+        environments: dict[str, JobEnvironment | dict[str, Any]] | None,
         concurrency_policy: str,
     ) -> AsyncJob:
         job = AsyncJob(
@@ -2025,11 +2049,11 @@ class AsyncJobsClient:
         *,
         name: str,
         schedule: str,
-        timezone: Optional[str] = None,
-        retry_policy: Optional[str] = None,
+        timezone: str | None = None,
+        retry_policy: str | None = None,
         configuration: HttpConfig,
-        description: Optional[str] = None,
-        environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]] = None,
+        description: str | None = None,
+        environments: dict[str, JobEnvironment | dict[str, Any]] | None = None,
         concurrency_policy: str = "ALLOW",
     ) -> AsyncJob:
         """Return an unsaved recurring :class:`AsyncJob`. ``await .save()`` to create it.
@@ -2081,10 +2105,10 @@ class AsyncJobsClient:
         *,
         name: str,
         configuration: HttpConfig,
-        description: Optional[str] = None,
-        environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]] = None,
+        description: str | None = None,
+        environments: dict[str, JobEnvironment | dict[str, Any]] | None = None,
         concurrency_policy: str = "ALLOW",
-        retry_policy: Optional[str] = None,
+        retry_policy: str | None = None,
     ) -> AsyncJob:
         """Return an unsaved manual :class:`AsyncJob`. ``await .save()`` to create it.
 
@@ -2133,10 +2157,10 @@ class AsyncJobsClient:
         name: str,
         schedule: datetime.datetime,
         configuration: HttpConfig,
-        description: Optional[str] = None,
+        description: str | None = None,
         concurrency_policy: str = "ALLOW",
-        retry_policy: Optional[str] = None,
-        environment: Optional[str] = None,
+        retry_policy: str | None = None,
+        environment: str | None = None,
     ) -> AsyncJob:
         """Return an unsaved one-off :class:`AsyncJob`. ``await .save()`` to create it.
 
@@ -2177,11 +2201,11 @@ class AsyncJobsClient:
     async def list(
         self,
         *,
-        kind: Optional[JobKind] = None,
-        scheduled: Optional[bool] = None,
-        name: Optional[str] = None,
-        page_number: Optional[int] = None,
-        page_size: Optional[int] = None,
+        kind: JobKind | None = None,
+        scheduled: bool | None = None,
+        name: str | None = None,
+        page_number: int | None = None,
+        page_size: int | None = None,
     ) -> list[AsyncJob]:
         """List jobs in the account.
 
@@ -2231,7 +2255,7 @@ class AsyncJobsClient:
         resp = await _gen_delete_job.asyncio_detailed(id, client=self._auth)
         _check(resp)
 
-    async def run(self, id: str, *, environment: Optional[str] = None) -> AsyncRun:
+    async def run(self, id: str, *, environment: str | None = None) -> AsyncRun:
         """Trigger one immediate, manual run of a job, ignoring its schedule.
 
         This starts an ad-hoc run right now in addition to any scheduled runs;
@@ -2296,7 +2320,7 @@ class AsyncJobsClient:
                 await ac.aclose()
                 self._auth._async_client = None
 
-    async def __aenter__(self) -> "AsyncJobsClient":
+    async def __aenter__(self) -> AsyncJobsClient:
         return self
 
     async def __aexit__(self, *args: object) -> None:

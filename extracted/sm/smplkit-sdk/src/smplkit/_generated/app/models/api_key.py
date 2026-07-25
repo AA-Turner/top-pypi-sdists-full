@@ -1,16 +1,14 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+from dateutil.parser import isoparse
 
 from ..types import UNSET, Unset
-
-from dateutil.parser import isoparse
-from typing import cast
-import datetime
 
 if TYPE_CHECKING:
     from ..models.api_key_scopes import ApiKeyScopes
@@ -53,26 +51,26 @@ class ApiKey:
     """
 
     name: str
-    status: None | str | Unset = UNSET
-    key: None | str | Unset = UNSET
+    status: str | Unset | None = UNSET
+    key: str | Unset | None = UNSET
     scopes: ApiKeyScopes | Unset = UNSET
-    created_by: None | str | Unset = UNSET
-    expires_at: datetime.datetime | None | Unset = UNSET
-    last_used_at: datetime.datetime | None | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    updated_at: datetime.datetime | None | Unset = UNSET
+    created_by: str | Unset | None = UNSET
+    expires_at: datetime.datetime | Unset | None = UNSET
+    last_used_at: datetime.datetime | Unset | None = UNSET
+    created_at: datetime.datetime | Unset | None = UNSET
+    updated_at: datetime.datetime | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         name = self.name
 
-        status: None | str | Unset
+        status: str | Unset | None
         if isinstance(self.status, Unset):
             status = UNSET
         else:
             status = self.status
 
-        key: None | str | Unset
+        key: str | Unset | None
         if isinstance(self.key, Unset):
             key = UNSET
         else:
@@ -82,13 +80,13 @@ class ApiKey:
         if not isinstance(self.scopes, Unset):
             scopes = self.scopes.to_dict()
 
-        created_by: None | str | Unset
+        created_by: str | Unset | None
         if isinstance(self.created_by, Unset):
             created_by = UNSET
         else:
             created_by = self.created_by
 
-        expires_at: None | str | Unset
+        expires_at: str | Unset | None
         if isinstance(self.expires_at, Unset):
             expires_at = UNSET
         elif isinstance(self.expires_at, datetime.datetime):
@@ -96,7 +94,7 @@ class ApiKey:
         else:
             expires_at = self.expires_at
 
-        last_used_at: None | str | Unset
+        last_used_at: str | Unset | None
         if isinstance(self.last_used_at, Unset):
             last_used_at = UNSET
         elif isinstance(self.last_used_at, datetime.datetime):
@@ -104,7 +102,7 @@ class ApiKey:
         else:
             last_used_at = self.last_used_at
 
-        created_at: None | str | Unset
+        created_at: str | Unset | None
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -112,7 +110,7 @@ class ApiKey:
         else:
             created_at = self.created_at
 
-        updated_at: None | str | Unset
+        updated_at: str | Unset | None
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -153,7 +151,7 @@ class ApiKey:
         d = dict(src_dict)
         name = d.pop("name")
 
-        def _parse_status(data: object) -> None | str | Unset:
+        def _parse_status(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -162,7 +160,7 @@ class ApiKey:
 
         status = _parse_status(d.pop("status", UNSET))
 
-        def _parse_key(data: object) -> None | str | Unset:
+        def _parse_key(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -178,7 +176,7 @@ class ApiKey:
         else:
             scopes = ApiKeyScopes.from_dict(_scopes)
 
-        def _parse_created_by(data: object) -> None | str | Unset:
+        def _parse_created_by(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -187,7 +185,7 @@ class ApiKey:
 
         created_by = _parse_created_by(d.pop("created_by", UNSET))
 
-        def _parse_expires_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_expires_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -204,7 +202,7 @@ class ApiKey:
 
         expires_at = _parse_expires_at(d.pop("expires_at", UNSET))
 
-        def _parse_last_used_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_last_used_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -221,7 +219,7 @@ class ApiKey:
 
         last_used_at = _parse_last_used_at(d.pop("last_used_at", UNSET))
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -238,7 +236,7 @@ class ApiKey:
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_updated_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

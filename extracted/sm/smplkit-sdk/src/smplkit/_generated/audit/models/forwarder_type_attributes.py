@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 
 from ..types import UNSET, Unset
-
-from typing import cast
 
 if TYPE_CHECKING:
     from ..models.forwarder_type_attributes_placeholders import ForwarderTypeAttributesPlaceholders
@@ -43,8 +41,8 @@ class ForwarderTypeAttributes:
     is_custom: bool
     configuration: ForwarderTypeHttpConfiguration
     placeholders: ForwarderTypeAttributesPlaceholders
-    docs_url: None | str | Unset = UNSET
-    transform: ForwarderTypeTransform | None | Unset = UNSET
+    docs_url: str | Unset | None = UNSET
+    transform: ForwarderTypeTransform | Unset | None = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.forwarder_type_transform import ForwarderTypeTransform
@@ -61,13 +59,13 @@ class ForwarderTypeAttributes:
 
         placeholders = self.placeholders.to_dict()
 
-        docs_url: None | str | Unset
+        docs_url: str | Unset | None
         if isinstance(self.docs_url, Unset):
             docs_url = UNSET
         else:
             docs_url = self.docs_url
 
-        transform: dict[str, Any] | None | Unset
+        transform: dict[str, Any] | Unset | None
         if isinstance(self.transform, Unset):
             transform = UNSET
         elif isinstance(self.transform, ForwarderTypeTransform):
@@ -113,7 +111,7 @@ class ForwarderTypeAttributes:
 
         placeholders = ForwarderTypeAttributesPlaceholders.from_dict(d.pop("placeholders"))
 
-        def _parse_docs_url(data: object) -> None | str | Unset:
+        def _parse_docs_url(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -122,7 +120,7 @@ class ForwarderTypeAttributes:
 
         docs_url = _parse_docs_url(d.pop("docs_url", UNSET))
 
-        def _parse_transform(data: object) -> ForwarderTypeTransform | None | Unset:
+        def _parse_transform(data: object) -> ForwarderTypeTransform | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

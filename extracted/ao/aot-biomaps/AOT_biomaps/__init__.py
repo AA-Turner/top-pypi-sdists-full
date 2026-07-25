@@ -67,7 +67,7 @@ from .AOT_Recon.AOT_Optimizers.DEPIERRO import *
 from .AOT_Recon.AOT_Optimizers.MAPEM import *
 from .AOT_Recon.AOT_Optimizers.MLEM import *
 from .AOT_Recon.AOT_Optimizers.PDHG import *
-from .AOT_Recon.AOT_Optimizers.LS import *
+from .AOT_Recon.AOT_Optimizers.PGD import *
 from .AOT_Recon.AOT_Optimizers.LBFGS import *
 from .AOT_Recon.AOT_Optimizers.PPGMLEM import *
 from .AOT_Recon.AOT_Optimizers.PGC import *
@@ -80,7 +80,7 @@ from .AOT_Recon.AOT_SMatrix._mainSMatrix import *
 from .Config import config
 from .Settings import *
 
-__version__ = '2.9.869'
+__version__ = '2.9.889'
 __process__ = config.get_process()
 
 # Reference to the config object
@@ -144,6 +144,26 @@ def initialize(process=None, gpu_id=None):
     __config__._update()
     
     return __process__
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

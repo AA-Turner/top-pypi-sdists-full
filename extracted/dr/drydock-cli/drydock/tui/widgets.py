@@ -154,7 +154,7 @@ class PromptHistory:
 SLASH_COMMANDS = [
     "/help", "/model", "/cwd", "/undo", "/back", "/stop", "/status",
     "/compact", "/context", "/shell", "/events", "/trace", "/resume", "/advisor", "/ask", "/ask!", "/graphrag", "/skills",
-    "/loop", "/mcp", "/rmf", "/stig",
+    "/loop", "/mcp", "/rmf", "/stig", "/doc",
     "/clear", "/quit",
 ]
 
@@ -214,7 +214,7 @@ class PromptArea(TextArea):
             if not t and self.placeholder:
                 event.stop()
                 event.prevent_default()
-                self.text = self.placeholder
+                self.text = str(self.placeholder or "")
                 self.move_cursor(self.document.end)
                 return
             if t.startswith("/") and " " not in t and "\n" not in t:

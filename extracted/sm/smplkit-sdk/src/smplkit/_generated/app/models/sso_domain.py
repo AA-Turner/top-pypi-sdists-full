@@ -1,19 +1,15 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.sso_domain_status import check_sso_domain_status
-from ..models.sso_domain_status import SSODomainStatus
 from dateutil.parser import isoparse
-from typing import cast
-import datetime
 
+from ..models.sso_domain_status import SSODomainStatus, check_sso_domain_status
+from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="SSODomain")
 
@@ -42,21 +38,21 @@ class SSODomain:
             updated_at (datetime.datetime | None | Unset): When the claim was last modified.
     """
 
-    dns_txt_token: None | str | Unset = UNSET
-    verified_at: datetime.datetime | None | Unset = UNSET
+    dns_txt_token: str | Unset | None = UNSET
+    verified_at: datetime.datetime | Unset | None = UNSET
     status: SSODomainStatus | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    updated_at: datetime.datetime | None | Unset = UNSET
+    created_at: datetime.datetime | Unset | None = UNSET
+    updated_at: datetime.datetime | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        dns_txt_token: None | str | Unset
+        dns_txt_token: str | Unset | None
         if isinstance(self.dns_txt_token, Unset):
             dns_txt_token = UNSET
         else:
             dns_txt_token = self.dns_txt_token
 
-        verified_at: None | str | Unset
+        verified_at: str | Unset | None
         if isinstance(self.verified_at, Unset):
             verified_at = UNSET
         elif isinstance(self.verified_at, datetime.datetime):
@@ -68,7 +64,7 @@ class SSODomain:
         if not isinstance(self.status, Unset):
             status = self.status
 
-        created_at: None | str | Unset
+        created_at: str | Unset | None
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -76,7 +72,7 @@ class SSODomain:
         else:
             created_at = self.created_at
 
-        updated_at: None | str | Unset
+        updated_at: str | Unset | None
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -104,7 +100,7 @@ class SSODomain:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
 
-        def _parse_dns_txt_token(data: object) -> None | str | Unset:
+        def _parse_dns_txt_token(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -113,7 +109,7 @@ class SSODomain:
 
         dns_txt_token = _parse_dns_txt_token(d.pop("dns_txt_token", UNSET))
 
-        def _parse_verified_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_verified_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -137,7 +133,7 @@ class SSODomain:
         else:
             status = check_sso_domain_status(_status)
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -154,7 +150,7 @@ class SSODomain:
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_updated_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

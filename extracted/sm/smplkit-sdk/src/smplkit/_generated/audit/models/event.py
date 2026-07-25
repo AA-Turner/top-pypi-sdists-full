@@ -1,18 +1,15 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.severity import check_severity
-from ..models.severity import Severity
 from dateutil.parser import isoparse
-from typing import cast
-import datetime
+
+from ..models.severity import Severity, check_severity
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.event_data import EventData
@@ -64,18 +61,18 @@ class Event:
     event_type: str
     resource_type: str
     resource_id: str
-    description: None | str | Unset = UNSET
-    severity: None | Severity | Unset = UNSET
-    category: None | str | Unset = UNSET
-    occurred_at: datetime.datetime | None | Unset = UNSET
-    actor_type: None | str | Unset = UNSET
-    actor_id: None | str | Unset = UNSET
-    actor_label: None | str | Unset = UNSET
+    description: str | Unset | None = UNSET
+    severity: Severity | Unset | None = UNSET
+    category: str | Unset | None = UNSET
+    occurred_at: datetime.datetime | Unset | None = UNSET
+    actor_type: str | Unset | None = UNSET
+    actor_id: str | Unset | None = UNSET
+    actor_label: str | Unset | None = UNSET
     data: EventData | Unset = UNSET
     do_not_forward: bool | Unset = False
-    environment: None | str | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    idempotency_key: None | str | Unset = UNSET
+    environment: str | Unset | None = UNSET
+    created_at: datetime.datetime | Unset | None = UNSET
+    idempotency_key: str | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -85,13 +82,13 @@ class Event:
 
         resource_id = self.resource_id
 
-        description: None | str | Unset
+        description: str | Unset | None
         if isinstance(self.description, Unset):
             description = UNSET
         else:
             description = self.description
 
-        severity: None | str | Unset
+        severity: str | Unset | None
         if isinstance(self.severity, Unset):
             severity = UNSET
         elif isinstance(self.severity, str):
@@ -99,13 +96,13 @@ class Event:
         else:
             severity = self.severity
 
-        category: None | str | Unset
+        category: str | Unset | None
         if isinstance(self.category, Unset):
             category = UNSET
         else:
             category = self.category
 
-        occurred_at: None | str | Unset
+        occurred_at: str | Unset | None
         if isinstance(self.occurred_at, Unset):
             occurred_at = UNSET
         elif isinstance(self.occurred_at, datetime.datetime):
@@ -113,19 +110,19 @@ class Event:
         else:
             occurred_at = self.occurred_at
 
-        actor_type: None | str | Unset
+        actor_type: str | Unset | None
         if isinstance(self.actor_type, Unset):
             actor_type = UNSET
         else:
             actor_type = self.actor_type
 
-        actor_id: None | str | Unset
+        actor_id: str | Unset | None
         if isinstance(self.actor_id, Unset):
             actor_id = UNSET
         else:
             actor_id = self.actor_id
 
-        actor_label: None | str | Unset
+        actor_label: str | Unset | None
         if isinstance(self.actor_label, Unset):
             actor_label = UNSET
         else:
@@ -137,13 +134,13 @@ class Event:
 
         do_not_forward = self.do_not_forward
 
-        environment: None | str | Unset
+        environment: str | Unset | None
         if isinstance(self.environment, Unset):
             environment = UNSET
         else:
             environment = self.environment
 
-        created_at: None | str | Unset
+        created_at: str | Unset | None
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -151,7 +148,7 @@ class Event:
         else:
             created_at = self.created_at
 
-        idempotency_key: None | str | Unset
+        idempotency_key: str | Unset | None
         if isinstance(self.idempotency_key, Unset):
             idempotency_key = UNSET
         else:
@@ -204,7 +201,7 @@ class Event:
 
         resource_id = d.pop("resource_id")
 
-        def _parse_description(data: object) -> None | str | Unset:
+        def _parse_description(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -213,7 +210,7 @@ class Event:
 
         description = _parse_description(d.pop("description", UNSET))
 
-        def _parse_severity(data: object) -> None | Severity | Unset:
+        def _parse_severity(data: object) -> Severity | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -230,7 +227,7 @@ class Event:
 
         severity = _parse_severity(d.pop("severity", UNSET))
 
-        def _parse_category(data: object) -> None | str | Unset:
+        def _parse_category(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -239,7 +236,7 @@ class Event:
 
         category = _parse_category(d.pop("category", UNSET))
 
-        def _parse_occurred_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_occurred_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -256,7 +253,7 @@ class Event:
 
         occurred_at = _parse_occurred_at(d.pop("occurred_at", UNSET))
 
-        def _parse_actor_type(data: object) -> None | str | Unset:
+        def _parse_actor_type(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -265,7 +262,7 @@ class Event:
 
         actor_type = _parse_actor_type(d.pop("actor_type", UNSET))
 
-        def _parse_actor_id(data: object) -> None | str | Unset:
+        def _parse_actor_id(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -274,7 +271,7 @@ class Event:
 
         actor_id = _parse_actor_id(d.pop("actor_id", UNSET))
 
-        def _parse_actor_label(data: object) -> None | str | Unset:
+        def _parse_actor_label(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -292,7 +289,7 @@ class Event:
 
         do_not_forward = d.pop("do_not_forward", UNSET)
 
-        def _parse_environment(data: object) -> None | str | Unset:
+        def _parse_environment(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -301,7 +298,7 @@ class Event:
 
         environment = _parse_environment(d.pop("environment", UNSET))
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -318,7 +315,7 @@ class Event:
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_idempotency_key(data: object) -> None | str | Unset:
+        def _parse_idempotency_key(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

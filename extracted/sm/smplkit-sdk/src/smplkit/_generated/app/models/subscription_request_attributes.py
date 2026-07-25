@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
-
-from typing import cast
-from uuid import UUID
 
 if TYPE_CHECKING:
     from ..models.subscription_item_request import SubscriptionItemRequest
@@ -31,7 +29,7 @@ class SubscriptionRequestAttributes:
     """
 
     items: list[SubscriptionItemRequest]
-    payment_method: None | Unset | UUID = UNSET
+    payment_method: Unset | UUID | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -40,7 +38,7 @@ class SubscriptionRequestAttributes:
             items_item = items_item_data.to_dict()
             items.append(items_item)
 
-        payment_method: None | str | Unset
+        payment_method: str | Unset | None
         if isinstance(self.payment_method, Unset):
             payment_method = UNSET
         elif isinstance(self.payment_method, UUID):
@@ -72,7 +70,7 @@ class SubscriptionRequestAttributes:
 
             items.append(items_item)
 
-        def _parse_payment_method(data: object) -> None | Unset | UUID:
+        def _parse_payment_method(data: object) -> Unset | UUID | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

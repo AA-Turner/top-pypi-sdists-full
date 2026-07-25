@@ -1,19 +1,15 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.job_kind_type_0 import check_job_kind_type_0
-from ..models.job_kind_type_0 import JobKindType0
 from dateutil.parser import isoparse
-from typing import cast
-from typing import Literal
-import datetime
+
+from ..models.job_kind_type_0 import JobKindType0, check_job_kind_type_0
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.job_environments import JobEnvironments
@@ -84,18 +80,18 @@ class Job:
 
     name: str
     configuration: JobHttpConfiguration
-    description: None | str | Unset = UNSET
+    description: str | Unset | None = UNSET
     type_: Literal["http"] | Unset = "http"
-    schedule: None | str | Unset = UNSET
-    timezone: None | str | Unset = UNSET
+    schedule: str | Unset | None = UNSET
+    timezone: str | Unset | None = UNSET
     environments: JobEnvironments | Unset = UNSET
     concurrency_policy: Literal["ALLOW"] | Unset = "ALLOW"
-    retry_policy: None | str | Unset = UNSET
-    kind: JobKindType0 | None | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    updated_at: datetime.datetime | None | Unset = UNSET
-    deleted_at: datetime.datetime | None | Unset = UNSET
-    version: int | None | Unset = UNSET
+    retry_policy: str | Unset | None = UNSET
+    kind: JobKindType0 | Unset | None = UNSET
+    created_at: datetime.datetime | Unset | None = UNSET
+    updated_at: datetime.datetime | Unset | None = UNSET
+    deleted_at: datetime.datetime | Unset | None = UNSET
+    version: int | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -103,7 +99,7 @@ class Job:
 
         configuration = self.configuration.to_dict()
 
-        description: None | str | Unset
+        description: str | Unset | None
         if isinstance(self.description, Unset):
             description = UNSET
         else:
@@ -111,13 +107,13 @@ class Job:
 
         type_ = self.type_
 
-        schedule: None | str | Unset
+        schedule: str | Unset | None
         if isinstance(self.schedule, Unset):
             schedule = UNSET
         else:
             schedule = self.schedule
 
-        timezone: None | str | Unset
+        timezone: str | Unset | None
         if isinstance(self.timezone, Unset):
             timezone = UNSET
         else:
@@ -129,13 +125,13 @@ class Job:
 
         concurrency_policy = self.concurrency_policy
 
-        retry_policy: None | str | Unset
+        retry_policy: str | Unset | None
         if isinstance(self.retry_policy, Unset):
             retry_policy = UNSET
         else:
             retry_policy = self.retry_policy
 
-        kind: None | str | Unset
+        kind: str | Unset | None
         if isinstance(self.kind, Unset):
             kind = UNSET
         elif isinstance(self.kind, str):
@@ -143,7 +139,7 @@ class Job:
         else:
             kind = self.kind
 
-        created_at: None | str | Unset
+        created_at: str | Unset | None
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -151,7 +147,7 @@ class Job:
         else:
             created_at = self.created_at
 
-        updated_at: None | str | Unset
+        updated_at: str | Unset | None
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -159,7 +155,7 @@ class Job:
         else:
             updated_at = self.updated_at
 
-        deleted_at: None | str | Unset
+        deleted_at: str | Unset | None
         if isinstance(self.deleted_at, Unset):
             deleted_at = UNSET
         elif isinstance(self.deleted_at, datetime.datetime):
@@ -167,7 +163,7 @@ class Job:
         else:
             deleted_at = self.deleted_at
 
-        version: int | None | Unset
+        version: int | Unset | None
         if isinstance(self.version, Unset):
             version = UNSET
         else:
@@ -218,7 +214,7 @@ class Job:
 
         configuration = JobHttpConfiguration.from_dict(d.pop("configuration"))
 
-        def _parse_description(data: object) -> None | str | Unset:
+        def _parse_description(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -231,7 +227,7 @@ class Job:
         if type_ != "http" and not isinstance(type_, Unset):
             raise ValueError(f"type must match const 'http', got '{type_}'")
 
-        def _parse_schedule(data: object) -> None | str | Unset:
+        def _parse_schedule(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -240,7 +236,7 @@ class Job:
 
         schedule = _parse_schedule(d.pop("schedule", UNSET))
 
-        def _parse_timezone(data: object) -> None | str | Unset:
+        def _parse_timezone(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -260,7 +256,7 @@ class Job:
         if concurrency_policy != "ALLOW" and not isinstance(concurrency_policy, Unset):
             raise ValueError(f"concurrency_policy must match const 'ALLOW', got '{concurrency_policy}'")
 
-        def _parse_retry_policy(data: object) -> None | str | Unset:
+        def _parse_retry_policy(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -269,7 +265,7 @@ class Job:
 
         retry_policy = _parse_retry_policy(d.pop("retry_policy", UNSET))
 
-        def _parse_kind(data: object) -> JobKindType0 | None | Unset:
+        def _parse_kind(data: object) -> JobKindType0 | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -286,7 +282,7 @@ class Job:
 
         kind = _parse_kind(d.pop("kind", UNSET))
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -303,7 +299,7 @@ class Job:
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_updated_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -320,7 +316,7 @@ class Job:
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 
-        def _parse_deleted_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_deleted_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -337,7 +333,7 @@ class Job:
 
         deleted_at = _parse_deleted_at(d.pop("deleted_at", UNSET))
 
-        def _parse_version(data: object) -> int | None | Unset:
+        def _parse_version(data: object) -> int | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

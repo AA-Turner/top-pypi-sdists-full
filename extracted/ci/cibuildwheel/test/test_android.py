@@ -405,7 +405,11 @@ def test_environment_markers(tmp_path: Path) -> None:
             **cp313_env,
             "CIBW_TEST_COMMAND": f"python -m pytest {test_filename}",
             "CIBW_TEST_SOURCES": test_filename,
-            "CIBW_TEST_REQUIRES": "pytest certifi;sys_platform=='android' platformdirs;sys_platform!='android'",
+            "CIBW_TEST_REQUIRES": (
+                "pytest"
+                " 'certifi; sys_platform == \"android\"'"
+                " 'platformdirs; sys_platform != \"android\"'"
+            ),
         },
     )
 
@@ -686,7 +690,7 @@ def test_xbuild_files(tmp_path: Path, capfd: pytest.CaptureFixture[str]) -> None
         add_env={
             **cp313_env,
             # TODO: remove this once there are official Android NumPy wheels on PyPI.
-            "PIP_EXTRA_INDEX_URL": "https://chaquo.com/pypi-test",
+            "PIP_EXTRA_INDEX_URL": "https://chaquo.com/pypi-upstream",
             "CIBW_ARCHS": "all",  # Include both native and non-native archs.
             "CIBW_TEST_COMMAND": f"python -c '{script}'",
         },

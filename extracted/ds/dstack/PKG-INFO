@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dstack
-Version: 0.20.28
+Version: 0.20.29
 Summary: dstack is an open-source orchestration engine for running AI workloads on any cloud or on-premises.
 Project-URL: Homepage, https://dstack.ai
 Project-URL: Source, https://github.com/dstackai/dstack
@@ -80,6 +80,7 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.30.0; extra == 'all'
 Requires-Dist: opentelemetry-exporter-prometheus>=0.51b0; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-fastapi>=0.51b0; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-httpx>=0.51b0; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-logging>=0.61b0; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-requests>=0.51b0; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-sqlalchemy>=0.51b0; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-system-metrics>=0.51b0; extra == 'all'
@@ -378,6 +379,7 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.30.0; extra == 'otel'
 Requires-Dist: opentelemetry-exporter-prometheus>=0.51b0; extra == 'otel'
 Requires-Dist: opentelemetry-instrumentation-fastapi>=0.51b0; extra == 'otel'
 Requires-Dist: opentelemetry-instrumentation-httpx>=0.51b0; extra == 'otel'
+Requires-Dist: opentelemetry-instrumentation-logging>=0.61b0; extra == 'otel'
 Requires-Dist: opentelemetry-instrumentation-requests>=0.51b0; extra == 'otel'
 Requires-Dist: opentelemetry-instrumentation-sqlalchemy>=0.51b0; extra == 'otel'
 Requires-Dist: opentelemetry-instrumentation-system-metrics>=0.51b0; extra == 'otel'

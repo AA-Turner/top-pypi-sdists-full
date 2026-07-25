@@ -113,3 +113,12 @@ ROLLOUT_FAILURE_COUNT_THRESHOLD: dict[RolloutStrategy, int] = {
 # the GA default) closes well within this window; anything longer indicates the
 # finalize Temporal run died before recording the terminal transition.
 FINALIZING_GRACE_MINUTES = 20
+
+# A workflow-started rollout that has not changed for this long requires
+# operator review instead of another automatic recovery attempt.
+WORKFLOW_STARTED_STALE_MINUTES = 60
+
+# Recorded by `auto-triage-failed` when it cancels a rollout after the health
+# gate recommends rollback. This is intentionally an outcome marker, not a
+# health re-check performed while evaluating sibling rollouts.
+FAILURE_THRESHOLD_EXCEEDED_MARKER = "Failure threshold exceeded:"

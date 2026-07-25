@@ -10,18 +10,17 @@ use std::{
     mem,
 };
 
-use ahash::AHashSet;
+use monty_types::ResourceTracker;
 use num_integer::div_ceil;
 
 use crate::{
     args::ArgValues,
     bytecode::VM,
     defer_drop,
-    exception_private::{ExcType, RunResult},
+    exception_private::{ExcType, ExcTypeExt, RunResult},
     hash::HashValue,
-    heap::{Heap, HeapData, HeapId, HeapItem, HeapRead},
-    resource::{ResourceError, ResourceTracker},
-    types::{PyTrait, Type},
+    heap::{Heap, HeapData, HeapId, HeapItem, HeapRead, HeapReadOutput},
+    types::{LazyHeapSet, PyTrait, Type},
     value::Value,
 };
 
@@ -189,6 +188,10 @@ impl Default for Range {
 }
 
 impl<'h> PyTrait<'h> for HeapRead<'h, Range> {
+    fn py_is_iterable(&self, _vm: &VM<'h, impl ResourceTracker>) -> bool {
+        true
+    }
+
     fn py_type(&self, _vm: &VM<'h, impl ResourceTracker>) -> Type {
         Type::Range
     }
@@ -234,26 +237,46 @@ impl<'h> PyTrait<'h> for HeapRead<'h, Range> {
         Ok(Value::Int(offset_i64))
     }
 
-    fn py_eq(&self, other: &Self, vm: &mut VM<'h, impl ResourceTracker>) -> Result<bool, ResourceError> {
+    fn py_eq_impl(&self, other: &Value, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Option<bool>> {
+        let Some(HeapReadOutput::Range(other)) = other.read_heap(vm) else {
+            return Ok(None);
+        };
         let a = self.get(vm.heap);
         let b = other.get(vm.heap);
         // Compare ranges by their actual sequences, not parameters.
         // Two ranges are equal if they produce the same elements.
         let len1 = a.len();
         let len2 = b.len();
-        if len1 != len2 {
-            return Ok(false);
-        }
-        // Same length - compare first element and step (if non-empty)
-        if len1 == 0 {
-            return Ok(true); // Both empty
-        }
-        Ok(a.start == b.start && a.step == b.step)
+        Ok(Some(if len1 != len2 {
+            false
+        } else if len1 == 0 {
+            true // Both empty
+        } else if len1 == 1 {
+            // Single-element ranges are equal when their one element matches,
+            // regardless of step (e.g. range(0, 1, 1) == range(0, 2, 2)).
+            a.start == b.start
+        } else {
+            // Same length (>1) - compare first element and step.
+            a.start == b.start && a.step == b.step
+        }))
     }
 
     fn py_hash(&self, _self_id: HeapId, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Option<HashValue>> {
+        // Ranges are equal by the sequence they produce, so the hash must depend
+        // only on what equality compares: length, then start (if non-empty), then
+        // step (only if length > 1). Hashing the raw `start`/`stop`/`step` fields
+        // would break `hash(a) == hash(b)` for equal ranges like `range(0, 1, 1)`
+        // and `range(0, 2, 2)`.
+        let r = self.get(vm.heap);
+        let len = r.len();
         let mut hasher = DefaultHasher::new();
-        self.get(vm.heap).hash(&mut hasher);
+        len.hash(&mut hasher);
+        if len > 0 {
+            r.start.hash(&mut hasher);
+            if len > 1 {
+                r.step.hash(&mut hasher);
+            }
+        }
         Ok(Some(HashValue::new(hasher.finish())))
     }
 
@@ -265,7 +288,7 @@ impl<'h> PyTrait<'h> for HeapRead<'h, Range> {
         &self,
         f: &mut impl Write,
         vm: &mut VM<'h, impl ResourceTracker>,
-        _heap_ids: &mut AHashSet<HeapId>,
+        _heap_ids: &mut LazyHeapSet,
     ) -> RunResult<()> {
         let this = self.get(vm.heap);
         if this.step == 1 {

@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: soccerdata
-Version: 1.9.0
+Version: 1.9.1
 Summary: A collection of scrapers for soccer data from various websites / APIs.
+Project-URL: Changelog, https://github.com/probberechts/soccerdata/releases
+Project-URL: Documentation, https://soccerdata.readthedocs.io
 Project-URL: Homepage, https://github.com/probberechts/soccerdata
 Project-URL: Repository, https://github.com/probberechts/soccerdata
-Project-URL: Documentation, https://soccerdata.readthedocs.io
-Project-URL: Changelog, https://github.com/probberechts/soccerdata/releases
 Author-email: Pieter Robberechts <pieter.robberechts@kuleuven.be>
 License-Expression: Apache-2.0
 License-File: LICENSE.rst

@@ -8,6 +8,8 @@ import uuid
 import grpc
 
 from query_cache_common.constants import (
+    CLOUD_RUN_ID_HEADER,
+    INVOCATION_ID_HEADER,
     SYSTEM_USER_ID_HEADER,
     ORG_ID_HEADER,
     OS_NAME_HEADER,
@@ -280,3 +282,23 @@ class SystemInfoInterceptor(_MetadataModifyingInterceptor):
     def _modify_metadata(self, metadata: t.List[t.Tuple[str, t.Any]]) -> None:
         metadata.append((SYSTEM_USER_ID_HEADER, self._system_user_id))
         metadata.append((OS_NAME_HEADER, self._os_name))
+
+
+class InvocationInfoInterceptor(_MetadataModifyingInterceptor):
+    """Client interceptor that adds x-dbt-invocation-id and x-dbt-cloud-run-id to all gRPC calls.
+
+    Both identifiers are constant for the lifetime of a single dbt invocation. The
+    invocation_id is dbt's per-run UUID; the cloud_run_id is only present when running
+    on the dbt platform (from the DBT_CLOUD_RUN_ID environment variable) and is omitted
+    otherwise.
+    """
+
+    def __init__(self, invocation_id: str = "", cloud_run_id: str = "") -> None:
+        self._invocation_id = invocation_id
+        self._cloud_run_id = cloud_run_id
+
+    def _modify_metadata(self, metadata: t.List[t.Tuple[str, t.Any]]) -> None:
+        if self._invocation_id:
+            metadata.append((INVOCATION_ID_HEADER, self._invocation_id))
+        if self._cloud_run_id:
+            metadata.append((CLOUD_RUN_ID_HEADER, self._cloud_run_id))

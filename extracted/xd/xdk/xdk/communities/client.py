@@ -55,25 +55,15 @@ class CommunitiesClient:
         ] = None,
     ) -> GetByIdResponse:
         """
-        Get Community by ID
-        Retrieves details of a specific Community by its ID.
+        Get Communities by ID
         Args:
-            id: The ID of the Community.
+            id: id
             community_fields: A comma separated list of Community fields to display.
             Returns:
             GetByIdResponse: Response data
         """
         url = self.client.base_url + "/2/communities/{id}"
         url = url.replace("{id}", str(id))
-        # Priority: bearer_token > access_token (matches TypeScript behavior)
-        if self.client.bearer_token:
-            self.client.session.headers["Authorization"] = (
-                f"Bearer {self.client.bearer_token}"
-            )
-        elif self.client.access_token:
-            self.client.session.headers["Authorization"] = (
-                f"Bearer {self.client.access_token}"
-            )
         # OAuth2UserToken: Use access_token as bearer token (matches TypeScript behavior)
         # Priority: access_token > oauth2_session (for token refresh support)
         if self.client.access_token:
@@ -98,6 +88,15 @@ class CommunitiesClient:
         # UserToken: OAuth1.0a authentication - header will be built dynamically in request
         # OAuth1 header must be built per-request with method, URL, and body
         # This is handled in the request logic below
+        # Priority: bearer_token > access_token (matches TypeScript behavior)
+        if self.client.bearer_token:
+            self.client.session.headers["Authorization"] = (
+                f"Bearer {self.client.bearer_token}"
+            )
+        elif self.client.access_token:
+            self.client.session.headers["Authorization"] = (
+                f"Bearer {self.client.access_token}"
+            )
         params = {}
         if community_fields is not None:
             params["community.fields"] = ",".join(
@@ -220,8 +219,8 @@ class CommunitiesClient:
         self,
         query: str,
         max_results: Optional[int] = None,
-        next_token: Optional[schemas.NextToken] = None,
-        pagination_token: Optional[schemas.NextToken] = None,
+        next_token: Optional[str] = None,
+        pagination_token: Optional[str] = None,
         community_fields: Optional[
             List[
                 Literal[
@@ -238,12 +237,11 @@ class CommunitiesClient:
     ) -> Iterator[SearchResponse]:
         """
         Search Communities
-        Retrieves a list of Communities matching the specified search query.
         Args:
-            query: Query to search communities.
-            max_results: The maximum number of search results to be returned by a request.
-            next_token: This parameter is used to get the next 'page' of results. The value used with the parameter is pulled directly from the response provided by the API, and should not be modified.
-            pagination_token: This parameter is used to get the next 'page' of results. The value used with the parameter is pulled directly from the response provided by the API, and should not be modified.
+            query: query
+            max_results: max_results
+            next_token: next_token
+            pagination_token: pagination_token
             community_fields: A comma separated list of Community fields to display.
             Yields:
             SearchResponse: One page of results at a time. Automatically handles pagination using next_token.

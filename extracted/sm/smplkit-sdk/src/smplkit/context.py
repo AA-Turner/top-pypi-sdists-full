@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from smplkit.flags.types import Context
 
 
-_request_context: contextvars.ContextVar[list["Context"]] = contextvars.ContextVar(
+_request_context: contextvars.ContextVar[list[Context]] = contextvars.ContextVar(
     "smplkit_request_context",
     default=[],
 )
@@ -48,7 +48,7 @@ class ContextScope:
         _request_context.reset(self._token)
 
 
-def set_context(contexts: list["Context"]) -> ContextScope:
+def set_context(contexts: list[Context]) -> ContextScope:
     """Stash *contexts* as the current per-request context.
 
     Returns a :class:`ContextScope` that can be used as a ``with`` /
@@ -59,6 +59,6 @@ def set_context(contexts: list["Context"]) -> ContextScope:
     return ContextScope(token)
 
 
-def get_context() -> list["Context"]:
+def get_context() -> list[Context]:
     """Return the current per-request context (empty list if unset)."""
     return _request_context.get()

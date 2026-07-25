@@ -54,7 +54,7 @@ class DjangoStrategy(BaseStrategy):
     DEFAULT_TEMPLATE_STRATEGY = DjangoTemplateStrategy
     _session: SessionBase
 
-    def __init__(self, storage, request: None | HttpRequest = None, tpl=None):
+    def __init__(self, storage, request: HttpRequest | None = None, tpl=None):
         self.request: HttpRequest = request
         if request:
             self.session = request.session
@@ -242,6 +242,8 @@ class DjangoStrategy(BaseStrategy):
         return get_language()
 
     def get_session_id(self) -> str | None:
+        if self.session.session_key is None:
+            self.session.create()
         return self.session.session_key
 
     def restore_session(self, session_id: str, kwargs: dict[str, Any]) -> None:

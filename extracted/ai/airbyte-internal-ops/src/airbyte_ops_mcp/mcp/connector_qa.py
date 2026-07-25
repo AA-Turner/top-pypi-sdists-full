@@ -23,6 +23,7 @@ from airbyte.cloud import CloudWorkspace
 from airbyte.cloud.auth import resolve_cloud_client_id, resolve_cloud_client_secret
 from airbyte.exceptions import (
     AirbyteMissingResourceError,
+    AirbyteNoCloudCredentialsError,
     AirbyteWorkspaceMismatchError,
 )
 from fastmcp import FastMCP
@@ -60,17 +61,15 @@ def validate_connection_workspace(
     the connection exists and belongs to the specified workspace.
 
     Raises:
-        ValueError: If Airbyte Cloud credentials are missing.
-        AirbyteWorkspaceMismatchError: If connection belongs to a different workspace.
-        AirbyteMissingResourceError: If connection is not found.
+        `AirbyteNoCloudCredentialsError`: If Airbyte Cloud credentials are missing.
+        `AirbyteWorkspaceMismatchError`: If connection belongs to a different workspace.
+        `AirbyteMissingResourceError`: If connection is not found.
     """
     client_id = resolve_cloud_client_id()
     client_secret = resolve_cloud_client_secret()
     if not client_id or not client_secret:
-        raise ValueError(
-            "Missing Airbyte Cloud credentials. "
-            "Set AIRBYTE_CLOUD_CLIENT_ID and AIRBYTE_CLOUD_CLIENT_SECRET env vars."
-        )
+        # Only client credentials are resolved; suppress bearer-token guidance.
+        raise AirbyteNoCloudCredentialsError(_allow_bearer=False)
 
     workspace = CloudWorkspace(
         workspace_id=workspace_id,

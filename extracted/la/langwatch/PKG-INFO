@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: langwatch
-Version: 0.26.0
+Version: 1.0.0
 Summary: LangWatch Python SDK, for monitoring your LLMs
 Author-email: Langwatch Engineers <engineering@langwatch.ai>
 License: MIT
 License-File: LICENSE
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -36,6 +36,7 @@ Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: retry>=0.9.2
 Requires-Dist: tenacity>=8.0.0
 Requires-Dist: termcolor>=3.0.1
+Requires-Dist: tqdm>=4.62.0
 Provides-Extra: dev
 Requires-Dist: ruff>=0.11.1; extra == 'dev'
 Provides-Extra: dspy
@@ -43,11 +44,11 @@ Requires-Dist: dspy-ai<4,>=3.0.3; extra == 'dspy'
 Provides-Extra: langchain
 Requires-Dist: langchain-core<2.0.0,>=0.3.0; extra == 'langchain'
 Provides-Extra: litellm
-Requires-Dist: litellm>=1.52.1; extra == 'litellm'
+Requires-Dist: litellm>=1.84.0; extra == 'litellm'
 Provides-Extra: tests
 Requires-Dist: factory-boy<4.0.0,>=3.3.0; extra == 'tests'
 Requires-Dist: pytest-asyncio<0.22.0,>=0.21.1; extra == 'tests'
-Requires-Dist: pytest<8.0.0,>=7.4.2; extra == 'tests'
+Requires-Dist: pytest<10.0.0,>=7.4.2; extra == 'tests'
 Description-Content-Type: text/markdown
 
 # LangWatch Python SDK

@@ -525,7 +525,7 @@ def _parse_streaming_timeout_query(
         keys=("streaming_timeout",),
         label="streaming_timeout",
     )
-    if timeout is None or timeout <= 0:
+    if timeout is None or not math.isfinite(timeout) or timeout <= 0:
         raise ModelConfigError(
             f"Invalid streaming_timeout query value: '{raw_value}' in '{model_spec}'. "
             "Use a positive number of seconds or 'none'."
@@ -824,8 +824,9 @@ class ModelFactory:
         "claude": "claude-sonnet-5",
         "haiku": "claude-haiku-4-5",
         "haiku45": "claude-haiku-4-5",
-        "opus": "claude-opus-4-8",
+        "opus": "claude-opus-5",
         "opus4": "claude-opus-4-8",
+        "opus5": "claude-opus-5",
         "opus46": "claude-opus-4-6",
         "opus47": "claude-opus-4-7",
         "opus48": "claude-opus-4-8",

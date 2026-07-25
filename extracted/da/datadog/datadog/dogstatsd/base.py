@@ -32,7 +32,7 @@ except ImportError:
 
 # pylint: disable=unused-import
 if sys.version_info[:2] >= (3, 5):
-    from typing import Any, Optional, List, Text, Type, Union, Iterable, Callable, overload  # noqa: F401
+    from typing import Any, Optional, List, Text, Tuple, Type, Union, Iterable, Callable, overload  # noqa: F401
 
 try:
     from typing import SupportsIndex
@@ -49,7 +49,7 @@ from datadog.dogstatsd.context import (
 )
 from datadog.dogstatsd.route import get_default_route
 from datadog.dogstatsd.container import Cgroup
-from datadog.util.compat import text
+from datadog.util.compat import text, urlparse
 from datadog.util.format import normalize_tags, validate_cardinality
 from datadog.version import __version__
 
@@ -179,6 +179,10 @@ UDS_OPTIMAL_PAYLOAD_LENGTH = 8192
 
 # Socket options
 MIN_SEND_BUFFER_SIZE = 32 * 1024
+DEFAULT_SOCKET_CONNECT_TIMEOUT = 0
+UDS_CONNECT_RETRY_INITIAL_BACKOFF = 0.025
+UDS_CONNECT_RETRY_MAX_BACKOFF = 1.0
+UDS_TRANSIENT_CONNECT_ERRORS = set([errno.ENOENT, errno.ECONNREFUSED])
 
 # Mapping of each "DD_" prefixed environment variable to a specific tag name
 DD_ENV_TAGS_MAPPING = {
@@ -265,8 +269,8 @@ class DogStatsd(object):
 
     def __init__(
         self,
-        host=DEFAULT_HOST,                      # type: Text
-        port=DEFAULT_PORT,                      # type: int
+        host=None,                              # type: Optional[Text]
+        port=None,                              # type: Optional[int]
         max_buffer_size=None,                   # type: Optional[int]
         flush_interval=DEFAULT_BUFFERING_FLUSH_INTERVAL,  # type: float
         disable_aggregation=True,               # type: bool
@@ -293,18 +297,27 @@ class DogStatsd(object):
         sender_queue_size=0,                    # type: int
         sender_queue_timeout=0,                 # type: Optional[float]
         track_instance=True,                    # type: bool
+        socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,  # type: Optional[float]
     ):  # type: (...) -> None
         """
         Initialize a DogStatsd object.
 
         >>> statsd = DogStatsd()
 
+        :envvar DD_DOGSTATSD_URL: the connection information for the DogStatsd server.
+        If set, and no connection was provided explicitly, it takes precedence over
+        DD_AGENT_HOST / DD_DOGSTATSD_PORT.
+        Example for a UDP url: `DD_DOGSTATSD_URL=udp://localhost:8125`
+        Example for a UDS url: `DD_DOGSTATSD_URL=unix:///var/run/datadog/dsd.socket`
+        Windows named pipes are currently unsupported.
+        :type DD_DOGSTATSD_URL: string
+
         :envvar DD_AGENT_HOST: the host of the DogStatsd server.
-        If set, it overrides default value.
+        If set, it overrides default value. DD_DOGSTATSD_URL takes precedence over this value.
         :type DD_AGENT_HOST: string
 
         :envvar DD_DOGSTATSD_PORT: the port of the DogStatsd server.
-        If set, it overrides default value.
+        If set, it overrides default value. DD_DOGSTATSD_URL takes precedence over this value.
         :type DD_DOGSTATSD_PORT: integer
 
         :envvar DATADOG_TAGS: Tags to attach to every metric reported by dogstatsd client.
@@ -450,6 +463,11 @@ class DogStatsd(object):
         This option does not affect hostname resolution when using UDP.
         :type socket_timeout: float
 
+        :param socket_connect_timeout: Set the timeout for connecting to a UNIX socket, in seconds. Optional.
+        Transient connection failures are retried within this timeout. If set to zero or None, do not retry.
+        Default: 0 (no retries).
+        :type socket_connect_timeout: float
+
         :param telemetry_socket_timeout: Set timeout for the telemetry socket operations. Optional.
         Effective only if either telemetry_host or telemetry_socket_path are set.
         If sets to zero, never wait if operation can not be completed immediately. If set to None, wait forever.
@@ -485,22 +503,17 @@ class DogStatsd(object):
         # Check for deprecated option
         if max_buffer_size is not None:
             log.warning("The parameter max_buffer_size is now deprecated and is not used anymore")
-        # Check host and port env vars
-        agent_host = os.environ.get("DD_AGENT_HOST")
-        if agent_host and host == DEFAULT_HOST:
-            host = agent_host
+        # Resolve host/port/socket from env vars when not set explicitly. An
+        # explicit constructor argument always wins over any environment variable.
+        host, port, socket_path = self._parse_env_connection_overrides(host, port, socket_path)
 
-        dogstatsd_port = os.environ.get("DD_DOGSTATSD_PORT")
-        if dogstatsd_port and port == DEFAULT_PORT:
-            try:
-                port = int(dogstatsd_port)
-            except ValueError:
-                log.warning(
-                    "Port number provided in DD_DOGSTATSD_PORT env var is not an integer: \
-                %s, using %s as port number",
-                    dogstatsd_port,
-                    port,
-                )
+        # Apply the hard-coded defaults last, once env resolution is done. When a
+        # socket transport is selected these are ignored (host/port become None
+        # below), but resolving them keeps `port` a concrete int for telemetry.
+        if host is None:
+            host = DEFAULT_HOST
+        if port is None:
+            port = DEFAULT_PORT
 
         # Assuming environment variables always override
         telemetry_host = os.environ.get("DD_TELEMETRY_HOST", telemetry_host)
@@ -515,6 +528,7 @@ class DogStatsd(object):
         # Connection
         self._max_buffer_len = max_buffer_len
         self.socket_timeout = socket_timeout
+        self.socket_connect_timeout = socket_connect_timeout
         if socket_path is not None:
             self.socket_path = socket_path  # type: Optional[text]
             self.host = None
@@ -730,6 +744,67 @@ class DogStatsd(object):
         # type: () -> None
         self._telemetry = True
 
+    @staticmethod
+    def _parse_env_connection_overrides(host, port, socket_path):
+        # type: (Optional[Text], Optional[int], Optional[Text]) -> Tuple[Optional[Text], Optional[int], Optional[Text]]
+        """
+        Resolve the connection host/port/socket_path from environment variables,
+        without overriding values already provided explicitly to the constructor.
+
+        DD_DOGSTATSD_URL takes precedence over DD_AGENT_HOST / DD_DOGSTATSD_PORT and
+        is only honored when no connection information was passed explicitly. It
+        supports 'udp://host:port' and 'unix:///path/to/socket' URLs.
+        """
+        dogstatsd_url = os.environ.get("DD_DOGSTATSD_URL")
+        if host is None and port is None and socket_path is None and dogstatsd_url is not None:
+            parsed = urlparse(dogstatsd_url)
+            if parsed.scheme in ("unix", "unixstream", "unixgram"):
+                # The scheme is stripped later by _get_uds_socket (which also uses it
+                # to pick the SOCK_STREAM/SOCK_DGRAM kind), so the full URL is stored
+                # as the socket path.
+                log.debug("DD_DOGSTATSD_URL %r resolved to a unix socket path.", dogstatsd_url)
+                return None, None, dogstatsd_url
+            elif parsed.scheme == "udp":
+                try:
+                    url_port = parsed.port
+                    # Python 2's urlparse does not bounds-check the port.
+                    if url_port is None or url_port < 0 or url_port > 65535:
+                        log.warning(
+                            "DD_DOGSTATSD_URL %r had no or invalid port number, reverting to default %s",
+                            dogstatsd_url, DEFAULT_PORT,
+                        )
+                        url_port = DEFAULT_PORT
+                except ValueError as e:
+                    log.warning(
+                        "DD_DOGSTATSD_URL %r contained an invalid port number, falling back to %d: %s",
+                        dogstatsd_url, DEFAULT_PORT, e,
+                    )
+                    url_port = DEFAULT_PORT
+                return parsed.hostname, url_port, socket_path
+            else:
+                log.warning(
+                    "DD_DOGSTATSD_URL %r had unsupported scheme %r, must be one of "
+                    "'udp://', 'unix://', 'unixstream://', 'unixgram://'",
+                    dogstatsd_url, parsed.scheme,
+                )
+
+        # Fall back to the legacy per-field env vars (only when the arg is unset).
+        agent_host = os.environ.get("DD_AGENT_HOST")
+        if agent_host and host is None:
+            host = agent_host
+
+        dogstatsd_port = os.environ.get("DD_DOGSTATSD_PORT")
+        if dogstatsd_port and port is None:
+            try:
+                port = int(dogstatsd_port)
+            except ValueError:
+                log.warning(
+                    "DD_DOGSTATSD_PORT value %r is not an integer, falling back to default",
+                    dogstatsd_port,
+                )
+
+        return host, port, socket_path
+
     # Note: Invocations of this method should be thread-safe
     def _start_flush_thread(self):
         # type: () -> None
@@ -887,6 +962,7 @@ class DogStatsd(object):
                         self.telemetry_socket = self._get_uds_socket(
                             self.telemetry_socket_path,
                             self.telemetry_socket_timeout,
+                            self.socket_connect_timeout,
                         )
                     else:
                         self.telemetry_socket = self._get_udp_socket(
@@ -899,7 +975,11 @@ class DogStatsd(object):
 
             if not self.socket:
                 if self.socket_path is not None:
-                    self.socket = self._get_uds_socket(self.socket_path, self.socket_timeout)
+                    self.socket = self._get_uds_socket(
+                        self.socket_path,
+                        self.socket_timeout,
+                        self.socket_connect_timeout,
+                    )
                 else:
                     self.socket = self._get_udp_socket(
                         self.host,
@@ -934,8 +1014,8 @@ class DogStatsd(object):
                 log.debug("Socket send buffer increased to %dkb", min_size / 1024)
 
     @classmethod
-    def _get_uds_socket(cls, socket_path, timeout):
-        # type: (Text, Optional[float]) -> _Socket
+    def _get_uds_socket(cls, socket_path, timeout, connect_timeout):
+        # type: (Text, Optional[float], Optional[float]) -> _Socket
         valid_socket_kinds = [socket.SOCK_DGRAM, socket.SOCK_STREAM]
         if socket_path.startswith(UNIX_ADDRESS_DATAGRAM_SCHEME):
             valid_socket_kinds = [socket.SOCK_DGRAM]
@@ -946,26 +1026,55 @@ class DogStatsd(object):
         elif socket_path.startswith(UNIX_ADDRESS_SCHEME):
             socket_path = socket_path[len(UNIX_ADDRESS_SCHEME):]
 
-        last_error = ValueError("Invalid socket path")  # type: Exception
+        last_error = socket.timeout("timed out connecting to UDS socket")  # type: Exception
+        deadline = None
+        if connect_timeout and connect_timeout > 0:
+            deadline = time.time() + connect_timeout
+
         for socket_kind in valid_socket_kinds:
             # py2 stores socket kinds differently than py3, determine the name independently from version
             sk_name = {socket.SOCK_STREAM: "stream", socket.SOCK_DGRAM: "datagram"}[socket_kind]
 
-            try:
-                sock = socket.socket(socket.AF_UNIX, socket_kind)
-                sock.settimeout(timeout)
-                cls._ensure_min_send_buffer_size(sock)
-                sock.connect(socket_path)
-                log.debug("Connected to socket %s with kind %s", socket_path, sk_name)
-                return sock
-            except Exception as e:
-                if sock is not None:
-                    sock.close()
-                log.debug("Failed to connect to %s with kind %s: %s", socket_path, sk_name, e)
-                if getattr(e, "errno", None) == errno.EPROTOTYPE:
-                    last_error = e
-                    continue
-                raise e
+            backoff = UDS_CONNECT_RETRY_INITIAL_BACKOFF
+
+            while deadline is None or time.time() < deadline:
+                sock = None
+                try:
+                    connect_attempt_timeout = timeout
+                    if deadline is not None:
+                        connect_attempt_timeout = deadline - time.time()
+                        if connect_attempt_timeout <= 0:
+                            break
+
+                    sock = socket.socket(socket.AF_UNIX, socket_kind)
+                    sock.settimeout(connect_attempt_timeout)
+                    cls._ensure_min_send_buffer_size(sock)
+                    sock.connect(socket_path)
+                    sock.settimeout(timeout)
+                    log.debug("Connected to socket %s with kind %s", socket_path, sk_name)
+                    return sock
+                except Exception as e:
+                    if sock is not None:
+                        sock.close()
+                    log.debug("Failed to connect to %s with kind %s: %s", socket_path, sk_name, e)
+                    if getattr(e, "errno", None) == errno.EPROTOTYPE:
+                        last_error = e
+                        break
+                    if (
+                        deadline is not None
+                        and getattr(e, "errno", None) in UDS_TRANSIENT_CONNECT_ERRORS
+                    ):
+                        last_error = e
+                        remaining_time = max(0, deadline - time.time())
+                        sleep_time = min(backoff, remaining_time)
+                        if sleep_time > 0:
+                            time.sleep(sleep_time)
+                            backoff = min(backoff * 2, UDS_CONNECT_RETRY_MAX_BACKOFF)
+                            continue
+                    raise e
+            if getattr(last_error, "errno", None) == errno.EPROTOTYPE:
+                continue
+            raise last_error
         raise last_error
 
     @classmethod

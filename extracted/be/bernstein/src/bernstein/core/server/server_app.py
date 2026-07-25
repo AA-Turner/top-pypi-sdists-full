@@ -636,11 +636,18 @@ async def _reaper_loop(store: TaskStore, interval_s: float = 30.0) -> None:
         store.mark_stale_dead()
 
 
-async def _node_reaper_loop(node_reg: NodeRegistry, interval_s: float = 15.0) -> None:
-    """Periodically mark stale cluster nodes as offline."""
+async def _node_reaper_loop(node_reg: NodeRegistry, store: TaskStore, interval_s: float = 15.0) -> None:
+    """Periodically mark stale cluster nodes offline and release their claims.
+
+    A node that stops heartbeating is transitioned ONLINE -> OFFLINE, and any
+    tasks it had claimed are re-queued to OPEN so a surviving worker can pick
+    them up. Without the task release a crashed worker's claims would stay
+    CLAIMED forever with no live agent (#2801).
+    """
     while True:
         await asyncio.sleep(interval_s)
-        node_reg.mark_stale()
+        for node in node_reg.mark_stale():
+            store.reopen_tasks_for_node(node.id)
 
 
 async def _sse_heartbeat_loop(bus: SSEBus, interval_s: float = 15.0) -> None:
@@ -945,15 +952,13 @@ def create_app(
         _nodes_persist = _runtime_dir / "nodes.json"
     node_registry = NodeRegistry(effective_cluster, persist_path=_nodes_persist)
 
-    # Cluster JWT authentication
+    # Cluster JWT authentication. Constructed below, once the API legacy
+    # token is resolved, so the outer middleware and the inner cluster layer
+    # can share one worker-join credential (#2805).
     from bernstein.core.cluster_auth import ClusterAuthConfig, ClusterAuthenticator
 
     _cluster_auth_secret = effective_cluster.auth_token or ""
     cluster_authenticator: ClusterAuthenticator | None = None
-    if effective_cluster.enabled and _cluster_auth_secret:
-        cluster_authenticator = ClusterAuthenticator(
-            ClusterAuthConfig(secret=_cluster_auth_secret, require_auth=True),
-        )
 
     store = TaskStore(jsonl_path, metrics_jsonl_path=metrics_jsonl_path)
     sse_bus = SSEBus()
@@ -967,6 +972,23 @@ def create_app(
     auth_enabled = auth_config.enabled or auth_config.oidc.enabled or auth_config.saml.enabled
     auth_service = AuthService(auth_config, AuthStore(sdd_dir)) if auth_enabled else None
     legacy_auth_token = effective_token or auth_config.legacy_token or None
+
+    # Wire the cluster authenticator with a single worker-join credential
+    # story (#2805): a worker presenting either the cluster secret or the
+    # operator API bearer token authenticates node registration/heartbeat.
+    # The outer SSOAuthMiddleware already accepts the legacy API token on
+    # every path, so teaching the inner cluster layer to accept it too means
+    # one token clears both layers even when a distinct
+    # BERNSTEIN_CLUSTER_AUTH_SECRET is configured.
+    if effective_cluster.enabled and _cluster_auth_secret:
+        _extra_cluster_secrets = tuple(s for s in (legacy_auth_token,) if s and s != _cluster_auth_secret)
+        cluster_authenticator = ClusterAuthenticator(
+            ClusterAuthConfig(
+                secret=_cluster_auth_secret,
+                require_auth=True,
+                shared_secrets=_extra_cluster_secrets,
+            ),
+        )
 
     def _reload_seed_config() -> dict[str, Any]:
         """Reload and persist bernstein.yaml metadata without restarting."""
@@ -989,12 +1011,19 @@ def create_app(
         reaper = asyncio.create_task(_reaper_loop(store))
         # Launch SSE heartbeat loop
         sse_heartbeat = asyncio.create_task(_sse_heartbeat_loop(sse_bus))
-        # Launch node-stale reaper if cluster mode is on
-        node_reaper: asyncio.Task[None] | None = None
-        if effective_cluster.enabled:
-            node_reaper = asyncio.create_task(
-                _node_reaper_loop(node_registry, interval_s=effective_cluster.node_heartbeat_interval_s)
+        # Launch the node-stale reaper whenever the /cluster/nodes routes are
+        # mounted (always) rather than only when cluster auth is enabled. Node
+        # liveness reaping is not part of the auth layer, and a worker can only
+        # register in the auth-off configuration, so gating the reaper behind
+        # the auth flag meant it never ran in any cluster a worker had joined
+        # (#2801).
+        node_reaper: asyncio.Task[None] = asyncio.create_task(
+            _node_reaper_loop(
+                node_registry,
+                store,
+                interval_s=effective_cluster.node_heartbeat_interval_s,
             )
+        )
         yield
         # Shutdown
         reaper.cancel()
@@ -1107,6 +1136,10 @@ def create_app(
     # Empty string disables the check (legacy behaviour).
     expected_resource = auth_config.expected_resource or None
 
+    # In cluster mode the worker credential (the cluster secret) must clear
+    # the outer middleware too, not only the inner cluster route layer (#2805).
+    _mw_cluster_secret = _cluster_auth_secret if (effective_cluster.enabled and _cluster_auth_secret) else None
+
     application.add_middleware(
         SSOAuthMiddleware,
         auth_service=auth_service,
@@ -1114,6 +1147,7 @@ def create_app(
         agent_identity_store=_agent_identity_store,
         auth_disabled=auth_disabled_flag,
         expected_resource=expected_resource,
+        cluster_secret=_mw_cluster_secret,
     )
 
     # Dashboard auth (#2366) - scoped sessions / tokens for the /dashboard
@@ -1216,6 +1250,13 @@ def create_app(
     # ``None`` when key material or the lineage root is unavailable, in which
     # case responses are served unattested rather than not at all.
     application.state.a2a_receipt_issuer = build_receipt_issuer(sdd_dir)  # type: ignore[attr-defined]
+    # Inbound A2A JSON-RPC auth (#2609): API key + OAuth2 client-credentials,
+    # both declared in the agent card. Built from ``BERNSTEIN_A2A_*`` env at
+    # app creation; the JSON-RPC surface is inert unless
+    # ``BERNSTEIN_A2A_SERVER_ENABLED`` is set, so this stays dormant by default.
+    from bernstein.core.protocols.a2a.server_auth import A2AServerAuth
+
+    application.state.a2a_server_auth = A2AServerAuth.from_env()  # type: ignore[attr-defined]
     application.state.acp_handler = acp_handler  # type: ignore[attr-defined]
     application.state.node_registry = node_registry  # type: ignore[attr-defined]
     application.state.cluster_authenticator = cluster_authenticator  # type: ignore[attr-defined]
@@ -1291,6 +1332,7 @@ def create_app(
 
     # WEB-011: Paginated task search - must precede tasks_router so /tasks/search
     # is matched before /tasks/{task_id}.
+    from bernstein.core.routes.a2a_jsonrpc import router as a2a_jsonrpc_router
     from bernstein.core.routes.acp import router as acp_router
     from bernstein.core.routes.agent_comparison import router as agent_comparison_router
     from bernstein.core.routes.api_v1 import build_router as build_api_v1_router
@@ -1390,6 +1432,7 @@ def create_app(
         orchestrator_holds_router,
         review_board_router,
         missions_router,
+        a2a_jsonrpc_router,
     ]
 
     # Fresh per-app router: including route groups mutates the target router,

@@ -16,8 +16,8 @@ import httpx
 import pytest
 
 from smplkit import AsyncJobsClient, JobsClient
-from smplkit.errors import ConflictError, NotFoundError
 from smplkit._generated.jobs.client import AuthenticatedClient
+from smplkit.errors import ConflictError, NotFoundError
 from smplkit.jobs import (
     AsyncJob,
     AsyncRetryPolicy,

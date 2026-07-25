@@ -2151,6 +2151,15 @@ def test_dskb02():
     assert voxnpt == 2744
     assert voxnpl == 3257
     assert voxsiz == pytest.approx(3.320691339664286)
+    assert vtxbds.shape == (3, 2)
+    npt.assert_array_almost_equal(
+        vtxbds,
+        [
+            [-13.08927680684, 12.76278950625],
+            [-11.39423937765, 11.8506],
+            [-9.489559964508, 9.826904163432],
+        ],
+    )
     # cleanup
     spice.dascls(handle)
 
@@ -4118,7 +4127,6 @@ def test_gfdist():
     assert temp_results == expected
 
 
-@pytest.mark.skipif(IS_PYODIDE, reason="Disabled test for Pyodide: flaky test in ci")
 def test_gfevnt():
     spice.furnsh(CoreKernels.testMetaKernel)
     #
@@ -4182,7 +4190,6 @@ def test_gfevnt():
     spice.gfclrh()
 
 
-@pytest.mark.skipif(IS_PYODIDE, reason="Disabled test for Pyodide: flaky test in ci")
 def test_gffove():
     spice.furnsh(CoreKernels.testMetaKernel)
     spice.furnsh(CassiniKernels.cassCk)
@@ -4309,6 +4316,13 @@ def test_gfinth():
     spice.gfinth(2)
     with pytest.raises(spice.stypes.SpiceyError):
         spice.gfinth(0)
+    # gfinth(2) sets the global GF interrupt ("bail") flag, and the gfinth(0)
+    # call above leaves a SPICE error signaled. Clear both so that later GF
+    # tests whose udbail callback reads gfbail() (e.g. test_gffove, test_gfevnt,
+    # test_gfocce) don't see a stale "interrupt received" state and bail out
+    # immediately with an empty result window under randomized test ordering.
+    spice.reset()
+    spice.gfclrh()
 
 
 def test_gfocce():
@@ -6863,9 +6877,6 @@ def test_raxisa():
     npt.assert_array_almost_equal(axout, expected_angout)
 
 
-@pytest.mark.skipif(
-    IS_PYODIDE, reason="writing to file system not supported on Pyodide"
-)
 def test_rdtext():
     from datetime import datetime, timezone
 
@@ -7861,7 +7872,6 @@ def test_spkaps():
     state2 = np.array(spice.spkssb(399, et + 1, "J2000"))
     # qderiv proc
     acc = spice.vlcomg(3, 0.5 / 1.0, state0 + 3, -0.5 / 1.0, state2 + 3)
-    acc = [acc[0], acc[1], acc[2], 0.0, 0.0, 0.0]
     state, lt, dlt = spice.spkaps(301, et, "j2000", "lt+s", stobs, acc)
     expected_lt = 1.3423106103603615
     expected_dlt = 1.073169085424106e-07

@@ -1,20 +1,20 @@
-use std::{fmt::Write, mem};
+use std::{cmp::Ordering, fmt::Write, mem};
 
-use ahash::AHashSet;
+use monty_types::{ResourceError, ResourceTracker};
+use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use super::{MontyIter, PyTrait};
+use super::{CmpOrder, PyTrait, iter::collect_owned_iterable};
 use crate::{
     args::ArgValues,
-    bytecode::{CallResult, VM},
+    bytecode::{CallResult, ContainsVM, RecursionToken, VM},
     defer_drop, defer_drop_mut,
-    exception_private::{ExcType, RunError, RunResult, SimpleException},
-    heap::{DropWithHeap, Heap, HeapData, HeapGuard, HeapId, HeapItem, HeapRead, HeapReadOutput, HeapReader},
+    exception_private::{ExcType, ExcTypeExt, RunError, RunResult, SimpleException},
+    heap::{DropGuard, DropWithContext, Heap, HeapData, HeapId, HeapItem, HeapRead, HeapReadOutput, HeapReader},
     intern::StaticStrings,
-    resource::{ResourceError, ResourceTracker},
     sorting::parse_and_sort,
     types::{
-        Type,
+        LazyHeapSet, Type,
         slice::{normalize_sequence_index, slice_collect_iterator},
     },
     value::{EitherStr, VALUE_SIZE, Value},
@@ -183,7 +183,7 @@ impl List {
                 Ok(Value::Ref(heap_id))
             }
             Some(v) => {
-                let items = MontyIter::new(v, vm)?.collect(vm)?;
+                let items = collect_owned_iterable(v, vm)?;
                 let heap_id = vm.heap.allocate(HeapData::List(Self::new(items)))?;
                 Ok(Value::Ref(heap_id))
             }
@@ -208,6 +208,45 @@ impl<'h> HeapRead<'h, List> {
         self.get(vm.heap).items[index].clone_with_heap(vm.heap)
     }
 
+    /// Lexicographic comparison for lists — the ordering behind `<`/`<=`/`>`/`>=`.
+    ///
+    /// Element-by-element left-to-right; the first non-equal pair decides. If all
+    /// compared elements are equal, the shorter list is less (`[1] < [1, 2]`).
+    /// The first differing pair's [`CmpOrder`] propagates: a `NaN` element makes
+    /// the list [`CmpOrder::Unordered`] (`[nan] < [1]` is `False`), a
+    /// type-mismatched element makes it [`CmpOrder::Incomparable`] (`[1] < ['a']`
+    /// raises `TypeError`). Mirrors [`Tuple::py_cmp`](super::Tuple) — the
+    /// `ListIter` holds the recursion token that bounds nested-container depth.
+    pub(crate) fn py_cmp(&self, other: &Self, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<CmpOrder> {
+        let a_len = self.get(vm.heap).items.len();
+        let b_len = other.get(vm.heap).items.len();
+        let min_len = a_len.min(b_len);
+        let iter = self.iter(vm)?;
+        defer_drop_mut!(iter, vm);
+        while let Some((i, av)) = iter.next_with_index(vm)? {
+            if i >= min_len {
+                break;
+            }
+            let bv = other.clone_item(i, vm);
+            defer_drop!(bv, vm);
+            match av.py_cmp(bv, vm)? {
+                CmpOrder::Ordered(Ordering::Equal) => {}
+                CmpOrder::Ordered(ord) => return Ok(CmpOrder::Ordered(ord)),
+                // A `NaN` element is never `==`-equal, so it is the first
+                // differing pair and the list is unordered (yields `False`).
+                CmpOrder::Unordered => return Ok(CmpOrder::Unordered),
+                // CPython checks `__eq__` first and only orders non-equal pairs, so
+                // equal-but-unorderable elements (e.g. `None == None`) don't block.
+                CmpOrder::Incomparable => {
+                    if !av.py_eq(bv, vm)? {
+                        return Ok(CmpOrder::Incomparable);
+                    }
+                }
+            }
+        }
+        Ok(CmpOrder::Ordered(a_len.cmp(&b_len)))
+    }
+
     /// Clones all items from this list with proper refcount management.
     fn clone_all_items(&self, vm: &mut VM<'h, impl ResourceTracker>) -> Vec<Value> {
         let len = self.get(vm.heap).items.len();
@@ -217,9 +256,119 @@ impl<'h> HeapRead<'h, List> {
         }
         result
     }
+
+    /// Returns a stack-borrowed lending iterator over the list's items,
+    /// holding a recursion-depth token for its entire lifetime.
+    ///
+    /// Named `iter` despite returning a non-stdlib lending iterator (see
+    /// [`ListIter`]) because that's the obvious entry point for "iterate
+    /// this container" — the lending shape is documented on the returned
+    /// type, and exposing `next(vm)` makes it self-evident the result is
+    /// not a [`Iterator`](core::iter::Iterator).
+    #[expect(clippy::iter_not_returning_iterator)]
+    pub(crate) fn iter<R: ResourceTracker>(&self, vm: &mut VM<'h, R>) -> RunResult<ListIter<'_, 'h>> {
+        ListIter::new(self, vm)
+    }
+}
+
+/// Stack-borrowed lending iterator over a [`List`]'s items.
+///
+/// Borrows a [`HeapRead`] for its lifetime, so the heap entry is pinned by the
+/// reader count for the duration of iteration — no extra refcount on the
+/// container is needed.
+///
+/// **Lending shape.** [`next`](Self::next) returns `Option<&Value>` rather
+/// than `Option<Value>`. The iterator itself owns the most-recently-yielded
+/// item in its `current` slot (using [`Value::Undefined`] as the empty
+/// sentinel) and drops the previous item at the start of each `next` call.
+/// The held item is also dropped when the iterator itself is released via
+/// [`DropWithContext`]. This means call sites do **not** need a per-item
+/// `defer_drop!`; the iter manages every item it hands out.
+///
+/// **Recursion guard.** Acquires a [`RecursionToken`] at construction and
+/// releases it via [`DropWithContext`]. The iterator MUST be wrapped in
+/// [`defer_drop_mut!`] so the token (and any in-flight item) is released on
+/// every exit path (success, early `return`, error via `?`). The token is
+/// intentionally non-optional — every iteration of a Python container can
+/// transitively trigger `py_eq` / `py_hash` / `py_repr` / `py_cmp` /
+/// dict-or-set membership, all of which recurse on cyclic structures.
+///
+/// **Mutation safety.** The list length is re-read on every call to `next`,
+/// so items appended during iteration may be visited and shrinking past the
+/// current index halts iteration cleanly rather than panicking on an
+/// out-of-bounds index.
+pub(crate) struct ListIter<'a, 'h> {
+    list: &'a HeapRead<'h, List>,
+    index: usize,
+    token: RecursionToken,
+    /// Most-recently-yielded item. `Value::Undefined` when nothing is held —
+    /// drops on that variant are no-ops, so `next` can unconditionally drop
+    /// the previous slot before fetching the new one.
+    current: Value,
+}
+
+impl<'a, 'h> ListIter<'a, 'h> {
+    fn new<R: ResourceTracker>(list: &'a HeapRead<'h, List>, vm: &mut VM<'h, R>) -> RunResult<Self> {
+        let token = vm.recursion_token()?;
+        Ok(Self {
+            list,
+            index: 0,
+            token,
+            current: Value::Undefined,
+        })
+    }
+
+    /// Advances the iterator and returns a borrow of the next item, or
+    /// `Ok(None)` when the list is exhausted (or has shrunk below the
+    /// current index).
+    ///
+    /// The returned reference is valid until the next call to `next` (or
+    /// until the iterator itself is dropped), at which point the held item
+    /// is released.
+    ///
+    /// Performs a [`check_time`](Heap::check_time) on every call so long
+    /// Rust-side loops cannot bypass the configured timeout.
+    pub(crate) fn next<'i, R: ResourceTracker>(&'i mut self, vm: &mut VM<'h, R>) -> RunResult<Option<&'i Value>> {
+        // Drop the previously-yielded item (no-op when `current` is `Undefined`).
+        mem::replace(&mut self.current, Value::Undefined).drop_with(vm.heap);
+        vm.heap.check_time()?;
+        if self.index >= self.list.get(vm.heap).len() {
+            return Ok(None);
+        }
+        self.current = self.list.get(vm.heap).items[self.index].clone_with_heap(vm.heap);
+        self.index += 1;
+        Ok(Some(&self.current))
+    }
+
+    /// Like [`next`](Self::next), but also returns the 0-based position of
+    /// the yielded item — useful for `zip`-style sibling-container access,
+    /// returning the matching position from search methods, or applying
+    /// per-position range checks.
+    ///
+    /// The position is the index of the item being returned (not the next
+    /// one to read), so the first yielded item has position 0.
+    pub(crate) fn next_with_index<'i, R: ResourceTracker>(
+        &'i mut self,
+        vm: &mut VM<'h, R>,
+    ) -> RunResult<Option<(usize, &'i Value)>> {
+        // Capture before `next` increments `self.index`.
+        let position = self.index;
+        Ok(self.next(vm)?.map(|item| (position, item)))
+    }
+}
+
+impl<'h, C: ContainsVM<'h>> DropWithContext<C> for ListIter<'_, 'h> {
+    fn drop_with(self, container: &mut C) {
+        self.current.drop_with(container);
+        self.token.drop_with(container);
+    }
 }
 
 impl<'h> PyTrait<'h> for HeapRead<'h, List> {
+    fn py_is_iterable(&self, _vm: &VM<'h, impl ResourceTracker>) -> bool {
+        true
+    }
+
     fn py_type(&self, _vm: &VM<'h, impl ResourceTracker>) -> Type {
         Type::List
     }
@@ -274,13 +423,13 @@ impl<'h> PyTrait<'h> for HeapRead<'h, List> {
                         return Err(ExcType::index_error_int_too_large());
                     }
                 } else {
-                    let key_type = key.py_type(vm);
-                    return Err(ExcType::type_error_list_assignment_indices(key_type));
+                    let key_type = key.py_type_name(vm);
+                    return Err(ExcType::type_error_list_assignment_indices(&key_type));
                 }
             }
             _ => {
-                let key_type = key.py_type(vm);
-                return Err(ExcType::type_error_list_assignment_indices(key_type));
+                let key_type = key.py_type_name(vm);
+                return Err(ExcType::type_error_list_assignment_indices(&key_type));
             }
         };
 
@@ -307,25 +456,23 @@ impl<'h> PyTrait<'h> for HeapRead<'h, List> {
         Ok(())
     }
 
-    fn py_eq(&self, other: &Self, vm: &mut VM<'h, impl ResourceTracker>) -> Result<bool, ResourceError> {
-        let a_len = self.get(vm.heap).items.len();
-        if a_len != other.get(vm.heap).items.len() {
-            return Ok(false);
+    fn py_eq_impl(&self, other: &Value, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Option<bool>> {
+        let Some(HeapReadOutput::List(other)) = other.read_heap(vm) else {
+            return Ok(None);
+        };
+        if self.get(vm.heap).items.len() != other.get(vm.heap).items.len() {
+            return Ok(Some(false));
         }
-        let token = vm.heap.incr_recursion_depth()?;
-        defer_drop!(token, vm);
-        for i in 0..a_len {
-            vm.heap.check_time()?;
-            let a_val = self.clone_item(i, vm);
-            let b_val = other.clone_item(i, vm);
-            let result = a_val.py_eq(&b_val, vm);
-            a_val.drop_with_heap(vm);
-            b_val.drop_with_heap(vm);
-            if !result? {
-                return Ok(false);
+        let iter = self.iter(vm)?;
+        defer_drop_mut!(iter, vm);
+        while let Some((i, a)) = iter.next_with_index(vm)? {
+            let b = other.clone_item(i, vm);
+            defer_drop!(b, vm);
+            if !a.py_eq(b, vm)? {
+                return Ok(Some(false));
             }
         }
-        Ok(true)
+        Ok(Some(true))
     }
 
     fn py_bool(&self, vm: &mut VM<'h, impl ResourceTracker>) -> bool {
@@ -336,7 +483,7 @@ impl<'h> PyTrait<'h> for HeapRead<'h, List> {
         &self,
         f: &mut impl Write,
         vm: &mut VM<'h, impl ResourceTracker>,
-        heap_ids: &mut AHashSet<HeapId>,
+        heap_ids: &mut LazyHeapSet,
     ) -> RunResult<()> {
         let len = self.get(vm.heap).len();
         repr_sequence_fmt('[', ']', len, |heap, i| &self.get(heap).as_slice()[i], f, vm, heap_ids)
@@ -400,11 +547,21 @@ impl<'h> PyTrait<'h> for HeapRead<'h, List> {
         }
 
         let Some(method) = attr.static_string() else {
-            args.drop_with_heap(vm);
+            args.drop_with(vm);
             return Err(ExcType::attribute_error(Type::List, attr.as_str(vm.interns)));
         };
 
         call_list_method(self, method, args, vm).map(CallResult::Value)
+    }
+
+    fn py_iter(&self, self_id: Option<HeapId>, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Value> {
+        let list_id = self_id.expect("heap values have an id");
+        let iterator = vm.heap.allocate(HeapData::ListIterator(ListIterator {
+            list: list_id,
+            index: 0,
+        }))?;
+        vm.heap.inc_ref(list_id);
+        Ok(Value::Ref(iterator))
     }
 }
 
@@ -472,7 +629,7 @@ fn call_list_method<'h>(
         }
         // Note: list.sort is handled by py_call_attr which intercepts it before reaching here
         _ => {
-            args.drop_with_heap(heap);
+            args.drop_with(heap);
             Err(ExcType::attribute_error(Type::List, method.into()))
         }
     }
@@ -486,8 +643,8 @@ fn list_insert<'h>(
 ) -> RunResult<Value> {
     let (index_obj, item) = args.get_two_args("insert", vm.heap)?;
     defer_drop!(index_obj, vm);
-    let mut item_guard = HeapGuard::new(item, vm);
-    let vm = item_guard.heap();
+    let mut item_guard = DropGuard::new(item, vm);
+    let vm = item_guard.ctx();
     // Python's insert() handles negative indices by adding len
     // If still negative after adding len, clamps to 0
     // If >= len, appends to end
@@ -522,7 +679,7 @@ fn list_pop<'h>(
     // Python raises TypeError for bad index type even on empty list.
     let index_i64 = if let Some(v) = index_arg {
         let result = v.as_int(vm);
-        v.drop_with_heap(vm);
+        v.drop_with(vm);
         result?
     } else {
         -1
@@ -559,16 +716,15 @@ fn list_remove<'h>(
     let value = args.get_one_arg("list.remove", vm.heap)?;
     defer_drop!(value, vm);
 
-    // Find the first matching element
     let mut found_idx = None;
-    let len = list.get(vm.heap).len();
-    for i in 0..len {
-        vm.heap.check_time()?;
-        let item = list.get(vm.heap).items[i].clone_with_heap(vm.heap);
-        defer_drop!(item, vm);
-        if value.py_eq(item, vm)? {
-            found_idx = Some(i);
-            break;
+    {
+        let iter = list.iter(vm)?;
+        defer_drop_mut!(iter, vm);
+        while let Some((i, item)) = iter.next_with_index(vm)? {
+            if value.py_eq(item, vm)? {
+                found_idx = Some(i);
+                break;
+            }
         }
     }
 
@@ -576,7 +732,7 @@ fn list_remove<'h>(
         Some(idx) => {
             // Remove the element and drop its refcount
             let removed = list.get_mut(vm.heap).items.remove(idx);
-            removed.drop_with_heap(vm.heap);
+            removed.drop_with(vm.heap);
             Ok(Value::None)
         }
         None => Err(ExcType::value_error_remove_not_in_list()),
@@ -587,7 +743,7 @@ fn list_remove<'h>(
 ///
 /// Removes all items from the list.
 fn list_clear<'h>(list: &mut HeapRead<'h, List>, vm: &mut VM<'h, impl ResourceTracker>) {
-    mem::take(&mut list.get_mut(vm.heap).items).drop_with_heap(vm);
+    mem::take(&mut list.get_mut(vm.heap).items).drop_with(vm);
     // Note: contains_refs stays true even if all refs removed, per conservative GC strategy
 }
 
@@ -609,7 +765,7 @@ fn list_extend<'h>(
     vm: &mut VM<'h, impl ResourceTracker>,
 ) -> RunResult<Value> {
     let iterable = args.get_one_arg("list.extend", vm.heap)?;
-    let items: SmallVec<[_; 2]> = MontyIter::new(iterable, vm)?.collect(vm)?;
+    let items: SmallVec<[_; 2]> = collect_owned_iterable(iterable, vm)?;
 
     // Batch memory check for all items at once, then extend
     vm.heap.track_growth(items.len() * VALUE_SIZE)?;
@@ -651,16 +807,18 @@ fn list_index<'h>(
     };
 
     // Search for the value in the specified range
-    for i in start..end {
-        vm.heap.check_time()?;
-        let item = list.get(vm.heap).items[i].clone_with_heap(vm);
-        defer_drop!(item, vm);
-        if value.py_eq(item, vm)? {
-            let idx = i64::try_from(i).expect("index exceeds i64::MAX");
-            return Ok(Value::Int(idx));
+    let iter = list.iter(vm)?;
+    defer_drop_mut!(iter, vm);
+    while let Some((idx, item)) = iter.next_with_index(vm)? {
+        if idx >= end {
+            // No further matches possible inside [start, end).
+            break;
+        }
+        if idx >= start && value.py_eq(item, vm)? {
+            let i64_idx = i64::try_from(idx).expect("index exceeds i64::MAX");
+            return Ok(Value::Int(i64_idx));
         }
     }
-
     Err(ExcType::value_error_not_in_list())
 }
 
@@ -676,11 +834,9 @@ fn list_count<'h>(
     defer_drop!(value, vm);
 
     let mut count: usize = 0;
-    let len = list.get(vm.heap).len();
-    for i in 0..len {
-        vm.heap.check_time()?;
-        let item = list.get(vm.heap).items[i].clone_with_heap(vm);
-        defer_drop!(item, vm);
+    let iter = list.iter(vm)?;
+    defer_drop_mut!(iter, vm);
+    while let Some(item) = iter.next(vm)? {
         if value.py_eq(item, vm)? {
             count += 1;
         }
@@ -751,13 +907,13 @@ pub(crate) fn repr_sequence_fmt<'h, T: ResourceTracker>(
     get_item: impl for<'r> Fn(&'r HeapReader<'h, T>, usize) -> &'r Value,
     f: &mut impl Write,
     vm: &mut VM<'h, T>,
-    heap_ids: &mut AHashSet<HeapId>,
+    heap_ids: &mut LazyHeapSet,
 ) -> RunResult<()> {
     // Check depth limit before recursing
-    let Ok(token) = vm.heap.incr_recursion_depth() else {
+    let Ok(mut guard) = vm.recursion_guard() else {
         return Ok(f.write_str("...")?);
     };
-    defer_drop!(token, vm);
+    let vm = &mut *guard;
 
     f.write_char(start)?;
     for i in 0..len {
@@ -777,16 +933,88 @@ pub(crate) fn repr_sequence_fmt<'h, T: ResourceTracker>(
     Ok(())
 }
 
+/// Iterates over a list while observing changes to its current contents.
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct ListIterator {
+    /// Owned reference to the list under iteration.
+    list: HeapId,
+    /// Index of the next item to yield.
+    index: usize,
+}
+
+impl ListIterator {
+    /// Returns the list kept alive by this iterator.
+    pub(crate) fn list_id(&self) -> HeapId {
+        self.list
+    }
+
+    /// Returns the number of items remaining in the list's current contents.
+    pub(crate) fn size_hint(&self, heap: &Heap<impl ResourceTracker>) -> usize {
+        let HeapData::List(list) = heap.get(self.list) else {
+            unreachable!("list iterator must reference a list")
+        };
+        list.len().saturating_sub(self.index)
+    }
+}
+
+impl HeapItem for ListIterator {
+    fn py_estimate_size(&self) -> usize {
+        mem::size_of::<Self>()
+    }
+
+    fn py_dec_ref_ids(&mut self, stack: &mut Vec<HeapId>) {
+        stack.push(self.list);
+    }
+}
+
+impl<'h> PyTrait<'h> for HeapRead<'h, ListIterator> {
+    fn py_is_iterable(&self, _vm: &VM<'h, impl ResourceTracker>) -> bool {
+        true
+    }
+
+    fn py_type(&self, _: &VM<'h, impl ResourceTracker>) -> Type {
+        Type::ListIterator
+    }
+
+    fn py_len(&self, _: &VM<'h, impl ResourceTracker>) -> Option<usize> {
+        None
+    }
+
+    fn py_eq_impl(&self, _: &Value, _: &mut VM<'h, impl ResourceTracker>) -> RunResult<Option<bool>> {
+        Ok(None)
+    }
+
+    fn py_iter(&self, self_id: Option<HeapId>, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Value> {
+        let self_id = self_id.expect("heap values have an id");
+        vm.heap.inc_ref(self_id);
+        Ok(Value::Ref(self_id))
+    }
+
+    fn py_next(&mut self, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Option<Value>> {
+        let (list_id, index) = {
+            let iterator = self.get(vm.heap);
+            (iterator.list, iterator.index)
+        };
+        let item = match vm.heap.get(list_id) {
+            HeapData::List(list) => list.items.get(index).map(|item| item.clone_with_heap(vm.heap)),
+            _ => unreachable!("list iterator must reference a list"),
+        };
+        if item.is_some() {
+            self.get_mut(vm.heap).index += 1;
+        }
+        Ok(item)
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use monty_types::{AssertMessageAnnotations, NoLimitTracker, PrintWriter};
     use num_bigint::BigInt;
 
     use super::*;
     use crate::{
-        PrintWriter,
         heap::{Heap, HeapReader},
         intern::{InternerBuilder, Interns},
-        resource::NoLimitTracker,
         types::LongInt,
     };
 
@@ -827,7 +1055,13 @@ mod tests {
         heap.inc_ref(index_id);
 
         let result = HeapReader::with(&mut heap, &mut interns, |reader, interns| {
-            let mut vm = VM::new(Vec::new(), reader, interns, PrintWriter::Disabled);
+            let mut vm = VM::new(
+                Vec::new(),
+                reader,
+                interns,
+                PrintWriter::Disabled,
+                AssertMessageAnnotations::DEFAULT_MAX_BYTES.get(),
+            );
             let HeapReadOutput::List(mut list) = vm.heap.read(list_id) else {
                 panic!("expected list");
             };
@@ -843,7 +1077,7 @@ mod tests {
         assert!(matches!(list.as_slice()[1], Value::Int(99)));
 
         // Clean up
-        Value::Ref(list_id).drop_with_heap(&mut heap);
+        Value::Ref(list_id).drop_with(&mut heap);
     }
 
     /// Tests py_setitem with a negative LongInt index that fits in i64.
@@ -860,7 +1094,13 @@ mod tests {
         heap.inc_ref(index_id);
 
         let result = HeapReader::with(&mut heap, &mut interns, |reader, interns| {
-            let mut vm = VM::new(Vec::new(), reader, interns, PrintWriter::Disabled);
+            let mut vm = VM::new(
+                Vec::new(),
+                reader,
+                interns,
+                PrintWriter::Disabled,
+                AssertMessageAnnotations::DEFAULT_MAX_BYTES.get(),
+            );
             let HeapReadOutput::List(mut list) = vm.heap.read(list_id) else {
                 panic!("expected list");
             };
@@ -875,7 +1115,7 @@ mod tests {
         };
         assert!(matches!(list.as_slice()[2], Value::Int(99)));
 
-        Value::Ref(list_id).drop_with_heap(&mut heap);
+        Value::Ref(list_id).drop_with(&mut heap);
     }
 
     /// Tests py_setitem with i64::MAX as a LongInt index.
@@ -890,7 +1130,13 @@ mod tests {
         heap.inc_ref(index_id);
 
         let result = HeapReader::with(&mut heap, &mut interns, |reader, interns| {
-            let mut vm = VM::new(Vec::new(), reader, interns, PrintWriter::Disabled);
+            let mut vm = VM::new(
+                Vec::new(),
+                reader,
+                interns,
+                PrintWriter::Disabled,
+                AssertMessageAnnotations::DEFAULT_MAX_BYTES.get(),
+            );
             let HeapReadOutput::List(mut list) = vm.heap.read(list_id) else {
                 panic!("expected list");
             };
@@ -899,6 +1145,6 @@ mod tests {
 
         assert!(result.is_err());
 
-        Value::Ref(list_id).drop_with_heap(&mut heap);
+        Value::Ref(list_id).drop_with(&mut heap);
     }
 }

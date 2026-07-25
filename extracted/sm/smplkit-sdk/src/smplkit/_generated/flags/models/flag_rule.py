@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
-
-from typing import cast
 
 if TYPE_CHECKING:
     from ..models.flag_rule_logic import FlagRuleLogic
@@ -31,7 +29,7 @@ class FlagRule:
 
     logic: FlagRuleLogic
     value: Any
-    description: None | str | Unset = UNSET
+    description: str | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -39,7 +37,7 @@ class FlagRule:
 
         value = self.value
 
-        description: None | str | Unset
+        description: str | Unset | None
         if isinstance(self.description, Unset):
             description = UNSET
         else:
@@ -67,7 +65,7 @@ class FlagRule:
 
         value = d.pop("value")
 
-        def _parse_description(data: object) -> None | str | Unset:
+        def _parse_description(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

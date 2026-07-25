@@ -9,6 +9,55 @@ Tailored for Acousto-Optic Tomography (AOT) matrix pipelines where N represents 
 and T represents temporal propagation frames.
 Note : Algorithm handles both real and complex data (4-phase quadrature representation) seamlessly, 
 with dynamic kernel selection based on data type.
+
+=============================================================================
+MATHEMATICAL FRAMEWORK & OPTIMIZATION THEORY:
+=============================================================================
+
+1. Saddle-Point Optimization Problem (Chambolle-Pock Framework):
+   We seek to solve a nonsmooth convex optimization problem involving a data fidelity term 
+   and a total variation (TV) regularization prior subject to non-negativity:
+   
+       minimize_{λ >= 0}  { 0.5 * ||A * λ - y||_2^2 + β * ||grad λ||_1 }
+
+   Using convex duality, this is cast as a saddle-point problem:
+   
+       min_{λ >= 0} max_{q, p}  { <A * λ, q> - 0.5 * ||q||_2^2 - <q, y> + <grad λ, p> - σ_p * δ_{|p| <= β}(p) }
+
+   where:
+   - A is the forward system matrix (SMatrix).
+   - q is the dual variable associated with the data fidelity term.
+   - p = (p_x, p_z) is the dual variable associated with the spatial gradient operator (∇λ).
+   - β scales the dual feasible set (L_∞ norm ball for isotropic TV).
+
+2. Dual Update Steps:
+   - Data Fidelity Dual Variable (Proximal operator of the conjugate data term):
+     
+       q_{k+1} = (q_k + σ_q * (A * bar{λ}_k - y)) / (1 + σ_q)
+     
+   - Regularization Dual Variable (Gradient ascent followed by point-wise projection onto the L_∞ ball):
+     
+       p_{k+1} = P_{|p| <= β} (p_k + σ_p * grad bar{λ}_k)
+
+3. Primal Update & Extrapolation (Nesterov-like Overrelaxation):
+   - Primal variable update via backward projection and divergence operator, combined with 
+     an orthogonal projection onto the non-negativity orthant R_+^{Z * X}:
+     
+       λ_{k+1} = max(0, λ_k - τ * (A^H q_{k+1} + div p_{k+1}))
+     
+   - Extrapolation step for the next iteration:
+     
+       λ_bar_{k+1} = λ_{k+1} + θ * (λ_{k+1} - λ_k)
+
+4. Step Size Rules & Convergence Bounds:
+   To ensure convergence, the primal step size τ and dual step sizes σ_q, σ_p 
+   satisfy the operator norm condition based on the maximum singular value of A and the gradient operator:
+   
+       τ * σ * ||K||^2 <= 1
+   
+   - For diagonal preconditioning, vector-valued step sizes are computed following Ehrhardt et al. (2019) 
+     using absolute row and column sums of A and the discrete finite-difference stencil weights.
+=============================================================================
 """
 
 import warnings
@@ -32,11 +81,11 @@ except ImportError:
 
 if CUPY_AVAILABLE:
     pdhg_gaussian_kernel__REAL = cp.ElementwiseKernel(
-        'float32 q_in, float32 Ax_bar, float32 y, float32 sigma, bool mask',
+        'float32 q_in, float32 Alambda_bar, float32 y, float32 sigma, bool mask',
         'float32 q_out',
         '''
         if (mask) {
-            q_out = (q_in + sigma * (Ax_bar - y)) / (1.0f + sigma);
+            q_out = (q_in + sigma * (Alambda_bar - y)) / (1.0f + sigma);
         } else {
             q_out = q_in;
         }
@@ -45,11 +94,11 @@ if CUPY_AVAILABLE:
     )
 
     pdhg_gaussian_kernel__COMPLEX = cp.ElementwiseKernel(
-        'complex64 q_in, complex64 Ax_bar, complex64 y, float32 sigma, bool mask',
+        'complex64 q_in, complex64 Alambda_bar, complex64 y, float32 sigma, bool mask',
         'complex64 q_out',
         '''
         if (mask) {
-            q_out = (q_in + sigma * (Ax_bar - y)) / (1.0f + sigma);
+            q_out = (q_in + sigma * (Alambda_bar - y)) / (1.0f + sigma);
         } else {
             q_out = q_in;
         }
@@ -160,11 +209,9 @@ def calculate_step_size_PDHG(
 
     return tau_vec, sigma_q_vec, float(sigma_p)
 
-
 def PDHG(
     SMatrix: Union['SMatrix_DENSE', 'SMatrix_CSR', 'SMatrix_SELL'],
     y: Union[np.ndarray, 'cp.ndarray'],
-    lambda_init: Optional[Union[np.ndarray, 'cp.ndarray']] = None,
     numIterations: int = 100,
     beta: float = 1.0,            
     theta: float = 1.0,        
@@ -240,28 +287,24 @@ def PDHG(
     ZX = Z * X
     NT = SMatrix.N * SMatrix.T
 
-    # 1. Primal initialization (λ^(0) and λ_bar^(0))
-    if lambda_init is not None:
-        lambda_flat = xp.asarray(lambda_init, dtype=xp.float32).flatten().copy()
-    else:
-        lambda_flat = xp.zeros(ZX, dtype=xp.float32)
-
-    x_bar = lambda_flat.copy() 
-
     if SMatrix.T != y.shape[0] or SMatrix.N != y.shape[1]:
         raise ValueError(f"[AOT-biomaps] Shape mismatch: y {y.shape} vs SMatrix (T={SMatrix.T}, N={SMatrix.N})")
 
+    # Adapt data dtype based on whether the matrix is complex (4-phase quadrature) or real
     data_dtype = xp.complex64 if SMatrix.isComplexSMatrix else xp.float32
 
+    # Normalize data y
     y_max = float(np.max(np.abs(y))) if SMatrix.isComplexSMatrix else float(np.max(y))
     if y_max > 0:
         y_norm = y / y_max 
+
     y_flat = xp.asarray(y_norm.T.flatten().astype(data_dtype))
 
-    # 2. Dual variables initialization (q and p)
+    # Variables initialization
+    lambda_flat = xp.zeros(ZX, dtype=xp.float32)
+    lambda_bar = lambda_flat.copy() 
     q = xp.zeros(NT, dtype=data_dtype)
-    y_data = y_flat.copy()
-    subset_mask = xp.ones(NT, dtype=xp.bool_)
+    subset_mask = xp.ones(NT, dtype=xp.bool_) # for SPDHG subset selection
     
     p_x = xp.zeros(ZX, dtype=xp.float32)
     p_z = xp.zeros(ZX, dtype=xp.float32)
@@ -269,12 +312,9 @@ def PDHG(
     emission_indices = np.random.permutation(SMatrix.N)
     subset_slices = np.array_split(emission_indices, num_subsets)
 
-    # 3. Step sizes configuration (τ, σ_q, σ_p)
+    # Step sizes configuration (τ, σ_q, σ_p)
     if tau == "auto" or sigma == "auto":
-        tau_res, sigma_q_res, sigma_p = calculate_step_size_PDHG(
-            SMatrix, preconditioner_type, num_subsets, numIterations_stepCalculation, show_logs
-        )
-        
+        tau_res, sigma_q_res, sigma_p = calculate_step_size_PDHG(SMatrix, preconditioner_type, num_subsets, numIterations_stepCalculation, show_logs)
         tau_vec = xp.asarray(tau_res, dtype=xp.float32) if isinstance(tau_res, (np.ndarray, cp.ndarray)) else xp.full(ZX, tau_res, dtype=xp.float32)
         sigma_q = xp.asarray(sigma_q_res, dtype=xp.float32) if isinstance(sigma_q_res, (np.ndarray, cp.ndarray)) else xp.full(NT, sigma_q_res, dtype=xp.float32)
     else:
@@ -282,7 +322,6 @@ def PDHG(
         sigma_p = sigma
         tau_vec = xp.full(ZX, tau, dtype=xp.float32)
 
-    # 4. Storage & logging preparation
     save_indices = np.unique(np.append(np.arange(0, numIterations, max(1, numIterations // max_saves)), numIterations - 1)).tolist()
     saved_lambda, saved_indices_list = [], []
     cost_history = [] if isCostFunction else None
@@ -290,19 +329,16 @@ def PDHG(
 
     algo_name = f"SPDHG (Chambolle-Pock) ({num_subsets} subsets)" if num_subsets > 1 else "PDHG (Chambolle-Pock)"
     prec_str = preconditioner_type.name.replace("_", " ")
-    cplx_str = "4-phases quadrature " if SMatrix.isComplexSMatrix else ""
-    description = f"[AOT-biomaps] {cplx_str}{algo_name} --- ({SMatrix.matrix_type.name}) --- {prec_str} --- {'WITH' if withTumor else 'WITHOUT'} TUMOR --- {SMatrix.device.upper()}"
+    cplx_str = "COMPLEX (4-phases quadrature) " if SMatrix.isComplexSMatrix else "REAL "
+    description = f"[AOT-biomaps] {cplx_str}{algo_name} --- ({SMatrix.matrix_type.name}) --- {prec_str} --- {'WITH' if withTumor else 'WITHOUT'} TUMOR --- DEVICE: {SMatrix.device.upper()}"
     
     iterator = trange(numIterations, desc=description) if show_logs else range(numIterations)
 
     # ==========================================================
-    # 5. MAIN OPTIMIZATION LOOP
+    # MAIN OPTIMIZATION LOOP
     # ==========================================================
     for it in iterator:
-        prev_lambda = lambda_flat.copy()
-
-        Ax_bar = forward_projection(SMatrix, x_bar)
-
+        # Stochastic subset selection for SPDHG
         if num_subsets > 1:
             if it % reshuffle_period == 0:
                 subset_slices = np.array_split(np.random.permutation(SMatrix.N), num_subsets)
@@ -310,17 +346,18 @@ def PDHG(
             for emis in subset_slices[it % num_subsets]:
                 subset_mask[emis * SMatrix.T : (emis + 1) * SMatrix.T] = True
 
-        # --- DUAL UPDATE (Data Fidelity Proximal Operator) ---
-        if is_gpu:
-            if SMatrix.isComplexSMatrix:
-                pdhg_gaussian_kernel__COMPLEX(q, Ax_bar, y_data, sigma_q, subset_mask, q)
-            else:
-                pdhg_gaussian_kernel__REAL(q, Ax_bar, y_data, sigma_q, subset_mask, q)
-        else:
-            q[subset_mask] = (q[subset_mask] + sigma_q[subset_mask] * (Ax_bar[subset_mask] - y_data[subset_mask])) / (1.0 + sigma_q[subset_mask])
+        prev_lambda = lambda_flat.copy()
 
-        # --- DUAL UPDATE (Regularization Total Variation Dual Ascent) ---
-        grad_x, grad_z = gradient_2d(SMatrix, x_bar)
+        Alambda_bar = forward_projection(SMatrix, lambda_bar)
+
+        # --- DUAL UPDATE (Data Fidelity Proximal Operator) --- q = (q + σ_q * (A * lambda_bar - y)) / (1 + σ_q)
+        if is_gpu:
+            pdhg_gaussian_kernel__COMPLEX(q, Alambda_bar, y_flat, sigma_q, subset_mask, q) if SMatrix.isComplexSMatrix else pdhg_gaussian_kernel__REAL(q, Alambda_bar, y_flat, sigma_q, subset_mask, q)
+        else:
+            q[subset_mask] = (q[subset_mask] + sigma_q[subset_mask] * (Alambda_bar[subset_mask] - y_flat[subset_mask])) / (1.0 + sigma_q[subset_mask])
+
+        # --- DUAL UPDATE (Regularization Total Variation Dual Ascent) --- 
+        grad_x, grad_z = gradient_2d(SMatrix, lambda_bar)
         p_x += sigma_p * grad_x
         p_z += sigma_p * grad_z
 
@@ -328,44 +365,29 @@ def PDHG(
         p_x, p_z = p_projected[:ZX], p_projected[ZX:]
 
         # --- PRIMAL UPDATE & EXTRAPOLATION ---
-        backproj_q_raw = backward_projection(SMatrix, q)
-        backproj_q = xp.real(backproj_q_raw) if SMatrix.isComplexSMatrix else backproj_q_raw
-            
+        backproj_q = xp.ascontiguousarray(xp.real(backward_projection(SMatrix, q)), dtype=xp.float32) if SMatrix.isComplexSMatrix else xp.ascontiguousarray(backward_projection(SMatrix, q), dtype=xp.float32)
+
         div_p = divergence_2d(SMatrix, p_x, p_z)
 
         if is_gpu:
-            pdhg_primal_kernel(
-                lambda_flat.astype(xp.float32, copy=False),
-                backproj_q.astype(xp.float32, copy=False),
-                div_p.astype(xp.float32, copy=False),
-                tau_vec.astype(xp.float32, copy=False),
-                float(theta),
-                lambda_flat,
-                x_bar
-            )
+            pdhg_primal_kernel(lambda_flat.astype(xp.float32, copy=False), backproj_q.astype(xp.float32, copy=False), div_p.astype(xp.float32, copy=False), tau_vec.astype(xp.float32, copy=False), float(theta), lambda_flat, lambda_bar)
         else:
             lambda_flat = lambda_flat - tau_vec * backproj_q - tau_vec * div_p
             np.maximum(lambda_flat, 0.0, out=lambda_flat)
-            x_bar = lambda_flat + theta * (lambda_flat - prev_lambda)
+            lambda_bar = lambda_flat + theta * (lambda_flat - prev_lambda)
 
-        # --- COST FUNCTION & STOPPING CRITERIA ---
         if isCostFunction:
             Ax = forward_projection(SMatrix, lambda_flat)
             gx_eval, gz_eval = gradient_2d(SMatrix, lambda_flat)
             tv_penalty = beta * float(xp.sum(xp.sqrt(gx_eval**2 + gz_eval**2 + 1e-12)))
-
-            fidelity = 0.5 * float(xp.vdot(Ax - y_data, Ax - y_data).real)
+            fidelity = 0.5 * float(xp.vdot(Ax - y_flat, Ax - y_flat).real)
+            # F(x) = ½ ||A * λ - y||² + β||∇x||_1
             cost_history.append(fidelity + tv_penalty)
 
         if stop_criterion != StopCriterionType.MAX_ITERATIONS:
             ground_truth = SMatrix.experiment.OpticImage.phantom if withTumor else SMatrix.experiment.OpticImage.laser.intensity
-            
-            gradient = None
-            if stop_criterion == StopCriterionType.GRADIENT_NORM:
-                gradient = backproj_q + div_p
-                
+            gradient = backproj_q + div_p if stop_criterion == StopCriterionType.GRADIENT_NORM else None
             isStop, val = check_stopping_criterion(SMatrix, lambda_flat, prev_lambda, stop_criterion, stop_threshold, window_size=stop_window_size, history=cost_history, ground_truth=ground_truth, gradient=gradient, window_history=window_history)
-            
             if show_logs and show_criterion:
                 iterator.set_postfix_str(f"{stop_criterion.name}: {val:.2e}")
             if isStop:

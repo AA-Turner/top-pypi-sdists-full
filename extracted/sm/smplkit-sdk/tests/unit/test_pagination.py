@@ -14,7 +14,6 @@ from smplkit._generated.flags.types import UNSET as _FLAGS_UNSET
 from smplkit._helpers import PAGE_SIZE
 from smplkit.clients import AsyncSmplClient, SmplClient
 
-
 # ---------------------------------------------------------------------------
 # Helpers — shared response/resource builders
 # ---------------------------------------------------------------------------

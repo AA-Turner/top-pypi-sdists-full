@@ -32,7 +32,6 @@ from ctypes import (
     c_char,
     c_char_p,
     c_void_p,
-    cast,
     RTLD_GLOBAL,
 )
 from ctypes.util import find_library
@@ -185,9 +184,7 @@ __author__ = "AndrewAnnex"
 # get the cspice_flavor if present
 cspice_flavor = None
 if hasattr(libspice, "cspice_flavor"):
-    ref = cast(libspice.cspice_flavor, c_int_p)
-    if ref is not None:
-        cspice_flavor = ref.contents.value
+    cspice_flavor = c_int.in_dll(libspice, "cspice_flavor").value
 
 # ######################################################################################################################
 # A
@@ -454,7 +451,7 @@ libspice.dafrfr_c.argtypes = [
     c_int_p,
     c_int_p,
 ]
-libspice.dafrs_c.argtype = [c_double_p]
+libspice.dafrs_c.argtypes = [c_double_p]
 libspice.dafus_c.argtypes = [c_double_p, c_int, c_int, c_double_p, c_int_p]
 libspice.dasac_c.argtypes = [c_int, c_int, c_int, c_void_p]
 libspice.dasadc_c.argtypes = [c_int, c_int, c_int, c_int, c_int, c_void_p]
@@ -623,7 +620,7 @@ libspice.dskb02_c.argtypes = [
     c_int_p,
     c_int_p,
     c_int_p,
-    ((c_double * 3) * 2),
+    ((c_double * 2) * 3),
     c_double_p,
     (c_double * 3),
     (c_int * 3),
@@ -1109,7 +1106,7 @@ libspice.gffove_c.argtypes = [
     s_cell_p,
 ]
 libspice.gfinth_c.argtypes = [c_int]
-libspice.gfilum_c.argtupes = [
+libspice.gfilum_c.argtypes = [
     c_char_p,
     c_char_p,
     c_char_p,
@@ -1490,7 +1487,7 @@ libspice.latcyl_c.argtypes = [
     c_double_p,
     c_double_p,
 ]
-libspice.latrec_c.argtypes = [c_double, c_double, c_double, (c_double) * 3]
+libspice.latrec_c.argtypes = [c_double, c_double, c_double, (c_double * 3)]
 libspice.latsph_c.argtypes = [
     c_double,
     c_double,
@@ -1722,7 +1719,7 @@ libspice.pltnrm_c.argtypes = [
 ]
 libspice.pltvol_c.argtypes = [c_int, c_void_p, c_int, c_void_p]
 libspice.pltvol_c.restype = c_double
-libspice.polyds_c.argtype = [c_double_p, c_int, c_int, c_double, c_double_p]
+libspice.polyds_c.argtypes = [c_double_p, c_int, c_int, c_double, c_double_p]
 libspice.pos_c.argtypes = [c_char_p, c_char_p, c_int]
 libspice.pos_c.restype = c_int
 libspice.posr_c.argtypes = [c_char_p, c_char_p, c_int]
@@ -1928,7 +1925,7 @@ libspice.spkaps_c.argtypes = [
     c_char_p,
     c_char_p,
     (c_double * 6),
-    (c_double * 6),
+    (c_double * 3),
     (c_double * 6),
     c_double_p,
     c_double_p,
@@ -2533,9 +2530,9 @@ libspice.vlcomg_c.argtypes = [
 libspice.vminug_c.argtypes = [c_double_p, c_int, c_double_p]
 libspice.vminus_c.argtypes = [(c_double * 3), (c_double * 3)]
 libspice.vnorm_c.restype = c_double
-libspice.vnorm_c.argstype = [stypes.empty_double_vector(3)]
+libspice.vnorm_c.argtypes = [c_double * 3]
 libspice.vnormg_c.restype = c_double
-libspice.vnormg_c.argstype = [c_double_p, c_int]
+libspice.vnormg_c.argtypes = [c_double_p, c_int]
 libspice.vpack_c.argtypes = [c_double, c_double, c_double, (c_double * 3)]
 libspice.vperp_c.argtypes = [(c_double * 3), (c_double * 3), (c_double * 3)]
 libspice.vprjp_c.argtypes = [(c_double * 3), s_plan_p, (c_double * 3)]

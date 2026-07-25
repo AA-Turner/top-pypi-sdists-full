@@ -207,6 +207,8 @@ class Master:
         self.seed_n_key_dll: str | None = self.config.seed_n_key_dll
         self.seed_n_key_function: Callable | None = self.config.seed_n_key_function
         self.seed_n_key_dll_same_bit_width: bool = self.config.seed_n_key_dll_same_bit_width
+        self.checksum_dll: str | None = self.config.checksum_dll
+        self.checksum_dll_same_bit_width: bool = self.config.checksum_dll_same_bit_width
         self.disconnect_response_optional: bool = self.config.disconnect_response_optional
 
         # Initialize slave properties
@@ -826,7 +828,9 @@ class Master:
         response = self.transport.request(types.Command.BUILD_CHECKSUM, 0, 0, 0, *bs)
 
         # Parse the response with the correct byte order
-        return types.BuildChecksumResponse.parse(response, byteOrder=self.slaveProperties.byteOrder)
+        res = types.BuildChecksumResponse.parse(response, byteOrder=self.slaveProperties.byteOrder)
+        res.master = self
+        return res
 
     @wrapped
     def transportLayerCmd(self, sub_command: int, *data: bytes) -> bytes:

@@ -30,13 +30,13 @@ def _scrub_smplkit_env(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
 class _NoOpMetricsReporter:
     """Drop-in replacement for _MetricsReporter that never touches the network."""
 
-    def __init__(self, **_kwargs) -> None:  # noqa: ANN003
+    def __init__(self, **_kwargs) -> None:
         pass
 
-    def record(self, *_args, **_kwargs) -> None:  # noqa: ANN002, ANN003
+    def record(self, *_args, **_kwargs) -> None:
         pass
 
-    def record_gauge(self, *_args, **_kwargs) -> None:  # noqa: ANN002, ANN003
+    def record_gauge(self, *_args, **_kwargs) -> None:
         pass
 
     def flush(self) -> None:

@@ -1,12 +1,12 @@
 //! Implementation of the hash() builtin function.
 
+use monty_types::ResourceTracker;
+
 use crate::{
     args::ArgValues,
     bytecode::VM,
     defer_drop,
-    exception_private::{ExcType, RunResult},
-    resource::ResourceTracker,
-    types::PyTrait,
+    exception_private::{ExcType, ExcTypeExt, RunResult},
     value::Value,
 };
 
@@ -22,6 +22,6 @@ pub fn builtin_hash(vm: &mut VM<'_, impl ResourceTracker>, args: ArgValues) -> R
             // Python's hash() returns a signed integer; reinterpret bits for large values
             Ok(Value::Int(hash.raw().cast_signed()))
         }
-        None => Err(ExcType::type_error_unhashable(value.py_type(vm))),
+        None => Err(ExcType::type_error_unhashable(&value.py_type_name(vm))),
     }
 }

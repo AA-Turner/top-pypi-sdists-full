@@ -58,7 +58,7 @@ class TestPaginateSync:
             return pages[page_number - 1]
 
         rows = paginate_sync(fetch)
-        assert rows == full + [PAGE_SIZE, PAGE_SIZE + 1]
+        assert rows == [*full, PAGE_SIZE, PAGE_SIZE + 1]
         assert calls == [(1, PAGE_SIZE), (2, PAGE_SIZE)]
 
     def test_multi_page_exit_when_last_page_is_empty(self):
@@ -97,5 +97,5 @@ class TestPaginateAsync:
             return pages[page_number - 1]
 
         rows = asyncio.run(paginate_async(fetch))
-        assert rows == full + [PAGE_SIZE]
+        assert rows == [*full, PAGE_SIZE]
         assert calls == [(1, PAGE_SIZE), (2, PAGE_SIZE)]

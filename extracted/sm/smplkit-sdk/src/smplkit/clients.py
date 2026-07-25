@@ -10,8 +10,6 @@ import traceback
 from typing import TYPE_CHECKING
 
 from smplkit._config import _service_url, resolve_config
-from smplkit.context import ContextScope, set_context as _set_context
-from smplkit.errors import TimeoutError
 from smplkit._debug import debug, enable_debug
 from smplkit._generated.app.api.contexts import bulk_register_contexts as gen_bulk_register_contexts
 from smplkit._generated.app.models.context_bulk_item import ContextBulkItem
@@ -22,9 +20,12 @@ from smplkit._transport import _to_transport_config, build_service_transports
 from smplkit._ws import SharedWebSocket
 from smplkit.account.clients import AccountClient, AsyncAccountClient
 from smplkit.audit.clients import AsyncAuditClient, AuditClient
-from smplkit.jobs.clients import AsyncJobsClient, JobsClient
 from smplkit.config.clients import AsyncConfigClient, ConfigClient
+from smplkit.context import ContextScope
+from smplkit.context import set_context as _set_context
+from smplkit.errors import TimeoutError
 from smplkit.flags.clients import AsyncFlagsClient, FlagsClient
+from smplkit.jobs.clients import AsyncJobsClient, JobsClient
 from smplkit.logging.clients import AsyncLoggingClient, LoggingClient
 from smplkit.platform.clients import AsyncPlatformClient, PlatformClient
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mycli
-Version: 2.5.1
+Version: 2.6.1
 Summary: CLI for MySQL Database. With auto-completion and syntax highlighting.
 Author: Mycli Core Team
 License-Expression: BSD-3-Clause
@@ -39,6 +39,7 @@ Requires-Dist: pip==26.*; extra == "llm"
 Provides-Extra: dataframe
 Requires-Dist: polars~=1.42.1; extra == "dataframe"
 Requires-Dist: altair~=6.2.2; extra == "dataframe"
+Requires-Dist: vl-convert-python~=1.9.0; extra == "dataframe"
 Provides-Extra: all
 Requires-Dist: mycli[dataframe,llm]; extra == "all"
 Provides-Extra: dev
@@ -58,6 +59,7 @@ Requires-Dist: pip==26.*; extra == "dev"
 Requires-Dist: ruff~=0.15.0; extra == "dev"
 Requires-Dist: polars~=1.42.1; extra == "dev"
 Requires-Dist: altair~=6.2.2; extra == "dev"
+Requires-Dist: vl-convert-python~=1.9.0; extra == "dev"
 Dynamic: license-file
 
 # mycli
@@ -67,6 +69,7 @@ Dynamic: license-file
 A command line client for MySQL with auto-completion and syntax highlighting.
 
 Homepage: [https://mycli.net](https://mycli.net)
+
 Documentation: [https://mycli.net/docs](https://mycli.net/docs)
 
 ![Completion](https://raw.githubusercontent.com/dbcli/mycli/main/doc/screenshots/tables.png)
@@ -133,7 +136,7 @@ Features
 * Pretty print tabular data (with colors!).
 * Support for SSL connections
 * Shell-style trailing redirects with `$>`, `$>>` and `$|` operators.
-* [Polars](https://pola.rs) dataframe [transforms](doc/transforms.md) with `.|` and Parquet saves with `.>`.
+* [Polars](https://pola.rs) dataframe [transforms and plots](doc/transforms.md) with `.|`, and Parquet saves with `.>`.
 * Support for querying LLMs with context derived from your schema using `/llm`.
 * Support for storing passwords in the system keyring.
 

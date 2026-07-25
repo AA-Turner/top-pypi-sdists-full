@@ -17,49 +17,49 @@ from pydantic import BaseModel, Field, ConfigDict, RootModel
 
 from .. import schemas
 
-# Response model for get_posts
-GetPostsResponse = schemas.Get2ListsIdTweetsResponse
-
-
 # Response model for get_members
-GetMembersResponse = schemas.Get2ListsIdMembersResponse
+GetMembersResponse = schemas.GetListsMembersResponse
 
 
 # Request model for add_member
-AddMemberRequest = schemas.ListAddUserRequest
+AddMemberRequest = schemas.AddListsMemberRequest
 
 
 # Response model for add_member
-AddMemberResponse = schemas.ListMutateResponse
+AddMemberResponse = schemas.AddListsMemberResponse
 
 
-# Response model for get_by_id
-GetByIdResponse = schemas.Get2ListsIdResponse
-
-
-# Request model for update
-UpdateRequest = schemas.ListUpdateRequest
-
-
-# Response model for update
-UpdateResponse = schemas.ListUpdateResponse
-
-
-# Response model for delete
-DeleteResponse = schemas.ListDeleteResponse
-
-
-# Response model for get_followers
-GetFollowersResponse = schemas.Get2ListsIdFollowersResponse
+# Response model for get_posts
+GetPostsResponse = schemas.GetListsPostsResponse
 
 
 # Response model for remove_member_by_user_id
-RemoveMemberByUserIdResponse = schemas.ListMutateResponse
+RemoveMemberByUserIdResponse = schemas.RemoveListsMemberByUserIdResponse
+
+
+# Response model for get_by_id
+GetByIdResponse = schemas.GetListsByIdResponse
+
+
+# Request model for update
+UpdateRequest = schemas.UpdateListsRequest
+
+
+# Response model for update
+UpdateResponse = schemas.UpdateListsResponse
+
+
+# Response model for delete
+DeleteResponse = schemas.DeleteListsResponse
+
+
+# Response model for get_followers
+GetFollowersResponse = schemas.GetListsFollowersResponse
 
 
 # Request model for create
-CreateRequest = schemas.ListCreateRequest
+CreateRequest = schemas.CreateListsRequest
 
 
 # Response model for create
-CreateResponse = schemas.ListCreateResponse
+CreateResponse = schemas.CreateListsResponse

@@ -1,11 +1,10 @@
 use crate::{
-    args::ArgExprs,
+    args::{ArgExprs, Signature},
     builtins::Builtins,
     fstring::FStringPart,
     intern::{BytesId, LongIntId, StringId},
     namespace::NamespaceId,
     parse::{CodeRange, ParsedSignature, Try},
-    signature::Signature,
     value::{EitherStr, Marker, Value},
 };
 
@@ -24,12 +23,7 @@ pub enum NameScope {
     /// If accessed before assignment, raises `UnboundLocalError`.
     #[default]
     Local,
-    /// Variable reference that doesn't exist in any scope.
-    ///
-    /// A local slot is allocated but never assigned. Accessing raises `NameError`
-    /// (not `UnboundLocalError`) because the name was never defined anywhere.
-    LocalUnassigned,
-    /// Variable is in the module-level global namespace
+    /// Variable is in the module-level global namespace.
     Global,
     /// Variable accessed through a cell (heap-allocated container).
     ///
@@ -643,6 +637,36 @@ pub enum Node<F> {
         or_else: Vec<Self>,
     },
     FunctionDef(F),
+    /// Class definition (e.g. `class Foo: ...`).
+    ///
+    /// Modelled on CPython's class-body code object: the class body is a
+    /// synthetic zero-argument function ([`body`](Self::ClassDef::body), riding
+    /// the same `F` = Raw→Prepared pipeline as [`Node::FunctionDef`]) that
+    /// executes the class statements top-to-bottom into its own scope, then
+    /// assembles the namespace and returns a `Class`. Methods are ordinary
+    /// `FunctionDef`s in that body (with `self` as the first parameter); class
+    /// variables are `Assign`s. Class decorators are supported (see
+    /// [`decorators`](Self::ClassDef::decorators)); inheritance, metaclasses and
+    /// decorators on a `def` — including `classmethod`/`staticmethod`/`property`
+    /// — are rejected at parse time. See `limitations/classes.md`.
+    ClassDef {
+        /// The class name identifier (resolved to an enclosing-scope slot at prepare time).
+        name: Identifier,
+        /// The synthetic class-body function: its body is the class statements
+        /// in source order. Prepared and compiled exactly like a function; its
+        /// emitted code ends by building the namespace `Dict` and returning the
+        /// `Class` object.
+        body: F,
+        /// Top-level member names (methods + class vars) in source order.
+        /// Each is resolved to a class-body-local slot during prepare; the
+        /// compiler uses them to assemble the namespace dict.
+        members: Vec<Identifier>,
+        /// In source order; evaluated in the enclosing scope and applied
+        /// bottom-up (`cls = deco(cls)`), like CPython.
+        decorators: Vec<ExprLoc>,
+        /// Source position of the `class` statement (for error reporting).
+        position: CodeRange,
+    },
     /// Global variable declaration. Only present in parsed form, consumed during prepare.
     ///
     /// Declares that the listed names refer to module-level (global) variables,
@@ -728,20 +752,30 @@ pub struct PreparedFunctionDef {
     pub namespace_size: usize,
     /// Enclosing namespace slots for variables captured from enclosing scopes.
     ///
-    /// At definition time: look up cell HeapId from enclosing namespace at each slot.
-    /// At call time: captured cells are pushed sequentially (our slots are implicit).
+    /// At definition time the enclosing frame looks up the cell `HeapId` from
+    /// its own namespace at each slot and bundles them into the `Closure`.
+    /// Parallel (same index/order) to [`Self::free_var_slots`].
     pub free_var_enclosing_slots: Vec<NamespaceId>,
-    /// Number of cell variables (captured by nested functions).
+    /// This function's own namespace slots that receive the captured free-var
+    /// cells, parallel to [`Self::free_var_enclosing_slots`]: cell `i` (gathered
+    /// from `free_var_enclosing_slots[i]` in the enclosing frame) is installed
+    /// at `free_var_slots[i]` when this frame is created.
     ///
-    /// At call time, this many cells are created and pushed right after params.
-    /// Their slots are implicitly params.len()..params.len()+cell_var_count.
-    pub cell_var_count: usize,
-    /// Maps cell variable indices to their corresponding parameter indices, if any.
+    /// Slots are explicit rather than positional because a transitively
+    /// captured (pass-through) variable's slot is allocated late during
+    /// preparation and so does not fall in the contiguous param/cell/free
+    /// region the namespace layout otherwise follows.
+    pub free_var_slots: Vec<NamespaceId>,
+    /// This function's own namespace slots for cell variables (locals captured
+    /// by nested functions). A fresh cell is created for each at call time and
+    /// stored at `cell_var_slots[i]`. Parallel to [`Self::cell_param_indices`].
+    pub cell_var_slots: Vec<NamespaceId>,
+    /// Maps each cell variable (parallel to [`Self::cell_var_slots`]) to its
+    /// parameter index, if the cell is for a captured parameter.
     ///
-    /// When a parameter is also captured by nested functions (cell variable), its value
-    /// must be copied into the cell after binding. Each entry corresponds to a cell
-    /// (index 0..cell_var_count), and contains `Some(param_index)` if that cell is for
-    /// a parameter, or `None` otherwise.
+    /// When a parameter is also captured by nested functions, its bound value
+    /// must be copied into the cell after argument binding; `Some(param_index)`
+    /// names that parameter, `None` means the cell starts `Undefined`.
     pub cell_param_indices: Vec<Option<usize>>,
     /// Prepared default value expressions, evaluated at function definition time.
     ///
@@ -761,7 +795,7 @@ pub type PreparedNode = Node<PreparedFunctionDef>;
 
 /// Binary operators for arithmetic, bitwise, and boolean operations.
 ///
-/// Uses strum `Display` derive with per-variant serialization for operator symbols.
+/// The comment on each variant shows the source-level symbol.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Operator {
     // `+`
@@ -797,19 +831,78 @@ pub enum Operator {
     Or,
 }
 
-/// Defined separately since these operators always return a bool
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+/// Defined separately since these operators always return a bool.
+///
+/// The strum `serialize` attribute on each variant is the source-level symbol,
+/// and drives both `Display` and [`as_str`](Self::as_str).
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, strum::Display, strum::IntoStaticStr)]
 pub enum CmpOperator {
+    #[strum(serialize = "==")]
     Eq,
+    #[strum(serialize = "!=")]
     NotEq,
+    #[strum(serialize = "<")]
     Lt,
+    #[strum(serialize = "<=")]
     LtE,
+    #[strum(serialize = ">")]
     Gt,
+    #[strum(serialize = ">=")]
     GtE,
+    #[strum(serialize = "is")]
     Is,
+    #[strum(serialize = "is not")]
     IsNot,
+    #[strum(serialize = "in")]
     In,
+    #[strum(serialize = "not in")]
     NotIn,
-    // we should support floats too, either via a Number type, or ModEqInt and ModEqFloat
-    ModEq(i64),
+}
+
+impl CmpOperator {
+    /// The source-level symbol, e.g. `==` or `not in`. Same string `Display`
+    /// renders, but borrowed rather than formatted, so the error paths that
+    /// need it (incomparable ordering `TypeError`s, assert failure messages)
+    /// don't allocate.
+    pub fn as_str(self) -> &'static str {
+        self.into()
+    }
+
+    /// Stable u8 encoding used in the low nibble of the `Assert` /
+    /// `AssertFailed` flags operand (see `bytecode::op::assert_flags`). Part
+    /// of the serialized `Code` format, so existing values must never change —
+    /// hence a hand-written encoding rather than a derived `FromRepr` that
+    /// would follow declaration order.
+    pub const fn as_operand(self) -> u8 {
+        match self {
+            Self::Eq => 0,
+            Self::NotEq => 1,
+            Self::Lt => 2,
+            Self::LtE => 3,
+            Self::Gt => 4,
+            Self::GtE => 5,
+            Self::Is => 6,
+            Self::IsNot => 7,
+            Self::In => 8,
+            Self::NotIn => 9,
+        }
+    }
+
+    /// Decodes [`as_operand`](Self::as_operand)'s encoding, `None` for bytes
+    /// outside the encoded range.
+    pub const fn from_operand(byte: u8) -> Option<Self> {
+        match byte {
+            0 => Some(Self::Eq),
+            1 => Some(Self::NotEq),
+            2 => Some(Self::Lt),
+            3 => Some(Self::LtE),
+            4 => Some(Self::Gt),
+            5 => Some(Self::GtE),
+            6 => Some(Self::Is),
+            7 => Some(Self::IsNot),
+            8 => Some(Self::In),
+            9 => Some(Self::NotIn),
+            _ => None,
+        }
+    }
 }

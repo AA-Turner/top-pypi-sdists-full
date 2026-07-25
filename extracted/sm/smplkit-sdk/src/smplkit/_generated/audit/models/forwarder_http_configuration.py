@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 
+from ..models.forwarder_http_configuration_method import (
+    ForwarderHttpConfigurationMethod,
+    check_forwarder_http_configuration_method,
+)
 from ..types import UNSET, Unset
-
-from ..models.forwarder_http_configuration_method import check_forwarder_http_configuration_method
-from ..models.forwarder_http_configuration_method import ForwarderHttpConfigurationMethod
-from typing import cast
 
 if TYPE_CHECKING:
     from ..models.forwarder_http_configuration_headers import ForwarderHttpConfigurationHeaders
@@ -54,7 +54,7 @@ class ForwarderHttpConfiguration:
     headers: ForwarderHttpConfigurationHeaders | Unset = UNSET
     success_status: str | Unset = "2xx"
     tls_verify: bool | Unset = True
-    ca_cert: None | str | Unset = UNSET
+    ca_cert: str | Unset | None = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         url = self.url
@@ -71,7 +71,7 @@ class ForwarderHttpConfiguration:
 
         tls_verify = self.tls_verify
 
-        ca_cert: None | str | Unset
+        ca_cert: str | Unset | None
         if isinstance(self.ca_cert, Unset):
             ca_cert = UNSET
         else:
@@ -122,7 +122,7 @@ class ForwarderHttpConfiguration:
 
         tls_verify = d.pop("tls_verify", UNSET)
 
-        def _parse_ca_cert(data: object) -> None | str | Unset:
+        def _parse_ca_cert(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

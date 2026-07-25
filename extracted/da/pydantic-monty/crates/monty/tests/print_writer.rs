@@ -9,15 +9,16 @@
 //! `INSTA_UPDATE=always`).
 
 use insta::assert_snapshot;
-use monty::{MontyRun, NoLimitTracker, PrintWriter};
+use monty::MontyRun;
+use monty_types::{CompileOptions, NoLimitTracker, PrintWriter};
 
 /// Run `code` under Monty with a string-collecting `PrintWriter` and return
 /// whatever was printed. Panics on parse/runtime errors — callers only care
 /// about the captured output.
 fn run_and_capture(code: &str) -> String {
-    let ex = MontyRun::new(code.to_owned(), "test.py", vec![]).unwrap();
+    let ex = MontyRun::new(code.to_owned(), "test.py", vec![], CompileOptions::default()).unwrap();
     let mut output = String::new();
-    ex.run(vec![], NoLimitTracker, PrintWriter::CollectString(&mut output))
+    ex.run(vec![], NoLimitTracker, PrintWriter::collect_string(&mut output))
         .unwrap();
     output
 }
@@ -102,12 +103,24 @@ fn collect_output_accessible_after_run() {
 fn writer_reuse_accumulates() {
     let mut output = String::new();
 
-    let ex1 = MontyRun::new("print('first')".to_owned(), "test.py", vec![]).unwrap();
-    ex1.run(vec![], NoLimitTracker, PrintWriter::CollectString(&mut output))
+    let ex1 = MontyRun::new(
+        "print('first')".to_owned(),
+        "test.py",
+        vec![],
+        CompileOptions::default(),
+    )
+    .unwrap();
+    ex1.run(vec![], NoLimitTracker, PrintWriter::collect_string(&mut output))
         .unwrap();
 
-    let ex2 = MontyRun::new("print('second')".to_owned(), "test.py", vec![]).unwrap();
-    ex2.run(vec![], NoLimitTracker, PrintWriter::CollectString(&mut output))
+    let ex2 = MontyRun::new(
+        "print('second')".to_owned(),
+        "test.py",
+        vec![],
+        CompileOptions::default(),
+    )
+    .unwrap();
+    ex2.run(vec![], NoLimitTracker, PrintWriter::collect_string(&mut output))
         .unwrap();
 
     assert_snapshot!(output, @r"
@@ -122,7 +135,7 @@ fn disabled_suppresses_output() {
 for i in range(100):
     print('this should be suppressed', i)
 ";
-    let ex = MontyRun::new(code.to_owned(), "test.py", vec![]).unwrap();
+    let ex = MontyRun::new(code.to_owned(), "test.py", vec![], CompileOptions::default()).unwrap();
     // Should complete without error, output is silently discarded
     let result = ex.run(vec![], NoLimitTracker, PrintWriter::Disabled);
     assert!(result.is_ok());

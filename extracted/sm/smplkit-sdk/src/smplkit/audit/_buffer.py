@@ -23,8 +23,9 @@ import random
 import threading
 import time
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 logger = logging.getLogger("smplkit.audit")
 
@@ -60,7 +61,7 @@ class AuditEventBuffer:
     def __init__(
         self,
         *,
-        post_fn: Callable[[_PendingEvent], "int | Exception"],
+        post_fn: Callable[[_PendingEvent], int | Exception],
         max_size: int = MAX_BUFFER_SIZE,
         flush_interval: float = PERIODIC_FLUSH_INTERVAL,
         watermark: int = HIGH_WATERMARK,
@@ -186,7 +187,7 @@ class AuditEventBuffer:
                 for item in reversed(retries):
                     self._queue.appendleft(item)
 
-    def _handle_outcome(self, item: _PendingEvent, outcome: "int | Exception") -> _PendingEvent | None:
+    def _handle_outcome(self, item: _PendingEvent, outcome: int | Exception) -> _PendingEvent | None:
         """Decide whether an item is done, retried, or dropped."""
         # Success.
         if isinstance(outcome, int) and 200 <= outcome < 300:

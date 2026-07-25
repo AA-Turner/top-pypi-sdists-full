@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.subscription_preview_resource_id import (
+    SubscriptionPreviewResourceId,
+    check_subscription_preview_resource_id,
+)
+from ..models.subscription_preview_resource_type import (
+    SubscriptionPreviewResourceType,
+    check_subscription_preview_resource_type,
+)
 from ..types import UNSET, Unset
-
-from ..models.subscription_preview_resource_id import check_subscription_preview_resource_id
-from ..models.subscription_preview_resource_id import SubscriptionPreviewResourceId
-from ..models.subscription_preview_resource_type import check_subscription_preview_resource_type
-from ..models.subscription_preview_resource_type import SubscriptionPreviewResourceType
 
 if TYPE_CHECKING:
     from ..models.subscription_preview_attributes import SubscriptionPreviewAttributes

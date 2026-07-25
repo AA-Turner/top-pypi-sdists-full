@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.subscription_change_projection_effect import (
+    SubscriptionChangeProjectionEffect,
+    check_subscription_change_projection_effect,
+)
 from ..types import UNSET, Unset
-
-from ..models.subscription_change_projection_effect import check_subscription_change_projection_effect
-from ..models.subscription_change_projection_effect import SubscriptionChangeProjectionEffect
-from typing import cast
-
 
 T = TypeVar("T", bound="SubscriptionChangeProjection")
 
@@ -44,7 +43,7 @@ class SubscriptionChangeProjection:
     monthly_cents: int
     effect: SubscriptionChangeProjectionEffect
     prorated_charge_today_cents: int | Unset = 0
-    starts_at: None | str | Unset = UNSET
+    starts_at: str | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -60,7 +59,7 @@ class SubscriptionChangeProjection:
 
         prorated_charge_today_cents = self.prorated_charge_today_cents
 
-        starts_at: None | str | Unset
+        starts_at: str | Unset | None
         if isinstance(self.starts_at, Unset):
             starts_at = UNSET
         else:
@@ -99,7 +98,7 @@ class SubscriptionChangeProjection:
 
         prorated_charge_today_cents = d.pop("prorated_charge_today_cents", UNSET)
 
-        def _parse_starts_at(data: object) -> None | str | Unset:
+        def _parse_starts_at(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

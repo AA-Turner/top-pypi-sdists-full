@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-
-from ..models.add_payment_method_data_type import AddPaymentMethodDataType
-from ..models.add_payment_method_data_type import check_add_payment_method_data_type
+from ..models.add_payment_method_data_type import AddPaymentMethodDataType, check_add_payment_method_data_type
 
 if TYPE_CHECKING:
     from ..models.add_payment_method_attributes import AddPaymentMethodAttributes

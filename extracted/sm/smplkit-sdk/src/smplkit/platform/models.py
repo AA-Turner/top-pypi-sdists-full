@@ -128,10 +128,7 @@ class Environment(_EnvironmentBase):
         """Create or update this environment on the server."""
         if self._client is None:
             raise RuntimeError("Environment was constructed without a client; cannot save")
-        if self.created_at is None:
-            other = self._client._create(self)
-        else:
-            other = self._client._update(self)
+        other = self._client._create(self) if self.created_at is None else self._client._update(self)
         self._apply(other)
 
     def delete(self) -> None:
@@ -278,10 +275,7 @@ class Service(_ServiceBase):
         """Create or update this service on the server."""
         if self._client is None:
             raise RuntimeError("Service was constructed without a client; cannot save")
-        if self.created_at is None:
-            other = self._client._create(self)
-        else:
-            other = self._client._update(self)
+        other = self._client._create(self) if self.created_at is None else self._client._update(self)
         self._apply(other)
 
     def delete(self) -> None:
@@ -452,10 +446,7 @@ class ContextType(_ContextTypeBase):
     def save(self) -> None:
         if self._client is None:
             raise RuntimeError("ContextType was constructed without a client; cannot save")
-        if self.created_at is None:
-            other = self._client._create(self)
-        else:
-            other = self._client._update(self)
+        other = self._client._create(self) if self.created_at is None else self._client._update(self)
         self._apply(other)
 
     def delete(self) -> None:

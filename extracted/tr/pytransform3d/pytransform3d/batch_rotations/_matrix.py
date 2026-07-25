@@ -13,7 +13,7 @@ def axis_angles_from_matrices(Rs, traces=None, out=None):
     Rs : array-like, shape (..., 3, 3)
         Rotation matrices
 
-    traces : array, shape (..., 3)
+    traces : array, shape (...)
         If the traces of rotation matrices been precomputed, you can pass them
         here.
 
@@ -48,27 +48,41 @@ def axis_angles_from_matrices(Rs, traces=None, out=None):
     out[..., 1] = Rs[..., 0, 2] - Rs[..., 2, 0]
     out[..., 2] = Rs[..., 1, 0] - Rs[..., 0, 1]
 
-    # The threshold is a result from this discussion:
-    # https://github.com/dfki-ric/pytransform3d/issues/43
-    # The standard formula becomes numerically unstable, however,
-    # Rodrigues' formula reduces to R = I + 2 (ee^T - I), with the
-    # rotation axis e, that is, ee^T = 0.5 * (R + I) and we can find the
-    # squared values of the rotation axis on the diagonal of this matrix.
-    # We can still use the original formula to reconstruct the signs of
-    # the rotation axis correctly.
     angle_close_to_pi = np.abs(angles - np.pi) < 1e-4
     angle_zero = angles == 0.0
     angle_not_zero = np.logical_not(angle_zero)
 
-    Rs_diag = np.einsum("nii->ni", Rs.reshape(-1, 3, 3))
-    if instances_shape:
-        Rs_diag = Rs_diag.reshape(*(instances_shape + (3,)))
-    else:
-        Rs_diag = Rs_diag[0]
+    if np.any(angle_close_to_pi):
+        # Near pi the standard formula is numerically unstable. The 1e-4
+        # threshold comes from
+        # https://github.com/dfki-ric/pytransform3d/issues/43.
+        #
+        # At pi, R is symmetric, so the skew part R - R^T is zero and its
+        # sign cannot recover a general axis. From Rodrigues' formula
+        # R = 2 ee^T - I at pi, i.e. ee^T = 0.5 * (R + I), whose diagonal
+        # holds the squared axis components e_i^2. We read the magnitudes
+        # |e_i| off that diagonal and the relative signs off the dominant
+        # row k = argmax(e_i^2) of the symmetric part, where
+        # R_sym[k, j] gives sign(e_k) * sign(e_j). Using the symmetric part
+        # (not R) keeps this accurate just below pi, where the skew part then
+        # fixes the overall sign of the axis.
+        Rs_pi = Rs[angle_close_to_pi]
+        Rs_pi_sym = 0.5 * (Rs_pi + np.swapaxes(Rs_pi, -1, -2))
+        eeT_diag = np.clip(
+            0.5 * (np.diagonal(Rs_pi_sym, axis1=-2, axis2=-1) + 1.0), 0.0, 1.0
+        )
+        rows = np.arange(len(eeT_diag))
+        k = np.argmax(eeT_diag, axis=-1)  # dominant component per instance
+        signs = np.sign(Rs_pi_sym[rows, k])
+        signs[rows, k] = 1.0
+        axes = np.sqrt(eeT_diag) * signs
+        # just below pi the skew part gives the overall sign of the axis
+        skew = out[angle_close_to_pi, :3]
+        determined = angles[angle_close_to_pi] < np.pi
+        flip = determined & (np.sum(axes * skew, axis=-1) < 0.0)
+        axes[flip] = -axes[flip]
+        out[angle_close_to_pi, :3] = axes
 
-    out[angle_close_to_pi, :3] = np.sqrt(
-        0.5 * (Rs_diag[angle_close_to_pi] + 1.0)
-    ) * np.sign(out[angle_close_to_pi, :3])
     out[angle_not_zero, :3] /= np.linalg.norm(out[angle_not_zero, :3], axis=-1)[
         ..., np.newaxis
     ]

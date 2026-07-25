@@ -1,14 +1,33 @@
 import os
+import pickle
 
 import aiohttp
 import httpx
 import pytest
 
 from openreward import AsyncOpenReward
+from openreward.api._session.http import SessionResponseError
 from openreward.api.sandboxes.types import (SandboxSettings)
 from openreward.environments import Environment, tool, ToolOutput
 from openreward.environments.server import Server
 from openreward.environments.types import (Blocks, JSONObject, TextBlock)
+
+
+def test_session_response_error_survives_pickle():
+    """Env 5xx/4xx must propagate cleanly from a Ray actor to the driver.
+
+    A raw aiohttp.ClientResponseError carries CIMultiDictProxy headers that
+    cloudpickle can't serialize, so the real status would be masked by a
+    secondary "can't pickle CIMultiDictProxy" TypeError. SessionResponseError
+    must round-trip, keeping isinstance() + .status for the retry predicate.
+    """
+    err = SessionResponseError(
+        None, (), status=500, message="boom", headers={"x": "y"}
+    )
+    restored = pickle.loads(pickle.dumps(err))
+    assert isinstance(restored, aiohttp.ClientResponseError)
+    assert restored.status == 500
+    assert restored.message == "boom"
 
 
 class SandboxEnv(Environment):

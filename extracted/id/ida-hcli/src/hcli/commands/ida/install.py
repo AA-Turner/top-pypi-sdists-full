@@ -24,6 +24,7 @@ from hcli.lib.ida import (
     get_license_dir,
     install_ida,
     install_license,
+    is_ida_dir,
     is_idalib_capable_installation,
 )
 from hcli.lib.util.io import get_os
@@ -38,7 +39,7 @@ from hcli.lib.util.io import get_os
 )
 @click.option("-l", "--license-id", "license_id", required=False, help="License ID (e.g., 96-0000-0000-01)")
 @click.option("-i", "--install-dir", "install_dir", required=False, help="Install dir")
-@click.option("-a", "--accept-eula", "eula", is_flag=True, help="Accept EULA", default=True)
+@click.option("-a/-A", "--accept-eula/--no-accept-eula", "eula", help="Accept EULA", default=True)
 @click.option("--set-default/--no-set-default", help="Mark this IDA installation as the default", default=True)
 @click.option("--dry-run", is_flag=True, help="Show what would be done without actually installing")
 @click.option("--yes", "-y", "auto_confirm", is_flag=True, help="Auto-accept confirmation prompts", default=False)
@@ -106,6 +107,21 @@ async def install(
                 install_dir_path = get_default_ida_install_directory(version)
             else:
                 install_dir_path = Path(install_dir).expanduser().resolve()
+
+            if install_dir_path.exists():
+                if is_ida_dir(install_dir_path):
+                    instance_name = generate_instance_name(install_dir_path)
+                    console.print(
+                        f"\n[yellow]IDA is already installed at {install_dir_path}[/yellow]\n\n"
+                        f"  To set it as the default: [bold]hcli ida switch {instance_name}[/bold]\n"
+                        f"  To reinstall, first remove it: [bold]hcli ida remove {instance_name}[/bold]\n"
+                    )
+                else:
+                    console.print(
+                        f"\n[red]Directory already exists: {install_dir_path}[/red]\n"
+                        "Please remove it first or choose a different location with [bold]--install-dir[/bold].\n"
+                    )
+                return
 
             # prominent warning for #99: idat from IDA 9.2 on Linux fails to start if the path contains a space.
             #

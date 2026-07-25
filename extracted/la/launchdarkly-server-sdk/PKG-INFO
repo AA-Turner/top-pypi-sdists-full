@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: launchdarkly-server-sdk
-Version: 9.16.0
+Version: 9.16.1
 Summary: LaunchDarkly SDK for Python
 Project-URL: Homepage, https://docs.launchdarkly.com/sdk/server-side/python
 Project-URL: Repository, https://github.com/launchdarkly/python-server-sdk
@@ -22,10 +22,12 @@ Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.10
 Requires-Dist: certifi>=2018.4.16
 Requires-Dist: expiringdict>=1.1.4
-Requires-Dist: launchdarkly-eventsource<2.0.0,>=1.5.0
+Requires-Dist: launchdarkly-eventsource<2.0.0,>=1.7.2
 Requires-Dist: pyrfc3339>=1.0
 Requires-Dist: semver>=2.10.2
 Requires-Dist: urllib3<3,>=1.26.0
+Provides-Extra: async
+Requires-Dist: aiohttp<4,>=3.9; extra == 'async'
 Provides-Extra: consul
 Requires-Dist: python-consul>=1.0.1; extra == 'consul'
 Provides-Extra: dynamodb

@@ -1,6 +1,5 @@
 use std::fmt::Write as _;
 use std::io::Write as _;
-use std::ops::ControlFlow;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::{Arc, LazyLock};
@@ -12,7 +11,7 @@ use owo_colors::OwoColorize;
 use prek_consts::env_vars::{EnvVars, EnvVarsRead};
 use prek_consts::{PRE_COMMIT_CONFIG_YAML, PREK_TOML};
 use prek_identify::{TagSet, tags_from_path};
-use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
+use rustc_hash::{FxBuildHasher, FxHashMap};
 use tracing::{debug, error, trace};
 use unicode_width::UnicodeWidthStr;
 
@@ -22,8 +21,8 @@ use crate::cli::run::filter::{RunInputMode, stage_uses_message_file_input};
 use crate::cli::run::install::{InstallCache, install_hooks};
 use crate::cli::run::keeper::WorkTreeKeeper;
 use crate::cli::run::{
-    CollectOptions, FileTagCache, GroupFilters, HookFileFilter, HookRunReporter, ProjectFiles,
-    RunInput, Selectors, collect_run_input, project_status_marker,
+    CollectOptions, FileSelection, FileTagCache, GroupFilters, HookFileFilter, HookRunReporter,
+    ProjectFiles, RunFileIndex, RunInput, Selectors, collect_run_input, project_status_marker,
 };
 use crate::cli::{ExitStatus, RunExtraArgs};
 use crate::config::{PassFilenames, Stage};
@@ -45,12 +44,7 @@ pub(crate) async fn run(
     groups: Vec<String>,
     no_groups: Vec<String>,
     hook_stage: Option<Stage>,
-    from_ref: Option<String>,
-    to_ref: Option<String>,
-    all_files: bool,
-    files: Vec<String>,
-    directories: Vec<String>,
-    last_commit: bool,
+    selection: FileSelection,
     show_diff_on_failure: bool,
     fail_fast: Option<bool>,
     dry_run: bool,
@@ -59,13 +53,6 @@ pub(crate) async fn run(
     verbose: bool,
     printer: Printer,
 ) -> Result<ExitStatus> {
-    // Convert `--last-commit` to `HEAD~1..HEAD`
-    let (from_ref, to_ref) = if last_commit {
-        (Some("HEAD~1".to_string()), Some("HEAD".to_string()))
-    } else {
-        (from_ref, to_ref)
-    };
-
     // Prevent recursive post-checkout hooks.
     if hook_stage == Some(Stage::PostCheckout)
         && EnvVars.is_set(EnvVars::PREK_INTERNAL__SKIP_POST_CHECKOUT)
@@ -76,11 +63,13 @@ pub(crate) async fn run(
     // Ensure we are in a git repository.
     LazyLock::force(&GIT_ROOT).as_ref()?;
 
-    let should_stash = !all_files && files.is_empty() && directories.is_empty();
+    let should_stash = selection.requires_clean_worktree();
 
     // Check if we have unresolved merge conflict files and fail fast.
     if should_stash && git::has_unmerged_paths().await? {
-        anyhow::bail!("You have unmerged paths. Resolve them before running prek");
+        anyhow::bail!(
+            "Found unresolved merge conflicts. Resolve the conflicts, stage the files with `git add`, and try again"
+        );
     }
 
     let workspace_root = Workspace::find_root(config.as_deref(), &CWD)?;
@@ -185,17 +174,14 @@ pub(crate) async fn run(
         );
     }
 
-    set_env_vars(from_ref.as_ref(), to_ref.as_ref(), &extra_args);
+    let (from_ref, to_ref) = selection.refs();
+    set_env_vars(from_ref, to_ref, &extra_args);
 
     let input = collect_run_input(
         workspace.root(),
         CollectOptions {
             input_mode,
-            from_ref,
-            to_ref,
-            all_files,
-            files,
-            directories,
+            selection,
             commit_msg_filename: extra_args.commit_msg_filename,
         },
     )
@@ -210,17 +196,13 @@ pub(crate) async fn run(
         )
     })?;
 
-    let tag_cache = if let RunInput::Files(files) = &input {
-        FileTagCache::from_paths(files.iter().map(PathBuf::as_path))
-    } else {
-        FileTagCache::default()
-    };
+    let file_index = RunFileIndex::new(&input, workspace.all_projects());
     let installed_hooks = ensure_hooks_installed(
         store,
         printer,
         &workspace,
         &input,
-        &tag_cache,
+        &file_index,
         &filtered_hooks,
     )
     .await?;
@@ -228,7 +210,7 @@ pub(crate) async fn run(
     run_hooks(
         &workspace,
         &input,
-        &tag_cache,
+        &file_index,
         &installed_hooks,
         store,
         show_diff_on_failure,
@@ -274,7 +256,7 @@ fn uses_only_message_file_input(hook: &Hook) -> bool {
 }
 
 // `pre-commit` sets these environment variables for other git hooks.
-fn set_env_vars(from_ref: Option<&String>, to_ref: Option<&String>, args: &RunExtraArgs) {
+fn set_env_vars(from_ref: Option<&str>, to_ref: Option<&str>, args: &RunExtraArgs) {
     unsafe {
         std::env::set_var("PRE_COMMIT", "1");
 
@@ -332,7 +314,7 @@ async fn ensure_hooks_installed<'paths>(
     printer: Printer,
     workspace: &Workspace,
     input: &'paths RunInput,
-    tag_cache: &FileTagCache<'paths>,
+    file_index: &RunFileIndex<'paths>,
     hooks: &[Arc<Hook>],
 ) -> Result<Vec<InstalledHook>> {
     let env_hooks = hooks
@@ -364,7 +346,7 @@ async fn ensure_hooks_installed<'paths>(
     }
 
     let hooks_to_install =
-        select_hooks_to_install(workspace, input, tag_cache, &missing_env_hooks)?;
+        select_hooks_to_install(workspace, input, file_index, &missing_env_hooks)?;
     if !hooks_to_install.is_empty() {
         let reporter = HookInstallReporter::new(printer);
         let installed_hooks =
@@ -394,7 +376,7 @@ async fn ensure_hooks_installed<'paths>(
 fn select_hooks_to_install<'paths>(
     workspace: &Workspace,
     input: &'paths RunInput,
-    tag_cache: &FileTagCache<'paths>,
+    file_index: &RunFileIndex<'paths>,
     hooks: &[Arc<Hook>],
 ) -> Result<Vec<Arc<Hook>>> {
     #[allow(clippy::mutable_key_type)]
@@ -407,72 +389,28 @@ fn select_hooks_to_install<'paths>(
             .push(hook.clone());
     }
 
-    let mut hooks_to_install = Vec::new();
-    let mut consumed_files = FxHashSet::default();
+    let mut hooks_to_install = Vec::with_capacity(hooks.len());
+    let tag_cache = file_index.tag_cache();
 
     for project in workspace.all_projects() {
         match input {
-            RunInput::Files(files) => {
-                let mut project_consumed_files = FxHashSet::default();
-                let Some(hooks) = project_to_hooks.remove(project.as_ref()) else {
-                    ProjectFiles::consume_for_project(
-                        files.iter(),
-                        project,
-                        Some(&consumed_files),
-                        &mut project_consumed_files,
-                    );
-                    consumed_files.extend(project_consumed_files);
+            RunInput::Files(_) => {
+                let Some(mut hooks) = project_to_hooks.remove(project.as_ref()) else {
                     continue;
                 };
 
-                let mut candidates = hooks
-                    .into_iter()
-                    .map(|hook| {
-                        let matches = hook.always_run;
-                        (hook, matches)
-                    })
-                    .collect::<Vec<_>>();
-                let mut remaining = candidates.iter().filter(|(_, matches)| !*matches).count();
-
-                ProjectFiles::visit_for_project(
-                    files.iter(),
-                    project,
-                    Some(&consumed_files),
-                    Some(&mut project_consumed_files),
-                    |project_file| {
-                        for (hook, matches) in &mut candidates {
-                            if *matches {
-                                continue;
-                            }
-
-                            let hook_filter = HookFileFilter::new(hook);
-                            if hook_filter.matches_project_file(&project_file, tag_cache) {
-                                *matches = true;
-                                remaining -= 1;
-                            }
-                        }
-
-                        if remaining == 0 {
-                            return ControlFlow::Break(());
-                        }
-
-                        ControlFlow::Continue(())
-                    },
-                );
-                consumed_files.extend(project_consumed_files);
-
-                for (hook, matches) in candidates {
-                    if matches {
-                        hooks_to_install.push(hook);
-                    }
-                }
+                let project_files = file_index.project_files(project);
+                hooks.retain(|hook| {
+                    hook.always_run || project_files.has_matching_file(hook, tag_cache)
+                });
+                hooks_to_install.extend(hooks);
             }
             RunInput::MessageFile(_) => {
                 let Some(hooks) = project_to_hooks.remove(project.as_ref()) else {
                     continue;
                 };
 
-                let project_input = ProjectHookInput::new(input, project, None, None)?;
+                let project_input = ProjectHookInput::new(input, project, file_index)?;
                 for hook in hooks {
                     if hook.always_run || project_input.matches_hook(&hook, tag_cache) {
                         hooks_to_install.push(hook);
@@ -494,7 +432,7 @@ fn hook_key(hook: &Hook) -> (usize, usize) {
 async fn run_hooks<'paths>(
     workspace: &Workspace,
     input: &'paths RunInput,
-    tag_cache: &FileTagCache<'paths>,
+    file_index: &RunFileIndex<'paths>,
     hooks: &[InstalledHook],
     store: &Store,
     show_diff_on_failure: bool,
@@ -527,23 +465,13 @@ async fn run_hooks<'paths>(
         show_project_headers,
         printer,
     );
-    let mut consumed_files = FxHashSet::default();
 
     for projects in ProjectDepthGroups::new(workspace.all_projects()) {
         let clean_baseline = worktree_cleaned && !session.file_modified;
-        let mut level_consumed_files = FxHashSet::default();
         let mut project_runs = Vec::new();
 
         for project in projects {
             let Some(mut hooks) = project_to_hooks.remove(project.as_ref()) else {
-                if let RunInput::Files(files) = input {
-                    ProjectFiles::consume_for_project(
-                        files.iter(),
-                        project,
-                        Some(&consumed_files),
-                        &mut level_consumed_files,
-                    );
-                }
                 continue;
             };
 
@@ -560,23 +488,18 @@ async fn run_hooks<'paths>(
             });
         }
 
+        if project_runs.is_empty() {
+            continue;
+        }
+
         let project_results = session
-            .run_project_level(
-                project_runs,
-                input,
-                &consumed_files,
-                tag_cache,
-                clean_baseline,
-            )
+            .run_project_level(project_runs, input, file_index, clean_baseline)
             .await?;
         let mut stop_after_level = false;
 
         for project_result in project_results {
-            level_consumed_files.extend(project_result.consumed_files.iter().copied());
             stop_after_level |= session.finish_project_run(project_result, show_project_headers)?;
         }
-
-        consumed_files.extend(level_consumed_files);
 
         if stop_after_level {
             break;
@@ -623,14 +546,13 @@ struct ProjectRun<'project> {
     groups: Vec<Vec<InstalledHook>>,
 }
 
-struct ProjectRunResult<'project, 'paths> {
+struct ProjectRunResult<'project> {
     project: &'project Project,
     groups: Vec<ProjectGroupRunResult>,
-    consumed_files: FxHashSet<&'paths Path>,
     stop_after_level: bool,
 }
 
-impl ProjectRunResult<'_, '_> {
+impl ProjectRunResult<'_> {
     fn failed(&self) -> bool {
         self.groups.iter().any(ProjectGroupRunResult::failed)
     }
@@ -725,10 +647,9 @@ impl<'a> HookRunSession<'a> {
         &self,
         project_runs: Vec<ProjectRun<'project>>,
         input: &'paths RunInput,
-        consumed_files: &FxHashSet<&'paths Path>,
-        tag_cache: &FileTagCache<'paths>,
+        file_index: &RunFileIndex<'paths>,
         clean_baseline: bool,
-    ) -> Result<Vec<ProjectRunResult<'project, 'paths>>> {
+    ) -> Result<Vec<ProjectRunResult<'project>>> {
         let semaphore = Rc::new(Semaphore::new(*HOOK_CONCURRENCY));
         let mut runs = FuturesUnordered::new();
         for (idx, project_run) in project_runs.into_iter().enumerate() {
@@ -736,14 +657,7 @@ impl<'a> HookRunSession<'a> {
             runs.push(async move {
                 let project = project_run.project;
                 let result = self
-                    .run_project(
-                        project_run,
-                        input,
-                        consumed_files,
-                        tag_cache,
-                        clean_baseline,
-                        semaphore,
-                    )
+                    .run_project(project_run, input, file_index, clean_baseline, semaphore)
                     .await;
                 if let Ok(result) = &result {
                     self.reporter.on_project_complete(project, result.failed());
@@ -765,18 +679,11 @@ impl<'a> HookRunSession<'a> {
         &self,
         project_run: ProjectRun<'project>,
         input: &'paths RunInput,
-        consumed_files: &FxHashSet<&'paths Path>,
-        tag_cache: &FileTagCache<'paths>,
+        file_index: &RunFileIndex<'paths>,
         clean_baseline: bool,
         semaphore: Rc<Semaphore>,
-    ) -> Result<ProjectRunResult<'project, 'paths>> {
-        let mut project_consumed_files = FxHashSet::default();
-        let project_input = ProjectHookInput::new(
-            input,
-            project_run.project,
-            Some(consumed_files),
-            Some(&mut project_consumed_files),
-        )?;
+    ) -> Result<ProjectRunResult<'project>> {
+        let project_input = ProjectHookInput::new(input, project_run.project, file_index)?;
         trace!(
             "Files for project `{}` after filtered: {}",
             project_run.project,
@@ -806,7 +713,7 @@ impl<'a> HookRunSession<'a> {
                 .run_priority_group(
                     group_hooks,
                     &project_input,
-                    tag_cache,
+                    file_index.tag_cache(),
                     Rc::clone(&semaphore),
                 )
                 .await?;
@@ -833,7 +740,6 @@ impl<'a> HookRunSession<'a> {
         Ok(ProjectRunResult {
             project: project_run.project,
             groups,
-            consumed_files: project_consumed_files,
             stop_after_level,
         })
     }
@@ -841,7 +747,7 @@ impl<'a> HookRunSession<'a> {
     async fn run_priority_group(
         &self,
         group_hooks: Vec<InstalledHook>,
-        project_input: &ProjectHookInput<'_>,
+        project_input: &ProjectHookInput<'_, '_>,
         tag_cache: &FileTagCache<'_>,
         semaphore: Rc<Semaphore>,
     ) -> Result<Vec<RunResult>> {
@@ -889,7 +795,7 @@ impl<'a> HookRunSession<'a> {
 
     fn finish_project_run(
         &mut self,
-        project_result: ProjectRunResult<'_, '_>,
+        project_result: ProjectRunResult<'_>,
         show_project_headers: bool,
     ) -> Result<bool> {
         self.render_project_header(
@@ -1144,28 +1050,22 @@ impl Iterator for PriorityGroups {
     }
 }
 
-enum ProjectHookInput<'a> {
-    Files(ProjectFiles<'a>),
+enum ProjectHookInput<'index, 'paths> {
+    Files(&'index ProjectFiles<'paths>),
     MessageFile {
         hook_arg: PathBuf,
         tags: Option<TagSet>,
     },
 }
 
-impl<'a> ProjectHookInput<'a> {
+impl<'index, 'paths> ProjectHookInput<'index, 'paths> {
     fn new(
-        input: &'a RunInput,
+        input: &'paths RunInput,
         project: &Project,
-        consumed_files: Option<&FxHashSet<&'a Path>>,
-        newly_consumed_files: Option<&mut FxHashSet<&'a Path>>,
+        file_index: &'index RunFileIndex<'paths>,
     ) -> Result<Self> {
         match input {
-            RunInput::Files(files) => Ok(Self::Files(ProjectFiles::for_project(
-                files.iter(),
-                project,
-                consumed_files,
-                newly_consumed_files,
-            ))),
+            RunInput::Files(_) => Ok(Self::Files(file_index.project_files(project))),
             RunInput::MessageFile(path) => {
                 let tags = match tags_from_path(path) {
                     Ok(tags) => Some(tags),
@@ -1189,7 +1089,11 @@ impl<'a> ProjectHookInput<'a> {
         }
     }
 
-    fn run_input_for_hook(&self, hook: &Hook, tag_cache: &FileTagCache<'a>) -> HookRunInput<'a> {
+    fn run_input_for_hook(
+        &self,
+        hook: &Hook,
+        tag_cache: &FileTagCache<'paths>,
+    ) -> HookRunInput<'paths> {
         match self {
             Self::Files(project_files) => match hook.pass_filenames {
                 // Always-run hooks without filename arguments run regardless of file matches.
@@ -1216,7 +1120,7 @@ impl<'a> ProjectHookInput<'a> {
         }
     }
 
-    fn matches_hook(&self, hook: &Hook, tag_cache: &FileTagCache<'a>) -> bool {
+    fn matches_hook(&self, hook: &Hook, tag_cache: &FileTagCache<'paths>) -> bool {
         match self {
             Self::Files(project_files) => project_files.has_matching_file(hook, tag_cache),
             Self::MessageFile { hook_arg, tags } => {
@@ -1398,7 +1302,7 @@ impl RunResult {
 
 async fn run_hook(
     hook: InstalledHook,
-    project_input: &ProjectHookInput<'_>,
+    project_input: &ProjectHookInput<'_, '_>,
     tag_cache: &FileTagCache<'_>,
     store: &Store,
     dry_run: bool,

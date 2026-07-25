@@ -40,12 +40,38 @@ import dataclasses
 import logging as stdlib_logging
 import threading
 import traceback
+from collections.abc import Callable
 from importlib.metadata import entry_points
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
+from smplkit._buffer import _LOGGER_BATCH_FLUSH_SIZE, _LoggerRegistrationBuffer
 from smplkit._config import _service_url, resolve_client_config
-from smplkit._transport import with_default_user_agent
 from smplkit._debug import debug
+from smplkit._generated.app.client import AuthenticatedClient as _AppAuthClient
+from smplkit._generated.logging.api.log_groups import (
+    create_log_group,
+    delete_log_group,
+    get_log_group,
+    list_log_groups,
+    update_log_group,
+)
+from smplkit._generated.logging.api.loggers import (
+    bulk_register_loggers,
+    delete_logger,
+    get_logger,
+    list_loggers,
+    update_logger,
+)
+from smplkit._generated.logging.client import AuthenticatedClient
+from smplkit._generated.logging.models.log_group import LogGroup as GenLogGroup  # noqa: F401
+from smplkit._generated.logging.models.log_group_resource import LogGroupResource  # noqa: F401
+from smplkit._generated.logging.models.log_group_response import LogGroupResponse
+from smplkit._generated.logging.models.logger import Logger as GenLogger  # noqa: F401
+from smplkit._generated.logging.models.logger_resource import LoggerResource  # noqa: F401
+from smplkit._generated.logging.models.logger_response import LoggerResponse
+from smplkit._helpers import key_to_display_name, paginate_async, paginate_sync
+from smplkit._transport import with_default_user_agent
+from smplkit._ws import SharedWebSocket
 from smplkit.errors import (
     ConflictError,
     ConnectionError,
@@ -55,59 +81,48 @@ from smplkit.errors import (
     ValidationError,
     _raise_for_status,
 )
-from smplkit._helpers import key_to_display_name, paginate_async, paginate_sync
-from smplkit._generated.app.client import AuthenticatedClient as _AppAuthClient
-from smplkit._generated.logging.client import AuthenticatedClient
-from smplkit._generated.logging.api.loggers import (  # noqa: F401  (re-exported for tests)
-    bulk_register_loggers,
-    delete_logger,
-    get_logger,
-    list_loggers,
-    update_logger,
-)
-from smplkit._generated.logging.api.log_groups import (  # noqa: F401  (re-exported)
-    create_log_group,
-    delete_log_group,
-    get_log_group,
-    list_log_groups,
-    update_log_group,
-)
-from smplkit._generated.logging.models.log_group import LogGroup as GenLogGroup  # noqa: F401
-from smplkit._generated.logging.models.log_group_resource import LogGroupResource  # noqa: F401
-from smplkit._generated.logging.models.log_group_response import LogGroupResponse
-from smplkit._generated.logging.models.logger import Logger as GenLogger  # noqa: F401
-from smplkit._generated.logging.models.logger_resource import LoggerResource  # noqa: F401
-from smplkit._generated.logging.models.logger_response import LoggerResponse
 from smplkit.logging._levels import python_level_to_smpl, smpl_level_to_python
 from smplkit.logging._normalize import normalize_logger_name
+from smplkit.logging._resolution import resolve_level
 from smplkit.logging.adapters.base import LoggingAdapter
-from smplkit.logging.helpers import (  # noqa: F401  (re-exported below)
+from smplkit.logging.helpers import (
     _build_log_group_body as _build_group_body,
+)
+from smplkit.logging.helpers import (
     _build_logger_body,
-    _extract_datetime,
     _extract_environments,
-    _extract_sources,
-    _logger_resource_to_async_model,
-    _logger_resource_to_model,
     _log_group_resource_to_async_model,
     _log_group_resource_to_model,
+    _logger_resource_to_async_model,
+    _logger_resource_to_model,
     _loglevel_value,
-    _make_environments,
-    _make_group_environments,
-    _str_to_log_level,
     _unset_to_none,
 )
-from smplkit.logging.models import (  # noqa: F401  (re-exported below)
-    AsyncSmplLogGroup,
+from smplkit.logging.helpers import (
+    _extract_datetime as _extract_datetime,
+)
+from smplkit.logging.helpers import (
+    _extract_sources as _extract_sources,
+)
+from smplkit.logging.helpers import (
+    _make_environments as _make_environments,
+)
+from smplkit.logging.helpers import (
+    _make_group_environments as _make_group_environments,
+)
+from smplkit.logging.helpers import (
+    _str_to_log_level as _str_to_log_level,
+)
+from smplkit.logging.models import (
     AsyncSmplLogger,
-    SmplLogGroup,
+    AsyncSmplLogGroup,
     SmplLogger,
+    SmplLogGroup,
+)
+from smplkit.logging.models import (
     _environments_to_wire as _logger_environments_to_wire,
 )
-from smplkit.logging._resolution import resolve_level
 from smplkit.logging.sources import LoggerSource
-from smplkit._buffer import _LOGGER_BATCH_FLUSH_SIZE, _LoggerRegistrationBuffer
-from smplkit._ws import SharedWebSocket
 
 if TYPE_CHECKING:
     from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter

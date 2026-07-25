@@ -1,13 +1,14 @@
-from functools import partial
-import numpy as np
 import unittest
-from hyperopt import hp, Trials, fmin, tpe, anneal, rand
+from functools import partial
+
+import numpy as np
+
 import hyperopt.pyll.stochastic
+from hyperopt import Trials, anneal, fmin, hp, rand, tpe
 
 
 class TestPChoice(unittest.TestCase):
     def test_basic(self):
-
         space = hp.pchoice(
             "naive_type",
             [(0.14, "gaussian"), (0.02, "multinomial"), (0.84, "bernoulli")],

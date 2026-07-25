@@ -50,7 +50,7 @@ def _cfg(extra_headers: dict[str, str] | None = None) -> ResolvedClientConfig:
 class TestUserAgentConstant:
     def test_format_is_sdk_name_slash_version(self):
         assert SDK_USER_AGENT.startswith("smplkit-sdk-python/")
-        assert SDK_USER_AGENT == f"smplkit-sdk-python/{smplkit.__version__}"
+        assert f"smplkit-sdk-python/{smplkit.__version__}" == SDK_USER_AGENT
 
     def test_version_part_is_the_resolved_version(self):
         assert SDK_USER_AGENT.split("/", 1)[1] == smplkit.__version__

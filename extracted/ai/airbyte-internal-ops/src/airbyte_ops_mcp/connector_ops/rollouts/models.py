@@ -140,6 +140,7 @@ class AutopilotResult:
     skipped: list[AutopilotAction] = field(default_factory=list)
     errors: list[AutopilotAction] = field(default_factory=list)
     warnings: list[AutopilotAction] = field(default_factory=list)
+    holds: list[AutopilotAction] = field(default_factory=list)
 
     @property
     def summary(self) -> str:
@@ -152,5 +153,7 @@ class AutopilotResult:
         )
         if self.warnings:
             summary += f", {len(self.warnings)} warnings"
+        if self.holds:
+            summary += f", {len(self.holds)} held"
         parts.append(summary)
         return " ".join(parts)

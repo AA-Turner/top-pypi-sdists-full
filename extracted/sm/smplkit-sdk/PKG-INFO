@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smplkit-sdk
-Version: 3.2.195
+Version: 3.2.199
 Summary: Official Python SDK for the smplkit platform
 Project-URL: Homepage, https://www.smplkit.com
 Project-URL: Documentation, https://docs.smplkit.com
@@ -24,7 +24,7 @@ Requires-Dist: loguru>=0.7.0; extra == 'dev'
 Requires-Dist: openapi-python-client<0.29.0,>=0.21.0; extra == 'dev'
 Requires-Dist: pytest-cov>=4.0; extra == 'dev'
 Requires-Dist: pytest>=7.0; extra == 'dev'
-Requires-Dist: ruff>=0.4.0; extra == 'dev'
+Requires-Dist: ruff==0.16.0; extra == 'dev'
 Provides-Extra: loguru
 Requires-Dist: loguru>=0.7.0; extra == 'loguru'
 Description-Content-Type: text/markdown

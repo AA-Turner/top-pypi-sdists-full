@@ -121,6 +121,7 @@ fn fold_kind(kind: SyntaxKind) -> Option<FoldKind> {
         SyntaxKind::TUPLE_EXPR => Some(FoldKind::Tuple),
         SyntaxKind::WHEN_CLAUSE_LIST
         | SyntaxKind::ALTER_OPTION_LIST
+        | SyntaxKind::ALTER_TYPE_ATTRIBUTE_ACTION_LIST
         | SyntaxKind::ATTRIBUTE_LIST
         | SyntaxKind::BEGIN_FUNC_OPTION_LIST
         | SyntaxKind::CHECKPOINT_OPTION_LIST
@@ -141,6 +142,7 @@ fn fold_kind(kind: SyntaxKind) -> Option<FoldKind> {
         | SyntaxKind::GROUP_BY_LIST
         | SyntaxKind::JSON_TABLE_COLUMN_LIST
         | SyntaxKind::OPERATOR_CLASS_OPTION_LIST
+        | SyntaxKind::OPTION_ALTER_OPTION_LIST
         | SyntaxKind::OPTION_ITEM_LIST
         | SyntaxKind::OP_SIG_LIST
         | SyntaxKind::PARTITION_ITEM_LIST
@@ -166,7 +168,10 @@ fn fold_kind(kind: SyntaxKind) -> Option<FoldKind> {
         | SyntaxKind::TRIGGER_EVENT_LIST
         | SyntaxKind::VACUUM_OPTION_LIST
         | SyntaxKind::VARIANT_LIST
-        | SyntaxKind::EXPR_AS_NAME_LIST
+        | SyntaxKind::EXPR_AS_COLUMN_NAME_LIST
+        | SyntaxKind::EXPR_AS_ELEMENT_TAG_LIST
+        | SyntaxKind::EXPR_AS_PROPERTY_NAME_LIST
+        | SyntaxKind::EXPR_AS_XML_ATTR_LIST
         | SyntaxKind::XML_COLUMN_OPTION_LIST
         | SyntaxKind::XML_NAMESPACE_LIST
         | SyntaxKind::XML_TABLE_COLUMN_LIST

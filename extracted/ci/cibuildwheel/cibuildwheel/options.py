@@ -43,7 +43,7 @@ from packaging.specifiers import SpecifierSet
 from cibuildwheel import errors
 from cibuildwheel.architecture import Architecture
 from cibuildwheel.environment import EnvironmentParseError, ParsedEnvironment, parse_environment
-from cibuildwheel.frontend import BuildFrontendConfig
+from cibuildwheel.frontend import BuildFrontendConfig, BuildFrontendName
 from cibuildwheel.logger import log
 from cibuildwheel.oci_container import OCIContainerEngineConfig
 from cibuildwheel.projectfiles import get_requires_python_str, resolve_dependency_groups
@@ -821,7 +821,6 @@ class Options:
 
             test_runtime_str = self.reader.get(
                 "test-runtime",
-                env_plat=False,
                 option_format=ShlexTableFormat(sep="; ", pair_sep=":", allow_merge=False),
             )
             if not test_runtime_str:
@@ -833,9 +832,11 @@ class Options:
                     msg = f"Failed to parse test runtime config. {e}"
                     raise errors.ConfigurationError(msg) from e
 
-            test_requires = self.reader.get(
-                "test-requires", option_format=ListFormat(sep=" ")
-            ).split()
+            test_requires = shlex.split(
+                self.reader.get(
+                    "test-requires", option_format=ListFormat(sep=" ", quote=shlex.quote)
+                )
+            )
             test_extras = self.reader.get("test-extras", option_format=ListFormat(sep=","))
             test_groups_str = self.reader.get("test-groups", option_format=ListFormat(sep=" "))
             test_groups = [x for x in test_groups_str.split() if x]
@@ -849,14 +850,29 @@ class Options:
                 env_plat=False,
                 option_format=ShlexTableFormat(sep="; ", pair_sep=":", allow_merge=False),
             )
+            default_frontend: BuildFrontendName = (
+                "pyodide-build" if self.platform == "pyodide" else "build"
+            )
             if not build_frontend_str or build_frontend_str == "default":
-                build_frontend = BuildFrontendConfig("build")
+                build_frontend = BuildFrontendConfig(default_frontend)
             else:
                 try:
                     build_frontend = BuildFrontendConfig.from_config_string(build_frontend_str)
                 except ValueError as e:
                     msg = f"Failed to parse build frontend. {e}"
                     raise errors.ConfigurationError(msg) from e
+
+            if self.platform == "pyodide" and build_frontend.name != "pyodide-build":
+                # pip and uv could become an error, eventually. build -> pyodide-build is
+                # probably fine to keep as a warning
+                log.warning(
+                    f"The pyodide platform ignores the {build_frontend.name!r} build "
+                    "frontend; using 'pyodide-build' instead"
+                )
+                build_frontend = BuildFrontendConfig("pyodide-build", build_frontend.args)
+            if self.platform != "pyodide" and build_frontend.name == "pyodide-build":
+                msg = "The 'pyodide-build' build frontend is only supported on the pyodide platform"
+                raise errors.ConfigurationError(msg)
 
             try:
                 environment = parse_environment(environment_config)
@@ -932,9 +948,11 @@ class Options:
             )
             audit_command = audit_command_str.split(" && ") if audit_command_str else []
 
-            audit_requires = self.reader.get(
-                "audit-requires", option_format=ListFormat(sep=" ")
-            ).split()
+            audit_requires = shlex.split(
+                self.reader.get(
+                    "audit-requires", option_format=ListFormat(sep=" ", quote=shlex.quote)
+                )
+            )
 
             return BuildOptions(
                 globals=self.globals,
@@ -1120,6 +1138,6 @@ def _get_pinned_container_images() -> Mapping[str, Mapping[str, str]]:
       'pypy_x86_64': {'manylinux2010': '...' }
       ... }
     """
-    all_pinned_images = configparser.ConfigParser()
+    all_pinned_images = configparser.ConfigParser(inline_comment_prefixes="#")
     all_pinned_images.read(resources.PINNED_DOCKER_IMAGES)
     return all_pinned_images

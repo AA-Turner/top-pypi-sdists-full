@@ -1,16 +1,14 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+from dateutil.parser import isoparse
 
 from ..types import UNSET, Unset
-
-from dateutil.parser import isoparse
-from typing import cast
-import datetime
 
 if TYPE_CHECKING:
     from ..models.payment_method_billing_details import PaymentMethodBillingDetails
@@ -46,50 +44,50 @@ class PaymentMethod:
             updated_at (datetime.datetime | None | Unset): When the payment method was last modified.
     """
 
-    brand: None | str | Unset = UNSET
-    last4: None | str | Unset = UNSET
-    exp_month: int | None | Unset = UNSET
-    exp_year: int | None | Unset = UNSET
-    default: bool | None | Unset = UNSET
-    billing_details: None | PaymentMethodBillingDetails | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    updated_at: datetime.datetime | None | Unset = UNSET
+    brand: str | Unset | None = UNSET
+    last4: str | Unset | None = UNSET
+    exp_month: int | Unset | None = UNSET
+    exp_year: int | Unset | None = UNSET
+    default: bool | Unset | None = UNSET
+    billing_details: PaymentMethodBillingDetails | Unset | None = UNSET
+    created_at: datetime.datetime | Unset | None = UNSET
+    updated_at: datetime.datetime | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.payment_method_billing_details import PaymentMethodBillingDetails
 
-        brand: None | str | Unset
+        brand: str | Unset | None
         if isinstance(self.brand, Unset):
             brand = UNSET
         else:
             brand = self.brand
 
-        last4: None | str | Unset
+        last4: str | Unset | None
         if isinstance(self.last4, Unset):
             last4 = UNSET
         else:
             last4 = self.last4
 
-        exp_month: int | None | Unset
+        exp_month: int | Unset | None
         if isinstance(self.exp_month, Unset):
             exp_month = UNSET
         else:
             exp_month = self.exp_month
 
-        exp_year: int | None | Unset
+        exp_year: int | Unset | None
         if isinstance(self.exp_year, Unset):
             exp_year = UNSET
         else:
             exp_year = self.exp_year
 
-        default: bool | None | Unset
+        default: bool | Unset | None
         if isinstance(self.default, Unset):
             default = UNSET
         else:
             default = self.default
 
-        billing_details: dict[str, Any] | None | Unset
+        billing_details: dict[str, Any] | Unset | None
         if isinstance(self.billing_details, Unset):
             billing_details = UNSET
         elif isinstance(self.billing_details, PaymentMethodBillingDetails):
@@ -97,7 +95,7 @@ class PaymentMethod:
         else:
             billing_details = self.billing_details
 
-        created_at: None | str | Unset
+        created_at: str | Unset | None
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -105,7 +103,7 @@ class PaymentMethod:
         else:
             created_at = self.created_at
 
-        updated_at: None | str | Unset
+        updated_at: str | Unset | None
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -141,7 +139,7 @@ class PaymentMethod:
 
         d = dict(src_dict)
 
-        def _parse_brand(data: object) -> None | str | Unset:
+        def _parse_brand(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -150,7 +148,7 @@ class PaymentMethod:
 
         brand = _parse_brand(d.pop("brand", UNSET))
 
-        def _parse_last4(data: object) -> None | str | Unset:
+        def _parse_last4(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -159,7 +157,7 @@ class PaymentMethod:
 
         last4 = _parse_last4(d.pop("last4", UNSET))
 
-        def _parse_exp_month(data: object) -> int | None | Unset:
+        def _parse_exp_month(data: object) -> int | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -168,7 +166,7 @@ class PaymentMethod:
 
         exp_month = _parse_exp_month(d.pop("exp_month", UNSET))
 
-        def _parse_exp_year(data: object) -> int | None | Unset:
+        def _parse_exp_year(data: object) -> int | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -177,7 +175,7 @@ class PaymentMethod:
 
         exp_year = _parse_exp_year(d.pop("exp_year", UNSET))
 
-        def _parse_default(data: object) -> bool | None | Unset:
+        def _parse_default(data: object) -> bool | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -186,7 +184,7 @@ class PaymentMethod:
 
         default = _parse_default(d.pop("default", UNSET))
 
-        def _parse_billing_details(data: object) -> None | PaymentMethodBillingDetails | Unset:
+        def _parse_billing_details(data: object) -> PaymentMethodBillingDetails | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -203,7 +201,7 @@ class PaymentMethod:
 
         billing_details = _parse_billing_details(d.pop("billing_details", UNSET))
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -220,7 +218,7 @@ class PaymentMethod:
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_updated_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

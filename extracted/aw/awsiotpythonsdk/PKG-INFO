@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: AWSIoTPythonSDK
-Version: 1.6.0
+Version: 1.6.1
 Summary: SDK for connecting to AWS IoT using Python.
 Home-page: https://github.com/aws/aws-iot-device-sdk-python.git
 Download-URL: https://s3.amazonaws.com/aws-iot-device-sdk-python/aws-iot-device-sdk-python-latest.zip

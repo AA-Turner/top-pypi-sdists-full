@@ -3,13 +3,11 @@ from typing import Any
 
 import httpx
 
-from ...client import AuthenticatedClient, Client
-from ...types import Response, UNSET
 from ... import errors
-
+from ...client import AuthenticatedClient, Client
 from ...models.flag_list_response import FlagListResponse
 from ...models.list_flags_sort import ListFlagsSort
-from ...types import Unset
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
@@ -27,35 +25,35 @@ def _get_kwargs(
 
     params: dict[str, Any] = {}
 
-    json_filtertype: None | str | Unset
+    json_filtertype: str | Unset | None
     if isinstance(filtertype, Unset):
         json_filtertype = UNSET
     else:
         json_filtertype = filtertype
     params["filter[type]"] = json_filtertype
 
-    json_filtermanaged: bool | None | Unset
+    json_filtermanaged: bool | Unset | None
     if isinstance(filtermanaged, Unset):
         json_filtermanaged = UNSET
     else:
         json_filtermanaged = filtermanaged
     params["filter[managed]"] = json_filtermanaged
 
-    json_filterreferences_context: None | str | Unset
+    json_filterreferences_context: str | Unset | None
     if isinstance(filterreferences_context, Unset):
         json_filterreferences_context = UNSET
     else:
         json_filterreferences_context = filterreferences_context
     params["filter[references_context]"] = json_filterreferences_context
 
-    json_filterreferences_context_type: None | str | Unset
+    json_filterreferences_context_type: str | Unset | None
     if isinstance(filterreferences_context_type, Unset):
         json_filterreferences_context_type = UNSET
     else:
         json_filterreferences_context_type = filterreferences_context_type
     params["filter[references_context_type]"] = json_filterreferences_context_type
 
-    json_filtersearch: None | str | Unset
+    json_filtersearch: str | Unset | None
     if isinstance(filtersearch, Unset):
         json_filtersearch = UNSET
     else:

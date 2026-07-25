@@ -23,7 +23,11 @@ from anyio.abc import TaskStatus
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from anyio.streams.stapled import StapledObjectStream
 from httpx2 import AsyncClient
-from httpx2.websockets import AsyncWebSocketSession, WebSocketDisconnect
+from httpx2.websockets import (
+    AsyncWebSocketSession,
+    HTTPXWSException,
+    WebSocketDisconnect,
+)
 from pydantic import ValidationError, model_validator
 
 from tastytrade import logger, version_str
@@ -52,7 +56,7 @@ from tastytrade.watchlists import Watchlist
 
 CERT_STREAMER_URL = "wss://streamer.cert.tastyworks.com"
 STREAMER_URL = "wss://streamer.tastyworks.com"
-
+PAPER_STREAMER_URL = "wss://tastyware.dev/api/notifications"
 DXLINK_VERSION = "0.1-DXF-JS/0.3.0"
 
 
@@ -206,8 +210,14 @@ class AlertStreamer(AsyncContextManagerMixin):
 
     def __init__(self, session: Session):
         self.session = session
-        #: The base url for the streamer websocket
-        self.base_url: str = CERT_STREAMER_URL if session.is_test else STREAMER_URL
+        # TODO: move outside once PaperAlertStreamer is removed
+        from tastytrade.paper import PaperSession
+
+        if isinstance(session, PaperSession):
+            #: The base url for the streamer websocket
+            self.base_url = PAPER_STREAMER_URL
+        else:
+            self.base_url = CERT_STREAMER_URL if session.is_test else STREAMER_URL
         #: Counter used to track the request ID for the streamer
         self.request_id = 0
         self._queues: dict[str, StapledObjectStream[AlertType]] = defaultdict(
@@ -314,6 +324,12 @@ class AlertStreamer(AsyncContextManagerMixin):
             )
         else:
             await self._queues[type_str].send(MAP_ALERTS[type_str](**data))
+
+    def fail(self) -> None:
+        """
+        Raise an exception in the streamer that can be used to test retries.
+        """
+        raise HTTPXWSException("Something happened and the fake streamer broke, oh no!")
 
 
 class DXLinkStreamer(AsyncContextManagerMixin):

@@ -1,13 +1,12 @@
 //! Implementation of the setattr() builtin function.
 
+use monty_types::{ExcType, ResourceTracker};
+
 use crate::{
-    ExcType,
     args::ArgValues,
     bytecode::VM,
     defer_drop,
-    exception_private::{RunResult, SimpleException},
-    resource::ResourceTracker,
-    types::PyTrait,
+    exception_private::{ExcTypeExt, RunResult, SimpleException},
     value::Value,
 };
 
@@ -33,7 +32,7 @@ pub fn builtin_setattr(vm: &mut VM<'_, impl ResourceTracker>, args: ArgValues) -
     let Some(name) = name.as_either_str(vm.heap) else {
         return Err(SimpleException::new_msg(
             ExcType::TypeError,
-            format!("attribute name must be string, not '{}'", name.py_type(vm)),
+            format!("attribute name must be string, not '{}'", name.py_type_name(vm)),
         )
         .into());
     };

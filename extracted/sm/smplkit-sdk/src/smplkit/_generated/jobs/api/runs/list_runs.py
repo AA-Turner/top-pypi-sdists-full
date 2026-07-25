@@ -3,13 +3,11 @@ from typing import Any
 
 import httpx
 
-from ...client import AuthenticatedClient, Client
-from ...types import Response, UNSET
 from ... import errors
-
+from ...client import AuthenticatedClient, Client
 from ...models.list_runs_sort import ListRunsSort
 from ...models.run_list_response import RunListResponse
-from ...types import Unset
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
@@ -30,56 +28,56 @@ def _get_kwargs(
 
     params: dict[str, Any] = {}
 
-    json_filterjob: None | str | Unset
+    json_filterjob: str | Unset | None
     if isinstance(filterjob, Unset):
         json_filterjob = UNSET
     else:
         json_filterjob = filterjob
     params["filter[job]"] = json_filterjob
 
-    json_filterstatus: None | str | Unset
+    json_filterstatus: str | Unset | None
     if isinstance(filterstatus, Unset):
         json_filterstatus = UNSET
     else:
         json_filterstatus = filterstatus
     params["filter[status]"] = json_filterstatus
 
-    json_filterenvironment: None | str | Unset
+    json_filterenvironment: str | Unset | None
     if isinstance(filterenvironment, Unset):
         json_filterenvironment = UNSET
     else:
         json_filterenvironment = filterenvironment
     params["filter[environment]"] = json_filterenvironment
 
-    json_filtertrigger: None | str | Unset
+    json_filtertrigger: str | Unset | None
     if isinstance(filtertrigger, Unset):
         json_filtertrigger = UNSET
     else:
         json_filtertrigger = filtertrigger
     params["filter[trigger]"] = json_filtertrigger
 
-    json_filtercreated_at: None | str | Unset
+    json_filtercreated_at: str | Unset | None
     if isinstance(filtercreated_at, Unset):
         json_filtercreated_at = UNSET
     else:
         json_filtercreated_at = filtercreated_at
     params["filter[created_at]"] = json_filtercreated_at
 
-    json_filterstarted_at: None | str | Unset
+    json_filterstarted_at: str | Unset | None
     if isinstance(filterstarted_at, Unset):
         json_filterstarted_at = UNSET
     else:
         json_filterstarted_at = filterstarted_at
     params["filter[started_at]"] = json_filterstarted_at
 
-    json_filterfinished_at: None | str | Unset
+    json_filterfinished_at: str | Unset | None
     if isinstance(filterfinished_at, Unset):
         json_filterfinished_at = UNSET
     else:
         json_filterfinished_at = filterfinished_at
     params["filter[finished_at]"] = json_filterfinished_at
 
-    json_filterscheduled_for: None | str | Unset
+    json_filterscheduled_for: str | Unset | None
     if isinstance(filterscheduled_for, Unset):
         json_filterscheduled_for = UNSET
     else:
@@ -88,14 +86,14 @@ def _get_kwargs(
 
     params["last_run_only"] = last_run_only
 
-    json_pagesize: int | None | Unset
+    json_pagesize: int | Unset | None
     if isinstance(pagesize, Unset):
         json_pagesize = UNSET
     else:
         json_pagesize = pagesize
     params["page[size]"] = json_pagesize
 
-    json_pageafter: None | str | Unset
+    json_pageafter: str | Unset | None
     if isinstance(pageafter, Unset):
         json_pageafter = UNSET
     else:

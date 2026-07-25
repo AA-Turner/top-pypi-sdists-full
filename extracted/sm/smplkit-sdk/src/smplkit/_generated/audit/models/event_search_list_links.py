@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
-
-from typing import cast
-
 
 T = TypeVar("T", bound="EventSearchListLinks")
 
@@ -23,11 +20,11 @@ class EventSearchListLinks:
             bare cursor token — the client must re-issue a POST with its body, which the URL form cannot capture.
     """
 
-    next_: None | str | Unset = UNSET
+    next_: str | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        next_: None | str | Unset
+        next_: str | Unset | None
         if isinstance(self.next_, Unset):
             next_ = UNSET
         else:
@@ -45,7 +42,7 @@ class EventSearchListLinks:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
 
-        def _parse_next_(data: object) -> None | str | Unset:
+        def _parse_next_(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

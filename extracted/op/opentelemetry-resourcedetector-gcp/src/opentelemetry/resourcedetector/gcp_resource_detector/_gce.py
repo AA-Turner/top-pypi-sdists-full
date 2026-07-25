@@ -1,16 +1,5 @@
-# Copyright 2023 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Copyright The OpenTelemetry Authors
+# SPDX-License-Identifier: Apache-2.0
 
 import logging
 import re
@@ -62,7 +51,7 @@ def availability_zone_and_region() -> ZoneAndRegion:
     full_zone = _metadata.get_metadata()["instance"]["zone"]
     match = _ZONE_REGION_RE.search(full_zone)
     if not match:
-        raise Exception(
+        raise ValueError(
             "zone was not in the expected format: "
             f"projects/PROJECT_NUM/zones/COUNTRY-REGION-ZONE. Got {full_zone}"
         )

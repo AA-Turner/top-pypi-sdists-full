@@ -4,30 +4,27 @@
 //! constructor rules, aware/naive comparison semantics, and arithmetic on top.
 
 use std::{
-    borrow::Cow,
-    cmp::Ordering,
     collections::hash_map::DefaultHasher,
     fmt::Write,
     hash::{Hash, Hasher},
     mem,
 };
 
-use ahash::AHashSet;
-use chrono::{Datelike, FixedOffset, NaiveDateTime, NaiveTime, TimeDelta as ChronoTimeDelta, Timelike};
+use chrono::{
+    Datelike, FixedOffset, NaiveDateTime, NaiveTime, TimeDelta as ChronoTimeDelta, Timelike, format::StrftimeItems,
+};
+use monty_types::{MontyTimeZone, OsFunctionCall, ResourceError, ResourceTracker};
 
 use crate::{
     args::{ArgValues, FromArgs},
     bytecode::{CallResult, VM},
     defer_drop, defer_drop_mut,
-    exception_private::{ExcType, RunResult, SimpleException},
+    exception_private::{ExcType, ExcTypeExt, RunResult, SimpleException},
     hash::HashValue,
-    heap::{DropWithHeap, Heap, HeapData, HeapId, HeapItem, HeapRead},
+    heap::{Heap, HeapData, HeapId, HeapItem, HeapRead, HeapReadOutput},
     intern::{Interns, StaticStrings},
-    object::MontyObject,
-    os::OsFunctionCall,
-    resource::{ResourceError, ResourceTracker},
     types::{
-        AttrCallResult, PyTrait, TimeDelta, TimeZone, Type,
+        AttrCallResult, CmpOrder, LazyHeapSet, PyTrait, TimeDelta, TimeZone, Type,
         date::{self, StrftimeArgs},
         str::{StringRepr, allocate_string, allocate_string_no_interning},
         timedelta, timezone,
@@ -220,7 +217,7 @@ pub(crate) fn init(vm: &mut VM<'_, impl ResourceTracker>, args: ArgValues) -> Ru
         );
     }
 
-    let (tz, tz_ref) = tzinfo_from_value(tzinfo, vm.heap)?;
+    let (tz, tz_ref) = tzinfo_from_value(tzinfo, vm.heap, vm.interns)?;
     let dt = from_components(year, month, day, hour, minute, second, microsecond, tz, tz_ref, vm.heap)?;
     Ok(Value::Ref(vm.heap.allocate(HeapData::DateTime(dt))?))
 }
@@ -232,13 +229,14 @@ pub(crate) fn init(vm: &mut VM<'_, impl ResourceTracker>, args: ArgValues) -> Ru
 /// could still fit in the keyword-only tail (`actual <= 9`) the message is
 /// "function takes at most 8 *positional* arguments"; once it exceeds the
 /// total slot count it switches to "function takes at most 9 arguments".
-/// The macro implements that pivot via `at_most_positional` + the keyword-only
-/// `fold` field — the trailing kw-only slot is what bumps `max_total` to 9.
+/// The derive turns the pivot on automatically for `style = c` structs with
+/// keyword-only fields — the trailing kw-only `fold` slot is what bumps
+/// `max_total` to 9.
 ///
 /// `fold` itself is accepted for CPython parity but currently has no effect
 /// on the stored datetime — Monty does not track DST-fold disambiguation.
 #[derive(FromArgs)]
-#[from_args(name = "function", c_error, at_most_positional)]
+#[from_args(name = "function", style = c)]
 struct DatetimeInitArgs {
     year: i32,
     month: i32,
@@ -258,82 +256,30 @@ struct DatetimeInitArgs {
 }
 
 /// Classmethod implementation for `datetime.now(tz=None)`. Yields a
-/// `DateTimeNow` OS call with `tz` projected to [`MontyObject`] at the
-/// producer site (so the host sees a typed value directly).
-///
-/// Takes `&mut VM` rather than `&mut Heap` because the projection needs
-/// `MontyObject::new` to walk heap-allocated tzinfo objects.
+/// `DateTimeNow` OS call carrying the tz argument as a typed
+/// [`Option<MontyTimeZone>`] — validated here, so the call can never carry an
+/// arbitrary object.
 pub(crate) fn class_now(vm: &mut VM<'_, impl ResourceTracker>, args: ArgValues) -> RunResult<AttrCallResult> {
-    // Avoid `defer_drop_mut!` here: it would keep `vm` borrowed until end of
-    // scope, blocking the final `MontyObject::new(vm, ...)` call.
-    let tz_value = extract_now_tz(vm, args)?;
-    let tz_obj = MontyObject::new(tz_value, vm);
-    Ok(AttrCallResult::OsCall(OsFunctionCall::DateTimeNow(tz_obj)))
+    let NowArgs { tz } = NowArgs::from_args(args, vm)?;
+    defer_drop!(tz, vm);
+    let tz = tzinfo_from_value(tz, vm.heap, vm.interns)?.0.map(|tz| MontyTimeZone {
+        offset_seconds: tz.offset_seconds,
+        name: tz.name,
+    });
+    Ok(AttrCallResult::OsCall(OsFunctionCall::DateTimeNow(tz)))
 }
 
-/// Extracts the single `tz` argument from `datetime.now()`'s args
-/// (defaulting to `Value::None`), draining the iterators on every path so
-/// refcounts stay balanced.
-fn extract_now_tz(vm: &mut VM<'_, impl ResourceTracker>, args: ArgValues) -> RunResult<Value> {
-    let interns = vm.interns;
-    let heap = &mut *vm.heap;
-    let (mut pos, kwargs) = args.into_parts();
-    let mut kwargs_iter = kwargs.into_iter();
-
-    let mut tz_value = Value::None;
-    let mut seen_tz = false;
-
-    for (index, arg) in pos.by_ref().enumerate() {
-        if index == 0 {
-            if let Err(e) = validate_tz_arg(&arg, heap) {
-                arg.drop_with_heap(heap);
-                pos.drop_with_heap(heap);
-                kwargs_iter.drop_with_heap(heap);
-                return Err(e);
-            }
-            tz_value = arg;
-            seen_tz = true;
-        } else {
-            arg.drop_with_heap(heap);
-            pos.drop_with_heap(heap);
-            kwargs_iter.drop_with_heap(heap);
-            tz_value.drop_with_heap(heap);
-            return Err(ExcType::type_error_method_at_most("now", 1, index + 1));
-        }
-    }
-
-    while let Some((key, value)) = kwargs_iter.next() {
-        let key_name = key.as_either_str(heap);
-        key.drop_with_heap(heap);
-
-        let Some(key_name) = key_name else {
-            value.drop_with_heap(heap);
-            kwargs_iter.drop_with_heap(heap);
-            tz_value.drop_with_heap(heap);
-            return Err(ExcType::type_error_kwargs_nonstring_key());
-        };
-        if key_name.string_id() != Some(StaticStrings::Tz.into()) {
-            value.drop_with_heap(heap);
-            kwargs_iter.drop_with_heap(heap);
-            tz_value.drop_with_heap(heap);
-            return Err(ExcType::type_error_unexpected_keyword("now", key_name.as_str(interns)));
-        }
-        if seen_tz {
-            value.drop_with_heap(heap);
-            kwargs_iter.drop_with_heap(heap);
-            tz_value.drop_with_heap(heap);
-            return Err(ExcType::type_error_method_at_most("now", 1, 2));
-        }
-        if let Err(e) = validate_tz_arg(&value, heap) {
-            value.drop_with_heap(heap);
-            kwargs_iter.drop_with_heap(heap);
-            tz_value.drop_with_heap(heap);
-            return Err(e);
-        }
-        tz_value = value;
-        seen_tz = true;
-    }
-    Ok(tz_value)
+/// Argument shape for `datetime.now(tz=None)`.
+///
+/// `tz` stays a raw [`Value`] so the None-or-timezone check runs in the body
+/// (`tzinfo_from_value`) with CPython's tzinfo wording. `at_most_total`
+/// matches CPython's `PyArg_ParseTupleAndKeywords` pre-count: a duplicate tz
+/// (`now(utc, tz=utc)`) reports "takes at most 1 argument (2 given)".
+#[derive(FromArgs)]
+#[from_args(name = "now", at_most_total)]
+struct NowArgs {
+    #[from_args(default = Value::None)]
+    tz: Value,
 }
 
 /// Classmethod `datetime.strptime(date_string, format)`.
@@ -350,8 +296,8 @@ pub(crate) fn class_strptime(
 
     let date_string = date::extract_str_arg(&date_string_val, "strptime", heap, interns);
     let fmt = date::extract_str_arg(&format_val, "strptime", heap, interns);
-    date_string_val.drop_with_heap(heap);
-    format_val.drop_with_heap(heap);
+    date_string_val.drop_with(heap);
+    format_val.drop_with(heap);
     let date_string = date_string?;
     let fmt = fmt?;
 
@@ -394,7 +340,7 @@ pub(crate) fn class_fromisoformat(
 ) -> RunResult<Value> {
     let value = args.get_one_arg("datetime.fromisoformat", heap)?;
     let s = date::extract_str_arg(&value, "fromisoformat", heap, interns);
-    value.drop_with_heap(heap);
+    value.drop_with(heap);
     let s = s?;
 
     let dt = parse_iso_datetime(&s, heap)
@@ -606,30 +552,15 @@ pub(crate) fn py_sub_datetime(
 fn tzinfo_from_value(
     value: &Value,
     heap: &Heap<impl ResourceTracker>,
+    interns: &Interns,
 ) -> RunResult<(Option<TimeZone>, Option<HeapId>)> {
     match value {
         Value::None => Ok((None, None)),
         Value::Ref(id) => match heap.get(*id) {
             HeapData::TimeZone(tz) => Ok((Some(tz.clone()), Some(*id))),
-            other => Err(ExcType::type_error_tzinfo(other.py_type())),
+            other => Err(ExcType::type_error_tzinfo(&other.py_type().name(heap, interns))),
         },
-        _ => Err(ExcType::type_error_tzinfo(value.py_type_shallow())),
-    }
-}
-
-/// Validates that a value is a valid timezone argument (`None` or `TimeZone`).
-///
-/// Used by `class_now` to validate the `tz` argument before passing it through
-/// to the OS call. Unlike `tzinfo_from_value`, this does not extract the timezone
-/// data — it only checks the type.
-fn validate_tz_arg(value: &Value, heap: &Heap<impl ResourceTracker>) -> RunResult<()> {
-    match value {
-        Value::None => Ok(()),
-        Value::Ref(id) => match heap.get(*id) {
-            HeapData::TimeZone(_) => Ok(()),
-            other => Err(ExcType::type_error_tzinfo(other.py_type())),
-        },
-        _ => Err(ExcType::type_error_tzinfo(value.py_type_shallow())),
+        _ => Err(ExcType::type_error_tzinfo(&value.py_type_shallow().name(heap, interns))),
     }
 }
 
@@ -748,6 +679,18 @@ fn year_in_python_range(year: i32) -> bool {
     (1..=9999).contains(&year)
 }
 
+/// Formats a [`DateTime`] with a `strftime` directive string, shared by the
+/// `datetime.strftime()` method and f-string formatting (`f"{dt:%Y-%m-%d}"`).
+///
+/// Uses the naive (wall-clock) components, mirroring `chrono`'s formatting of
+/// `NaiveDateTime`, with the **lenient** parser so an unrecognised directive is
+/// passed through verbatim to match glibc/Linux CPython (see
+/// [`date::format_date_strftime`]).
+pub(crate) fn format_datetime_strftime(dt: &DateTime, format: &str) -> RunResult<String> {
+    date::render_strftime(dt.naive.format_with_items(StrftimeItems::new_lenient(format)))
+        .ok_or_else(date::invalid_strftime_error)
+}
+
 /// Formats a datetime as an ISO 8601 string with the given separator.
 ///
 /// Matches CPython's `datetime.isoformat(sep='T')`.
@@ -813,7 +756,7 @@ fn extract_datetime_replace_kwargs(
         None => (timezone_info(dt), dt.tzinfo_ref),
         Some(tzinfo_value) => {
             defer_drop_mut!(tzinfo_value, vm);
-            tzinfo_from_value(tzinfo_value, vm.heap)?
+            tzinfo_from_value(tzinfo_value, vm.heap, vm.interns)?
         }
     };
 
@@ -882,16 +825,19 @@ impl<'h> PyTrait<'h> for HeapRead<'h, DateTime> {
         None
     }
 
-    fn py_eq(&self, other: &Self, vm: &mut VM<'h, impl ResourceTracker>) -> Result<bool, ResourceError> {
+    fn py_eq_impl(&self, other: &Value, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Option<bool>> {
+        let Some(HeapReadOutput::DateTime(other)) = other.read_heap(vm) else {
+            return Ok(None);
+        };
         let a = self.get(vm.heap);
         let b = other.get(vm.heap);
-        if is_aware(a) != is_aware(b) {
-            return Ok(false);
-        }
-        if is_aware(a) {
-            return Ok(utc_micros(a) == utc_micros(b));
-        }
-        Ok(local_micros(a) == local_micros(b))
+        Ok(Some(if is_aware(a) != is_aware(b) {
+            false
+        } else if is_aware(a) {
+            utc_micros(a) == utc_micros(b)
+        } else {
+            local_micros(a) == local_micros(b)
+        }))
     }
 
     fn py_hash(&self, _self_id: HeapId, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Option<HashValue>> {
@@ -900,16 +846,19 @@ impl<'h> PyTrait<'h> for HeapRead<'h, DateTime> {
         Ok(Some(HashValue::new(hasher.finish())))
     }
 
-    fn py_cmp(&self, other: &Self, vm: &mut VM<'h, impl ResourceTracker>) -> Result<Option<Ordering>, ResourceError> {
+    fn py_cmp(&self, other: &Self, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<CmpOrder> {
         let a = self.get(vm.heap);
         let b = other.get(vm.heap);
         if is_aware(a) != is_aware(b) {
-            return Ok(None);
+            // Comparing offset-naive and offset-aware datetimes has no ordering
+            // in CPython (it raises `TypeError`), so report it as incomparable.
+            return Ok(CmpOrder::Incomparable);
         }
+        // Both sides compare on an integer microsecond count — always ordered.
         if is_aware(a) {
-            return Ok(utc_micros(a).partial_cmp(&utc_micros(b)));
+            return Ok(CmpOrder::Ordered(utc_micros(a).cmp(&utc_micros(b))));
         }
-        Ok(local_micros(a).partial_cmp(&local_micros(b)))
+        Ok(CmpOrder::Ordered(local_micros(a).cmp(&local_micros(b))))
     }
 
     fn py_bool(&self, _vm: &mut VM<'h, impl ResourceTracker>) -> bool {
@@ -920,7 +869,7 @@ impl<'h> PyTrait<'h> for HeapRead<'h, DateTime> {
         &self,
         f: &mut impl Write,
         vm: &mut VM<'h, impl ResourceTracker>,
-        _heap_ids: &mut AHashSet<HeapId>,
+        _heap_ids: &mut LazyHeapSet,
     ) -> RunResult<()> {
         let dt = self.get(vm.heap);
         let Some((year, month, day, hour, minute, second, microsecond)) = to_components(dt) else {
@@ -951,10 +900,10 @@ impl<'h> PyTrait<'h> for HeapRead<'h, DateTime> {
         Ok(())
     }
 
-    fn py_str(&self, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Cow<'static, str>> {
+    fn py_str(&self, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Value> {
         let dt = self.get(vm.heap);
         let Some((year, month, day, hour, minute, second, microsecond)) = to_components(dt) else {
-            return Ok(Cow::Borrowed("<out of range>"));
+            return Ok(allocate_string("<out of range>", vm.heap)?);
         };
         let mut s = format!("{year:04}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}");
         if microsecond != 0 {
@@ -963,7 +912,7 @@ impl<'h> PyTrait<'h> for HeapRead<'h, DateTime> {
         if let Some(offset) = offset_seconds(dt) {
             s.push_str(&timezone::format_offset_hms(offset));
         }
-        Ok(Cow::Owned(s))
+        Ok(allocate_string(s, vm.heap)?)
     }
 
     fn py_call_attr(
@@ -982,7 +931,8 @@ impl<'h> PyTrait<'h> for HeapRead<'h, DateTime> {
             }
             Some(id) if id == StaticStrings::Strftime => {
                 let StrftimeArgs { format } = StrftimeArgs::from_args(args, vm)?;
-                let formatted = dt.naive.format(&format).to_string();
+                defer_drop!(format, vm);
+                let formatted = format_datetime_strftime(&dt, format.as_str(vm))?;
                 Ok(CallResult::Value(allocate_string(formatted, vm.heap)?))
             }
             Some(id) if id == StaticStrings::Replace => {

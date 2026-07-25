@@ -2,22 +2,18 @@
 #
 # It provides types to build ASTs in a simple lambda-notation style
 #
-from future import standard_library
 import copy
 import logging
 import operator
 import time
-
 from collections import deque
+from io import StringIO
 
 import networkx as nx
 
 # TODO: move things depending on numpy (among others too) to a library file
 import numpy as np
-import six
-from six import StringIO
 
-standard_library.install_aliases()
 logger = logging.getLogger(__name__)
 np_versions = list(map(int, np.__version__.split(".")[:2]))
 
@@ -532,7 +528,9 @@ class Literal(Apply):
     def __init__(self, obj=None):
         try:
             o_len = len(obj)
-        except TypeError:
+        except (AttributeError, TypeError):
+            # Note: AttributeError is raised on sklearn's
+            #       RandomForestClassifier when used before fit
             o_len = None
         Apply.__init__(self, "literal", [], {}, o_len, pure=True)
         self._obj = obj
@@ -560,11 +558,7 @@ class Literal(Apply):
         else:
             # TODO: set up a registry for this
             if isinstance(self._obj, np.ndarray):
-                msg = "Literal{{np.ndarray,shape={},min={:f},max={:f}}}".format(
-                    self._obj.shape,
-                    self._obj.min(),
-                    self._obj.max(),
-                )
+                msg = f"Literal{{np.ndarray,shape={self._obj.shape},min={self._obj.min():f},max={self._obj.max():f}}}"
             else:
                 msg = "Literal{%s}" % str(self._obj)
             memo[self] = "%s  [line:%i]" % (msg, lineno[0])
@@ -579,7 +573,6 @@ class Literal(Apply):
 
 
 class Lambda:
-
     # XXX: Extend Lambda objects to have a list of exception clauses.
     #      If the code of the expr() throws an error, these clauses convert
     #      that error to a return value.
@@ -856,13 +849,16 @@ def rec_eval(
             switch_i_var = node.pos_args[0]
             if switch_i_var in memo:
                 switch_i = memo[switch_i_var]
-                try:
-                    int(switch_i)
-                except:
+                if isinstance(switch_i, np.ndarray):
+                    switch_i = switch_i.item()
+                if isinstance(switch_i, (int, np.integer)):
+                    assert switch_i == int(switch_i)
+                    switch_i = int(switch_i)
+                    if switch_i < 0:
+                        raise ValueError("switch pos must be positive int", switch_i)
+                else:
                     raise TypeError("switch argument was", switch_i)
-                if switch_i != int(switch_i) or switch_i < 0:
-                    raise ValueError("switch pos must be positive int", switch_i)
-                rval_var = node.pos_args[int(switch_i) + 1]
+                rval_var = node.pos_args[switch_i + 1]
                 if rval_var in memo:
                     set_memo(node, memo[rval_var])
                     continue
@@ -973,7 +969,7 @@ def log(a):
 
 @scope.define_pure
 def pow(a, b):
-    return a ** b
+    return a**b
 
 
 @scope.define_pure
@@ -1041,7 +1037,7 @@ def str_join(s, seq):
 
 
 @scope.define_pure
-def bincount(x, offset=0, weights=None, minlength=None, p=None):
+def bincount(x, offset=0, weights=None, minlength: int = 0, p=None):
     y = np.asarray(x, dtype="int")
     # hack for pchoice, p is passed as [ np.repeat(p, obs.size) ],
     # so scope.len(p) gives incorrect #dimensions, need to get just the first one

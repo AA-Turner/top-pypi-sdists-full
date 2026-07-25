@@ -7,27 +7,24 @@
 use std::mem;
 
 use ahash::AHashMap;
+use monty_types::{ExcType, MontyException, MontyObject, OsFunctionCall, PrintWriter, ResourceTracker};
 use ruff_python_ast::token::TokenKind;
 use ruff_python_parser::{InterpolatedStringErrorType, LexicalErrorType, ParseErrorType, parse_module};
 use serde::de::DeserializeOwned;
 
 use crate::{
-    ExcType, MontyException,
     args::{ArgValues, KwargsValues},
     asyncio::CallId,
     bytecode::{VM, VMSnapshot},
     defer_drop,
-    exception_private::RunError,
-    heap::{DropWithHeap, Heap, HeapReader},
+    exception_private::{ExcTypeExt, RunError},
+    heap::{DropWithContext, Heap, HeapReader},
     heap_data::HeapData,
     intern::{InternerBuilder, Interns},
-    io::PrintWriter,
-    namespace::NamespaceId,
-    object::MontyObject,
-    os::OsFunctionCall,
-    resource::ResourceTracker,
-    run::Executor,
-    run_progress::{ConvertedExit, ExtFunctionResult, NameLookupResult, convert_frame_exit},
+    name_map::NameMap,
+    object_bridge::MontyObjectExt,
+    run::{CompileOptions, Executor},
+    run_progress::{ConvertedExit, ExtFunctionResult, ExtFunctionResultExt, NameLookupResult, convert_frame_exit},
     value::Value,
 };
 
@@ -47,7 +44,7 @@ pub struct MontyRepl<T: ResourceTracker> {
     /// Counter for generated `<python-input-N>` snippet filenames.
     next_input_id: u64,
     /// Stable mapping of global variable names to namespace slot IDs.
-    global_name_map: AHashMap<String, NamespaceId>,
+    global_names: NameMap,
     /// Persistent intern table across snippets so intern/function IDs remain valid.
     interns: Interns,
     /// Source text of every snippet that has been fed, keyed by its
@@ -60,11 +57,15 @@ pub struct MontyRepl<T: ResourceTracker> {
     /// the current snippet's `Executor.code` is not sufficient.
     #[serde(default)]
     sources: AHashMap<String, String>,
+    /// [`CompileOptions`] applied to every snippet fed to this session, fixed
+    /// at construction so all snippets compile consistently.
+    #[serde(default)]
+    options: CompileOptions,
     /// Persistent heap across snippets.
     heap: Heap<T>,
     /// Persistent global variable values across snippets.
     ///
-    /// Indexed by `NamespaceId` slots from `global_name_map`. Between snippet
+    /// Indexed by `NamespaceId` slots from `global_names`. Between snippet
     /// executions these are the only VM values that persist — stack and frames
     /// are transient.
     globals: Vec<Value>,
@@ -75,16 +76,18 @@ impl<T: ResourceTracker> MontyRepl<T> {
     ///
     /// All code execution is driven through `feed_run()` or `feed_start()`. This separates
     /// construction from execution, matching the pattern used by `MontyRun::new()`.
+    /// The [`CompileOptions`] apply to every snippet fed to the session.
     #[must_use]
-    pub fn new(script_name: &str, resource_tracker: T) -> Self {
+    pub fn new(script_name: &str, resource_tracker: T, options: CompileOptions) -> Self {
         let heap = Heap::new(0, resource_tracker);
 
         Self {
             script_name: script_name.to_owned(),
             next_input_id: 0,
-            global_name_map: AHashMap::new(),
+            global_names: NameMap::new(),
             interns: Interns::new(InternerBuilder::default(), Vec::new()),
             sources: AHashMap::new(),
+            options,
             heap,
             globals: Vec::new(),
         }
@@ -145,15 +148,16 @@ impl<T: ResourceTracker> MontyRepl<T> {
         let executor = match Executor::new_repl_snippet(
             code.to_owned(),
             &input_script_name,
-            this.global_name_map.clone(),
+            this.global_names.clone(),
             &this.interns,
-            input_names,
+            &input_names,
+            this.options,
         ) {
             Ok(exec) => exec,
             Err(error) => return Err(Box::new(ReplStartError { repl: this, error })),
         };
 
-        this.ensure_globals_size(executor.namespace_size);
+        this.ensure_globals_size(executor.namespace_size());
 
         match HeapReader::with(&mut this.heap, &mut (&executor, print), |reader, (executor, print)| {
             let mut vm = VM::new(
@@ -161,6 +165,7 @@ impl<T: ResourceTracker> MontyRepl<T> {
                 reader,
                 &executor.interns,
                 print.reborrow(),
+                executor.assert_repr_max_bytes,
             );
 
             // Inject inputs with VM alive
@@ -217,12 +222,13 @@ impl<T: ResourceTracker> MontyRepl<T> {
         let executor = Executor::new_repl_snippet(
             code.to_owned(),
             &input_script_name,
-            self.global_name_map.clone(),
+            self.global_names.clone(),
             &self.interns,
-            input_names,
+            &input_names,
+            self.options,
         )?;
 
-        self.ensure_globals_size(executor.namespace_size);
+        self.ensure_globals_size(executor.namespace_size());
 
         let result = HeapReader::with(&mut self.heap, &mut (&executor, print), |reader, (executor, print)| {
             let mut vm = VM::new(
@@ -230,6 +236,7 @@ impl<T: ResourceTracker> MontyRepl<T> {
                 reader,
                 &executor.interns,
                 print.reborrow(),
+                executor.assert_repr_max_bytes,
             );
 
             if let Err(e) = inject_inputs_into_vm(executor, input_values, &mut vm) {
@@ -247,8 +254,12 @@ impl<T: ResourceTracker> MontyRepl<T> {
         // Commit compiler metadata even on runtime errors.
         // Snippets can mutate globals before raising, and those values may contain
         // FunctionId/StringId values that must be interpreted with the updated tables.
-        let Executor { name_map, interns, .. } = executor;
-        self.global_name_map = name_map;
+        let Executor {
+            globals: snippet_globals,
+            interns,
+            ..
+        } = executor;
+        self.global_names = snippet_globals;
         self.interns = interns;
 
         // Resolve every traceback frame against the source of the snippet that
@@ -270,16 +281,27 @@ impl<T: ResourceTracker> MontyRepl<T> {
         args: Vec<MontyObject>,
         print: PrintWriter<'_>,
     ) -> Result<MontyObject, MontyException> {
-        let Some(slot_idx) = self.global_name_map.get(name) else {
+        let slot_idx = self
+            .interns
+            .get_string_id_by_name(name)
+            .and_then(|name_id| self.global_names.get(name_id));
+        let Some(slot_idx) = slot_idx else {
             return Err(RunError::from(ExcType::name_error(name))
                 .into_python_exception(&self.interns, |fname| self.sources.get(fname).map(String::as_str)));
         };
 
+        let assert_repr_max_bytes = self.options.assert_message_annotations.max_bytes();
         HeapReader::with(
             &mut self.heap,
             &mut (&self.interns, print),
             |reader, (interns, print)| {
-                let vm = &mut VM::new(mem::take(&mut self.globals), reader, interns, print.reborrow());
+                let vm = &mut VM::new(
+                    mem::take(&mut self.globals),
+                    reader,
+                    interns,
+                    print.reborrow(),
+                    assert_repr_max_bytes,
+                );
 
                 let callable = vm.globals[slot_idx.index()].clone_with_heap(vm);
                 defer_drop!(callable, vm);
@@ -292,7 +314,15 @@ impl<T: ResourceTracker> MontyRepl<T> {
                     }
                 };
 
-                let result = match vm.evaluate_function("MontyRepl::call_function", callable, arg_values) {
+                // Host boundary: open an execution window so the time budget
+                // advances (and accumulates) during the call. This cannot go
+                // through `VM::run_external` because `evaluate_function` must
+                // push and run a single function frame itself.
+                vm.heap.tracker().on_execution_start();
+                let eval_result = vm.evaluate_function("MontyRepl::call_function", callable, arg_values);
+                vm.heap.tracker().on_execution_stop();
+
+                let result = match eval_result {
                     Ok(value) => Ok(MontyObject::new(value, vm)),
                     Err(e) => {
                         Err(e.into_python_exception(&self.interns, |fname| self.sources.get(fname).map(String::as_str)))
@@ -312,12 +342,12 @@ impl<T: ResourceTracker> MontyRepl<T> {
     /// Does not include builtins or external functions.
     #[must_use]
     pub fn function_names(&self) -> Vec<&str> {
-        self.global_name_map
+        self.global_names
             .iter()
-            .filter_map(|(name, ns_id)| {
+            .filter_map(|(ns_id, name_id)| {
                 let idx = ns_id.index();
                 if idx < self.globals.len() && is_callable(&self.globals[idx], &self.heap) {
-                    Some(name.as_str())
+                    Some(self.interns.get_str(name_id))
                 } else {
                     None
                 }
@@ -328,7 +358,10 @@ impl<T: ResourceTracker> MontyRepl<T> {
     /// Returns whether a function with the given name exists in the session.
     #[must_use]
     pub fn has_function(&self, name: &str) -> bool {
-        self.global_name_map.get(name).is_some_and(|ns_id| {
+        let Some(name_id) = self.interns.get_string_id_by_name(name) else {
+            return false;
+        };
+        self.global_names.get(name_id).is_some_and(|ns_id| {
             let idx = ns_id.index();
             idx < self.globals.len() && is_callable(&self.globals[idx], &self.heap)
         })
@@ -381,7 +414,7 @@ impl<T: ResourceTracker + DeserializeOwned> MontyRepl<T> {
 
 impl<T: ResourceTracker> Drop for MontyRepl<T> {
     fn drop(&mut self) {
-        self.globals.drain(..).drop_with_heap(&mut self.heap);
+        self.globals.drain(..).drop_with(&mut self.heap);
     }
 }
 
@@ -481,6 +514,21 @@ impl<T: ResourceTracker> ReplProgress<T> {
             Self::ResolveFutures(state) => state.into_repl(),
             Self::NameLookup(lookup) => lookup.into_repl(),
             Self::Complete { repl, .. } => repl,
+        }
+    }
+
+    /// Returns the session's resource tracker, whatever the progress state.
+    ///
+    /// Lets hosts read resource accounting — e.g. cumulative execution time
+    /// for `max_duration` budgeting — at any suspension point without
+    /// consuming the progress.
+    pub fn tracker(&self) -> &T {
+        match self {
+            Self::FunctionCall(call) => call.snapshot.repl.tracker(),
+            Self::OsCall(call) => call.snapshot.repl.tracker(),
+            Self::ResolveFutures(state) => state.repl.tracker(),
+            Self::NameLookup(lookup) => lookup.snapshot.repl.tracker(),
+            Self::Complete { repl, .. } => repl.tracker(),
         }
     }
 }
@@ -592,13 +640,16 @@ impl<T: ResourceTracker> ReplOsCall<T> {
         self.snapshot.run(result.into(), print)
     }
 
-    /// REPL mirror of [`crate::OsCall::take_function_call`] — takes the
-    /// call out for host dispatch, leaving an [`OsFunctionCall::Used`]
-    /// placeholder. Afterwards `self` is only valid for [`Self::resume`]
-    /// or [`Self::into_repl`].
-    #[must_use]
-    pub fn take_function_call(&mut self) -> OsFunctionCall {
-        mem::replace(&mut self.function_call, OsFunctionCall::Used)
+    /// REPL mirror of [`crate::OsCall::resume_with`] — dispatches the call
+    /// to `handler` (which receives the [`OsFunctionCall`] by value, so
+    /// write payloads move without cloning) and resumes with its result.
+    pub fn resume_with(
+        self,
+        print: PrintWriter<'_>,
+        handler: impl FnOnce(OsFunctionCall) -> ExtFunctionResult,
+    ) -> Result<ReplProgress<T>, Box<ReplStartError<T>>> {
+        let result = handler(self.function_call);
+        self.snapshot.run(result, print)
     }
 }
 
@@ -663,6 +714,7 @@ impl<T: ResourceTracker> ReplNameLookup<T> {
                 reader,
                 &executor.interns,
                 print.reborrow(),
+                executor.assert_repr_max_bytes,
             );
 
             // Resolve the name lookup result with the VM alive
@@ -679,20 +731,19 @@ impl<T: ResourceTracker> ReplNameLookup<T> {
                     };
 
                     // Cache the resolved value in the appropriate slot
-                    let slot = namespace_slot as usize;
-                    if is_global {
-                        let cloned = value.clone_with_heap(&vm);
-                        let old = mem::replace(&mut vm.globals[slot], cloned);
-                        old.drop_with_heap(&mut vm);
+                    let slot_idx = namespace_slot as usize;
+                    let cloned = value.clone_with_heap(&vm);
+                    let slot = if is_global {
+                        &mut vm.globals[slot_idx]
                     } else {
                         let stack_base = vm.current_stack_base();
-                        let cloned = value.clone_with_heap(&vm);
-                        let old = mem::replace(&mut vm.stack[stack_base + slot], cloned);
-                        old.drop_with_heap(&mut vm);
-                    }
+                        &mut vm.stack[stack_base + slot_idx]
+                    };
+                    let old = mem::replace(slot, cloned);
+                    old.drop_with(&mut vm);
 
                     vm.push(value);
-                    vm.run()
+                    vm.run_external()
                 }
                 NameLookupResult::Undefined => {
                     let err: RunError = ExcType::name_error(&name).into();
@@ -788,6 +839,7 @@ impl<T: ResourceTracker> ReplResolveFutures<T> {
                 reader,
                 &executor.interns,
                 print.reborrow(),
+                executor.assert_repr_max_bytes,
             );
 
             if let Some(call_id) = invalid_call_id {
@@ -821,7 +873,7 @@ impl<T: ResourceTracker> ReplResolveFutures<T> {
 
 /// Parse-derived continuation state for interactive REPL input collection.
 ///
-/// `monty-cli` uses this to decide whether to execute the buffered snippet
+/// `monty-runtime` uses this to decide whether to execute the buffered snippet
 /// immediately, keep collecting continuation lines, or require a terminating
 /// blank line for block statements (`if:`, `def:`, etc.).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -923,6 +975,7 @@ impl<T: ResourceTracker> ReplSnapshot<T> {
                     reader,
                     &executor.interns,
                     print.reborrow(),
+                    executor.assert_repr_max_bytes,
                 );
 
                 let vm_result = match ext_result {
@@ -931,7 +984,7 @@ impl<T: ResourceTracker> ReplSnapshot<T> {
                     ExtFunctionResult::Future(raw_call_id) => {
                         let call_id = CallId::new(raw_call_id);
                         match vm.add_pending_call(call_id) {
-                            Ok(()) => vm.run(),
+                            Ok(()) => vm.run_external(),
                             Err(err) => vm.resume_with_exception(err),
                         }
                     }
@@ -960,24 +1013,22 @@ impl<T: ResourceTracker> ReplSnapshot<T> {
 
 /// Injects input values into the VM's global namespace slots.
 ///
-/// Converts each `MontyObject` to a `Value` while the VM is alive, then stores
-/// it in the global slot that the compiler assigned for the corresponding input name.
+/// Converts each `MontyObject` to a `Value` while the VM is alive, then
+/// stores it at the namespace slot that `Executor::new_repl_snippet`
+/// pre-resolved for the corresponding input name. Each store is O(1) — the
+/// per-input name → slot lookup happens once at snippet construction, not
+/// here on the call path.
 fn inject_inputs_into_vm(
     executor: &Executor,
     input_values: Vec<MontyObject>,
     vm: &mut VM<'_, impl ResourceTracker>,
 ) -> Result<(), MontyException> {
-    for (name, obj) in executor.input_names.iter().zip(input_values) {
-        let slot = executor
-            .name_map
-            .get(name)
-            .expect("input name should have a namespace slot")
-            .index();
+    for (&slot, obj) in executor.input_slots.iter().zip(input_values) {
         let value = obj
             .to_value(vm)
             .map_err(|e| MontyException::runtime_error(format!("invalid input type: {e}")))?;
-        let old = mem::replace(&mut vm.globals[slot], value);
-        old.drop_with_heap(vm);
+        let old = mem::replace(&mut vm.globals[slot.index()], value);
+        old.drop_with(vm);
     }
     Ok(())
 }
@@ -1005,8 +1056,12 @@ fn build_repl_progress<T: ResourceTracker>(
 
     match converted {
         ConvertedExit::Complete(obj) => {
-            let Executor { name_map, interns, .. } = executor;
-            repl.global_name_map = name_map;
+            let Executor {
+                globals: snippet_globals,
+                interns,
+                ..
+            } = executor;
+            repl.global_names = snippet_globals;
             repl.interns = interns;
             Ok(ReplProgress::Complete { repl, value: obj })
         }
@@ -1056,8 +1111,12 @@ fn build_repl_progress<T: ResourceTracker>(
             // Commit compiler metadata even on runtime errors, matching feed() behavior.
             // Snippets can create new variables or functions before raising, and those
             // values may reference FunctionId/StringId values from the new tables.
-            let Executor { name_map, interns, .. } = executor;
-            repl.global_name_map = name_map;
+            let Executor {
+                globals: snippet_globals,
+                interns,
+                ..
+            } = executor;
+            repl.global_names = snippet_globals;
             repl.interns = interns;
             Err(Box::new(ReplStartError { repl, error }))
         }
@@ -1087,7 +1146,7 @@ fn convert_args(args: Vec<MontyObject>, vm: &mut VM<'_, impl ResourceTracker>) -
             match iter.next().expect("checked len").to_value(vm) {
                 Ok(b) => Ok(ArgValues::Two(a, b)),
                 Err(e) => {
-                    a.drop_with_heap(&mut *vm);
+                    a.drop_with(&mut *vm);
                     Err(MontyException::runtime_error(format!("invalid argument type: {e}")))
                 }
             }
@@ -1098,7 +1157,7 @@ fn convert_args(args: Vec<MontyObject>, vm: &mut VM<'_, impl ResourceTracker>) -
                 match arg.to_value(vm) {
                     Ok(value) => values.push(value),
                     Err(e) => {
-                        values.drain(..).drop_with_heap(&mut *vm);
+                        values.drain(..).drop_with(&mut *vm);
                         return Err(MontyException::runtime_error(format!("invalid argument type: {e}")));
                     }
                 }
@@ -1111,11 +1170,11 @@ fn convert_args(args: Vec<MontyObject>, vm: &mut VM<'_, impl ResourceTracker>) -
     }
 }
 
-/// Returns `true` if the value is a callable type.
+/// Whether a session global should be surfaced as a "function" by
+/// [`function_names`](MontyRepl::function_names) / [`has_function`](MontyRepl::has_function).
 ///
-/// For heap-allocated values (`Ref`), checks the actual `HeapData` variant
-/// rather than accepting all refs — only closures, functions with defaults,
-/// and heap-allocated external functions are callable.
+/// Deliberately narrower than [`Value::is_callable`]: it omits `Class` and
+/// `BoundMethod`, which are not what a host means by "a function it can invoke".
 fn is_callable(value: &Value, heap: &Heap<impl ResourceTracker>) -> bool {
     match value {
         Value::DefFunction(_) | Value::Builtin(_) | Value::ExtFunction(_) | Value::ModuleFunction(_) => true,

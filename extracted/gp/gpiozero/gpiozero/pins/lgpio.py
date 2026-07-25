@@ -1,10 +1,11 @@
 # GPIO Zero: a library for controlling the Raspberry Pi's GPIO pins
 #
+# Copyright (c) 2026 Ben Nuttall <ben@bennuttall.com>
+# Copyright (c) 2024 Eliot Zubkoff <46331312+Eliotdoesprogramming@users.noreply.github.com>
+# Copyright (c) 2024 Eliot Zubkoff <zubdoob@gmail.com>
 # Copyright (c) 2021-2023 Dave Jones <dave@waveform.org.uk>
 #
 # SPDX-License-Identifier: BSD-3-Clause
-
-import os
 
 import lgpio
 
@@ -19,7 +20,6 @@ from ..exc import (
     PinInvalidPull,
     PinInvalidBounce,
     PinInvalidState,
-    SPIBadArgs,
     SPIInvalidClockMode,
     PinPWMFixedValue,
     DeviceClosed
@@ -63,7 +63,8 @@ class LGPIOFactory(LocalPiFactory):
     """
     def __init__(self, chip=None):
         super().__init__()
-        chip = 4 if (self._get_revision() & 0xff0) >> 4 == 0x17 else 0
+        if chip is None:
+            chip = 4 if (self._get_revision() & 0xff0) >> 4 == 0x17 and os.path.exists('/dev/gpiochip4') else 0
         self._handle = lgpio.gpiochip_open(chip)
         self._chip = chip
         self.pin_class = LGPIOPin

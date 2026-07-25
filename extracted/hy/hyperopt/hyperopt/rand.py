@@ -1,11 +1,12 @@
 """
 Random search - presented as hyperopt.fmin_random
 """
+
 import logging
+
 import numpy as np
 
 from . import pyll
-
 from .base import miscs_update_idxs_vals
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,6 @@ def suggest(new_ids, domain, trials, seed):
 
 
 def suggest_batch(new_ids, domain, trials, seed):
-
     rng = np.random.default_rng(seed)
     # -- sample new specs, idxs, vals
     idxs, vals = pyll.rec_eval(

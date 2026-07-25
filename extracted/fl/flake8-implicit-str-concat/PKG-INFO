@@ -1,16 +1,15 @@
 Metadata-Version: 2.4
 Name: flake8-implicit-str-concat
-Version: 0.6.0
+Version: 0.7.0
 Summary: Flake8 plugin to encourage correct string literal concatenation
 Project-URL: Homepage, https://github.com/flake8-implicit-str-concat/flake8-implicit-str-concat
 Author-email: Dylan Turner <58230987+keisheiled@users.noreply.github.com>
-License: MIT
+License-Expression: MIT
 License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Framework :: Flake8
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -19,12 +18,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
 Requires-Python: >=3.10
 Provides-Extra: tests
-Requires-Dist: pytest; extra == 'tests'
 Requires-Dist: pytest-cov; extra == 'tests'
+Requires-Dist: pytest>=9; extra == 'tests'
 Description-Content-Type: text/markdown
 
 # flake8-implicit-str-concat
@@ -85,6 +85,46 @@ The plugin uses the prefix `ISC`, short for Implicit String Concatenation.
 | ISC001 | implicitly concatenated string literals on one line              |
 | ISC002 | implicitly concatenated string literals over continuation line   |
 | ISC003 | explicitly concatenated string should be implicitly concatenated |
+| ISC004 | unparenthesized implicit string concatenation in collection      |
+
+### ISC004
+
+Checks for implicitly concatenated strings inside list, tuple, and set literals.
+
+In collection literals, implicit string concatenation is often the result of a missing
+comma between elements, which can silently merge items together.
+
+```python
+# Bad
+facts = (
+    "Lobsters have blue blood.",
+    "The liver is the only human organ that can fully regenerate itself.",
+    "Clarinets are made almost entirely out of wood from the mpingo tree."
+    "In 1971, astronaut Alan Shepard played golf on the moon.",
+)
+
+# Good
+facts = (
+    "Lobsters have blue blood.",
+    "The liver is the only human organ that can fully regenerate itself.",
+    "Clarinets are made almost entirely out of wood from the mpingo tree.",
+    "In 1971, astronaut Alan Shepard played golf on the moon.",
+)
+```
+
+If the concatenation is intentional, wrap it in parentheses to make it explicit:
+
+```python
+# Good
+facts = (
+    "Lobsters have blue blood.",
+    "The liver is the only human organ that can fully regenerate itself.",
+    (
+        "Clarinets are made almost entirely out of wood from the mpingo tree."
+        "In 1971, astronaut Alan Shepard played golf on the moon."
+    ),
+)
+```
 
 ## Release notes
 

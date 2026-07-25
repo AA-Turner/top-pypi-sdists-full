@@ -12,7 +12,8 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     # compatible with pyodide-build and the as-shipped wheel in the pyodide distribution
-    "pydantic>=2",
+    "attrs",
+    "cattrs",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -69,7 +70,6 @@ python_version = "3.10"
 mypy_path = ["pyodide_lock", "tests"]
 show_error_codes = true
 warn_unreachable = true
-plugins = ["pydantic.mypy"]
 
 check_untyped_defs = true
 ignore_missing_imports = true
@@ -90,6 +90,7 @@ select = [
 ]
 ignore = [
   "E501",   # line too long
+  "PLC0415", # `import` should be at the top-level of a file
 ]
 
 [tool.pytest.ini_options]

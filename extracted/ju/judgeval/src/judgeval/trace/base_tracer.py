@@ -1171,6 +1171,22 @@ class BaseTracer(ABC):
             AttributeKeys.JUDGMENT_SESSION_ID.value, session_id
         )
 
+    @staticmethod
+    @dont_throw
+    def set_propagating_attribute(key: str, value: str) -> None:
+        """Set an attribute and propagate it to all child spans via baggage.
+
+        Unlike ``set_attribute`` (single span only). The ``judgment.``
+        prefix is reserved and ignored.
+        """
+        if key.startswith("judgment."):
+            judgeval_logger.warning(
+                f'set_propagating_attribute: key "{key}" uses the reserved '
+                '"judgment." prefix; ignoring'
+            )
+            return
+        BaseTracer._set_propagating_baggage_key(key, value)
+
     # ------------------------------------------------------------------ #
     #  Static: Tags                                                      #
     # ------------------------------------------------------------------ #

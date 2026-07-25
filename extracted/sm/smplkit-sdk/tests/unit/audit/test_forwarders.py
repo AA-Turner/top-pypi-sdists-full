@@ -27,7 +27,6 @@ from smplkit.audit import (
 )
 from smplkit.audit.clients import AuditClient
 
-
 JSONAPI = "application/vnd.api+json"
 
 FWD_ID = "datadog-prod"

@@ -5,10 +5,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from smplkit.errors import NotFoundError
 from smplkit.clients import AsyncSmplClient, SmplClient
 from smplkit.config.clients import ConfigChangeEvent, LiveConfigProxy
-
+from smplkit.errors import NotFoundError
 
 # ---------------------------------------------------------------------------
 # Helpers

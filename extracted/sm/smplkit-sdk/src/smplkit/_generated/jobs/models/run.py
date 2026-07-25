@@ -1,23 +1,18 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.run_failure_reason_type_0 import check_run_failure_reason_type_0
-from ..models.run_failure_reason_type_0 import RunFailureReasonType0
-from ..models.run_status import check_run_status
-from ..models.run_status import RunStatus
-from ..models.run_trigger import check_run_trigger
-from ..models.run_trigger import RunTrigger
 from dateutil.parser import isoparse
-from typing import cast
-from uuid import UUID
-import datetime
+
+from ..models.run_failure_reason_type_0 import RunFailureReasonType0, check_run_failure_reason_type_0
+from ..models.run_status import RunStatus, check_run_status
+from ..models.run_trigger import RunTrigger, check_run_trigger
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.run_request_type_0 import RunRequestType0
@@ -64,20 +59,20 @@ class Run:
     environment: str
     trigger: RunTrigger
     status: RunStatus
-    job_version: int | None | Unset = UNSET
-    rerun_of: None | Unset | UUID = UNSET
-    retry: None | RunRetry | Unset = UNSET
-    scheduled_for: datetime.datetime | None | Unset = UNSET
-    started_at: datetime.datetime | None | Unset = UNSET
-    finished_at: datetime.datetime | None | Unset = UNSET
-    pending_duration_ms: int | None | Unset = UNSET
-    run_duration_ms: int | None | Unset = UNSET
-    total_duration_ms: int | None | Unset = UNSET
-    failure_reason: None | RunFailureReasonType0 | Unset = UNSET
-    error: None | str | Unset = UNSET
-    request: None | RunRequestType0 | Unset = UNSET
-    result: None | RunResultType0 | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
+    job_version: int | Unset | None = UNSET
+    rerun_of: Unset | UUID | None = UNSET
+    retry: RunRetry | Unset | None = UNSET
+    scheduled_for: datetime.datetime | Unset | None = UNSET
+    started_at: datetime.datetime | Unset | None = UNSET
+    finished_at: datetime.datetime | Unset | None = UNSET
+    pending_duration_ms: int | Unset | None = UNSET
+    run_duration_ms: int | Unset | None = UNSET
+    total_duration_ms: int | Unset | None = UNSET
+    failure_reason: RunFailureReasonType0 | Unset | None = UNSET
+    error: str | Unset | None = UNSET
+    request: RunRequestType0 | Unset | None = UNSET
+    result: RunResultType0 | Unset | None = UNSET
+    created_at: datetime.datetime | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -93,13 +88,13 @@ class Run:
 
         status: str = self.status
 
-        job_version: int | None | Unset
+        job_version: int | Unset | None
         if isinstance(self.job_version, Unset):
             job_version = UNSET
         else:
             job_version = self.job_version
 
-        rerun_of: None | str | Unset
+        rerun_of: str | Unset | None
         if isinstance(self.rerun_of, Unset):
             rerun_of = UNSET
         elif isinstance(self.rerun_of, UUID):
@@ -107,7 +102,7 @@ class Run:
         else:
             rerun_of = self.rerun_of
 
-        retry: dict[str, Any] | None | Unset
+        retry: dict[str, Any] | Unset | None
         if isinstance(self.retry, Unset):
             retry = UNSET
         elif isinstance(self.retry, RunRetry):
@@ -115,7 +110,7 @@ class Run:
         else:
             retry = self.retry
 
-        scheduled_for: None | str | Unset
+        scheduled_for: str | Unset | None
         if isinstance(self.scheduled_for, Unset):
             scheduled_for = UNSET
         elif isinstance(self.scheduled_for, datetime.datetime):
@@ -123,7 +118,7 @@ class Run:
         else:
             scheduled_for = self.scheduled_for
 
-        started_at: None | str | Unset
+        started_at: str | Unset | None
         if isinstance(self.started_at, Unset):
             started_at = UNSET
         elif isinstance(self.started_at, datetime.datetime):
@@ -131,7 +126,7 @@ class Run:
         else:
             started_at = self.started_at
 
-        finished_at: None | str | Unset
+        finished_at: str | Unset | None
         if isinstance(self.finished_at, Unset):
             finished_at = UNSET
         elif isinstance(self.finished_at, datetime.datetime):
@@ -139,25 +134,25 @@ class Run:
         else:
             finished_at = self.finished_at
 
-        pending_duration_ms: int | None | Unset
+        pending_duration_ms: int | Unset | None
         if isinstance(self.pending_duration_ms, Unset):
             pending_duration_ms = UNSET
         else:
             pending_duration_ms = self.pending_duration_ms
 
-        run_duration_ms: int | None | Unset
+        run_duration_ms: int | Unset | None
         if isinstance(self.run_duration_ms, Unset):
             run_duration_ms = UNSET
         else:
             run_duration_ms = self.run_duration_ms
 
-        total_duration_ms: int | None | Unset
+        total_duration_ms: int | Unset | None
         if isinstance(self.total_duration_ms, Unset):
             total_duration_ms = UNSET
         else:
             total_duration_ms = self.total_duration_ms
 
-        failure_reason: None | str | Unset
+        failure_reason: str | Unset | None
         if isinstance(self.failure_reason, Unset):
             failure_reason = UNSET
         elif isinstance(self.failure_reason, str):
@@ -165,13 +160,13 @@ class Run:
         else:
             failure_reason = self.failure_reason
 
-        error: None | str | Unset
+        error: str | Unset | None
         if isinstance(self.error, Unset):
             error = UNSET
         else:
             error = self.error
 
-        request: dict[str, Any] | None | Unset
+        request: dict[str, Any] | Unset | None
         if isinstance(self.request, Unset):
             request = UNSET
         elif isinstance(self.request, RunRequestType0):
@@ -179,7 +174,7 @@ class Run:
         else:
             request = self.request
 
-        result: dict[str, Any] | None | Unset
+        result: dict[str, Any] | Unset | None
         if isinstance(self.result, Unset):
             result = UNSET
         elif isinstance(self.result, RunResultType0):
@@ -187,7 +182,7 @@ class Run:
         else:
             result = self.result
 
-        created_at: None | str | Unset
+        created_at: str | Unset | None
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -251,7 +246,7 @@ class Run:
 
         status = check_run_status(d.pop("status"))
 
-        def _parse_job_version(data: object) -> int | None | Unset:
+        def _parse_job_version(data: object) -> int | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -260,7 +255,7 @@ class Run:
 
         job_version = _parse_job_version(d.pop("job_version", UNSET))
 
-        def _parse_rerun_of(data: object) -> None | Unset | UUID:
+        def _parse_rerun_of(data: object) -> Unset | UUID | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -277,7 +272,7 @@ class Run:
 
         rerun_of = _parse_rerun_of(d.pop("rerun_of", UNSET))
 
-        def _parse_retry(data: object) -> None | RunRetry | Unset:
+        def _parse_retry(data: object) -> RunRetry | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -294,7 +289,7 @@ class Run:
 
         retry = _parse_retry(d.pop("retry", UNSET))
 
-        def _parse_scheduled_for(data: object) -> datetime.datetime | None | Unset:
+        def _parse_scheduled_for(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -311,7 +306,7 @@ class Run:
 
         scheduled_for = _parse_scheduled_for(d.pop("scheduled_for", UNSET))
 
-        def _parse_started_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_started_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -328,7 +323,7 @@ class Run:
 
         started_at = _parse_started_at(d.pop("started_at", UNSET))
 
-        def _parse_finished_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_finished_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -345,7 +340,7 @@ class Run:
 
         finished_at = _parse_finished_at(d.pop("finished_at", UNSET))
 
-        def _parse_pending_duration_ms(data: object) -> int | None | Unset:
+        def _parse_pending_duration_ms(data: object) -> int | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -354,7 +349,7 @@ class Run:
 
         pending_duration_ms = _parse_pending_duration_ms(d.pop("pending_duration_ms", UNSET))
 
-        def _parse_run_duration_ms(data: object) -> int | None | Unset:
+        def _parse_run_duration_ms(data: object) -> int | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -363,7 +358,7 @@ class Run:
 
         run_duration_ms = _parse_run_duration_ms(d.pop("run_duration_ms", UNSET))
 
-        def _parse_total_duration_ms(data: object) -> int | None | Unset:
+        def _parse_total_duration_ms(data: object) -> int | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -372,7 +367,7 @@ class Run:
 
         total_duration_ms = _parse_total_duration_ms(d.pop("total_duration_ms", UNSET))
 
-        def _parse_failure_reason(data: object) -> None | RunFailureReasonType0 | Unset:
+        def _parse_failure_reason(data: object) -> RunFailureReasonType0 | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -389,7 +384,7 @@ class Run:
 
         failure_reason = _parse_failure_reason(d.pop("failure_reason", UNSET))
 
-        def _parse_error(data: object) -> None | str | Unset:
+        def _parse_error(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -398,7 +393,7 @@ class Run:
 
         error = _parse_error(d.pop("error", UNSET))
 
-        def _parse_request(data: object) -> None | RunRequestType0 | Unset:
+        def _parse_request(data: object) -> RunRequestType0 | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -415,7 +410,7 @@ class Run:
 
         request = _parse_request(d.pop("request", UNSET))
 
-        def _parse_result(data: object) -> None | RunResultType0 | Unset:
+        def _parse_result(data: object) -> RunResultType0 | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -432,7 +427,7 @@ class Run:
 
         result = _parse_result(d.pop("result", UNSET))
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

@@ -2,8 +2,8 @@
 """CI-side CLI entrypoint for the Slack HITL notification workflow.
 
 This module runs inside GitHub Actions to resolve person identifiers to
-Slack user IDs (using the roster artifact) and post a formatted Block Kit
-message to a Slack channel.
+Slack user IDs (using the roster artifact), preserve Slack usergroup IDs,
+and post a formatted Block Kit message to a Slack channel.
 
 It is invoked by the `human-in-the-loop.yml` workflow. The core logic lives
 in `slack_posting.send_hitl_notification()`; this module only adds CLI
@@ -64,14 +64,14 @@ def main() -> None:
     parser.add_argument(
         "--target-person",
         required=True,
-        help="Primary person identifier (email, GitHub handle, or Slack ID).",
+        help="Primary identifier (email, GitHub handle, Slack user ID, or Slack usergroup ID).",
     )
     parser.add_argument("--message", required=True, help="Message body.")
     parser.add_argument("--agent-session-url", required=True, help="Agent session URL.")
     parser.add_argument(
         "--cc-persons",
         default="",
-        help="Comma-separated additional person identifiers.",
+        help="Comma-separated additional person or Slack usergroup identifiers.",
     )
     parser.add_argument("--pr-url", default=None, help="Optional PR URL.")
     parser.add_argument("--issue-url", default=None, help="Optional issue URL.")

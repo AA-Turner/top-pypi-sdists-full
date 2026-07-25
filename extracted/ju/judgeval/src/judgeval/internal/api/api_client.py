@@ -31,9 +31,26 @@ def _handle_response(r: Response) -> Any:
             detail = (
                 body.get("detail") or body.get("message") or body.get("error") or ""
             )
+            # The error code is also the readable fallback when detail/message are absent.
+            code = body.get("error")
+            hint = body.get("hint")
         except Exception:
             detail = r.text
-        raise JudgmentAPIError(r.status_code, detail, r)
+            code = None
+            hint = None
+        retry_after = r.headers.get("Retry-After")
+        try:
+            retry_after_seconds = int(retry_after) if retry_after else None
+        except ValueError:
+            retry_after_seconds = None
+        raise JudgmentAPIError(
+            r.status_code,
+            detail,
+            r,
+            code=code,
+            hint=hint,
+            retry_after_seconds=retry_after_seconds,
+        )
     return r.json()
 
 

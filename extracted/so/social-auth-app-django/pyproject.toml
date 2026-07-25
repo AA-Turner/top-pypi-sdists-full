@@ -5,11 +5,11 @@ requires = ["setuptools>=78.0.2"]
 [dependency-groups]
 dev = [
   "coverage>=3.6",
-  "django-stubs-ext==6.0.6",
-  "django-stubs==6.0.6",
-  "mypy==2.1.0",
+  "django-stubs-ext==6.0.7",
+  "django-stubs==6.0.7",
+  "mypy==2.3.0",
   "pre-commit",
-  "pyright==1.1.410",
+  "pyright==1.1.411",
   "tox"
 ]
 
@@ -46,18 +46,18 @@ license-files = ["LICENSE"]
 name = "social-auth-app-django"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "6.0.0"
+version = "6.0.1"
 
 [project.optional-dependencies]
 # This is present until pip implements supports for PEP 735
 # see https://github.com/pypa/pip/issues/12963
 dev = [
   "coverage>=3.6",
-  "django-stubs-ext==6.0.6",
-  "django-stubs==6.0.6",
-  "mypy==2.1.0",
+  "django-stubs-ext==6.0.7",
+  "django-stubs==6.0.7",
+  "mypy==2.3.0",
   "pre-commit",
-  "pyright==1.1.410",
+  "pyright==1.1.411",
   "tox"
 ]
 
@@ -117,6 +117,7 @@ ignore = [
   "ARG002",  # TODO: Unused method argument (mostly for API compatibility)
   "B026",  # TODO: Star-arg unpacking after a keyword argument is strongly discouraged
   "COM812",  # CONFIG: incompatible with formatter
+  "CPY001",  # TODO: Copyright not documented
   "D",  # TODO: Missing documentation
   "D203",  # CONFIG: incompatible with D211
   "D212",  # CONFIG: incompatible with D213

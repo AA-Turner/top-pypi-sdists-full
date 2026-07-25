@@ -28,7 +28,7 @@ class CreateAwsBedrockProxyWithHeadersAuth(BaseModel):
     """ # noqa: E501
     auth_type: StrictStr
     base_url: StrictStr = Field(description="Proxy URL requests are forwarded to (HTTPS).")
-    headers: Optional[Dict[str, StrictStr]] = Field(default=None, description="Custom request headers sent to the proxy, as a name-to-value map. Write-only: values are never returned; names are exposed as `header_names` on read. Defaults to no headers.")
+    headers: Optional[Dict[str, StrictStr]] = Field(default=None, description="Custom request headers sent to the proxy, as a name-to-value map. Write-only: values are never returned; names are exposed as `header_names` on read. Defaults to no headers. The serialized header map must not exceed 8,175 bytes.")
     __properties: ClassVar[List[str]] = ["auth_type", "base_url", "headers"]
 
     @field_validator('auth_type')

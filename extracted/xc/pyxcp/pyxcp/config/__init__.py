@@ -859,8 +859,7 @@ class Transport(Configurable):
     create_daq_timestamps = Bool(True, help="Record time of frame reception or set timestamp to 0.").tag(config=True)
     timeout = Float(
         2.0,
-        help="""raise `XcpTimeoutError` after `timeout` seconds
-if there is no response to a command.""",
+        help="""raise `XcpTimeoutError` after `timeout` seconds if there is no response to a command.""",
     ).tag(config=True)
     alignment = Enum(values=[1, 2, 4, 8], default_value=1).tag(config=True)
 
@@ -965,6 +964,10 @@ class General(Configurable):
         help="""Python function used for slave resource unlocking.
 Could be used if seed-and-key algorithm is known instead of `seed_n_key_dll`.""",
     ).tag(config=True)
+    checksum_dll = Unicode("", allow_none=False, help="Dynamic library used for user-defined checksum calculation.").tag(
+        config=True
+    )
+    checksum_dll_same_bit_width = Bool(False, help="Assume checksum DLL has same bit width as Python interpreter.").tag(config=True)
     stim_support = Bool(False, help="").tag(config=True)
 
 

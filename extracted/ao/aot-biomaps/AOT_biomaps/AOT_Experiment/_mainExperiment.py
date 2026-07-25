@@ -10,6 +10,7 @@ from AOT_biomaps.AOT_Experiment.ExperimentTools import load_AOsignal, create_dar
 from abc import ABC, abstractmethod
 
 import os
+from scipy.io import loadmat
 import numpy as np
 from tqdm import tqdm, trange
 from datetime import datetime
@@ -128,19 +129,57 @@ class Experiment(ABC):
             raise ValueError("[AOT-biomaps] Medium is not initialized. Please generate or set the medium before saving.")
         self.medium.save_medium(folderPath, fileName)
 
-    @abstractmethod
-    def load_experiment_data(self, file_path, withTumor=True):
-        """
-        Load experiment data from a mat file.
+    def load_experiment_data(self, file_path, withTumor=True, N_average=None, start_index=0):
+        self.expParams = {}
+        print(f"[AOT-biomaps] Loading experiment data from: {file_path}")
         
-        Parameters:
-        - file_path (str): The path to the file containing the experiment data.
-        - withTumor (bool): Whether to load data with tumor or without tumor.
+        mat = loadmat(file_path)
+        available_keys = list(mat.keys())
         
-        Raises:
-            NotImplementedError: This method should be implemented by subclasses.
-        """
-        pass    
+        # --- Common variables ---
+        self.expParams['TypeOfSequence'] = str(np.squeeze(mat['TypeOfSequence'])) if 'TypeOfSequence' in mat else None
+        self.expParams['data_raw'] = mat.get('raw')
+        self.expParams['ScanParam'] = mat.get('ScanParam')
+        
+        self.expParams['FreqSonde'] = float(np.squeeze(mat['FreqSonde'])) * 1e6 if 'FreqSonde' in mat else None
+        self.expParams['Naverage'] = int(np.squeeze(mat['NTrig'])) if 'NTrig' in mat else None
+        self.expParams['Nelement'] = int(np.squeeze(mat['NbElemts'])) if 'NbElemts' in mat else None
+        self.expParams['SampleRate'] = float(np.squeeze(mat['SampleRate'])) if 'SampleRate' in mat else None
+        self.expParams['Volt'] = float(np.squeeze(mat['Volt'])) if 'Volt' in mat else None
+        self.expParams['nbHemicycle'] = float(np.squeeze(mat['NbHemicycle'])) if 'NbHemicycle' in mat else None
+        self.expParams['prof'] = float(np.squeeze(mat['Prof'])) if 'Prof' in mat else None
+        
+        self.expParams['c'] = float(np.squeeze(mat['c'])) if 'c' in mat else None
+        self.expParams['pitch'] = float(np.squeeze(mat['pitch'])) if 'pitch' in mat else None
+        self.expParams['z'] = np.squeeze(mat['z']) if 'z' in mat else None
+
+        # --- Tomography variables ---
+        self.expParams['ActiveListMatrix'] = mat.get('ActiveLIST')
+        self.expParams['DelayLAWS'] = mat.get('DelayLAWS')
+        self.expParams['AngleMatrix'] = np.squeeze(mat['Alphas']) if 'Alphas' in mat else None
+        self.expParams['decimation'] = np.squeeze(mat['decimation']) if 'decimation' in mat else None
+        self.expParams['dFx'] = float(np.squeeze(mat['dFx'])) if 'dFx' in mat else None
+
+        # --- Focus variables ---
+        self.expParams['Foc'] = float(np.squeeze(mat['Foc'])) if 'Foc' in mat else None
+        self.expParams['x'] = np.squeeze(mat['x']) if 'x' in mat else None
+
+        if self.expParams['data_raw'] is None:
+            print("[AOT-biomaps] Warning: 'raw' dataset not found in the file.")
+            print("[AOT-biomaps] Available datasets:", available_keys)
+        else:
+            data = self.expParams['data_raw'].reshape(self.expParams['data_raw'].shape[0], self.expParams['Naverage'], -1)
+            
+            if N_average is not None:
+                end_idx = start_index + N_average
+                mean_sig = np.mean(data[:, start_index:end_idx, :], axis=1)
+            else:
+                mean_sig = np.mean(data, axis=1)
+
+            if withTumor:
+                self.AOsignal_withTumor = mean_sig
+            else:   
+                self.AOsignal_withoutTumor = mean_sig  
     
     @abstractmethod
     def generate_acoustic_fields(self, fieldDataPath, fieldParamPath, generation_type="envelope_squarred", show_log=True):

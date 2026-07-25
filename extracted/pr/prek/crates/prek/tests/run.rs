@@ -28,10 +28,12 @@ fn run_basic() -> Result<()> {
             hooks:
               - id: trailing-whitespace
               - id: end-of-file-fixer
+              - id: requirements-txt-fixer
+                files: ^file\.txt$
               - id: check-json
     "});
 
-    cwd.child("file.txt").write_str("Hello, world!\n")?;
+    cwd.child("file.txt").write_str("z-project\na-project\n")?;
     cwd.child("valid.json").write_str("{}")?;
     cwd.child("main.py").write_str(r#"print "abc"  "#)?;
 
@@ -54,9 +56,17 @@ fn run_basic() -> Result<()> {
 
       Fixing valid.json
       Fixing main.py
+    fix requirements.txt.....................................................Failed
+    - hook id: requirements-txt-fixer
+    - exit code: 1
+    - files were modified by this hook
+
+      Sorting file.txt
 
     ----- stderr -----
     ");
+
+    assert_eq!(context.read("file.txt"), "a-project\nz-project\n");
 
     context.git_add(".");
 
@@ -68,6 +78,94 @@ fn run_basic() -> Result<()> {
 
     ----- stderr -----
     "#);
+
+    Ok(())
+}
+
+#[test]
+fn fast_path_checks_filenames_from_entry_and_args() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    context.write_pre_commit_config(indoc::indoc! {r"
+        repos:
+          - repo: https://github.com/pre-commit/pre-commit-hooks
+            rev: v5.0.0
+            hooks:
+              - id: check-json
+                entry: check-json from-entry.json
+                args: [from-args.json]
+                files: ^selected\.json$
+    "});
+
+    let cwd = context.work_dir();
+    cwd.child("from-entry.json").write_str("invalid")?;
+    cwd.child("from-args.json").write_str("invalid")?;
+    cwd.child("selected.json").write_str("{}")?;
+    context.git_add(".");
+
+    cmd_snapshot!(context.filters(), context.run(), @r"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    check json...............................................................Failed
+    - hook id: check-json
+    - exit code: 1
+
+      from-entry.json: Failed to json decode (expected value at line 1 column 1)
+      from-args.json: Failed to json decode (expected value at line 1 column 1)
+
+    ----- stderr -----
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn run_preserves_stdout_stderr_order() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    context
+        .work_dir()
+        .child("output.py")
+        .write_str(indoc::indoc! {r#"
+            import os
+
+            os.write(2, b"__PREK_STDERR_1__\n")
+            os.write(1, b"__PREK_STDOUT_1__\n")
+            os.write(2, b"__PREK_STDERR_2__\n")
+            os.write(1, b"__PREK_STDOUT_2__\n")
+        "#})?;
+    context.write_pre_commit_config(indoc::indoc! {r"
+        repos:
+          - repo: local
+            hooks:
+              - id: output-order
+                name: output-order
+                language: system
+                entry: python3 output.py
+                always_run: true
+                pass_filenames: false
+                verbose: true
+    "});
+    context.git_add(".");
+
+    cmd_snapshot!(context.filters(), context.run().args(["--all-files", "--color=never"]), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    output-order.............................................................Passed
+    - hook id: output-order
+    - duration: [TIME]
+
+      __PREK_STDERR_1__
+      __PREK_STDOUT_1__
+      __PREK_STDERR_2__
+      __PREK_STDOUT_2__
+
+    ----- stderr -----
+    ");
 
     Ok(())
 }
@@ -556,6 +654,52 @@ fn priorities_respected() {
 }
 
 #[test]
+fn priority_aliases_are_resolved_before_scheduling() {
+    let context = TestContext::new();
+    context.init_project();
+
+    context.write_pre_commit_config(indoc::indoc! {r#"
+        priorities:
+          early: 0
+          late: 10
+        repos:
+          - repo: local
+            hooks:
+              - id: late
+                name: Late Hook
+                language: system
+                entry: python3 -c "print('late')"
+                always_run: true
+                priority: late
+              - id: early
+                name: Early Hook
+                language: system
+                entry: python3 -c "print('early')"
+                always_run: true
+                priority: early
+              - id: numeric
+                name: Numeric Hook
+                language: system
+                entry: python3 -c "print('numeric')"
+                always_run: true
+                priority: 5
+    "#});
+
+    context.git_add(".");
+
+    cmd_snapshot!(context.filters(), context.run(), @r#"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    Early Hook...............................................................Passed
+    Numeric Hook.............................................................Passed
+    Late Hook................................................................Passed
+
+    ----- stderr -----
+    "#);
+}
+
+#[test]
 fn run_group_without_stage_selects_hooks_across_stages() {
     let context = TestContext::new();
     context.init_project();
@@ -972,7 +1116,7 @@ fn config_not_staged() -> Result<()> {
     ----- stdout -----
 
     ----- stderr -----
-    error: prek configuration file is not staged, run `git add .pre-commit-config.yaml` to stage it
+    error: Configuration file `.pre-commit-config.yaml` is not staged. Stage it with `git add` and try again
     "#);
 
     Ok(())
@@ -1662,12 +1806,15 @@ fn global_path_options_expand_tilde() -> Result<()> {
         options: RunOptions {
             includes: [],
             skips: [],
-            all_files: false,
-            files: [],
-            directory: [],
-            from_ref: None,
-            to_ref: None,
-            last_commit: false,
+            file_selection: FileSelectionArgs {
+                all_files: false,
+                files: [],
+                glob: [],
+                directory: [],
+                from_ref: None,
+                to_ref: None,
+                last_commit: false,
+            },
             show_diff_on_failure: false,
             fail_fast: false,
             no_fail_fast: false,
@@ -1809,8 +1956,8 @@ fn staged_files_only() -> Result<()> {
       Hello, world!
 
     ----- stderr -----
-    Unstaged changes detected, stashing unstaged changes to `[HOME]/patches/[TIME]-[PID].patch`
-    Restored working tree changes from `[HOME]/patches/[TIME]-[PID].patch`
+    Unstaged changes detected. Temporarily saving them to `[HOME]/patches/[TIME]-[PID].patch`
+    Restored unstaged changes from `[HOME]/patches/[TIME]-[PID].patch`
     ");
 
     let content = context.read("file.txt");
@@ -1864,9 +2011,9 @@ fn intent_to_add_file_survives_conflicted_stash_restore() -> Result<()> {
     - files were modified by this hook
 
     ----- stderr -----
-    Unstaged changes detected, stashing unstaged changes to `[HOME]/patches/[TIME]-[PID].patch`
-    Stashed changes conflicted with changes made by hook, rolling back the hook changes
-    Restored working tree changes from `[HOME]/patches/[TIME]-[PID].patch`
+    Unstaged changes detected. Temporarily saving them to `[HOME]/patches/[TIME]-[PID].patch`
+    Hook changes conflicted with the saved unstaged changes. Reverting the hook changes
+    Restored unstaged changes from `[HOME]/patches/[TIME]-[PID].patch`
     "#);
 
     assert_eq!(context.read("intent.txt"), "preserve me\n");
@@ -1991,7 +2138,7 @@ fn merge_conflicts() -> Result<()> {
     ----- stdout -----
 
     ----- stderr -----
-    error: You have unmerged paths. Resolve them before running prek
+    error: Found unresolved merge conflicts. Resolve the conflicts, stage the files with `git add`, and try again
     "#);
 
     // Fix the conflict and run again.
@@ -2485,6 +2632,81 @@ fn run_multiple_files() -> Result<()> {
     Ok(())
 }
 
+/// Test `prek run --glob` and its interaction with other explicit file selectors.
+#[test]
+fn run_glob() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+    context.write_pre_commit_config(indoc::indoc! {r"
+        repos:
+          - repo: local
+            hooks:
+              - id: glob
+                name: glob
+                language: system
+                entry: echo
+                verbose: true
+                types: [text]
+    "});
+
+    let cwd = context.work_dir();
+    cwd.child("root.rs").write_str("fn main() {}")?;
+    cwd.child("src/lib.rs").write_str("pub fn lib() {}")?;
+    cwd.child("src/lib.py").write_str("print('hello')")?;
+    cwd.child("src/nested/mod.rs")
+        .write_str("pub mod nested;")?;
+    cwd.child("docs/readme.md").write_str("# Readme")?;
+    context.git_add(".");
+    cwd.child("src/untracked.rs")
+        .write_str("pub fn untracked() {}")?;
+
+    cmd_snapshot!(context.filters(), context.run().arg("--glob").arg("src/**/*.rs"), @r#"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    glob.....................................................................Passed
+    - hook id: glob
+    - duration: [TIME]
+
+      src/lib.rs src/nested/mod.rs
+
+    ----- stderr -----
+    "#);
+
+    cmd_snapshot!(context.filters(), context.run().arg("--cd").arg("src").arg("--files").arg("../root.rs").arg("--directory").arg("../docs").arg("--glob").arg("**/*.rs"), @r#"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    glob.....................................................................Passed
+    - hook id: glob
+    - duration: [TIME]
+
+      docs/readme.md root.rs src/nested/mod.rs src/lib.rs
+
+    ----- stderr -----
+    "#);
+
+    cmd_snapshot!(context.filters(), context.run().arg("--cd").arg("src").arg("--glob").arg("../*.rs"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    glob.................................................(no files to check)Skipped
+
+    ----- stderr -----
+    ");
+
+    cmd_snapshot!(context.filters(), context.run().arg("--glob").arg("missing/**/*.rs"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    glob.................................................(no files to check)Skipped
+
+    ----- stderr -----
+    ");
+
+    Ok(())
+}
+
 /// Test `prek run --files` with no files.
 #[test]
 fn run_no_files() {
@@ -2669,8 +2891,8 @@ fn minimum_prek_version() {
         .filters()
         .into_iter()
         .chain([(
-            r"current version `\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?`",
-            "current version `[CURRENT_VERSION]`",
+            r"but version `\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?` is installed",
+            "but version `[CURRENT_VERSION]` is installed",
         )])
         .collect::<Vec<_>>();
 
@@ -2681,11 +2903,11 @@ fn minimum_prek_version() {
 
     ----- stderr -----
     error: Failed to parse `.pre-commit-config.yaml`
-      caused by: error: line 1 column 23: Required minimum prek version `10.0.0` is greater than current version `[CURRENT_VERSION]`; Please consider updating prek
+      caused by: error: line 1 column 23: `prek` version `10.0.0` or newer is required, but version `[CURRENT_VERSION]` is installed. Upgrade `prek` and try again.
      --> <input>:1:23
       |
     1 | minimum_prek_version: 10.0.0
-      |                       ^ Required minimum prek version `10.0.0` is greater than current version `[CURRENT_VERSION]`; Please consider updating prek
+      |                       ^ `prek` version `10.0.0` or newer is required, but version `[CURRENT_VERSION]` is installed. Upgrade `prek` and try again.
     2 | repos:
     3 |   - repo: local
       |
@@ -3003,8 +3225,11 @@ fn selectors_completion() -> Result<()> {
     let cwd = context.work_dir();
     context.init_project();
 
-    // Root project with one hook
-    write_pre_commit_config(cwd, &[("root-hook", "Root Hook")])?;
+    // Root project with regular and colon-containing hook ids
+    write_pre_commit_config(
+        cwd,
+        &[("root-hook", "Root Hook"), ("lint:ruff", "Ruff Lint")],
+    )?;
 
     // Nested project at app/ with one hook
     let app = cwd.join("app");
@@ -3038,11 +3263,13 @@ fn selectors_completion() -> Result<()> {
     app:
     app-hook	App Hook
     lib-hook	Lib Hook
+    :lint:ruff	Ruff Lint
     root-hook	Root Hook
     --skip	Skip the specified hooks or projects
-    --all-files	Run on all files in the repo
-    --files	Specific filenames to run hooks on
-    --directory	Run hooks on all files in the specified directories
+    --all-files	Run hooks on all tracked files in the repository
+    --files	Run hooks on the specified file paths
+    --glob	Run hooks on tracked files matching the specified glob pattern
+    --directory	Run hooks on tracked files under the specified directory
     --from-ref	The original ref in a `<from_ref>...<to_ref>` diff expression. Files changed in this diff will be run through the hooks
     --to-ref	The destination ref in a `from_ref...to_ref` diff expression. Defaults to `HEAD` if `from_ref` is specified
     --last-commit	Run hooks against the last commit. Equivalent to `--from-ref HEAD~1 --to-ref HEAD`
@@ -3062,6 +3289,16 @@ fn selectors_completion() -> Result<()> {
     --verbose	Use verbose output
     --log-file	Write trace logs to the specified file. If not specified, trace logs will be written to `$PREK_HOME/prek.log`
     --version	Display the prek version
+
+    ----- stderr -----
+    ");
+
+    cmd_snapshot!(context.filters(), context.run().env("COMPLETE", "fish").arg("--").arg("prek").arg("."), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    ./
+    .:
 
     ----- stderr -----
     ");
@@ -3128,6 +3365,24 @@ fn selectors_completion() -> Result<()> {
     exit_code: 0
     ----- stdout -----
     app/lib/
+
+    ----- stderr -----
+    ");
+
+    cmd_snapshot!(context.filters(), context.run().env("COMPLETE", "fish").arg("--").arg("prek").arg(".:root"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    .:root-hook	Root Hook
+
+    ----- stderr -----
+    ");
+
+    cmd_snapshot!(context.filters(), context.run().env("COMPLETE", "fish").arg("--").arg("prek").arg(":lint:"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    :lint:ruff	Ruff Lint
 
     ----- stderr -----
     ");
@@ -3374,6 +3629,55 @@ fn prek_toml() -> Result<()> {
     - duration: [TIME]
 
       Hello, world!
+
+    ----- stderr -----
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn prek_toml_resolves_priority_aliases() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    context
+        .work_dir()
+        .child(PREK_TOML)
+        .write_str(indoc::indoc! {r#"
+        [priorities]
+        early = 0
+        late = 10
+
+        [[repos]]
+        repo = "local"
+        hooks = [
+          {
+            id = "late",
+            name = "Late Hook",
+            language = "system",
+            entry = "python3 -c \"print('late')\"",
+            always_run = true,
+            priority = "late",
+          },
+          {
+            id = "early",
+            name = "Early Hook",
+            language = "system",
+            entry = "python3 -c \"print('early')\"",
+            always_run = true,
+            priority = "early",
+          },
+        ]
+    "#})?;
+    context.git_add(".");
+
+    cmd_snapshot!(context.filters(), context.run(), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    Early Hook...............................................................Passed
+    Late Hook................................................................Passed
 
     ----- stderr -----
     ");

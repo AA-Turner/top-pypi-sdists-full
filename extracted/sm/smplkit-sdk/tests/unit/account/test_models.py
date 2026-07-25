@@ -9,7 +9,6 @@ import pytest
 
 from smplkit.account.models import AccountSettings, AsyncAccountSettings, _AccountSettingsBase
 
-
 # ---------------------------------------------------------------------------
 # _AccountSettingsBase / AccountSettings / AsyncAccountSettings
 # ---------------------------------------------------------------------------

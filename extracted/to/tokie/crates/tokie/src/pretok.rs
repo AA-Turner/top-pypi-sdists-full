@@ -126,6 +126,28 @@ impl Pretokenizer {
     pub fn deepseek() -> Self { Pretokenizer::DeepSeek }
     pub fn qwen() -> Self { Pretokenizer::Qwen }
 
+    /// Visit every piece of `text`, dispatching on the pretokenizer type
+    /// once per call instead of once per piece: each arm runs a
+    /// monomorphized loop over the concrete iterator, so the walker and
+    /// the per-piece consumer inline together without the enum-iterator
+    /// boundary of [`Self::split`]. This is the bulk-encode hot loop.
+    #[inline]
+    pub fn for_each_piece<'a, F: FnMut(&'a str)>(&'a self, text: &'a str, mut f: F) {
+        match self {
+            // Mask-scanner configs drain trusted boundary runs in a tight
+            // loop (bulk-emit), not one piece per Iterator::next.
+            Pretokenizer::Gpt2 => pretokie::Gpt2::new(text).for_each_piece(f),
+            Pretokenizer::Cl100k => pretokie::Cl100k::new(text).for_each_piece(f),
+            Pretokenizer::O200k => pretokie::O200k::new(text).for_each_piece(f),
+            Pretokenizer::Voyage => pretokie::Voyage::new(text).for_each_piece(f),
+            Pretokenizer::SmolLM => pretokie::SmolLM::new(text).for_each_piece(f),
+            Pretokenizer::DeepSeek => pretokie::DeepSeek::new(text).for_each_piece(f),
+            Pretokenizer::Qwen => pretokie::Qwen::new(text).for_each_piece(f),
+            Pretokenizer::Bert => for p in pretokie::Bert::new(text) { f(p) },
+            Pretokenizer::Regex(r) => for p in r.split(text) { f(p) },
+        }
+    }
+
     /// Split text into pre-tokens using the fastest available implementation.
     #[inline]
     pub fn split<'a>(&'a self, text: &'a str) -> PretokenizerIter<'a> {

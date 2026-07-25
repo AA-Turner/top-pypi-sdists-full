@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
-
-from typing import cast
 
 if TYPE_CHECKING:
     from ..models.flag_rule import FlagRule
@@ -31,14 +29,14 @@ class FlagEnvironment:
     """
 
     enabled: bool | Unset = True
-    default: Any | None | Unset = UNSET
+    default: Any | Unset | None = UNSET
     rules: list[FlagRule] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         enabled = self.enabled
 
-        default: Any | None | Unset
+        default: Any | Unset | None
         if isinstance(self.default, Unset):
             default = UNSET
         else:
@@ -70,7 +68,7 @@ class FlagEnvironment:
         d = dict(src_dict)
         enabled = d.pop("enabled", UNSET)
 
-        def _parse_default(data: object) -> Any | None | Unset:
+        def _parse_default(data: object) -> Any | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

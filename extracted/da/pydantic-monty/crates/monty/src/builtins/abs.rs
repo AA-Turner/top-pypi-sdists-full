@@ -1,5 +1,6 @@
 //! Implementation of the abs() builtin function.
 
+use monty_types::ResourceTracker;
 use num_bigint::BigInt;
 use num_traits::Signed;
 
@@ -9,8 +10,7 @@ use crate::{
     defer_drop,
     exception_private::{ExcType, RunResult, SimpleException},
     heap::HeapData,
-    resource::ResourceTracker,
-    types::{LongInt, PyTrait, timedelta},
+    types::{LongInt, timedelta},
     value::Value,
 };
 
@@ -45,13 +45,13 @@ pub fn builtin_abs(vm: &mut VM<'_, impl ResourceTracker>, args: ArgValues) -> Ru
             }
             _ => Err(SimpleException::new_msg(
                 ExcType::TypeError,
-                format!("bad operand type for abs(): '{}'", value.py_type(vm)),
+                format!("bad operand type for abs(): '{}'", value.py_type_name(vm)),
             )
             .into()),
         },
         _ => Err(SimpleException::new_msg(
             ExcType::TypeError,
-            format!("bad operand type for abs(): '{}'", value.py_type(vm)),
+            format!("bad operand type for abs(): '{}'", value.py_type_name(vm)),
         )
         .into()),
     }

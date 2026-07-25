@@ -6,14 +6,10 @@ from typing import Any, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-
-from ..models.sso_connection_group_role_mappings_additional_property import (
-    check_sso_connection_group_role_mappings_additional_property,
-)
 from ..models.sso_connection_group_role_mappings_additional_property import (
     SSOConnectionGroupRoleMappingsAdditionalProperty,
+    check_sso_connection_group_role_mappings_additional_property,
 )
-
 
 T = TypeVar("T", bound="SSOConnectionGroupRoleMappings")
 

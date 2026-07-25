@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from smplkit import AsyncSmplClient, SmplClient, Error
+from smplkit import AsyncSmplClient, Error, SmplClient
 
 
 class TestSmplClientResolution:

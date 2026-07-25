@@ -3,13 +3,12 @@ from typing import Any
 
 import httpx
 
-from ...client import AuthenticatedClient, Client
-from ...types import Response
 from ... import errors
-
+from ...client import AuthenticatedClient, Client
 from ...models.add_payment_method_body import AddPaymentMethodBody
 from ...models.error_response import ErrorResponse
 from ...models.payment_method_response import PaymentMethodResponse
+from ...types import Response
 
 
 def _get_kwargs(

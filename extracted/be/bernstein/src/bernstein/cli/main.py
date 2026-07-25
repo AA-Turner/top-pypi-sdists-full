@@ -62,8 +62,10 @@ from bernstein.cli.commands.citation_cmd import quality_group as citation_qualit
 from bernstein.cli.commands.compaction_cmd import compaction_group
 from bernstein.cli.commands.consensus_cmd import consensus_group
 from bernstein.cli.commands.criterion_profile_cmd import criterion_profile_group
+from bernstein.cli.commands.datasource_cmd import datasource_group
 from bernstein.cli.commands.decisions_cmd import decisions_group
 from bernstein.cli.commands.desktop_register_cmd import desktop_register_cmd
+from bernstein.cli.commands.endpoints_cmd import endpoints_group
 from bernstein.cli.commands.events_cmd import events_group
 from bernstein.cli.commands.export_cmd import export_cmd
 from bernstein.cli.commands.fleet_cmd import fleet_group
@@ -325,14 +327,14 @@ def _init_error_telemetry() -> None:
     """Initialise the operator-managed error-telemetry sink, if configured.
 
     Wires sentry-sdk to a Sentry-protocol-compatible error sink whose DSN is
-    supplied via the portable ``BERNSTEIN_TELEMETRY_DSN`` (preferred) or the
-    legacy ``GLITCHTIP_DSN``.  The portable variable is the single, host-
-    agnostic contract documented in ``docs/observability/side-channel.md``;
-    ``GLITCHTIP_DSN`` is honoured as a fallback for existing deployments.
+    supplied via the portable ``BERNSTEIN_TELEMETRY_DSN``.  This is the single,
+    host-agnostic contract documented in
+    ``docs/observability/side-channel.md``.
 
     The function is a no-op when:
 
-    * neither DSN variable is set (operator has not yet stood up the sink), or
+    * ``BERNSTEIN_TELEMETRY_DSN`` is not set (operator has not yet stood up the
+      sink), or
     * the ``sentry-sdk`` package is not importable (minimal install without
       the ``observability`` extra).
 
@@ -343,7 +345,7 @@ def _init_error_telemetry() -> None:
     """
     import os
 
-    dsn = os.environ.get("BERNSTEIN_TELEMETRY_DSN") or os.environ.get("GLITCHTIP_DSN")
+    dsn = os.environ.get("BERNSTEIN_TELEMETRY_DSN")
     if not dsn:
         return
     try:
@@ -406,6 +408,7 @@ def print_rich_help() -> None:
                 ("bernstein", "run from bernstein.yaml or backlog"),
                 ("run [dim]plan.yaml[/dim]", "execute a plan file (stages + steps)"),
                 ("init", "initialize project (.sdd/ + bernstein.yaml)"),
+                ("start", "start server + spawn manager, detached (cluster central node)"),
                 ("serve", "run the task server in the foreground (container / node)"),
                 ("stop", "graceful stop (agents save work first)"),
                 ("stop --force", "hard stop (kill immediately)"),
@@ -809,6 +812,12 @@ def cli(
     executor.shutdown(wait=False)
 
     if dry_run:
+        # Validate the seed with the same rules the real run uses before
+        # rendering the preview, so --dry-run cannot report success on a
+        # seed the run would reject (issue #2785).
+        from bernstein.cli.run_preflight import validate_seed_or_exit
+
+        validate_seed_or_exit(str(seed_path) if seed_path else None)
         print_dry_run_table(workdir)
         return
 
@@ -869,6 +878,7 @@ def cli(
         attach=(),
         # Bot-added: drift autofix (regen_contract_drift.py)
         refresh_cache=False,
+        force_fresh=force_fresh,
     )
 
 
@@ -925,6 +935,7 @@ cli.add_command(github_group)
 cli.add_command(graph_group, "graph")
 cli.add_command(policy_group, "policy")
 cli.add_command(pool_group, "pool")
+cli.add_command(datasource_group, "datasource")
 cli.add_command(_role_adapter_security_group, "security")
 cli.add_command(mcp_server, "mcp")
 # Wire the release-1.9 community catalog as a subgroup of `bernstein mcp`.
@@ -938,15 +949,10 @@ cli.add_command(install_hooks, "install-hooks")
 cli.add_command(plugins_cmd, "plugins")
 cli.add_command(doctor)
 
-# Attach observability doctor subcommands (dt, code-scanning, observe)
-# to the doctor group. Sonar and glitchtip are wired up by their own
-# modules when present (sibling agents own those). See
-# docs/observability/unified-doctor.md.
+# Attach observability doctor subcommands (code-scanning, observe)
+# to the doctor group. See docs/observability/unified-doctor.md.
 from bernstein.cli.commands.doctor.code_scanning import (  # noqa: E402
     register as _register_doctor_code_scanning,
-)
-from bernstein.cli.commands.doctor.dt import (  # noqa: E402
-    register as _register_doctor_dt,
 )
 from bernstein.cli.commands.doctor.migrations import (  # noqa: E402
     register as _register_doctor_migrations,
@@ -955,7 +961,6 @@ from bernstein.cli.commands.doctor.observe import (  # noqa: E402
     register as _register_doctor_observe,
 )
 
-_register_doctor_dt(doctor)
 _register_doctor_code_scanning(doctor)
 _register_doctor_observe(doctor)
 _register_doctor_migrations(doctor)
@@ -1021,6 +1026,7 @@ cli.add_command(stop)
 cli.add_command(test_adapter, "test-adapter")
 cli.add_command(adapters_group, "adapters")
 cli.add_command(integrations_group, "integrations")
+cli.add_command(endpoints_group, "endpoints")
 cli.add_command(trackers_group, "trackers")
 cli.add_command(run, "run")  # visible: `bernstein run [plan.yaml]`
 cli.add_command(cook, "cook")
@@ -1157,6 +1163,11 @@ cli.add_command(credential_group, "credential")
 from bernstein.cli.commands.mandate_cmd import mandate_group  # noqa: E402
 
 cli.add_command(mandate_group, "mandate")
+
+# Signed payment mandates + chain-anchored transaction receipts (#2612).
+from bernstein.cli.commands.payment_mandate_cmd import payment_mandate_group  # noqa: E402
+
+cli.add_command(payment_mandate_group, "payment-mandate")
 
 # Attested pull-request review receipts linking issue -> plan -> tool calls -> diff (#2296).
 from bernstein.cli.commands.review_receipt_cmd import review_receipt_group  # noqa: E402
@@ -1300,6 +1311,11 @@ cli.add_command(evidence_group, "evidence")
 from bernstein.cli.commands.artifacts_cmd import artifacts_group  # noqa: E402
 
 cli.add_command(artifacts_group, "artifacts")
+
+# Verify a non-coding task's signed, content-addressed artifact (#2608).
+from bernstein.cli.commands.artifact_cmd import artifact_group  # noqa: E402
+
+cli.add_command(artifact_group, "artifact")
 
 # In-process verification gate driven by worker hooks: blocks a failing
 # completion or an out-of-scope write in-session, sealing gate receipts (#2360).

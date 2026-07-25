@@ -1,10 +1,12 @@
 """
 Constructs for annotating base graphs.
 """
-from past.utils import old_div
+
 import sys
+
 import numpy as np
-from .base import scope, as_apply, dfs, rec_eval, clone
+
+from .base import as_apply, clone, dfs, rec_eval, scope
 
 ################################################################################
 ################################################################################
@@ -47,14 +49,14 @@ def loguniform(low, high, rng=None, size=()):
 @scope.define
 def quniform(low, high, q, rng=None, size=()):
     draw = rng.uniform(low, high, size=size)
-    return np.round(old_div(draw, q)) * q
+    return np.round(draw / q) * q
 
 
 @implicit_stochastic
 @scope.define
 def qloguniform(low, high, q, rng=None, size=()):
     draw = np.exp(rng.uniform(low, high, size=size))
-    return np.round(old_div(draw, q)) * q
+    return np.round(draw / q) * q
 
 
 # -- NORMAL
@@ -70,7 +72,7 @@ def normal(mu, sigma, rng=None, size=()):
 @scope.define
 def qnormal(mu, sigma, q, rng=None, size=()):
     draw = rng.normal(mu, sigma, size=size)
-    return np.round(old_div(draw, q)) * q
+    return np.round(draw / q) * q
 
 
 @implicit_stochastic
@@ -84,7 +86,7 @@ def lognormal(mu, sigma, rng=None, size=()):
 @scope.define
 def qlognormal(mu, sigma, q, rng=None, size=()):
     draw = np.exp(rng.normal(mu, sigma, size=size))
-    return np.round(old_div(draw, q)) * q
+    return np.round(draw / q) * q
 
 
 # -- CATEGORICAL

@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 """
 This module defines the `SignatureField` and `SignatureWidget` classes, which are
-used to represent and manipulate signature form fields within PDF documents.
+used to describe and construct signature form fields.
 
-The `SignatureField` class is a dataclass that encapsulates the properties of a
-signature field, such as its dimensions.
+`SignatureField` stores the user-facing field definition. `SignatureWidget`
+normalizes that definition's values, constructs a `/Sig` widget annotation,
+and packages annotations in page-aligned PDFs so they can be copied into the
+destination document.
 
-The `SignatureWidget` class provides specific functionality for interacting with
-signature form fields in PDFs, including handling their creation, rendering, and
-integration into the document.
+Signature annotations and their appearance streams are constructed directly;
+they do not depend on ReportLab's AcroForm API or an external template PDF.
 """
 
 from __future__ import annotations
@@ -16,34 +17,61 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from io import BytesIO
-from typing import List, Optional, Type
+from typing import Any, Callable, List, Optional, Type
 
 from pypdf import PdfReader, PdfWriter
-from pypdf.generic import ArrayObject, FloatObject, NameObject, TextStringObject
-from reportlab.pdfgen.canvas import Canvas
+from pypdf.generic import (
+    ArrayObject,
+    DictionaryObject,
+    FloatObject,
+    NameObject,
+    NumberObject,
+    StreamObject,
+    TextStringObject,
+)
 
-from ..assets.bedrock import BEDROCK_PDF
-from ..constants import Annots, Rect, T
-from ..patterns import get_widget_key
+from ..constants import (
+    AP,
+    BC,
+    BS,
+    DA,
+    FT,
+    MK,
+    Annot,
+    Annots,
+    BBox,
+    F,
+    Form,
+    H,
+    N,
+    Q,
+    Rect,
+    Resources,
+    S,
+    Sig,
+    Subtype,
+    T,
+    W,
+    Widget,
+    XObject,
+)
+from ..constants import Type as PdfType
 from .base import Field
+from .base import Widget as BaseWidget
 
 
 class SignatureWidget:
     """
     Represents a signature widget in a PDF form.
 
-    This class is responsible for handling the creation and integration of
-    signature fields in a PDF document. Unlike other widget types, it does not
-    inherit from the base Widget class — instead of using ReportLab's AcroForm
-    API, it copies a pre-built signature annotation from a bedrock PDF and
-    places it at the specified coordinates.
+    The widget stores placement, dimensions, and deferred hook values for a
+    signature field. Unlike widgets backed by ReportLab's AcroForm API, it
+    constructs its PDF annotation and normal appearance stream directly.
 
     Attributes:
-        OPTIONAL_PARAMS (list): A list of tuples, where each tuple contains the
-            parameter name and its default value.
-        ALLOWED_HOOK_PARAMS (list): A list of parameter names that can be
-            used as hooks to trigger dynamic modifications.
-        BEDROCK_WIDGET_TO_COPY (str): The name of the bedrock widget to copy.
+        OPTIONAL_PARAMS (list): Width and height parameters with their defaults.
+        ALLOWED_HOOK_PARAMS (list): Parameters applied after the annotation has
+            been copied into the destination PDF.
     """
 
     OPTIONAL_PARAMS = [
@@ -51,7 +79,6 @@ class SignatureWidget:
         ("height", 90),
     ]
     ALLOWED_HOOK_PARAMS = ["required", "tooltip"]
-    BEDROCK_WIDGET_TO_COPY = "signature"
 
     def __init__(
         self,
@@ -62,18 +89,19 @@ class SignatureWidget:
         **kwargs,
     ) -> None:
         """
-        Initializes a SignatureWidget object.
+        Initializes a signature widget description.
 
         The widget records placement information, resolves width and height with
-        defaults, and captures supported hook parameters so they can be applied
-        after the copied annotation is inserted into the target PDF.
+        defaults of 160 and 90 points, and captures `required` and `tooltip`
+        values for later application.
 
         Args:
             name (str): The name of the signature widget.
-            page_number (int): The page number of the signature widget.
-            x (float): The x coordinate of the signature widget.
-            y (float): The y coordinate of the signature widget.
-            **kwargs: Additional keyword arguments.
+            page_number (int): The 1-based destination page number.
+            x (float): The left edge of the widget in PDF page coordinates.
+            y (float): The bottom edge of the widget in PDF page coordinates.
+            **kwargs: Optional `width`, `height`, `required`, and `tooltip`
+                values.
         """
         super().__init__()
         self.hook_params = []
@@ -90,24 +118,31 @@ class SignatureWidget:
                 self.hook_params.append((each, kwargs.get(each)))
 
     @staticmethod
-    def bulk_watermarks(widgets: List[SignatureWidget], stream: bytes) -> List[bytes]:
+    def build_widget_watermarks(
+        widgets: List[SignatureWidget],
+        stream: bytes,
+        annotation_builder: Callable[[PdfWriter, SignatureWidget], Any],
+    ) -> List[bytes]:
         """
-        Generates watermarks for multiple signature widgets in bulk.
+        Builds page-aligned carrier PDFs from widget annotation objects.
 
-        This static method processes a list of SignatureWidget objects and a PDF stream
-        to create a list of watermark PDF streams aligned to the input PDF pages.
-        For each page, it copies the configured bedrock annotation, renames it,
-        adjusts its rectangle, and writes those cloned annotations into the page's
-        `/Annots` array.
+        Widgets are grouped by their 1-based page number. For every page that
+        contains widgets, this method creates a blank, single-page PDF sized
+        from the source page's media box. It asks ``annotation_builder`` to
+        create each annotation and its dependent objects in that PDF's writer,
+        then stores the returned annotation references in the page's `/Annots`
+        array. Pages without widgets are represented by an empty byte string.
 
         Args:
-            widgets (List[SignatureWidget]): A list of SignatureWidget objects to be
-                added as watermarks.
-            stream (bytes): The PDF stream of the document to be watermarked.
+            widgets (List[SignatureWidget]): Widgets to package into carrier PDFs.
+            stream (bytes): Source PDF used to determine page count and page size.
+            annotation_builder (Callable): Function that receives the destination
+                writer and a widget, creates the annotation and its dependent
+                objects, and returns the annotation object or reference.
 
         Returns:
-            List[bytes]: A list of watermark PDF streams. Each element corresponds to
-            a page in the input PDF.
+            List[bytes]: Page-aligned PDF streams. Each non-empty entry is
+            a single-page PDF containing the annotations for that source page.
         """
         page_to_widgets = defaultdict(list)
         for widget in widgets:
@@ -117,66 +152,185 @@ class SignatureWidget:
         page_count = len(input_pdf.pages)
         result = [b""] * page_count
 
-        bedrock = PdfReader(BytesIO(BEDROCK_PDF))
-        page = bedrock.pages[0]
-        annot_type_to_annot = {}
-        for annot in page.get(Annots, []):  # pylint: disable=E1101
-            key = get_widget_key(annot.get_object(), False)
-            annot_type_to_annot[key] = annot.get_object()
-
         for page_num in range(1, page_count + 1):
             page_widgets = page_to_widgets.get(page_num, [])
             if not page_widgets:
                 continue
 
-            # pylint: disable=R0801
-            watermark = BytesIO()
-            p = input_pdf.pages[page_num - 1]
-            canvas = Canvas(
-                watermark,
-                pagesize=(
-                    float(p.mediabox[2]),
-                    float(p.mediabox[3]),
-                ),
-            )
+            page = input_pdf.pages[page_num - 1]
+            watermark, canvas = BaseWidget.create_watermark_canvas(page)
             canvas.showPage()
             canvas.save()
             watermark.seek(0)
 
             out = PdfWriter(watermark)
-
-            widgets_to_copy = []
-            for widget in page_widgets:
-                widget_to_copy = annot_type_to_annot[
-                    widget.BEDROCK_WIDGET_TO_COPY
-                ].clone(out, force_duplicate=True)
-
-                widget_to_copy.get_object()[NameObject(T)] = TextStringObject(
-                    widget.name
-                )
-                widget_to_copy.get_object()[NameObject(Rect)] = ArrayObject(
-                    [
-                        FloatObject(widget.x),
-                        FloatObject(widget.y),
-                        FloatObject(widget.x + widget.optional_parameters.get("width")),
-                        FloatObject(
-                            widget.y + widget.optional_parameters.get("height")
-                        ),
-                    ]
-                )
-
-                widgets_to_copy.append(widget_to_copy)
-
+            annotations = [annotation_builder(out, widget) for widget in page_widgets]
             out.pages[0][NameObject(Annots)] = ArrayObject(  # pylint: disable=E1137
-                widgets_to_copy
+                annotations
             )
 
-            with BytesIO() as f:
-                out.write(f)
-                f.seek(0)
-                result[page_num - 1] = f.read()
+            with BytesIO() as result_stream:
+                out.write(result_stream)
+                result_stream.seek(0)
+                result[page_num - 1] = result_stream.read()
 
         return result
+
+    @staticmethod
+    def _build_border_appearance(
+        width: float,
+        height: float,
+        border_color: tuple[float, float, float],
+    ) -> StreamObject:
+        """
+        Constructs the border-only appearance shared by signature and image widgets.
+
+        Args:
+            width (float): The width of the widget.
+            height (float): The height of the widget.
+            border_color (tuple): The RGB color of the widget border.
+
+        Returns:
+            StreamObject: An unregistered Form XObject containing the widget border.
+        """
+        appearance = StreamObject()
+        appearance.set_data(
+            (
+                f"{border_color[0]:g} "
+                f"{border_color[1]:g} "
+                f"{border_color[2]:g} RG\n"
+                "1 w\n"
+                f"0.5 0.5 {width - 1:g} {height - 1:g} re\n"
+                "s\n"
+            ).encode()
+        )
+        appearance.update(
+            {
+                NameObject(PdfType): NameObject(XObject),
+                NameObject(Subtype): NameObject(Form),
+                NameObject(BBox): ArrayObject(
+                    [
+                        FloatObject(0),
+                        FloatObject(0),
+                        FloatObject(width),
+                        FloatObject(height),
+                    ]
+                ),
+                NameObject(Resources): DictionaryObject(),
+            }
+        )
+        return appearance
+
+    @staticmethod
+    def _build_rectangle(
+        widget: SignatureWidget, width: float, height: float
+    ) -> ArrayObject:
+        """
+        Constructs the annotation rectangle shared by signature and image widgets.
+
+        Args:
+            widget (SignatureWidget): The widget whose placement defines the rectangle.
+            width (float): The width of the widget.
+            height (float): The height of the widget.
+
+        Returns:
+            ArrayObject: The annotation's lower-left and upper-right coordinates.
+        """
+        return ArrayObject(
+            [
+                FloatObject(widget.x),
+                FloatObject(widget.y),
+                FloatObject(widget.x + width),
+                FloatObject(widget.y + height),
+            ]
+        )
+
+    @staticmethod
+    def _build_annotation(out: PdfWriter, widget: SignatureWidget) -> Any:
+        """
+        Constructs a signature widget annotation owned by a PDF writer.
+
+        This method creates a border-only Form XObject for the normal appearance,
+        builds a `/Sig` widget from the normalized name, position, and dimensions,
+        and registers both objects with the same writer. It implements the
+        annotation-builder callback used by `build_widget_watermarks`.
+
+        Args:
+            out (PdfWriter): The writer that will own the appearance stream and
+                widget annotation.
+            widget (SignatureWidget): The normalized signature widget definition
+                to convert into a PDF annotation.
+
+        Returns:
+            Any: The writer-owned indirect reference to the widget annotation.
+        """
+        width = float(widget.optional_parameters["width"])
+        height = float(widget.optional_parameters["height"])
+        border_color = (0.1, 0.1, 0.1)
+
+        appearance = SignatureWidget._build_border_appearance(
+            width, height, border_color
+        )
+        appearance_ref = out._add_object(  # type: ignore # noqa: SLF001 # pylint: disable=W0212
+            appearance.flate_encode()
+        )
+
+        annotation = DictionaryObject(
+            {
+                NameObject(PdfType): NameObject(Annot),
+                NameObject(Subtype): NameObject(Widget),
+                NameObject(Rect): SignatureWidget._build_rectangle(
+                    widget, width, height
+                ),
+                NameObject(MK): DictionaryObject(
+                    {
+                        NameObject(BC): ArrayObject(
+                            FloatObject(value) for value in border_color
+                        )
+                    }
+                ),
+                NameObject(BS): DictionaryObject(
+                    {
+                        NameObject(S): NameObject(S),
+                        NameObject(W): NumberObject(1),
+                    }
+                ),
+                NameObject(AP): DictionaryObject({NameObject(N): appearance_ref}),
+                NameObject(DA): TextStringObject("/Helv 0 Tf 0 g"),
+                NameObject(F): NumberObject(4),
+                NameObject(FT): NameObject(Sig),
+                NameObject(H): NameObject(N),
+                NameObject(T): TextStringObject(widget.name),
+                NameObject(Q): NumberObject(0),
+            }
+        )
+        return out._add_object(  # type: ignore # noqa: SLF001 # pylint: disable=W0212
+            annotation
+        )
+
+    @staticmethod
+    def bulk_watermarks(widgets: List[SignatureWidget], stream: bytes) -> List[bytes]:
+        """
+        Constructs signature widgets in page-aligned carrier PDFs.
+
+        Each widget is represented by a `/Sig` annotation with a transparent
+        interior and a dark-gray, one-point solid border. Its normal appearance
+        stream contains only that border. The annotation and appearance are
+        created in the carrier PDF's writer, so they do not retain references
+        to another PDF. ``build_widget_watermarks`` then packages the
+        annotations by source page.
+
+        Args:
+            widgets (List[SignatureWidget]): Signature widgets to construct.
+            stream (bytes): Source PDF used to determine page count and page size.
+
+        Returns:
+            List[bytes]: Page-aligned PDF streams containing the constructed
+            signature annotations.
+        """
+        return SignatureWidget.build_widget_watermarks(
+            widgets, stream, SignatureWidget._build_annotation
+        )
 
 
 @dataclass
@@ -185,9 +339,7 @@ class SignatureField(Field):
     Represents a signature field in a PDF document.
 
     This dataclass extends the `Field` base class and defines the specific
-    dimensions that can be configured for a signature input field. The rendered
-    field is created by copying a bedrock signature annotation rather than by
-    calling ReportLab's AcroForm API.
+    dimensions that can be configured for a signature input field.
 
     Attributes:
         _widget_class (Type[SignatureWidget]): The widget class associated with this field type.

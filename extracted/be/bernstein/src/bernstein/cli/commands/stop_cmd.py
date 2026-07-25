@@ -12,7 +12,10 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 import click
 
@@ -198,11 +201,16 @@ def save_session_on_stop(workdir: Path) -> None:
             task_list: list[dict[str, Any]] = []
         done_ids = [t["id"] for t in task_list if t.get("status") == "done"]
         pending_ids = [t["id"] for t in task_list if t.get("status") in ("claimed", "in_progress")]
+        # Persist still-open tasks too (issue #2798): they were dropped
+        # entirely before, so a resumed run had no record of the work queued
+        # when the operator stopped it and could self-declare complete.
+        open_ids = [t["id"] for t in task_list if t.get("status") == "open"]
         state = SessionState(
             saved_at=time.time(),
             goal="",
             completed_task_ids=done_ids,
             pending_task_ids=pending_ids,
+            open_task_ids=open_ids,
             cost_spent=0.0,
         )
         save_session(workdir, state)
@@ -524,19 +532,23 @@ def _list_process_snapshots_unix() -> list[_ProcessSnapshot]:
     return snapshots
 
 
-def _classify_and_kill_process(
+def _classify_repo_process(
     snapshot: Any,
     workdir: Path,
     heartbeat_prefix: str,
     worktree_prefix: str,
-    killed: set[int],
-) -> None:
-    """Classify a process snapshot and kill it if it belongs to this repo."""
+) -> tuple[str, str] | None:
+    """Return ``(kind, label)`` for a repo-owned process, else ``None``.
+
+    ``kind`` is ``"agent"`` for orphaned worktree/heartbeat processes (matched
+    purely by command-line marker, no cwd probe) or ``"infra"`` for the
+    orchestrator/server/watchdog - which must additionally run with a cwd
+    inside this project, so a sibling checkout's server is never touched.
+    """
     command = snapshot.command
 
     if heartbeat_prefix in command or worktree_prefix in command:
-        _kill_agent_pid(snapshot.pid, f"orphan-{snapshot.pid}", killed)
-        return
+        return "agent", f"orphan-{snapshot.pid}"
 
     # Matches the launcher argv in ``_start_watchdog`` (issue #2795): the watchdog
     # runs as ``python -m bernstein.core.orchestration.bootstrap --watchdog``.
@@ -545,17 +557,84 @@ def _classify_and_kill_process(
     is_server = "uvicorn bernstein.core.server:app" in command
 
     if not (is_watchdog or is_orchestrator or is_server):
-        return
+        return None
 
     if process_cwd(snapshot.pid) != workdir:
-        return
+        return None
 
     if is_watchdog:
-        _kill_named_pid(snapshot.pid, "Watchdog", killed)
-    elif is_orchestrator:
-        _kill_named_pid(snapshot.pid, "Spawner", killed)
+        return "infra", "Watchdog"
+    if is_orchestrator:
+        return "infra", "Spawner"
+    return "infra", _LABEL_TASK_SERVER
+
+
+def _classify_and_kill_process(
+    snapshot: Any,
+    workdir: Path,
+    heartbeat_prefix: str,
+    worktree_prefix: str,
+    killed: set[int],
+) -> None:
+    """Classify a process snapshot and kill it if it belongs to this repo."""
+    classified = _classify_repo_process(snapshot, workdir, heartbeat_prefix, worktree_prefix)
+    if classified is None:
+        return
+    kind, label = classified
+    if kind == "agent":
+        _kill_agent_pid(snapshot.pid, label, killed)
     else:
-        _kill_named_pid(snapshot.pid, _LABEL_TASK_SERVER, killed)
+        _kill_named_pid(snapshot.pid, label, killed)
+
+
+def _reap_process_group(pgid: int, killed: set[int], member_pids: Iterable[int] = ()) -> None:
+    """SIGKILL an entire process group, guarding against pgid reuse.
+
+    Never signals ``pgid <= 0`` (which would broadcast to the caller's whole
+    session/group) or the caller's own group. Only groups whose *leader* we
+    positively identified as repo-owned reach here. ``member_pids`` are recorded
+    in *killed* so the post-sweep summary counts only PIDs later confirmed
+    terminated (see :func:`_count_reaped`) rather than every PID we signalled.
+    """
+    if not hasattr(os, "killpg"):
+        return
+    my_pgid = os.getpgrp() if hasattr(os, "getpgrp") else -1
+    if pgid <= 0 or pgid == my_pgid:
+        return
+    with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
+        # pgid anchors on a leader we already classified as ours (Sonar S4828).
+        os.killpg(pgid, signal.SIGKILL)  # NOSONAR python:S4828
+    for pid in member_pids:
+        if pid > 0:
+            killed.add(pid)
+
+
+def _reap_repo_process_groups(killed: set[int]) -> None:
+    """Reap surviving process *groups* owned by this repo (issue #2874).
+
+    Per-PID kills miss a grandchild a worker re-parented into its own process
+    group (e.g. a disowned ``while true; curl`` heartbeat loop). This sweep
+    ``os.killpg``s each group whose *leader* (``pid == pgid``) we positively
+    identify as repo-owned, so a detached grandchild dies with its group.
+    Anchoring only on a group leader keeps the target reuse-safe: the pgid
+    cannot have been recycled by an unrelated group while its original leader
+    is still present in the same scan.
+    """
+    if sys.platform == "win32" or not hasattr(os, "killpg"):
+        return
+    workdir = Path.cwd()
+    heartbeat_prefix = str(workdir / ".sdd" / "runtime" / "heartbeats")
+    worktree_prefix = str(workdir / ".sdd" / "worktrees")
+    snapshots = _list_process_snapshots()
+    members: dict[int, list[int]] = {}
+    for snapshot in snapshots:
+        members.setdefault(snapshot.pgid, []).append(snapshot.pid)
+    for snapshot in snapshots:
+        if snapshot.pid != snapshot.pgid:
+            continue  # anchor only on the group leader (reuse-safe)
+        if _classify_repo_process(snapshot, workdir, heartbeat_prefix, worktree_prefix) is None:
+            continue
+        _reap_process_group(snapshot.pgid, killed, members.get(snapshot.pgid, ()))
 
 
 def _collect_repo_processes(killed: set[int]) -> None:
@@ -669,6 +748,17 @@ def _cleanup_runtime_artifacts() -> None:
             f.unlink(missing_ok=True)
 
 
+def _count_reaped(killed_pids: set[int]) -> int:
+    """Count collected PIDs confirmed terminated after the kill sweep.
+
+    Every collector adds a PID it attempted to ``killed_pids``, including PIDs
+    that were already dead or that resisted SIGKILL. Reporting the raw set size
+    over-states what was actually reaped (issue #2800); count only PIDs that are
+    no longer alive.
+    """
+    return sum(1 for pid in killed_pids if not is_alive(pid))
+
+
 def hard_stop() -> None:
     """Hard stop: SIGKILL everything, best-effort save, return tickets."""
     # 1. Best-effort session save while server is still alive
@@ -690,6 +780,9 @@ def hard_stop() -> None:
     _collect_pids_from_agents_json(killed_pids)
     _collect_pids_from_metadata(killed_pids)
     _collect_repo_processes(killed_pids)
+    # Reap whole process groups so a grandchild re-parented into its own group
+    # (disowned heartbeat/curl loops) dies with its leader (#2874).
+    _reap_repo_process_groups(killed_pids)
 
     # 4. Verification sweep - re-scan and retry anything still alive
     time.sleep(0.1)
@@ -722,9 +815,17 @@ def hard_stop() -> None:
     # Remove Bernstein from .claude/mcp.json so stale references are cleaned up
     _unregister_mcp_discovery(Path.cwd())
 
-    total = len(killed_pids)
-    if total:
-        console.print(f"\n[red]Bernstein stopped (hard) - killed {total} process(es).[/red]")
+    reaped = _count_reaped(killed_pids)
+    resisted = len(killed_pids) - reaped
+    if reaped:
+        console.print(f"\n[red]Bernstein stopped (hard) - killed {reaped} process(es).[/red]")
+        if resisted:
+            console.print(f"[yellow]{resisted} process(es) resisted SIGKILL and may still be running.[/yellow]")
+    elif resisted:
+        console.print(
+            f"\n[yellow]Bernstein stop (hard) - {resisted} process(es) resisted SIGKILL "
+            "and may still be running.[/yellow]"
+        )
     else:
         console.print("\n[red]Bernstein stopped (hard) - no processes were running.[/red]")
 

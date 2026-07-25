@@ -23,7 +23,7 @@ SOFTWARE.
 """
 
 __author__ = "AndrewAnnex"
-__version__ = "8.1.2"
+__version__ = "8.2.0"
 import importlib
 import sys
 
@@ -743,7 +743,8 @@ from .utils import exceptions
 __all__ = [
     "cyice",  # TODO exclude if emscripten?
     "support_types",
-    "exceptions" "stypes",
+    "exceptions",
+    "stypes",
     "libspice",
     "SpiceyError",
     "SpiceyPyError",

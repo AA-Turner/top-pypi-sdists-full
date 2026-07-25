@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lib_detect_testenv
-Version: 3.0.2
+Version: 3.0.3
 Summary: Detect test environment - pytest, doctest, unittest, or regular execution
 Project-URL: Homepage, https://github.com/bitranox/lib_detect_testenv
 Project-URL: Repository, https://github.com/bitranox/lib_detect_testenv.git
@@ -25,18 +25,18 @@ Provides-Extra: dev
 Requires-Dist: bandit<1.9,>=1.8.6; (python_version < '3.10') and extra == 'dev'
 Requires-Dist: bandit>=1.9.4; (python_version >= '3.10') and extra == 'dev'
 Requires-Dist: build>=1.5.0; extra == 'dev'
-Requires-Dist: codecov-cli>=11.2.8; extra == 'dev'
+Requires-Dist: click>=8.4.2; extra == 'dev'
 Requires-Dist: import-linter<2.6,>=2.5.2; (python_version < '3.10') and extra == 'dev'
-Requires-Dist: import-linter>=2.11; (python_version >= '3.10') and extra == 'dev'
+Requires-Dist: import-linter>=2.13; (python_version >= '3.10') and extra == 'dev'
 Requires-Dist: pip-audit>=2.10.1; extra == 'dev'
-Requires-Dist: pyright[nodejs]>=1.1.410; extra == 'dev'
+Requires-Dist: pyright[nodejs]>=1.1.411; extra == 'dev'
 Requires-Dist: pytest-cov>=7.1.0; extra == 'dev'
 Requires-Dist: pytest<9,>=8.4.2; (python_version < '3.10') and extra == 'dev'
-Requires-Dist: pytest>=9.1.0; (python_version >= '3.10') and extra == 'dev'
+Requires-Dist: pytest>=9.1.1; (python_version >= '3.10') and extra == 'dev'
 Requires-Dist: rtoml>=0.13.0; extra == 'dev'
-Requires-Dist: ruff>=0.15.17; extra == 'dev'
-Requires-Dist: setuptools>=82.0.1; extra == 'dev'
-Requires-Dist: textual>=8.2.7; extra == 'dev'
+Requires-Dist: ruff>=0.16.0; extra == 'dev'
+Requires-Dist: setuptools>=83.0.0; extra == 'dev'
+Requires-Dist: textual>=8.2.8; extra == 'dev'
 Requires-Dist: twine>=6.2.0; extra == 'dev'
 Description-Content-Type: text/markdown
 
@@ -190,14 +190,14 @@ The library exports the following functions from `lib_detect_testenv`:
 
 ```python
 from lib_detect_testenv import (
-    is_testenv_active,      # Detect any test environment
-    is_doctest_active,      # Detect doctest/docrunner
-    is_pytest_active,       # Detect pytest
-    is_setup_active,        # Detect setup.py
-    is_setup_test_active,   # Detect setup.py test
+    is_testenv_active,  # Detect any test environment
+    is_doctest_active,  # Detect doctest/docrunner
+    is_pytest_active,  # Detect pytest
+    is_setup_active,  # Detect setup.py
+    is_setup_test_active,  # Detect setup.py test
     is_doctest_in_arg_string,  # Check if doctest in arg string
-    add_path_to_syspath,    # Add path to sys.path
-    PathLikeOrString,       # Type alias for paths
+    add_path_to_syspath,  # Add path to sys.path
+    PathLikeOrString,  # Type alias for paths
 )
 ```
 
@@ -313,9 +313,9 @@ Returns `True` if "setup.py test" is detected.
 from lib_detect_testenv import is_setup_test_active
 
 # Examples
-assert is_setup_test_active('') == False
-assert is_setup_test_active('setup.py') == False
-assert is_setup_test_active('setup.py test') == True
+assert is_setup_test_active("") == False
+assert is_setup_test_active("setup.py") == False
+assert is_setup_test_active("setup.py test") == True
 ```
 
 #### `is_doctest_in_arg_string(arg_string: str) -> bool`
@@ -333,8 +333,8 @@ Checks if docrunner.py is present in the argument string.
 from lib_detect_testenv import is_doctest_in_arg_string
 
 # Examples
-assert is_doctest_in_arg_string('test') == False
-assert is_doctest_in_arg_string('test/docrunner.py::::test') == True
+assert is_doctest_in_arg_string("test") == False
+assert is_doctest_in_arg_string("test/docrunner.py::::test") == True
 ```
 
 #### `add_path_to_syspath(path_to_append: PathLikeOrString) -> None`

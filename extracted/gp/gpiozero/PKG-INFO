@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: gpiozero
-Version: 2.0.1
+Version: 2.0.1.post2
 Summary: A simple interface to GPIO devices with Raspberry Pi
 Home-page: https://gpiozero.readthedocs.io/
 Author: Ben Nuttall
@@ -10,22 +10,28 @@ Project-URL: Documentation, https://gpiozero.readthedocs.io/
 Project-URL: Source Code, https://github.com/gpiozero/gpiozero
 Project-URL: Issue Tracker, https://github.com/gpiozero/gpiozero/issues
 Keywords: raspberrypi gpio
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Education
 Classifier: Topic :: System :: Hardware
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.9
-Provides-Extra: doc
-Provides-Extra: test
 License-File: LICENSE.rst
+Requires-Dist: colorzero
+Requires-Dist: importlib_resources~=5.0; python_version < "3.10"
+Requires-Dist: importlib_metadata~=4.6; python_version < "3.10"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Provides-Extra: doc
+Requires-Dist: sphinx>=4.0; extra == "doc"
+Requires-Dist: sphinx-rtd-theme>=1.0; extra == "doc"
+Dynamic: license-file
 
 ========
 gpiozero
@@ -34,7 +40,7 @@ gpiozero
 A simple interface to GPIO devices with `Raspberry Pi`_, developed and
 maintained by `Ben Nuttall`_ and `Dave Jones`_.
 
-.. _Raspberry Pi: https://www.raspberrypi.org/
+.. _Raspberry Pi: https://www.raspberrypi.com/
 .. _Ben Nuttall: https://github.com/bennuttall
 .. _Dave Jones: https://github.com/waveform80
 
@@ -74,7 +80,8 @@ together:
     pause()
 
 You can advance to using the declarative paradigm along with provided
-to describe the behaviour of devices and their interactions:
+`source tools`_ to describe the behaviour of devices and their
+interactions:
 
 .. code:: python
 
@@ -93,6 +100,7 @@ to describe the behaviour of devices and their interactions:
 See the chapter on `Source/Values`_ for more information.
 
 .. _Source/Values: https://gpiozero.readthedocs.io/en/stable/source_values.html
+.. _source tools: https://gpiozero.readthedocs.io/en/stable/api_tools.html
 
 The library includes interfaces to many simple everyday components, as well as
 some more complex things like sensors, analogue-to-digital converters, full
@@ -104,13 +112,10 @@ documentation for ideas on how to get started.
 Pin factories
 =============
 
-GPIO Zero builds on a number of underlying pin libraries, including `RPi.GPIO`_
-and `pigpio`_, each with their own benefits. You can select a particular pin
-library to be used, either for the whole script or per-device, according to your
-needs. See the section on `changing the pin factory`_.
+GPIO Zero builds on a number of underlying pin libraries. You can select a
+particular pin library to be used, either for the whole script or per-device,
+according to your needs. See the section on `changing the pin factory`_.
 
-.. _RPi.GPIO: https://pypi.org/project/RPi.GPIO
-.. _pigpio: https://pypi.org/project/pigpio
 .. _changing the pin factory: https://gpiozero.readthedocs.io/en/stable/api_pins.html#changing-the-pin-factory
 
 A "mock pin" interface is also provided for testing purposes. Read more about
@@ -121,12 +126,12 @@ this in the section on `mock pins`_.
 Installation
 ============
 
-GPIO Zero is installed by default in the Raspberry Pi OS desktop image,
-available from `raspberrypi.org`_. To install on Raspberry Pi OS Lite or other
-operating systems, including for PCs using remote GPIO, see the `Installing`_
-chapter.
+GPIO Zero is installed by default in the Raspberry Pi OS desktop images,
+available from `raspberrypi.com`_. To install on Raspberry Pi OS Lite or other
+operating systems, including for PCs using remote GPIO or mock pins, see the
+`Installing`_ chapter.
 
-.. _raspberrypi.org: https://www.raspberrypi.org/software/
+.. _raspberrypi.com: https://www.raspberrypi.com/software/
 .. _Installing: https://gpiozero.readthedocs.io/en/stable/installing.html
 
 Documentation
@@ -150,7 +155,7 @@ Forums`_.
 .. _issue on GitHub: https://github.com/gpiozero/gpiozero/issues/new
 .. _GitHub discussion board: https://github.com/gpiozero/gpiozero/discussions
 .. _Raspberry Pi Stack Exchange: https://raspberrypi.stackexchange.com/
-.. _Raspberry Pi Forums: https://www.raspberrypi.org/forums/
+.. _Raspberry Pi Forums: https://forums.raspberrypi.com/
 
 Contributors
 ============
@@ -161,11 +166,13 @@ Contributors
 - `Barry Byford`_
 - `Cameron Davidson-Pilon`_
 - `Carl Monk`_
+- `Chris R`_
 - `Claire Pollard`_
 - `Clare Macrae`_
 - `Dan Jackson`_
 - `Daniele Procida`_
 - `damosurfer`_
+- `Dariusz Kowalczyk`_
 - `David Glaude`_
 - `Delcio Torres`_
 - `Edward Betts`_
@@ -250,5 +257,3 @@ See the `contributors page`_ on GitHub for more info.
 .. _Yisrael Dov Lebow: https://github.com/gpiozero/gpiozero/commits?author=yisraeldov
 
 .. _contributors page: https://github.com/gpiozero/gpiozero/graphs/contributors
-
-

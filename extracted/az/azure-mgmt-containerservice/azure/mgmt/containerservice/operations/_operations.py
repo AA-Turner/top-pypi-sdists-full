@@ -33,14 +33,13 @@ from azure.core.utils import case_insensitive_dict
 from azure.mgmt.core.exceptions import ARMErrorFormat
 from azure.mgmt.core.polling.arm_polling import ARMPolling
 
-from .. import models as _models
+from .. import models as _models, types as _types
 from .._configuration import ContainerServiceClientConfiguration
 from .._utils.model_base import SdkJSONEncoder, _deserialize, _failsafe_deserialize
 from .._utils.serialization import Deserializer, Serializer
 from .._utils.utils import prep_if_match, prep_if_none_match
 from .._validation import api_version_validation
 
-JSON = MutableMapping[str, Any]
 T = TypeVar("T")
 ClsType = Optional[Callable[[PipelineResponse[HttpRequest, HttpResponse], T, dict[str, Any]], Any]]
 List = list
@@ -55,7 +54,7 @@ def build_agent_pools_get_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -92,7 +91,7 @@ def build_agent_pools_create_or_update_request(  # pylint: disable=name-too-long
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -137,7 +136,7 @@ def build_agent_pools_delete_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerService/managedClusters/{resourceName}/agentPools/{agentPoolName}"
     path_format_arguments = {
@@ -173,7 +172,7 @@ def build_agent_pools_list_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -200,7 +199,7 @@ def build_agent_pools_abort_latest_operation_request(  # pylint: disable=name-to
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerService/managedClusters/{resourceName}/agentPools/{agentPoolName}/abort"
     path_format_arguments = {
@@ -225,7 +224,7 @@ def build_agent_pools_delete_machines_request(  # pylint: disable=name-too-long
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerService/managedClusters/{resourceName}/agentPools/{agentPoolName}/deleteMachines"
     path_format_arguments = {
@@ -253,7 +252,7 @@ def build_agent_pools_upgrade_node_image_version_request(  # pylint: disable=nam
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -282,7 +281,7 @@ def build_agent_pools_get_available_agent_pool_versions_request(  # pylint: disa
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -310,7 +309,7 @@ def build_agent_pools_get_upgrade_profile_request(  # pylint: disable=name-too-l
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -339,7 +338,7 @@ def build_managed_clusters_get_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -374,7 +373,7 @@ def build_managed_clusters_create_or_update_request(  # pylint: disable=name-too
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -417,7 +416,7 @@ def build_managed_clusters_update_tags_request(  # pylint: disable=name-too-long
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -459,7 +458,7 @@ def build_managed_clusters_delete_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerService/managedClusters/{resourceName}"
     path_format_arguments = {
@@ -490,7 +489,7 @@ def build_managed_clusters_list_by_resource_group_request(  # pylint: disable=na
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -515,7 +514,7 @@ def build_managed_clusters_list_request(subscription_id: str, **kwargs: Any) -> 
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -541,7 +540,7 @@ def build_managed_clusters_get_access_profile_request(  # pylint: disable=name-t
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -575,7 +574,7 @@ def build_managed_clusters_list_cluster_admin_credentials_request(  # pylint: di
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -611,7 +610,7 @@ def build_managed_clusters_list_cluster_user_credentials_request(  # pylint: dis
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -648,7 +647,7 @@ def build_managed_clusters_list_cluster_monitoring_user_credentials_request(  # 
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -679,7 +678,7 @@ def build_managed_clusters_reset_service_principal_profile_request(  # pylint: d
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerService/managedClusters/{resourceName}/resetServicePrincipalProfile"
     path_format_arguments = {
@@ -707,7 +706,7 @@ def build_managed_clusters_reset_aad_profile_request(  # pylint: disable=name-to
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerService/managedClusters/{resourceName}/resetAADProfile"
     path_format_arguments = {
@@ -733,7 +732,7 @@ def build_managed_clusters_rotate_cluster_certificates_request(  # pylint: disab
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerService/managedClusters/{resourceName}/rotateClusterCertificates"
     path_format_arguments = {
@@ -755,7 +754,7 @@ def build_managed_clusters_abort_latest_operation_request(  # pylint: disable=na
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerService/managedClusters/{resourceName}/abort"
     path_format_arguments = {
@@ -777,7 +776,7 @@ def build_managed_clusters_rotate_service_account_signing_keys_request(  # pylin
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerService/managedClusters/{resourceName}/rotateServiceAccountSigningKeys"
     path_format_arguments = {
@@ -799,7 +798,7 @@ def build_managed_clusters_stop_request(
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerService/managedClusters/{resourceName}/stop"
     path_format_arguments = {
@@ -821,7 +820,7 @@ def build_managed_clusters_start_request(
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerService/managedClusters/{resourceName}/start"
     path_format_arguments = {
@@ -845,7 +844,7 @@ def build_managed_clusters_run_command_request(  # pylint: disable=name-too-long
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -875,7 +874,7 @@ def build_managed_clusters_get_command_result_request(  # pylint: disable=name-t
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -904,7 +903,7 @@ def build_managed_clusters_list_outbound_network_dependencies_endpoints_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -932,7 +931,7 @@ def build_managed_clusters_get_upgrade_profile_request(  # pylint: disable=name-
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -960,7 +959,7 @@ def build_managed_clusters_get_mesh_revision_profile_request(  # pylint: disable
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -988,7 +987,7 @@ def build_managed_clusters_list_mesh_revision_profiles_request(  # pylint: disab
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1017,7 +1016,7 @@ def build_managed_clusters_get_mesh_upgrade_profile_request(  # pylint: disable=
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1046,7 +1045,7 @@ def build_managed_clusters_list_mesh_upgrade_profiles_request(  # pylint: disabl
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1074,7 +1073,7 @@ def build_managed_clusters_list_kubernetes_versions_request(  # pylint: disable=
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1103,7 +1102,7 @@ def build_maintenance_configurations_get_request(  # pylint: disable=name-too-lo
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1133,7 +1132,7 @@ def build_maintenance_configurations_create_or_update_request(  # pylint: disabl
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1163,7 +1162,7 @@ def build_maintenance_configurations_delete_request(  # pylint: disable=name-too
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerService/managedClusters/{resourceName}/maintenanceConfigurations/{configName}"
     path_format_arguments = {
@@ -1187,7 +1186,7 @@ def build_maintenance_configurations_list_by_managed_cluster_request(  # pylint:
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1215,7 +1214,7 @@ def build_managed_namespaces_get_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1245,7 +1244,7 @@ def build_managed_namespaces_create_or_update_request(  # pylint: disable=name-t
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1277,7 +1276,7 @@ def build_managed_namespaces_update_request(
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1307,7 +1306,7 @@ def build_managed_namespaces_delete_request(
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerService/managedClusters/{resourceName}/managedNamespaces/{managedNamespaceName}"
     path_format_arguments = {
@@ -1331,7 +1330,7 @@ def build_managed_namespaces_list_by_managed_cluster_request(  # pylint: disable
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1359,7 +1358,7 @@ def build_managed_namespaces_list_credential_request(  # pylint: disable=name-to
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1393,7 +1392,7 @@ def build_machines_get_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1423,7 +1422,7 @@ def build_machines_list_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1456,7 +1455,7 @@ def build_private_endpoint_connections_get_request(  # pylint: disable=name-too-
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1492,7 +1491,7 @@ def build_private_endpoint_connections_update_request(  # pylint: disable=name-t
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1528,7 +1527,7 @@ def build_private_endpoint_connections_delete_request(  # pylint: disable=name-t
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerService/managedClusters/{resourceName}/privateEndpointConnections/{privateEndpointConnectionName}"
     path_format_arguments = {
@@ -1554,7 +1553,7 @@ def build_private_endpoint_connections_list_request(  # pylint: disable=name-too
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1582,7 +1581,7 @@ def build_snapshots_get_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1611,7 +1610,7 @@ def build_snapshots_create_or_update_request(
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1642,7 +1641,7 @@ def build_snapshots_update_tags_request(
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1671,7 +1670,7 @@ def build_snapshots_delete_request(
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerService/snapshots/{resourceName}"
     path_format_arguments = {
@@ -1694,7 +1693,7 @@ def build_snapshots_list_by_resource_group_request(  # pylint: disable=name-too-
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1719,7 +1718,7 @@ def build_snapshots_list_request(subscription_id: str, **kwargs: Any) -> HttpReq
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1749,7 +1748,7 @@ def build_trusted_access_role_bindings_get_request(  # pylint: disable=name-too-
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1785,7 +1784,7 @@ def build_trusted_access_role_bindings_create_or_update_request(  # pylint: disa
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1821,7 +1820,7 @@ def build_trusted_access_role_bindings_delete_request(  # pylint: disable=name-t
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerService/managedClusters/{resourceName}/trustedAccessRoleBindings/{trustedAccessRoleBindingName}"
     path_format_arguments = {
@@ -1847,7 +1846,7 @@ def build_trusted_access_role_bindings_list_request(  # pylint: disable=name-too
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1875,7 +1874,7 @@ def build_identity_bindings_get_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1905,7 +1904,7 @@ def build_identity_bindings_create_or_update_request(  # pylint: disable=name-to
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1935,7 +1934,7 @@ def build_identity_bindings_delete_request(
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerService/managedClusters/{resourceName}/identityBindings/{identityBindingName}"
     path_format_arguments = {
@@ -1959,7 +1958,7 @@ def build_identity_bindings_list_by_managed_cluster_request(  # pylint: disable=
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1985,7 +1984,7 @@ def build_operations_list_request(**kwargs: Any) -> HttpRequest:
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -2006,7 +2005,7 @@ def build_private_link_resources_list_request(  # pylint: disable=name-too-long
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -2035,7 +2034,7 @@ def build_resolve_private_link_service_id_post_request(  # pylint: disable=name-
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -2063,7 +2062,7 @@ def build_trusted_access_roles_list_request(location: str, subscription_id: str,
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-04-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-05-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -2183,7 +2182,7 @@ class AgentPoolsOperations:
         resource_group_name: str,
         resource_name: str,
         agent_pool_name: str,
-        parameters: Union[_models.AgentPool, JSON, IO[bytes]],
+        parameters: Union[_models.AgentPool, _types.AgentPool, IO[bytes]],
         *,
         etag: Optional[str] = None,
         match_condition: Optional[MatchConditions] = None,
@@ -2312,7 +2311,7 @@ class AgentPoolsOperations:
         resource_group_name: str,
         resource_name: str,
         agent_pool_name: str,
-        parameters: JSON,
+        parameters: _types.AgentPool,
         *,
         content_type: str = "application/json",
         etag: Optional[str] = None,
@@ -2329,7 +2328,7 @@ class AgentPoolsOperations:
         :param agent_pool_name: The name of the agent pool. Required.
         :type agent_pool_name: str
         :param parameters: The agent pool to create or update. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.mgmt.containerservice.types.AgentPool
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -2388,7 +2387,7 @@ class AgentPoolsOperations:
         resource_group_name: str,
         resource_name: str,
         agent_pool_name: str,
-        parameters: Union[_models.AgentPool, JSON, IO[bytes]],
+        parameters: Union[_models.AgentPool, _types.AgentPool, IO[bytes]],
         *,
         etag: Optional[str] = None,
         match_condition: Optional[MatchConditions] = None,
@@ -2403,9 +2402,10 @@ class AgentPoolsOperations:
         :type resource_name: str
         :param agent_pool_name: The name of the agent pool. Required.
         :type agent_pool_name: str
-        :param parameters: The agent pool to create or update. Is one of the following types:
-         AgentPool, JSON, IO[bytes] Required.
-        :type parameters: ~azure.mgmt.containerservice.models.AgentPool or JSON or IO[bytes]
+        :param parameters: The agent pool to create or update. Is either a AgentPool type or a
+         IO[bytes] type. Required.
+        :type parameters: ~azure.mgmt.containerservice.models.AgentPool or
+         ~azure.mgmt.containerservice.types.AgentPool or IO[bytes]
         :keyword etag: check if resource is changed. Set None to skip checking etag. Default value is
          None.
         :paramtype etag: str
@@ -2870,7 +2870,7 @@ class AgentPoolsOperations:
         resource_group_name: str,
         resource_name: str,
         agent_pool_name: str,
-        machines: Union[_models.AgentPoolDeleteMachinesParameter, JSON, IO[bytes]],
+        machines: Union[_models.AgentPoolDeleteMachinesParameter, _types.AgentPoolDeleteMachinesParameter, IO[bytes]],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -2980,7 +2980,7 @@ class AgentPoolsOperations:
         resource_group_name: str,
         resource_name: str,
         agent_pool_name: str,
-        machines: JSON,
+        machines: _types.AgentPoolDeleteMachinesParameter,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -2995,7 +2995,7 @@ class AgentPoolsOperations:
         :param agent_pool_name: The name of the agent pool. Required.
         :type agent_pool_name: str
         :param machines: A list of machines from the agent pool to be deleted. Required.
-        :type machines: JSON
+        :type machines: ~azure.mgmt.containerservice.types.AgentPoolDeleteMachinesParameter
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -3040,7 +3040,7 @@ class AgentPoolsOperations:
         resource_group_name: str,
         resource_name: str,
         agent_pool_name: str,
-        machines: Union[_models.AgentPoolDeleteMachinesParameter, JSON, IO[bytes]],
+        machines: Union[_models.AgentPoolDeleteMachinesParameter, _types.AgentPoolDeleteMachinesParameter, IO[bytes]],
         **kwargs: Any
     ) -> LROPoller[None]:
         """Deletes specific machines in an agent pool.
@@ -3052,10 +3052,10 @@ class AgentPoolsOperations:
         :type resource_name: str
         :param agent_pool_name: The name of the agent pool. Required.
         :type agent_pool_name: str
-        :param machines: A list of machines from the agent pool to be deleted. Is one of the following
-         types: AgentPoolDeleteMachinesParameter, JSON, IO[bytes] Required.
-        :type machines: ~azure.mgmt.containerservice.models.AgentPoolDeleteMachinesParameter or JSON or
-         IO[bytes]
+        :param machines: A list of machines from the agent pool to be deleted. Is either a
+         AgentPoolDeleteMachinesParameter type or a IO[bytes] type. Required.
+        :type machines: ~azure.mgmt.containerservice.models.AgentPoolDeleteMachinesParameter or
+         ~azure.mgmt.containerservice.types.AgentPoolDeleteMachinesParameter or IO[bytes]
         :return: An instance of LROPoller that returns None
         :rtype: ~azure.core.polling.LROPoller[None]
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -3484,7 +3484,7 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         self,
         resource_group_name: str,
         resource_name: str,
-        parameters: Union[_models.ManagedCluster, JSON, IO[bytes]],
+        parameters: Union[_models.ManagedCluster, _types.ManagedCluster, IO[bytes]],
         *,
         etag: Optional[str] = None,
         match_condition: Optional[MatchConditions] = None,
@@ -3608,7 +3608,7 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         self,
         resource_group_name: str,
         resource_name: str,
-        parameters: JSON,
+        parameters: _types.ManagedCluster,
         *,
         content_type: str = "application/json",
         etag: Optional[str] = None,
@@ -3623,7 +3623,7 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         :param resource_name: The name of the managed cluster resource. Required.
         :type resource_name: str
         :param parameters: The managed cluster to create or update. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.mgmt.containerservice.types.ManagedCluster
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -3678,7 +3678,7 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         self,
         resource_group_name: str,
         resource_name: str,
-        parameters: Union[_models.ManagedCluster, JSON, IO[bytes]],
+        parameters: Union[_models.ManagedCluster, _types.ManagedCluster, IO[bytes]],
         *,
         etag: Optional[str] = None,
         match_condition: Optional[MatchConditions] = None,
@@ -3691,9 +3691,10 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         :type resource_group_name: str
         :param resource_name: The name of the managed cluster resource. Required.
         :type resource_name: str
-        :param parameters: The managed cluster to create or update. Is one of the following types:
-         ManagedCluster, JSON, IO[bytes] Required.
-        :type parameters: ~azure.mgmt.containerservice.models.ManagedCluster or JSON or IO[bytes]
+        :param parameters: The managed cluster to create or update. Is either a ManagedCluster type or
+         a IO[bytes] type. Required.
+        :type parameters: ~azure.mgmt.containerservice.models.ManagedCluster or
+         ~azure.mgmt.containerservice.types.ManagedCluster or IO[bytes]
         :keyword etag: check if resource is changed. Set None to skip checking etag. Default value is
          None.
         :paramtype etag: str
@@ -3762,7 +3763,7 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         self,
         resource_group_name: str,
         resource_name: str,
-        parameters: Union[_models.TagsObject, JSON, IO[bytes]],
+        parameters: Union[_models.TagsObject, _types.TagsObject, IO[bytes]],
         *,
         etag: Optional[str] = None,
         match_condition: Optional[MatchConditions] = None,
@@ -3887,7 +3888,7 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         self,
         resource_group_name: str,
         resource_name: str,
-        parameters: JSON,
+        parameters: _types.TagsObject,
         *,
         content_type: str = "application/json",
         etag: Optional[str] = None,
@@ -3902,7 +3903,7 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         :param resource_name: The name of the managed cluster resource. Required.
         :type resource_name: str
         :param parameters: Parameters supplied to the Update Managed Cluster Tags operation. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.mgmt.containerservice.types.TagsObject
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -3957,7 +3958,7 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         self,
         resource_group_name: str,
         resource_name: str,
-        parameters: Union[_models.TagsObject, JSON, IO[bytes]],
+        parameters: Union[_models.TagsObject, _types.TagsObject, IO[bytes]],
         *,
         etag: Optional[str] = None,
         match_condition: Optional[MatchConditions] = None,
@@ -3970,9 +3971,10 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         :type resource_group_name: str
         :param resource_name: The name of the managed cluster resource. Required.
         :type resource_name: str
-        :param parameters: Parameters supplied to the Update Managed Cluster Tags operation. Is one of
-         the following types: TagsObject, JSON, IO[bytes] Required.
-        :type parameters: ~azure.mgmt.containerservice.models.TagsObject or JSON or IO[bytes]
+        :param parameters: Parameters supplied to the Update Managed Cluster Tags operation. Is either
+         a TagsObject type or a IO[bytes] type. Required.
+        :type parameters: ~azure.mgmt.containerservice.models.TagsObject or
+         ~azure.mgmt.containerservice.types.TagsObject or IO[bytes]
         :keyword etag: check if resource is changed. Set None to skip checking etag. Default value is
          None.
         :paramtype etag: str
@@ -4699,7 +4701,9 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         self,
         resource_group_name: str,
         resource_name: str,
-        parameters: Union[_models.ManagedClusterServicePrincipalProfile, JSON, IO[bytes]],
+        parameters: Union[
+            _models.ManagedClusterServicePrincipalProfile, _types.ManagedClusterServicePrincipalProfile, IO[bytes]
+        ],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -4804,7 +4808,7 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         self,
         resource_group_name: str,
         resource_name: str,
-        parameters: JSON,
+        parameters: _types.ManagedClusterServicePrincipalProfile,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -4819,7 +4823,7 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         :param resource_name: The name of the managed cluster resource. Required.
         :type resource_name: str
         :param parameters: The service principal profile to set on the managed cluster. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.mgmt.containerservice.types.ManagedClusterServicePrincipalProfile
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -4862,7 +4866,9 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         self,
         resource_group_name: str,
         resource_name: str,
-        parameters: Union[_models.ManagedClusterServicePrincipalProfile, JSON, IO[bytes]],
+        parameters: Union[
+            _models.ManagedClusterServicePrincipalProfile, _types.ManagedClusterServicePrincipalProfile, IO[bytes]
+        ],
         **kwargs: Any
     ) -> LROPoller[None]:
         """Reset the Service Principal Profile of a managed cluster.
@@ -4874,10 +4880,10 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         :type resource_group_name: str
         :param resource_name: The name of the managed cluster resource. Required.
         :type resource_name: str
-        :param parameters: The service principal profile to set on the managed cluster. Is one of the
-         following types: ManagedClusterServicePrincipalProfile, JSON, IO[bytes] Required.
+        :param parameters: The service principal profile to set on the managed cluster. Is either a
+         ManagedClusterServicePrincipalProfile type or a IO[bytes] type. Required.
         :type parameters: ~azure.mgmt.containerservice.models.ManagedClusterServicePrincipalProfile or
-         JSON or IO[bytes]
+         ~azure.mgmt.containerservice.types.ManagedClusterServicePrincipalProfile or IO[bytes]
         :return: An instance of LROPoller that returns None
         :rtype: ~azure.core.polling.LROPoller[None]
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -4933,7 +4939,7 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         self,
         resource_group_name: str,
         resource_name: str,
-        parameters: Union[_models.ManagedClusterAADProfile, JSON, IO[bytes]],
+        parameters: Union[_models.ManagedClusterAADProfile, _types.ManagedClusterAADProfile, IO[bytes]],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -5040,7 +5046,7 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         self,
         resource_group_name: str,
         resource_name: str,
-        parameters: JSON,
+        parameters: _types.ManagedClusterAADProfile,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -5057,7 +5063,7 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         :param resource_name: The name of the managed cluster resource. Required.
         :type resource_name: str
         :param parameters: The AAD profile to set on the Managed Cluster. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.mgmt.containerservice.types.ManagedClusterAADProfile
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -5102,7 +5108,7 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         self,
         resource_group_name: str,
         resource_name: str,
-        parameters: Union[_models.ManagedClusterAADProfile, JSON, IO[bytes]],
+        parameters: Union[_models.ManagedClusterAADProfile, _types.ManagedClusterAADProfile, IO[bytes]],
         **kwargs: Any
     ) -> LROPoller[None]:
         """Reset the AAD Profile of a managed cluster.
@@ -5116,10 +5122,10 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         :type resource_group_name: str
         :param resource_name: The name of the managed cluster resource. Required.
         :type resource_name: str
-        :param parameters: The AAD profile to set on the Managed Cluster. Is one of the following
-         types: ManagedClusterAADProfile, JSON, IO[bytes] Required.
-        :type parameters: ~azure.mgmt.containerservice.models.ManagedClusterAADProfile or JSON or
-         IO[bytes]
+        :param parameters: The AAD profile to set on the Managed Cluster. Is either a
+         ManagedClusterAADProfile type or a IO[bytes] type. Required.
+        :type parameters: ~azure.mgmt.containerservice.models.ManagedClusterAADProfile or
+         ~azure.mgmt.containerservice.types.ManagedClusterAADProfile or IO[bytes]
         :return: An instance of LROPoller that returns None
         :rtype: ~azure.core.polling.LROPoller[None]
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -5786,7 +5792,7 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         self,
         resource_group_name: str,
         resource_name: str,
-        request_payload: Union[_models.RunCommandRequest, JSON, IO[bytes]],
+        request_payload: Union[_models.RunCommandRequest, _types.RunCommandRequest, IO[bytes]],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -5894,7 +5900,7 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         self,
         resource_group_name: str,
         resource_name: str,
-        request_payload: JSON,
+        request_payload: _types.RunCommandRequest,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -5911,7 +5917,7 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         :param resource_name: The name of the managed cluster resource. Required.
         :type resource_name: str
         :param request_payload: The run command request. Required.
-        :type request_payload: JSON
+        :type request_payload: ~azure.mgmt.containerservice.types.RunCommandRequest
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -5958,7 +5964,7 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         self,
         resource_group_name: str,
         resource_name: str,
-        request_payload: Union[_models.RunCommandRequest, JSON, IO[bytes]],
+        request_payload: Union[_models.RunCommandRequest, _types.RunCommandRequest, IO[bytes]],
         **kwargs: Any
     ) -> LROPoller[_models.RunCommandResult]:
         """Submits a command to run against the Managed Cluster.
@@ -5972,10 +5978,10 @@ class ManagedClustersOperations:  # pylint: disable=too-many-public-methods
         :type resource_group_name: str
         :param resource_name: The name of the managed cluster resource. Required.
         :type resource_name: str
-        :param request_payload: The run command request. Is one of the following types:
-         RunCommandRequest, JSON, IO[bytes] Required.
-        :type request_payload: ~azure.mgmt.containerservice.models.RunCommandRequest or JSON or
-         IO[bytes]
+        :param request_payload: The run command request. Is either a RunCommandRequest type or a
+         IO[bytes] type. Required.
+        :type request_payload: ~azure.mgmt.containerservice.models.RunCommandRequest or
+         ~azure.mgmt.containerservice.types.RunCommandRequest or IO[bytes]
         :return: An instance of LROPoller that returns RunCommandResult. The RunCommandResult is
          compatible with MutableMapping
         :rtype: ~azure.core.polling.LROPoller[~azure.mgmt.containerservice.models.RunCommandResult]
@@ -6845,7 +6851,7 @@ class MaintenanceConfigurationsOperations:
         resource_group_name: str,
         resource_name: str,
         config_name: str,
-        parameters: JSON,
+        parameters: _types.MaintenanceConfiguration,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -6861,7 +6867,7 @@ class MaintenanceConfigurationsOperations:
          'aksManagedAutoUpgradeSchedule', or 'aksManagedNodeOSUpgradeSchedule'. Required.
         :type config_name: str
         :param parameters: The maintenance configuration to create or update. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.mgmt.containerservice.types.MaintenanceConfiguration
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -6909,7 +6915,7 @@ class MaintenanceConfigurationsOperations:
         resource_group_name: str,
         resource_name: str,
         config_name: str,
-        parameters: Union[_models.MaintenanceConfiguration, JSON, IO[bytes]],
+        parameters: Union[_models.MaintenanceConfiguration, _types.MaintenanceConfiguration, IO[bytes]],
         **kwargs: Any
     ) -> _models.MaintenanceConfiguration:
         """Creates or updates a maintenance configuration in the specified managed cluster.
@@ -6922,10 +6928,10 @@ class MaintenanceConfigurationsOperations:
         :param config_name: The name of the maintenance configuration. Supported values are 'default',
          'aksManagedAutoUpgradeSchedule', or 'aksManagedNodeOSUpgradeSchedule'. Required.
         :type config_name: str
-        :param parameters: The maintenance configuration to create or update. Is one of the following
-         types: MaintenanceConfiguration, JSON, IO[bytes] Required.
-        :type parameters: ~azure.mgmt.containerservice.models.MaintenanceConfiguration or JSON or
-         IO[bytes]
+        :param parameters: The maintenance configuration to create or update. Is either a
+         MaintenanceConfiguration type or a IO[bytes] type. Required.
+        :type parameters: ~azure.mgmt.containerservice.models.MaintenanceConfiguration or
+         ~azure.mgmt.containerservice.types.MaintenanceConfiguration or IO[bytes]
         :return: MaintenanceConfiguration. The MaintenanceConfiguration is compatible with
          MutableMapping
         :rtype: ~azure.mgmt.containerservice.models.MaintenanceConfiguration
@@ -7263,7 +7269,7 @@ class ManagedNamespacesOperations:
         resource_group_name: str,
         resource_name: str,
         managed_namespace_name: str,
-        parameters: Union[_models.ManagedNamespace, JSON, IO[bytes]],
+        parameters: Union[_models.ManagedNamespace, _types.ManagedNamespace, IO[bytes]],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -7376,7 +7382,7 @@ class ManagedNamespacesOperations:
         resource_group_name: str,
         resource_name: str,
         managed_namespace_name: str,
-        parameters: JSON,
+        parameters: _types.ManagedNamespace,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -7393,7 +7399,7 @@ class ManagedNamespacesOperations:
         :param managed_namespace_name: The name of the managed namespace. Required.
         :type managed_namespace_name: str
         :param parameters: The namespace to create or update. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.mgmt.containerservice.types.ManagedNamespace
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -7442,7 +7448,7 @@ class ManagedNamespacesOperations:
         resource_group_name: str,
         resource_name: str,
         managed_namespace_name: str,
-        parameters: Union[_models.ManagedNamespace, JSON, IO[bytes]],
+        parameters: Union[_models.ManagedNamespace, _types.ManagedNamespace, IO[bytes]],
         **kwargs: Any
     ) -> LROPoller[_models.ManagedNamespace]:
         """Creates or updates a namespace managed by ARM for the specified managed cluster. Users can
@@ -7456,9 +7462,10 @@ class ManagedNamespacesOperations:
         :type resource_name: str
         :param managed_namespace_name: The name of the managed namespace. Required.
         :type managed_namespace_name: str
-        :param parameters: The namespace to create or update. Is one of the following types:
-         ManagedNamespace, JSON, IO[bytes] Required.
-        :type parameters: ~azure.mgmt.containerservice.models.ManagedNamespace or JSON or IO[bytes]
+        :param parameters: The namespace to create or update. Is either a ManagedNamespace type or a
+         IO[bytes] type. Required.
+        :type parameters: ~azure.mgmt.containerservice.models.ManagedNamespace or
+         ~azure.mgmt.containerservice.types.ManagedNamespace or IO[bytes]
         :return: An instance of LROPoller that returns ManagedNamespace. The ManagedNamespace is
          compatible with MutableMapping
         :rtype: ~azure.core.polling.LROPoller[~azure.mgmt.containerservice.models.ManagedNamespace]
@@ -7554,7 +7561,7 @@ class ManagedNamespacesOperations:
         resource_group_name: str,
         resource_name: str,
         managed_namespace_name: str,
-        parameters: JSON,
+        parameters: _types.TagsObject,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -7570,7 +7577,7 @@ class ManagedNamespacesOperations:
         :type managed_namespace_name: str
         :param parameters: Parameters supplied to the patch namespace operation, we only support patch
          tags for now. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.mgmt.containerservice.types.TagsObject
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -7616,7 +7623,7 @@ class ManagedNamespacesOperations:
         resource_group_name: str,
         resource_name: str,
         managed_namespace_name: str,
-        parameters: Union[_models.TagsObject, JSON, IO[bytes]],
+        parameters: Union[_models.TagsObject, _types.TagsObject, IO[bytes]],
         **kwargs: Any
     ) -> _models.ManagedNamespace:
         """Updates tags on a managed namespace.
@@ -7629,8 +7636,9 @@ class ManagedNamespacesOperations:
         :param managed_namespace_name: The name of the managed namespace. Required.
         :type managed_namespace_name: str
         :param parameters: Parameters supplied to the patch namespace operation, we only support patch
-         tags for now. Is one of the following types: TagsObject, JSON, IO[bytes] Required.
-        :type parameters: ~azure.mgmt.containerservice.models.TagsObject or JSON or IO[bytes]
+         tags for now. Is either a TagsObject type or a IO[bytes] type. Required.
+        :type parameters: ~azure.mgmt.containerservice.models.TagsObject or
+         ~azure.mgmt.containerservice.types.TagsObject or IO[bytes]
         :return: ManagedNamespace. The ManagedNamespace is compatible with MutableMapping
         :rtype: ~azure.mgmt.containerservice.models.ManagedNamespace
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -8343,7 +8351,7 @@ class PrivateEndpointConnectionsOperations:
         resource_group_name: str,
         resource_name: str,
         private_endpoint_connection_name: str,
-        parameters: JSON,
+        parameters: _types.PrivateEndpointConnection,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -8358,7 +8366,7 @@ class PrivateEndpointConnectionsOperations:
         :param private_endpoint_connection_name: The name of the private endpoint connection. Required.
         :type private_endpoint_connection_name: str
         :param parameters: The updated private endpoint connection. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.mgmt.containerservice.types.PrivateEndpointConnection
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -8405,7 +8413,7 @@ class PrivateEndpointConnectionsOperations:
         resource_group_name: str,
         resource_name: str,
         private_endpoint_connection_name: str,
-        parameters: Union[_models.PrivateEndpointConnection, JSON, IO[bytes]],
+        parameters: Union[_models.PrivateEndpointConnection, _types.PrivateEndpointConnection, IO[bytes]],
         **kwargs: Any
     ) -> _models.PrivateEndpointConnection:
         """Updates a private endpoint connection.
@@ -8417,10 +8425,10 @@ class PrivateEndpointConnectionsOperations:
         :type resource_name: str
         :param private_endpoint_connection_name: The name of the private endpoint connection. Required.
         :type private_endpoint_connection_name: str
-        :param parameters: The updated private endpoint connection. Is one of the following types:
-         PrivateEndpointConnection, JSON, IO[bytes] Required.
-        :type parameters: ~azure.mgmt.containerservice.models.PrivateEndpointConnection or JSON or
-         IO[bytes]
+        :param parameters: The updated private endpoint connection. Is either a
+         PrivateEndpointConnection type or a IO[bytes] type. Required.
+        :type parameters: ~azure.mgmt.containerservice.models.PrivateEndpointConnection or
+         ~azure.mgmt.containerservice.types.PrivateEndpointConnection or IO[bytes]
         :return: PrivateEndpointConnection. The PrivateEndpointConnection is compatible with
          MutableMapping
         :rtype: ~azure.mgmt.containerservice.models.PrivateEndpointConnection
@@ -8817,7 +8825,7 @@ class SnapshotsOperations:
         self,
         resource_group_name: str,
         resource_name: str,
-        parameters: JSON,
+        parameters: _types.Snapshot,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -8830,7 +8838,7 @@ class SnapshotsOperations:
         :param resource_name: The name of the managed cluster resource. Required.
         :type resource_name: str
         :param parameters: The snapshot to create or update. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.mgmt.containerservice.types.Snapshot
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -8871,7 +8879,7 @@ class SnapshotsOperations:
         self,
         resource_group_name: str,
         resource_name: str,
-        parameters: Union[_models.Snapshot, JSON, IO[bytes]],
+        parameters: Union[_models.Snapshot, _types.Snapshot, IO[bytes]],
         **kwargs: Any
     ) -> _models.Snapshot:
         """Creates or updates a snapshot.
@@ -8881,9 +8889,10 @@ class SnapshotsOperations:
         :type resource_group_name: str
         :param resource_name: The name of the managed cluster resource. Required.
         :type resource_name: str
-        :param parameters: The snapshot to create or update. Is one of the following types: Snapshot,
-         JSON, IO[bytes] Required.
-        :type parameters: ~azure.mgmt.containerservice.models.Snapshot or JSON or IO[bytes]
+        :param parameters: The snapshot to create or update. Is either a Snapshot type or a IO[bytes]
+         type. Required.
+        :type parameters: ~azure.mgmt.containerservice.models.Snapshot or
+         ~azure.mgmt.containerservice.types.Snapshot or IO[bytes]
         :return: Snapshot. The Snapshot is compatible with MutableMapping
         :rtype: ~azure.mgmt.containerservice.models.Snapshot
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -8987,7 +8996,7 @@ class SnapshotsOperations:
         self,
         resource_group_name: str,
         resource_name: str,
-        parameters: JSON,
+        parameters: _types.TagsObject,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -9000,7 +9009,7 @@ class SnapshotsOperations:
         :param resource_name: The name of the managed cluster resource. Required.
         :type resource_name: str
         :param parameters: Parameters supplied to the Update snapshot Tags operation. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.mgmt.containerservice.types.TagsObject
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -9041,7 +9050,7 @@ class SnapshotsOperations:
         self,
         resource_group_name: str,
         resource_name: str,
-        parameters: Union[_models.TagsObject, JSON, IO[bytes]],
+        parameters: Union[_models.TagsObject, _types.TagsObject, IO[bytes]],
         **kwargs: Any
     ) -> _models.Snapshot:
         """Updates tags on a snapshot.
@@ -9051,9 +9060,10 @@ class SnapshotsOperations:
         :type resource_group_name: str
         :param resource_name: The name of the managed cluster resource. Required.
         :type resource_name: str
-        :param parameters: Parameters supplied to the Update snapshot Tags operation. Is one of the
-         following types: TagsObject, JSON, IO[bytes] Required.
-        :type parameters: ~azure.mgmt.containerservice.models.TagsObject or JSON or IO[bytes]
+        :param parameters: Parameters supplied to the Update snapshot Tags operation. Is either a
+         TagsObject type or a IO[bytes] type. Required.
+        :type parameters: ~azure.mgmt.containerservice.models.TagsObject or
+         ~azure.mgmt.containerservice.types.TagsObject or IO[bytes]
         :return: Snapshot. The Snapshot is compatible with MutableMapping
         :rtype: ~azure.mgmt.containerservice.models.Snapshot
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -9473,7 +9483,9 @@ class TrustedAccessRoleBindingsOperations:
         resource_group_name: str,
         resource_name: str,
         trusted_access_role_binding_name: str,
-        trusted_access_role_binding: Union[_models.TrustedAccessRoleBinding, JSON, IO[bytes]],
+        trusted_access_role_binding: Union[
+            _models.TrustedAccessRoleBinding, _types.TrustedAccessRoleBinding, IO[bytes]
+        ],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -9585,7 +9597,7 @@ class TrustedAccessRoleBindingsOperations:
         resource_group_name: str,
         resource_name: str,
         trusted_access_role_binding_name: str,
-        trusted_access_role_binding: JSON,
+        trusted_access_role_binding: _types.TrustedAccessRoleBinding,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -9600,7 +9612,7 @@ class TrustedAccessRoleBindingsOperations:
         :param trusted_access_role_binding_name: The name of trusted access role binding. Required.
         :type trusted_access_role_binding_name: str
         :param trusted_access_role_binding: A trusted access role binding. Required.
-        :type trusted_access_role_binding: JSON
+        :type trusted_access_role_binding: ~azure.mgmt.containerservice.types.TrustedAccessRoleBinding
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -9649,7 +9661,9 @@ class TrustedAccessRoleBindingsOperations:
         resource_group_name: str,
         resource_name: str,
         trusted_access_role_binding_name: str,
-        trusted_access_role_binding: Union[_models.TrustedAccessRoleBinding, JSON, IO[bytes]],
+        trusted_access_role_binding: Union[
+            _models.TrustedAccessRoleBinding, _types.TrustedAccessRoleBinding, IO[bytes]
+        ],
         **kwargs: Any
     ) -> LROPoller[_models.TrustedAccessRoleBinding]:
         """Create or update a trusted access role binding.
@@ -9661,10 +9675,10 @@ class TrustedAccessRoleBindingsOperations:
         :type resource_name: str
         :param trusted_access_role_binding_name: The name of trusted access role binding. Required.
         :type trusted_access_role_binding_name: str
-        :param trusted_access_role_binding: A trusted access role binding. Is one of the following
-         types: TrustedAccessRoleBinding, JSON, IO[bytes] Required.
+        :param trusted_access_role_binding: A trusted access role binding. Is either a
+         TrustedAccessRoleBinding type or a IO[bytes] type. Required.
         :type trusted_access_role_binding: ~azure.mgmt.containerservice.models.TrustedAccessRoleBinding
-         or JSON or IO[bytes]
+         or ~azure.mgmt.containerservice.types.TrustedAccessRoleBinding or IO[bytes]
         :return: An instance of LROPoller that returns TrustedAccessRoleBinding. The
          TrustedAccessRoleBinding is compatible with MutableMapping
         :rtype:
@@ -9985,7 +9999,7 @@ class IdentityBindingsOperations:
                 "accept",
             ]
         },
-        api_versions_list=["2026-04-01"],
+        api_versions_list=["2026-04-01", "2026-05-01"],
     )
     def get(
         self, resource_group_name: str, resource_name: str, identity_binding_name: str, **kwargs: Any
@@ -10074,14 +10088,14 @@ class IdentityBindingsOperations:
                 "accept",
             ]
         },
-        api_versions_list=["2026-04-01"],
+        api_versions_list=["2026-04-01", "2026-05-01"],
     )
     def _create_or_update_initial(
         self,
         resource_group_name: str,
         resource_name: str,
         identity_binding_name: str,
-        parameters: Union[_models.IdentityBinding, JSON, IO[bytes]],
+        parameters: Union[_models.IdentityBinding, _types.IdentityBinding, IO[bytes]],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -10193,7 +10207,7 @@ class IdentityBindingsOperations:
         resource_group_name: str,
         resource_name: str,
         identity_binding_name: str,
-        parameters: JSON,
+        parameters: _types.IdentityBinding,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -10208,7 +10222,7 @@ class IdentityBindingsOperations:
         :param identity_binding_name: The name of the identity binding. Required.
         :type identity_binding_name: str
         :param parameters: The identity binding to create or update. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.mgmt.containerservice.types.IdentityBinding
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -10263,14 +10277,14 @@ class IdentityBindingsOperations:
                 "accept",
             ]
         },
-        api_versions_list=["2026-04-01"],
+        api_versions_list=["2026-04-01", "2026-05-01"],
     )
     def begin_create_or_update(
         self,
         resource_group_name: str,
         resource_name: str,
         identity_binding_name: str,
-        parameters: Union[_models.IdentityBinding, JSON, IO[bytes]],
+        parameters: Union[_models.IdentityBinding, _types.IdentityBinding, IO[bytes]],
         **kwargs: Any
     ) -> LROPoller[_models.IdentityBinding]:
         """Creates or updates an identity binding in the specified managed cluster.
@@ -10282,9 +10296,10 @@ class IdentityBindingsOperations:
         :type resource_name: str
         :param identity_binding_name: The name of the identity binding. Required.
         :type identity_binding_name: str
-        :param parameters: The identity binding to create or update. Is one of the following types:
-         IdentityBinding, JSON, IO[bytes] Required.
-        :type parameters: ~azure.mgmt.containerservice.models.IdentityBinding or JSON or IO[bytes]
+        :param parameters: The identity binding to create or update. Is either a IdentityBinding type
+         or a IO[bytes] type. Required.
+        :type parameters: ~azure.mgmt.containerservice.models.IdentityBinding or
+         ~azure.mgmt.containerservice.types.IdentityBinding or IO[bytes]
         :return: An instance of LROPoller that returns IdentityBinding. The IdentityBinding is
          compatible with MutableMapping
         :rtype: ~azure.core.polling.LROPoller[~azure.mgmt.containerservice.models.IdentityBinding]
@@ -10354,7 +10369,7 @@ class IdentityBindingsOperations:
                 "identity_binding_name",
             ]
         },
-        api_versions_list=["2026-04-01"],
+        api_versions_list=["2026-04-01", "2026-05-01"],
     )
     def _delete_initial(
         self, resource_group_name: str, resource_name: str, identity_binding_name: str, **kwargs: Any
@@ -10433,7 +10448,7 @@ class IdentityBindingsOperations:
                 "identity_binding_name",
             ]
         },
-        api_versions_list=["2026-04-01"],
+        api_versions_list=["2026-04-01", "2026-05-01"],
     )
     def begin_delete(
         self, resource_group_name: str, resource_name: str, identity_binding_name: str, **kwargs: Any
@@ -10502,7 +10517,7 @@ class IdentityBindingsOperations:
         params_added_on={
             "2026-04-01": ["api_version", "subscription_id", "resource_group_name", "resource_name", "accept"]
         },
-        api_versions_list=["2026-04-01"],
+        api_versions_list=["2026-04-01", "2026-05-01"],
     )
     def list_by_managed_cluster(
         self, resource_group_name: str, resource_name: str, **kwargs: Any
@@ -10860,7 +10875,7 @@ class ResolvePrivateLinkServiceIdOperations:
         self,
         resource_group_name: str,
         resource_name: str,
-        parameters: JSON,
+        parameters: _types.PrivateLinkResource,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -10873,7 +10888,7 @@ class ResolvePrivateLinkServiceIdOperations:
         :param resource_name: The name of the managed cluster resource. Required.
         :type resource_name: str
         :param parameters: Parameters required in order to resolve a private link service ID. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.mgmt.containerservice.types.PrivateLinkResource
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -10914,7 +10929,7 @@ class ResolvePrivateLinkServiceIdOperations:
         self,
         resource_group_name: str,
         resource_name: str,
-        parameters: Union[_models.PrivateLinkResource, JSON, IO[bytes]],
+        parameters: Union[_models.PrivateLinkResource, _types.PrivateLinkResource, IO[bytes]],
         **kwargs: Any
     ) -> _models.PrivateLinkResource:
         """Gets the private link service ID for the specified managed cluster.
@@ -10924,9 +10939,10 @@ class ResolvePrivateLinkServiceIdOperations:
         :type resource_group_name: str
         :param resource_name: The name of the managed cluster resource. Required.
         :type resource_name: str
-        :param parameters: Parameters required in order to resolve a private link service ID. Is one of
-         the following types: PrivateLinkResource, JSON, IO[bytes] Required.
-        :type parameters: ~azure.mgmt.containerservice.models.PrivateLinkResource or JSON or IO[bytes]
+        :param parameters: Parameters required in order to resolve a private link service ID. Is either
+         a PrivateLinkResource type or a IO[bytes] type. Required.
+        :type parameters: ~azure.mgmt.containerservice.models.PrivateLinkResource or
+         ~azure.mgmt.containerservice.types.PrivateLinkResource or IO[bytes]
         :return: PrivateLinkResource. The PrivateLinkResource is compatible with MutableMapping
         :rtype: ~azure.mgmt.containerservice.models.PrivateLinkResource
         :raises ~azure.core.exceptions.HttpResponseError:

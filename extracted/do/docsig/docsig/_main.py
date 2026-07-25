@@ -18,7 +18,6 @@ def _warn_on_deprecated_short_flags() -> None:
     deprecated_short_flags = {
         "-I": "--include-ignored",
         "-c": "--check-class",
-        "-D": "--check-dunders",
     }
     raw_args = _sys.argv[1:]
     expanded_flags = []
@@ -46,7 +45,7 @@ def main() -> str | int:
     :return: Exit code (non-zero if any check failed).
     """
     if _os.getenv("_DOCSIG_FORMAT_JSON"):
-        _warnings.simplefilter("ignore", FutureWarning)  # pragma: no cover
+        _warnings.simplefilter("ignore", FutureWarning)
 
     _warn_on_deprecated_short_flags()
     a = _parse_args()

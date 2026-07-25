@@ -9,7 +9,6 @@ from pathlib import Path
 
 from smplkit.errors import Error
 
-
 # Known config keys and their corresponding environment variables.
 _CONFIG_KEYS: dict[str, str] = {
     "api_key": "SMPLKIT_API_KEY",

@@ -1,16 +1,14 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+from dateutil.parser import isoparse
 
 from ..types import UNSET, Unset
-
-from dateutil.parser import isoparse
-from typing import cast
-import datetime
 
 if TYPE_CHECKING:
     from ..models.context_attributes import ContextAttributes
@@ -44,23 +42,23 @@ class Context:
     """
 
     context_type: str
-    key: None | str | Unset = UNSET
-    name: None | str | Unset = UNSET
+    key: str | Unset | None = UNSET
+    name: str | Unset | None = UNSET
     attributes: ContextAttributes | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    updated_at: datetime.datetime | None | Unset = UNSET
+    created_at: datetime.datetime | Unset | None = UNSET
+    updated_at: datetime.datetime | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         context_type = self.context_type
 
-        key: None | str | Unset
+        key: str | Unset | None
         if isinstance(self.key, Unset):
             key = UNSET
         else:
             key = self.key
 
-        name: None | str | Unset
+        name: str | Unset | None
         if isinstance(self.name, Unset):
             name = UNSET
         else:
@@ -70,7 +68,7 @@ class Context:
         if not isinstance(self.attributes, Unset):
             attributes = self.attributes.to_dict()
 
-        created_at: None | str | Unset
+        created_at: str | Unset | None
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -78,7 +76,7 @@ class Context:
         else:
             created_at = self.created_at
 
-        updated_at: None | str | Unset
+        updated_at: str | Unset | None
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -113,7 +111,7 @@ class Context:
         d = dict(src_dict)
         context_type = d.pop("context_type")
 
-        def _parse_key(data: object) -> None | str | Unset:
+        def _parse_key(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -122,7 +120,7 @@ class Context:
 
         key = _parse_key(d.pop("key", UNSET))
 
-        def _parse_name(data: object) -> None | str | Unset:
+        def _parse_name(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -138,7 +136,7 @@ class Context:
         else:
             attributes = ContextAttributes.from_dict(_attributes)
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -155,7 +153,7 @@ class Context:
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_updated_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

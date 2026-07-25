@@ -7,21 +7,21 @@ use std::{
     ptr::{self, NonNull},
 };
 
+use monty_types::{ResourceError, ResourceTracker};
 use serde::ser::SerializeStruct;
 
-// Re-export items moved to `heap_traits` so that `crate::heap::HeapGuard` etc. continue
+// Re-export items moved to `heap_traits` so that `crate::heap::DropGuard` etc. continue
 // to resolve (used by the `defer_drop!` macros and throughout the codebase).
 pub(crate) use crate::heap_data::HeapData;
-pub(crate) use crate::heap_traits::{ContainsHeap, DropWithHeap, HeapGuard, HeapItem};
+pub(crate) use crate::heap_traits::{ContainsHeap, DropGuard, DropWithContext, HeapItem};
 use crate::{
     asyncio::{Awaiter, Coroutine, ExternalFuture, ExternalFutureState, GatherFuture, GatherState},
     exception_private::SimpleException,
     heap_data::{CellValue, Closure, FunctionDefaults},
-    resource::{ResourceError, ResourceTracker},
     types::{
-        Bytes, Dataclass, Dict, DictItemsView, DictKeysView, DictValuesView, FrozenSet, List, LongInt, Module,
-        MontyIter, NamedTuple, OpenFile, Path, Range, ReMatch, RePattern, Set, Slice, Str, TimeZone, Tuple, date,
-        datetime, timedelta, timezone,
+        BoundMethod, Bytes, Class, Dataclass, Dict, DictItemsView, DictKeysView, DictValuesView, FrozenSet, Instance,
+        List, LongInt, Module, MontyIter, NamedTuple, OpenFile, Path, Range, ReMatch, RePattern, Set, Slice, Str,
+        TimeZone, Tuple, callable_iterator::CallableIterator, date, datetime, list::ListIterator, timedelta, timezone,
     },
     value::Value,
 };
@@ -29,11 +29,6 @@ use crate::{
 mod free_list;
 mod stable_heap;
 use stable_heap::StableHeap;
-
-// Imported separately because `#[cfg]` cannot be applied to individual items
-// inside a brace-grouped `use`.
-#[cfg(feature = "test-hooks")]
-use crate::types::TestContextManager;
 
 /// Unique identifier for values stored inside the heap arena.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -226,7 +221,12 @@ pub enum HeapReadOutput<'a> {
     Slice(HeapRead<'a, Slice>),
     Exception(HeapRead<'a, SimpleException>),
     Dataclass(HeapRead<'a, Dataclass>),
+    Class(HeapRead<'a, Class>),
+    Instance(HeapRead<'a, Instance>),
+    BoundMethod(HeapRead<'a, BoundMethod>),
     Iter(HeapRead<'a, MontyIter>),
+    ListIterator(HeapRead<'a, ListIterator>),
+    CallableIterator(HeapRead<'a, CallableIterator>),
     LongInt(HeapRead<'a, LongInt>),
     Module(HeapRead<'a, Module>),
     Coroutine(HeapRead<'a, Coroutine>),
@@ -240,9 +240,6 @@ pub enum HeapReadOutput<'a> {
     DateTime(HeapRead<'a, datetime::DateTime>),
     TimeDelta(HeapRead<'a, timedelta::TimeDelta>),
     TimeZone(HeapRead<'a, timezone::TimeZone>),
-    /// Synthetic context manager — only present under `test-hooks`.
-    #[cfg(feature = "test-hooks")]
-    TestContextManager(HeapRead<'a, TestContextManager>),
 }
 
 pub struct HeapRead<'a, T: ?Sized> {
@@ -395,7 +392,7 @@ macro_rules! heap_read_ref_as_field {
         let offset = std::mem::offset_of!($ty, $field);
         #[expect(unreachable_code)]
         let type_hint = |read: &$crate::heap::HeapRead<'_, $ty>| {
-            &raw const read.get::<$crate::NoLimitTracker>(unreachable!()).$field
+            &raw const read.get::<::monty_types::NoLimitTracker>(unreachable!()).$field
         };
         // SAFETY: (DH)
         //  - `std::mem::offset_of!` guarantees there is a field at fixed offset
@@ -442,7 +439,7 @@ macro_rules! heap_read_ref_as_field_mut {
         let offset = std::mem::offset_of!($ty, $field);
         #[expect(unreachable_code)]
         let type_hint = |read: &$crate::heap::HeapRead<'_, $ty>| {
-            &raw const read.get::<$crate::NoLimitTracker>(unreachable!()).$field
+            &raw const read.get::<::monty_types::NoLimitTracker>(unreachable!()).$field
         };
         // SAFETY: (DH)
         //  - `std::mem::offset_of!` guarantees there is a field at fixed offset
@@ -615,7 +612,12 @@ impl<'a> HeapPtr<'a> {
                 HeapReadOutput::Exception(heap_read(base, simple_exception, readers))
             }
             HeapData::Dataclass(dataclass) => HeapReadOutput::Dataclass(heap_read(base, dataclass, readers)),
+            HeapData::Class(class) => HeapReadOutput::Class(heap_read(base, class, readers)),
+            HeapData::Instance(instance) => HeapReadOutput::Instance(heap_read(base, instance, readers)),
+            HeapData::BoundMethod(bound_method) => HeapReadOutput::BoundMethod(heap_read(base, bound_method, readers)),
             HeapData::Iter(monty_iter) => HeapReadOutput::Iter(heap_read(base, monty_iter, readers)),
+            HeapData::ListIterator(list_iter) => HeapReadOutput::ListIterator(heap_read(base, list_iter, readers)),
+            HeapData::CallableIterator(c) => HeapReadOutput::CallableIterator(heap_read(base, c, readers)),
             HeapData::LongInt(l) => HeapReadOutput::LongInt(heap_read(base, l, readers)),
             HeapData::Module(module) => HeapReadOutput::Module(heap_read(base, module, readers)),
             HeapData::Coroutine(coroutine) => HeapReadOutput::Coroutine(heap_read(base, coroutine, readers)),
@@ -633,8 +635,6 @@ impl<'a> HeapPtr<'a> {
             HeapData::DateTime(d) => HeapReadOutput::DateTime(heap_read(base, d, readers)),
             HeapData::TimeDelta(d) => HeapReadOutput::TimeDelta(heap_read(base, d, readers)),
             HeapData::TimeZone(d) => HeapReadOutput::TimeZone(heap_read(base, d, readers)),
-            #[cfg(feature = "test-hooks")]
-            HeapData::TestContextManager(cm) => HeapReadOutput::TestContextManager(heap_read(base, cm, readers)),
         }
     }
 }
@@ -718,21 +718,6 @@ impl<'de> serde::Deserialize<'de> for UnsafeHeapData {
     }
 }
 
-/// Zero-size token returned by [`Heap::incr_recursion_depth`].
-///
-/// Represents one level of recursion depth that must be released when the
-/// recursive operation completes. Released via [`DropWithHeap`] — compatible
-/// with [`defer_drop!`] and [`HeapGuard`] for automatic cleanup on all code paths.
-#[derive(Debug)]
-pub(crate) struct RecursionToken(());
-
-impl DropWithHeap for RecursionToken {
-    #[inline]
-    fn drop_with_heap<H: ContainsHeap>(self, heap: &mut H) {
-        heap.heap().decr_recursion_depth();
-    }
-}
-
 /// Reference-counted arena that backs all heap-only runtime values.
 ///
 /// Uses a free list to reuse slots from freed values, keeping memory usage
@@ -786,11 +771,6 @@ pub(crate) struct Heap<T: ResourceTracker> {
     /// calls still run.
     #[cfg(feature = "test-hooks")]
     gc_disabled: bool,
-    /// Current recursion depth — incremented on function calls and data structure traversals.
-    ///
-    /// Uses `Cell` for interior mutability so that methods with only `&Heap`
-    /// (like `py_repr_fmt`) can still increment/decrement the depth counter.
-    recursion_depth: Cell<usize>,
     /// Cached HeapId for the `datetime.timezone.utc` singleton.
     ///
     /// Lazily allocated on first access to `timezone.utc`. Once created, the refcount
@@ -831,7 +811,6 @@ impl<'de, T: ResourceTracker + serde::Deserialize<'de>> serde::Deserialize<'de> 
             allocations_since_gc: Cell::new(fields.allocations_since_gc),
             #[cfg(feature = "test-hooks")]
             gc_disabled: false,
-            recursion_depth: Cell::new(0),
             timezone_utc: fields.timezone_utc,
         })
     }
@@ -864,7 +843,6 @@ impl<T: ResourceTracker> Heap<T> {
             allocations_since_gc: Cell::new(0),
             #[cfg(feature = "test-hooks")]
             gc_disabled: false,
-            recursion_depth: Cell::new(0),
             timezone_utc: None,
         };
 
@@ -915,55 +893,20 @@ impl<T: ResourceTracker> Heap<T> {
     /// Call this before performing mutations that grow containers (append, insert,
     /// extend, dict set, set add). Returns `Err(ResourceError::Memory)` if the
     /// growth would exceed configured memory limits.
-    ///
-    /// Does not increment the allocation count since no new heap object is created.
     #[inline]
     pub fn track_growth(&self, additional_bytes: usize) -> Result<(), ResourceError> {
-        self.tracker.on_grow(additional_bytes)
+        self.tracker.on_grow(|| additional_bytes)
     }
 
-    /// Increments the recursion depth and checks the limit via the `ResourceTracker`.
+    /// Mirror of [`track_growth`](Self::track_growth) for in-place shrinks.
     ///
-    /// Returns `Ok(RecursionToken)` if within limits. The caller must ensure the
-    /// token is released on all code paths — typically via `defer_drop!` or `HeapGuard`,
-    /// which call [`DropWithHeap::drop_with_heap`] on the token.
-    ///
-    /// Returns `Err(ResourceError::Recursion)` if the limit would be exceeded.
+    /// Needed when a heap entry's `py_estimate_size` decreases without the
+    /// entry itself being freed: `on_free` at entry release reads the
+    /// *current* size, so growth charged earlier would otherwise leak in
+    /// the tracker counter.
     #[inline]
-    pub fn incr_recursion_depth(&self) -> Result<RecursionToken, ResourceError> {
-        let depth = self.recursion_depth.get();
-        self.tracker.check_recursion_depth(depth)?;
-        self.recursion_depth.set(depth + 1);
-        Ok(RecursionToken(()))
-    }
-
-    /// Decrements the recursion depth.
-    ///
-    /// Called internally by `RecursionToken` — prefer releasing the token
-    /// rather than calling this directly.
-    #[inline]
-    pub(crate) fn decr_recursion_depth(&self) {
-        let depth = self.recursion_depth.get();
-        debug_assert!(depth > 0, "decr_recursion_depth called when depth is 0");
-        self.recursion_depth.set(depth - 1);
-    }
-
-    /// Returns the current recursion depth.
-    ///
-    /// Used during async task switching to compute a task's depth contribution
-    /// before adjusting the global counter.
-    pub(crate) fn get_recursion_depth(&self) -> usize {
-        self.recursion_depth.get()
-    }
-
-    /// Sets the recursion depth to an explicit value.
-    ///
-    /// Used after deserialization to restore the recursion depth to match
-    /// the number of active (non-global) namespace frames that were serialized.
-    /// Also used during async task switching to subtract/add a task's depth
-    /// contribution when switching away from/to that task.
-    pub(crate) fn set_recursion_depth(&self, depth: usize) {
-        self.recursion_depth.set(depth);
+    pub fn track_shrink(&self, bytes: usize) {
+        self.tracker.on_free(|| bytes);
     }
 
     /// Number of entries in the heap (including freed slots).
@@ -993,7 +936,7 @@ impl<T: ResourceTracker> Heap<T> {
     /// (strings, bytes, …) cannot participate in cycles and don't count
     /// against the GC interval.
     pub fn allocate(&self, data: HeapData) -> Result<HeapId, ResourceError> {
-        self.tracker.on_allocate(|| data.py_estimate_size())?;
+        self.tracker.on_grow(|| data.py_estimate_size())?;
         if data.is_gc_tracked() {
             self.allocations_since_gc
                 .set(self.allocations_since_gc.get().wrapping_add(1));
@@ -1071,6 +1014,9 @@ impl<T: ResourceTracker> Heap<T> {
     pub fn dec_ref(&mut self, id: HeapId) {
         HeapReader::with(self, &mut (), |reader, ()| {
             let mut current_id = id;
+            // A fresh Vec is deliberate: it costs nothing unless children are
+            // actually pushed, whereas pooling it on the Heap was measured
+            // (CodSpeed, PR #536) to add take/restore traffic to every call.
             let mut work_stack = Vec::new();
             loop {
                 // Using `HeapPtr` avoids the possibility of aliasing with live borrows
@@ -1127,7 +1073,8 @@ impl<T: ResourceTracker> Heap<T> {
         });
     }
 
-    /// Returns an immutable reference to the heap data stored at the given ID.
+    /// Returns an immutable reference to the heap data stored at the given ID. This can be more efficient
+    /// than `.read()` for short-lived borrows that need read-only access (avoids reader bookkeeping).
     ///
     /// # Panics
     /// Panics if the value ID is invalid, the value has already been freed,
@@ -1579,12 +1526,45 @@ fn for_each_child_id<F: FnMut(HeapId)>(data: &HeapData, mut on_child: F) {
                 }
             }
         }
+        HeapData::Class(class) => {
+            // The class namespace holds method/class-variable values.
+            for (k, v) in class.namespace() {
+                if let Value::Ref(id) = k {
+                    on_child(*id);
+                }
+                if let Value::Ref(id) = v {
+                    on_child(*id);
+                }
+            }
+        }
+        HeapData::Instance(instance) => {
+            // An instance references its class plus its attribute dict's entries.
+            on_child(instance.class());
+            for (k, v) in instance.attrs() {
+                if let Value::Ref(id) = k {
+                    on_child(*id);
+                }
+                if let Value::Ref(id) = v {
+                    on_child(*id);
+                }
+            }
+        }
+        HeapData::BoundMethod(bm) => {
+            if let Value::Ref(id) = &bm.instance {
+                on_child(*id);
+            }
+            if let Value::Ref(id) = &bm.func {
+                on_child(*id);
+            }
+        }
         HeapData::Iter(iter) => {
             // Iterator holds a reference to the iterable being iterated
             if let Value::Ref(id) = iter.value() {
                 on_child(*id);
             }
         }
+        HeapData::ListIterator(iter) => on_child(iter.list_id()),
+        HeapData::CallableIterator(iter) => iter.for_each_child_id(on_child),
         HeapData::Module(m) => {
             // Module attrs can contain references to heap values
             if !m.has_refs() {
@@ -1654,6 +1634,22 @@ fn for_each_child_id<F: FnMut(HeapId)>(data: &HeapData, mut on_child: F) {
                 on_child(tz_id);
             }
         }
+        HeapData::OpenFile(file) => {
+            // Kept in sync with `py_dec_ref_ids_for_data`: the file owns one
+            // ref on its loaded buffer. (`OpenFile` is not GC-tracked today, so
+            // this arm is not reached by the collector, but the two walkers must
+            // mirror each other per the contract above.)
+            if let Some(buffer_id) = file.buffer_id() {
+                on_child(buffer_id);
+            }
+        }
+        HeapData::ReMatch(m) => {
+            // Mirror `py_dec_ref_ids_for_data`: a match holds one ref on its
+            // shared subject string (`None` for an interned subject).
+            if let Value::Ref(id) = m.subject_ref() {
+                on_child(*id);
+            }
+        }
         // Leaf types with no heap references
         _ => {}
     }
@@ -1688,7 +1684,12 @@ fn py_dec_ref_ids_for_data(data: &mut HeapData, stack: &mut Vec<HeapId>) {
         }
         HeapData::Cell(cell) => cell.0.py_dec_ref_ids(stack),
         HeapData::Dataclass(dc) => dc.py_dec_ref_ids(stack),
+        HeapData::Class(class) => class.py_dec_ref_ids(stack),
+        HeapData::Instance(instance) => instance.py_dec_ref_ids(stack),
+        HeapData::BoundMethod(bm) => bm.py_dec_ref_ids(stack),
         HeapData::Iter(iter) => iter.py_dec_ref_ids(stack),
+        HeapData::ListIterator(iter) => iter.py_dec_ref_ids(stack),
+        HeapData::CallableIterator(iter) => iter.py_dec_ref_ids(stack),
         HeapData::Module(m) => m.py_dec_ref_ids(stack),
         HeapData::Coroutine(coro) => {
             // Decrement ref count for namespace values that are heap references
@@ -1735,6 +1736,14 @@ fn py_dec_ref_ids_for_data(data: &mut HeapData, stack: &mut Vec<HeapId>) {
                 stack.push(tz_id);
             }
         }
+        HeapData::OpenFile(f) => {
+            // Kept in sync with `for_each_child_id`: release the file's owned
+            // ref on its loaded buffer when the file is freed (e.g. read but
+            // never `close()`d).
+            f.py_dec_ref_ids(stack);
+        }
+        // Release the shared subject reference (mirrors `for_each_child_id`).
+        HeapData::ReMatch(m) => m.py_dec_ref_ids(stack),
         // other types have no nested heap references
         _ => {}
     }
@@ -1764,8 +1773,13 @@ mod heap_reader_compile_fail_cases;
 /// mark–sweep collector.
 #[cfg(test)]
 mod tests {
+    use monty_types::NoLimitTracker;
+
     use super::*;
-    use crate::{resource::NoLimitTracker, types::List, value::Value};
+    use crate::{
+        types::{List, callable_iterator::CallableIterator},
+        value::Value,
+    };
 
     /// Returns whether a heap entry is still allocated at `id`.
     fn is_alive<T: ResourceTracker>(heap: &Heap<T>, id: HeapId) -> bool {
@@ -2081,5 +2095,86 @@ mod tests {
 
         assert!(!is_alive(&heap, p_id), "P should be collected after pin dropped");
         assert!(!is_alive(&heap, a_id), "A should be collected after pin dropped");
+    }
+
+    /// The GC must see BOTH refs a `callable_iterator` owns, with correct
+    /// multiplicity: under-tracing here would let a live object be collected.
+    #[test]
+    fn callable_iterator_traces_callable_and_sentinel() {
+        let heap = Heap::<NoLimitTracker>::new(16, NoLimitTracker);
+        let c = heap.allocate(HeapData::List(List::new(vec![]))).unwrap();
+        let s = heap.allocate(HeapData::List(List::new(vec![]))).unwrap();
+
+        heap.inc_ref(c);
+        heap.inc_ref(s);
+        let iter = heap
+            .allocate(HeapData::CallableIterator(CallableIterator::new(
+                Value::Ref(c),
+                Value::Ref(s),
+            )))
+            .unwrap();
+        let mut traced = vec![];
+        for_each_child_id(heap.get(iter), |id| traced.push(id));
+        assert_eq!(traced, vec![c, s], "callable and sentinel are both traced");
+
+        // Multiplicity: when callable IS sentinel, two counted refs point at one
+        // object, so the id must be reported twice or trial deletion
+        // under-decrements and frees a live object.
+        heap.inc_ref(c);
+        heap.inc_ref(c);
+        let shared = heap
+            .allocate(HeapData::CallableIterator(CallableIterator::new(
+                Value::Ref(c),
+                Value::Ref(c),
+            )))
+            .unwrap();
+        let mut dup = vec![];
+        for_each_child_id(heap.get(shared), |id| dup.push(id));
+        assert_eq!(dup, vec![c, c], "a shared callable/sentinel is traced twice");
+    }
+
+    /// End-to-end: a cycle through the callable must be collected and the
+    /// non-cycle sentinel released — exercising the mark phase
+    /// (`for_each_child_id`) and the free phase (`py_dec_ref_ids`) together.
+    #[test]
+    fn callable_iterator_cycle_is_collected() {
+        let mut heap = Heap::<NoLimitTracker>::new(16, NoLimitTracker);
+        let sentinel = heap.allocate(HeapData::List(List::new(vec![]))).unwrap();
+        let list = heap.allocate(HeapData::List(List::new(vec![]))).unwrap();
+        heap.inc_ref(list);
+        heap.inc_ref(sentinel);
+        let iter = heap
+            .allocate(HeapData::CallableIterator(CallableIterator::new(
+                Value::Ref(list),
+                Value::Ref(sentinel),
+            )))
+            .unwrap();
+
+        // Close the cycle: the callable list references the iterator back.
+        heap.inc_ref(iter);
+        HeapReader::with(&mut heap, &mut (), |reader, ()| {
+            let HeapReadOutput::List(mut l) = reader.read(list) else {
+                unreachable!("just allocated a list")
+            };
+            let l = l.get_mut(reader);
+            l.set_contains_refs();
+            l.as_vec_mut().push(Value::Ref(iter));
+        });
+        // list.rc = 2, iter.rc = 2, sentinel.rc = 2.
+
+        // Drop the allocation refs: {iter, list} is now an unreachable cycle and
+        // the sentinel is held only by the iterator.
+        heap.dec_ref(list);
+        heap.dec_ref(iter);
+        heap.dec_ref(sentinel);
+
+        heap.collect_cycles();
+
+        assert!(!is_alive(&heap, iter), "callable_iterator in a cycle must be collected");
+        assert!(!is_alive(&heap, list), "the cycle's other node must be collected");
+        assert!(
+            !is_alive(&heap, sentinel),
+            "sentinel held only by the freed iterator must be released"
+        );
     }
 }

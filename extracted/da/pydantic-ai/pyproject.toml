@@ -65,6 +65,7 @@ voyageai = ["pydantic-ai-slim[voyageai]=={{ version }}"]
 cohere = ["pydantic-ai-slim[cohere]=={{ version }}"]
 mistral = ["pydantic-ai-slim[mistral]=={{ version }}"]
 bedrock = ["pydantic-ai-slim[bedrock]=={{ version }}"]
+bedrock-mantle = ["pydantic-ai-slim[bedrock-mantle]=={{ version }}"]
 xai = ["pydantic-ai-slim[xai]=={{ version }}"]
 groq = ["pydantic-ai-slim[groq]=={{ version }}"]
 openrouter = ["pydantic-ai-slim[openrouter]=={{ version }}"]
@@ -228,6 +229,7 @@ extend-select = [
     "D",
     "TID251",
     "PLW1514", # https://docs.astral.sh/ruff/rules/unspecified-encoding/
+    "PGH003", # https://docs.astral.sh/ruff/rules/blanket-type-ignore/
 ]
 flake8-quotes = { inline-quotes = "single", multiline-quotes = "double" }
 mccabe = { max-complexity = 15 }

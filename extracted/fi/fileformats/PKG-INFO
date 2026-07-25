@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fileformats
-Version: 0.17.8
+Version: 0.17.9
 Summary: Classes for representing different file formats in Python classes for use in type hinting in data workflows
 Project-URL: repository, https://github.com/ArcanaFramework/fileformats
 Author-email: "Thomas G. Close" <tom.g.close@gmail.com>

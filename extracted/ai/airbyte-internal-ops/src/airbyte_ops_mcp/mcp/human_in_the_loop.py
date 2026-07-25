@@ -33,6 +33,7 @@ from airbyte_ops_mcp.human_in_the_loop import (
     dispatch_escalation,
 )
 from airbyte_ops_mcp.internal_team_roster import fetch_roster, search_roster
+from airbyte_ops_mcp.slack_api import lookup_slack_usergroup as find_slack_usergroups
 from airbyte_ops_mcp.slack_ops.blocks import (
     build_blocks,
     validate_message,
@@ -69,6 +70,24 @@ class RosterListResponse(BaseModel):
 
     total_members: int = Field(description="Total number of members in the roster")
     members: list[PersonRecord] = Field(description="All person records in the roster")
+
+
+class SlackUsergroupRecord(BaseModel):
+    """A Slack usergroup and its mention metadata."""
+
+    id: str = Field(description="Slack usergroup ID used in <!subteam^ID|@handle>")
+    handle: str = Field(description="Slack usergroup handle without the leading @")
+    name: str = Field(description="Slack usergroup display name")
+    description: str = Field(description="Slack usergroup description")
+    user_count: int = Field(description="Number of members in the usergroup")
+
+
+class SlackUsergroupLookupResponse(BaseModel):
+    """Response from a Slack usergroup lookup."""
+
+    id_or_handle: str = Field(description="The usergroup ID or handle/name lookup")
+    total_matches: int = Field(description="Number of matching usergroups")
+    matches: list[SlackUsergroupRecord] = Field(description="Matching Slack usergroups")
 
 
 @mcp_tool(
@@ -120,6 +139,47 @@ def list_team_roster() -> RosterListResponse:
     return RosterListResponse(
         total_members=len(roster),
         members=[PersonRecord.model_validate(person) for person in roster],
+    )
+
+
+@mcp_tool(
+    read_only=True,
+    idempotent=True,
+)
+def lookup_slack_usergroup(
+    id_or_handle: Annotated[
+        str,
+        Field(
+            description=(
+                "Required Slack usergroup handle/name or S-prefixed usergroup ID. "
+                "Handle/name matching is "
+                "case-insensitive and partial; a leading @ is ignored. "
+                "S-prefixed IDs are matched exactly."
+            )
+        ),
+    ],
+) -> SlackUsergroupLookupResponse:
+    """Resolve Slack usergroups to IDs for usergroup mentions.
+
+    Pass a handle or name to resolve oncall aliases such as `@oc-apis`, or
+    pass an S-prefixed usergroup ID for the corresponding handle and name.
+    Results include the ID and metadata needed for the
+    `<!subteam^ID|@alias>` mention syntax used by Slack messages.
+    """
+    usergroups = find_slack_usergroups(id_or_handle)
+    return SlackUsergroupLookupResponse(
+        id_or_handle=id_or_handle,
+        total_matches=len(usergroups),
+        matches=[
+            SlackUsergroupRecord(
+                id=usergroup.id,
+                handle=usergroup.handle,
+                name=usergroup.name,
+                description=usergroup.description,
+                user_count=usergroup.user_count,
+            )
+            for usergroup in usergroups
+        ],
     )
 
 
@@ -177,7 +237,9 @@ def escalate_to_human(
         str,
         "Primary person to notify. Accepts an email address (e.g. 'aj@airbyte.io'), "
         "a GitHub handle prefixed with @ (e.g. '@aaronsteers'), "
-        "or a Slack user ID (e.g. 'U05AKF1BCC9').",
+        "a Slack user ID (e.g. 'U05AKF1BCC9'), or a Slack usergroup ID "
+        "(e.g. 'S0BKR63VAN5' for @oc-internal-ai). Slack usergroup handles "
+        "such as '@oc-internal-ai' are not resolvable; use the ID form.",
     ],
     message: Annotated[
         str,
@@ -193,8 +255,10 @@ def escalate_to_human(
     ],
     cc: Annotated[
         list[str] | None,
-        "Optional list of additional people to tag on the message. "
-        "Each entry uses the same identifier format as target_person.",
+        "Optional list of additional people or Slack usergroups to tag on the "
+        "message. Each entry uses the same identifier format as target_person. "
+        "For usergroups, use the S-prefixed ID (e.g. 'S0BKR63VAN5' for "
+        "@oc-internal-ai), not the handle.",
     ] = None,
     pr_url: Annotated[
         str | None,
@@ -249,17 +313,18 @@ def escalate_to_human(
         "When omitted, defaults to the generic 'Human-in-the-loop request' header.",
     ] = None,
 ) -> EscalateToHumanResponse:
-    """Escalate to a human team member via Slack.
+    """Escalate to a human or Slack usergroup via Slack.
 
     Posts a formatted message to the #human-in-the-loop Slack channel,
-    tagging the specified person(s). The message includes clickable buttons
-    for the Devin session, PR, and issue links when provided, plus any
-    additional freeform action buttons.
+    tagging the specified person(s) or usergroup(s). The message includes
+    clickable buttons for the Devin session, PR, and issue links when provided,
+    plus any additional freeform action buttons.
 
     The Slack message is sent by a GitHub Actions workflow so that Slack
     credentials are never exposed to the calling agent. The workflow
-    resolves person identifiers (email, GitHub handle, or Slack ID) to
-    Slack user IDs using the internal team roster.
+    resolves person identifiers (email, GitHub handle, or Slack ID) to Slack
+    user IDs using the internal team roster. S-prefixed Slack usergroup IDs
+    bypass roster resolution and render as usergroup mentions.
 
     Use this tool when you need human input, approval, or help that you
     cannot resolve on your own.

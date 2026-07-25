@@ -1,6 +1,6 @@
 [project]
 name = "daytona_toolbox_api_client"
-version = "0.200.1"
+version = "0.200.2"
 description = "Daytona Toolbox API"
 authors = [
   {name = "OpenAPI Generator Community",email = "team@openapitools.org"},
@@ -26,9 +26,9 @@ requires-poetry = ">=2.0"
 [tool.poetry.group.dev.dependencies]
 pytest = ">=9.1.1"
 pytest-cov = ">=7.1.0"
-tox = ">=4.56.4"
+tox = ">=4.57.0"
 flake8 = ">=7.3.0"
-types-python-dateutil = ">=2.9.0.20260518"
+types-python-dateutil = ">=2.9.0.20260716"
 mypy = ">=2.3.0"
 
 

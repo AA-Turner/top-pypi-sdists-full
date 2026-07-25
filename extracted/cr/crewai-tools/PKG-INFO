@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crewai-tools
-Version: 1.15.5
+Version: 1.15.6
 Summary: Set of tools for the crewAI framework
 Project-URL: Homepage, https://crewai.com
 Project-URL: Repository, https://github.com/crewAIInc/crewAI
@@ -8,7 +8,7 @@ Project-URL: Documentation, https://docs.crewai.com
 Author-email: João Moura <joaomdmoura@gmail.com>
 Requires-Python: <3.14,>=3.10
 Requires-Dist: beautifulsoup4~=4.13.4
-Requires-Dist: crewai==1.15.5
+Requires-Dist: crewai==1.15.6
 Requires-Dist: pymupdf~=1.26.6
 Requires-Dist: python-docx~=1.2.0
 Requires-Dist: pytube~=15.0.0
@@ -45,7 +45,7 @@ Requires-Dist: exa-py>=1.8.7; extra == 'exa-py'
 Provides-Extra: firecrawl-py
 Requires-Dist: firecrawl-py>=1.8.0; extra == 'firecrawl-py'
 Provides-Extra: github
-Requires-Dist: gitpython<4,>=3.1.50; extra == 'github'
+Requires-Dist: gitpython<4,>=3.1.55; extra == 'github'
 Requires-Dist: pygithub==1.59.1; extra == 'github'
 Provides-Extra: hyperbrowser
 Requires-Dist: hyperbrowser>=0.18.0; extra == 'hyperbrowser'

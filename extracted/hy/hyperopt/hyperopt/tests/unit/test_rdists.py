@@ -1,23 +1,25 @@
-from past.utils import old_div
-from collections import defaultdict
+import importlib.metadata
 import unittest
+from collections import defaultdict
+
 import numpy as np
 import numpy.testing as npt
-from hyperopt.rdists import (
-    loguniform_gen,
-    lognorm_gen,
-    quniform_gen,
-    qloguniform_gen,
-    qnormal_gen,
-    qlognormal_gen,
-)
+import packaging.version
 from scipy import stats
-
 from scipy.stats.tests.test_continuous_basic import (
     check_cdf_logcdf,
-    check_pdf_logpdf,
-    check_pdf,
     check_cdf_ppf,
+    check_pdf,
+    check_pdf_logpdf,
+)
+
+from hyperopt.rdists import (
+    lognorm_gen,
+    loguniform_gen,
+    qlognormal_gen,
+    qloguniform_gen,
+    qnormal_gen,
+    quniform_gen,
 )
 
 
@@ -44,7 +46,12 @@ class TestLogUniform(unittest.TestCase):
         scale = 1
         arg = (loc, scale)
         distfn = loguniform_gen(0, 1)
-        D, pval = stats.kstest(distfn.rvs, distfn.cdf, args=arg, N=1000)
+        if packaging.version.Version(
+            importlib.metadata.version("scipy")
+        ) >= packaging.version.Version("1.12.0"):
+            D, pval = stats.kstest(distfn.rvs(), distfn.cdf, args=arg, N=1000)
+        else:
+            D, pval = stats.kstest(distfn.rvs, distfn.cdf, args=arg, N=1000)
         if pval < alpha:
             npt.assert_(
                 pval > alpha,
@@ -90,9 +97,9 @@ class TestLogNormal(unittest.TestCase):
 
 
 def check_d_samples(dfn, n, rtol=1e-2, atol=1e-2):
-    counts = defaultdict(lambda: 0)
+    counts = defaultdict(int)
     # print 'sample', dfn.rvs(size=n)
-    inc = old_div(1.0, n)
+    inc = 1 / n
     for s in dfn.rvs(size=n):
         counts[s] += inc
     for ii, p in sorted(counts.items()):
@@ -101,7 +108,7 @@ def check_d_samples(dfn, n, rtol=1e-2, atol=1e-2):
             print(("Error in sampling frequencies", ii))
             print("value\tpmf\tfreq")
             for jj in sorted(counts):
-                print("{:.2f}\t{:.3f}\t{:.4f}".format(jj, dfn.pmf(jj), counts[jj]))
+                print(f"{jj:.2f}\t{dfn.pmf(jj):.3f}\t{counts[jj]:.4f}")
             npt.assert_(t, "n = %i; pmf = %f; p = %f" % (n, dfn.pmf(ii), p))
 
 

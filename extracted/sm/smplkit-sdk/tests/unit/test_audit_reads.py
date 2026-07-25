@@ -16,6 +16,7 @@ import httpx
 import pytest
 
 from smplkit import Error, NotFoundError
+from smplkit._generated.audit.types import UNSET
 from smplkit.audit import Category, Event, EventType, ResourceType
 from smplkit.audit.clients import (
     AsyncAuditClient,
@@ -26,7 +27,6 @@ from smplkit.audit.clients import (
     ResourceTypeListPage,
     _join_environments,
 )
-from smplkit._generated.audit.types import UNSET
 
 
 def _client_with_handler(handler) -> AuditClient:

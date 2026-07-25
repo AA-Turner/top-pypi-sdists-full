@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   # Compute a weekend gate so forward-progress actions (auto-start of new

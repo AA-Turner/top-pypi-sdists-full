@@ -48,7 +48,6 @@ from linopy.common import (
     get_label_position,
     has_optimized_model,
     iterate_slices,
-    require_constant,
     save_join,
     set_int_index,
     to_dataframe,
@@ -895,18 +894,18 @@ class Variable:
         return self.data.upper
 
     @upper.setter
-    @require_constant
     def upper(self, value: ConstantLike) -> None:
         """
-        Set the upper bounds of the variables.
-
-        The function raises an error in case no model is set as a
-        reference.
+        Syntactic sugar for :meth:`Variable.update`. Do not add logic
+        here; mutate via ``update`` so the contract stays single-sourced.
         """
-        value = DataArray(value).broadcast_like(self.upper)
-        if not set(value.dims).issubset(self.model.variables[self.name].dims):
-            raise ValueError("Cannot assign new dimensions to existing variable.")
-        self._data = assign_multiindex_safe(self.data, upper=value)
+        warn(
+            "Variable.upper setter is deprecated and will be removed in a "
+            "future release; use Variable.update(upper=...) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.update(upper=value)
 
     @property
     def lower(self) -> DataArray:
@@ -919,18 +918,100 @@ class Variable:
         return self.data.lower
 
     @lower.setter
-    @require_constant
     def lower(self, value: ConstantLike) -> None:
         """
-        Set the lower bounds of the variables.
-
-        The function raises an error in case no model is set as a
-        reference.
+        Syntactic sugar for :meth:`Variable.update`. Do not add logic
+        here; mutate via ``update`` so the contract stays single-sourced.
         """
-        value = DataArray(value).broadcast_like(self.lower)
-        if not set(value.dims).issubset(self.model.variables[self.name].dims):
-            raise ValueError("Cannot assign new dimensions to existing variable.")
-        self._data = assign_multiindex_safe(self.data, lower=value)
+        warn(
+            "Variable.lower setter is deprecated and will be removed in a "
+            "future release; use Variable.update(lower=...) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.update(lower=value)
+
+    def update(
+        self,
+        *,
+        lower: ConstantLike | None = None,
+        upper: ConstantLike | None = None,
+    ) -> Variable:
+        """
+        Update variable bounds in place.
+
+        Canonical mutation API. Validation and coord alignment live here.
+        Single-attribute setters (`var.lower = …`) forward to this method.
+
+        Parameters
+        ----------
+        lower : ConstantLike, optional
+            New lower bound. Accepts any constant — scalars, numpy
+            arrays, pandas Series / DataFrame, xarray DataArray (e.g.
+            time-varying bounds). Aligned via xarray broadcast against
+            the variable's existing shape; new dims are rejected.
+            Decision variables / linear expressions are not accepted.
+        upper : ConstantLike, optional
+            New upper bound. Same.
+
+        Returns
+        -------
+        Variable
+            ``self`` for chaining.
+
+        Raises
+        ------
+        TypeError
+            If either bound is a Variable / Expression (bounds must be
+            numeric, not symbolic).
+        ValueError
+            If the new bound introduces dimensions not in the variable's
+            coords, or if the resulting ``lower > upper`` anywhere.
+        """
+        if lower is None and upper is None:
+            return self
+
+        updates = self._validate_update(lower=lower, upper=upper)
+        self._data = assign_multiindex_safe(self.data, **updates)
+        return self
+
+    def _validate_update(
+        self,
+        *,
+        lower: ConstantLike | None = None,
+        upper: ConstantLike | None = None,
+    ) -> dict[str, DataArray]:
+        """
+        Validate, broadcast, and cross-check update inputs.
+
+        Returns the broadcasted DataArrays ready for assignment. Raises
+        before any mutation if any input is wrong.
+        """
+        updates: dict[str, DataArray] = {}
+        own_dims = self.model.variables[self.name].dims
+        for name, val, ref in (
+            ("lower", lower, self.lower),
+            ("upper", upper, self.upper),
+        ):
+            if val is None:
+                continue
+            if not isinstance(val, ConstantLike):
+                raise TypeError(
+                    f"Variable.update({name}=...) must be a constant; "
+                    f"got {type(val).__name__}."
+                )
+            new_val = DataArray(val).broadcast_like(ref)
+            if not set(new_val.dims).issubset(own_dims):
+                raise ValueError("Cannot assign new dimensions to existing variable.")
+            updates[name] = new_val
+
+        final_lower = updates.get("lower", self.lower)
+        final_upper = updates.get("upper", self.upper)
+        if bool((final_lower > final_upper).any()):
+            raise ValueError(
+                "Variable.update would leave lower > upper at one or more coordinates."
+            )
+        return updates
 
     @property
     @has_optimized_model
@@ -1041,7 +1122,7 @@ class Variable:
         check_has_nulls_polars(df, name=f"{self.type} {self.name}")
         return df
 
-    def sum(self, dim: str | None = None, **kwargs: Any) -> LinearExpression:
+    def sum(self, dim: DimsLike | None = None, **kwargs: Any) -> LinearExpression:
         """
         Sum the variables over all or a subset of dimensions.
 
@@ -1142,6 +1223,9 @@ class Variable:
             raise ValueError(
                 f"other must be a Variable, ScalarVariable, dict or Dataset, got {type(other)}"
             )
+        if isinstance(_other, dict):
+            fill: dict[str, float] = {str(k): np.nan for k in self.data}
+            _other = {**fill, **_other}
         return self.__class__(
             self.data.where(cond, _other, **kwargs), self.model, self.name
         )
@@ -1188,7 +1272,9 @@ class Variable:
             .map(DataArray.ffill, dim=dim, limit=limit)
             .fillna(self._fill_value)
         )
-        return self.assign_multiindex_safe(labels=data.labels.astype(int))
+        return self.assign_multiindex_safe(
+            labels=data.labels.astype(self.model._dtypes["labels"])
+        )
 
     def bfill(self, dim: str, limit: None = None) -> Variable:
         """
@@ -1215,7 +1301,7 @@ class Variable:
             .map(DataArray.bfill, dim=dim, limit=limit)
             .fillna(self._fill_value)
         )
-        return self.assign(labels=data.labels.astype(int))
+        return self.assign(labels=data.labels.astype(self.model._dtypes["labels"]))
 
     def sanitize(self) -> Variable:
         """
@@ -1226,7 +1312,9 @@ class Variable:
         linopy.Variable
         """
         if issubdtype(self.labels.dtype, floating):
-            return self.assign(labels=self.labels.fillna(-1).astype(int))
+            return self.assign(
+                labels=self.labels.fillna(-1).astype(self.model._dtypes["labels"])
+            )
         return self
 
     def equals(self, other: Variable) -> bool:
@@ -1424,8 +1512,7 @@ class Variable:
                 **{STASHED_LOWER: lower, STASHED_UPPER: upper},
             )
 
-        self.lower = value
-        self.upper = value
+        self.update(lower=value, upper=value)
 
     def unfix(self) -> None:
         """
@@ -1434,8 +1521,7 @@ class Variable:
         if not self.fixed:
             return
 
-        self.lower = self.data[STASHED_LOWER]
-        self.upper = self.data[STASHED_UPPER]
+        self.update(lower=self.data[STASHED_LOWER], upper=self.data[STASHED_UPPER])
         self._data = self.data.drop_vars(STASHED_ATTRS)
 
     @property
@@ -1640,7 +1726,8 @@ class Variables:
         Get the labels of all variables.
         """
         return save_join(
-            *[v.labels.rename(k) for k, v in self.items()], integer_dtype=True
+            *[v.labels.rename(k) for k, v in self.items()],
+            fill_dtype=self.model._dtypes["labels"],
         )
 
     @property
@@ -1950,7 +2037,10 @@ class Variables:
         """
         df = pd.concat([self[k].flat for k in self], ignore_index=True)
         unique_labels = df.labels.unique()
-        map_labels = pd.Series(np.arange(len(unique_labels)), index=unique_labels)
+        map_labels = pd.Series(
+            np.arange(len(unique_labels), dtype=self.model._dtypes["labels"]),
+            index=unique_labels,
+        )
         df["key"] = df.labels.map(map_labels)
         return df
 

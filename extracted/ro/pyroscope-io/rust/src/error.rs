@@ -14,9 +14,6 @@ pub enum PyroscopeError {
         source: Box<dyn std::error::Error + Send + Sync + 'static>,
     },
 
-    #[error("BackendImpl error")]
-    BackendImpl,
-
     #[error(transparent)]
     Reqwest(#[from] reqwest::Error),
 
@@ -29,8 +26,12 @@ pub enum PyroscopeError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
-    #[error(transparent)]
-    Json(#[from] serde_json::Error),
+    #[error("Agent not running")]
+    AgentNotRunning,
+    #[error("Agent already running")]
+    AgentAlreadyRunning,
+    #[error("Another configure/shutdown operation is in progress")]
+    ConcurrentOperation,
 }
 
 impl PyroscopeError {

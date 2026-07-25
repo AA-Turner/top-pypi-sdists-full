@@ -5,13 +5,6 @@ from http import HTTPStatus
 import httpx
 import pytest
 
-from smplkit.errors import (
-    ConflictError,
-    ConnectionError,
-    NotFoundError,
-    TimeoutError,
-    ValidationError,
-)
 from smplkit._generated.config.models.config_environments_type_0 import (
     ConfigEnvironmentsType0,
 )
@@ -28,12 +21,21 @@ from smplkit.config.clients import (
 )
 from smplkit.config.helpers import (
     _build_config_request_body as _build_request_body,
+)
+from smplkit.config.helpers import (
     _extract_datetime,
     _extract_environments,
     _extract_items,
     _make_environments,
     _make_items,
     _unset_to_none,
+)
+from smplkit.errors import (
+    ConflictError,
+    ConnectionError,
+    NotFoundError,
+    TimeoutError,
+    ValidationError,
 )
 
 

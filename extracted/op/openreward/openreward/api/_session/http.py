@@ -71,6 +71,27 @@ class AuthenticationError(Exception):
     pass
 
 
+def _rebuild_response_error(status: int, message: str) -> "SessionResponseError":
+    # request_info/history are dropped on pickle; None is accepted at runtime.
+    return SessionResponseError(None, (), status=status, message=message)  # type: ignore[arg-type]
+
+
+class SessionResponseError(aiohttp.ClientResponseError):
+    """A ClientResponseError that survives pickling across a process/Ray boundary.
+
+    aiohttp's ClientResponseError stores request_info/history/headers, which hold
+    CIMultiDictProxy objects that cloudpickle cannot serialize. When an env 5xx/4xx
+    is raised inside a Ray RolloutActor and propagates to the driver, cloudpickle
+    raises a *secondary* ``TypeError: can't pickle
+    multidict._multidict.CIMultiDictProxy``, masking the real HTTP status and
+    turning a retryable env hiccup into a hard rollout failure. The live object
+    stays fully populated (retry logic / logging still see the headers); only the
+    *pickled* form is reduced to the picklable status + message.
+    """
+    def __reduce__(self):
+        return (_rebuild_response_error, (self.status, self.message))
+
+
 async def _raise_for_status(resp: aiohttp.ClientResponse) -> None:
     """Raise ClientResponseError with server's detail message if available."""
     if resp.ok:
@@ -82,7 +103,9 @@ async def _raise_for_status(resp: aiohttp.ClientResponse) -> None:
             detail = 'Deployment not found. Environment name is case-sensitive, is it correct?'
     except Exception:
         detail = text
-    raise aiohttp.ClientResponseError(
+    # SessionResponseError (a ClientResponseError subclass) so this survives
+    # cloudpickle when a Ray actor propagates it to the driver — see its docstring.
+    raise SessionResponseError(
         resp.request_info, resp.history,
         status=resp.status,
         message=detail,

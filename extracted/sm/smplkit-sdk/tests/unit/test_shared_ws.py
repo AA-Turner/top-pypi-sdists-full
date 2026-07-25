@@ -8,7 +8,7 @@ import pytest
 import websockets
 import websockets.frames
 
-from smplkit._ws import SharedWebSocket, _BACKOFF_SCHEDULE
+from smplkit._ws import _BACKOFF_SCHEDULE, SharedWebSocket
 
 
 @pytest.fixture(autouse=True)
@@ -496,7 +496,7 @@ class TestWsThreadEntryPendingTasks:
             async def _lingering():
                 await asyncio.sleep(999)
 
-            asyncio.ensure_future(_lingering())
+            asyncio.ensure_future(_lingering())  # noqa: RUF006 — deliberately unreferenced: the test verifies pending tasks get cancelled
             # Return immediately — the lingering task stays pending
             return
 

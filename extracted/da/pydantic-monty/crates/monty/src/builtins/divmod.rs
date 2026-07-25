@@ -1,5 +1,6 @@
 //! Implementation of the divmod() builtin function.
 
+use monty_types::ResourceTracker;
 use num_bigint::BigInt;
 use num_integer::Integer;
 use smallvec::smallvec;
@@ -8,10 +9,10 @@ use crate::{
     args::ArgValues,
     bytecode::VM,
     defer_drop,
-    exception_private::{ExcType, RunResult, SimpleException},
+    exception_private::{ExcType, ExcTypeExt, RunResult, SimpleException},
     heap::HeapData,
-    resource::{ResourceTracker, check_div_size},
-    types::{LongInt, PyTrait, allocate_tuple},
+    resource_checks::check_div_size,
+    types::{LongInt, allocate_tuple},
     value::{Value, floor_divmod},
 };
 
@@ -115,8 +116,8 @@ pub fn builtin_divmod(vm: &mut VM<'_, impl ResourceTracker>, args: ArgValues) ->
             }
         }
         _ => {
-            let a_type = a.py_type(vm);
-            let b_type = b.py_type(vm);
+            let a_type = a.py_type_name(vm);
+            let b_type = b.py_type_name(vm);
             Err(SimpleException::new_msg(
                 ExcType::TypeError,
                 format!("unsupported operand type(s) for divmod(): '{a_type}' and '{b_type}'"),

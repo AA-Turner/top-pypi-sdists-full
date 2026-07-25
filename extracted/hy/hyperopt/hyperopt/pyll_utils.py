@@ -1,17 +1,16 @@
-from past.builtins import basestring
 from functools import partial, wraps
+
 from .base import DuplicateLabel
+from .pyll import as_apply, scope
 from .pyll.base import Apply, Literal, MissingArgument
-from .pyll import scope
-from .pyll import as_apply
 
 
 def validate_label(f):
     @wraps(f)
     def wrapper(label, *args, **kwargs):
-        is_real_string = isinstance(label, basestring)
+        is_real_string = isinstance(label, (str, bytes))
         is_literal_string = isinstance(label, Literal) and isinstance(
-            label.obj, basestring
+            label.obj, (str, bytes)
         )
         if not is_real_string and not is_literal_string:
             raise TypeError("require string label")
@@ -74,7 +73,7 @@ def hp_choice(label, options):
 
 @validate_label
 def hp_randint(label, *args, **kwargs):
-    return scope.hyperopt_param(label, scope.randint(*args, **kwargs))
+    return scope.int(scope.hyperopt_param(label, scope.randint(*args, **kwargs)))
 
 
 @validate_label

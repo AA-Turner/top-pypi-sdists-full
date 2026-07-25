@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-
-from ..models.group_create_resource_type import check_group_create_resource_type
-from ..models.group_create_resource_type import GroupCreateResourceType
+from ..models.group_create_resource_type import GroupCreateResourceType, check_group_create_resource_type
 
 if TYPE_CHECKING:
     from ..models.group import Group

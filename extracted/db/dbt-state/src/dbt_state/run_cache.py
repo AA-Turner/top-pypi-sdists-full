@@ -1567,7 +1567,6 @@ class RunCache:
             node_contract_hash=node_contract_hash,
             profile_name=self._config.profile_name,
             project_id=self._run_cache_config.dbt_project_id,
-            node_fqn=".".join(node.fqn),
         )
 
     def _node_execution_type(self, node: ModelOrSnapshotOrTestNode) -> str:

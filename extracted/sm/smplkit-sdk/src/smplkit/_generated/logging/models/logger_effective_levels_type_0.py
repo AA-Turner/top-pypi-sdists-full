@@ -6,10 +6,7 @@ from typing import Any, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-
-from ..models.log_level import check_log_level
-from ..models.log_level import LogLevel
-
+from ..models.log_level import LogLevel, check_log_level
 
 T = TypeVar("T", bound="LoggerEffectiveLevelsType0")
 

@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 
 from ..types import UNSET, Unset
-
-from typing import cast
-
 
 T = TypeVar("T", bound="RetryFailedDeliveriesRequest")
 
@@ -23,10 +20,10 @@ class RetryFailedDeliveriesRequest:
             must be one the caller may access. The action always targets exactly one environment.
     """
 
-    environment: None | str | Unset = UNSET
+    environment: str | Unset | None = UNSET
 
     def to_dict(self) -> dict[str, Any]:
-        environment: None | str | Unset
+        environment: str | Unset | None
         if isinstance(self.environment, Unset):
             environment = UNSET
         else:
@@ -44,7 +41,7 @@ class RetryFailedDeliveriesRequest:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
 
-        def _parse_environment(data: object) -> None | str | Unset:
+        def _parse_environment(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

@@ -9,9 +9,17 @@
     api = GhApi(owner='fastai', repo='ghapi')
     await api.issues.list_for_repo(state='open')   # owner/repo already bound
 
+These are only defaults: any endpoint or convenience method accepts `owner=`/`repo=` to override per call (e.g. `await api.check_status('v1.0', repo='other')`), so one client can serve a whole org; convenience methods propagate the override to everything they call internally.
+
 # Discovering the API
 
-`api.<group>` (displayed bare, or via `doc()`) lists every endpoint in a group (issues, pulls, repos, checks, actions, gists, git, search, ...) with its signature and a link to GitHub's docs. `api['/path/{owner}/{repo}', 'GET']` looks up an endpoint by path+verb if you'd rather not use the grouped names. Endpoint names follow `<verb>_<noun>`, e.g. `issues.list_for_repo`, `issues.create`, `pulls.merge`. Displaying `api` itself lists every available group with a docs link. `doc()` works at every level of a live instance: `doc(api)`, `doc(api.issues)`, `doc(api.issues.create)`. It must be a live instance, since the API is generated at construction time: inspecting the `GhApi` *class* shows only the convenience methods and none of the endpoint groups.
+Displaying `api` lists every available group with a docs link. Endpoint names follow `<verb>_<noun>`, e.g. `issues.list_for_repo`, `issues.create`, `pulls.merge`. Groups can contain hundreds of endpoints, so search their names with `pyskills.xdir()` instead of rendering the whole group, then inspect the matching endpoint:
+
+    import pyskills
+    pyskills.xdir(api.actions, 'log')
+    doc(api.actions.download_job_logs_for_workflow_run)
+
+The optional `pyskills.xdir` query is a case-insensitive regex. `doc()` works at every level of a live instance, but `doc(api.actions)` renders that group's complete endpoint list; use it only when the group is small enough to read. The instance must be live because the API is generated at construction time: inspecting the `GhApi` *class* shows only convenience methods, not generated groups. `api['/path/{owner}/{repo}', 'GET']` looks up an endpoint directly by path and verb.
 
 # Reading an issue or PR (including comments and reviews)
 
@@ -68,6 +76,8 @@ For a PR to another owner's repo, use normal local Git through the commit, ensur
     await api.commit_tree(branch, message, entries)
     await api.pulls.create(owner='upstream', head=f'me:{branch}', base='main', title=title, body=body)
 
+Once the PR exists, the fork branch is the source of truth, and the local clone is residue: reset it (`git restore .` and switch back to the main branch) rather than leaving the edits behind, where a later session will find an unexplained diff. In particular, never build a second PR's edits on a tree still dirty from the first: each PR gets its own branch from main with a clean tree, since layered uncommitted edits ship a merged diff to `commit_tree` and block `git switch` once shared files diverge.
+
 # Gotchas
 
 - A PR *is* an issue for general comments (`issues.list_comments`, not `pulls.*`) -- inline code-review comments are the separate `pulls.list_review_comments`.
@@ -93,8 +103,7 @@ class ReadOnlyGhPolicy(AllowPolicy):
 allow({OpFunc: [('__call__', ReadOnlyGhPolicy())]})
 class GitPolicy(AllowPolicy):
     "Allow only safecmd-default git subcommands"
-    cmds = {
-        'blame','branch','cat-file','config','describe','diff','log','ls-files','ls-tree','merge-base',
+    cmds = {'blame','branch','cat-file','config','describe','diff','log','ls-files','ls-tree','merge-base',
         'remote','rev-parse','shortlog','show','stash','status','tag','fetch','add','commit','switch','checkout'}
 
     def __call__(self, obj, args, kwargs, data):

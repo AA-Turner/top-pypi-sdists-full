@@ -27,8 +27,8 @@ import httpx
 
 from smplkit._config import _service_url, resolve_client_config
 from smplkit._transport import with_default_user_agent
-from smplkit.errors import _raise_for_status
 from smplkit.account.models import AccountSettings, AsyncAccountSettings
+from smplkit.errors import _raise_for_status
 
 
 def _check_status(status_code: int, content: bytes) -> None:

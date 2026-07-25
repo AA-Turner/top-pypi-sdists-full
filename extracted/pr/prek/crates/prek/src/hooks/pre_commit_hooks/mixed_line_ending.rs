@@ -1,11 +1,12 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use bstr::ByteSlice;
 use clap::{Parser, ValueEnum};
+use memchr::memchr2;
 
 use crate::hook::Hook;
-use crate::hooks::run_concurrent_file_checks;
+use crate::hooks::pre_commit_hooks::{parse_hook_args, run_file_checks};
 use crate::run::INTERNAL_CONCURRENCY;
 
 const CRLF: &[u8] = b"\r\n";
@@ -21,6 +22,8 @@ struct Args {
     /// or a specified line ending.
     #[clap(long, short, value_enum, default_value_t = FixMode::Auto)]
     fix: FixMode,
+    #[arg(value_name = "FILENAMES")]
+    filenames: Vec<PathBuf>,
 }
 
 #[derive(Copy, Clone, Debug, Default, ValueEnum)]
@@ -59,10 +62,11 @@ impl LineEndingCounts {
 }
 
 pub(crate) async fn mixed_line_ending(hook: &Hook, filenames: &[&Path]) -> Result<(i32, Vec<u8>)> {
-    let args = Args::try_parse_from(hook.entry.expect_direct().split_with_args(&hook.args)?)?;
+    let args: Args = parse_hook_args(hook)?;
 
-    run_concurrent_file_checks(
-        filenames.iter().copied(),
+    run_file_checks(
+        &args.filenames,
+        filenames,
         *INTERNAL_CONCURRENCY,
         |filename| fix_file(hook.project().relative_path(), filename, args.fix),
     )
@@ -123,23 +127,24 @@ async fn fix_file(file_base: &Path, filename: &Path, fix_mode: FixMode) -> Resul
 
 fn count_line_endings(contents: &[u8]) -> LineEndingCounts {
     let mut counts = LineEndingCounts::default();
-    let mut index = 0;
+    let mut search_start = 0;
 
-    while index < contents.len() {
+    while let Some(offset) = memchr2(b'\r', b'\n', &contents[search_start..]) {
+        let index = search_start + offset;
         match contents[index] {
             b'\r' if contents.get(index + 1) == Some(&b'\n') => {
                 counts.crlf += 1;
-                index += 2;
+                search_start = index + 2;
             }
             b'\r' => {
                 counts.cr += 1;
-                index += 1;
+                search_start = index + 1;
             }
             b'\n' => {
                 counts.lf += 1;
-                index += 1;
+                search_start = index + 1;
             }
-            _ => index += 1,
+            _ => unreachable!(),
         }
     }
 
@@ -160,24 +165,20 @@ fn find_most_common_ending(counts: &LineEndingCounts) -> &'static [u8] {
 async fn apply_line_ending(filename: &Path, contents: &[u8], ending: &[u8]) -> Result<()> {
     let mut new_contents = Vec::with_capacity(contents.len());
     let mut line_start = 0;
-    let mut index = 0;
+    let mut search_start = 0;
 
-    while index < contents.len() {
-        match contents[index] {
-            b'\r' if contents.get(index + 1) == Some(&b'\n') => {
-                new_contents.extend_from_slice(&contents[line_start..index]);
-                new_contents.extend_from_slice(ending);
-                index += 2;
-                line_start = index;
-            }
-            b'\r' | b'\n' => {
-                new_contents.extend_from_slice(&contents[line_start..index]);
-                new_contents.extend_from_slice(ending);
-                index += 1;
-                line_start = index;
-            }
-            _ => index += 1,
-        }
+    while let Some(offset) = memchr2(b'\r', b'\n', &contents[search_start..]) {
+        let index = search_start + offset;
+        let ending_len = if contents[index] == b'\r' && contents.get(index + 1) == Some(&b'\n') {
+            2
+        } else {
+            1
+        };
+
+        new_contents.extend_from_slice(&contents[line_start..index]);
+        new_contents.extend_from_slice(ending);
+        search_start = index + ending_len;
+        line_start = search_start;
     }
 
     if line_start < contents.len() {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-harness
-Version: 0.10.0
+Version: 0.11.0
 Summary: The batteries for your Pydantic AI agent
 Project-URL: Homepage, https://github.com/pydantic/pydantic-ai-harness
 Project-URL: Source, https://github.com/pydantic/pydantic-ai-harness
@@ -25,13 +25,13 @@ Requires-Dist: pydantic-ai-slim>=2.14.1
 Provides-Extra: acp
 Requires-Dist: agent-client-protocol<0.12,>=0.11; extra == 'acp'
 Provides-Extra: code-mode
-Requires-Dist: pydantic-monty>=0.0.16; extra == 'code-mode'
+Requires-Dist: pydantic-monty>=0.0.19; extra == 'code-mode'
 Provides-Extra: codemode
-Requires-Dist: pydantic-monty>=0.0.16; extra == 'codemode'
+Requires-Dist: pydantic-monty>=0.0.19; extra == 'codemode'
 Provides-Extra: dbos
 Requires-Dist: pydantic-ai-slim[dbos]; extra == 'dbos'
 Provides-Extra: dynamic-workflow
-Requires-Dist: pydantic-monty>=0.0.16; extra == 'dynamic-workflow'
+Requires-Dist: pydantic-monty>=0.0.19; extra == 'dynamic-workflow'
 Provides-Extra: exa
 Requires-Dist: exa-py>=2.16.0; extra == 'exa'
 Provides-Extra: logfire

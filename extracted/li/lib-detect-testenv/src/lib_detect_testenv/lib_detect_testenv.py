@@ -2,7 +2,7 @@
 import os
 import pathlib
 import sys
-from typing import Any, Optional, Union  # noqa
+from typing import Any, Optional, Union
 
 PathLikeOrString = Union[str, "os.PathLike[Any]"]
 
@@ -61,9 +61,7 @@ def is_doctest_active(arg_string: Optional[str] = None) -> bool:
 
     """
     arg_string = _get_sys_argv_str(arg_string)
-    if "docrunner.py" in arg_string or "doctest.py" in arg_string:
-        return True
-    return False
+    return "docrunner.py" in arg_string or "doctest.py" in arg_string
 
 
 def is_pytest_active(arg_string: Optional[str] = None) -> bool:
@@ -98,9 +96,7 @@ def is_pytest_active(arg_string: Optional[str] = None) -> bool:
         return True
     if "/pytest/__main__.py" in arg_string:
         return True
-    if "-m" in arg_string and "pytest" in arg_string:
-        return True
-    return False  # pragma: no cover
+    return "-m" in arg_string and "pytest" in arg_string  # pragma: no cover
 
 
 def is_setup_active(arg_string: Optional[str] = None) -> bool:
@@ -168,10 +164,7 @@ def is_doctest_in_arg_string(arg_string: str) -> bool:
     >>> assert is_doctest_in_arg_string('test/docrunner.py::::test')
 
     """
-    if "docrunner.py" in arg_string:
-        return True
-    else:
-        return False
+    return "docrunner.py" in arg_string
 
 
 def _get_sys_argv_str(arg_string: Optional[str] = None) -> str:
@@ -238,4 +231,4 @@ def add_path_to_syspath(path_to_append: PathLikeOrString) -> None:
 
 
 if __name__ == "__main__":
-    print(b'this is a library only, the executable is named "lib_detect_testenv_cli.py"', file=sys.stderr)
+    sys.stderr.write('this is a library only, the executable is named "lib_detect_testenv_cli.py"\n')

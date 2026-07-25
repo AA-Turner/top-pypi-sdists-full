@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import pytest
 from click.testing import CliRunner
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 ANSI_ESCAPE_PATTERN = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
 

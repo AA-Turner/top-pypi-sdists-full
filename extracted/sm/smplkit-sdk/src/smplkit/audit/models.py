@@ -12,7 +12,7 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 if TYPE_CHECKING:
@@ -145,7 +145,7 @@ class Event:
     environment: str | None = None
 
     @classmethod
-    def _from_resource(cls, resource: dict[str, Any]) -> "Event":
+    def _from_resource(cls, resource: dict[str, Any]) -> Event:
         attrs = resource.get("attributes", {})
         return cls(
             id=UUID(resource["id"]),
@@ -197,10 +197,10 @@ class HttpConfiguration:
         *,
         url: str = "",
         method: str = "POST",
-        headers: Optional[dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
         success_status: str = "2xx",
         tls_verify: bool = True,
-        ca_cert: Optional[str] = None,
+        ca_cert: str | None = None,
     ) -> None:
         self.url = url
         self.method = method
@@ -213,7 +213,7 @@ class HttpConfiguration:
         """Set (or replace) a single request header by name."""
         self.headers[name] = value
 
-    def get_header(self, name: str) -> Optional[str]:
+    def get_header(self, name: str) -> str | None:
         """The value of header ``name``, or ``None`` if it is not set."""
         return self.headers.get(name)
 
@@ -228,7 +228,7 @@ class HttpConfiguration:
         }
 
     @classmethod
-    def _from_dict(cls, raw: dict[str, Any]) -> "HttpConfiguration":
+    def _from_dict(cls, raw: dict[str, Any]) -> HttpConfiguration:
         # Absent ``tls_verify`` on the wire means a forwarder persisted
         # before the field landed — default to verifying so its prior
         # secure behaviour is preserved.
@@ -287,12 +287,12 @@ class ForwarderEnvironment:
         self,
         *,
         enabled: bool = False,
-        url: Optional[str] = None,
-        method: Optional[str] = None,
-        success_status: Optional[str] = None,
-        tls_verify: Optional[bool] = None,
-        ca_cert: Optional[str] = None,
-        headers: Optional[dict[str, str]] = None,
+        url: str | None = None,
+        method: str | None = None,
+        success_status: str | None = None,
+        tls_verify: bool | None = None,
+        ca_cert: str | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         self.enabled = enabled
         self.url = url
@@ -306,13 +306,13 @@ class ForwarderEnvironment:
         """Override (or add) a single header by name in this environment."""
         self.headers[name] = value
 
-    def get_header(self, name: str) -> Optional[str]:
+    def get_header(self, name: str) -> str | None:
         """This environment's override for header ``name``, or ``None`` when it
         does not override that header."""
         return self.headers.get(name)
 
     @classmethod
-    def _from_dict(cls, raw: dict[str, Any]) -> "ForwarderEnvironment":
+    def _from_dict(cls, raw: dict[str, Any]) -> ForwarderEnvironment:
         """Parse the flat leaf-path overlay the server returns (ADR-056).
 
         Header leaves arrive as ``headers.<name>`` (parsed on the first dot,
@@ -505,10 +505,7 @@ class Forwarder:
         """
         if self._client is None:
             raise RuntimeError("Forwarder was constructed without a client; cannot save")
-        if self.created_at is None:
-            other = self._client._create(self)
-        else:
-            other = self._client._update(self)
+        other = self._client._create(self) if self.created_at is None else self._client._update(self)
         self._apply(other)
 
     def delete(self) -> None:
@@ -612,7 +609,7 @@ class ResourceType:
     created_at: datetime
 
     @classmethod
-    def _from_resource(cls, resource: dict[str, Any]) -> "ResourceType":
+    def _from_resource(cls, resource: dict[str, Any]) -> ResourceType:
         attrs = resource.get("attributes", {})
         return cls(
             id=resource["id"],
@@ -644,7 +641,7 @@ class EventType:
     created_at: datetime
 
     @classmethod
-    def _from_resource(cls, resource: dict[str, Any]) -> "EventType":
+    def _from_resource(cls, resource: dict[str, Any]) -> EventType:
         attrs = resource.get("attributes", {})
         return cls(
             id=resource["id"],
@@ -675,7 +672,7 @@ class Category:
     created_at: datetime
 
     @classmethod
-    def _from_resource(cls, resource: dict[str, Any]) -> "Category":
+    def _from_resource(cls, resource: dict[str, Any]) -> Category:
         attrs = resource.get("attributes", {})
         return cls(
             id=resource["id"],

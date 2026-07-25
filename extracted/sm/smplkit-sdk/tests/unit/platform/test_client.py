@@ -8,9 +8,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from smplkit._buffer import _ContextRegistrationBuffer
 from smplkit.errors import NotFoundError, ValidationError
 from smplkit.flags.types import AsyncContext, Context
-from smplkit._buffer import _ContextRegistrationBuffer
 from smplkit.platform.clients import (
     AsyncContextsClient,
     AsyncContextTypesClient,
@@ -45,7 +45,6 @@ from smplkit.platform.models import (
     Service,
 )
 from smplkit.platform.types import Color, EnvironmentClassification
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -1650,8 +1649,8 @@ class TestMgmtConfigRegisterAndFlush:
     def test_flush_reraises_network_error(self, mock_bulk):
         import httpx
 
-        from smplkit.errors import ConnectionError as SmplConnectionError
         from smplkit.config.clients import ConfigClient as _MgmtConfigClient
+        from smplkit.errors import ConnectionError as SmplConnectionError
 
         mock_bulk.side_effect = httpx.ConnectError("nope")
         http = MagicMock()
@@ -1690,8 +1689,8 @@ class TestAsyncMgmtConfigRegisterAndFlush:
     def test_async_flush_reraises_network_error(self):
         import httpx
 
-        from smplkit.errors import ConnectionError as SmplConnectionError
         from smplkit.config.clients import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.errors import ConnectionError as SmplConnectionError
 
         async def _run():
             mock_coro = AsyncMock(side_effect=httpx.ConnectError("nope"))
@@ -1726,8 +1725,8 @@ class TestAsyncMgmtConfigRegisterAndFlush:
     def test_flush_sync_reraises_network_error(self):
         import httpx
 
-        from smplkit.errors import ConnectionError as SmplConnectionError
         from smplkit.config.clients import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.errors import ConnectionError as SmplConnectionError
 
         with patch("smplkit.config.clients.bulk_register_configs.sync_detailed") as mock_bulk:
             mock_bulk.side_effect = httpx.ConnectError("nope")
@@ -1974,9 +1973,9 @@ class TestThresholdFlushTriggers:
 
     def test_loggers_register_spawns_thread_at_threshold(self):
         from smplkit import LogLevel
+        from smplkit._buffer import _LOGGER_BATCH_FLUSH_SIZE, _LoggerRegistrationBuffer
         from smplkit.logging.clients import LoggersClient
         from smplkit.logging.sources import LoggerSource
-        from smplkit._buffer import _LOGGER_BATCH_FLUSH_SIZE, _LoggerRegistrationBuffer
 
         client = LoggersClient(MagicMock(), base_url="http://logging:8003", buffer=_LoggerRegistrationBuffer())
         for i in range(_LOGGER_BATCH_FLUSH_SIZE - 1):
@@ -1987,9 +1986,9 @@ class TestThresholdFlushTriggers:
 
     def test_async_loggers_register_spawns_thread_at_threshold(self):
         from smplkit import LogLevel
+        from smplkit._buffer import _LOGGER_BATCH_FLUSH_SIZE, _LoggerRegistrationBuffer
         from smplkit.logging.clients import AsyncLoggersClient
         from smplkit.logging.sources import LoggerSource
-        from smplkit._buffer import _LOGGER_BATCH_FLUSH_SIZE, _LoggerRegistrationBuffer
 
         client = AsyncLoggersClient(MagicMock(), base_url="http://logging:8003", buffer=_LoggerRegistrationBuffer())
         for i in range(_LOGGER_BATCH_FLUSH_SIZE - 1):
@@ -2029,9 +2028,9 @@ class TestThresholdFlushHandlesErrors:
         import logging as stdlib_logging
 
         from smplkit import LogLevel
+        from smplkit._buffer import _LoggerRegistrationBuffer
         from smplkit.logging.clients import LoggersClient
         from smplkit.logging.sources import LoggerSource
-        from smplkit._buffer import _LoggerRegistrationBuffer
 
         mock_bulk.side_effect = RuntimeError("network down")
         client = LoggersClient(MagicMock(), base_url="http://logging:8003", buffer=_LoggerRegistrationBuffer())
@@ -2044,9 +2043,9 @@ class TestThresholdFlushHandlesErrors:
         import logging as stdlib_logging
 
         from smplkit import LogLevel
+        from smplkit._buffer import _LoggerRegistrationBuffer
         from smplkit.logging.clients import AsyncLoggersClient
         from smplkit.logging.sources import LoggerSource
-        from smplkit._buffer import _LoggerRegistrationBuffer
 
         with patch("smplkit.logging.clients.bulk_register_loggers.sync_detailed") as mock_bulk:
             mock_bulk.side_effect = RuntimeError("network down")
@@ -2074,9 +2073,9 @@ class TestPendingCountProperty:
 
     def test_loggers_pending_count(self):
         from smplkit import LogLevel
+        from smplkit._buffer import _LoggerRegistrationBuffer
         from smplkit.logging.clients import LoggersClient
         from smplkit.logging.sources import LoggerSource
-        from smplkit._buffer import _LoggerRegistrationBuffer
 
         client = LoggersClient(MagicMock(), base_url="http://logging:8003", buffer=_LoggerRegistrationBuffer())
         assert client.pending_count == 0
@@ -2085,9 +2084,9 @@ class TestPendingCountProperty:
 
     def test_async_loggers_pending_count(self):
         from smplkit import LogLevel
+        from smplkit._buffer import _LoggerRegistrationBuffer
         from smplkit.logging.clients import AsyncLoggersClient
         from smplkit.logging.sources import LoggerSource
-        from smplkit._buffer import _LoggerRegistrationBuffer
 
         client = AsyncLoggersClient(MagicMock(), base_url="http://logging:8003", buffer=_LoggerRegistrationBuffer())
         assert client.pending_count == 0

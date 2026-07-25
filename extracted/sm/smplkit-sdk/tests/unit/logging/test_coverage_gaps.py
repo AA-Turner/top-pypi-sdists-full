@@ -12,13 +12,12 @@ import pytest
 from smplkit.errors import ConnectionError
 from smplkit.logging.clients import (
     AsyncLoggingClient,
-    AsyncSmplLogGroup,
     AsyncSmplLogger,
+    AsyncSmplLogGroup,
     LoggingClient,
-    SmplLogGroup,
     SmplLogger,
+    SmplLogGroup,
 )
-
 
 _TEST_UUID = "550e8400-e29b-41d4-a716-446655440000"
 
@@ -88,7 +87,7 @@ def _make_sync_client(**kwargs):
     parent = MagicMock()
     parent._api_key = "sk_test"
     parent._environment = "test"
-    parent._service = kwargs.get("service", None)
+    parent._service = kwargs.get("service")
     return LoggingClient(parent=parent, transport=_make_transport(), metrics=parent._metrics)
 
 
@@ -96,7 +95,7 @@ def _make_async_client(**kwargs):
     parent = MagicMock()
     parent._api_key = "sk_test"
     parent._environment = "test"
-    parent._service = kwargs.get("service", None)
+    parent._service = kwargs.get("service")
     return AsyncLoggingClient(parent=parent, transport=_make_transport(), metrics=parent._metrics)
 
 
@@ -107,17 +106,19 @@ def _make_async_client(**kwargs):
 
 def _new_mgmt_loggers():
     """Return a sync loggers sub-client bound to a mock http (for management-flavored tests)."""
-    from smplkit.logging.clients import LoggersClient
-    from smplkit._buffer import _LoggerRegistrationBuffer
     from unittest.mock import MagicMock as _MM
+
+    from smplkit._buffer import _LoggerRegistrationBuffer
+    from smplkit.logging.clients import LoggersClient
 
     return LoggersClient(_MM(), base_url="http://logging:8003", buffer=_LoggerRegistrationBuffer())
 
 
 def _new_mgmt_log_groups():
     """Return a sync log-groups sub-client bound to a mock http."""
-    from smplkit.logging.clients import LogGroupsClient
     from unittest.mock import MagicMock as _MM
+
+    from smplkit.logging.clients import LogGroupsClient
 
     return LogGroupsClient(_MM(), base_url="http://logging:8003")
 

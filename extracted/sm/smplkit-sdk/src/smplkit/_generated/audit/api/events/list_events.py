@@ -3,14 +3,12 @@ from typing import Any
 
 import httpx
 
-from ...client import AuthenticatedClient, Client
-from ...types import Response, UNSET
 from ... import errors
-
+from ...client import AuthenticatedClient, Client
 from ...models.event_list_response import EventListResponse
 from ...models.list_events_format_type_0 import ListEventsFormatType0
 from ...models.list_events_sort import ListEventsSort
-from ...types import Unset
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
@@ -34,98 +32,98 @@ def _get_kwargs(
 
     params: dict[str, Any] = {}
 
-    json_filterenvironment: None | str | Unset
+    json_filterenvironment: str | Unset | None
     if isinstance(filterenvironment, Unset):
         json_filterenvironment = UNSET
     else:
         json_filterenvironment = filterenvironment
     params["filter[environment]"] = json_filterenvironment
 
-    json_filteroccurred_at: None | str | Unset
+    json_filteroccurred_at: str | Unset | None
     if isinstance(filteroccurred_at, Unset):
         json_filteroccurred_at = UNSET
     else:
         json_filteroccurred_at = filteroccurred_at
     params["filter[occurred_at]"] = json_filteroccurred_at
 
-    json_filteractor_type: None | str | Unset
+    json_filteractor_type: str | Unset | None
     if isinstance(filteractor_type, Unset):
         json_filteractor_type = UNSET
     else:
         json_filteractor_type = filteractor_type
     params["filter[actor_type]"] = json_filteractor_type
 
-    json_filteractor_id: None | str | Unset
+    json_filteractor_id: str | Unset | None
     if isinstance(filteractor_id, Unset):
         json_filteractor_id = UNSET
     else:
         json_filteractor_id = filteractor_id
     params["filter[actor_id]"] = json_filteractor_id
 
-    json_filterevent_type: None | str | Unset
+    json_filterevent_type: str | Unset | None
     if isinstance(filterevent_type, Unset):
         json_filterevent_type = UNSET
     else:
         json_filterevent_type = filterevent_type
     params["filter[event_type]"] = json_filterevent_type
 
-    json_filterresource_type: None | str | Unset
+    json_filterresource_type: str | Unset | None
     if isinstance(filterresource_type, Unset):
         json_filterresource_type = UNSET
     else:
         json_filterresource_type = filterresource_type
     params["filter[resource_type]"] = json_filterresource_type
 
-    json_filterresource_id: None | str | Unset
+    json_filterresource_id: str | Unset | None
     if isinstance(filterresource_id, Unset):
         json_filterresource_id = UNSET
     else:
         json_filterresource_id = filterresource_id
     params["filter[resource_id]"] = json_filterresource_id
 
-    json_filterseverity: None | str | Unset
+    json_filterseverity: str | Unset | None
     if isinstance(filterseverity, Unset):
         json_filterseverity = UNSET
     else:
         json_filterseverity = filterseverity
     params["filter[severity]"] = json_filterseverity
 
-    json_filtercategory: None | str | Unset
+    json_filtercategory: str | Unset | None
     if isinstance(filtercategory, Unset):
         json_filtercategory = UNSET
     else:
         json_filtercategory = filtercategory
     params["filter[category]"] = json_filtercategory
 
-    json_filtersearch: None | str | Unset
+    json_filtersearch: str | Unset | None
     if isinstance(filtersearch, Unset):
         json_filtersearch = UNSET
     else:
         json_filtersearch = filtersearch
     params["filter[search]"] = json_filtersearch
 
-    json_filterdo_not_forward: bool | None | Unset
+    json_filterdo_not_forward: bool | Unset | None
     if isinstance(filterdo_not_forward, Unset):
         json_filterdo_not_forward = UNSET
     else:
         json_filterdo_not_forward = filterdo_not_forward
     params["filter[do_not_forward]"] = json_filterdo_not_forward
 
-    json_pagesize: int | None | Unset
+    json_pagesize: int | Unset | None
     if isinstance(pagesize, Unset):
         json_pagesize = UNSET
     else:
         json_pagesize = pagesize
     params["page[size]"] = json_pagesize
 
-    json_pageafter: None | str | Unset
+    json_pageafter: str | Unset | None
     if isinstance(pageafter, Unset):
         json_pageafter = UNSET
     else:
         json_pageafter = pageafter
     params["page[after]"] = json_pageafter
 
-    json_format_: None | str | Unset
+    json_format_: str | Unset | None
     if isinstance(format_, Unset):
         json_format_ = UNSET
     elif isinstance(format_, str):

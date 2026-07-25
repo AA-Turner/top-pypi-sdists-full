@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Unified-python-sdk
-Version: 0.59.15
+Version: 0.59.16
 Summary: Python Client SDK for Unified.to
 License-File: LICENSE.md
 Author: Unified API Inc.
@@ -484,6 +484,7 @@ asyncio.run(main())
 
 * [get_unified_integration_auth](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/auth/README.md#get_unified_integration_auth) - Authorize new connection
 * [get_unified_integration_login](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/auth/README.md#get_unified_integration_login) - Sign in a user
+* [get_unified_integration_saml](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/auth/README.md#get_unified_integration_saml) - Sign in a user via SAML
 
 ### [Availability](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/availability/README.md)
 
@@ -1428,6 +1429,7 @@ asyncio.run(main())
 ### [Login](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/login/README.md)
 
 * [get_unified_integration_login](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/login/README.md#get_unified_integration_login) - Sign in a user
+* [get_unified_integration_saml](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/login/README.md#get_unified_integration_saml) - Sign in a user via SAML
 
 ### [Martech](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md)
 

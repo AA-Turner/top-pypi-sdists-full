@@ -8,7 +8,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from smplkit.account.clients import AsyncSettingsClient, SettingsClient
 from smplkit.account.models import AccountSettings, AsyncAccountSettings
 
-
 # ---------------------------------------------------------------------------
 # SettingsClient (sync)
 # ---------------------------------------------------------------------------

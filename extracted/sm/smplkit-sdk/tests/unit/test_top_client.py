@@ -34,12 +34,12 @@ from smplkit.account.clients import AsyncSettingsClient, SettingsClient
 from smplkit.config.clients import AsyncConfigClient, ConfigClient
 from smplkit.flags.clients import AsyncFlagsClient, FlagsClient
 from smplkit.logging.clients import (
-    AsyncLoggingClient,
-    LoggingClient,
-    AsyncLogGroupsClient,
     AsyncLoggersClient,
-    LogGroupsClient,
+    AsyncLoggingClient,
+    AsyncLogGroupsClient,
     LoggersClient,
+    LoggingClient,
+    LogGroupsClient,
 )
 from smplkit.platform.clients import (
     AsyncContextsClient,
@@ -51,7 +51,6 @@ from smplkit.platform.clients import (
     EnvironmentsClient,
     ServicesClient,
 )
-
 
 # ---------------------------------------------------------------------------
 # Sync construction
@@ -531,9 +530,10 @@ class TestRuntimeConfigFetchPaths:
 
     @patch("smplkit.config.clients.list_configs.asyncio_detailed")
     def test_async_fetch_all_configs_network_error(self, mock_list):
+        import httpx
+
         from smplkit import AsyncSmplClient
         from smplkit.errors import ConnectionError
-        import httpx
 
         async def _run():
             mock_list.side_effect = httpx.ConnectError("refused")

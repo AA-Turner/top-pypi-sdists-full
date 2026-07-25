@@ -86,6 +86,34 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(EXTENSION_INCS ${CMAKE_CURRENT_SOURCE_DIR}/pyxcp/cpp_ext)
 
+function(configure_python_extension target package_dir)
+    set(output_dir "${CMAKE_CURRENT_SOURCE_DIR}/${package_dir}")
+    set_target_properties(
+        ${target}
+        PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY "${output_dir}"
+        RUNTIME_OUTPUT_DIRECTORY "${output_dir}"
+    )
+
+    foreach(config ${CMAKE_CONFIGURATION_TYPES})
+        string(TOUPPER "${config}" config_upper)
+        set_target_properties(
+            ${target}
+            PROPERTIES
+            LIBRARY_OUTPUT_DIRECTORY_${config_upper} "${output_dir}"
+            RUNTIME_OUTPUT_DIRECTORY_${config_upper} "${output_dir}"
+        )
+    endforeach()
+endfunction()
+
+function(install_python_extension target package_dir)
+    install(
+        TARGETS ${target}
+        LIBRARY DESTINATION ${package_dir}
+        RUNTIME DESTINATION ${package_dir}
+    )
+endfunction()
+
 pybind11_add_module(rekorder pyxcp/recorder/wrap.cpp pyxcp/recorder/lz4.c pyxcp/recorder/lz4hc.c)
 pybind11_add_module(cpp_ext pyxcp/cpp_ext/extension_wrapper.cpp)
 pybind11_add_module(stim pyxcp/daq_stim/stim_wrapper.cpp pyxcp/daq_stim/stim.cpp pyxcp/daq_stim/scheduler.cpp)
@@ -110,6 +138,12 @@ if (CMAKE_SYSTEM_NAME STREQUAL  "Linux")
 	target_link_libraries(asamkeydll PRIVATE dl)
 endif()
 
+configure_python_extension(rekorder pyxcp/recorder)
+configure_python_extension(cpp_ext pyxcp/cpp_ext)
+configure_python_extension(stim pyxcp/daq_stim)
+configure_python_extension(transport_ext pyxcp/transport)
+configure_python_extension(asamkeydll pyxcp/cpp_ext)
+
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     # CMAKE_SYSTEM_NAME STREQUAL  "Windows"
@@ -132,8 +166,8 @@ ENDIF()
 # target_link_libraries(preprocessor pybind11::headers)
 # set_target_properties(preprocessor PROPERTIES INTERPROCEDURAL_OPTIMIZATION ON CXX_VISIBILITY_PRESET ON VISIBILITY_INLINES_HIDDEN ON)
 
-install(TARGETS rekorder LIBRARY DESTINATION pyxcp/recorder)
-install(TARGETS cpp_ext LIBRARY DESTINATION pyxcp/cpp_ext)
-install(TARGETS stim LIBRARY DESTINATION pyxcp/daq_stim)
-install(TARGETS transport_ext LIBRARY DESTINATION pyxcp/transport)
-install(TARGETS asamkeydll RUNTIME DESTINATION pyxcp)
+install_python_extension(rekorder pyxcp/recorder)
+install_python_extension(cpp_ext pyxcp/cpp_ext)
+install_python_extension(stim pyxcp/daq_stim)
+install_python_extension(transport_ext pyxcp/transport)
+install_python_extension(asamkeydll pyxcp/cpp_ext)

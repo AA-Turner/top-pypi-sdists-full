@@ -12,10 +12,9 @@ from smplkit import LogLevel
 from smplkit.errors import NotFoundError, ValidationError
 from smplkit.logging.clients import (
     AsyncLoggingClient,
-    AsyncSmplLogGroup,
     AsyncSmplLogger,
+    AsyncSmplLogGroup,
 )
-
 
 _TEST_UUID = "550e8400-e29b-41d4-a716-446655440000"
 
@@ -79,7 +78,7 @@ def _make_async_logging_client(**kwargs):
     parent = MagicMock()
     parent._api_key = "sk_test"
     parent._environment = "test"
-    parent._service = kwargs.get("service", None)
+    parent._service = kwargs.get("service")
     transport = MagicMock()
     transport._base_url = "http://logging:8003"
     client = AsyncLoggingClient(parent=parent, transport=transport, metrics=parent._metrics)
@@ -93,17 +92,19 @@ def _make_async_logging_client(**kwargs):
 
 def _new_mgmt_loggers():
     """Return a sync loggers sub-client bound to a mock http (for management-flavored tests)."""
-    from smplkit.logging.clients import LoggersClient
-    from smplkit._buffer import _LoggerRegistrationBuffer
     from unittest.mock import MagicMock as _MM
+
+    from smplkit._buffer import _LoggerRegistrationBuffer
+    from smplkit.logging.clients import LoggersClient
 
     return LoggersClient(_MM(), base_url="http://logging:8003", buffer=_LoggerRegistrationBuffer())
 
 
 def _new_mgmt_log_groups():
     """Return a sync log-groups sub-client bound to a mock http."""
-    from smplkit.logging.clients import LogGroupsClient
     from unittest.mock import MagicMock as _MM
+
+    from smplkit.logging.clients import LogGroupsClient
 
     return LogGroupsClient(_MM(), base_url="http://logging:8003")
 
@@ -1113,8 +1114,9 @@ class TestWebSocketEventHandling:
     def test_handle_logger_changed_spawns_thread_and_fires(self, mock_get):
         """_handle_logger_changed spawns a thread that fetches and fires once per affected logger."""
         import time
-        from smplkit.logging.clients import LoggerResponse, LoggerResource, GenLogger
+
         from smplkit._generated.logging.types import UNSET
+        from smplkit.logging.clients import GenLogger, LoggerResource, LoggerResponse
 
         attrs = GenLogger(name="sqlalchemy.engine", level="INFO", group=UNSET, managed=True, environments=UNSET)
         resource = LoggerResource(attributes=attrs, id="sqlalchemy.engine", type_="logger")
@@ -1164,8 +1166,9 @@ class TestWebSocketEventHandling:
     def test_handle_group_changed_cascades_to_dependent_logger(self, mock_get):
         """_handle_group_changed cascades to a logger that inherits from the group."""
         import time
-        from smplkit.logging.clients import LogGroupResponse, LogGroupResource, GenLogGroup
+
         from smplkit._generated.logging.types import UNSET
+        from smplkit.logging.clients import GenLogGroup, LogGroupResource, LogGroupResponse
 
         attrs = GenLogGroup(name="db-loggers", level="ERROR", parent_id=UNSET, environments=UNSET)
         resource = LogGroupResource(attributes=attrs, id="db-loggers", type_="log_group")
@@ -1226,8 +1229,9 @@ class TestWebSocketEventHandling:
     def test_async_global_listener_exception_swallowed(self, mock_get):
         """Async fire path swallows exceptions from global listeners."""
         import time
-        from smplkit.logging.clients import LoggerResponse, LoggerResource, GenLogger
+
         from smplkit._generated.logging.types import UNSET
+        from smplkit.logging.clients import GenLogger, LoggerResource, LoggerResponse
 
         attrs = GenLogger(name="sqlalchemy.engine", level="INFO", group=UNSET, managed=True, environments=UNSET)
         resource = LoggerResource(attributes=attrs, id="sqlalchemy.engine", type_="logger")
@@ -1257,8 +1261,9 @@ class TestWebSocketEventHandling:
     def test_async_key_listener_exception_swallowed(self, mock_get):
         """Async fire path swallows exceptions from per-key listeners."""
         import time
-        from smplkit.logging.clients import LoggerResponse, LoggerResource, GenLogger
+
         from smplkit._generated.logging.types import UNSET
+        from smplkit.logging.clients import GenLogger, LoggerResource, LoggerResponse
 
         attrs = GenLogger(name="sqlalchemy.engine", level="INFO", group=UNSET, managed=True, environments=UNSET)
         resource = LoggerResource(attributes=attrs, id="sqlalchemy.engine", type_="logger")
@@ -1330,8 +1335,9 @@ class TestWebSocketEventHandling:
     def test_handle_logger_changed_apply_error_swallowed(self, mock_get):
         """_run_ws_handler swallows exceptions from _apply_deltas_and_fire."""
         import time
-        from smplkit.logging.clients import LoggerResponse, LoggerResource, GenLogger
+
         from smplkit._generated.logging.types import UNSET
+        from smplkit.logging.clients import GenLogger, LoggerResource, LoggerResponse
 
         attrs = GenLogger(name="sqlalchemy.engine", level="INFO", group=UNSET, managed=True, environments=UNSET)
         resource = LoggerResource(attributes=attrs, id="sqlalchemy.engine", type_="logger")

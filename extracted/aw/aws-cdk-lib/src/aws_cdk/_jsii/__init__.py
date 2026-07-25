@@ -645,7 +645,7 @@ _SUBMODULE_FQN_MAP = {
 }
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "aws-cdk-lib", "2.262.0", __name__[0:-6], "aws-cdk-lib@2.262.0.jsii.tgz"
+    "aws-cdk-lib", "2.262.1", __name__[0:-6], "aws-cdk-lib@2.262.1.jsii.tgz"
 )
 
 __all__ = [

@@ -1,17 +1,14 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+from dateutil.parser import isoparse
 
 from ..types import UNSET, Unset
-
-from dateutil.parser import isoparse
-from typing import cast
-import datetime
-
 
 T = TypeVar("T", bound="LoggerSource")
 
@@ -45,12 +42,12 @@ class LoggerSource:
 
     service: str | Unset = UNSET
     environment: str | Unset = UNSET
-    level: None | str | Unset = UNSET
+    level: str | Unset | None = UNSET
     resolved_level: str | Unset = UNSET
-    first_observed: datetime.datetime | None | Unset = UNSET
-    last_seen: datetime.datetime | None | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    updated_at: datetime.datetime | None | Unset = UNSET
+    first_observed: datetime.datetime | Unset | None = UNSET
+    last_seen: datetime.datetime | Unset | None = UNSET
+    created_at: datetime.datetime | Unset | None = UNSET
+    updated_at: datetime.datetime | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -58,7 +55,7 @@ class LoggerSource:
 
         environment = self.environment
 
-        level: None | str | Unset
+        level: str | Unset | None
         if isinstance(self.level, Unset):
             level = UNSET
         else:
@@ -66,7 +63,7 @@ class LoggerSource:
 
         resolved_level = self.resolved_level
 
-        first_observed: None | str | Unset
+        first_observed: str | Unset | None
         if isinstance(self.first_observed, Unset):
             first_observed = UNSET
         elif isinstance(self.first_observed, datetime.datetime):
@@ -74,7 +71,7 @@ class LoggerSource:
         else:
             first_observed = self.first_observed
 
-        last_seen: None | str | Unset
+        last_seen: str | Unset | None
         if isinstance(self.last_seen, Unset):
             last_seen = UNSET
         elif isinstance(self.last_seen, datetime.datetime):
@@ -82,7 +79,7 @@ class LoggerSource:
         else:
             last_seen = self.last_seen
 
-        created_at: None | str | Unset
+        created_at: str | Unset | None
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -90,7 +87,7 @@ class LoggerSource:
         else:
             created_at = self.created_at
 
-        updated_at: None | str | Unset
+        updated_at: str | Unset | None
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -127,7 +124,7 @@ class LoggerSource:
 
         environment = d.pop("environment", UNSET)
 
-        def _parse_level(data: object) -> None | str | Unset:
+        def _parse_level(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -138,7 +135,7 @@ class LoggerSource:
 
         resolved_level = d.pop("resolved_level", UNSET)
 
-        def _parse_first_observed(data: object) -> datetime.datetime | None | Unset:
+        def _parse_first_observed(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -155,7 +152,7 @@ class LoggerSource:
 
         first_observed = _parse_first_observed(d.pop("first_observed", UNSET))
 
-        def _parse_last_seen(data: object) -> datetime.datetime | None | Unset:
+        def _parse_last_seen(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -172,7 +169,7 @@ class LoggerSource:
 
         last_seen = _parse_last_seen(d.pop("last_seen", UNSET))
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -189,7 +186,7 @@ class LoggerSource:
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_updated_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

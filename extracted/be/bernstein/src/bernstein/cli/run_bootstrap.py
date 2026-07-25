@@ -39,6 +39,7 @@ from bernstein.cli.run_preflight import (
     _make_profile_ctx,
     _quiet_bootstrap_console,
     _show_run_summary,
+    validate_seed_or_exit,
 )
 from bernstein.core.cost import estimate_run_cost
 from bernstein.core.manager_parsing import _resolve_depends_on  # pyright: ignore[reportPrivateUsage]
@@ -79,6 +80,47 @@ def _build_synthetic_plan(goal: str, team: list[str] | None = None) -> tuple[Any
     ]
     plan = create_plan(goal, tasks)
     return plan, tasks
+
+
+def _resolve_goal_and_team(workdir: Path, goal: str | None, seed_file: str | None) -> tuple[str, list[str] | None]:
+    """Resolve the effective goal and team from an inline goal or a seed.
+
+    Shared by ``--plan-only`` and ``--dry-run`` so both preview the same plan
+    from the same source and reject the same seeds. When ``goal`` is given it
+    wins; otherwise the seed file is parsed (``parse_seed``), which enforces the
+    exact validation a real run enforces - so a seed the run would reject (for
+    example an unselectable ``cli:``) is rejected during preview too, instead of
+    being previewed and then crashing at spawn time (issues #2800, #2807).
+
+    Raises:
+        SystemExit: On a missing goal/seed or a seed that fails validation.
+    """
+    if goal is not None:
+        return goal, None
+
+    from bernstein.core.seed import SeedError, parse_seed
+
+    if seed_file is not None:
+        seed_path = Path(seed_file)
+    else:
+        found = find_seed_file()
+        if found is None:
+            from bernstein.cli.errors import no_seed_or_goal
+
+            no_seed_or_goal().print()
+            raise SystemExit(1)
+        seed_path = found
+
+    try:
+        seed = parse_seed(seed_path)
+    except SeedError as exc:
+        from bernstein.cli.errors import seed_parse_error
+
+        seed_parse_error(exc).print()
+        raise SystemExit(1) from exc
+
+    team = list(seed.team) if seed.team != "auto" else None
+    return seed.goal, team
 
 
 def _load_plan_goal(plan_path: Path) -> str:
@@ -625,14 +667,23 @@ def _show_dry_run_plan(
         model_override: Optional model override.
         _cli: Optional CLI override.
     """
-    _ = workdir  # Part of interface
-    _ = seed_file  # Part of interface
-    _ = cli  # Part of interface
+    _ = cli  # Part of interface: --cli is validated by its click.Choice
     from rich.table import Table
 
     console.print("\n[bold]Dry-run mode: no agents will be spawned.[/bold]\n")
 
-    tasks = _load_dry_run_tasks(plan_file)
+    if plan_file is not None:
+        tasks = _load_dry_run_tasks(plan_file)
+    elif goal is not None or seed_file is not None or find_seed_file() is not None:
+        # Synthesize the plan from the seed/goal exactly as --plan-only does, so
+        # a seed preview needs no running task server and a seed the real run
+        # would reject is rejected here too (issues #2800, #2807), instead of
+        # querying a server that --dry-run never started.
+        effective_goal, team = _resolve_goal_and_team(workdir, goal, seed_file)
+        _plan_obj, tasks = _build_synthetic_plan(effective_goal, team)
+    else:
+        # No seed/goal/plan: fall back to previewing a running server's backlog.
+        tasks = _load_dry_run_tasks(None)
 
     if not tasks:
         console.print("[yellow]No tasks to schedule.[/yellow]")
@@ -1322,11 +1373,9 @@ def exec_restart() -> None:
         "GUI-dev mode: force every adapter to ``mock`` and have each spawned "
         "agent sleep for $BERNSTEIN_MOCK_IDLE_MIN_S..MAX_S seconds (defaults: "
         "min=15, max=120) instead of calling an LLM. Zero token spend - used "
-        "to populate the web GUI with live state. NOTE: the orchestrator "
-        "subprocess otherwise defaults to ``--adapter claude``; pin "
-        "``cli: mock`` at the top of bernstein.yaml in your workdir so the "
-        "orchestrator picks the mock backend too. Mutually exclusive with "
-        "--dry-run."
+        "to populate the web GUI with live state. --idle forces the mock "
+        "backend internally (it exports BERNSTEIN_ADAPTER=mock), so no "
+        "bernstein.yaml edit is needed. Mutually exclusive with --dry-run."
     ),
 )
 @click.option(
@@ -1502,6 +1551,17 @@ def exec_restart() -> None:
     ),
 )
 @click.option(
+    "--fresh",
+    "force_fresh",
+    is_flag=True,
+    default=False,
+    help=(
+        "Ignore any saved session (.sdd/runtime/session.json) and start from "
+        "scratch instead of resuming. Use after a stopped run to force a full "
+        "re-plan rather than resuming the prior session (issue #2798)."
+    ),
+)
+@click.option(
     "--refresh-cache",
     "refresh_cache",
     is_flag=True,
@@ -1512,6 +1572,13 @@ def exec_restart() -> None:
         "BERNSTEIN_REFRESH_CACHE=1 for the orchestrator; tasks with no declared "
         "cache policy are unaffected."
     ),
+)
+@click.option(
+    "--fresh",
+    "force_fresh",
+    is_flag=True,
+    default=False,
+    help="Ignore any saved session and start from scratch.",
 )
 def run(
     plan_file: Path | None,
@@ -1557,6 +1624,7 @@ def run(
     max_blast_radius: float | None = None,
     attach: tuple[Path, ...] = (),
     refresh_cache: bool = False,
+    force_fresh: bool = False,
 ) -> None:
     """Parse seed, init workspace, start server, launch agents.
 
@@ -1609,6 +1677,7 @@ def run(
             max_blast_radius=max_blast_radius,
             attach=attach,
             refresh_cache=refresh_cache,
+            force_fresh=force_fresh,
         )
     except (click.UsageError, SystemExit):
         raise
@@ -1661,6 +1730,7 @@ def _run_impl(
     max_blast_radius: float | None,
     attach: tuple[Path, ...] = (),
     refresh_cache: bool = False,
+    force_fresh: bool = False,
 ) -> None:
     """Concrete ``run`` implementation; wrapped by :func:`run` for hinting.
 
@@ -1884,12 +1954,22 @@ def _run_impl(
         # Applies only to modes that merge agent work back -- --dry-run
         # returned above and --plan-only skips this block.
         _abort_if_default_branch_merge_target(workdir)
+        # Validate the seed before estimating cost (issue #2785): a seed the
+        # run would reject must not first print an estimate "at sonnet
+        # pricing", and the estimate must reflect the validated seed's
+        # effective default model rather than the sonnet fallback. Only seed
+        # mode is validated here; inline-goal, --plan-file and --from-plan
+        # runs carry no seed to validate at this point.
+        validated_seed = None
+        if goal is None and plan_file is None and from_plan is None:
+            validated_seed = validate_seed_or_exit(seed_file)
         estimate = _estimate_run_preview(
             workdir=workdir,
             plan_file=plan_file,
             goal=goal,
             seed_file=seed_file,
             model_override=model,
+            seed=validated_seed,
         )
         _emit_preflight_runtime_warnings(
             workdir=workdir,
@@ -1934,6 +2014,7 @@ def _run_impl(
                     model=model,
                     tasks=tasks,
                     ab_test=ab_test,
+                    force_fresh=force_fresh,
                 )
                 persist_server_port(port, workdir)
 
@@ -1956,34 +2037,8 @@ def _run_impl(
     # --plan-only: build a synthetic plan, render to markdown, save, and exit
     if plan_only:
         from bernstein.core.plan_builder import PlanBuilder
-        from bernstein.core.seed import SeedError, parse_seed
 
-        effective_goal = goal
-        team: list[str] | None = None
-
-        if effective_goal is None:
-            # Resolve seed file
-            if seed_file is not None:
-                seed_path = Path(seed_file)
-            else:
-                found = find_seed_file()
-                if found is not None:
-                    seed_path = found
-                else:
-                    from bernstein.cli.errors import no_seed_or_goal
-
-                    no_seed_or_goal().print()
-                    raise SystemExit(1)
-            try:
-                seed = parse_seed(seed_path)
-                effective_goal = seed.goal
-                team = list(seed.team) if seed.team != "auto" else None
-            except SeedError as exc:
-                from bernstein.cli.errors import seed_parse_error
-
-                seed_parse_error(exc).print()
-                raise SystemExit(1) from exc
-
+        effective_goal, team = _resolve_goal_and_team(workdir, goal, seed_file)
         plan_obj, tasks = _build_synthetic_plan(effective_goal, team)
         builder = PlanBuilder(plan_obj, tasks)
         md = builder.render_to_markdown()
@@ -2019,6 +2074,7 @@ def _run_impl(
                     cells=cells,
                     cli=cli or "auto",  # Default to "auto" if not specified
                     model=model,
+                    force_fresh=force_fresh,
                 )
                 persist_server_port(port, workdir)
         except RuntimeError as exc:
@@ -2057,6 +2113,7 @@ def _run_impl(
                 cli=cli,
                 model=model,
                 worker_role=worker_role,
+                force_fresh=force_fresh,
             )
             persist_server_port(port, workdir)
     except SeedError as exc:

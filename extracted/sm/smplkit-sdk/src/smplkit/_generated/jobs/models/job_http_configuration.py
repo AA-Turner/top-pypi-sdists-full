@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 
+from ..models.job_http_configuration_method import JobHttpConfigurationMethod, check_job_http_configuration_method
 from ..types import UNSET, Unset
-
-from ..models.job_http_configuration_method import check_job_http_configuration_method
-from ..models.job_http_configuration_method import JobHttpConfigurationMethod
-from typing import cast
 
 if TYPE_CHECKING:
     from ..models.job_http_configuration_headers import JobHttpConfigurationHeaders
@@ -56,8 +53,8 @@ class JobHttpConfiguration:
     headers: JobHttpConfigurationHeaders | Unset = UNSET
     success_status: str | Unset = "2xx"
     tls_verify: bool | Unset = True
-    ca_cert: None | str | Unset = UNSET
-    body: None | str | Unset = UNSET
+    ca_cert: str | Unset | None = UNSET
+    body: str | Unset | None = UNSET
     timeout: int | Unset = 30
 
     def to_dict(self) -> dict[str, Any]:
@@ -75,13 +72,13 @@ class JobHttpConfiguration:
 
         tls_verify = self.tls_verify
 
-        ca_cert: None | str | Unset
+        ca_cert: str | Unset | None
         if isinstance(self.ca_cert, Unset):
             ca_cert = UNSET
         else:
             ca_cert = self.ca_cert
 
-        body: None | str | Unset
+        body: str | Unset | None
         if isinstance(self.body, Unset):
             body = UNSET
         else:
@@ -138,7 +135,7 @@ class JobHttpConfiguration:
 
         tls_verify = d.pop("tls_verify", UNSET)
 
-        def _parse_ca_cert(data: object) -> None | str | Unset:
+        def _parse_ca_cert(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -147,7 +144,7 @@ class JobHttpConfiguration:
 
         ca_cert = _parse_ca_cert(d.pop("ca_cert", UNSET))
 
-        def _parse_body(data: object) -> None | str | Unset:
+        def _parse_body(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

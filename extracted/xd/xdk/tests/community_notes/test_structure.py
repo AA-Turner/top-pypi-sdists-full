@@ -43,49 +43,6 @@ class TestCommunityNotesStructure:
         self.community_notes_client = getattr(self.client, "community_notes")
 
 
-    def test_evaluate_exists(self):
-        """Test that evaluate method exists with correct signature."""
-        # Check method exists
-        method = getattr(CommunityNotesClient, "evaluate", None)
-        assert (
-            method is not None
-        ), f"Method evaluate does not exist on CommunityNotesClient"
-        # Check method is callable
-        assert callable(method), f"evaluate is not callable"
-        # Check method signature
-        sig = inspect.signature(method)
-        params = list(sig.parameters.keys())
-        # Should have 'self' as first parameter
-        assert len(params) >= 1, f"evaluate should have at least 'self' parameter"
-        assert (
-            params[0] == "self"
-        ), f"First parameter should be 'self', got '{params[0]}'"
-        # Check required parameters exist (excluding 'self')
-        required_params = []
-        for required_param in required_params:
-            assert (
-                required_param in params
-            ), f"Required parameter '{required_param}' missing from evaluate"
-        # Check optional parameters have defaults (excluding 'self')
-        optional_params = []
-        for optional_param in optional_params:
-            if optional_param in params:
-                param_obj = sig.parameters[optional_param]
-                assert (
-                    param_obj.default is not inspect.Parameter.empty
-                ), f"Optional parameter '{optional_param}' should have a default value"
-
-
-    def test_evaluate_return_annotation(self):
-        """Test that evaluate has proper return type annotation."""
-        method = getattr(CommunityNotesClient, "evaluate")
-        sig = inspect.signature(method)
-        # Check return annotation exists
-        assert (
-            sig.return_annotation is not inspect.Signature.empty
-        ), f"Method evaluate should have return type annotation"
-
-
     def test_create_exists(self):
         """Test that create method exists with correct signature."""
         # Check method exists
@@ -127,82 +84,6 @@ class TestCommunityNotesStructure:
         assert (
             sig.return_annotation is not inspect.Signature.empty
         ), f"Method create should have return type annotation"
-
-
-    def test_search_eligible_posts_exists(self):
-        """Test that search_eligible_posts method exists with correct signature."""
-        # Check method exists
-        method = getattr(CommunityNotesClient, "search_eligible_posts", None)
-        assert (
-            method is not None
-        ), f"Method search_eligible_posts does not exist on CommunityNotesClient"
-        # Check method is callable
-        assert callable(method), f"search_eligible_posts is not callable"
-        # Check method signature
-        sig = inspect.signature(method)
-        params = list(sig.parameters.keys())
-        # Should have 'self' as first parameter
-        assert (
-            len(params) >= 1
-        ), f"search_eligible_posts should have at least 'self' parameter"
-        assert (
-            params[0] == "self"
-        ), f"First parameter should be 'self', got '{params[0]}'"
-        # Check required parameters exist (excluding 'self')
-        required_params = [
-            "test_mode",
-        ]
-        for required_param in required_params:
-            assert (
-                required_param in params
-            ), f"Required parameter '{required_param}' missing from search_eligible_posts"
-        # Check optional parameters have defaults (excluding 'self')
-        optional_params = [
-            "pagination_token",
-            "max_results",
-            "post_selection",
-            "tweet.fields",
-            "expansions",
-            "media.fields",
-            "poll.fields",
-            "user.fields",
-            "place.fields",
-        ]
-        for optional_param in optional_params:
-            if optional_param in params:
-                param_obj = sig.parameters[optional_param]
-                assert (
-                    param_obj.default is not inspect.Parameter.empty
-                ), f"Optional parameter '{optional_param}' should have a default value"
-
-
-    def test_search_eligible_posts_return_annotation(self):
-        """Test that search_eligible_posts has proper return type annotation."""
-        method = getattr(CommunityNotesClient, "search_eligible_posts")
-        sig = inspect.signature(method)
-        # Check return annotation exists
-        assert (
-            sig.return_annotation is not inspect.Signature.empty
-        ), f"Method search_eligible_posts should have return type annotation"
-
-
-    def test_search_eligible_posts_pagination_params(self):
-        """Test that search_eligible_posts has pagination parameters."""
-        method = getattr(CommunityNotesClient, "search_eligible_posts")
-        sig = inspect.signature(method)
-        params = list(sig.parameters.keys())
-        # Should have pagination-related parameters
-        pagination_params = [
-            "pagination_token",
-            "max_results",
-            "next_token",
-            "cursor",
-            "limit",
-        ]
-        has_pagination_param = any(param in params for param in pagination_params)
-        assert (
-            has_pagination_param
-        ), f"Paginated method search_eligible_posts should have pagination parameters"
 
 
     def test_delete_exists(self):
@@ -277,8 +158,8 @@ class TestCommunityNotesStructure:
             ), f"Required parameter '{required_param}' missing from search_written"
         # Check optional parameters have defaults (excluding 'self')
         optional_params = [
-            "pagination_token",
             "max_results",
+            "pagination_token",
             "note.fields",
         ]
         for optional_param in optional_params:
@@ -318,14 +199,133 @@ class TestCommunityNotesStructure:
         ), f"Paginated method search_written should have pagination parameters"
 
 
+    def test_search_eligible_posts_exists(self):
+        """Test that search_eligible_posts method exists with correct signature."""
+        # Check method exists
+        method = getattr(CommunityNotesClient, "search_eligible_posts", None)
+        assert (
+            method is not None
+        ), f"Method search_eligible_posts does not exist on CommunityNotesClient"
+        # Check method is callable
+        assert callable(method), f"search_eligible_posts is not callable"
+        # Check method signature
+        sig = inspect.signature(method)
+        params = list(sig.parameters.keys())
+        # Should have 'self' as first parameter
+        assert (
+            len(params) >= 1
+        ), f"search_eligible_posts should have at least 'self' parameter"
+        assert (
+            params[0] == "self"
+        ), f"First parameter should be 'self', got '{params[0]}'"
+        # Check required parameters exist (excluding 'self')
+        required_params = [
+            "test_mode",
+        ]
+        for required_param in required_params:
+            assert (
+                required_param in params
+            ), f"Required parameter '{required_param}' missing from search_eligible_posts"
+        # Check optional parameters have defaults (excluding 'self')
+        optional_params = [
+            "max_results",
+            "pagination_token",
+            "post_selection",
+            "post.fields",
+            "expansions",
+            "user.fields",
+            "media.fields",
+            "poll.fields",
+            "place.fields",
+        ]
+        for optional_param in optional_params:
+            if optional_param in params:
+                param_obj = sig.parameters[optional_param]
+                assert (
+                    param_obj.default is not inspect.Parameter.empty
+                ), f"Optional parameter '{optional_param}' should have a default value"
+
+
+    def test_search_eligible_posts_return_annotation(self):
+        """Test that search_eligible_posts has proper return type annotation."""
+        method = getattr(CommunityNotesClient, "search_eligible_posts")
+        sig = inspect.signature(method)
+        # Check return annotation exists
+        assert (
+            sig.return_annotation is not inspect.Signature.empty
+        ), f"Method search_eligible_posts should have return type annotation"
+
+
+    def test_search_eligible_posts_pagination_params(self):
+        """Test that search_eligible_posts has pagination parameters."""
+        method = getattr(CommunityNotesClient, "search_eligible_posts")
+        sig = inspect.signature(method)
+        params = list(sig.parameters.keys())
+        # Should have pagination-related parameters
+        pagination_params = [
+            "pagination_token",
+            "max_results",
+            "next_token",
+            "cursor",
+            "limit",
+        ]
+        has_pagination_param = any(param in params for param in pagination_params)
+        assert (
+            has_pagination_param
+        ), f"Paginated method search_eligible_posts should have pagination parameters"
+
+
+    def test_evaluate_exists(self):
+        """Test that evaluate method exists with correct signature."""
+        # Check method exists
+        method = getattr(CommunityNotesClient, "evaluate", None)
+        assert (
+            method is not None
+        ), f"Method evaluate does not exist on CommunityNotesClient"
+        # Check method is callable
+        assert callable(method), f"evaluate is not callable"
+        # Check method signature
+        sig = inspect.signature(method)
+        params = list(sig.parameters.keys())
+        # Should have 'self' as first parameter
+        assert len(params) >= 1, f"evaluate should have at least 'self' parameter"
+        assert (
+            params[0] == "self"
+        ), f"First parameter should be 'self', got '{params[0]}'"
+        # Check required parameters exist (excluding 'self')
+        required_params = []
+        for required_param in required_params:
+            assert (
+                required_param in params
+            ), f"Required parameter '{required_param}' missing from evaluate"
+        # Check optional parameters have defaults (excluding 'self')
+        optional_params = []
+        for optional_param in optional_params:
+            if optional_param in params:
+                param_obj = sig.parameters[optional_param]
+                assert (
+                    param_obj.default is not inspect.Parameter.empty
+                ), f"Optional parameter '{optional_param}' should have a default value"
+
+
+    def test_evaluate_return_annotation(self):
+        """Test that evaluate has proper return type annotation."""
+        method = getattr(CommunityNotesClient, "evaluate")
+        sig = inspect.signature(method)
+        # Check return annotation exists
+        assert (
+            sig.return_annotation is not inspect.Signature.empty
+        ), f"Method evaluate should have return type annotation"
+
+
     def test_all_expected_methods_exist(self):
         """Test that all expected methods exist on the client."""
         expected_methods = [
-            "evaluate",
             "create",
-            "search_eligible_posts",
             "delete",
             "search_written",
+            "search_eligible_posts",
+            "evaluate",
         ]
         for expected_method in expected_methods:
             assert hasattr(

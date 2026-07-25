@@ -1,9 +1,15 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, cast
 
 from judgeval.internal.api import JudgmentSyncClient
+from judgeval.exceptions import (
+    JudgmentAPIError,
+    JudgmentProjectNotFoundError,
+    map_judgment_api_error,
+)
 from judgeval.utils import resolve_project_id
 from judgeval.utils.serialize import safe_serialize
+from judgeval.utils.url import url_for
 from judgeval.env import JUDGMENT_API_KEY, JUDGMENT_API_URL, JUDGMENT_ORG_ID
 from judgeval.logger import judgeval_logger
 
@@ -13,6 +19,12 @@ if TYPE_CHECKING:
 
     from judgeval.data.example import Example
     from judgeval.trace.offline_tracer import OfflineTracer
+    from judgeval.jql import (
+        DiscoveryKind,
+        JqlPresentationResponse,
+        JqlQueryResponse,
+        QueryInput,
+    )
 
 
 class Judgeval:
@@ -178,6 +190,62 @@ class Judgeval:
             dataset=dataset,
             example_fields=example_fields,
         )
+
+    def query(
+        self, query: "QueryInput", *, limit: Optional[int] = None
+    ) -> "JqlQueryResponse":
+        """Run a structured, tenant-scoped JQL query for this project."""
+        from judgeval.jql import to_json
+
+        return cast("JqlQueryResponse", self._run_jql("query", to_json(query), limit))
+
+    def present(
+        self, query: "QueryInput", *, limit: Optional[int] = None
+    ) -> "JqlPresentationResponse":
+        """Run a chart or table JQL query for this project."""
+        from judgeval.jql import to_json
+
+        return cast(
+            "JqlPresentationResponse",
+            self._run_jql("query/presentation", to_json(query), limit),
+        )
+
+    def _run_jql(self, path: str, query: Dict[str, Any], limit: Optional[int]) -> Any:
+        project_id = self._require_jql_project_id()
+        payload: Dict[str, Any] = {"query": query}
+        if limit is not None:
+            payload["limit"] = limit
+        try:
+            return self._internal_client._request(
+                "POST",
+                url_for(f"/v1/projects/{project_id}/{path}", self._api_url),
+                payload,
+            )
+        except JudgmentAPIError as error:
+            mapped = map_judgment_api_error(error)
+            if mapped is error:
+                raise
+            raise mapped from error
+
+    def discover(
+        self,
+        kind: "DiscoveryKind",
+        *,
+        limit: Optional[int] = None,
+        **options: Any,
+    ) -> "JqlQueryResponse":
+        """Discover project-scoped judges, fields, models, and related values."""
+        from judgeval.jql import discovery
+
+        return self.query(discovery(kind, **options), limit=limit)
+
+    def _require_jql_project_id(self) -> str:
+        if not self._project_id:
+            raise JudgmentProjectNotFoundError(
+                f"Project '{self._project_name}' was not found for this organization; "
+                "JQL queries require a resolved project."
+            )
+        return self._project_id
 
     @property
     def evaluation(self):

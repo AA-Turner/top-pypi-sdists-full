@@ -1,14 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-
-from typing import cast
-
 
 T = TypeVar("T", bound="Invoice")
 
@@ -32,22 +28,22 @@ class Invoice:
         invoice_pdf (None | str): Link to the PDF rendering of the invoice.
     """
 
-    number: None | str
+    number: str | None
     status: str
     amount_due: int
     amount_paid: int
     currency: str
-    description: None | str
-    period_start: None | str
-    period_end: None | str
-    created_at: None | str
-    paid_at: None | str
-    hosted_invoice_url: None | str
-    invoice_pdf: None | str
+    description: str | None
+    period_start: str | None
+    period_end: str | None
+    created_at: str | None
+    paid_at: str | None
+    hosted_invoice_url: str | None
+    invoice_pdf: str | None
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        number: None | str
+        number: str | None
         number = self.number
 
         status = self.status
@@ -58,25 +54,25 @@ class Invoice:
 
         currency = self.currency
 
-        description: None | str
+        description: str | None
         description = self.description
 
-        period_start: None | str
+        period_start: str | None
         period_start = self.period_start
 
-        period_end: None | str
+        period_end: str | None
         period_end = self.period_end
 
-        created_at: None | str
+        created_at: str | None
         created_at = self.created_at
 
-        paid_at: None | str
+        paid_at: str | None
         paid_at = self.paid_at
 
-        hosted_invoice_url: None | str
+        hosted_invoice_url: str | None
         hosted_invoice_url = self.hosted_invoice_url
 
-        invoice_pdf: None | str
+        invoice_pdf: str | None
         invoice_pdf = self.invoice_pdf
 
         field_dict: dict[str, Any] = {}
@@ -104,7 +100,7 @@ class Invoice:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
 
-        def _parse_number(data: object) -> None | str:
+        def _parse_number(data: object) -> str | None:
             if data is None:
                 return data
             return cast(None | str, data)
@@ -119,49 +115,49 @@ class Invoice:
 
         currency = d.pop("currency")
 
-        def _parse_description(data: object) -> None | str:
+        def _parse_description(data: object) -> str | None:
             if data is None:
                 return data
             return cast(None | str, data)
 
         description = _parse_description(d.pop("description"))
 
-        def _parse_period_start(data: object) -> None | str:
+        def _parse_period_start(data: object) -> str | None:
             if data is None:
                 return data
             return cast(None | str, data)
 
         period_start = _parse_period_start(d.pop("period_start"))
 
-        def _parse_period_end(data: object) -> None | str:
+        def _parse_period_end(data: object) -> str | None:
             if data is None:
                 return data
             return cast(None | str, data)
 
         period_end = _parse_period_end(d.pop("period_end"))
 
-        def _parse_created_at(data: object) -> None | str:
+        def _parse_created_at(data: object) -> str | None:
             if data is None:
                 return data
             return cast(None | str, data)
 
         created_at = _parse_created_at(d.pop("created_at"))
 
-        def _parse_paid_at(data: object) -> None | str:
+        def _parse_paid_at(data: object) -> str | None:
             if data is None:
                 return data
             return cast(None | str, data)
 
         paid_at = _parse_paid_at(d.pop("paid_at"))
 
-        def _parse_hosted_invoice_url(data: object) -> None | str:
+        def _parse_hosted_invoice_url(data: object) -> str | None:
             if data is None:
                 return data
             return cast(None | str, data)
 
         hosted_invoice_url = _parse_hosted_invoice_url(d.pop("hosted_invoice_url"))
 
-        def _parse_invoice_pdf(data: object) -> None | str:
+        def _parse_invoice_pdf(data: object) -> str | None:
             if data is None:
                 return data
             return cast(None | str, data)

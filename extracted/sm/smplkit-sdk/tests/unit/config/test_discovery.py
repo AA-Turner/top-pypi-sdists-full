@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pydantic import BaseModel, Field
 
-from smplkit.errors import NotFoundError
+from smplkit._buffer import _ConfigRegistrationBuffer
 from smplkit.clients import AsyncSmplClient, SmplClient
 from smplkit.config.clients import (
     ConfigChangeEvent,
@@ -28,8 +28,7 @@ from smplkit.config.clients import (
     _pydantic_field_type,
     _value_to_item_type,
 )
-from smplkit._buffer import _ConfigRegistrationBuffer
-
+from smplkit.errors import NotFoundError
 
 # ===========================================================================
 # _ConfigRegistrationBuffer

@@ -1,19 +1,14 @@
 import warnings
 import logging
-import json
 import sys
-from enum import Enum
 
-from ._native import lib
+from . import _native as lib
 
 from contextlib import contextmanager
 
 LOGGER = logging.getLogger(__name__)
 
-class LineNo(Enum):
-    LastInstruction = lib.LastInstruction
-    First = lib.First
-    NoLine = lib.NoLine
+LineNo = lib.LineNo
 
 def configure(
         app_name=None,
@@ -33,8 +28,13 @@ def configure(
         tenant_id="",
         http_headers=None,
         line_no=LineNo.LastInstruction,
+        upload_interval=10,
+        mem_enabled=False,
+        mem_max_nframe=128,
+        mem_heap_sample_size=512 * 1024,
+        mem_enable_mem_domain=True,
+        cpu_enabled=True,
 ):
-
     if app_name is not None:
         warnings.warn("app_name is deprecated, use application_name", DeprecationWarning)
         application_name = app_name
@@ -47,23 +47,29 @@ def configure(
         log_level = LOGGER.getEffectiveLevel()
         lib.initialize_logging(log_level)
 
-    lib.initialize_agent(
-        application_name.encode("UTF-8"),
-        server_address.encode("UTF-8"),
-        basic_auth_username.encode("UTF-8"),
-        basic_auth_password.encode("UTF-8"),
+    return lib.initialize_agent(
+        application_name,
+        server_address,
+        basic_auth_username,
+        basic_auth_password,
         sample_rate,
         oncpu,
         gil_only,
         report_pid,
         report_thread_id,
         report_thread_name,
-        runtime_name().encode("UTF-8"),
-        runtime_version().encode("UTF-8"),
-        tags_to_string(tags).encode("UTF-8"),
-        (tenant_id or "").encode("UTF-8"),
-        http_headers_to_json(http_headers).encode("UTF-8"),
-        line_no.value
+        runtime_name(),
+        runtime_version(),
+        tags or {},
+        tenant_id or "",
+        http_headers or {},
+        line_no,
+        upload_interval,
+        mem_enabled,
+        mem_max_nframe,
+        mem_heap_sample_size,
+        mem_enable_mem_domain,
+        cpu_enabled,
     )
 
 def shutdown():
@@ -73,17 +79,13 @@ def shutdown():
         LOGGER.info("Pyroscope Agent successfully shutdown")
     else:
         LOGGER.warning("Pyroscope Agent shutdown failed")
+    return drop
 
 def add_thread_tag(key, value):
-    lib.add_thread_tag(key.encode("UTF-8"), value.encode("UTF-8"))
+    return lib.add_thread_tag(key, value)
 
 def remove_thread_tag(key, value):
-    lib.remove_thread_tag(key.encode("UTF-8"), value.encode("UTF-8"))
-
-def tags_to_string(tags):
-    if tags is None:
-        return ""
-    return ",".join(["{}={}".format(key, value) for key, value in tags.items()])
+    return lib.remove_thread_tag(key, value)
 
 def runtime_name():
     return sys.implementation.name
@@ -94,20 +96,15 @@ def runtime_version():
         vinfo = vinfo[:3]
     return ".".join(map(str, vinfo))
 
-def http_headers_to_json(headers):
-    if headers is None:
-        return "{}"
-    return json.dumps(headers)
-
 @contextmanager
 def tag_wrapper(tags):
     for key, value in tags.items():
-        lib.add_thread_tag(key.encode("UTF-8"), value.encode("UTF-8"))
+        lib.add_thread_tag(key, value)
     try:
         yield
     finally:
         for key, value in tags.items():
-            lib.remove_thread_tag(key.encode("UTF-8"), value.encode("UTF-8"))
+            lib.remove_thread_tag(key, value)
 
 def stop():
     warnings.warn("deprecated, no longer applicable", DeprecationWarning)

@@ -125,7 +125,7 @@ AssetCategoryTypeType = Literal[
 ]
 AssetExtensionTypeType = Literal["ICO", "JPEG", "PNG", "SVG", "WEBP"]
 AttributeDataTypeType = Literal["Boolean", "DateTime", "Number", "String"]
-AuthFactorTypeType = Literal["EMAIL_OTP", "PASSWORD", "SMS_OTP", "WEB_AUTHN"]
+AuthFactorTypeType = Literal["EMAIL_OTP", "PASSWORD", "SMS_OTP", "SOFTWARE_TOKEN", "WEB_AUTHN"]
 AuthFlowTypeType = Literal[
     "ADMIN_NO_SRP_AUTH",
     "ADMIN_USER_PASSWORD_AUTH",

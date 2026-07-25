@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistralai
-Version: 2.7.1
+Version: 2.7.2
 Summary: Python Client SDK for the Mistral AI API.
 Project-URL: Repository, https://github.com/mistralai/client-python.git
 Author: Mistral
@@ -564,6 +564,7 @@ print(res.choices[0].message.content)
 * [list](https://github.com/mistralai/client-python/blob/main/docs/sdks/connectors/README.md#list) - List all connectors.
 * [get_auth_url](https://github.com/mistralai/client-python/blob/main/docs/sdks/connectors/README.md#get_auth_url) - Get the auth URL for a connector.
 * [share](https://github.com/mistralai/client-python/blob/main/docs/sdks/connectors/README.md#share) - Share a private connector to the current workspace.
+* [unshare](https://github.com/mistralai/client-python/blob/main/docs/sdks/connectors/README.md#unshare) - Unshare a connector from the current workspace.
 * [activate_for_organization](https://github.com/mistralai/client-python/blob/main/docs/sdks/connectors/README.md#activate_for_organization) - Activate a connector for an organization.
 * [deactivate_for_organization](https://github.com/mistralai/client-python/blob/main/docs/sdks/connectors/README.md#deactivate_for_organization) - Deactivate a connector for an organization.
 * [activate_for_workspace](https://github.com/mistralai/client-python/blob/main/docs/sdks/connectors/README.md#activate_for_workspace) - Activate a connector for a workspace.
@@ -1140,8 +1141,8 @@ with Mistral(
 
 
 **Inherit from [`MistralError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/mistralerror.py)**:
-* [`HTTPValidationError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/httpvalidationerror.py): Validation Error. Status code `422`. Applicable to 158 of 255 methods.*
-* [`ObservabilityError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/observabilityerror.py): Bad Request - Invalid request parameters or data. Applicable to 57 of 255 methods.*
+* [`HTTPValidationError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/httpvalidationerror.py): Validation Error. Status code `422`. Applicable to 159 of 256 methods.*
+* [`ObservabilityError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/observabilityerror.py): Bad Request - Invalid request parameters or data. Applicable to 57 of 256 methods.*
 * [`ResponseValidationError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/responsevalidationerror.py): Type mismatch between the response data and the expected Pydantic model. Provides access to the Pydantic validation error via the `cause` attribute.
 
 </details>

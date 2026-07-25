@@ -8,16 +8,16 @@ library functionality for shell scripting and CI/CD pipelines.
 
 Contents
 --------
-* :data:`CLICK_CONTEXT_SETTINGS` – shared Click settings for consistent help.
-* :func:`cli` – root command group with global options.
-* :func:`cli_info` – print package metadata.
-* :func:`cli_check` – check if any test environment is active.
-* :func:`cli_pytest` – check if pytest is active.
-* :func:`cli_doctest` – check if doctest is active.
-* :func:`cli_setup` – check if setup.py is active.
-* :func:`cli_hello` – emit greeting message (demo command).
-* :func:`cli_fail` – trigger intentional failure (testing command).
-* :func:`main` – entry point for console scripts.
+* :data:`CLICK_CONTEXT_SETTINGS` - shared Click settings for consistent help.
+* :func:`cli` - root command group with global options.
+* :func:`cli_info` - print package metadata.
+* :func:`cli_check` - check if any test environment is active.
+* :func:`cli_pytest` - check if pytest is active.
+* :func:`cli_doctest` - check if doctest is active.
+* :func:`cli_setup` - check if setup.py is active.
+* :func:`cli_hello` - emit greeting message (demo command).
+* :func:`cli_fail` - trigger intentional failure (testing command).
+* :func:`main` - entry point for console scripts.
 
 System Role
 -----------
@@ -28,14 +28,16 @@ programmatic usage.
 
 from __future__ import annotations
 
-from typing import Optional, Sequence
+import sys
+from typing import TYPE_CHECKING
 
 import rich_click as click
 from rich.console import Console
-from rich.traceback import Traceback, install as install_rich_traceback
+from rich.style import Style
+from rich.traceback import Traceback
+from rich.traceback import install as install_rich_traceback
 
 from . import __init__conf__
-from .typed_click import option, version_option
 from .behaviors import emit_greeting, raise_intentional_failure
 from .lib_detect_testenv import (
     is_doctest_active,
@@ -44,9 +46,13 @@ from .lib_detect_testenv import (
     is_setup_test_active,
     is_testenv_active,
 )
+from .typed_click import option, version_option
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 #: Shared Click context flags for consistent help output.
-CLICK_CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}  # noqa: C408
+CLICK_CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
 #: Console for rich output
 console = Console()
@@ -69,7 +75,7 @@ console = Console()
     help="Show full Python traceback on errors (default: enabled)",
 )
 @click.pass_context
-def cli(ctx: click.Context, traceback: bool) -> None:
+def cli(ctx: click.Context, *, traceback: bool) -> None:
     """Root command storing global flags.
 
     When invoked without a subcommand, checks if any test environment is active.
@@ -110,7 +116,7 @@ def cli_info() -> None:
     default=None,
     help="Custom argument string to check instead of sys.argv",
 )
-def cli_check(quiet: bool, arg_string: Optional[str]) -> None:
+def cli_check(*, quiet: bool, arg_string: str | None) -> None:
     """Check if any test environment is active (pytest, doctest, or setup.py test).
 
     Exit codes:
@@ -136,7 +142,7 @@ def cli_check(quiet: bool, arg_string: Optional[str]) -> None:
     except Exception as e:
         if not quiet:
             console.print(f"[red]Error:[/red] {e}", style="bold")
-        raise SystemExit(2)
+        raise SystemExit(2) from e
 
 
 @cli.command("pytest", context_settings=CLICK_CONTEXT_SETTINGS)
@@ -152,7 +158,7 @@ def cli_check(quiet: bool, arg_string: Optional[str]) -> None:
     default=None,
     help="Custom argument string to check instead of sys.argv",
 )
-def cli_pytest(quiet: bool, arg_string: Optional[str]) -> None:
+def cli_pytest(*, quiet: bool, arg_string: str | None) -> None:
     """Check if pytest is active.
 
     Exit codes:
@@ -178,7 +184,7 @@ def cli_pytest(quiet: bool, arg_string: Optional[str]) -> None:
     except Exception as e:
         if not quiet:
             console.print(f"[red]Error:[/red] {e}", style="bold")
-        raise SystemExit(2)
+        raise SystemExit(2) from e
 
 
 @cli.command("doctest", context_settings=CLICK_CONTEXT_SETTINGS)
@@ -194,7 +200,7 @@ def cli_pytest(quiet: bool, arg_string: Optional[str]) -> None:
     default=None,
     help="Custom argument string to check instead of sys.argv",
 )
-def cli_doctest(quiet: bool, arg_string: Optional[str]) -> None:
+def cli_doctest(*, quiet: bool, arg_string: str | None) -> None:
     """Check if doctest is active.
 
     Exit codes:
@@ -220,7 +226,7 @@ def cli_doctest(quiet: bool, arg_string: Optional[str]) -> None:
     except Exception as e:
         if not quiet:
             console.print(f"[red]Error:[/red] {e}", style="bold")
-        raise SystemExit(2)
+        raise SystemExit(2) from e
 
 
 @cli.command("setup", context_settings=CLICK_CONTEXT_SETTINGS)
@@ -241,7 +247,7 @@ def cli_doctest(quiet: bool, arg_string: Optional[str]) -> None:
     is_flag=True,
     help="Check for 'setup.py test' specifically (not just setup.py)",
 )
-def cli_setup(quiet: bool, arg_string: Optional[str], test_only: bool) -> None:
+def cli_setup(*, quiet: bool, arg_string: str | None, test_only: bool) -> None:
     """Check if setup.py is active.
 
     By default checks for any setup.py execution. Use --test-only to check
@@ -276,7 +282,7 @@ def cli_setup(quiet: bool, arg_string: Optional[str], test_only: bool) -> None:
     except Exception as e:
         if not quiet:
             console.print(f"[red]Error:[/red] {e}", style="bold")
-        raise SystemExit(2)
+        raise SystemExit(2) from e
 
 
 @cli.command("hello", context_settings=CLICK_CONTEXT_SETTINGS)
@@ -306,7 +312,7 @@ def cli_fail() -> None:
 
 
 def main(
-    argv: Optional[Sequence[str]] = None,
+    argv: Sequence[str] | None = None,
 ) -> int:
     """Execute the CLI and return the exit code.
 
@@ -329,9 +335,7 @@ def main(
     0
     """
     # Check if --no-traceback flag is in arguments (default is to show traceback)
-    import sys as _sys
-
-    argv_list = list(argv) if argv else _sys.argv[1:]
+    argv_list = list(argv) if argv else sys.argv[1:]
     show_traceback = "--no-traceback" not in argv_list
 
     # Install rich traceback with locals if requested
@@ -357,8 +361,6 @@ def main(
             console.print(tb)
         else:
             # Show simple error message without traceback
-            from rich.style import Style
-
             error_style = Style(color="red", bold=True)
             console.print(f"Error: {type(exc).__name__}: {exc}", style=error_style)
         return 1

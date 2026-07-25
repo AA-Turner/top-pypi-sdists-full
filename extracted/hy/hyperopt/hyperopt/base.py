@@ -21,10 +21,9 @@ The design is that there are three components fitting together in this project:
 
 """
 
-import numbers
-from past.builtins import basestring
-import logging
 import datetime
+import logging
+import numbers
 import sys
 
 import numpy as np
@@ -38,17 +37,15 @@ except ImportError:
     have_bson = False
 
 from . import pyll
-from .pyll.stochastic import recursive_set_rng_kwarg
-
 from .exceptions import (
-    DuplicateLabel,
-    InvalidTrial,
-    InvalidResultStatus,
-    InvalidLoss,
     AllTrialsFailed,
+    DuplicateLabel,
+    InvalidLoss,
+    InvalidResultStatus,
+    InvalidTrial,
 )
-from .utils import pmin_sampled
-from .utils import use_obj_for_literal_in_memo
+from .pyll.stochastic import recursive_set_rng_kwarg
+from .utils import pmin_sampled, use_obj_for_literal_in_memo
 from .vectorize import VectorizeHelper
 
 __authors__ = "James Bergstra"
@@ -139,7 +136,7 @@ def SONify(arg, memo=None):
             rval = type(arg)([SONify(ai, memo) for ai in arg])
         elif isinstance(arg, dict):
             rval = {SONify(k, memo): SONify(v, memo) for k, v in list(arg.items())}
-        elif isinstance(arg, (basestring, float, int, type(None))):
+        elif isinstance(arg, (str, bytes, float, int, type(None))):
             rval = arg
         elif isinstance(arg, np.ndarray):
             if arg.ndim == 0:

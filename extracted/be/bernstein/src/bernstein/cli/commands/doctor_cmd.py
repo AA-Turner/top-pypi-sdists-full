@@ -17,9 +17,12 @@ import socket
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import click
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 from bernstein.cli.helpers import SERVER_URL
 
@@ -272,32 +275,71 @@ def emit_version_posture_receipt(workdir: Path) -> dict[str, Any]:
     return {"receipt": receipt, "receipt_sha256": sha, "entries": entries, "anchored": anchored}
 
 
-def check_canary_last_green() -> list[dict[str, Any]]:
-    """Warn when an installed agent version is ahead of its last-green.
+def check_canary_last_green(*, now: datetime | None = None) -> list[dict[str, Any]]:
+    """Advise on the local adapter posture against the canary last-green.
 
     The nightly adapter conformance canary regenerates a per-adapter
     last-green projection (the newest upstream version whose conformance
-    receipt passed; see ``docs/adapters/conformance-canary.md``). When a
-    locally installed binary is *newer* than last-green, the canary has
-    not yet verified that release against the adapter contract, so
-    unattended runs are one upstream regression away from failing without
-    warning. Rows:
+    receipt passed; see ``docs/adapters/conformance-canary.md``). This check
+    enumerates the *union* of the canary matrix and the last-green rows, so a
+    primary adapter that carries no row still surfaces for a local operator
+    instead of vanishing. For each locally installed adapter binary:
 
-    - PASS when the installed version is at or below last-green,
-    - WARN when it is strictly ahead of last-green,
-    - adapters whose binary is missing, whose version cannot be probed,
-      or which carry no last-green row are omitted so the surface stays
-      quiet.
+    - WARN when it is installed but has no last-green row (never certified),
+    - WARN when the installed version is strictly ahead of last-green,
+    - WARN when its last-green row is older than the staleness window,
+    - PASS when the installed version is at or below a fresh last-green row,
+    - adapters whose binary is missing or whose version cannot be probed are
+      omitted so the surface stays quiet.
+
+    Args:
+        now: Injected clock for the staleness comparison (deterministic
+            tests pass a fixed value); defaults to the current UTC time.
     """
+    from datetime import UTC
+    from datetime import datetime as _datetime
+
     from packaging.version import InvalidVersion, Version
 
-    from bernstein.adapters.canary import load_last_green
+    from bernstein.adapters.canary import (
+        CANARY_MATRIX,
+        LAST_GREEN_STALE_DAYS,
+        last_green_is_stale,
+        load_last_green,
+    )
+
+    current = now if now is not None else _datetime.now(UTC)
+    entries = load_last_green()
+    # Union: every matrix adapter plus any adapter that carries a row, so an
+    # absent primary adapter (e.g. one still in permanent skip) is not silent.
+    binaries: dict[str, str] = {target.adapter: target.binary for target in CANARY_MATRIX}
+    for name, entry in entries.items():
+        binaries.setdefault(name, entry.binary)
 
     results: list[dict[str, Any]] = []
-    for name, entry in sorted(load_last_green().items()):
-        if shutil.which(entry.binary) is None:
+    for name in sorted(binaries):
+        binary = binaries[name]
+        if shutil.which(binary) is None:
             continue  # adapter not installed: nothing to advise on
-        version = _probe_adapter_version(entry.binary)
+        label = f"Adapter last-green: {name}"
+        entry = entries.get(name)
+        if entry is None:
+            # Installed primary adapter with no last-green row: the canary has
+            # never certified it, so unattended runs are unverified with no
+            # signal at all.
+            results.append(
+                {
+                    "name": label,
+                    "status": _CHECK_WARN,
+                    "detail": (
+                        f"{binary} is installed but has no last-green row; the "
+                        "conformance canary has not certified any version of it yet"
+                    ),
+                    "fix": "Check docs/adapters/conformance-canary.md for this adapter's canary status",
+                }
+            )
+            continue
+        version = _probe_adapter_version(binary)
         if version is None:
             continue  # unknown version is already surfaced by advisories
         try:
@@ -305,7 +347,6 @@ def check_canary_last_green() -> list[dict[str, Any]]:
             last_green = Version(entry.version)
         except InvalidVersion:
             continue
-        label = f"Adapter last-green: {name}"
         if installed > last_green:
             results.append(
                 {
@@ -322,15 +363,32 @@ def check_canary_last_green() -> list[dict[str, Any]]:
                     ),
                 }
             )
-        else:
+            continue
+        if last_green_is_stale(entry.recorded_at, now=current):
             results.append(
                 {
                     "name": label,
-                    "status": _CHECK_PASS,
-                    "detail": f"{version} <= last-green {entry.version}",
-                    "fix": "",
+                    "status": _CHECK_WARN,
+                    "detail": (
+                        f"last-green {entry.version} recorded {entry.recorded_at} is stale "
+                        f"(> {LAST_GREEN_STALE_DAYS}d old); the canary has not refreshed "
+                        "this row, so it may no longer reflect a passing surface"
+                    ),
+                    "fix": (
+                        "Check docs/adapters/conformance-canary.md; the nightly "
+                        "canary may not be certifying this adapter"
+                    ),
                 }
             )
+            continue
+        results.append(
+            {
+                "name": label,
+                "status": _CHECK_PASS,
+                "detail": f"{version} <= last-green {entry.version}",
+                "fix": "",
+            }
+        )
     return results
 
 
@@ -579,6 +637,63 @@ def check_spiffe_workload_api() -> dict[str, Any]:
     }
 
 
+def _otlp_exporter_extra_available() -> bool:
+    """Return True when the optional OTLP/gRPC span-exporter extra is importable.
+
+    Mirrors the import the live bridge performs
+    (:meth:`observability.otel_bridge.JournalOTLPBridge._build_otlp_exporter`):
+    a configured endpoint is useless without
+    ``opentelemetry-exporter-otlp-proto-grpc``. Wrapped as a module-level
+    indirection so tests can stub extra presence without uninstalling the SDK.
+    """
+    import importlib.util
+
+    return importlib.util.find_spec("opentelemetry.exporter.otlp.proto.grpc.trace_exporter") is not None
+
+
+def check_otel_export_advisory() -> dict[str, Any]:
+    """Advise on the live OTLP export path when an endpoint is configured (#2526).
+
+    Live export is off by default: with ``BERNSTEIN_OTEL_ENDPOINT`` unset the
+    journal-anchored span projection stays local (``.sdd/traces/``) and nothing
+    is broken, so this reports an informational PASS. With an endpoint
+    configured the optional ``opentelemetry-exporter-otlp-proto-grpc`` package
+    must be importable or every span is silently dropped on the wire path; a
+    configured endpoint with the extra missing is surfaced as a WARN. Advisory
+    only -- it never blocks.
+    """
+    from bernstein.core.observability.otlp_exporter import OTEL_ENDPOINT_ENV
+
+    name = "OTel export"
+    endpoint = os.environ.get(OTEL_ENDPOINT_ENV, "").strip()
+    if not endpoint:
+        return {
+            "name": name,
+            "status": _CHECK_PASS,
+            "detail": f"off ({OTEL_ENDPOINT_ENV} unset); local JSONL tracing active",
+            "fix": "",
+        }
+    if not _otlp_exporter_extra_available():
+        return {
+            "name": name,
+            "status": _CHECK_WARN,
+            "detail": (
+                f"{OTEL_ENDPOINT_ENV} set but opentelemetry-exporter-otlp-proto-grpc "
+                "is missing; journal-anchored spans will not export"
+            ),
+            "fix": "pip install 'bernstein[otel]'",
+        }
+    return {
+        "name": name,
+        "status": _CHECK_PASS,
+        "detail": (
+            f"{OTEL_ENDPOINT_ENV} set and opentelemetry-exporter-otlp-proto-grpc present; "
+            "journal-anchored spans will export"
+        ),
+        "fix": "",
+    }
+
+
 def check_sdd_workspace() -> dict[str, Any]:
     """Check for .sdd/ workspace structure."""
     workdir = Path.cwd()
@@ -812,6 +927,7 @@ def run_all_checks() -> list[dict[str, Any]]:
             check_sdd_workspace(),
             check_schedule_supervisor(),
             check_spiffe_workload_api(),
+            check_otel_export_advisory(),
         )
     )
     return checks
@@ -912,8 +1028,14 @@ def _run_endpoint_certification(
     timeout: float,
     roles: tuple[str, ...],
     as_json: bool,
+    model_flag: str = "--endpoint-model",
 ) -> int:
     """Probe an OpenAI-compatible endpoint and seal a certification receipt.
+
+    ``model_flag`` names the option a caller should pass to set the model
+    explicitly; it appears only in the "cannot resolve a model" message so
+    the shared implementation can serve both ``doctor --endpoint``
+    (``--endpoint-model``) and ``endpoints certify`` (``--model``).
 
     Returns the process exit code: 0 when every evaluated role certified,
     1 when at least one role was rejected, 2 when no model could be
@@ -945,7 +1067,7 @@ def _run_endpoint_certification(
     if not resolved_model:
         console.print(
             "[red]Cannot resolve a model for this endpoint.[/red] The /models "
-            "listing is unavailable; pass --endpoint-model explicitly."
+            f"listing is unavailable; pass {model_flag} explicitly."
         )
         return 2
 

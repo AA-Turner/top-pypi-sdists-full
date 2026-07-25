@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dlt
-Version: 1.29.0
+Version: 1.29.1
 Summary: dlt is an open-source python-first scalable data loading library that does not require any backend to run.
 Project-URL: Homepage, https://github.com/dlt-hub
 Project-URL: Repository, https://github.com/dlt-hub/dlt
@@ -25,7 +25,7 @@ Classifier: Typing :: Typed
 Requires-Python: <3.15,>=3.10
 Requires-Dist: click>=7.1
 Requires-Dist: fsspec>=2022.4.0
-Requires-Dist: gitpython>=3.1.29
+Requires-Dist: gitpython>=3.1.42
 Requires-Dist: giturlparse>=0.10.0
 Requires-Dist: humanize>=4.4.0
 Requires-Dist: jsonpath-ng>=1.8.0
@@ -46,7 +46,7 @@ Requires-Dist: rich-argparse>=1.6.0
 Requires-Dist: semver>=3.0.0
 Requires-Dist: setuptools>=65.6.0
 Requires-Dist: simplejson>=3.17.5
-Requires-Dist: sqlglot>=25.4.0
+Requires-Dist: sqlglot>=26.32.0
 Requires-Dist: tenacity>=8.0.2
 Requires-Dist: tomlkit>=0.11.3
 Requires-Dist: typing-extensions>=4.8.0
@@ -239,7 +239,7 @@ pipeline.run(data, table_name='player')
 ```
 
 
-Try it out in our **[Colab Demo](https://colab.research.google.com/drive/1NfSB1DpwbbHX9_t5vlalBTf13utwpMGx?usp=sharing)** or directly on our wasm-based [playground](https://dlthub.com/docs/tutorial/playground) in our docs.
+Check out a super simple demo in **[Colab](https://colab.research.google.com/drive/1NfSB1DpwbbHX9_t5vlalBTf13utwpMGx?usp=sharing)** or a more advanced [Hugging Face demo with Marimo notebooks](https://molab.marimo.io/github/marimo-team/gallery-examples/blob/main/notebooks/external/dlthub-huggingface.py).
 
 ## Features
 

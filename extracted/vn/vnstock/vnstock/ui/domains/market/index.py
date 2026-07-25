@@ -13,14 +13,14 @@ class IndexMarket(BaseDetailUI):
         self,
         start: Optional[str] = None,
         end: Optional[str] = None,
-        resolution: str = "1D",
+        interval: str = "1D",
         count: int = 100,
         source: str = "kbs",
         **kwargs,
     ) -> Any:
         """Historical OHLCV bars for indices."""
         # Handle parameter aliases
-        interval = kwargs.pop("interval", resolution)
+        interval = kwargs.pop("resolution", interval)
         count_back = kwargs.pop("length", count)
 
         # Switch source for global indices if scope is global

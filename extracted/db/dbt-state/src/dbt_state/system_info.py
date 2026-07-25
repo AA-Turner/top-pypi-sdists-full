@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import platform
 import uuid
 from pathlib import Path
@@ -32,3 +33,19 @@ def get_system_user_id(drc_path: Path) -> str:
 
 def get_os_name() -> str:
     return platform.system()
+
+
+def get_invocation_id() -> str:
+    """Return dbt's per-invocation UUID, or an empty string if unavailable."""
+    try:
+        from dbt_common.invocation import get_invocation_id as _get_invocation_id
+
+        return _get_invocation_id() or ""
+    except Exception:
+        logger.debug("Failed to read dbt invocation_id", exc_info=True)
+        return ""
+
+
+def get_cloud_run_id() -> str:
+    """Return the dbt platform run ID, or an empty string when not running there."""
+    return os.environ.get("DBT_CLOUD_RUN_ID", "")

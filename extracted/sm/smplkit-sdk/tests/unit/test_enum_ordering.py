@@ -23,7 +23,6 @@ import pytest
 import smplkit
 from smplkit import LogLevel
 
-
 # Enums whose declared order encodes a domain meaning. ``LogLevel`` is
 # declared in ascending order of severity (TRACE → SILENT) so the
 # autocomplete order matches the conceptual progression — and the

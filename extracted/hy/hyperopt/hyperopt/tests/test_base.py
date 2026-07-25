@@ -1,21 +1,23 @@
 import copy
 import unittest
-import numpy as np
+
 import bson
+import numpy as np
 
-from hyperopt.pyll import scope
-
-from hyperopt.base import JOB_STATE_DONE, JOB_STATE_NEW
-from hyperopt.base import TRIAL_KEYS
-from hyperopt.base import TRIAL_MISC_KEYS
-from hyperopt.base import InvalidTrial
-from hyperopt.base import miscs_to_idxs_vals
-from hyperopt.base import SONify
-from hyperopt.base import STATUS_OK
-from hyperopt.base import Trials
-from hyperopt.base import trials_from_docs
-
+from hyperopt.base import (
+    JOB_STATE_DONE,
+    JOB_STATE_NEW,
+    STATUS_OK,
+    TRIAL_KEYS,
+    TRIAL_MISC_KEYS,
+    InvalidTrial,
+    SONify,
+    Trials,
+    miscs_to_idxs_vals,
+    trials_from_docs,
+)
 from hyperopt.exceptions import AllTrialsFailed
+from hyperopt.pyll import scope
 
 uniform = scope.uniform
 normal = scope.normal
@@ -46,9 +48,9 @@ def ok_trial(tid, *args, **kwargs):
 def create_fake_trial(tid, loss=None, status=STATUS_OK, state=JOB_STATE_DONE):
     return dict(
         tid=tid,
-        result={"status": status, "loss": loss}
-        if loss is not None
-        else {"status": status},
+        result=(
+            {"status": status, "loss": loss} if loss is not None else {"status": status}
+        ),
         spec={"a": 1},
         misc={
             "tid": tid,
@@ -206,19 +208,19 @@ class TestTrials(unittest.TestCase):
         trials = self.trials
         assert len(trials) == 0
         # It should throw a reasonable error when no valid trials exist.
-        trials.insert_trial_doc(create_fake_trial(0, loss=np.NaN))
+        trials.insert_trial_doc(create_fake_trial(0, loss=np.nan))
         trials.refresh()
         with self.assertRaises(AllTrialsFailed):
             assert trials.best_trial is None
 
         # It should work even with some trials with NaN losses.
         trials.insert_trial_doc(create_fake_trial(1, loss=1.0))
-        trials.insert_trial_doc(create_fake_trial(2, loss=np.NaN))
+        trials.insert_trial_doc(create_fake_trial(2, loss=np.nan))
         trials.insert_trial_doc(create_fake_trial(3, loss=0.5))
         trials.refresh()
 
         best_trial = trials.best_trial
-        self.assertEquals(best_trial["tid"], 3)
+        self.assertEqual(best_trial["tid"], 3)
 
 
 class TestSONify(unittest.TestCase):
@@ -249,5 +251,5 @@ class TestSONify(unittest.TestCase):
         assert np.all(self.SONify(np.asarray([[1, 2], [3, 4.5]])) == [[1, 2], [3, 4.5]])
 
     def test_nested_w_bool(self):
-        thing = dict(a=1, b="2", c=True, d=False, e=int(3), f=[1])
+        thing = dict(a=1, b="2", c=True, d=False, e=3, f=[1])
         assert thing == SONify(thing)

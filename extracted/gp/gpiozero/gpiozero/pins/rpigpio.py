@@ -2,6 +2,7 @@
 #
 # GPIO Zero: a library for controlling the Raspberry Pi's GPIO pins
 #
+# Copyright (c) 2026 Ben Nuttall <ben@bennuttall.com>
 # Copyright (c) 2015-2023 Dave Jones <dave@waveform.org.uk>
 # Copyright (c) 2016 Andrew Scheller <github@loowis.durge.org>
 #
@@ -43,7 +44,7 @@ class RPiGPIOFactory(LocalPiFactory):
         factory = RPiGPIOFactory()
         led = LED(12, pin_factory=factory)
 
-    .. _RPi.GPIO: https://pypi.python.org/pypi/RPi.GPIO
+    .. _RPi.GPIO: https://pypi.org/project/RPi.GPIO
     """
 
     def __init__(self):
@@ -62,7 +63,7 @@ class RPiGPIOPin(LocalPiPin):
     Extends :class:`~gpiozero.pins.local.LocalPiPin`. Pin implementation for
     the `RPi.GPIO`_ library. See :class:`RPiGPIOFactory` for more information.
 
-    .. _RPi.GPIO: https://pypi.python.org/pypi/RPi.GPIO
+    .. _RPi.GPIO: https://pypi.org/project/RPi.GPIO
     """
     GPIO_FUNCTIONS = {
         'input':   GPIO.IN,

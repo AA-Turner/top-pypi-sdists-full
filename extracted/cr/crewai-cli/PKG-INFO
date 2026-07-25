@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crewai-cli
-Version: 1.15.5
+Version: 1.15.6
 Summary: CLI for CrewAI — scaffold, run, deploy and manage AI agent crews.
 Project-URL: Homepage, https://crewai.com
 Project-URL: Documentation, https://docs.crewai.com
@@ -10,11 +10,11 @@ Requires-Python: <3.14,>=3.10
 Requires-Dist: appdirs~=1.4.4
 Requires-Dist: certifi
 Requires-Dist: click<9,>=8.1.7
-Requires-Dist: crewai-core==1.15.5
+Requires-Dist: crewai-core==1.15.6
 Requires-Dist: cryptography>=42.0
 Requires-Dist: httpx~=0.28.1
 Requires-Dist: packaging>=23.0
-Requires-Dist: pydantic-settings~=2.10.1
+Requires-Dist: pydantic-settings<3,>=2.14.2
 Requires-Dist: pydantic<2.13,>=2.11.9
 Requires-Dist: pyjwt<3,>=2.13.0
 Requires-Dist: python-dotenv<2,>=1.2.2

@@ -41,19 +41,10 @@ from collections import OrderedDict
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
+from smplkit._buffer import _FLAG_BATCH_FLUSH_SIZE, _FlagRegistrationBuffer
 from smplkit._config import _service_url, resolve_client_config
-from smplkit._transport import with_default_user_agent
-from smplkit.context import get_context as _get_request_context
-from smplkit.errors import (
-    ConnectionError,
-    NotFoundError,
-    TimeoutError,
-    ValidationError,
-    _raise_for_status,
-)
-from smplkit._helpers import key_to_display_name, paginate_async, paginate_sync
 from smplkit._generated.app.client import AuthenticatedClient as _AppAuthClient
-from smplkit._generated.flags.api.flags import (  # noqa: F401  (re-exported for test patches)
+from smplkit._generated.flags.api.flags import (
     bulk_register_flags,
     create_flag,
     delete_flag,
@@ -64,6 +55,17 @@ from smplkit._generated.flags.api.flags import (  # noqa: F401  (re-exported for
 from smplkit._generated.flags.client import AuthenticatedClient
 from smplkit._generated.flags.models.flag_bulk_item import FlagBulkItem as _GenFlagBulkItem
 from smplkit._generated.flags.models.flag_bulk_request import FlagBulkRequest as _GenFlagBulkRequest
+from smplkit._helpers import key_to_display_name, paginate_async, paginate_sync
+from smplkit._transport import with_default_user_agent
+from smplkit._ws import SharedWebSocket
+from smplkit.context import get_context as _get_request_context
+from smplkit.errors import (
+    ConnectionError,
+    NotFoundError,
+    TimeoutError,
+    ValidationError,
+    _raise_for_status,
+)
 from smplkit.flags.helpers import _build_flag_request_body, _flag_dict_from_json
 from smplkit.flags.models import (
     AsyncBooleanFlag,
@@ -78,8 +80,6 @@ from smplkit.flags.models import (
     NumberFlag,
     StringFlag,
 )
-from smplkit._buffer import _FLAG_BATCH_FLUSH_SIZE, _FlagRegistrationBuffer
-from smplkit._ws import SharedWebSocket
 
 if TYPE_CHECKING:
     from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter

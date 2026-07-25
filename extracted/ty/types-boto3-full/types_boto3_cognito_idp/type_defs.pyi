@@ -108,6 +108,8 @@ __all__ = (
     "AdminForgetDeviceRequestTypeDef",
     "AdminGetDeviceRequestTypeDef",
     "AdminGetDeviceResponseTypeDef",
+    "AdminGetUserAuthFactorsRequestTypeDef",
+    "AdminGetUserAuthFactorsResponseTypeDef",
     "AdminGetUserRequestTypeDef",
     "AdminGetUserResponseTypeDef",
     "AdminInitiateAuthRequestTypeDef",
@@ -493,6 +495,10 @@ class AdminForgetDeviceRequestTypeDef(TypedDict):
 
 class AdminGetDeviceRequestTypeDef(TypedDict):
     DeviceKey: str
+    UserPoolId: str
+    Username: str
+
+class AdminGetUserAuthFactorsRequestTypeDef(TypedDict):
     UserPoolId: str
     Username: str
 
@@ -1240,6 +1246,13 @@ class AccountTakeoverActionsTypeTypeDef(TypedDict):
 
 class AddUserPoolClientSecretResponseTypeDef(TypedDict):
     ClientSecretDescriptor: ClientSecretDescriptorTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class AdminGetUserAuthFactorsResponseTypeDef(TypedDict):
+    Username: str
+    PreferredMfaSetting: str
+    UserMFASettingList: list[str]
+    ConfiguredUserAuthFactors: list[AuthFactorTypeType]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AssociateSoftwareTokenResponseTypeDef(TypedDict):

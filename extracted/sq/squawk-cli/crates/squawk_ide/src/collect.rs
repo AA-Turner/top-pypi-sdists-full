@@ -647,6 +647,8 @@ pub(crate) fn column_name_from_node(node: &SyntaxNode) -> Option<Name> {
         ast_nav::iter_values_columns(&values)
             .find(|(_, expr)| expr.syntax() == node)
             .map(|(name, _)| name)
+    } else if let Some(column_name) = ast::ColumnName::cast(node.clone()) {
+        Some(Name::from_node(&column_name))
     } else if let Some(name) = ast::Name::cast(node.clone()) {
         Some(Name::from_node(&name))
     } else {
@@ -701,7 +703,7 @@ pub(crate) fn columns_for_star_from_alias(
     db: &dyn Db,
     file: File,
     from_item: &ast::FromItem,
-    alias: &ast::Alias,
+    alias: &ast::FromAlias,
 ) -> Vec<(Name, Option<Type>)> {
     let alias_columns: Vec<Name> = alias
         .column_list()

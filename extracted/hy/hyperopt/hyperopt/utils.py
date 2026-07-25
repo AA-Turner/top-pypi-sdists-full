@@ -1,18 +1,15 @@
-from future import standard_library
-from past.builtins import basestring
-from past.utils import old_div
 import datetime
-import numpy as np
 import logging
 import os
 import shutil
 import sys
 import uuid
-import numpy
-from . import pyll
 from contextlib import contextmanager
 
-standard_library.install_aliases()
+import numpy
+import numpy as np
+
+from . import pyll
 
 
 def _get_random_id():
@@ -41,7 +38,7 @@ except Exception as e:
     logger.info(
         'Failed to load cloudpickle, try installing cloudpickle via "pip install cloudpickle" for enhanced pickling support.'
     )
-    import six.moves.cPickle as pickler
+    import pickle as pickler
 
 
 def import_tokens(tokens):
@@ -90,7 +87,7 @@ def json_call(json, args=(), kwargs=None):
     """
     if kwargs is None:
         kwargs = {}
-    if isinstance(json, basestring):
+    if isinstance(json, (str, bytes)):
         symbol = json_lookup(json)
         return symbol(*args, **kwargs)
     elif isinstance(json, dict):
@@ -135,7 +132,7 @@ def pmin_sampled(mean, var, n_samples=1000, rng=None):
     winners = (samples.T == samples.min(axis=1)).T
     wincounts = winners.sum(axis=0)
     assert wincounts.shape == mean.shape
-    return old_div(wincounts.astype("float64"), wincounts.sum())
+    return wincounts.astype("float64") / wincounts.sum()
 
 
 def fast_isin(X, Y):
@@ -200,8 +197,8 @@ def coarse_utcnow():
     # This is mentioned in a footnote here:
     # http://api.mongodb.org/python/current/api/bson/son.html#dt
     """
-    now = datetime.datetime.utcnow()
-    microsec = (now.microsecond // 10 ** 3) * (10 ** 3)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    microsec = (now.microsecond // 10**3) * (10**3)
     return datetime.datetime(
         now.year, now.month, now.day, now.hour, now.minute, now.second, microsec
     )

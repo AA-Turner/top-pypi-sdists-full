@@ -11,8 +11,8 @@ import httpx
 import pytest
 
 from smplkit.audit._buffer import (
-    AuditEventBuffer,
     MAX_BUFFER_SIZE,
+    AuditEventBuffer,
     _PendingEvent,
 )
 from smplkit.audit.clients import AuditClient
@@ -486,5 +486,5 @@ def _make_resource(
 
 # Silence unused-import warnings in static analyzers
 _ = (MagicMock, datetime, timezone, MAX_BUFFER_SIZE)
-_ = pytest  # noqa: F841
-_ = _StubResponse  # noqa: F841
+_ = pytest
+_ = _StubResponse

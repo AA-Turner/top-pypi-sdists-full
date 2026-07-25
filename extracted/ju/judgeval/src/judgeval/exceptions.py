@@ -9,10 +9,26 @@ class JudgmentAPIError(HTTPError):
     detail: str
     response: Optional[Response]
 
-    def __init__(self, status_code: int, detail: str, response: Optional[Response]):
+    code: Optional[str]
+    hint: Optional[str]
+    retry_after_seconds: Optional[int]
+
+    def __init__(
+        self,
+        status_code: int,
+        detail: str,
+        response: Optional[Response],
+        *,
+        code: Optional[str] = None,
+        hint: Optional[str] = None,
+        retry_after_seconds: Optional[int] = None,
+    ):
         self.status_code = status_code
         self.detail = detail
         self.response = response
+        self.code = code
+        self.hint = hint
+        self.retry_after_seconds = retry_after_seconds
         super().__init__(f"{status_code}: {detail}")
 
 
@@ -49,13 +65,22 @@ def map_judgment_api_error(
         message: Optional message overriding the server-provided detail.
     """
     detail = message or error.detail
-    if error.status_code == 409:
-        return JudgmentConflictError(error.status_code, detail, error.response)
-    if error.status_code == 422:
-        return JudgmentValidationError(error.status_code, detail, error.response)
-    if message:
-        return JudgmentAPIError(error.status_code, detail, error.response)
-    return error
+    error_type: type[JudgmentAPIError] | None = {
+        409: JudgmentConflictError,
+        422: JudgmentValidationError,
+    }.get(error.status_code)
+    if error_type is None:
+        if not message:
+            return error
+        error_type = JudgmentAPIError
+    return error_type(
+        error.status_code,
+        detail,
+        error.response,
+        code=error.code,
+        hint=error.hint,
+        retry_after_seconds=error.retry_after_seconds,
+    )
 
 
 class JudgmentTestError(Exception): ...
@@ -63,6 +88,12 @@ class JudgmentTestError(Exception): ...
 
 class JudgmentRuntimeError(RuntimeError):
     """Raised when judgeval encounters an unrecoverable runtime error."""
+
+    ...
+
+
+class JudgmentProjectNotFoundError(ValueError):
+    """Raised when a project is not visible to the configured organization."""
 
     ...
 
@@ -76,6 +107,7 @@ class InvalidJudgeModelError(Exception):
 __all__ = (
     "JudgmentAPIError",
     "JudgmentConflictError",
+    "JudgmentProjectNotFoundError",
     "JudgmentValidationError",
     "JudgmentRuntimeError",
     "JudgmentTestError",

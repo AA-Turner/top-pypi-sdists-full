@@ -14,9 +14,7 @@ from tkinter import (
     W,
     Canvas,
     Event,
-    Frame,
     Misc,
-    Scrollbar,
     StringVar,
 )
 
@@ -24,8 +22,10 @@ from tkinter.ttk import (
     Checkbutton,
     Combobox as _Combobox,
     Entry,
+    Frame,
     Label,
     Radiobutton,
+    Scrollbar,
     Separator,
 )
 from typing import Any
@@ -599,7 +599,7 @@ class scrolledHeaderedFrame(Frame):
                 for y in range(y):
                     grid.tk.call(('grid', 'rowconfigure', grid._w, y, '-minsize', 0))  # type: ignore[attr-defined]
                 grid.config(width=1, height=1)
-                grid.master.config(width=1, height=1, scrollregion=(0, 0, 1, 1))  # type: ignore[call-arg]
+                grid.master.configure(width=1, height=1, scrollregion=(0, 0, 1, 1))  # type: ignore[call-arg]
         self.update()
         self.colsConfigured = False
 

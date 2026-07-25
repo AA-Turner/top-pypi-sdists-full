@@ -18,6 +18,7 @@ from dbt_state.errors import (
     RecoverableAuthenticationError,
 )
 from dbt_state.grpc.interceptors import (
+    InvocationInfoInterceptor,
     OrgIdInterceptor,
     RequestIdInterceptor,
     SessionIdInterceptor,
@@ -71,6 +72,8 @@ class QueryCacheGrpcClient:
         org_id: t.Optional[str] = None,
         system_user_id: str = "",
         os_name: str = "",
+        invocation_id: str = "",
+        cloud_run_id: str = "",
     ):
         """Initialize gRPC client.
 
@@ -82,6 +85,8 @@ class QueryCacheGrpcClient:
             org_id: Organization ID for this request. Should always be set except when running locally
             system_user_id: Persistent system user UUID
             os_name: Client operating system name
+            invocation_id: dbt's per-invocation UUID for this run
+            cloud_run_id: dbt platform run ID, if running on the dbt platform (else empty)
         """
         self._session_id = session_id
         self.server_address = server_address
@@ -92,6 +97,7 @@ class QueryCacheGrpcClient:
             SessionIdInterceptor(session_id=self._session_id),
             SubmittedAtEpochInterceptor(),
             SystemInfoInterceptor(system_user_id=system_user_id, os_name=os_name),
+            InvocationInfoInterceptor(invocation_id=invocation_id, cloud_run_id=cloud_run_id),
         ]
 
         if channel_credentials:
@@ -125,6 +131,8 @@ class QueryCacheGrpcClient:
         session_id: str,
         system_user_id: str = "",
         os_name: str = "",
+        invocation_id: str = "",
+        cloud_run_id: str = "",
     ) -> QueryCacheGrpcClient:
         grpc_address = get_env("API_URL", "api.state.dbt.com:443")
         if not grpc_address:
@@ -198,6 +206,8 @@ class QueryCacheGrpcClient:
             session_id=session_id,
             system_user_id=system_user_id,
             os_name=os_name,
+            invocation_id=invocation_id,
+            cloud_run_id=cloud_run_id,
         )
 
     def _check_channel_state(self, method_name: str) -> None:

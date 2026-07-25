@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-geopandas"
-version = "1.1.4.20260716"
+version = "1.1.4.20260725"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for geopandas"
@@ -29,7 +29,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.411
 
 It was generated from typeshed commit
-[`c6d107067232008558616e8d0a13d150567b29d0`](https://github.com/python/typeshed/commit/c6d107067232008558616e8d0a13d150567b29d0).
+[`145ca22596255e1af2af6dfd2bdf8547f2a368c4`](https://github.com/python/typeshed/commit/145ca22596255e1af2af6dfd2bdf8547f2a368c4).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

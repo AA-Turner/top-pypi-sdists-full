@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: axe-playwright-python
-Version: 0.1.7
+Version: 0.1.8
 Summary: Automated web accessibility testing using axe-core engine and Playwright.
 Keywords: accessibility,axe,axe-core,playwright
 Author-email: Pamela Fox <pamela.fox@gmail.com>
@@ -19,6 +19,7 @@ Classifier: Topic :: Adaptive Technologies
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
+License-File: LICENSE
 Requires-Dist: playwright >= 1.36.0
 Requires-Dist: pytest == 7.4.0 ; extra == "dev"
 Requires-Dist: pytest-cov == 4.1.0 ; extra == "dev"
@@ -46,7 +47,9 @@ and [Playwright](https://playwright.dev/python/docs/intro).
 
 ### Further Reading & More
 - ["Automated accessibility audits" - Pamela Fox (North Bay Python 2023)](https://www.youtube.com/watch?v=J-4Qa6PSomM&pp=ygUUcGFtZWxhIGZveCBub3J0aCBiYXk%3D)
-- [Using Python to Fix my Accessibility Night of a Website](https://kjaymiller.com/blog/using-python-to-fix-my-accessibility-nightmare-of-a-website.html) & [Website Accessibility Audit Reports via GH Actions](https://kjaymiller.com/blog/website-accessibility-audit-reports-via-gh-actions.html) by [Jay Miller](https://github.com/kjaymiller)
+- [Using Python to Fix my Accessibility Night of a Website](https://kjaymiller.com/blog/using-python-to-fix-my-sites-accessibility.html) &
+    [Website Accessibility Audit Reports via GH Actions](https://kjaymiller.com/blog/gh-action-accessibility.html)
+    by [Jay Miller](https://github.com/kjaymiller)
 
 
 ## Dependencies

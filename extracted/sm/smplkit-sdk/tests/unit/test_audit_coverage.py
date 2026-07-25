@@ -15,8 +15,8 @@ from unittest.mock import MagicMock
 import httpx
 
 from smplkit.audit._buffer import (
-    AuditEventBuffer,
     MAX_ATTEMPTS_PER_ITEM,
+    AuditEventBuffer,
     _PendingEvent,
 )
 from smplkit.audit.clients import AsyncAuditClient, AuditClient

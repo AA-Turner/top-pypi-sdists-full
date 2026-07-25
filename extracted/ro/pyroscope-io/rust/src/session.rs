@@ -49,7 +49,7 @@ pub struct SessionManager {
 
 impl SessionManager {
     /// Create a new SessionManager
-    pub fn new() -> Result<Self> {
+    pub fn new(client: reqwest::blocking::Client) -> Self {
         log::info!(target: LOG_TAG, "Creating SessionManager");
 
         // Create a channel for sending and receiving sessions
@@ -58,7 +58,6 @@ impl SessionManager {
         // Create a thread for the SessionManager
         let handle = Some(thread::spawn(move || {
             log::trace!(target: LOG_TAG, "Started");
-            let client = reqwest::blocking::Client::new();
             while let Ok(signal) = rx.recv() {
                 match signal {
                     SessionSignal::Session(session) => {
@@ -80,7 +79,7 @@ impl SessionManager {
             Ok(())
         }));
 
-        Ok(SessionManager { handle, tx })
+        SessionManager { handle, tx }
     }
 
     /// Push a new session into the SessionManager
@@ -110,7 +109,7 @@ impl Session {
     }
 
     fn push(self, client: &reqwest::blocking::Client) -> Result<()> {
-        log::info!(target: LOG_TAG, "Sending Session: {} - {}", self.time_range.from, self.time_range.until);
+        log::info!(target: LOG_TAG, "Sending Session: {:?} ", self.time_range);
 
         let mut req = PushRequest {
             series: Vec::with_capacity(self.batch.len()),
@@ -244,14 +243,36 @@ fn push_label_if_absent(labels: &mut Vec<LabelPair>, name: &str, value: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::memory;
     use std::collections::HashMap;
+
+    fn tags<const N: usize>(tags: [(&str, &str); N]) -> HashMap<String, String> {
+        tags.into_iter()
+            .map(|(key, value)| (key.to_string(), value.to_string()))
+            .collect()
+    }
+
+    fn disabled_memory_config() -> memory::Config {
+        memory::Config {
+            enabled: false,
+            enable_mem_domain: false,
+            max_nframe: 0,
+            heap_sample_size: 0,
+        }
+    }
 
     #[test]
     fn labels_for_profile_includes_scope_and_runtime_labels() {
-        let config =
-            PyroscopeConfig::new("http://localhost:4040", "my-app", 100, "pyspy", "1.0.12")
-                .tags(vec![("env", "prod")])
-                .runtime("cpython".to_string(), "3.12.4".to_string());
+        let config = PyroscopeConfig::new(
+            "http://localhost:4040",
+            "my-app",
+            100,
+            "pyspy",
+            "1.0.12",
+            disabled_memory_config(),
+        )
+        .tags(tags([("env", "prod")]))
+        .runtime("cpython".to_string(), "3.12.4".to_string());
 
         let labels = labels_for_profile(&config, "process_cpu".to_string());
         let labels_by_name: HashMap<&str, &str> = labels
@@ -294,18 +315,24 @@ mod tests {
 
     #[test]
     fn labels_for_profile_preserves_user_provided_semconv_labels() {
-        let config =
-            PyroscopeConfig::new("http://localhost:4040", "my-app", 100, "pyspy", "1.0.12")
-                .tags(vec![
-                    (LABEL_SCOPE_NAME, "user-supplied-scope"),
-                    (LABEL_SCOPE_VERSION, "user-supplied-scope-version"),
-                    (LABEL_PROCESS_RUNTIME_NAME, "user-supplied-runtime"),
-                    (
-                        LABEL_PROCESS_RUNTIME_VERSION,
-                        "user-supplied-runtime-version",
-                    ),
-                ])
-                .runtime("cpython".to_string(), "3.12.4".to_string());
+        let config = PyroscopeConfig::new(
+            "http://localhost:4040",
+            "my-app",
+            100,
+            "pyspy",
+            "1.0.12",
+            disabled_memory_config(),
+        )
+        .tags(tags([
+            (LABEL_SCOPE_NAME, "user-supplied-scope"),
+            (LABEL_SCOPE_VERSION, "user-supplied-scope-version"),
+            (LABEL_PROCESS_RUNTIME_NAME, "user-supplied-runtime"),
+            (
+                LABEL_PROCESS_RUNTIME_VERSION,
+                "user-supplied-runtime-version",
+            ),
+        ]))
+        .runtime("cpython".to_string(), "3.12.4".to_string());
 
         let labels = labels_for_profile(&config, "process_cpu".to_string());
         let labels_by_name: HashMap<&str, &str> = labels
@@ -347,13 +374,19 @@ mod tests {
 
     #[test]
     fn labels_for_profile_uses_user_service_name_and_ignores_user_profile_name() {
-        let config =
-            PyroscopeConfig::new("http://localhost:4040", "my-app", 100, "pyspy", "1.0.12")
-                .tags(vec![
-                    (LABEL_SERVICE_NAME, "user-service"),
-                    (LABEL_PROFILE_NAME, "user-profile"),
-                ])
-                .runtime("cpython".to_string(), "3.12.4".to_string());
+        let config = PyroscopeConfig::new(
+            "http://localhost:4040",
+            "my-app",
+            100,
+            "pyspy",
+            "1.0.12",
+            disabled_memory_config(),
+        )
+        .tags(tags([
+            (LABEL_SERVICE_NAME, "user-service"),
+            (LABEL_PROFILE_NAME, "user-profile"),
+        ]))
+        .runtime("cpython".to_string(), "3.12.4".to_string());
 
         let labels = labels_for_profile(&config, "process_cpu".to_string());
         let labels_by_name: HashMap<&str, &str> = labels

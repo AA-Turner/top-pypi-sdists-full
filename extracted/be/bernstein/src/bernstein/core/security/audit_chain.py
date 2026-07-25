@@ -414,6 +414,22 @@ EVENT_PLUGIN_CONFORMANCE_RECEIPT = "plugin.conformance_receipt"
 #: rather than living only in a CI log.
 EVENT_ADAPTER_CANARY_RECEIPT = "adapter.canary_receipt"
 
+#: Issue #2663 -- emitted when capability-aware routing selects an adapter for a
+#: task. The event binds the chosen adapter, the content-addressed capability
+#: profile it presented at dispatch, and the task requirements it satisfied.
+#: Recording the presented ``profile_hash`` makes profile drift replay-visible:
+#: a declaration that changes between two runs shows up as a hash divergence
+#: named by the adapter rather than as unexplained behaviour change.
+EVENT_ADAPTER_CAPABILITY_SELECTION = "adapter.capability_selection"
+
+#: Issue #2663 -- emitted when capability-aware routing refuses a task because
+#: no candidate adapter's declared profile satisfied its requirements. The event
+#: anchors the content-addressed refusal receipt (its hash, the unmet axes, and
+#: every candidate considered with the profile hash it presented) into the HMAC
+#: chain, so a routing refusal is a signed, reconstructable record rather than a
+#: silent fallback to a weaker adapter.
+EVENT_ADAPTER_CAPABILITY_REFUSAL = "adapter.capability_refusal"
+
 #: Issue #2367 -- emitted when the orchestrator forcibly reaps an agent
 #: process tree.  The event records which platform mechanism delivered the
 #: stop (POSIX process-group signalling or Windows process-tree
@@ -733,6 +749,21 @@ EVENT_MISSION_PHASE_RECEIPT = "mission.phase_receipt"
 #: payloads.
 EVENT_MISSION_DIGEST_RECEIPT = "mission.digest_receipt"
 
+#: Issue #2558 -- emitted once per receipt appended to a leaderless MESH claim
+#: journal (see :class:`bernstein.core.orchestration.tracker_pipeline.ClaimJournal`).
+#: A MESH claim journal is a signed, append-only, Merkle-chained log of every
+#: self-claim, release, renewal, expiry, and supersession; the SQLite
+#: ``ClaimLedger`` is a deterministic projection (fold) of it rather than the
+#: source of truth. This event mirrors ``{kind, tracker, ticket_id, role,
+#: claimer_id, node_id, lease_expires_at, prev_entry_hash, journal_entry_hash,
+#: supersedes, winner_claimer_id, winner_entry_hash}`` into the HMAC chain so a
+#: claim decision -- including a deterministic ``supersede`` naming the winner of
+#: a concurrent double-claim -- is provable offline from the chain alone. The
+#: receipt binding lives in the journal; the projection derives claim state from
+#: receipts only, so a claim without a receipt is by definition not held. Only
+#: identifiers and hashes are recorded -- never ticket or workspace contents.
+EVENT_CLAIM_JOURNAL_RECEIPT = "cluster.claim_journal_receipt"
+
 #: Issue #2549 -- emitted whenever a per-goal SLA contract is evaluated against
 #: chain evidence inside a supervisor tick and found breached. A breach is a
 #: signed, offline-verifiable violation receipt (see
@@ -800,6 +831,34 @@ EVENT_TRIGGER_RECEIPT_REFUSED = "trigger.receipt.refused"
 #: holding only the delivered envelope can establish whether the status the
 #: platform acted on equals the status the chain recorded for that run.
 EVENT_STATUS_PROOF_EMITTED = "status.proof.emitted"
+
+#: Issue #2612 -- emitted for every outbound-payment authorization attempt under
+#: a signed spend mandate. ``payment.authorized`` records an admitted transaction
+#: and ``payment.refused`` records one turned away (over the cap, wrong
+#: recipient, expired, cumulative exceeded, bad signature, or wrong presence
+#: mode). Both mirror the chain-anchored transaction receipt's identity --
+#: ``{mandate_hash, receipt_hash, lineage_entry_hash, decision, amount_nanos,
+#: currency, recipient, presence_mode}`` plus, for a refusal, ``refusal_reason``
+#: -- together with the previous chain digest captured at decision time. The
+#: negative path is therefore as discoverable as the positive one: a refused
+#: transaction leaves a signed, chain-anchored record rather than a silent drop.
+#: Only hashes, the encoded amount, the opaque recipient id, and the decision are
+#: recorded -- never a payment credential or settlement secret. Bernstein
+#: authorizes and proves; it never moves money.
+EVENT_PAYMENT_AUTHORIZED = "payment.authorized"
+EVENT_PAYMENT_REFUSED = "payment.refused"
+
+
+#: Issue #2886 -- emitted for every generic OData v4 system-of-record write-back.
+#: A write-back is not a fire-and-forget HTTP call: the event binds ``{connection,
+#: entity set, key predicate, ETag observed before the PATCH, content hash of the
+#: sent payload, HTTP status, draft-flow flag}`` into the HMAC chain, so an
+#: auditor can prove offline -- with ``bernstein audit verify`` and no new verb --
+#: that a given change to a given record was made against a specific concurrency
+#: token, and can re-hash the sent body and match it against the recorded payload
+#: hash. Only identifiers and hashes are recorded; the entity body and any
+#: credential are never stored.
+EVENT_ODATA_WRITEBACK = "odata.writeback_receipt"
 
 
 # ---------------------------------------------------------------------------
@@ -940,6 +999,42 @@ class AuditChainStore:
     def verify(self) -> tuple[bool, list[str]]:
         """Delegate to the underlying :class:`AuditLog`."""
         return self._log.verify()
+
+    def verify_and_query(
+        self,
+        *,
+        event_type: str | None = None,
+        actor: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        resource_id: str | None = None,
+        include_archived: bool = False,
+    ) -> tuple[bool, list[str], list[AuditEvent]]:
+        """Verify the chain and project matching events from one snapshot.
+
+        :meth:`verify` and :meth:`query` are otherwise two independent reads: a
+        concurrent append landing between them lets a caller act on a
+        projection the verification never covered (a verify/query TOCTOU).
+        Holding the append lock across both reads pins a single snapshot -- the
+        events returned are exactly the events that were verified -- because
+        chained appends acquire the same lock before touching the log.
+
+        Returns:
+            ``(ok, errors, events)``: the verification verdict and its per-entry
+            errors alongside the events matching the filters, all read under
+            one lock.
+        """
+        with self._append_lock:
+            ok, errors = self._log.verify()
+            events = self._log.query(
+                event_type=event_type,
+                actor=actor,
+                since=since,
+                until=until,
+                resource_id=resource_id,
+                include_archived=include_archived,
+            )
+        return ok, errors, events
 
 
 # ---------------------------------------------------------------------------
@@ -1661,6 +1756,147 @@ def record_mandate_revocation(
 
 
 @dataclass(frozen=True)
+class PaymentReceiptDetails:
+    """Structured payload mirrored for a ``payment.authorized`` / ``payment.refused`` event.
+
+    Carries only the transaction receipt's identity and encoded scope -- hashes,
+    the string-encoded amount, the opaque recipient id, the presence mode, the
+    decision, and (for a refusal) the closed-enum reason. Never a credential.
+    """
+
+    mandate_hash: str
+    receipt_hash: str
+    lineage_entry_hash: str
+    amount_nanos: str
+    currency: str
+    recipient: str
+    presence_mode: str
+    decision: str
+    refusal_reason: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        out: dict[str, Any] = {
+            "mandate_hash": self.mandate_hash,
+            "receipt_hash": self.receipt_hash,
+            "lineage_entry_hash": self.lineage_entry_hash,
+            "amount_nanos": self.amount_nanos,
+            "currency": self.currency,
+            "recipient": self.recipient,
+            "presence_mode": self.presence_mode,
+            "decision": self.decision,
+        }
+        if self.refusal_reason is not None:
+            out["refusal_reason"] = self.refusal_reason
+        return out
+
+
+def record_payment_authorized(
+    *,
+    chain: AuditChainStore,
+    mandate_hash: str,
+    receipt_hash: str,
+    lineage_entry_hash: str,
+    amount_nanos: str,
+    currency: str,
+    recipient: str,
+    presence_mode: str,
+    actor: str = "payment_mandate",
+) -> AuditEvent:
+    """Append a ``payment.authorized`` event mirroring a transaction receipt.
+
+    The event binds the receipt's identity into the HMAC chain so a verifier
+    holding only the chain can prove an outbound payment was authorized under a
+    specific mandate, at a named chain position, for the recorded scope. Only
+    hashes and encoded scope are recorded -- never a payment credential.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        mandate_hash: Content hash of the signed spend mandate.
+        receipt_hash: Content hash of the transaction receipt body.
+        lineage_entry_hash: Lineage entry hash anchoring the receipt artefact.
+        amount_nanos: String-encoded integer nano-unit amount.
+        currency: ISO-4217-style uppercase currency code.
+        recipient: Opaque payee id.
+        presence_mode: Mode that authorized the transaction.
+        actor: Recorded actor; defaults to ``"payment_mandate"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded.
+    """
+    payload = PaymentReceiptDetails(
+        mandate_hash=mandate_hash,
+        receipt_hash=receipt_hash,
+        lineage_entry_hash=lineage_entry_hash,
+        amount_nanos=amount_nanos,
+        currency=currency,
+        recipient=recipient,
+        presence_mode=presence_mode,
+        decision="authorized",
+    ).to_dict()
+    return chain.log_with_prev_digest(
+        event_type=EVENT_PAYMENT_AUTHORIZED,
+        actor=actor,
+        resource_type="payment_receipt",
+        resource_id=receipt_hash,
+        details=payload,
+    )
+
+
+def record_payment_refused(
+    *,
+    chain: AuditChainStore,
+    mandate_hash: str,
+    receipt_hash: str,
+    lineage_entry_hash: str,
+    amount_nanos: str,
+    currency: str,
+    recipient: str,
+    presence_mode: str,
+    refusal_reason: str,
+    actor: str = "payment_mandate",
+) -> AuditEvent:
+    """Append a ``payment.refused`` event mirroring a refused transaction receipt.
+
+    A refusal is a first-class receipt: the same binding as an authorization
+    plus a closed-enum ``refusal_reason``, so a denied attempt is as
+    reconstructable from the chain as an approved one.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        mandate_hash: Content hash of the signed spend mandate refused against.
+        receipt_hash: Content hash of the refusal receipt body.
+        lineage_entry_hash: Lineage entry hash anchoring the receipt artefact.
+        amount_nanos: String-encoded integer nano-unit amount that was refused.
+        currency: ISO-4217-style uppercase currency code.
+        recipient: Opaque payee id.
+        presence_mode: Presence mode of the mandate refused against.
+        refusal_reason: Closed-enum reason string.
+        actor: Recorded actor; defaults to ``"payment_mandate"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded.
+    """
+    payload = PaymentReceiptDetails(
+        mandate_hash=mandate_hash,
+        receipt_hash=receipt_hash,
+        lineage_entry_hash=lineage_entry_hash,
+        amount_nanos=amount_nanos,
+        currency=currency,
+        recipient=recipient,
+        presence_mode=presence_mode,
+        decision="refused",
+        refusal_reason=refusal_reason,
+    ).to_dict()
+    return chain.log_with_prev_digest(
+        event_type=EVENT_PAYMENT_REFUSED,
+        actor=actor,
+        resource_type="payment_receipt",
+        resource_id=receipt_hash,
+        details=payload,
+    )
+
+
+@dataclass(frozen=True)
 class ThreadApprovalDetails:
     """Structured payload for the ``thread.approval`` event."""
 
@@ -1991,11 +2227,13 @@ def reconstruct_mcp_call_order(*, chain: AuditChainStore, run_id: str) -> list[d
     """Rebuild a run's ordered MCP call sequence purely from chain entries.
 
     With the protocol session stores deleted (issue #2506) the audit chain is
-    the only authority on MCP call ordering. The chain is verified first, so
-    a tampered ``mcp.stateless_call`` entry fails at exactly that entry (the
-    underlying verifier names the file and line); the surviving entries are
-    then projected into their recorded ``call_index`` order and the sequence
-    is checked for gaps and duplicates.
+    the only authority on MCP call ordering. Verification and projection read
+    one locked snapshot, so a tampered ``mcp.stateless_call`` entry fails at
+    exactly that entry (the underlying verifier names the file and line) and
+    the projected events are exactly the events that were verified -- a
+    concurrent append cannot slip between the two reads; the surviving entries
+    are then projected into their recorded ``call_index`` order and the
+    sequence is checked for gaps and duplicates.
 
     Args:
         chain: The audit chain store holding the run's entries.
@@ -2010,16 +2248,12 @@ def reconstruct_mcp_call_order(*, chain: AuditChainStore, run_id: str) -> list[d
             verifier's per-entry errors) or when the recorded ``call_index``
             sequence has a gap or duplicate.
     """
-    ok, errors = chain.verify()
+    ok, errors, events = chain.verify_and_query(event_type=EVENT_MCP_STATELESS_CALL)
     if not ok:
         msg = "audit chain verification failed: " + "; ".join(errors)
         raise ValueError(msg)
 
-    details = [
-        event.details
-        for event in chain.query(event_type=EVENT_MCP_STATELESS_CALL)
-        if str(event.details.get("run_id", "")) == run_id
-    ]
+    details = [event.details for event in events if str(event.details.get("run_id", "")) == run_id]
     ordered = sorted(details, key=lambda d: int(d.get("call_index", -1)))
     indexes = [int(d.get("call_index", -1)) for d in ordered]
     if indexes != list(range(len(indexes))):
@@ -2986,6 +3220,66 @@ def record_status_proof(
     )
 
 
+def record_odata_writeback(
+    *,
+    chain: AuditChainStore,
+    connection_name: str,
+    entity_set: str,
+    entity_key: str,
+    etag_observed: str,
+    payload_content_hash: str,
+    http_status: int,
+    draft_flow: bool = False,
+    activate_action: str = "",
+    actor: str = "odata_writeback",
+) -> AuditEvent:
+    """Append an ``odata.writeback_receipt`` event into *chain* (#2886).
+
+    Anchors one OData system-of-record write-back in the HMAC chain. The event
+    binds the concurrency token the PATCH was gated on (``etag_observed``) and
+    the content hash of the sent payload, so an auditor holding the sent body
+    re-hashes it and matches ``payload_content_hash`` on this row, and confirms
+    from the chain alone -- via ``bernstein audit verify`` with no new verb --
+    that the change targeted the recorded entity against that specific ETag. A
+    mutated row breaks the HMAC chain at its exact position.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        connection_name: Stable connection label.
+        entity_set: The OData entity set written to.
+        entity_key: Canonical key predicate inner text (e.g. ``id=1``).
+        etag_observed: The ``If-Match`` ETag the PATCH was gated on; empty only
+            for a draft-flow create whose activation carries no prior ETag.
+        payload_content_hash: ``sha256:`` digest of the canonical sent payload.
+        http_status: The HTTP status the write returned.
+        draft_flow: Whether the write went through a draft-activate flow.
+        activate_action: The bound activate action name (draft flow only).
+        actor: Recorded actor; defaults to ``"odata_writeback"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded in
+        its details payload.
+    """
+    details: dict[str, Any] = {
+        "connection": connection_name,
+        "entity_set": entity_set,
+        "entity_key": entity_key,
+        "etag_observed": etag_observed,
+        "payload_content_hash": payload_content_hash,
+        "http_status": http_status,
+        "draft_flow": draft_flow,
+    }
+    if activate_action:
+        details["activate_action"] = activate_action
+    return chain.log_with_prev_digest(
+        event_type=EVENT_ODATA_WRITEBACK,
+        actor=actor,
+        resource_type="odata_entity",
+        resource_id=f"{entity_set}({entity_key})",
+        details=details,
+    )
+
+
 def record_governance_decision(
     *,
     chain: AuditChainStore,
@@ -3611,6 +3905,101 @@ def record_task_claim_receipt(
     )
 
 
+def record_claim_journal_receipt(
+    *,
+    chain: AuditChainStore,
+    kind: str,
+    tracker: str,
+    ticket_id: str,
+    role: str,
+    claimer_id: str,
+    node_id: str,
+    lease_expires_at: float,
+    prev_entry_hash: str,
+    journal_entry_hash: str,
+    supersedes: str | None = None,
+    winner_claimer_id: str | None = None,
+    winner_entry_hash: str | None = None,
+    superseded_node_id: str | None = None,
+    superseded_claimer_id: str | None = None,
+    actor: str = "claim_journal",
+) -> AuditEvent:
+    """Append a ``cluster.claim_journal_receipt`` event into *chain* (#2558).
+
+    Mirrors one leaderless-MESH claim-journal receipt into the HMAC-chained
+    audit log so an operator can prove, from the chain alone, that a self-claim
+    (or its release / renewal / expiry / supersession) was recorded with the
+    exact identity, lease, and chain position claimed -- without trusting any
+    single node. ``journal_entry_hash`` is the receipt's Merkle ``entry_hash``;
+    a verifier holding the journal recomputes it byte-identically and confirms
+    the anchor. For a ``supersede`` receipt the ``winner_*`` fields name the
+    concurrent claim that won by the deterministic lowest-``entry_hash`` rule.
+    Only identifiers and hashes are recorded -- never ticket or workspace
+    contents.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        kind: The receipt kind (``claim`` / ``release`` / ``renew`` /
+            ``expire`` / ``supersede``).
+        tracker: Tracker adapter name the claim is scoped to.
+        ticket_id: Tracker-side ticket id.
+        role: Bernstein role lane the claim covers.
+        claimer_id: The receipt's own claimer identity -- who the receipt is
+            *from*. For a ``supersede`` receipt this is the reconciling node
+            that emitted and signed it, not the loser (the loser is carried in
+            ``superseded_claimer_id`` as referenced data).
+        node_id: The node install identity the receipt is *from* -- the node
+            whose Ed25519 key signs it. For a ``supersede`` receipt this is the
+            reconciling node, not the superseded claim's node.
+        lease_expires_at: Unix timestamp the lease expires (``0`` when none).
+        prev_entry_hash: The journal head the receipt chained onto.
+        journal_entry_hash: The receipt's own Merkle ``entry_hash`` (the anchor).
+        supersedes: For a ``supersede`` receipt, the losing claim's
+            ``entry_hash``; ``None`` otherwise.
+        winner_claimer_id: For a ``supersede`` receipt, the winning claimer.
+        winner_entry_hash: For a ``supersede`` receipt, the winning claim's
+            ``entry_hash``.
+        superseded_node_id: For a ``supersede`` receipt, the losing claim's
+            node identity, carried as referenced data (what the receipt is
+            *about*); ``None`` otherwise.
+        superseded_claimer_id: For a ``supersede`` receipt, the losing claim's
+            claimer identity, carried as referenced data; ``None`` otherwise.
+        actor: Recorded actor; defaults to ``"claim_journal"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded
+        in its details payload.
+    """
+    details: dict[str, Any] = {
+        "kind": kind,
+        "tracker": tracker,
+        "ticket_id": ticket_id,
+        "role": role,
+        "claimer_id": claimer_id,
+        "node_id": node_id,
+        "lease_expires_at": lease_expires_at,
+        "prev_entry_hash": prev_entry_hash,
+        "journal_entry_hash": journal_entry_hash,
+    }
+    if supersedes is not None:
+        details["supersedes"] = supersedes
+    if winner_claimer_id is not None:
+        details["winner_claimer_id"] = winner_claimer_id
+    if winner_entry_hash is not None:
+        details["winner_entry_hash"] = winner_entry_hash
+    if superseded_node_id is not None:
+        details["superseded_node_id"] = superseded_node_id
+    if superseded_claimer_id is not None:
+        details["superseded_claimer_id"] = superseded_claimer_id
+    return chain.log_with_prev_digest(
+        event_type=EVENT_CLAIM_JOURNAL_RECEIPT,
+        actor=actor,
+        resource_type="claim_journal_receipt",
+        resource_id=f"{tracker}:{ticket_id}:{role}",
+        details=details,
+    )
+
+
 def record_plugin_install_receipt(
     *,
     chain: AuditChainStore,
@@ -3831,6 +4220,105 @@ def record_adapter_canary_receipt(
             "verdict": verdict,
             "receipt_sha256": receipt_sha256,
             "failures": failures.copy(),
+        },
+    )
+
+
+def record_capability_selection(
+    *,
+    chain: AuditChainStore,
+    run_id: str,
+    adapter: str,
+    profile_hash: str,
+    requirements: dict[str, Any],
+    actor: str = "capability_router",
+) -> AuditEvent:
+    """Append an ``adapter.capability_selection`` event into *chain* (#2663).
+
+    Mirrors one capability-aware routing decision into the HMAC chain: the
+    adapter chosen for a task and the content-addressed capability profile it
+    presented at dispatch. The recorded ``profile_hash`` is a pure function of
+    the adapter's declaration, so a verifier replaying the run recomputes it and
+    detects a changed declaration as a hash divergence named by the adapter --
+    profile drift becomes tamper-evident rather than an unexplained behaviour
+    change. Only names, hashes, and the task's declared requirements are
+    recorded; never a prompt or a spawn command.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        run_id: The run the routing decision was made for.
+        adapter: Registry key of the selected adapter.
+        profile_hash: Content address of the capability profile the adapter
+            presented (its :attr:`profile_hash`).
+        requirements: Canonical form of the task requirements the profile
+            satisfied.
+        actor: Recorded actor; defaults to ``"capability_router"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded in
+        its details payload.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_ADAPTER_CAPABILITY_SELECTION,
+        actor=actor,
+        resource_type="adapter_capability_selection",
+        resource_id=adapter,
+        details={
+            "run_id": run_id,
+            "adapter": adapter,
+            "profile_hash": profile_hash,
+            "requirements": dict(sorted(requirements.items())),
+        },
+    )
+
+
+def record_capability_refusal(
+    *,
+    chain: AuditChainStore,
+    run_id: str,
+    receipt_hash: str,
+    requirements: dict[str, Any],
+    candidates: list[list[str]],
+    unmet: list[str],
+    actor: str = "capability_router",
+) -> AuditEvent:
+    """Append an ``adapter.capability_refusal`` event into *chain* (#2663).
+
+    Anchors one capability-aware routing refusal: no candidate adapter's
+    declared profile satisfied the task, so routing refuses rather than falling
+    back to a weaker adapter. The event mirrors the content-addressed refusal
+    receipt -- its hash, the union of unmet axes, and every candidate considered
+    paired with the profile hash it presented -- into the HMAC chain. A verifier
+    holding the receipt can recompute its hash and check it against the chain,
+    so the refusal is a signed, reconstructable record an operator can hand to a
+    postmortem rather than a decision that left no trace.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        run_id: The run the refusal was raised for.
+        receipt_hash: Content address of the
+            :class:`~bernstein.adapters.capability_profile.CapabilityRefusalReceipt`.
+        requirements: Canonical form of the task requirements that went unmet.
+        candidates: ``[adapter name, profile hash]`` pairs considered, in the
+            order they were offered.
+        unmet: Sorted union of every unmet capability axis across candidates.
+        actor: Recorded actor; defaults to ``"capability_router"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded in
+        its details payload.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_ADAPTER_CAPABILITY_REFUSAL,
+        actor=actor,
+        resource_type="adapter_capability_refusal",
+        resource_id=receipt_hash,
+        details={
+            "run_id": run_id,
+            "receipt_hash": receipt_hash,
+            "requirements": dict(sorted(requirements.items())),
+            "candidates": [list(pair) for pair in candidates],
+            "unmet": list(unmet),
         },
     )
 
@@ -6566,6 +7054,63 @@ EVENT_POOL_CLAIM_RECEIPT = "pool.claim_receipt"
 #: infra drift is chain-attested and the dispatch falls back to cold cleanly.
 EVENT_POOL_WARM_QUARANTINE = "pool.warm_quarantine"
 
+#: Issue #2611 -- emitted once per attenuated delegation capability-token mint
+#: (see :mod:`bernstein.core.security.capability_tokens`). The event mirrors the
+#: token's ``{token_hash, issuer_identity_id, subject_identity_id,
+#: parent_token_hash, remaining_depth}`` into the HMAC chain and embeds the prior
+#: chain digest, so the token's ``audit_head`` (the tip captured at mint) and the
+#: event's ``prev_chain_digest`` cross-reference each other. A verifier can prove,
+#: from the chain alone, that a specific authority token was minted at a specific
+#: point in history without the record exposing the token's caveats or signature.
+EVENT_DELEGATION_MINTED = "delegation_minted"
+
+
+def record_delegation_minted(
+    *,
+    chain: AuditChainStore,
+    token_hash: str,
+    issuer_identity_id: str,
+    subject_identity_id: str,
+    parent_token_hash: str,
+    remaining_depth: int,
+    actor: str = "delegation_minter",
+) -> AuditEvent:
+    """Append a ``delegation_minted`` event into *chain* (#2611).
+
+    Anchors one attenuated capability-token mint in the HMAC chain. The embedded
+    ``prev_chain_digest`` equals the tip the token captured as its ``audit_head``,
+    and ``token_hash`` is the JCS hash of the token body, so the chain and the
+    token cross-reference each other: a verifier holding both can prove the token
+    was minted at this exact chain position. Only identifiers, the parent hash,
+    and the remaining delegation depth are recorded -- never caveats or key
+    material.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        token_hash: JCS hash of the minted token body (its identity).
+        issuer_identity_id: Identity that issued (signed) the token.
+        subject_identity_id: Identity the token was delegated to.
+        parent_token_hash: Hash of the parent token (genesis for a root mint).
+        remaining_depth: The token's ``max_depth`` caveat after this hop.
+        actor: Recorded actor; defaults to ``"delegation_minter"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_DELEGATION_MINTED,
+        actor=actor,
+        resource_type="capability_token",
+        resource_id=token_hash,
+        details={
+            "token_hash": token_hash,
+            "issuer_identity_id": issuer_identity_id,
+            "subject_identity_id": subject_identity_id,
+            "parent_token_hash": parent_token_hash,
+            "remaining_depth": remaining_depth,
+        },
+    )
+
 
 def record_pool_registered(
     *,
@@ -6870,6 +7415,8 @@ __all__ = [
     "EVENT_A2A_MESSAGE_RECEIPT",
     "EVENT_ACTIVITY_RESULT",
     "EVENT_ADAPTER_CANARY_RECEIPT",
+    "EVENT_ADAPTER_CAPABILITY_REFUSAL",
+    "EVENT_ADAPTER_CAPABILITY_SELECTION",
     "EVENT_ADAPTER_FLOOR_UPDATE",
     "EVENT_ADAPTER_SPAWN_PREFLIGHT",
     "EVENT_ADAPTER_VERSION_POSTURE",
@@ -6883,6 +7430,7 @@ __all__ = [
     "EVENT_CACHE_HIT",
     "EVENT_CACHE_MISS",
     "EVENT_CHECKPOINT_RETRY",
+    "EVENT_CLAIM_JOURNAL_RECEIPT",
     "EVENT_COMPACTION_RECEIPT",
     "EVENT_COMPACTION_SENSITIVE_GATE",
     "EVENT_COMPUTER_USE_ACTION",
@@ -6891,6 +7439,7 @@ __all__ = [
     "EVENT_COST_DISPATCH_RECEIPT",
     "EVENT_COST_PROFILE_REPORT",
     "EVENT_DASHBOARD_TOKEN_GRANT",
+    "EVENT_DELEGATION_MINTED",
     "EVENT_ENDPOINT_CERTIFICATION",
     "EVENT_ESCALATION_RECEIPT",
     "EVENT_EVAL_AB_COMPARISON",
@@ -6919,7 +7468,10 @@ __all__ = [
     "EVENT_MISSION_DIGEST_RECEIPT",
     "EVENT_MISSION_PHASE_RECEIPT",
     "EVENT_MULTIMODAL_ATTACH",
+    "EVENT_ODATA_WRITEBACK",
     "EVENT_OTEL_PROJECTION",
+    "EVENT_PAYMENT_AUTHORIZED",
+    "EVENT_PAYMENT_REFUSED",
     "EVENT_PLUGIN_CONFORMANCE_RECEIPT",
     "EVENT_PLUGIN_INSTALL_RECEIPT",
     "EVENT_PLUGIN_UPDATE_RECEIPT",
@@ -6987,6 +7539,7 @@ __all__ = [
     "MandateConsentReceiptDetails",
     "MemoryWriteDetails",
     "MultimodalAttachDetails",
+    "PaymentReceiptDetails",
     "SkillInstallReceiptDetails",
     "SkillVerificationRefusalDetails",
     "ThreadApprovalDetails",
@@ -7003,13 +7556,17 @@ __all__ = [
     "record_cache_eviction",
     "record_cache_hit",
     "record_cache_miss",
+    "record_capability_refusal",
+    "record_capability_selection",
     "record_checkpoint_retry",
+    "record_claim_journal_receipt",
     "record_computer_use_action",
     "record_context_capsule",
     "record_cost_batch_route",
     "record_cost_dispatch_receipt",
     "record_cost_profile_report",
     "record_dashboard_token_grant",
+    "record_delegation_minted",
     "record_endpoint_certification",
     "record_escalation_receipt",
     "record_eval_ab_comparison",
@@ -7037,7 +7594,10 @@ __all__ = [
     "record_mission_digest_receipt",
     "record_mission_phase_receipt",
     "record_multimodal_attach",
+    "record_odata_writeback",
     "record_otel_projection",
+    "record_payment_authorized",
+    "record_payment_refused",
     "record_plugin_conformance_receipt",
     "record_plugin_install_receipt",
     "record_plugin_update_receipt",

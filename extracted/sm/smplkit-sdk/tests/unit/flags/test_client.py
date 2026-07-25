@@ -14,28 +14,35 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
+from smplkit._buffer import (
+    _CONTEXT_REGISTRATION_LRU_SIZE,
+    _ContextRegistrationBuffer,
+    _FlagRegistrationBuffer,
+)
+from smplkit._buffer import _FLAG_BATCH_FLUSH_SIZE as _FLAG_BULK_FLUSH_THRESHOLD
+from smplkit.clients import AsyncSmplClient, SmplClient
 from smplkit.errors import (
     ConnectionError,
     NotFoundError,
     TimeoutError,
     ValidationError,
 )
-from smplkit.clients import AsyncSmplClient, SmplClient
 from smplkit.flags.clients import (
     AsyncFlagsClient,
     FlagChangeEvent,
     FlagsClient,
     FlagStats,
-    _ResolutionCache,
     _check_response_status,
     _contexts_to_eval_dict,
     _evaluate_flag,
     _hash_context,
     _maybe_reraise_network_error,
+    _ResolutionCache,
 )
-from smplkit._buffer import _FLAG_BATCH_FLUSH_SIZE as _FLAG_BULK_FLUSH_THRESHOLD
 from smplkit.flags.helpers import (
     _build_flag_request_body as _build_request_body,
+)
+from smplkit.flags.helpers import (
     _build_gen_flag,
     _extract_environments,
     _extract_rule,
@@ -59,11 +66,6 @@ from smplkit.flags.models import (
     StringFlag,
 )
 from smplkit.flags.types import Context
-from smplkit._buffer import (
-    _CONTEXT_REGISTRATION_LRU_SIZE,
-    _ContextRegistrationBuffer,
-    _FlagRegistrationBuffer,
-)
 
 
 def _new_flags() -> FlagsClient:

@@ -20,7 +20,7 @@ dependencies = [
     "connector-sdk-types == 0.60.0",
     "gql[httpx]~=3.5.3",
     "httpx~=0.28.1",
-    "msgpack~=1.1.2",
+    "msgpack~=1.2.1",
     "pydantic~=2.9.2",
     "urllib3~=2.6.2",
     "botocore~=1.40.61",
@@ -42,7 +42,7 @@ dev = [
     "pytest-httpx~=0.36.0",
     "Flask~=3.1.2",
     "pyinstaller~=6.8.0",
-    "pip-licenses~=5.5.0"
+    "pip-licenses~=5.5.5"
 ]
 all = ["connector-py[dev,fastapi]"]
 

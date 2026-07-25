@@ -7,8 +7,8 @@ import pytest
 
 from prometheus_client import metrics
 from prometheus_client.core import (
-    CollectorRegistry, Counter, CounterMetricFamily, Enum, Gauge,
-    GaugeHistogramMetricFamily, GaugeMetricFamily, Histogram,
+    CollectorRegistry, Counter, CounterMetricFamily, DuplicateTimeseries, Enum,
+    Gauge, GaugeHistogramMetricFamily, GaugeMetricFamily, Histogram,
     HistogramMetricFamily, Info, InfoMetricFamily, Metric, Sample,
     StateSetMetricFamily, Summary, SummaryMetricFamily, UntypedMetricFamily,
 )
@@ -58,6 +58,12 @@ class TestCounter(unittest.TestCase):
 
     def test_repr(self):
         self.assertEqual(repr(self.counter), "prometheus_client.metrics.Counter(c)")
+
+    def test_clear_without_labels_is_noop(self):
+        self.counter.inc()
+        self.assertEqual(1, self.registry.get_sample_value('c_total'))
+        self.counter.clear()  # should not raise
+        self.assertEqual(1, self.registry.get_sample_value('c_total'))
 
     def test_negative_increment_raises(self):
         self.assertRaises(ValueError, self.counter.inc, -1)
@@ -378,6 +384,14 @@ class TestSummary(unittest.TestCase):
             metric.labels('foo')
         self.assertEqual(1, value('s_with_labels_count', {'label1': 'foo'}))
 
+    def test_timer_duration_exposed(self):
+        with self.summary.time() as t:
+            time.sleep(0.01)
+        self.assertIsNotNone(t.duration)
+        self.assertGreater(t.duration, 0)
+        recorded_sum = self.registry.get_sample_value('s_sum')
+        self.assertEqual(t.duration, recorded_sum)
+
     def test_timer_not_observable(self):
         s = Summary('test', 'help', labelnames=('label',), registry=self.registry)
 
@@ -580,6 +594,19 @@ class TestEnum(unittest.TestCase):
     def test_overlapping_labels(self):
         with pytest.raises(ValueError):
             Enum('e', 'help', registry=None, labelnames=['e'])
+
+    def test_failed_init_does_not_pollute_registry(self):
+        registry = CollectorRegistry()
+        # A validation failure in __init__ must not leave a half-built collector
+        # registered: otherwise the name stays permanently taken and any later
+        # scrape of the registry crashes on the missing _states attribute.
+        with pytest.raises(ValueError):
+            Enum('task_state', 'help', states=None, registry=registry)
+        with pytest.raises(ValueError):
+            Enum('task_state', 'help', states=['a'], labelnames=['task_state'], registry=registry)
+        # The name is still free, so a correct definition registers and scrapes.
+        Enum('task_state', 'help', states=['a', 'b'], registry=registry)
+        self.assertEqual(1, registry.get_sample_value('task_state', {'task_state': 'a'}))
 
 
 class TestMetricWrapper(unittest.TestCase):
@@ -908,43 +935,58 @@ class TestCollectorRegistry(unittest.TestCase):
     def test_duplicate_metrics_raises(self):
         registry = CollectorRegistry()
         Counter('c_total', 'help', registry=registry)
-        self.assertRaises(ValueError, Counter, 'c_total', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 'c_total', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 'c_created', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Counter, 'c_total', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 'c_total', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 'c_created', 'help', registry=registry)
 
         Gauge('g_created', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 'g_created', 'help', registry=registry)
-        self.assertRaises(ValueError, Counter, 'g', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 'g_created', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Counter, 'g', 'help', registry=registry)
 
         Summary('s', 'help', registry=registry)
-        self.assertRaises(ValueError, Summary, 's', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 's_created', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 's_sum', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 's_count', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Summary, 's', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 's_created', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 's_sum', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 's_count', 'help', registry=registry)
         # We don't currently expose quantiles, but let's prevent future
         # clashes anyway.
-        self.assertRaises(ValueError, Gauge, 's', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 's', 'help', registry=registry)
 
         Histogram('h', 'help', registry=registry)
-        self.assertRaises(ValueError, Histogram, 'h', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Histogram, 'h', 'help', registry=registry)
         # Clashes aggaint various suffixes.
-        self.assertRaises(ValueError, Summary, 'h', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 'h_count', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 'h_sum', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 'h_bucket', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 'h_created', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Summary, 'h', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 'h_count', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 'h_sum', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 'h_bucket', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 'h_created', 'help', registry=registry)
         # The name of the histogram itself is also taken.
-        self.assertRaises(ValueError, Gauge, 'h', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 'h', 'help', registry=registry)
 
         Info('i', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 'i_info', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 'i_info', 'help', registry=registry)
 
     def test_unregister_works(self):
         registry = CollectorRegistry()
         s = Summary('s', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 's_count', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 's_count', 'help', registry=registry)
         registry.unregister(s)
         Gauge('s_count', 'help', registry=registry)
+
+    def test_unregister_removes_no_names_collector(self):
+        registry = CollectorRegistry(support_collectors_without_names=True)
+
+        class NamelessCollector:
+            def collect(self):
+                return [GaugeMetricFamily('foo', 'help', value=42)]
+
+        collector = NamelessCollector()
+        registry.register(collector)
+        registry.unregister(collector)
+        # A nameless collector must be removed from the collectors-without-names
+        # list too, otherwise a restricted registry keeps collecting it after it
+        # was unregistered.
+        self.assertEqual([], list(registry.restricted_registry(['foo']).collect()))
 
     def custom_collector(self, metric_family, registry):
         class CustomCollector:

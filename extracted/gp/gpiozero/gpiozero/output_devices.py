@@ -2,10 +2,10 @@
 #
 # GPIO Zero: a library for controlling the Raspberry Pi's GPIO pins
 #
+# Copyright (c) 2015-2026 Ben Nuttall <ben@bennuttall.com>
 # Copyright (c) 2015-2023 Dave Jones <dave@waveform.org.uk>
 # Copyright (c) 2022 gnicki2000 <89583687+gnicki2000@users.noreply.github.com>
 # Copyright (c) 2020 Fangchen Li <fangchen.li@outlook.com>
-# Copyright (c) 2015-2020 Ben Nuttall <ben@bennuttall.com>
 # Copyright (c) 2019 tuftii <3215045+tuftii@users.noreply.github.com>
 # Copyright (c) 2019 tuftii <pi@raspberrypi>
 # Copyright (c) 2019 Yisrael Dov Lebow 🐻 <lebow@lebowtech.com>
@@ -1452,12 +1452,6 @@ class Servo(SourceMixin, CompositeDevice):
 
         servo.value = 0.5
 
-    .. note::
-
-        To reduce servo jitter, use the pigpio pin driver rather than the default
-        RPi.GPIO driver (pigpio uses DMA sampling for much more precise edge
-        timing). See :ref:`changing-pin-factory` for further information.
-
     :type pin: int or str
     :param pin:
         The GPIO pin that the servo is connected to. See :ref:`pin-numbering`
@@ -1505,11 +1499,11 @@ class Servo(SourceMixin, CompositeDevice):
             pin_factory=pin_factory
         )
 
-        if PiGPIOFactory is None or not isinstance(self.pin_factory, PiGPIOFactory):
-            warnings.warn(PWMSoftwareFallback(
-                'To reduce servo jitter, use the pigpio pin factory.'
-                'See https://gpiozero.readthedocs.io/en/stable/api_output.html#servo for more info'
-            ))
+        # if PiGPIOFactory is None or not isinstance(self.pin_factory, PiGPIOFactory):
+        #     warnings.warn(PWMSoftwareFallback(
+        #         'To reduce servo jitter, use the pigpio pin factory.'
+        #         'See https://gpiozero.readthedocs.io/en/stable/api_output.html#servo for more info'
+        #     ))
 
         try:
             self.value = initial_value

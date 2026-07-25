@@ -116,6 +116,12 @@ def _print_result(result: AutopilotResult) -> None:
             f"  {skip.connector_name} {skip.rc_version}{tier_label}: {skip.message}"
         )
 
+    for hold in result.holds:
+        tier_label = f" ({hold.tier})" if hold.tier else ""
+        print_warning(
+            f"  {hold.connector_name} {hold.rc_version}{tier_label}: {hold.message}"
+        )
+
     for error in result.errors:
         tier_label = f" ({error.tier})" if error.tier else ""
         print_error(

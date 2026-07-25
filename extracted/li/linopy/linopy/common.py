@@ -8,7 +8,6 @@ This module contains commonly used functions.
 from __future__ import annotations
 
 import operator
-import os
 from collections.abc import Callable, Generator, Hashable, Iterable, Sequence
 from functools import cached_property, reduce, wraps
 from pathlib import Path
@@ -19,6 +18,7 @@ import numpy as np
 import pandas as pd
 import polars as pl
 from numpy import nan, signedinteger
+from numpy.typing import DTypeLike
 from polars.datatypes import DataTypeClass
 from xarray import DataArray, Dataset, apply_ufunc, broadcast
 from xarray import align as xr_align
@@ -159,12 +159,10 @@ def infer_schema_polars(ds: Dataset) -> dict[str, DataTypeClass]:
         dict: A dictionary mapping column names to their corresponding Polars data types.
     """
     schema: dict[str, DataTypeClass] = {}
-    np_major_version = int(np.__version__.split(".")[0])
-    use_int32 = os.name == "nt" and np_major_version < 2
     for name, array in ds.items():
         name = str(name)
         if np.issubdtype(array.dtype, np.integer):
-            schema[name] = pl.Int32 if use_int32 else pl.Int64
+            schema[name] = pl.Int32 if array.dtype.itemsize <= 4 else pl.Int64
         elif np.issubdtype(array.dtype, np.floating):
             schema[name] = pl.Float64
         elif np.issubdtype(array.dtype, np.bool_):
@@ -295,9 +293,12 @@ def maybe_group_terms_polars(df: pl.DataFrame) -> pl.DataFrame:
     return df.select(keys + ["coeffs"] + rest)
 
 
-def save_join(*dataarrays: DataArray, integer_dtype: bool = False) -> Dataset:
+def save_join(*dataarrays: DataArray, fill_dtype: DTypeLike | None = None) -> Dataset:
     """
     Join multiple xarray Dataarray's to a Dataset and warn if coordinates are not equal.
+
+    If ``fill_dtype`` is given, values filled in by an outer join are set to -1
+    and the arrays are cast to that dtype (used for integer label arrays).
     """
     try:
         arrs = xr_align(*dataarrays, join="exact")
@@ -307,8 +308,8 @@ def save_join(*dataarrays: DataArray, integer_dtype: bool = False) -> Dataset:
             UserWarning,
         )
         arrs = xr_align(*dataarrays, join="outer")
-        if integer_dtype:
-            arrs = tuple([ds.fillna(-1).astype(int) for ds in arrs])
+        if fill_dtype is not None:
+            arrs = tuple([ds.fillna(-1).astype(fill_dtype) for ds in arrs])
     return Dataset({ds.name: ds for ds in arrs})
 
 

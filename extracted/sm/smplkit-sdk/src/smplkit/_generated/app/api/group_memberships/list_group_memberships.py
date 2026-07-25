@@ -3,14 +3,12 @@ from typing import Any
 
 import httpx
 
-from ...client import AuthenticatedClient, Client
-from ...types import Response, UNSET
 from ... import errors
-
+from ...client import AuthenticatedClient, Client
 from ...models.error_response import ErrorResponse
 from ...models.group_membership_list_response import GroupMembershipListResponse
 from ...models.list_group_memberships_sort import ListGroupMembershipsSort
-from ...types import Unset
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
@@ -25,14 +23,14 @@ def _get_kwargs(
 
     params: dict[str, Any] = {}
 
-    json_filtergroup: None | str | Unset
+    json_filtergroup: str | Unset | None
     if isinstance(filtergroup, Unset):
         json_filtergroup = UNSET
     else:
         json_filtergroup = filtergroup
     params["filter[group]"] = json_filtergroup
 
-    json_filteruser: None | str | Unset
+    json_filteruser: str | Unset | None
     if isinstance(filteruser, Unset):
         json_filteruser = UNSET
     else:

@@ -3,12 +3,10 @@ Use graphviz's dot language to express the relationship between hyperparamters
 in a search space.
 
 """
-from future import standard_library
 
 import io
-from .pyll_utils import expr_to_config
 
-standard_library.install_aliases()
+from .pyll_utils import expr_to_config
 
 
 def dot_hyperparameters(expr):
@@ -68,11 +66,7 @@ def dot_hyperparameters(expr):
                     edge(cond.name, sub_parent_label)
                     edge(sub_parent_label, parent_label)
             elif len(and_conds) == 1:
-                parent_label = "{}{}{}".format(
-                    and_conds[0].name,
-                    and_conds[0].op,
-                    and_conds[0].val,
-                )
+                parent_label = f"{and_conds[0].name}{and_conds[0].op}{and_conds[0].val}"
                 edge(and_conds[0].name, parent_label)
                 cond_node(parent_label)
                 edge(parent_label, hp)

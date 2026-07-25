@@ -138,7 +138,7 @@ class Validate:
                     exc_info=True)
         elif self.modelXbrl.modelDocument.type == Type.VERSIONINGREPORT:
             try:
-                ValidateVersReport.ValidateVersReport(self.modelXbrl).validate(self.modelXbrl)  # type: ignore[no-untyped-call]
+                ValidateVersReport.ValidateVersReport(self.modelXbrl).validate(self.modelXbrl)
             except Exception as err:
                 self.modelXbrl.error("exception:" + type(err).__name__,
                     _("Versioning report exception: %(error)s, testcase: %(reportFile)s"),
@@ -280,7 +280,8 @@ class Validate:
             errorCaptureLevel = logging._checkLevel("WARNING")  # type: ignore[attr-defined]
         else:
             errorCaptureLevel = modelTestcaseVariation.severityLevel # default is INCONSISTENCY
-        parameters = modelTestcaseVariation.parameters.copy()
+        parameters = self.modelXbrl.modelManager.formulaOptions.typedParameters(self.modelXbrl.prefixedNamespaces)
+        parameters |= modelTestcaseVariation.parameters
         loadedModels = []
         for i, readMeFirstUri in enumerate(modelTestcaseVariation.readMeFirstUris):
             loadedModels.extend(self._testcaseLoadReadMeFirstUri(
@@ -303,7 +304,7 @@ class Validate:
                 if os.path.exists(versReportFile): #validate existing
                     modelVersReport = modelXbrlLoad(self.modelXbrl.modelManager, versReportFile, _("validating existing version report"))
                     if modelVersReport and modelVersReport.modelDocument and modelVersReport.modelDocument.type == Type.VERSIONINGREPORT:
-                        ValidateVersReport.ValidateVersReport(self.modelXbrl).validate(modelVersReport)  # type: ignore[no-untyped-call]
+                        ValidateVersReport.ValidateVersReport(self.modelXbrl).validate(modelVersReport)
                         self.determineTestStatus(modelTestcaseVariation, modelVersReport.errors)
                         modelVersReport.close()
                 elif len(inputDTSes) == 2:
@@ -329,6 +330,12 @@ class Validate:
         self.modelXbrl.modelManager.viewModelObject(self.modelXbrl, modelTestcaseVariation.objectId())
         self.modelXbrl.modelManager.cntlr.testcaseVariationReset()
         modelTestcaseVariation.duration = time.perf_counter() - startTime
+
+    @staticmethod
+    def _collectLoadedModels(loadedModels: list[ModelXbrl], modelXbrl: ModelXbrl) -> None:
+        loadedModels.append(modelXbrl)
+        if supplementalModelXbrls := getattr(modelXbrl, "supplementalModelXbrls", None):
+            loadedModels.extend(supplementalModelXbrls)
 
     def _testcaseLoadReadMeFirstUri(
         self,
@@ -369,7 +376,7 @@ class Validate:
                                 self.modelXbrl.modelManager.cntlr.webCache.normalizeUrl(readMeFirstUri[:-4] + ".dts", baseForElement),
                                 isEntry=True,
                                 errorCaptureLevel=errorCaptureLevel)
-                loadedModels.append(modelXbrl)
+                Validate._collectLoadedModels(loadedModels, modelXbrl)
             DTSdoc = modelXbrl.modelDocument
             assert DTSdoc is not None, "modelDocument must be set"
             DTSdoc.inDTS = True
@@ -396,6 +403,9 @@ class Validate:
                     if archivePath:
                         with self.useFileSource.fs.open(archivePath[1]) as embeddedFile:  # type: ignore[union-attr]
                             readMeFirstUriIsArchive = readMeFirstUriIsEmbeddedZipFile = zipfile.is_zipfile(embeddedFile)  # type: ignore[arg-type]
+            modelXbrlLoadArgs: dict[str, Any] = {}
+            if modelTestcaseVariation.ixdsTarget:
+                modelXbrlLoadArgs["ixdsTarget"] = modelTestcaseVariation.ixdsTarget
             if not readMeFirstUriIsArchive:
                 modelXbrl = modelXbrlLoad(self.modelXbrl.modelManager,
                                             readMeFirstUri,
@@ -403,8 +413,8 @@ class Validate:
                                             base=baseForElement,
                                             useFileSource=self.useFileSource,
                                             errorCaptureLevel=errorCaptureLevel,
-                                            ixdsTarget=modelTestcaseVariation.ixdsTarget)
-                loadedModels.append(modelXbrl)
+                                            **modelXbrlLoadArgs)
+                Validate._collectLoadedModels(loadedModels, modelXbrl)
             else: # need own file source, may need instance discovery
                 sourceFileSource = None
                 newSourceFileSource = False
@@ -468,9 +478,9 @@ class Validate:
                                                                _("validating"),
                                                                base=filesource.basefile + "/",
                                                                errorCaptureLevel=errorCaptureLevel,
-                                                               ixdsTarget=modelTestcaseVariation.ixdsTarget,
-                                                               errors=preLoadingErrors)
-                                    loadedModels.append(modelXbrl)
+                                                               errors=preLoadingErrors,
+                                                               **modelXbrlLoadArgs)
+                                    Validate._collectLoadedModels(loadedModels, modelXbrl)
                     except Exception as err:
                         self.modelXbrl.error("exception:" + type(err).__name__,
                             _("Testcase variation validation exception: %(error)s, entry URL: %(instance)s"),
@@ -495,9 +505,9 @@ class Validate:
                                                             _("validating"),
                                                             base=filesource.basefile + "/",
                                                             errorCaptureLevel=errorCaptureLevel,
-                                                            ixdsTarget=modelTestcaseVariation.ixdsTarget,
-                                                            errors=preLoadingErrors)
-                                loadedModels.append(modelXbrl)
+                                                            errors=preLoadingErrors,
+                                                            **modelXbrlLoadArgs)
+                                Validate._collectLoadedModels(loadedModels, modelXbrl)
                 else:
                     if _rptPkgIxdsOptions and filesource.isTaxonomyPackage:
                         # Legacy ESEF conformance suite logic.
@@ -509,10 +519,10 @@ class Validate:
                                                     _("validating"),
                                                     base=baseForElement,
                                                     errorCaptureLevel=errorCaptureLevel,
-                                                    ixdsTarget=modelTestcaseVariation.ixdsTarget,
                                                     isLoadable=modelTestcaseVariation.variationDiscoversDTS or filesource.url,
-                                                    errors=preLoadingErrors)
-                        loadedModels.append(modelXbrl)
+                                                    errors=preLoadingErrors,
+                                                    **modelXbrlLoadArgs)
+                        Validate._collectLoadedModels(loadedModels, modelXbrl)
 
         for model in loadedModels:
             modelXbrl.isTestcaseVariation = True  # type: ignore[attr-defined]
@@ -531,7 +541,7 @@ class Validate:
             elif resultIsVersioningReport or resultIsTaxonomyPackage:
                 inputDTSes['dtsName'].append(model)
             elif model.modelDocument.type == Type.VERSIONINGREPORT:
-                ValidateVersReport.ValidateVersReport(self.modelXbrl).validate(model)  # type: ignore[no-untyped-call]
+                ValidateVersReport.ValidateVersReport(self.modelXbrl).validate(model)
             elif testcase.type == Type.REGISTRYTESTCASE:
                 self.instValidator.validate(model)  # required to set up dimensions, etc
                 self.instValidator.executeCallTest(model, modelTestcaseVariation.id,

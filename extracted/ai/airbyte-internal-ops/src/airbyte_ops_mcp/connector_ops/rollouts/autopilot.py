@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import os
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Literal
 
@@ -42,10 +43,12 @@ from airbyte_ops_mcp.connector_ops.rollouts._helpers import (
     parse_db_timestamp,
 )
 from airbyte_ops_mcp.connector_ops.rollouts.constants import (
+    FAILURE_THRESHOLD_EXCEEDED_MARKER,
     FINALIZING_GRACE_MINUTES,
     STRATEGY_DEFAULT,
     STRATEGY_STEP_MAP,
     TIER_ORDER,
+    WORKFLOW_STARTED_STALE_MINUTES,
     CustomerTier,
     resolve_strategy,
 )
@@ -60,6 +63,14 @@ from airbyte_ops_mcp.slack_posting import send_hitl_notification
 logger = logging.getLogger(__name__)
 
 _AUTOPILOT_ESCALATION_TARGET = "@aaronsteers"
+
+
+@dataclass(frozen=True)
+class HoldDecision:
+    """A typed reason for holding a rollout and its escalation category."""
+
+    kind: Literal["sibling", "stale", "workflow_started", "unavailable"]
+    message: str
 
 
 # ---------------------------------------------------------------------------
@@ -133,6 +144,113 @@ def _recovery_tier_action(
     if estimate.disposition == "skip":
         return "complete"
     return "proceed"
+
+
+def _record_hold(
+    *,
+    result: AutopilotResult,
+    rollout: ConnectorRolloutRecord,
+    rc_version: str,
+    decision: HoldDecision,
+) -> None:
+    """Record a hold without taking a forward or notification action."""
+    result.holds.append(
+        AutopilotAction(
+            rollout_id=rollout.rollout_id,
+            actor_definition_id=rollout.actor_definition_id,
+            connector_name=rollout.connector_name,
+            rc_version=rc_version,
+            action="hold",
+            success=False,
+            message=f"Held: {decision.message}",
+            tier=rollout.tier,
+        )
+    )
+
+
+def blocking_sibling_reason(
+    rollout: ConnectorRolloutRecord,
+    siblings: list[ConnectorRolloutRecord],
+) -> HoldDecision | None:
+    """Return the recorded blocking outcome for this release candidate, if any.
+
+    The release-candidate scope is the actor definition plus repository and image
+    tag, across all tiers. The sibling's recorded state and reason are used
+    directly; this helper never re-derives health from sync information.
+    """
+    for sibling in siblings:
+        if sibling.rollout_id == rollout.rollout_id:
+            continue
+        if (
+            sibling.actor_definition_id != rollout.actor_definition_id
+            or sibling.rc_docker_repository != rollout.rc_docker_repository
+            or sibling.rc_docker_image_tag != rollout.rc_docker_image_tag
+        ):
+            continue
+        recorded_outcome = (
+            sibling.error_msg or sibling.failed_reason or sibling.paused_reason
+        )
+        if sibling.state in {"failed_rolled_back", "canceled"}:
+            return HoldDecision(
+                kind="sibling",
+                message=(
+                    f"Sibling rollout {sibling.rollout_id} ({sibling.tier}) is "
+                    f"{sibling.state}: {recorded_outcome or 'no recorded reason'}"
+                ),
+            )
+        if sibling.state == "errored":
+            return HoldDecision(
+                kind="sibling",
+                message=(
+                    f"Sibling rollout {sibling.rollout_id} ({sibling.tier}) is errored: "
+                    f"{recorded_outcome or 'no recorded reason'}"
+                ),
+            )
+        if sibling.state == "paused" and sibling.paused_reason:
+            return HoldDecision(
+                kind="sibling",
+                message=(
+                    f"Sibling rollout {sibling.rollout_id} ({sibling.tier}) is paused: "
+                    f"{sibling.paused_reason}"
+                ),
+            )
+    return None
+
+
+def _stale_workflow_started_reason(
+    rollout: ConnectorRolloutRecord,
+) -> HoldDecision | None:
+    """Return a hold reason when a workflow-started row has gone stale."""
+    updated_at = parse_db_timestamp(rollout.updated_at)
+    if updated_at is None:
+        return None
+    age_minutes = (datetime.now(timezone.utc) - updated_at).total_seconds() / 60
+    if age_minutes < WORKFLOW_STARTED_STALE_MINUTES:
+        return None
+    return HoldDecision(
+        kind="stale",
+        message=(
+            f"workflow_started rollout has been unchanged for {age_minutes:.0f} "
+            f"minutes (threshold={WORKFLOW_STARTED_STALE_MINUTES})"
+        ),
+    )
+
+
+def _load_rollouts_by_actor(
+    rollouts: list[ConnectorRolloutRecord],
+) -> dict[str, list[ConnectorRolloutRecord]]:
+    """Load active and terminal sibling outcomes for each candidate actor."""
+    return {
+        actor_definition_id: [
+            ConnectorRolloutRecord.from_db_row(row)
+            for row in query_connector_rollouts(
+                actor_definition_id=actor_definition_id,
+                active_only=False,
+                limit=None,
+            )
+        ]
+        for actor_definition_id in {r.actor_definition_id for r in rollouts}
+    }
 
 
 def _select_forward_tier(
@@ -212,6 +330,7 @@ def run_auto_start(
         logger.info("auto-start: No INITIALIZED rollouts found.")
         return result
 
+    all_rollouts_by_actor = _load_rollouts_by_actor(initialized)
     user_id = get_admin_user_id(
         client_id=auth.client_id,
         client_secret=auth.client_secret,
@@ -220,6 +339,18 @@ def run_auto_start(
 
     for rollout in initialized:
         rc_version = rollout.rc_docker_image_tag or "unknown"
+
+        hold_decision = blocking_sibling_reason(
+            rollout, all_rollouts_by_actor[rollout.actor_definition_id]
+        )
+        if hold_decision is not None:
+            _record_hold(
+                result=result,
+                rollout=rollout,
+                rc_version=rc_version,
+                decision=hold_decision,
+            )
+            continue
 
         # Gate: check autopilot config
         rollout_config = get_connector_rollout_config(
@@ -376,9 +507,8 @@ def run_auto_start(
     return result
 
 
-# States that auto-advance should handle: in_progress for normal advancement,
-# workflow_started for recovery (Phase 2 of a prior tier promotion failed before
-# setting the initial percentage).
+# States that auto-advance should inspect: in_progress for normal advancement,
+# workflow_started for guarded recovery/hold evaluation.
 _ADVANCE_STATES = ["in_progress", "workflow_started"]
 
 
@@ -392,11 +522,8 @@ def run_auto_advance(
 
     Handles two cases:
     - `in_progress` rollouts: normal percentage advancement, health-gated.
-    - `workflow_started` rollouts: recovery from a failed tier promotion
-      where `start_connector_rollout` succeeded but the subsequent
-      `progress_connector_rollout` call failed.  These are advanced to
-      their initial percentage *without* a health gate check (there is no
-      sync data yet).
+    - `workflow_started` rollouts: guarded hold evaluation. Existing rows are
+      never restarted through the create-oriented `manual_start` endpoint.
     """
     result = AutopilotResult(command="auto-advance", dry_run=dry_run)
 
@@ -404,7 +531,7 @@ def run_auto_advance(
     rollouts = [ConnectorRolloutRecord.from_db_row(r) for r in raw_rows]
     rollouts = filter_rollouts_by_connector(rollouts, connector)
     advanceable = [r for r in rollouts if r.state in _ADVANCE_STATES]
-
+    all_rollouts_by_actor = _load_rollouts_by_actor(advanceable)
     if not advanceable:
         logger.info("auto-advance: No advanceable rollouts found.")
         return result
@@ -445,6 +572,20 @@ def run_auto_advance(
 
         current_pct = rollout.current_target_rollout_pct or 0
         final_pct = rollout.final_target_rollout_pct or 100
+
+        hold_decision = blocking_sibling_reason(
+            rollout, all_rollouts_by_actor[rollout.actor_definition_id]
+        )
+        if hold_decision is None and is_recovery:
+            hold_decision = _stale_workflow_started_reason(rollout)
+        if hold_decision is not None:
+            _record_hold(
+                result=result,
+                rollout=rollout,
+                rc_version=rc_version,
+                decision=hold_decision,
+            )
+            continue
 
         if current_pct >= final_pct and not is_recovery:
             result.skipped.append(
@@ -501,6 +642,12 @@ def run_auto_advance(
             recovery_action = _recovery_tier_action(estimate)
 
             if recovery_action == "skip":
+                hold_decision = HoldDecision(
+                    kind="unavailable",
+                    message=(
+                        f"Cannot recover workflow_started rollout: {estimate.reason}"
+                    ),
+                )
                 logger.info(
                     "auto-advance: %s (%s, %s) — %s",
                     rollout.connector_name,
@@ -508,17 +655,11 @@ def run_auto_advance(
                     rollout.tier,
                     estimate.reason,
                 )
-                result.skipped.append(
-                    AutopilotAction(
-                        rollout_id=rollout.rollout_id,
-                        actor_definition_id=rollout.actor_definition_id,
-                        connector_name=rollout.connector_name,
-                        rc_version=rc_version,
-                        action="advance",
-                        success=False,
-                        message=f"Skipped: {estimate.reason}",
-                        tier=rollout.tier,
-                    )
+                _record_hold(
+                    result=result,
+                    rollout=rollout,
+                    rc_version=rc_version,
+                    decision=hold_decision,
                 )
                 continue
 
@@ -643,15 +784,20 @@ def run_auto_advance(
                     )
                 )
 
-            logger.info(
-                "auto-advance: Recovering workflow_started rollout %s (%s, %s) "
-                "— restarting workflow and advancing to %d%% (%s)",
-                rollout.connector_name,
-                rollout.rollout_id,
-                rollout.tier,
-                next_pct,
-                estimate.reason,
+            hold_decision = HoldDecision(
+                kind="workflow_started",
+                message=(
+                    "workflow_started rollout requires operator review; "
+                    "AutoPilot will not call manual_start to restart an existing row"
+                ),
             )
+            _record_hold(
+                result=result,
+                rollout=rollout,
+                rc_version=rc_version,
+                decision=hold_decision,
+            )
+            continue
         else:
             try:
                 sync_info = api_client.get_actor_sync_info(
@@ -749,39 +895,6 @@ def run_auto_advance(
             )
             continue
 
-        # For workflow_started recovery, restart the Temporal workflow via
-        # manual_start before calling progress.  The platform uses
-        # WORKFLOW_ID_CONFLICT_POLICY_TERMINATE_EXISTING, so this safely
-        # terminates any stale workflow and starts a fresh one.
-        if is_recovery:
-            try:
-                api_client.start_connector_rollout(
-                    docker_repository=rollout.rc_docker_repository or "",
-                    docker_image_tag=rc_version,
-                    actor_definition_id=rollout.actor_definition_id,
-                    updated_by=user_id,
-                    rollout_strategy="manual",
-                    config_api_root=constants.CLOUD_CONFIG_API_ROOT,
-                    client_id=auth.client_id,
-                    client_secret=auth.client_secret,
-                    bearer_token=auth.bearer_token,
-                    customer_tier=rollout.tier,
-                )
-            except Exception as e:
-                result.errors.append(
-                    AutopilotAction(
-                        rollout_id=rollout.rollout_id,
-                        actor_definition_id=rollout.actor_definition_id,
-                        connector_name=rollout.connector_name,
-                        rc_version=rc_version,
-                        action="advance",
-                        success=False,
-                        message=f"Failed to restart workflow for recovery: {e}",
-                        tier=rollout.tier,
-                    )
-                )
-                continue
-
         try:
             api_client.progress_connector_rollout(
                 docker_repository=rollout.rc_docker_repository or "",
@@ -867,6 +980,7 @@ def run_auto_promote(
         logger.info("auto-promote: No IN_PROGRESS or FINALIZING rollouts found.")
         return result
 
+    all_rollouts_by_actor = _load_rollouts_by_actor(in_progress + finalizing)
     user_id = get_admin_user_id(
         client_id=auth.client_id,
         client_secret=auth.client_secret,
@@ -881,6 +995,18 @@ def run_auto_promote(
 
     for rollout in in_progress:
         rc_version = rollout.rc_docker_image_tag or "unknown"
+
+        hold_decision = blocking_sibling_reason(
+            rollout, all_rollouts_by_actor[rollout.actor_definition_id]
+        )
+        if hold_decision is not None:
+            _record_hold(
+                result=result,
+                rollout=rollout,
+                rc_version=rc_version,
+                decision=hold_decision,
+            )
+            continue
 
         rollout_config = get_connector_rollout_config(
             rollout.actor_definition_id, rc_version=rc_version
@@ -1525,8 +1651,24 @@ def run_auto_promote(
                     )
                 )
 
+    unblocked_finalizing: list[ConnectorRolloutRecord] = []
+    for rollout in finalizing:
+        rc_version = rollout.rc_docker_image_tag or "unknown"
+        hold_decision = blocking_sibling_reason(
+            rollout, all_rollouts_by_actor[rollout.actor_definition_id]
+        )
+        if hold_decision is None:
+            unblocked_finalizing.append(rollout)
+            continue
+        _record_hold(
+            result=result,
+            rollout=rollout,
+            rc_version=rc_version,
+            decision=hold_decision,
+        )
+
     _reconcile_finalizing_rollouts(
-        finalizing=finalizing,
+        finalizing=unblocked_finalizing,
         auth=auth,
         user_id=user_id,
         result=result,
@@ -1952,7 +2094,7 @@ def run_auto_triage_failed(
                 client_id=auth.client_id,
                 client_secret=auth.client_secret,
                 bearer_token=auth.bearer_token,
-                error_msg=f"Failure threshold exceeded: {gate.reason}",
+                error_msg=f"{FAILURE_THRESHOLD_EXCEEDED_MARKER} {gate.reason}",
                 retain_pins_on_cancellation=True,
             )
         except Exception as e:
@@ -2272,6 +2414,64 @@ def _rc_matches_highest_candidate(
     return Version(parsed_rc.base_version) == Version(highest.base_version)
 
 
+def _find_obsolete_rollout_reasons(
+    eligible: list[ConnectorRolloutRecord],
+) -> dict[str, str]:
+    """Return auto-close reasons for rollouts that are no longer live candidates.
+
+    This is the same candidate determination used by `run_auto_close`: a newer
+    active RC, an RC already equal to the registry GA default, or an RC that is
+    not the highest advertised candidate.
+    """
+    by_connector: dict[str, list[ConnectorRolloutRecord]] = defaultdict(list)
+    for rollout in eligible:
+        by_connector[rollout.actor_definition_id].append(rollout)
+
+    reasons: dict[str, str] = {}
+    for connector_rollouts in by_connector.values():
+        versioned: list[tuple[Version, ConnectorRolloutRecord]] = []
+        for rollout in connector_rollouts:
+            parsed = _parse_rc_version(rollout.rc_docker_image_tag)
+            if parsed is not None:
+                versioned.append((parsed, rollout))
+        if len(versioned) <= 1:
+            continue
+        highest_version = max(version for version, _ in versioned)
+        for version, rollout in versioned:
+            if version < highest_version:
+                reasons[rollout.rollout_id] = "newer_rc"
+
+    default_versions: dict[str, str | None] = {}
+    for rollout in eligible:
+        if rollout.rollout_id in reasons:
+            continue
+        if _rc_is_already_ga(rollout, default_versions):
+            reasons[rollout.rollout_id] = "already_ga"
+
+    candidates_cache: dict[str, list[str] | None] = {}
+    for rollout in eligible:
+        if rollout.rollout_id in reasons:
+            continue
+        if _parse_rc_version(rollout.rc_docker_image_tag) is None:
+            continue
+        actor_definition_id = rollout.actor_definition_id
+        if actor_definition_id not in candidates_cache:
+            try:
+                candidates_cache[actor_definition_id] = get_registry_release_candidates(
+                    actor_definition_id
+                )
+            except PyAirbyteInputError:
+                candidates_cache[actor_definition_id] = None
+        candidates = candidates_cache[actor_definition_id]
+        if candidates is None:
+            continue
+        if candidates and not _parse_candidate_versions(candidates):
+            continue
+        if not _rc_matches_highest_candidate(rollout, candidates):
+            reasons[rollout.rollout_id] = "not_highest_candidate"
+    return reasons
+
+
 def run_auto_close(
     *,
     auth: ResolvedCloudAuth,
@@ -2314,70 +2514,12 @@ def run_auto_close(
         logger.info("auto-close: No eligible rollouts found.")
         return result
 
-    # Group by actor_definition_id
-    by_connector: dict[str, list[ConnectorRolloutRecord]] = defaultdict(list)
-    for rollout in eligible:
-        by_connector[rollout.actor_definition_id].append(rollout)
-
-    # `(rollout, reason)` pairs; `reason` drives the log/close message.
-    to_cancel: list[tuple[ConnectorRolloutRecord, str]] = []
-    queued_ids: set[str] = set()
-
-    # Case A: superseded by a newer active RC for the same connector.
-    for _actor_def_id, connector_rollouts in by_connector.items():
-        # Parse and sort by version (highest first)
-        versioned: list[tuple[Version, ConnectorRolloutRecord]] = []
-        for r in connector_rollouts:
-            parsed = _parse_rc_version(r.rc_docker_image_tag)
-            if parsed is not None:
-                versioned.append((parsed, r))
-
-        if len(versioned) <= 1:
-            continue
-
-        versioned.sort(reverse=True, key=lambda x: x[0])
-        highest_version = versioned[0][0]
-        # Only supersede rollouts at strictly lower versions
-        for ver, older_rollout in versioned[1:]:
-            if ver < highest_version:
-                to_cancel.append((older_rollout, "newer_rc"))
-                queued_ids.add(older_rollout.rollout_id)
-
-    # Case B: RC already the registry GA default (rollout no longer needed).
-    default_versions: dict[str, str | None] = {}
-    for rollout in eligible:
-        if rollout.rollout_id in queued_ids:
-            continue
-        if _rc_is_already_ga(rollout, default_versions):
-            to_cancel.append((rollout, "already_ga"))
-            queued_ids.add(rollout.rollout_id)
-
-    # Else (catch-all): not the highest advertised release candidate. Fails
-    # closed — an unresolved registry (`None`) or an unparseable RC tag leaves
-    # the rollout untouched, since neither can be reasoned about safely.
-    candidates_cache: dict[str, list[str] | None] = {}
-    for rollout in eligible:
-        if rollout.rollout_id in queued_ids:
-            continue
-        if _parse_rc_version(rollout.rc_docker_image_tag) is None:
-            continue
-        adid = rollout.actor_definition_id
-        if adid not in candidates_cache:
-            try:
-                candidates_cache[adid] = get_registry_release_candidates(adid)
-            except PyAirbyteInputError:
-                candidates_cache[adid] = None
-        candidates = candidates_cache[adid]
-        if candidates is None:
-            continue
-        if candidates and not _parse_candidate_versions(candidates):
-            # Candidates are advertised but none parse as semver: the highest
-            # candidate can't be determined, so fail closed and leave it alone.
-            # (An empty list is different — nothing is advertised, so close.)
-            continue
-        if not _rc_matches_highest_candidate(rollout, candidates):
-            to_cancel.append((rollout, "not_highest_candidate"))
-            queued_ids.add(rollout.rollout_id)
+    obsolete_reasons = _find_obsolete_rollout_reasons(eligible)
+    to_cancel = [
+        (rollout, obsolete_reasons[rollout.rollout_id])
+        for rollout in eligible
+        if rollout.rollout_id in obsolete_reasons
+    ]
 
     if not to_cancel:
         logger.info("auto-close: No obsolete rollouts detected.")

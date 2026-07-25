@@ -2,6 +2,8 @@
 name = "pydantic-monty"
 description = "Python bindings for the Monty sandboxed Python interpreter"
 readme = "README.md"
+# Distributed as a PyO3 extension wheel on PyPI, not as a crate on crates.io.
+publish = false
 version = { workspace = true }
 rust-version = { workspace = true }
 edition = { workspace = true }
@@ -14,25 +16,22 @@ repository = { workspace = true }
 
 [lib]
 name = "_monty"
+# The `_monty` Python extension module (the actual deliverable).
 crate-type = ["cdylib"]
 
 [dependencies]
 ahash = { workspace = true }
-monty = { path = "../monty" }
-monty_type_checking = { path = "../monty-type-checking" }
-pyo3 = { version = "0.28", features = ["indexmap", "generate-import-lib", "num-bigint"] }
+monty-pool = { workspace = true }
+monty-proto = { workspace = true, features = ["python"] }
+monty-types = { workspace = true }
+monty-fs = { workspace = true }
+pyo3 = { workspace = true, features = ["indexmap", "generate-import-lib", "num-bigint"] }
 num-bigint = { workspace = true }
-indexmap = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-postcard = { workspace = true }
-send_wrapper = "0.6.0"
-sha2 = { workspace = true }
 pyo3-async-runtimes = { version = "0.28", features = ["tokio-runtime"] }
 tokio = { version = "1", features = ["rt", "sync"] }
 
 [build-dependencies]
-pyo3-build-config = { version = "0.28", features = ["resolve-config"] }
+pyo3-build-config = { workspace = true }
 
 [features]
 # make extensions visible to cargo vendor

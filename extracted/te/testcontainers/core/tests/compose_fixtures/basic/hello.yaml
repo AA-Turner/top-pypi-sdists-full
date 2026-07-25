@@ -1,8 +1,0 @@
-services:
-  hello:
-    image: alpine:latest
-    init: true
-    command:
-      - sh
-      - -c
-      - 'while true; do echo "Hello from Docker!"; sleep 1; done'

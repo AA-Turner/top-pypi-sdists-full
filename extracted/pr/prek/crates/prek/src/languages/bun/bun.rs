@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::path::Path;
 use std::process::Stdio;
 use std::sync::Arc;
@@ -14,7 +15,6 @@ use crate::hook::{Hook, InstallInfo};
 use crate::languages::LanguageBackend;
 use crate::languages::bun::BunRequest;
 use crate::languages::bun::installer::{BunInstaller, BunResult, bin_dir, lib_dir};
-use crate::languages::version::LanguageRequest;
 use crate::process::Cmd;
 use crate::run::run_by_batch;
 use crate::store::{Store, ToolBucket};
@@ -43,13 +43,9 @@ impl LanguageBackend for Bun {
         let bun_dir = store.tools_path(ToolBucket::Bun);
         let installer = BunInstaller::new(bun_dir);
 
-        let (bun_request, allows_download) = match &hook.language_request {
-            LanguageRequest::Any { system_only } => (&BunRequest::Any, !system_only),
-            LanguageRequest::Bun(bun_request) => (bun_request, true),
-            _ => unreachable!(),
-        };
+        let bun_request: &BunRequest = hook.language_request.version();
         let bun = installer
-            .install(store, bun_request, allows_download)
+            .install(store, bun_request, hook.language_request.allows_download())
             .await
             .context("Failed to install bun")?;
 
@@ -66,7 +62,16 @@ impl LanguageBackend for Bun {
         fs_err::tokio::create_dir_all(&lib_dir).await?;
 
         // 3. Install dependencies
-        let deps = hook.install_dependencies();
+        let mut deps: Vec<&OsStr> = Vec::with_capacity(hook.additional_dependencies.len() + 1);
+        if let Some(repo_path) = hook.repo_path() {
+            deps.push(repo_path.as_os_str());
+        }
+        deps.extend(
+            hook.additional_dependencies
+                .iter()
+                .map(|dependency| OsStr::new(dependency.as_str())),
+        );
+
         if deps.is_empty() {
             debug!("No dependencies to install");
         } else {
@@ -79,7 +84,7 @@ impl LanguageBackend for Bun {
             Cmd::new(bun.bun())
                 .arg("install")
                 .arg("-g")
-                .args(&*deps)
+                .args(deps)
                 .env(EnvVars::PATH, new_path)
                 .env(EnvVars::BUN_INSTALL, &info.env_path)
                 .check(true)
@@ -129,7 +134,7 @@ impl LanguageBackend for Bun {
 
         let entry = hook.entry.resolve(Some(&new_path), store)?;
         let run = async |batch: &[&Path]| {
-            let mut output = Cmd::new(&entry[0])
+            let output = Cmd::new(&entry[0])
                 .current_dir(hook.work_dir())
                 .args(&entry[1..])
                 .env(EnvVars::PATH, &new_path)
@@ -144,24 +149,13 @@ impl LanguageBackend for Bun {
 
             reporter.on_run_progress(progress, batch.len() as u64);
 
-            output.stdout.extend(output.stderr);
-            let code = output.status.code().unwrap_or(1);
-            anyhow::Ok((code, output.stdout))
+            anyhow::Ok(output)
         };
 
-        let results = run_by_batch(hook, filenames, entry.argv(), run).await?;
-
-        // Collect results
-        let mut combined_status = 0;
-        let mut combined_output = Vec::new();
-
-        for (code, output) in results {
-            combined_status |= code;
-            combined_output.extend(output);
-        }
+        let output = run_by_batch(hook, filenames, entry.argv(), run).await?;
 
         reporter.on_run_complete(progress);
 
-        Ok((combined_status, combined_output))
+        Ok(output)
     }
 }

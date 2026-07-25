@@ -1,3 +1,5 @@
+use std::{cell::Cell, ffi::c_int, fmt::Write, mem, ops, str};
+
 /// Python bytes type, wrapping a `Vec<u8>`.
 ///
 /// This type provides Python bytes semantics with operations on ASCII bytes only.
@@ -7,7 +9,7 @@
 /// # Implemented Methods
 ///
 /// ## Encoding/Decoding
-/// - `decode([encoding[, errors]])` - Decode to string (UTF-8 only)
+/// - `decode([encoding[, errors]])` - Decode to string (UTF-8, ASCII, UTF-16/32)
 /// - `hex([sep[, bytes_per_sep]])` - Return hex string representation
 /// - `fromhex(string)` - Create bytes from hex string (classmethod)
 ///
@@ -65,32 +67,26 @@
 /// - `expandtabs(tabsize=8)` - Tab expansion
 /// - `translate(table[, delete])` - Character translation
 /// - `maketrans(frm, to)` - Create translation table (staticmethod)
-use std::{
-    cell::Cell,
-    cmp::Ordering,
-    ffi::c_int,
-    fmt::{self, Write},
-    mem, ops, str,
-};
-
-use ahash::AHashSet;
+use monty_types::{ResourceError, ResourceTracker};
+pub use monty_types::{bytes_repr, bytes_repr_fmt};
 use smallvec::smallvec;
 
-use super::{MontyIter, PyTrait, Type};
+use super::{CmpOrder, LazyHeapSet, PyTrait, Type};
 use crate::{
-    args::{ArgValues, FromArgs},
+    args::{ArgValues, FromArgs, StrArg},
     bytecode::{CallResult, VM},
-    defer_drop, defer_drop_mut,
-    exception_private::{ExcType, RunResult, SimpleException},
+    codecs::Codec,
+    defer_drop,
+    exception_private::{ExcType, ExcTypeExt, RunResult, SimpleException},
     hash::{HashValue, hash_python_bytes},
-    heap::{DropWithHeap, Heap, HeapData, HeapId, HeapItem, HeapRead, heap_read_ref_as_field},
+    heap::{DropGuard, DropWithContext, Heap, HeapData, HeapId, HeapItem, HeapRead, heap_read_ref_as_field},
     intern::{StaticStrings, StringId},
-    resource::{ResourceError, ResourceTracker, check_repeat_size, check_replace_size},
+    resource_checks::{check_repeat_size, check_replace_size},
     types::{
         List,
         slice::{normalize_sequence_index, slice_collect_iterator},
     },
-    value::{EitherStr, Value},
+    value::{EitherStr, Value, eq_bytes},
 };
 
 // =============================================================================
@@ -158,13 +154,42 @@ impl Bytes {
     ///
     /// - `bytes()` with no args returns empty bytes
     /// - `bytes(int)` returns bytes of that length filled with zeros
-    /// - `bytes(string)` encodes the string as UTF-8 (simplified, no encoding param)
+    /// - `bytes(string, encoding, errors)` encodes via the codec registry —
+    ///   like CPython, a str source *requires* an encoding
     /// - `bytes(bytes)` returns a copy of the bytes
-    ///
-    /// Note: Full Python semantics for bytes() are more complex (encoding, errors params).
     pub fn init(vm: &mut VM<'_, impl ResourceTracker>, args: ArgValues) -> RunResult<Value> {
-        let BytesInitArgs { source } = BytesInitArgs::from_args(args, vm)?;
+        let BytesInitArgs {
+            source,
+            encoding,
+            errors,
+        } = BytesInitArgs::from_args(args, vm)?;
         defer_drop!(source, vm);
+        defer_drop!(encoding, vm);
+        defer_drop!(errors, vm);
+        let source_str = match source {
+            Some(v) if v.is_str(vm.heap) => Some(v),
+            _ => None,
+        };
+        // CPython's `bytes_new` ordering: an encoding demands a str source, a
+        // str source demands an encoding, and a lone `errors` is never valid.
+        if let Some(encoding) = encoding {
+            let Some(v) = source_str else {
+                return Err(ExcType::type_error_encoding_without_string());
+            };
+            let s = v.to_str(vm)?;
+            let errors = errors.as_ref().map_or("strict", |e| e.as_str(vm));
+            let encoding = encoding.as_str(vm);
+            let codec = Codec::find(encoding).ok_or_else(|| ExcType::lookup_error_unknown_encoding(encoding))?;
+            let encoded = codec.encode(s, errors, vm.heap.tracker())?;
+            let heap_id = vm.heap.allocate(HeapData::Bytes(Self::new(encoded)))?;
+            return Ok(Value::Ref(heap_id));
+        }
+        if source_str.is_some() {
+            return Err(ExcType::type_error_string_without_encoding());
+        }
+        if errors.is_some() {
+            return Err(ExcType::type_error_errors_without_string());
+        }
         let new_data = match source {
             None => Vec::new(),
             Some(Value::Int(n)) => {
@@ -180,34 +205,34 @@ impl Bytes {
                 check_repeat_size(size, 1, vm.heap.tracker())?;
                 vec![0u8; size]
             }
-            Some(Value::InternString(string_id)) => {
-                let s = vm.interns.get_str(*string_id);
-                s.as_bytes().to_vec()
-            }
             Some(Value::InternBytes(bytes_id)) => {
                 let b = vm.interns.get_bytes(*bytes_id);
                 b.to_vec()
             }
             Some(v @ Value::Ref(id)) => match vm.heap.get(*id) {
-                HeapData::Str(s) => s.as_str().as_bytes().to_vec(),
                 HeapData::Bytes(b) => b.as_slice().to_vec(),
-                _ => return Err(ExcType::type_error_bytes_init(v.py_type(vm))),
+                _ => return Err(ExcType::type_error_bytes_init(&v.py_type_name(vm))),
             },
-            Some(v) => return Err(ExcType::type_error_bytes_init(v.py_type(vm))),
+            Some(v) => return Err(ExcType::type_error_bytes_init(&v.py_type_name(vm))),
         };
         let heap_id = vm.heap.allocate(HeapData::Bytes(Self::new(new_data)))?;
         Ok(Value::Ref(heap_id))
     }
 }
 
-/// Argument shape for `bytes(source=...)` — one optional pos-or-keyword arg
-/// (`source` is the CPython kwarg name) interpreted as the type-specific
-/// dispatch inside [`Bytes::init`].
+/// Argument shape for `bytes(source=..., encoding=..., errors=...)`, all
+/// pos-or-keyword. Unlike `str()`, CPython's `bytes_new` reports wrong-typed
+/// `encoding`/`errors` with `_PyArg_BadArgument`'s wording (`must be str, not
+/// None` for `None`), which is exactly the macro's `bad_arg_named` form.
 #[derive(FromArgs)]
-#[from_args(name = "bytes", c_error_named)]
+#[from_args(name = "bytes", at_most_total, bad_arg_named)]
 struct BytesInitArgs {
     #[from_args(default)]
     source: Option<Value>,
+    #[from_args(default)]
+    encoding: Option<StrArg>,
+    #[from_args(default)]
+    errors: Option<StrArg>,
 }
 
 impl From<Vec<u8>> for Bytes {
@@ -237,6 +262,10 @@ impl ops::Deref for Bytes {
 }
 
 impl<'h> PyTrait<'h> for HeapRead<'h, Bytes> {
+    fn py_is_iterable(&self, _vm: &VM<'h, impl ResourceTracker>) -> bool {
+        true
+    }
+
     fn py_type(&self, _vm: &VM<'h, impl ResourceTracker>) -> Type {
         Type::Bytes
     }
@@ -265,8 +294,9 @@ impl<'h> PyTrait<'h> for HeapRead<'h, Bytes> {
         Ok(Value::Int(i64::from(byte)))
     }
 
-    fn py_eq(&self, other: &Self, vm: &mut VM<'h, impl ResourceTracker>) -> Result<bool, ResourceError> {
-        Ok(self.get(vm.heap).0 == other.get(vm.heap).0)
+    fn py_eq_impl(&self, other: &Value, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Option<bool>> {
+        // Heap bytes equal interned or heap bytes with the same content.
+        Ok(eq_bytes(self.get(vm.heap).as_slice(), other, vm))
     }
 
     fn py_hash(&self, _self_id: HeapId, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Option<HashValue>> {
@@ -282,8 +312,8 @@ impl<'h> PyTrait<'h> for HeapRead<'h, Bytes> {
         Ok(Some(hash))
     }
 
-    fn py_cmp(&self, other: &Self, vm: &mut VM<'h, impl ResourceTracker>) -> Result<Option<Ordering>, ResourceError> {
-        Ok(Some(self.get(vm.heap).0.cmp(&other.get(vm.heap).0)))
+    fn py_cmp(&self, other: &Self, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<CmpOrder> {
+        Ok(CmpOrder::Ordered(self.get(vm.heap).0.cmp(&other.get(vm.heap).0)))
     }
 
     fn py_bool(&self, vm: &mut VM<'h, impl ResourceTracker>) -> bool {
@@ -294,7 +324,7 @@ impl<'h> PyTrait<'h> for HeapRead<'h, Bytes> {
         &self,
         f: &mut impl Write,
         vm: &mut VM<'h, impl ResourceTracker>,
-        _heap_ids: &mut AHashSet<HeapId>,
+        _heap_ids: &mut LazyHeapSet,
     ) -> RunResult<()> {
         Ok(bytes_repr_fmt(&self.get(vm.heap).0, f)?)
     }
@@ -307,7 +337,7 @@ impl<'h> PyTrait<'h> for HeapRead<'h, Bytes> {
         args: ArgValues,
     ) -> RunResult<CallResult> {
         let Some(method) = attr.static_string() else {
-            args.drop_with_heap(vm);
+            args.drop_with(vm);
             return Err(ExcType::attribute_error(Type::Bytes, attr.as_str(vm.interns)));
         };
 
@@ -338,7 +368,7 @@ pub fn call_bytes_method(
     vm: &mut VM<'_, impl ResourceTracker>,
 ) -> RunResult<Value> {
     let Some(method) = StaticStrings::from_string_id(method_id) else {
-        args.drop_with_heap(vm);
+        args.drop_with(vm);
         return Err(ExcType::attribute_error(Type::Bytes, vm.interns.get_str(method_id)));
     };
     call_bytes_method_impl(&vm.heap.protect(bytes), method, args, vm)
@@ -448,81 +478,34 @@ fn call_bytes_method_impl<'h>(
         // fromhex is a classmethod but also accessible on instances
         StaticStrings::Fromhex => bytes_fromhex(args, vm),
         _ => {
-            args.drop_with_heap(vm.heap);
+            args.drop_with(vm.heap);
             Err(ExcType::attribute_error(Type::Bytes, method.into()))
         }
     }
 }
 
-/// Writes a CPython-compatible repr string for bytes to a formatter.
-///
-/// Format: `b'...'` or `b"..."` depending on content.
-/// - Uses single quotes by default
-/// - Switches to double quotes if bytes contain `'` but not `"`
-/// - Escapes: `\\`, `\t`, `\n`, `\r`, `\xNN` for non-printable bytes
-pub fn bytes_repr_fmt(bytes: &[u8], f: &mut impl Write) -> fmt::Result {
-    // Determine quote character: use double quotes if single quote present but not double
-    let has_single = bytes.contains(&b'\'');
-    let has_double = bytes.contains(&b'"');
-    let quote = if has_single && !has_double { '"' } else { '\'' };
-
-    f.write_char('b')?;
-    f.write_char(quote)?;
-
-    for &byte in bytes {
-        match byte {
-            b'\\' => f.write_str("\\\\")?,
-            b'\t' => f.write_str("\\t")?,
-            b'\n' => f.write_str("\\n")?,
-            b'\r' => f.write_str("\\r")?,
-            b'\'' if quote == '\'' => f.write_str("\\'")?,
-            b'"' if quote == '"' => f.write_str("\\\"")?,
-            // Printable ASCII (32-126)
-            0x20..=0x7e => f.write_char(byte as char)?,
-            // Non-printable: use \xNN format
-            _ => write!(f, "\\x{byte:02x}")?,
-        }
-    }
-
-    f.write_char(quote)
-}
-
-/// Returns a CPython-compatible repr string for bytes.
-///
-/// Convenience wrapper around `bytes_repr_fmt` that returns an owned String.
-#[must_use]
-pub fn bytes_repr(bytes: &[u8]) -> String {
-    let mut result = String::new();
-    // Writing to String never fails
-    bytes_repr_fmt(bytes, &mut result).unwrap();
-    result
-}
-
 /// Implements Python's `bytes.decode([encoding[, errors]])` method.
 ///
-/// Converts bytes to a string. Currently only supports UTF-8 encoding.
+/// Converts bytes to a string. Encoding-name resolution and the codec
+/// implementations (UTF-8, ASCII, UTF-16/32 families) live in
+/// [`crate::codecs`]. Like CPython, the error handler name is only looked up
+/// (and validated) when a byte actually needs handling — see
+/// `limitations/encoding.md` for the handful of decode divergences (the
+/// surrogate-producing handlers raise `NotImplementedError`).
 fn bytes_decode<'h>(
     bytes: &HeapRead<'h, [u8]>,
     args: ArgValues,
     vm: &mut VM<'h, impl ResourceTracker>,
 ) -> RunResult<Value> {
     let BytesDecodeArgs { encoding, errors } = BytesDecodeArgs::from_args(args, vm)?;
-    // `errors` is accepted for parity but ignored — UTF-8 decoding of valid
-    // bytes has nothing to handle, and `lookup_error_unknown_error_handler`
-    // would be the next layer once non-UTF-8 codecs land.
-    let _ = errors;
-    let encoding = encoding.map_or_else(|| "utf-8".to_owned(), |e| e.to_ascii_lowercase());
+    defer_drop!(errors, vm);
+    defer_drop!(encoding, vm);
+    let encoding = encoding.as_ref().map_or("utf-8", |e| e.as_str(vm));
+    let errors = errors.as_ref().map_or("strict", |e| e.as_str(vm));
 
-    // Only support UTF-8 family
-    if !matches!(encoding.as_str(), "utf-8" | "utf8" | "utf_8") {
-        return Err(ExcType::lookup_error_unknown_encoding(&encoding));
-    }
-
-    // Decode as UTF-8
-    match str::from_utf8(bytes.get(vm.heap)) {
-        Ok(s) => Ok(super::str::allocate_string(s, vm.heap)?),
-        Err(_) => Err(ExcType::unicode_decode_error_invalid_utf8()),
-    }
+    let codec = Codec::find(encoding).ok_or_else(|| ExcType::lookup_error_unknown_encoding(encoding))?;
+    let s = codec.decode(bytes.get(vm.heap), errors)?;
+    Ok(super::str::allocate_string(s, vm.heap)?)
 }
 
 /// Argument shape for `bytes.decode(encoding='utf-8', errors='strict')`.
@@ -531,15 +514,15 @@ fn bytes_decode<'h>(
 /// (`decode() argument 'encoding' must be str, not <type>`) so wrong-type
 /// errors match the C implementation. Both fields default to absent;
 /// CPython rejects explicit `None` here with the bad-arg error, which falls
-/// out naturally because `Option<String>::from_value` delegates to
-/// `String::from_value` and rejects `Value::None`.
+/// out naturally because `Option<StrArg>::from_value` delegates to
+/// `StrArg::from_value` and rejects `Value::None`.
 #[derive(FromArgs)]
-#[from_args(name = "decode", bad_arg_named)]
+#[from_args(name = "decode", at_most_total, bad_arg_named)]
 struct BytesDecodeArgs {
     #[from_args(default)]
-    encoding: Option<String>,
+    encoding: Option<StrArg>,
     #[from_args(default)]
-    errors: Option<String>,
+    errors: Option<StrArg>,
 }
 
 /// Implements Python's `bytes.count(sub[, start[, end]])` method.
@@ -760,7 +743,7 @@ fn extract_bytes_for_prefix_suffix(
                     if let Ok(b) = extract_single_bytes_for_prefix_suffix(item, vm) {
                         prefixes.push(b);
                     } else {
-                        let item_type = item.py_type(vm);
+                        let item_type = item.py_type_name(vm);
                         return Err(ExcType::type_error(format!(
                             "{method_name} first arg must be bytes or a tuple of bytes, \
                              not tuple containing {item_type} at index {i}"
@@ -771,12 +754,12 @@ fn extract_bytes_for_prefix_suffix(
             }
             _ => Err(ExcType::type_error(format!(
                 "{method_name} first arg must be bytes or a tuple of bytes, not {}",
-                value.py_type(vm)
+                value.py_type_name(vm)
             ))),
         },
         _ => Err(ExcType::type_error(format!(
             "{method_name} first arg must be bytes or a tuple of bytes, not {}",
-            value.py_type(vm)
+            value.py_type_name(vm)
         ))),
     }
 }
@@ -1520,7 +1503,9 @@ fn bytes_splitlines<'h>(
 ) -> RunResult<Value> {
     let keepends = parse_bytes_splitlines_args(args, vm)?;
 
-    let mut lines = Vec::new();
+    let lines = Vec::new();
+    let mut lines_guard = DropGuard::new(lines, vm);
+    let (lines, vm) = lines_guard.as_parts_mut();
     let mut start = 0;
     let bytes = bytes.get(vm.heap);
     let len = bytes.len();
@@ -1562,6 +1547,7 @@ fn bytes_splitlines<'h>(
         start = end;
     }
 
+    let (lines, vm) = lines_guard.into_parts();
     let list = List::new(lines);
     let heap_id = vm.heap.allocate(HeapData::List(list))?;
     Ok(Value::Ref(heap_id))
@@ -1574,7 +1560,7 @@ fn parse_bytes_splitlines_args(args: ArgValues, vm: &mut VM<'_, impl ResourceTra
         None => false,
         Some(v) => {
             let r = v.py_bool(vm);
-            v.drop_with_heap(vm.heap);
+            v.drop_with(vm.heap);
             r
         }
     };
@@ -1975,15 +1961,16 @@ fn bytes_join<'h>(
     iterable: Value,
     vm: &mut VM<'h, impl ResourceTracker>,
 ) -> RunResult<Value> {
-    let Ok(iter) = MontyIter::new(iterable, vm) else {
+    let Ok(iter) = iterable.into_py_iter(vm) else {
         return Err(ExcType::type_error_join_not_iterable());
     };
-    defer_drop_mut!(iter, vm);
+    defer_drop!(iter, vm);
+    let mut iter = iter.read(vm);
 
     let mut result = Vec::new();
     let mut index = 0usize;
 
-    while let Some(item) = iter.for_next(vm)? {
+    while let Some(item) = iter.py_next(vm)? {
         defer_drop!(item, vm);
 
         if index > 0 {
@@ -1999,14 +1986,14 @@ fn bytes_join<'h>(
                 if let HeapData::Bytes(b) = vm.heap.get(*heap_id) {
                     result.extend_from_slice(b.as_slice());
                 } else {
-                    let t = item.py_type(vm);
+                    let t = item.py_type_name(vm);
                     return Err(ExcType::type_error(format!(
                         "sequence item {index}: expected a bytes-like object, {t} found"
                     )));
                 }
             }
             _ => {
-                let t = item.py_type(vm);
+                let t = item.py_type_name(vm);
                 return Err(ExcType::type_error(format!(
                     "sequence item {index}: expected a bytes-like object, {t} found"
                 )));
@@ -2154,7 +2141,7 @@ fn parse_bytes_hex_args(args: ArgValues, vm: &mut VM<'_, impl ResourceTracker>) 
 /// kwargs and the flag goes away when the kwarg dispatch is plumbed
 /// through.
 #[derive(FromArgs)]
-#[from_args(name = "bytes.hex", c_error_named, at_most_total, kwargs_not_supported_yet)]
+#[from_args(name = "bytes.hex", style = c_named, at_most_total, kwargs_not_supported_yet)]
 struct BytesHexArgs {
     #[from_args(default = Value::None)]
     sep: Value,
@@ -2184,7 +2171,7 @@ pub fn bytes_fromhex(args: ArgValues, vm: &mut VM<'_, impl ResourceTracker>) -> 
             }
         }
         _ => {
-            let t = hex_value.py_type(vm);
+            let t = hex_value.py_type_name(vm);
             return Err(ExcType::type_error(format!("fromhex() argument must be str, not {t}")));
         }
     };

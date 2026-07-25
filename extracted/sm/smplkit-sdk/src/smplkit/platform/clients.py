@@ -31,63 +31,127 @@ import logging
 import threading
 from typing import Any, overload
 
+from smplkit._buffer import _CONTEXT_BATCH_FLUSH_SIZE, _ContextRegistrationBuffer
 from smplkit._config import _service_url, resolve_client_config
+from smplkit._generated.app.api.context_types import (
+    create_context_type as _gen_create_context_type,
+)
+from smplkit._generated.app.api.context_types import (
+    delete_context_type as _gen_delete_context_type,
+)
+from smplkit._generated.app.api.context_types import (
+    get_context_type as _gen_get_context_type,
+)
+from smplkit._generated.app.api.context_types import (
+    list_context_types as _gen_list_context_types,
+)
+from smplkit._generated.app.api.context_types import (
+    update_context_type as _gen_update_context_type,
+)
+from smplkit._generated.app.api.contexts import (
+    bulk_register_contexts as _gen_bulk_register_contexts,
+)
+from smplkit._generated.app.api.contexts import (
+    delete_context as _gen_delete_context,
+)
+from smplkit._generated.app.api.contexts import (
+    get_context as _gen_get_context,
+)
+from smplkit._generated.app.api.contexts import (
+    list_contexts as _gen_list_contexts,
+)
+from smplkit._generated.app.api.contexts import (
+    update_context as _gen_update_context,
+)
+from smplkit._generated.app.api.environments import (
+    create_environment as _gen_create_environment,
+)
+from smplkit._generated.app.api.environments import (
+    delete_environment as _gen_delete_environment,
+)
+from smplkit._generated.app.api.environments import (
+    get_environment as _gen_get_environment,
+)
+from smplkit._generated.app.api.environments import (
+    list_environments as _gen_list_environments,
+)
+from smplkit._generated.app.api.environments import (
+    update_environment as _gen_update_environment,
+)
+from smplkit._generated.app.api.services import (
+    create_service as _gen_create_service,
+)
+from smplkit._generated.app.api.services import (
+    delete_service as _gen_delete_service,
+)
+from smplkit._generated.app.api.services import (
+    get_service as _gen_get_service,
+)
+from smplkit._generated.app.api.services import (
+    list_services as _gen_list_services,
+)
+from smplkit._generated.app.api.services import (
+    update_service as _gen_update_service,
+)
+from smplkit._generated.app.client import AuthenticatedClient as _AppAuthClient
+from smplkit._generated.app.models import (
+    Context as _GenContext,
+)
+from smplkit._generated.app.models import (
+    ContextAttributes as _GenContextAttributes,
+)
+from smplkit._generated.app.models import (
+    ContextBulkItem as _GenContextBulkItem,
+)
+from smplkit._generated.app.models import (
+    ContextBulkItemAttributes as _GenContextBulkItemAttributes,
+)
+from smplkit._generated.app.models import (
+    ContextBulkRegister as _GenContextBulkRegister,
+)
+from smplkit._generated.app.models import (
+    ContextResource as _GenContextResource,
+)
+from smplkit._generated.app.models import (
+    ContextResponse as _GenContextResponse,
+)
+from smplkit._generated.app.models import (
+    ContextType as _GenContextType,
+)
+from smplkit._generated.app.models import (
+    ContextTypeAttributes as _GenContextTypeAttributes,
+)
+from smplkit._generated.app.models import (
+    ContextTypeRequest as _GenContextTypeRequest,
+)
+from smplkit._generated.app.models import (
+    ContextTypeResource as _GenContextTypeResource,
+)
+from smplkit._generated.app.models import (
+    Environment as _GenEnvironment,
+)
+from smplkit._generated.app.models import (
+    EnvironmentRequest as _GenEnvironmentRequest,
+)
+from smplkit._generated.app.models import (
+    EnvironmentResource as _GenEnvironmentResource,
+)
+from smplkit._generated.app.models import (
+    Service as _GenService,
+)
+from smplkit._generated.app.models import (
+    ServiceRequest as _GenServiceRequest,
+)
+from smplkit._generated.app.models import (
+    ServiceResource as _GenServiceResource,
+)
 from smplkit._transport import with_default_user_agent
 from smplkit.errors import (
     NotFoundError,
     ValidationError,
     _raise_for_status,
 )
-from smplkit._generated.app.api.context_types import (
-    create_context_type as _gen_create_context_type,
-    delete_context_type as _gen_delete_context_type,
-    get_context_type as _gen_get_context_type,
-    list_context_types as _gen_list_context_types,
-    update_context_type as _gen_update_context_type,
-)
-from smplkit._generated.app.api.contexts import (
-    bulk_register_contexts as _gen_bulk_register_contexts,
-    delete_context as _gen_delete_context,
-    get_context as _gen_get_context,
-    list_contexts as _gen_list_contexts,
-    update_context as _gen_update_context,
-)
-from smplkit._generated.app.api.environments import (
-    create_environment as _gen_create_environment,
-    delete_environment as _gen_delete_environment,
-    get_environment as _gen_get_environment,
-    list_environments as _gen_list_environments,
-    update_environment as _gen_update_environment,
-)
-from smplkit._generated.app.api.services import (
-    create_service as _gen_create_service,
-    delete_service as _gen_delete_service,
-    get_service as _gen_get_service,
-    list_services as _gen_list_services,
-    update_service as _gen_update_service,
-)
-from smplkit._generated.app.client import AuthenticatedClient as _AppAuthClient
-from smplkit._generated.app.models import (
-    Context as _GenContext,
-    ContextAttributes as _GenContextAttributes,
-    ContextBulkItem as _GenContextBulkItem,
-    ContextBulkItemAttributes as _GenContextBulkItemAttributes,
-    ContextBulkRegister as _GenContextBulkRegister,
-    ContextResource as _GenContextResource,
-    ContextResponse as _GenContextResponse,
-    ContextType as _GenContextType,
-    ContextTypeAttributes as _GenContextTypeAttributes,
-    ContextTypeRequest as _GenContextTypeRequest,
-    ContextTypeResource as _GenContextTypeResource,
-    Environment as _GenEnvironment,
-    EnvironmentRequest as _GenEnvironmentRequest,
-    EnvironmentResource as _GenEnvironmentResource,
-    Service as _GenService,
-    ServiceRequest as _GenServiceRequest,
-    ServiceResource as _GenServiceResource,
-)
 from smplkit.flags.types import AsyncContext, Context
-from smplkit._buffer import _CONTEXT_BATCH_FLUSH_SIZE, _ContextRegistrationBuffer
 from smplkit.platform.models import (
     AsyncContextType,
     AsyncEnvironment,

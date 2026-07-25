@@ -5,21 +5,22 @@ If environment variable HYPEROPT_SHOW is defined and true,
 then the plots actually appear.
 
 """
-import unittest
+
 import os
+import unittest
+
+import pytest
 
 try:
     import matplotlib
 
     matplotlib.use("svg")  # -- prevents trying to connect to X server
 except ImportError:
-    import nose
+    pytest.skip("matplotlib not installed", allow_module_level=True)
 
-    raise nose.SkipTest()
-
-from hyperopt import Trials
 import hyperopt.plotting
-from hyperopt import rand, fmin
+from hyperopt import Trials, fmin, rand
+
 from .test_domains import many_dists
 
 

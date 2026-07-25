@@ -28,6 +28,8 @@ from dataclasses import dataclass
 from urllib.parse import parse_qs, urlparse
 
 import requests
+from slack_sdk import WebClient
+from slack_sdk.errors import SlackApiError
 
 from airbyte_ops_mcp.constants import EXPECTED_ADMIN_EMAIL_DOMAIN
 from airbyte_ops_mcp.internal_team_roster import fetch_roster, search_roster
@@ -50,6 +52,7 @@ _SLACK_MESSAGE_URL_PATTERN = re.compile(
 
 # The workspace slug we expect for Airbyte's Slack.
 _EXPECTED_WORKSPACE = "airbytehq-team"
+_SLACK_USERGROUP_ID_PATTERN = re.compile(r"^S[A-Z0-9]{8,}$")
 
 # Approval record constants
 _APPROVAL_RECORD_TYPE = "approval_record"
@@ -139,6 +142,26 @@ class ApprovalRecord:
     """Resolved `@airbyte.io` email, populated when `resolve_admin_email=True`."""
 
 
+@dataclass(frozen=True)
+class SlackUsergroup:
+    """Slack usergroup details used to construct a usergroup mention."""
+
+    id: str
+    """Slack usergroup ID."""
+
+    handle: str
+    """Slack usergroup handle without the leading `@`."""
+
+    name: str
+    """Slack usergroup display name."""
+
+    description: str
+    """Slack usergroup description."""
+
+    user_count: int
+    """Number of members in the usergroup."""
+
+
 # ---------------------------------------------------------------------------
 # URL parsing
 # ---------------------------------------------------------------------------
@@ -216,6 +239,82 @@ def _resolve_slack_bot_token() -> str:
             "environment variable."
         )
     return token
+
+
+def list_slack_usergroups(*, token: str | None = None) -> list[SlackUsergroup]:
+    """List Slack usergroups visible to the configured bot token.
+
+    Args:
+        token: Slack bot token. Resolved from the environment when omitted.
+
+    Returns:
+        Usergroups with the fields needed to resolve Slack mention IDs.
+
+    Raises:
+        SlackAPIError: If the Slack API call fails or the token lacks
+            `usergroups:read`.
+    """
+    if token is None:
+        token = _resolve_slack_bot_token()
+
+    client = WebClient(token=token)
+    try:
+        response = client.usergroups_list(include_disabled=False, include_users=True)
+    except SlackApiError as error:
+        slack_error = error.response.get("error", "unknown")
+        if slack_error == "missing_scope":
+            raise SlackAPIError(
+                "Slack usergroup lookup requires the usergroups:read scope "
+                "on the bot token."
+            ) from error
+        raise SlackAPIError(f"Slack usergroups.list failed: {slack_error}") from error
+
+    return [
+        SlackUsergroup(
+            id=group.get("id", ""),
+            handle=group.get("handle", ""),
+            name=group.get("name", ""),
+            description=group.get("description", ""),
+            user_count=group.get("user_count", len(group.get("users", []))),
+        )
+        for group in response.get("usergroups", [])
+    ]
+
+
+def lookup_slack_usergroup(
+    id_or_handle: str,
+    *,
+    token: str | None = None,
+) -> list[SlackUsergroup]:
+    """Find a Slack usergroup by handle, name, or exact usergroup ID.
+
+    The `id_or_handle` value must be non-empty. A leading `@` is ignored so callers can
+    search with either `oc-apis` or `@oc-apis`. Handle and name searches are
+    case-insensitive partial matches. S-prefixed usergroup IDs are matched
+    exactly.
+
+    Raises:
+        ValueError: If `id_or_handle` is empty or contains only whitespace.
+    """
+    normalized_id_or_handle = id_or_handle.strip().removeprefix("@")
+    if not normalized_id_or_handle:
+        raise ValueError("Slack usergroup lookup id_or_handle must be non-empty.")
+
+    usergroups = list_slack_usergroups(token=token)
+    if _SLACK_USERGROUP_ID_PATTERN.fullmatch(normalized_id_or_handle):
+        return [
+            usergroup
+            for usergroup in usergroups
+            if usergroup.id == normalized_id_or_handle
+        ]
+
+    normalized_id_or_handle = normalized_id_or_handle.casefold()
+    return [
+        usergroup
+        for usergroup in usergroups
+        if normalized_id_or_handle in usergroup.handle.casefold()
+        or normalized_id_or_handle in usergroup.name.casefold()
+    ]
 
 
 def _fetch_slack_message(

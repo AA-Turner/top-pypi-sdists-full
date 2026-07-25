@@ -1,5 +1,5 @@
-""" Support code for new-style search algorithms.
-"""
+"""Support code for new-style search algorithms."""
+
 import copy
 from collections import deque
 

@@ -1,18 +1,15 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.log_level import check_log_level
-from ..models.log_level import LogLevel
 from dateutil.parser import isoparse
-from typing import cast
-import datetime
+
+from ..models.log_level import LogLevel, check_log_level
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.log_group_environments_type_0 import LogGroupEnvironmentsType0
@@ -47,11 +44,11 @@ class LogGroup:
     """
 
     name: str
-    level: LogLevel | None | Unset = UNSET
-    parent_id: None | str | Unset = UNSET
-    environments: LogGroupEnvironmentsType0 | None | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    updated_at: datetime.datetime | None | Unset = UNSET
+    level: LogLevel | Unset | None = UNSET
+    parent_id: str | Unset | None = UNSET
+    environments: LogGroupEnvironmentsType0 | Unset | None = UNSET
+    created_at: datetime.datetime | Unset | None = UNSET
+    updated_at: datetime.datetime | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -59,7 +56,7 @@ class LogGroup:
 
         name = self.name
 
-        level: None | str | Unset
+        level: str | Unset | None
         if isinstance(self.level, Unset):
             level = UNSET
         elif isinstance(self.level, str):
@@ -67,13 +64,13 @@ class LogGroup:
         else:
             level = self.level
 
-        parent_id: None | str | Unset
+        parent_id: str | Unset | None
         if isinstance(self.parent_id, Unset):
             parent_id = UNSET
         else:
             parent_id = self.parent_id
 
-        environments: dict[str, Any] | None | Unset
+        environments: dict[str, Any] | Unset | None
         if isinstance(self.environments, Unset):
             environments = UNSET
         elif isinstance(self.environments, LogGroupEnvironmentsType0):
@@ -81,7 +78,7 @@ class LogGroup:
         else:
             environments = self.environments
 
-        created_at: None | str | Unset
+        created_at: str | Unset | None
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -89,7 +86,7 @@ class LogGroup:
         else:
             created_at = self.created_at
 
-        updated_at: None | str | Unset
+        updated_at: str | Unset | None
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -124,7 +121,7 @@ class LogGroup:
         d = dict(src_dict)
         name = d.pop("name")
 
-        def _parse_level(data: object) -> LogLevel | None | Unset:
+        def _parse_level(data: object) -> LogLevel | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -141,7 +138,7 @@ class LogGroup:
 
         level = _parse_level(d.pop("level", UNSET))
 
-        def _parse_parent_id(data: object) -> None | str | Unset:
+        def _parse_parent_id(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -150,7 +147,7 @@ class LogGroup:
 
         parent_id = _parse_parent_id(d.pop("parent_id", UNSET))
 
-        def _parse_environments(data: object) -> LogGroupEnvironmentsType0 | None | Unset:
+        def _parse_environments(data: object) -> LogGroupEnvironmentsType0 | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -167,7 +164,7 @@ class LogGroup:
 
         environments = _parse_environments(d.pop("environments", UNSET))
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -184,7 +181,7 @@ class LogGroup:
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_updated_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

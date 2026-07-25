@@ -32,6 +32,7 @@ EMAIL_FIELD_MAP = COMMON_MESSAGE_FIELD_MAP | {
     "to": "to",
     "headers": "headers",
     "reply_to": "reply_to",
+    "cc": "cc",
     "bcc": "bcc",
     "subject": "subject",
     "preheader": "preheader",
@@ -61,6 +62,12 @@ PUSH_FIELD_MAP = COMMON_MESSAGE_FIELD_MAP | {
 SMS_FIELD_MAP = COMMON_MESSAGE_FIELD_MAP | {
     "to": "to",
     "send_to_unsubscribed": "send_to_unsubscribed",
+}
+
+WHATSAPP_FIELD_MAP = COMMON_MESSAGE_FIELD_MAP | {
+    "to": "to",
+    "send_to_unsubscribed": "send_to_unsubscribed",
+    "tracked": "tracked",
 }
 
 INBOX_FIELD_MAP = COMMON_MESSAGE_FIELD_MAP
@@ -108,6 +115,12 @@ class APIClient(ClientBase):
         resp = self.send_request("POST", self.url + "/v1/send/sms", request)
         return resp.json()
 
+    def send_whatsapp(self, request):
+        if isinstance(request, SendWhatsAppRequest):
+            request = request._to_dict()
+        resp = self.send_request("POST", self.url + "/v1/send/whatsapp", request)
+        return resp.json()
+
     def send_inbox_message(self, request):
         if isinstance(request, SendInboxMessageRequest):
             request = request._to_dict()
@@ -138,6 +151,7 @@ class SendEmailRequest:
         _from=None,
         headers=None,
         reply_to=None,
+        cc=None,
         bcc=None,
         subject=None,
         preheader=None,
@@ -161,6 +175,7 @@ class SendEmailRequest:
         self._from = _from
         self.headers = headers
         self.reply_to = reply_to
+        self.cc = cc
         self.bcc = bcc
         self.subject = subject
         self.preheader = preheader
@@ -274,6 +289,38 @@ class SendSMSRequest:
     def _to_dict(self):
         """Build a request payload from the object."""
         return _payload_from_fields(self, SMS_FIELD_MAP)
+
+
+class SendWhatsAppRequest:
+    """An object with all the options available for triggering a transactional WhatsApp message."""
+
+    def __init__(
+        self,
+        transactional_message_id=None,
+        to=None,
+        identifiers=None,
+        tracked=None,
+        disable_message_retention=None,
+        send_to_unsubscribed=None,
+        queue_draft=None,
+        message_data=None,
+        send_at=None,
+        language=None,
+    ):
+        self.transactional_message_id = transactional_message_id
+        self.to = to
+        self.identifiers = identifiers
+        self.tracked = tracked
+        self.disable_message_retention = disable_message_retention
+        self.send_to_unsubscribed = send_to_unsubscribed
+        self.queue_draft = queue_draft
+        self.message_data = message_data
+        self.send_at = send_at
+        self.language = language
+
+    def _to_dict(self):
+        """Build a request payload from the object."""
+        return _payload_from_fields(self, WHATSAPP_FIELD_MAP)
 
 
 class SendInboxMessageRequest:

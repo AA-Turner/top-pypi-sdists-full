@@ -11,17 +11,18 @@
 use std::{borrow::Cow, mem};
 
 use ahash::AHashSet;
+use monty_types::{MontyException, StackFrame};
 
 use super::{
+    RESERVED_MODULE_DUNDERS,
     builder::{CodeBuilder, JumpLabel, JumpTarget},
     code::Code,
-    op::{FORMAT_VALUE_HAS_SPEC, FORMAT_VALUE_STATIC_SPEC, Opcode},
+    op::{FORMAT_VALUE_HAS_SPEC, FORMAT_VALUE_STATIC_SPEC, Opcode, assert_flags},
 };
 use crate::{
     args::{ArgExprs, CallArg, CallKwarg, Kwarg},
-    builtins::Builtins,
+    builtins::{Builtins, BuiltinsFunctions},
     exception_private::ExcType,
-    exception_public::{MontyException, SourceMap, StackFrame},
     expressions::{
         AssignTarget, Callable, CmpOperator, Comprehension, DictItem, Expr, ExprLoc, Identifier, Literal, NameScope,
         Node, Operator, PreparedFunctionDef, PreparedNode, SequenceItem, UnpackTarget,
@@ -30,7 +31,10 @@ use crate::{
     function::Function,
     intern::{Interns, StringId},
     modules::StandardLib,
+    name_map::NameMap,
     parse::{CodeRange, ExceptHandler, Try},
+    run::CompileOptions,
+    source_map::{SourceMap, StackFrameExt},
     value::{EitherStr, Value},
 };
 
@@ -73,8 +77,8 @@ const MAX_COMP_GENERATORS: usize = 255;
 /// Converts a `usize` namespace size into the `u16` slot count expected by
 /// the bytecode, surfacing a `CompileError` if the limit is exceeded.
 ///
-/// `kind` ("module", "function", or "lambda") is interpolated into the error
-/// message so the user can distinguish which scope hit the cap. The position
+/// `kind` ("module", "function", "lambda", or "class body") is interpolated
+/// into the error message so the user can distinguish which scope hit the cap. The position
 /// is left as the default `CodeRange` because the relevant location is the
 /// whole compile unit — there is no single offending statement to highlight.
 fn check_namespace_size_u16(size: usize, kind: &'static str) -> Result<u16, CompileError> {
@@ -259,7 +263,7 @@ pub struct Compiler<'a> {
 
     /// Whether the compiler is currently compiling module-level code.
     ///
-    /// At module level, `Local` and `LocalUnassigned` scopes map to global opcodes
+    /// At module level, `Local` scope maps to global opcodes
     /// (`LoadGlobal`/`StoreGlobal`/`DeleteGlobal`) because module locals live in the
     /// globals array. In function bodies this is `false` and these scopes use local
     /// opcodes that index into the stack.
@@ -271,12 +275,6 @@ pub struct Compiler<'a> {
     ///   free vars + assigned locals).
     /// - Module scope: `0` — module-level "locals" live in `self.globals`, so
     ///   nothing is stored in the frame's locals region.
-    ///
-    /// Comp-var loads/stores are emitted as `LoadLocal/W` / `StoreLocal/W` with
-    /// the slot operand set to `frame_locals + offset`, where `offset` is the
-    /// comp-var's absolute operand-stack offset. At runtime, the local opcodes
-    /// access `stack[stack_base + slot]`; with `frame_locals` chosen to match
-    /// the runtime `locals_count`, this resolves correctly in both scopes.
     frame_locals: u16,
 
     /// Operand-stack offsets for comp-var slot IDs currently in scope.
@@ -301,6 +299,10 @@ pub struct Compiler<'a> {
     /// `RaiseUnboundLocal(name_id)`. The same comprehension's slots are
     /// removed at `exit_comprehension`, so sibling comps start fresh.
     bound_comp_slots: AHashSet<u16>,
+
+    /// Whether to compile pytest-style assert failure annotations.
+    /// Propagated to nested function and class-body compilers.
+    assert_message_annotations: bool,
 }
 
 /// Information about a loop for break/continue handling.
@@ -397,7 +399,13 @@ impl<'a> Compiler<'a> {
     /// load/store opcodes encode `frame_locals + offset` as their slot
     /// operand so plain `LoadLocal/W` and `StoreLocal/W` reach the correct
     /// operand-stack position at runtime.
-    fn new(interns: &'a Interns, functions: Vec<Function>, is_module_scope: bool, frame_locals: u16) -> Self {
+    fn new(
+        interns: &'a Interns,
+        functions: Vec<Function>,
+        is_module_scope: bool,
+        frame_locals: u16,
+        assert_message_annotations: bool,
+    ) -> Self {
         let mut code = CodeBuilder::new();
         code.new_code_region(0);
         Self {
@@ -411,6 +419,7 @@ impl<'a> Compiler<'a> {
             frame_locals,
             slot_offsets: Vec::new(),
             bound_comp_slots: AHashSet::new(),
+            assert_message_annotations,
         }
     }
 
@@ -422,9 +431,10 @@ impl<'a> Compiler<'a> {
     pub fn compile_module(
         nodes: &[PreparedNode],
         interns: &Interns,
-        namespace_size: usize,
+        globals: &NameMap,
+        options: CompileOptions,
     ) -> Result<CompileResult, CompileError> {
-        Self::compile_module_with_functions(nodes, interns, namespace_size, Vec::new())
+        Self::compile_module_with_functions(nodes, interns, globals, Vec::new(), options)
     }
 
     /// Compiles module-level code while preserving an existing function table prefix.
@@ -435,14 +445,27 @@ impl<'a> Compiler<'a> {
     pub fn compile_module_with_functions(
         nodes: &[PreparedNode],
         interns: &Interns,
-        namespace_size: usize,
+        globals: &NameMap,
         existing_functions: Vec<Function>,
+        options: CompileOptions,
     ) -> Result<CompileResult, CompileError> {
-        let num_locals = check_namespace_size_u16(namespace_size, "module")?;
+        let num_locals = check_namespace_size_u16(globals.len(), "module")?;
         // Module frames have `locals_count = 0` at runtime (globals live in
         // `self.globals`), so comp-var offsets are emitted as plain operand-
         // stack indices.
-        let mut compiler = Compiler::new(interns, existing_functions, true, 0);
+        let mut compiler = Compiler::new(
+            interns,
+            existing_functions,
+            true,
+            0,
+            options.assert_message_annotations.enabled(),
+        );
+
+        // All globals are "local names" in the module
+        for (slot, name_id) in globals.iter() {
+            compiler.code.register_local_name(slot.as_u16(), name_id);
+        }
+
         compiler.compile_block(nodes)?;
 
         // Module returns None if no explicit return
@@ -468,11 +491,12 @@ impl<'a> Compiler<'a> {
         interns: &Interns,
         functions: Vec<Function>,
         num_locals: u16,
+        assert_message_annotations: bool,
     ) -> Result<(Code, Vec<Function>), CompileError> {
         // Function frames have `locals_count = num_locals` at runtime, so
         // comp-var load/store opcodes use `num_locals + offset` to skip past
         // the locals region into the operand-stack region.
-        let mut compiler = Compiler::new(interns, functions, false, num_locals);
+        let mut compiler = Compiler::new(interns, functions, false, num_locals, assert_message_annotations);
         compiler.compile_block(body)?;
 
         // Implicit return None if no explicit return
@@ -643,6 +667,13 @@ impl<'a> Compiler<'a> {
                 }
             }
             Node::FunctionDef(func_def) => self.compile_function_def(func_def)?,
+            Node::ClassDef {
+                name,
+                body,
+                members,
+                decorators,
+                position,
+            } => self.compile_class_def(name, body, members, decorators, *position)?,
             Node::Try(try_block) => self.compile_try(try_block)?,
             Node::With {
                 context, target, body, ..
@@ -673,6 +704,65 @@ impl<'a> Compiler<'a> {
     /// 3. Adding the Function to the compiler's functions vector
     /// 4. Emitting bytecode to evaluate defaults and create the function at runtime
     fn compile_function_def(&mut self, func_def: &PreparedFunctionDef) -> Result<(), CompileError> {
+        // Build the function object on the stack, then bind it to its name slot.
+        self.emit_make_function(func_def, "function")?;
+        self.compile_store(&func_def.name)?;
+        Ok(())
+    }
+
+    /// Compiles a lambda expression.
+    ///
+    /// This is similar to `compile_function_def` but does NOT store the function
+    /// to a name slot — it stays on the stack as the expression result. The
+    /// lambda's `PreparedFunctionDef` already has `<lambda>` as its name.
+    fn compile_lambda(&mut self, func_def: &PreparedFunctionDef) -> Result<(), CompileError> {
+        self.emit_make_function(func_def, "lambda")
+    }
+
+    /// Compiles a function body and emits the bytecode that builds the runtime
+    /// function/closure object, leaving it on the operand stack.
+    ///
+    /// Shared by `def` definitions, lambdas, and class methods. The caller decides
+    /// what to do with the resulting value: store it to a name
+    /// ([`compile_function_def`](Self::compile_function_def)), leave it as an
+    /// expression result ([`compile_lambda`](Self::compile_lambda)), or fold it
+    /// into a class namespace ([`compile_class_def`](Self::compile_class_def)).
+    ///
+    /// `what` labels the construct ("function"/"lambda"/"method") for the
+    /// namespace-size error message. Net stack effect is `+1`: even when free
+    /// variables are captured, the pushed cells are consumed by `MakeClosure`.
+    fn emit_make_function(&mut self, func_def: &PreparedFunctionDef, what: &'static str) -> Result<(), CompileError> {
+        let assert_message_annotations = self.assert_message_annotations;
+        self.emit_make_callable(func_def, what, |interns, functions, namespace_size| {
+            Self::compile_function_body(
+                &func_def.body,
+                interns,
+                functions,
+                namespace_size,
+                assert_message_annotations,
+            )
+        })
+    }
+
+    /// Shared core of [`emit_make_function`](Self::emit_make_function) and
+    /// [`emit_make_class_body`](Self::emit_make_class_body): compiles a callable's
+    /// body via `compile_body`, registers the resulting [`Function`], pushes its
+    /// default values, and emits `MakeFunction`/`MakeClosure`, leaving the
+    /// function/closure value on the operand stack (net stack effect `+1`).
+    ///
+    /// `compile_body` is the only thing that varies: ordinary functions/lambdas
+    /// use [`compile_function_body`](Self::compile_function_body) (implicit
+    /// `return None` tail), while a class body uses
+    /// [`compile_class_body`](Self::compile_class_body) (assemble-namespace +
+    /// return-class tail). It receives the interner, the moved-out `functions`
+    /// vector, and this body's namespace size; it returns the compiled body code
+    /// and the (possibly extended) `functions` vector.
+    fn emit_make_callable(
+        &mut self,
+        func_def: &PreparedFunctionDef,
+        what: &'static str,
+        compile_body: impl FnOnce(&Interns, Vec<Function>, u16) -> Result<(Code, Vec<Function>), CompileError>,
+    ) -> Result<(), CompileError> {
         let func_pos = func_def.name.position;
 
         // Bound the bytecode-operand counts before compiling — the `u8` casts
@@ -680,12 +770,11 @@ impl<'a> Compiler<'a> {
         let defaults_count = check_call_args_u8(func_def.default_exprs.len(), "default parameter values", func_pos)?;
         let cell_count = check_call_args_u8(func_def.free_var_enclosing_slots.len(), "closure variables", func_pos)?;
 
-        // 1. Compile the function body recursively
-        // Take ownership of functions for the recursive compile, then restore
+        // 1. Compile the body recursively.
+        // Take ownership of functions for the recursive compile, then restore.
         let functions = mem::take(&mut self.functions);
-        let namespace_size = check_namespace_size_u16(func_def.namespace_size, "function")?;
-        let (body_code, mut functions) =
-            Self::compile_function_body(&func_def.body, self.interns, functions, namespace_size)?;
+        let namespace_size = check_namespace_size_u16(func_def.namespace_size, what)?;
+        let (body_code, mut functions) = compile_body(self.interns, functions, namespace_size)?;
 
         // 2. Create the compiled Function and add to the vector
         let func_id = functions.len();
@@ -694,7 +783,8 @@ impl<'a> Compiler<'a> {
             func_def.signature.clone(),
             func_def.namespace_size,
             func_def.free_var_enclosing_slots.clone(),
-            func_def.cell_var_count,
+            func_def.free_var_slots.clone(),
+            func_def.cell_var_slots.clone(),
             func_def.cell_param_indices.clone(),
             func_def.default_exprs.len(),
             func_def.is_async,
@@ -717,7 +807,7 @@ impl<'a> Compiler<'a> {
             self.code
                 .emit_u16_u8(Opcode::MakeFunction, func_id_u16, defaults_count)?;
         } else {
-            // Push captured cells from enclosing scope
+            // Push captured cells from enclosing scope.
             for &slot in &func_def.free_var_enclosing_slots {
                 // Load the cell reference from the enclosing namespace.
                 // `slot` is a `NamespaceId` bound by `check_namespace_size_u16`
@@ -730,77 +820,130 @@ impl<'a> Compiler<'a> {
                 .emit_u16_u8_u8(Opcode::MakeClosure, func_id_u16, defaults_count, cell_count)?;
         }
 
-        // 5. Store the function object to its name slot
-        self.compile_store(&func_def.name)?;
-
         Ok(())
     }
 
-    /// Compiles a lambda expression.
+    /// Compiles a `class Foo: ...` definition.
     ///
-    /// This is similar to `compile_function_def` but:
-    /// - Does NOT store the function to a name slot (it stays on the stack as an expression result)
-    ///
-    /// The lambda's `PreparedFunctionDef` already has `<lambda>` as its name.
-    fn compile_lambda(&mut self, func_def: &PreparedFunctionDef) -> Result<(), CompileError> {
-        let func_pos = func_def.name.position;
-
-        // Bound the bytecode-operand counts before compiling — the `u8` casts
-        // below depend on these fitting in 255.
-        let defaults_count = check_call_args_u8(func_def.default_exprs.len(), "default parameter values", func_pos)?;
-        let cell_count = check_call_args_u8(func_def.free_var_enclosing_slots.len(), "closure variables", func_pos)?;
-
-        // 1. Compile the function body recursively
-        let functions = mem::take(&mut self.functions);
-        let namespace_size = check_namespace_size_u16(func_def.namespace_size, "lambda")?;
-        let (body_code, mut functions) =
-            Self::compile_function_body(&func_def.body, self.interns, functions, namespace_size)?;
-
-        // 2. Create the compiled Function and add to the vector
-        let func_id = functions.len();
-        let function = Function::new(
-            func_def.name,
-            func_def.signature.clone(),
-            func_def.namespace_size,
-            func_def.free_var_enclosing_slots.clone(),
-            func_def.cell_var_count,
-            func_def.cell_param_indices.clone(),
-            func_def.default_exprs.len(),
-            func_def.is_async,
-            body_code,
-        );
-        functions.push(function);
-
-        // Restore functions to self
-        self.functions = functions;
-
-        // 3. Compile and push default values (evaluated at definition time)
-        for default_expr in &func_def.default_exprs {
-            self.compile_expr(default_expr)?;
+    /// Modelled on CPython's class-body code object: the class body is compiled
+    /// to a synthetic zero-arg function (via
+    /// [`emit_make_class_body`](Self::emit_make_class_body)) that runs the class
+    /// statements in its own scope and returns the assembled `Class`. We emit
+    /// that function value, call it with zero args, and bind the result to the
+    /// class name.
+    fn compile_class_def(
+        &mut self,
+        name: &Identifier,
+        body: &PreparedFunctionDef,
+        members: &[Identifier],
+        decorators: &[ExprLoc],
+        position: CodeRange,
+    ) -> Result<(), CompileError> {
+        // Pushed in source order so they sit below the class value: the applying
+        // calls below then run bottom-up, like CPython's `cls = deco(cls)`.
+        for decorator in decorators {
+            self.compile_expr(decorator)?;
         }
-        let func_id_u16 = check_function_count_u16(func_id, func_pos)?;
-
-        // 4. Emit MakeFunction or MakeClosure (if has free vars)
-        if func_def.free_var_enclosing_slots.is_empty() {
-            // MakeFunction: func_id (u16) + defaults_count (u8)
-            self.code
-                .emit_u16_u8(Opcode::MakeFunction, func_id_u16, defaults_count)?;
-        } else {
-            // Push captured cells from enclosing scope. `slot` is a
-            // `NamespaceId` from the enclosing scope, bounded by
-            // `check_namespace_size_u16`; the conversion is an invariant.
-            for &slot in &func_def.free_var_enclosing_slots {
-                self.code.emit_load_local(slot.as_u16())?;
-            }
-            // MakeClosure: func_id (u16) + defaults_count (u8) + cell_count (u8)
-            self.code
-                .emit_u16_u8_u8(Opcode::MakeClosure, func_id_u16, defaults_count, cell_count)?;
+        // Build the class-body function/closure value on the stack...
+        self.emit_make_class_body(body, members, name, position)?;
+        // ...call it with zero args — it runs the body and returns the `Class`.
+        // Record the class statement as the call site so a traceback from inside
+        // the class body attributes this frame to the `class` statement (like
+        // CPython) rather than falling back to `CodeRange::default()`.
+        self.code.set_location(position, None);
+        self.code.emit_u8(Opcode::CallFunction, 0)?;
+        // Each call consumes the callable below the current value: `deco(value)`.
+        // Reversed so the bottom-most (last pushed) applies first, and located at
+        // its own decorator so a traceback pins the one that raised, like CPython.
+        for decorator in decorators.iter().rev() {
+            self.code.set_location(decorator.position, None);
+            self.code.emit_u8(Opcode::CallFunction, 1)?;
         }
-
-        // NOTE: Unlike compile_function_def, we do NOT call compile_store here.
-        // The function object stays on the stack as an expression result.
-
+        // ...and bind the (possibly decorated) class object to the name's slot.
+        self.compile_store(name)?;
         Ok(())
+    }
+
+    /// Emits the class-body function value (a `MakeFunction`/`MakeClosure`),
+    /// leaving it on the operand stack (net stack effect `+1`).
+    ///
+    /// Sibling of [`emit_make_function`](Self::emit_make_function): identical
+    /// closure/cell handling, but compiles the body with
+    /// [`compile_class_body`](Self::compile_class_body) so the emitted code ends
+    /// by assembling the namespace and returning the `Class`.
+    fn emit_make_class_body(
+        &mut self,
+        body: &PreparedFunctionDef,
+        members: &[Identifier],
+        class_name: &Identifier,
+        position: CodeRange,
+    ) -> Result<(), CompileError> {
+        let assert_message_annotations = self.assert_message_annotations;
+        self.emit_make_callable(body, "class body", |interns, functions, namespace_size| {
+            Self::compile_class_body(
+                &body.body,
+                members,
+                class_name,
+                position,
+                interns,
+                functions,
+                namespace_size,
+                assert_message_annotations,
+            )
+        })
+    }
+
+    /// Compiles a class body, mirroring
+    /// [`compile_function_body`](Self::compile_function_body) but replacing the
+    /// implicit `LoadNone; ReturnValue` tail with a `type(name, (), {...})`
+    /// call: push the class name and an empty bases tuple, then for each
+    /// member (in source order) push `LoadConst <name>` and the member's value
+    /// from its class-body slot, build the namespace dict, and call the 3-arg
+    /// `type()` builtin (which builds the `Class`), then `ReturnValue`.
+    ///
+    /// Members are plain locals (the prepare phase forces class-body locals to
+    /// never be cells — see `prepare_class_def`), so [`compile_name`](Self::compile_name)
+    /// emits `LoadLocal`; it would transparently emit `LoadCell` if that ever
+    /// changed, so no assumption is hard-coded here.
+    #[expect(clippy::too_many_arguments)]
+    fn compile_class_body(
+        body: &[PreparedNode],
+        members: &[Identifier],
+        class_name: &Identifier,
+        position: CodeRange,
+        interns: &Interns,
+        functions: Vec<Function>,
+        num_locals: u16,
+        assert_message_annotations: bool,
+    ) -> Result<(Code, Vec<Function>), CompileError> {
+        let mut compiler = Compiler::new(interns, functions, false, num_locals, assert_message_annotations);
+        compiler.compile_block(body)?;
+
+        // Assembly errors (e.g. resource limits while building the dict)
+        // should point at the class statement, not the last member's line.
+        compiler.code.set_location(position, None);
+
+        // type(name, (), {members...}): push the name and empty bases tuple...
+        let class_name_const = compiler.code.add_const(Value::InternString(class_name.name_id))?;
+        compiler.code.emit_u16(Opcode::LoadConst, class_name_const)?;
+        compiler.code.emit_u16(Opcode::BuildTuple, 0)?;
+
+        // ...then the namespace dict: (name, value) for each member in order.
+        for member in members {
+            let name_const = compiler.code.add_const(Value::InternString(member.name_id))?;
+            compiler.code.emit_u16(Opcode::LoadConst, name_const)?;
+            compiler.compile_name(member)?;
+        }
+        let member_count = check_collection_size_u16(members.len(), position)?;
+        compiler.code.emit_u16(Opcode::BuildDict, member_count)?;
+
+        // ...and call the 3-arg type() builtin, which builds the class object.
+        compiler
+            .code
+            .emit_call_builtin_function(BuiltinsFunctions::Type as u8, 3)?;
+        compiler.code.emit(Opcode::ReturnValue)?;
+
+        Ok((compiler.code.build(num_locals), compiler.functions))
     }
 
     /// Compiles an import statement.
@@ -897,13 +1040,7 @@ impl<'a> Compiler<'a> {
                 self.compile_expr(right)?;
                 // Restore the full comparison expression's position for traceback caret range
                 self.code.set_location(expr_loc.position, None);
-                // ModEq needs special handling - it has a constant operand
-                if let CmpOperator::ModEq(value) = op {
-                    let const_idx = self.code.add_const(Value::Int(*value))?;
-                    self.code.emit_u16(Opcode::CompareModEq, const_idx)?;
-                } else {
-                    self.code.emit(cmp_operator_to_opcode(op))?;
-                }
+                self.code.emit(cmp_operator_to_opcode(*op))?;
             }
 
             Expr::ChainCmp { left, comparisons } => {
@@ -1205,23 +1342,13 @@ impl<'a> Compiler<'a> {
 
     /// Compiles loading a variable onto the stack.
     ///
-    /// At module level, `Local` and `LocalUnassigned` scopes emit global opcodes
+    /// At module level, `Local` scopes emits global opcodes
     /// because module-level locals live in the globals array.
     fn compile_name(&mut self, ident: &Identifier) -> Result<(), CompileError> {
         let slot = ident.namespace_id().as_u16();
         match ident.scope {
             NameScope::Local => {
                 // True local - register name and mark as assigned for UnboundLocalError
-                self.code.register_local_name(slot, ident.name_id);
-                self.code.register_assigned_local(slot);
-                if self.is_module_scope {
-                    self.code.emit_u16(Opcode::LoadGlobal, slot)
-                } else {
-                    self.code.emit_load_local(slot)
-                }
-            }
-            NameScope::LocalUnassigned => {
-                // Undefined reference - register name but NOT as assigned for NameError
                 self.code.register_local_name(slot, ident.name_id);
                 if self.is_module_scope {
                     self.code.emit_u16(Opcode::LoadGlobal, slot)
@@ -1230,8 +1357,10 @@ impl<'a> Compiler<'a> {
                 }
             }
             NameScope::Global => {
-                // Register the name for NameError/NameLookup messages
-                self.code.register_local_name(slot, ident.name_id);
+                // Global name - only a "local" name at module scope
+                if self.is_module_scope {
+                    self.code.register_local_name(slot, ident.name_id);
+                }
                 self.code.emit_u16(Opcode::LoadGlobal, slot)
             }
             NameScope::Cell => {
@@ -1268,31 +1397,21 @@ impl<'a> Compiler<'a> {
 
     /// Compiles loading a variable in call context (e.g., `foo()` loads `foo`).
     ///
-    /// For `LocalUnassigned` and `Global` scopes, emits callable-aware load opcodes
-    /// that push `ExtFunction(name_id)` for undefined names instead of yielding
+    /// For `Global` scope, emits a callable-aware load opcode that pushes
+    /// `ExtFunction(name_id)` for undefined names instead of yielding
     /// `NameLookup`. This allows execution to reach `CallFunction`, which naturally
     /// yields `FunctionCall` — giving the host a chance to handle external function calls.
     ///
     /// For `Local` and `Cell` scopes, delegates to `compile_name` since those can't
     /// be external functions (they're always defined locally or captured).
     fn compile_name_callable(&mut self, ident: &Identifier) -> Result<(), CompileError> {
-        let slot = ident.namespace_id().as_u16();
         match ident.scope {
-            NameScope::LocalUnassigned => {
-                // Undefined reference in call context - use callable-aware load.
-                // At module level, use global callable since locals are in the globals array.
-                self.code.register_local_name(slot, ident.name_id);
-                if self.is_module_scope {
-                    self.code.emit_load_global_callable(slot, ident.name_id)
-                } else {
-                    self.code.emit_load_local_callable(slot, ident.name_id)
-                }
-            }
             NameScope::Global => {
                 // Global scope - name_id is encoded in the operand because global slot
                 // indices are in a different namespace from local slots, so looking up
                 // the name from the current frame's local_names would be incorrect
-                self.code.emit_load_global_callable(slot, ident.name_id)
+                self.code
+                    .emit_load_global_callable(ident.namespace_id().as_u16(), ident.name_id)
             }
             // Local, Cell, and CompVar can't be external functions - use regular load
             NameScope::Local | NameScope::Cell | NameScope::CompVar => self.compile_name(ident),
@@ -1301,12 +1420,17 @@ impl<'a> Compiler<'a> {
 
     /// Compiles storing the top of stack to a variable.
     ///
-    /// At module level, `Local` and `LocalUnassigned` scopes emit `StoreGlobal`
+    /// At module level, `Local` scope emits `StoreGlobal`
     /// because module-level locals live in the globals array.
     fn compile_store(&mut self, target: &Identifier) -> Result<(), CompileError> {
         let slot = target.namespace_id().as_u16();
         match target.scope {
-            NameScope::Local | NameScope::LocalUnassigned => {
+            NameScope::Local => {
+                // Module-level `Local` binds the global namespace; function-level
+                // `Local` is a genuine local that may freely shadow a dunder name.
+                if self.is_module_scope {
+                    self.check_reserved_dunder_store(target)?;
+                }
                 self.code.register_local_name(slot, target.name_id);
                 if self.is_module_scope {
                     self.code.emit_u16(Opcode::StoreGlobal, slot)
@@ -1314,7 +1438,10 @@ impl<'a> Compiler<'a> {
                     self.code.emit_store_local(slot)
                 }
             }
-            NameScope::Global => self.code.emit_u16(Opcode::StoreGlobal, slot),
+            NameScope::Global => {
+                self.check_reserved_dunder_store(target)?;
+                self.code.emit_u16(Opcode::StoreGlobal, slot)
+            }
             NameScope::Cell => {
                 // Emit local slot index — the VM reads the cell HeapId from the stack
                 self.code.emit_u16(Opcode::StoreCell, slot)
@@ -1324,15 +1451,30 @@ impl<'a> Compiler<'a> {
                 // handled by `compile_comp_target_unpack`, which leaves the
                 // value on the operand stack as the natural result of
                 // `FOR_ITER` (and any subsequent `UNPACK_SEQUENCE` /
-                // `LIFT_TO_TOP` for nested tuples). The non-comp store paths
-                // (`compile_assign_target`, walrus via
-                // `get_id_for_store_target`, etc.) resolve their targets to
-                // `Local`/`Global`/`Cell` — never `CompVar` — so reaching
-                // here means a compile-flow bug.
+                // `LIFT_TO_TOP` for nested tuples).
                 unreachable!(
                     "compile_store called with NameScope::CompVar — comp targets are stored via compile_comp_target_unpack"
                 )
             }
+        }
+    }
+
+    /// Rejects assignment to a read-only module dunder at module/global scope.
+    ///
+    /// Monty exposes [`RESERVED_MODULE_DUNDERS`] with fixed values for CPython
+    /// compatibility but, unlike CPython, has no module namespace to write into,
+    /// so rebinding one is unsupported and surfaces as `NotImplementedError`.
+    /// Only callers that bind the global namespace (module-`Local` and `Global`
+    /// scopes) invoke this — function locals sharing these names are fine.
+    fn check_reserved_dunder_store(&self, target: &Identifier) -> Result<(), CompileError> {
+        let name = self.interns.get_str(target.name_id);
+        if RESERVED_MODULE_DUNDERS.contains(&name) {
+            Err(CompileError::not_implemented(
+                format!("cannot reassign read-only module attribute '{name}'"),
+                target.position,
+            ))
+        } else {
+            Ok(())
         }
     }
 
@@ -1430,12 +1572,7 @@ impl<'a> Compiler<'a> {
 
             // Emit comparison
             self.code.set_location(position, None);
-            if let CmpOperator::ModEq(value) = op {
-                let const_idx = self.code.add_const(Value::Int(*value))?;
-                self.code.emit_u16(Opcode::CompareModEq, const_idx)?;
-            } else {
-                self.code.emit(cmp_operator_to_opcode(op))?;
-            }
+            self.code.emit(cmp_operator_to_opcode(*op))?;
 
             if !is_last {
                 // Short-circuit: if false, jump to cleanup
@@ -3077,6 +3214,11 @@ impl<'a> Compiler<'a> {
 
     /// Compiles an assert statement.
     fn compile_assert(&mut self, test: &ExprLoc, msg: Option<&ExprLoc>) -> Result<(), CompileError> {
+        if self.assert_message_annotations {
+            return self.compile_assert_with_message(test, msg);
+        }
+        // Without annotations, compile the ordinary `AssertionError` path.
+
         // Compile test
         self.compile_expr(test)?;
         // Jump over raise if truthy
@@ -3099,6 +3241,50 @@ impl<'a> Compiler<'a> {
 
         self.code.emit(Opcode::Raise)?;
         self.code.patch_jump(skip_jump)?;
+        Ok(())
+    }
+
+    /// Compiles an assert with Monty's introspected failure messages.
+    ///
+    /// Bare asserts use fused opcodes. Explicit-message comparisons duplicate
+    /// operands so failures can format them without eagerly evaluating `msg`.
+    fn compile_assert_with_message(&mut self, test: &ExprLoc, msg: Option<&ExprLoc>) -> Result<(), CompileError> {
+        if let Expr::CmpOp { left, op, right } = &test.expr {
+            self.compile_expr(left)?;
+            self.compile_expr(right)?;
+            // The caret/traceback range covers the whole comparison.
+            self.code.set_location(test.position, None);
+            if let Some(msg_expr) = msg {
+                self.code.emit(Opcode::Dup2)?;
+                self.code.emit(cmp_operator_to_opcode(*op))?;
+                let pass = self.code.emit_jump(Opcode::JumpIfTrue)?;
+                // Failure: [lhs, rhs] retained for the message.
+                self.compile_expr(msg_expr)?;
+                self.code.set_location(test.position, None);
+                self.code.emit_u8(Opcode::AssertFailed, assert_flags(Some(*op)))?;
+                // Success: drop the retained operands.
+                self.code.patch_jump(pass)?;
+                self.code.emit(Opcode::Pop)?;
+                self.code.emit(Opcode::Pop)?;
+            } else {
+                self.code.emit_u8(Opcode::Assert, assert_flags(Some(*op)))?;
+            }
+        } else {
+            self.compile_expr(test)?;
+            self.code.set_location(test.position, None);
+            if let Some(msg_expr) = msg {
+                // Keep the falsy test value for the failure message.
+                let fail = self.code.emit_jump(Opcode::JumpIfFalseOrPop)?;
+                let end = self.code.emit_jump(Opcode::Jump)?;
+                self.code.patch_jump(fail)?;
+                self.compile_expr(msg_expr)?;
+                self.code.set_location(test.position, None);
+                self.code.emit_u8(Opcode::AssertFailed, assert_flags(None))?;
+                self.code.patch_jump(end)?;
+            } else {
+                self.code.emit_u8(Opcode::Assert, assert_flags(None))?;
+            }
+        }
         Ok(())
     }
 
@@ -3134,8 +3320,14 @@ impl<'a> Compiler<'a> {
                     // Compile the expression
                     self.compile_expr(expr)?;
 
-                    // For debug expressions without explicit conversion, Python uses repr by default
-                    let effective_conversion = if debug_prefix.is_some() && matches!(conversion, ConversionFlag::None) {
+                    // A debug expression (`{x=}`) defaults to `repr`, but ONLY
+                    // when it has neither an explicit conversion nor a format
+                    // spec. With a spec (`{x=:.3f}`) the spec applies to the
+                    // value directly (not to its repr string), matching CPython.
+                    let effective_conversion = if debug_prefix.is_some()
+                        && matches!(conversion, ConversionFlag::None)
+                        && format_spec.is_none()
+                    {
                         ConversionFlag::Repr
                     } else {
                         *conversion
@@ -3542,6 +3734,16 @@ impl<'a> Compiler<'a> {
         // Evaluate context expr and invoke __enter__.
         self.compile_expr(context)?;
         self.code.emit(Opcode::BeforeWith)?;
+        // Padding between `BeforeWith` and the protected region. A user-class
+        // `__enter__` runs as a *pushed frame*; an exception escaping that
+        // frame is attributed to the parent frame's resume point — the
+        // instruction after `BeforeWith` (see `pop_frame`). That offset must
+        // sit OUTSIDE the exception-table entry, or a failing `__enter__`
+        // would incorrectly invoke `__exit__` (CPython only protects the body
+        // once `__enter__` has returned). The Nop keeps the resume point
+        // outside the region while the unpack/Pop that follows stays inside,
+        // so `with cm as (a, b):` unpack failures still call `__exit__`.
+        self.code.emit(Opcode::Nop)?;
 
         // Track early exits inside the body so we can call __exit__ before
         // they propagate. Mirrors the FinallyTarget push in `compile_try`.
@@ -3724,7 +3926,7 @@ impl<'a> Compiler<'a> {
 
     /// Compiles deletion of a variable.
     ///
-    /// At module level, `Local` and `LocalUnassigned` scopes emit `DeleteGlobal`
+    /// At module level, `Local` scope emits `DeleteGlobal`
     /// because module-level locals live in the globals array.
     ///
     /// Function-scope `Local` deletes are limited to the first 256 slots
@@ -3737,7 +3939,7 @@ impl<'a> Compiler<'a> {
     fn compile_delete(&mut self, target: &Identifier) -> Result<(), CompileError> {
         let slot = target.namespace_id().as_u16();
         match target.scope {
-            NameScope::Local | NameScope::LocalUnassigned => {
+            NameScope::Local => {
                 if self.is_module_scope {
                     self.code.emit_u16(Opcode::DeleteGlobal, slot)?;
                 } else if let Ok(s) = u8::try_from(slot) {
@@ -3762,12 +3964,7 @@ impl<'a> Compiler<'a> {
                 self.compile_store(target)?;
             }
             NameScope::CompVar => {
-                // Comprehension targets only appear as generator targets
-                // inside inlined comprehensions; the parser does not surface
-                // a `del` target with `CompVar` scope (there is no syntax
-                // for `del x` on a comp target). Reaching here means a
-                // compile-flow bug.
-                unreachable!("compile_delete called with NameScope::CompVar — no Python syntax produces this")
+                unreachable!("no syntax exists to `del` a comprehension variable")
             }
         }
         Ok(())
@@ -3801,6 +3998,19 @@ impl CompileError {
         }
     }
 
+    /// Creates a compile error that surfaces as `NotImplementedError`.
+    ///
+    /// Used for Python constructs Monty deliberately rejects rather than
+    /// supports (e.g. reassigning a reserved module dunder), matching the
+    /// `NotImplementedError` Monty raises for other unsupported syntax.
+    pub(super) fn not_implemented(message: impl Into<Cow<'static, str>>, position: CodeRange) -> Self {
+        Self {
+            message: message.into(),
+            position,
+            exc_type: ExcType::NotImplementedError,
+        }
+    }
+
     /// Converts this compile error into a Python exception.
     ///
     /// Uses the stored exception type (SyntaxError or ModuleNotFoundError).
@@ -3818,7 +4028,7 @@ impl CompileError {
         if self.exc_type == ExcType::ModuleNotFoundError {
             frame.hide_caret = true;
         }
-        MontyException::new_full(self.exc_type, Some(self.message.into_owned()), vec![frame])
+        MontyException::with_traceback(self.exc_type, Some(self.message.into_owned()), vec![frame])
     }
 }
 
@@ -3881,7 +4091,7 @@ fn operator_to_inplace_opcode(op: &Operator) -> Option<Opcode> {
 }
 
 /// Maps a `CmpOperator` to its corresponding `Opcode`.
-fn cmp_operator_to_opcode(op: &CmpOperator) -> Opcode {
+fn cmp_operator_to_opcode(op: CmpOperator) -> Opcode {
     match op {
         CmpOperator::Eq => Opcode::CompareEq,
         CmpOperator::NotEq => Opcode::CompareNe,
@@ -3893,8 +4103,6 @@ fn cmp_operator_to_opcode(op: &CmpOperator) -> Opcode {
         CmpOperator::IsNot => Opcode::CompareIsNot,
         CmpOperator::In => Opcode::CompareIn,
         CmpOperator::NotIn => Opcode::CompareNotIn,
-        // ModEq is handled specially at the call site (needs constant operand)
-        CmpOperator::ModEq(_) => unreachable!("ModEq handled at call site"),
     }
 }
 

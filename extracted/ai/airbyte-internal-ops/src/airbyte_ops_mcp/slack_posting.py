@@ -241,15 +241,17 @@ def post_thread_reply(
 # ---------------------------------------------------------------------------
 
 _SLACK_ID_PATTERN = re.compile(r"^U[A-Z0-9]{8,}$")
+_SLACK_USERGROUP_ID_PATTERN = re.compile(r"^S[A-Z0-9]{8,}$")
 
 
 def _resolve_to_slack_id(
     identifier: str,
     roster: list[dict[str, str | int | None]],
 ) -> str | None:
-    """Resolve a person identifier to a Slack user ID using the roster.
+    """Resolve an identifier to a Slack user or usergroup ID.
 
-    Tries matching against email, GitHub handle, and Slack ID fields.
+    Slack IDs and usergroup IDs bypass roster lookup. Other identifiers are
+    matched against email, GitHub handle, and Slack ID fields.
     """
     identifier = identifier.strip()
     if identifier.startswith("@"):
@@ -257,7 +259,9 @@ def _resolve_to_slack_id(
         if not identifier:
             return None
 
-    if _SLACK_ID_PATTERN.match(identifier):
+    if _SLACK_ID_PATTERN.match(identifier) or _SLACK_USERGROUP_ID_PATTERN.match(
+        identifier
+    ):
         return identifier
 
     identifier_lower = identifier.lower()
@@ -297,10 +301,18 @@ def _resolve_to_slack_id(
 
 
 def _format_mention(identifier: str, slack_id: str | None) -> str:
-    """Format a person as a Slack mention or fallback plain text."""
+    """Format a person or usergroup as a Slack mention or fallback plain text."""
     if slack_id:
+        if _SLACK_USERGROUP_ID_PATTERN.match(slack_id):
+            return f"<!subteam^{slack_id}>"
         return f"<@{slack_id}>"
-    return f"`{identifier}` (could not resolve to Slack)"
+
+    mention_id = identifier.strip()
+    if _SLACK_USERGROUP_ID_PATTERN.match(mention_id):
+        return f"<!subteam^{mention_id}>"
+    if _SLACK_ID_PATTERN.match(mention_id):
+        return f"<@{mention_id}>"
+    return f"`{mention_id}` (could not resolve to Slack)"
 
 
 def _extract_short_session_token(url: str, length: int = 8) -> str | None:
@@ -558,14 +570,15 @@ def send_hitl_notification(
     blocks, and posts to Slack.
 
     Args:
-        target_person: Primary recipient (email, GitHub handle, or Slack ID).
+        target_person: Primary recipient (email, GitHub handle, Slack user ID,
+            or Slack usergroup ID).
         message: Message body in Slack mrkdwn format.
         agent_session_url: Optional URL to the agent session or CI run. When
             provided, a "View Session" button is rendered in the message.
         connector_name: Optional connector name for the header.
         header_emoji: Emoji prefix for the header block.
         header_label: Label text for the header block.
-        cc_persons: Additional person identifiers to CC.
+        cc_persons: Additional person or Slack usergroup identifiers to CC.
         pr_url: Optional PR URL for an action button.
         issue_url: Optional issue URL for an action button.
         additional_actions: Extra action buttons as `{label: url}` pairs.

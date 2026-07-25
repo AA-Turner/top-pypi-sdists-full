@@ -29,6 +29,7 @@ class DalvikFunctionAnalysisState:
         self.start_addr = start_addr
         self.disassembly = disassembly
         self.block_queue = [start_addr]
+        self._queued_blocks = {start_addr}
         self.current_block = []
         self.blocks = []
         self.num_blocks_analyzed = 0
@@ -62,13 +63,20 @@ class DalvikFunctionAnalysisState:
 
     def chooseNextBlock(self):
         self.is_block_ending_instruction = False
-        self.block_start = self.block_queue.pop()
-        self.processed_blocks.add(self.block_start)
+        while self.block_queue:
+            candidate = self.block_queue.pop()
+            self._queued_blocks.discard(candidate)
+            if candidate not in self.processed_blocks:
+                self.block_start = candidate
+                self.processed_blocks.add(candidate)
+                return self.block_start
+        self.block_start = None
         return self.block_start
 
     def addBlockToQueue(self, block_start):
         self.block_starts.add(block_start)
-        if block_start not in self.processed_blocks:
+        if block_start not in self.processed_blocks and block_start not in self._queued_blocks:
+            self._queued_blocks.add(block_start)
             self.block_queue.append(block_start)
 
     def addBlockStart(self, block_start):
@@ -90,8 +98,16 @@ class DalvikFunctionAnalysisState:
 
     def addCodeRef(self, addr_from, addr_to, by_jump=False):
         self.code_refs.add((addr_from, addr_to))
-        self.code_refs_from.setdefault(addr_from, set()).add(addr_to)
-        self.code_refs_to.setdefault(addr_to, set()).add(addr_from)
+        refs_from = self.code_refs_from.get(addr_from)
+        if refs_from is None:
+            self.code_refs_from[addr_from] = {addr_to}
+        else:
+            refs_from.add(addr_to)
+        refs_to = self.code_refs_to.get(addr_to)
+        if refs_to is None:
+            self.code_refs_to[addr_to] = {addr_from}
+        else:
+            refs_to.add(addr_from)
         if by_jump:
             self.jump_targets.add(addr_to)
 
@@ -224,7 +240,7 @@ class DalvikFunctionAnalysisState:
         return self.blocks
 
     def hasUnprocessedBlocks(self):
-        return len(set(self.block_queue).difference(self.processed_blocks)) > 0
+        return bool(self._queued_blocks - self.processed_blocks)
 
     def isProcessed(self, addr):
         return addr in self.processed_bytes

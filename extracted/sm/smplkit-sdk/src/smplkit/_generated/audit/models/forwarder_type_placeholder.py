@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 
 from ..types import UNSET, Unset
-
-from typing import cast
-
 
 T = TypeVar("T", bound="ForwarderTypePlaceholder")
 
@@ -27,16 +24,16 @@ class ForwarderTypePlaceholder:
 
     label: str
     secret: bool | Unset = False
-    enum: list[str] | None | Unset = UNSET
-    default: None | str | Unset = UNSET
-    placeholder: None | str | Unset = UNSET
+    enum: list[str] | Unset | None = UNSET
+    default: str | Unset | None = UNSET
+    placeholder: str | Unset | None = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         label = self.label
 
         secret = self.secret
 
-        enum: list[str] | None | Unset
+        enum: list[str] | Unset | None
         if isinstance(self.enum, Unset):
             enum = UNSET
         elif isinstance(self.enum, list):
@@ -45,13 +42,13 @@ class ForwarderTypePlaceholder:
         else:
             enum = self.enum
 
-        default: None | str | Unset
+        default: str | Unset | None
         if isinstance(self.default, Unset):
             default = UNSET
         else:
             default = self.default
 
-        placeholder: None | str | Unset
+        placeholder: str | Unset | None
         if isinstance(self.placeholder, Unset):
             placeholder = UNSET
         else:
@@ -82,7 +79,7 @@ class ForwarderTypePlaceholder:
 
         secret = d.pop("secret", UNSET)
 
-        def _parse_enum(data: object) -> list[str] | None | Unset:
+        def _parse_enum(data: object) -> list[str] | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -99,7 +96,7 @@ class ForwarderTypePlaceholder:
 
         enum = _parse_enum(d.pop("enum", UNSET))
 
-        def _parse_default(data: object) -> None | str | Unset:
+        def _parse_default(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -108,7 +105,7 @@ class ForwarderTypePlaceholder:
 
         default = _parse_default(d.pop("default", UNSET))
 
-        def _parse_placeholder(data: object) -> None | str | Unset:
+        def _parse_placeholder(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

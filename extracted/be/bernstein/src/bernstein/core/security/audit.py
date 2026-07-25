@@ -30,7 +30,15 @@ import sys
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+if sys.platform == "win32":
+    fcntl = None  # type: ignore[assignment]
+else:
+    import fcntl  # type: ignore[no-redef]
 
 _JSONL_GLOB = "*.jsonl"
 
@@ -321,6 +329,47 @@ def _compute_hmac(key: bytes, prev_hmac: str, entry: dict[str, Any]) -> str:
     return _hmac.new(key, payload.encode(), hashlib.sha256).hexdigest()
 
 
+@contextlib.contextmanager
+def _chain_append_lock(audit_dir: Path) -> Iterator[None]:
+    """Serialise daily-log appends across processes via ``flock(LOCK_EX)``.
+
+    The task server, the spawner, the orchestrator, and CLI commands are
+    separate processes that append to the same ``.sdd/audit/<day>.jsonl``.
+    In-process ``threading.Lock``s only serialise threads within one process;
+    without an OS-level lock two processes recover the same chain tail in
+    ``AuditLog.__init__`` and each append a record embedding the same stale
+    ``prev_hmac``, forking the HMAC chain and breaking ``verify()`` for the
+    whole daily log (issue #2791).
+
+    A single stable lock file per audit dir serialises across day rollovers
+    (a writer that has rolled to the next day still contends with one still on
+    the previous day). Falls back to a no-op on platforms without ``fcntl``
+    (Windows); the in-process locks callers may hold remain the only ordering
+    there, matching how the lineage spine degrades.
+    """
+    audit_dir.mkdir(parents=True, exist_ok=True)
+    if fcntl is None:  # pragma: no cover - Windows path
+        yield
+        return
+    lock_path = audit_dir / ".chain.lock"
+    fd = os.open(str(lock_path), os.O_WRONLY | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        with contextlib.suppress(OSError):
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+
+
+def _path_size(path: Path) -> int:
+    """Return ``path`` size in bytes, or ``-1`` when it does not exist."""
+    try:
+        return path.stat().st_size
+    except OSError:
+        return -1
+
+
 def _split_jsonl_bytes(raw_bytes: bytes) -> list[bytes]:
     """Strictly split a JSONL file's raw bytes on ``b"\\n"`` only.
 
@@ -364,11 +413,29 @@ def _verify_log_bytes(
         # message (test_partial_last_line_flagged_as_invalid_json).
         errors.append(f"{display_name}: missing trailing newline")
 
+    # ``_split_jsonl_bytes`` splits on ``b"\n"`` only, so the start offset of
+    # each line inside the segment is the running sum of prior line lengths
+    # plus one byte per consumed separator. Tracking it lets an undecodable
+    # line name the exact byte in the segment an operator would seek to.
+    segment_offset = 0
     for line_no, raw_line in enumerate(_split_jsonl_bytes(raw_bytes), start=1):
+        line_offset = segment_offset
+        segment_offset += len(raw_line) + 1  # +1 for the split ``b"\n"``
         if raw_line == b"":
             continue
         try:
             parsed_entry = json.loads(raw_line)
+        except UnicodeDecodeError as exc:
+            # ``json.loads`` on raw bytes raises ``UnicodeDecodeError`` (not
+            # ``JSONDecodeError``) when a byte sequence is not valid UTF-8.
+            # Keep ``verify`` total: report the undecodable line and the byte
+            # it fails at, then keep walking so the rest of this segment and
+            # every later segment are still verified rather than one bad byte
+            # taking the whole audit surface down. Undecodable bytes are
+            # exactly what an operator runs ``verify`` to learn about, so this
+            # is a loud failure, never a warning or a skipped segment.
+            errors.append(f"{display_name}:{line_no}: undecodable bytes at offset {line_offset + exc.start} - {exc}")
+            continue
         except json.JSONDecodeError as exc:
             errors.append(f"{display_name}:{line_no}: invalid JSON - {exc}")
             continue
@@ -554,7 +621,11 @@ def _load_segment_index(audit_dir: Path, key: bytes, event_type: str) -> dict[st
     path = audit_dir / _SEGMENT_INDEX_NAME
     try:
         doc = json.loads(path.read_text())
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        # ``read_text`` raises ``UnicodeDecodeError`` (not ``JSONDecodeError``)
+        # on an index file that is not valid UTF-8. Fold it into the same
+        # degrade-to-empty path as every other unusable index: the index can
+        # only ever cost a full walk, never weaken verification.
         return {}
     if not isinstance(doc, dict):
         return {}
@@ -749,6 +820,12 @@ class AuditLog:
         else:
             self._key = load_or_create_audit_key(key_path)
         self._prev_hmac = self._recover_chain_tail()
+        # Tracks the day file and its byte length after this instance's last
+        # append, so ``log`` can skip re-reading the tail from disk when no
+        # other writer has touched the file since (issue #2791). ``None`` /
+        # ``-1`` force a re-sync on the first append.
+        self._synced_path: Path | None = None
+        self._synced_size = -1
 
     # -- chain recovery -----------------------------------------------------
 
@@ -815,43 +892,62 @@ class AuditLog:
         Returns:
             The newly created AuditEvent with computed HMAC.
         """
-        ts = datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-        entry_dict: dict[str, Any] = {
-            "timestamp": ts,
-            "event_type": event_type,
-            "actor": actor,
-            "resource_type": resource_type,
-            "resource_id": resource_id,
-            "details": details or {},
-            "prev_hmac": self._prev_hmac,
-        }
-        computed_hmac = _compute_hmac(self._key, self._prev_hmac, entry_dict)
+        with _chain_append_lock(self._audit_dir):
+            # One clock reading feeds both the timestamp and the daily-file
+            # name: two readings can straddle a UTC midnight and file an event
+            # under a day that disagrees with its own timestamp, and the append
+            # runs once per scheduling decision, so the second ``now`` is pure
+            # hot-path cost (issue #2690).
+            now = datetime.now(tz=UTC)
+            ts = now.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            day = now.strftime("%Y-%m-%d")
+            log_path = self._audit_dir / f"{day}.jsonl"
 
-        event = AuditEvent(
-            timestamp=ts,
-            event_type=event_type,
-            actor=actor,
-            resource_type=resource_type,
-            resource_id=resource_id,
-            details=details or {},
-            prev_hmac=self._prev_hmac,
-            hmac=computed_hmac,
-        )
+            # Re-sync the chain tail from disk under the cross-process lock so a
+            # concurrent writer's appended head is chained onto rather than a
+            # stale tail captured at construction (issue #2791). Fast path: when
+            # the current day file is byte-length-identical to what our own last
+            # append left it at, no other process has appended and the cached
+            # head still stands, so the re-read (a full-file scan) is skipped.
+            if log_path != self._synced_path or _path_size(log_path) != self._synced_size:
+                self._prev_hmac = self._recover_chain_tail()
 
-        entry_dict["hmac"] = computed_hmac
-        day = datetime.now(tz=UTC).strftime("%Y-%m-%d")
-        log_path = self._audit_dir / f"{day}.jsonl"
+            entry_dict: dict[str, Any] = {
+                "timestamp": ts,
+                "event_type": event_type,
+                "actor": actor,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                "details": details or {},
+                "prev_hmac": self._prev_hmac,
+            }
+            computed_hmac = _compute_hmac(self._key, self._prev_hmac, entry_dict)
 
-        # ``newline=""`` disables Python's universal-newline translation so
-        # the literal ``\n`` we append survives byte-for-byte on Windows
-        # (where text mode would otherwise rewrite it to ``\r\n``). The
-        # verifier reads bytes and re-canonicalises against ``\n``-only
-        # frames; without this the ``\r`` stays inside each split line and
-        # the byte-equality tamper check trips.
-        with log_path.open("a", encoding="utf-8", newline="") as fh:
-            fh.write(json.dumps(entry_dict, sort_keys=True) + "\n")
+            event = AuditEvent(
+                timestamp=ts,
+                event_type=event_type,
+                actor=actor,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                details=details or {},
+                prev_hmac=self._prev_hmac,
+                hmac=computed_hmac,
+            )
 
-        self._prev_hmac = computed_hmac
+            entry_dict["hmac"] = computed_hmac
+
+            # ``newline=""`` disables Python's universal-newline translation so
+            # the literal ``\n`` we append survives byte-for-byte on Windows
+            # (where text mode would otherwise rewrite it to ``\r\n``). The
+            # verifier reads bytes and re-canonicalises against ``\n``-only
+            # frames; without this the ``\r`` stays inside each split line and
+            # the byte-equality tamper check trips.
+            with log_path.open("a", encoding="utf-8", newline="") as fh:
+                fh.write(json.dumps(entry_dict, sort_keys=True) + "\n")
+
+            self._prev_hmac = computed_hmac
+            self._synced_path = log_path
+            self._synced_size = _path_size(log_path)
         return event
 
     # -- verify -------------------------------------------------------------

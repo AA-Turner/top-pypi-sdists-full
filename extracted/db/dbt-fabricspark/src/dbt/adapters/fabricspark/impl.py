@@ -64,6 +64,16 @@ class FabricSparkConfig(AdapterConfig):
     buckets: Optional[int] = None
     options: Optional[Dict[str, str]] = None
     merge_update_columns: Optional[str] = None
+    merge_exclude_columns: Optional[str] = None
+    skip_matched_step: Optional[bool] = None
+    skip_not_matched_step: Optional[bool] = None
+    matched_condition: Optional[str] = None
+    not_matched_condition: Optional[str] = None
+    not_matched_by_source_action: Optional[str] = None
+    not_matched_by_source_condition: Optional[str] = None
+    target_alias: Optional[str] = None
+    source_alias: Optional[str] = None
+    merge_with_schema_evolution: Optional[bool] = None
     # Cross-workspace 4-part naming. When set on a model's
     # ``{{ config() }}``, the rendered relation becomes
     # ``\`workspace_name\`.\`database\`.\`schema\`.identifier`` — enabling
@@ -115,6 +125,22 @@ class FabricSparkAdapter(SQLAdapter):
     Column: TypeAlias = FabricSparkColumn
     ConnectionManager: TypeAlias = FabricSparkConnectionManager
     AdapterSpecificConfigs: TypeAlias = FabricSparkConfig
+
+    @available
+    def get_workspace_name_from_config(self, config) -> Optional[str]:
+        """Resolve ``workspace_name`` from a model's ``config`` (top-level or
+        ``meta.workspace_name``), exposed to macros via ``adapter``.
+
+        dbt-core's Jinja environment is sandboxed and blocks attribute access
+        to underscore-prefixed names (e.g. ``config._extra``), so this lookup
+        cannot be done safely from within a macro directly -- it must happen
+        in Python, where we can inspect ``_extra``/``meta`` without going
+        through ``BaseConfig.get()`` (which fires ``GetMetaKeyWarning`` when
+        the key is absent from real fields/``_extra`` but present under
+        ``meta``, exactly the ``meta.workspace_name`` case this adapter
+        supports).
+        """
+        return FabricSparkRelation._get_workspace_name_from_config(config)
 
     @available
     def is_lakehouse_schemas_enabled(self) -> bool:

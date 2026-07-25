@@ -7,16 +7,17 @@
 //! Other asyncio functions (`create_task`, `sleep`, `wait`, etc.) are not implemented.
 //! The host acts as the event loop - Monty yields control when tasks are blocked.
 
+use monty_types::{ResourceError, ResourceTracker};
+
 use crate::{
     args::{ArgValues, FromArgs},
     asyncio::GatherFuture,
     bytecode::{CallResult, VM},
     defer_drop_mut,
-    exception_private::{ExcType, RunResult},
+    exception_private::{ExcType, ExcTypeExt, RunResult},
     heap::{Heap, HeapData, HeapId},
     intern::StaticStrings,
     modules::ModuleFunctions,
-    resource::{ResourceError, ResourceTracker},
     types::Module,
     value::Value,
 };
@@ -132,7 +133,7 @@ pub(crate) fn gather(vm: &mut VM<'_, impl ResourceTracker>, args: ArgValues) -> 
             #[cfg(feature = "memory-model-checks")]
             arg.dec_ref_forget();
         } else {
-            arg.drop_with_heap(vm.heap);
+            arg.drop_with(vm.heap);
             for id in items {
                 vm.heap.dec_ref(id);
             }

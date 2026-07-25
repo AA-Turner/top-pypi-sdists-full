@@ -1,18 +1,15 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.log_level import check_log_level
-from ..models.log_level import LogLevel
 from dateutil.parser import isoparse
-from typing import cast
-import datetime
+
+from ..models.log_level import LogLevel, check_log_level
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.logger_effective_levels_type_0 import LoggerEffectiveLevelsType0
@@ -66,14 +63,14 @@ class Logger:
     """
 
     name: str
-    level: LogLevel | None | Unset = UNSET
-    group: None | str | Unset = UNSET
-    managed: bool | None | Unset = UNSET
-    sources: list[LoggerSourcesType0Item] | None | Unset = UNSET
-    environments: LoggerEnvironmentsType0 | None | Unset = UNSET
-    effective_levels: LoggerEffectiveLevelsType0 | None | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    updated_at: datetime.datetime | None | Unset = UNSET
+    level: LogLevel | Unset | None = UNSET
+    group: str | Unset | None = UNSET
+    managed: bool | Unset | None = UNSET
+    sources: list[LoggerSourcesType0Item] | Unset | None = UNSET
+    environments: LoggerEnvironmentsType0 | Unset | None = UNSET
+    effective_levels: LoggerEffectiveLevelsType0 | Unset | None = UNSET
+    created_at: datetime.datetime | Unset | None = UNSET
+    updated_at: datetime.datetime | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -82,7 +79,7 @@ class Logger:
 
         name = self.name
 
-        level: None | str | Unset
+        level: str | Unset | None
         if isinstance(self.level, Unset):
             level = UNSET
         elif isinstance(self.level, str):
@@ -90,19 +87,19 @@ class Logger:
         else:
             level = self.level
 
-        group: None | str | Unset
+        group: str | Unset | None
         if isinstance(self.group, Unset):
             group = UNSET
         else:
             group = self.group
 
-        managed: bool | None | Unset
+        managed: bool | Unset | None
         if isinstance(self.managed, Unset):
             managed = UNSET
         else:
             managed = self.managed
 
-        sources: list[dict[str, Any]] | None | Unset
+        sources: list[dict[str, Any]] | Unset | None
         if isinstance(self.sources, Unset):
             sources = UNSET
         elif isinstance(self.sources, list):
@@ -114,7 +111,7 @@ class Logger:
         else:
             sources = self.sources
 
-        environments: dict[str, Any] | None | Unset
+        environments: dict[str, Any] | Unset | None
         if isinstance(self.environments, Unset):
             environments = UNSET
         elif isinstance(self.environments, LoggerEnvironmentsType0):
@@ -122,7 +119,7 @@ class Logger:
         else:
             environments = self.environments
 
-        effective_levels: dict[str, Any] | None | Unset
+        effective_levels: dict[str, Any] | Unset | None
         if isinstance(self.effective_levels, Unset):
             effective_levels = UNSET
         elif isinstance(self.effective_levels, LoggerEffectiveLevelsType0):
@@ -130,7 +127,7 @@ class Logger:
         else:
             effective_levels = self.effective_levels
 
-        created_at: None | str | Unset
+        created_at: str | Unset | None
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -138,7 +135,7 @@ class Logger:
         else:
             created_at = self.created_at
 
-        updated_at: None | str | Unset
+        updated_at: str | Unset | None
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -181,7 +178,7 @@ class Logger:
         d = dict(src_dict)
         name = d.pop("name")
 
-        def _parse_level(data: object) -> LogLevel | None | Unset:
+        def _parse_level(data: object) -> LogLevel | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -198,7 +195,7 @@ class Logger:
 
         level = _parse_level(d.pop("level", UNSET))
 
-        def _parse_group(data: object) -> None | str | Unset:
+        def _parse_group(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -207,7 +204,7 @@ class Logger:
 
         group = _parse_group(d.pop("group", UNSET))
 
-        def _parse_managed(data: object) -> bool | None | Unset:
+        def _parse_managed(data: object) -> bool | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -216,7 +213,7 @@ class Logger:
 
         managed = _parse_managed(d.pop("managed", UNSET))
 
-        def _parse_sources(data: object) -> list[LoggerSourcesType0Item] | None | Unset:
+        def _parse_sources(data: object) -> list[LoggerSourcesType0Item] | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -238,7 +235,7 @@ class Logger:
 
         sources = _parse_sources(d.pop("sources", UNSET))
 
-        def _parse_environments(data: object) -> LoggerEnvironmentsType0 | None | Unset:
+        def _parse_environments(data: object) -> LoggerEnvironmentsType0 | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -255,7 +252,7 @@ class Logger:
 
         environments = _parse_environments(d.pop("environments", UNSET))
 
-        def _parse_effective_levels(data: object) -> LoggerEffectiveLevelsType0 | None | Unset:
+        def _parse_effective_levels(data: object) -> LoggerEffectiveLevelsType0 | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -272,7 +269,7 @@ class Logger:
 
         effective_levels = _parse_effective_levels(d.pop("effective_levels", UNSET))
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -289,7 +286,7 @@ class Logger:
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_updated_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

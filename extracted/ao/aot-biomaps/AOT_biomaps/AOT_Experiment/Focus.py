@@ -111,29 +111,6 @@ class Focus(Experiment):
 
         self.AcousticFields = listAcousticFields
 
-    def load_experiment_data(self, file_path, withTumor=True, N_average=None, start_index=0):
-        self.expParams = {}
-        f = loadmat(file_path)
-        self.expParams['data_raw'] = np.array(f['raw']) if f.get('raw') is not None else None
-        self.expParams['Naverage'] = int(f['NTrig'][0,0]) if f.get('NTrig') is not None else None
-        self.expParams['Foc'] = int(f['Foc'][0,0]) if f.get('Foc') is not None else None
-        self.expParams['FreqSonde'] = int(f['NTrig'][0,0])*1e6 if f.get('NTrig') is not None else None
-        self.expParams['Nelement'] = int(f['NbElemts'][0,0]) if f.get('NbElemts') is not None else None
-        self.expParams['Nlines'] = int(f['Nlines'][0,0]) if f.get('Nlines') is not None else None
-        self.expParams['SampleRate'] = float(f['SampleRate'][0,0]) if f.get('SampleRate') is not None else None
-        self.expParams['Volt'] = float(f['Volt'][0,0]) if f.get('Volt') is not None else None
-        self.expParams['nbHemicycle'] = int(f['NbHemicycle'][0,0]) if f.get('NbHemicycle') is not None else None
-        self.expParams['prof'] = int(f['Prof'][0,0]) if f.get('Prof') is not None else None
-        if self.expParams['data_raw'] is None:
-            print("[AOT-biomaps] Warning: 'raw' dataset not found in the MAT file.")
-            print("[AOT-biomaps] Available variables:", list(f.keys()))
-        else:
-            self.expParams['data_raw'] = self.expParams['data_raw'].reshape(-1, self.expParams['Naverage'], self.expParams['Nlines'])
-            if withTumor:
-                self.AOsignal_withTumor = np.mean(self.expParams['data_raw'][:, start_index:start_index+N_average, :], axis=1) if N_average is not None else np.mean(self.expParams['data_raw'], axis=1)
-            else:   
-                self.AOsignal_withoutTumor = np.mean(self.expParams['data_raw'][:, start_index:start_index+N_average, :], axis=1) if N_average is not None else np.mean(self.expParams['data_raw'], axis=1)
-
     def recon_focus(self, withTumor=True, signals_AO=None, isFiltered=True):
         """
         Reconstruct the focused zone image from AO signals.

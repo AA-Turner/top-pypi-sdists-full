@@ -4,13 +4,11 @@ from urllib.parse import quote
 
 import httpx
 
-from ...client import AuthenticatedClient, Client
-from ...types import Response, UNSET
 from ... import errors
-
+from ...client import AuthenticatedClient, Client
 from ...models.error_response import ErrorResponse
 from ...models.oidc_provider import OidcProvider
-from ...types import Unset
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
@@ -24,28 +22,28 @@ def _get_kwargs(
 
     params: dict[str, Any] = {}
 
-    json_code: None | str | Unset
+    json_code: str | Unset | None
     if isinstance(code, Unset):
         json_code = UNSET
     else:
         json_code = code
     params["code"] = json_code
 
-    json_state: None | str | Unset
+    json_state: str | Unset | None
     if isinstance(state, Unset):
         json_state = UNSET
     else:
         json_state = state
     params["state"] = json_state
 
-    json_error: None | str | Unset
+    json_error: str | Unset | None
     if isinstance(error, Unset):
         json_error = UNSET
     else:
         json_error = error
     params["error"] = json_error
 
-    json_error_description: None | str | Unset
+    json_error_description: str | Unset | None
     if isinstance(error_description, Unset):
         json_error_description = UNSET
     else:

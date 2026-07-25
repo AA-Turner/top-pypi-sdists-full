@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qnexus
-Version: 0.46.0
+Version: 0.47.0
 Summary: Quantinuum Nexus python client.
 Project-URL: homepage, https://github.com/CQCL/qnexus
 Project-URL: repository, https://github.com/CQCL/qnexus

@@ -1,17 +1,14 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+from dateutil.parser import isoparse
 
 from ..types import UNSET, Unset
-
-from dateutil.parser import isoparse
-from typing import cast
-import datetime
-
 
 T = TypeVar("T", bound="Invitation")
 
@@ -45,45 +42,45 @@ class Invitation:
             updated_at (datetime.datetime | None | Unset): When the invitation record was last modified.
     """
 
-    email: None | str | Unset = UNSET
-    role: None | str | Unset = UNSET
-    status: None | str | Unset = UNSET
-    invited_by: None | str | Unset = UNSET
-    groups: list[str] | None | Unset = UNSET
-    account_name: None | str | Unset = UNSET
-    inviter_display_name: None | str | Unset = UNSET
-    token: None | str | Unset = UNSET
-    expires_at: datetime.datetime | None | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    updated_at: datetime.datetime | None | Unset = UNSET
+    email: str | Unset | None = UNSET
+    role: str | Unset | None = UNSET
+    status: str | Unset | None = UNSET
+    invited_by: str | Unset | None = UNSET
+    groups: list[str] | Unset | None = UNSET
+    account_name: str | Unset | None = UNSET
+    inviter_display_name: str | Unset | None = UNSET
+    token: str | Unset | None = UNSET
+    expires_at: datetime.datetime | Unset | None = UNSET
+    created_at: datetime.datetime | Unset | None = UNSET
+    updated_at: datetime.datetime | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        email: None | str | Unset
+        email: str | Unset | None
         if isinstance(self.email, Unset):
             email = UNSET
         else:
             email = self.email
 
-        role: None | str | Unset
+        role: str | Unset | None
         if isinstance(self.role, Unset):
             role = UNSET
         else:
             role = self.role
 
-        status: None | str | Unset
+        status: str | Unset | None
         if isinstance(self.status, Unset):
             status = UNSET
         else:
             status = self.status
 
-        invited_by: None | str | Unset
+        invited_by: str | Unset | None
         if isinstance(self.invited_by, Unset):
             invited_by = UNSET
         else:
             invited_by = self.invited_by
 
-        groups: list[str] | None | Unset
+        groups: list[str] | Unset | None
         if isinstance(self.groups, Unset):
             groups = UNSET
         elif isinstance(self.groups, list):
@@ -92,25 +89,25 @@ class Invitation:
         else:
             groups = self.groups
 
-        account_name: None | str | Unset
+        account_name: str | Unset | None
         if isinstance(self.account_name, Unset):
             account_name = UNSET
         else:
             account_name = self.account_name
 
-        inviter_display_name: None | str | Unset
+        inviter_display_name: str | Unset | None
         if isinstance(self.inviter_display_name, Unset):
             inviter_display_name = UNSET
         else:
             inviter_display_name = self.inviter_display_name
 
-        token: None | str | Unset
+        token: str | Unset | None
         if isinstance(self.token, Unset):
             token = UNSET
         else:
             token = self.token
 
-        expires_at: None | str | Unset
+        expires_at: str | Unset | None
         if isinstance(self.expires_at, Unset):
             expires_at = UNSET
         elif isinstance(self.expires_at, datetime.datetime):
@@ -118,7 +115,7 @@ class Invitation:
         else:
             expires_at = self.expires_at
 
-        created_at: None | str | Unset
+        created_at: str | Unset | None
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -126,7 +123,7 @@ class Invitation:
         else:
             created_at = self.created_at
 
-        updated_at: None | str | Unset
+        updated_at: str | Unset | None
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -166,7 +163,7 @@ class Invitation:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
 
-        def _parse_email(data: object) -> None | str | Unset:
+        def _parse_email(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -175,7 +172,7 @@ class Invitation:
 
         email = _parse_email(d.pop("email", UNSET))
 
-        def _parse_role(data: object) -> None | str | Unset:
+        def _parse_role(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -184,7 +181,7 @@ class Invitation:
 
         role = _parse_role(d.pop("role", UNSET))
 
-        def _parse_status(data: object) -> None | str | Unset:
+        def _parse_status(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -193,7 +190,7 @@ class Invitation:
 
         status = _parse_status(d.pop("status", UNSET))
 
-        def _parse_invited_by(data: object) -> None | str | Unset:
+        def _parse_invited_by(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -202,7 +199,7 @@ class Invitation:
 
         invited_by = _parse_invited_by(d.pop("invited_by", UNSET))
 
-        def _parse_groups(data: object) -> list[str] | None | Unset:
+        def _parse_groups(data: object) -> list[str] | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -219,7 +216,7 @@ class Invitation:
 
         groups = _parse_groups(d.pop("groups", UNSET))
 
-        def _parse_account_name(data: object) -> None | str | Unset:
+        def _parse_account_name(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -228,7 +225,7 @@ class Invitation:
 
         account_name = _parse_account_name(d.pop("account_name", UNSET))
 
-        def _parse_inviter_display_name(data: object) -> None | str | Unset:
+        def _parse_inviter_display_name(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -237,7 +234,7 @@ class Invitation:
 
         inviter_display_name = _parse_inviter_display_name(d.pop("inviter_display_name", UNSET))
 
-        def _parse_token(data: object) -> None | str | Unset:
+        def _parse_token(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -246,7 +243,7 @@ class Invitation:
 
         token = _parse_token(d.pop("token", UNSET))
 
-        def _parse_expires_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_expires_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -263,7 +260,7 @@ class Invitation:
 
         expires_at = _parse_expires_at(d.pop("expires_at", UNSET))
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -280,7 +277,7 @@ class Invitation:
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_updated_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

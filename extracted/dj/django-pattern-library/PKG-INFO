@@ -1,31 +1,32 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: django-pattern-library
-Version: 1.5.0
+Version: 1.6.0
 Summary: A module for Django that allows to build pattern libraries for your projects.
 License: BSD-3-Clause
+License-File: LICENSE
 Author: Thibaud Colas
 Author-email: thibaud.colas@torchbox.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: Django (>=4.2)
-Requires-Dist: Markdown (>=3.1,<4.0)
-Requires-Dist: PyYAML (>=5.1,<7.0)
+Requires-Dist: Markdown (>=3.1)
+Requires-Dist: PyYAML (>=5.1)
 Project-URL: Documentation, https://torchbox.github.io/django-pattern-library/
 Project-URL: Demo, https://torchbox.github.io/django-pattern-library/demo/
 Project-URL: Issues, https://github.com/torchbox/django-pattern-library/issues

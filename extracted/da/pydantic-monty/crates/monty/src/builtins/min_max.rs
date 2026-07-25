@@ -2,14 +2,15 @@
 
 use std::{cmp::Ordering, mem};
 
+use monty_types::ResourceTracker;
+
 use crate::{
     args::{ArgValues, FromArgs},
     bytecode::VM,
     defer_drop, defer_drop_mut,
-    exception_private::{ExcType, RunError, RunResult, SimpleException},
-    heap::HeapGuard,
-    resource::ResourceTracker,
-    types::{MontyIter, PyTrait},
+    exception_private::{ExcType, ExcTypeExt, RunError, RunResult, SimpleException},
+    heap::DropGuard,
+    types::{CmpOrder, PyTrait},
     value::Value,
 };
 
@@ -56,7 +57,7 @@ fn run_min_max(
     // skip the call entirely.
     let key_fn = match key {
         Value::None => {
-            key.drop_with_heap(vm);
+            key.drop_with(vm);
             None
         }
         _ => Some(key),
@@ -64,15 +65,15 @@ fn run_min_max(
     defer_drop!(key_fn, vm);
 
     // `default_value` is `Option<Value>` — we may consume it on the "empty
-    // iterable" path, or drop it on error paths. `HeapGuard` ensures cleanup
+    // iterable" path, or drop it on error paths. `DropGuard` ensures cleanup
     // on every `?`-style early return.
-    let mut default_guard = HeapGuard::new(default, vm);
+    let mut default_guard = DropGuard::new(default, vm);
     let (default_value, vm) = default_guard.as_parts_mut();
 
     // Wrap the remaining positional args in a guard so any unconsumed items
     // are released on early error returns (e.g. the user-supplied `key`
     // function raising mid-iteration).
-    let mut args_guard = HeapGuard::new(args, vm);
+    let mut args_guard = DropGuard::new(args, vm);
     let (args, vm) = args_guard.as_parts_mut();
 
     if args.is_empty() {
@@ -87,10 +88,11 @@ fn run_min_max(
 
     if args.is_empty() {
         // Single argument: iterate over it
-        let iter = MontyIter::new(first_arg, vm)?;
-        defer_drop_mut!(iter, vm);
+        let iter = first_arg.into_py_iter(vm)?;
+        defer_drop!(iter, vm);
+        let mut iter = iter.read(vm);
 
-        let Some(result) = iter.for_next(vm)? else {
+        let Some(result) = iter.py_next(vm)? else {
             if let Some(default) = default_value.take() {
                 return Ok(default);
             }
@@ -102,15 +104,15 @@ fn run_min_max(
         };
 
         if let Some(key_fn) = key_fn {
-            let mut result_guard = HeapGuard::new(result, vm);
+            let mut result_guard = DropGuard::new(result, vm);
             {
                 let (result, vm) = result_guard.as_parts_mut();
                 let result_key = evaluate_key(result.clone_with_heap(vm), key_fn, key_context, vm)?;
-                let mut result_key_guard = HeapGuard::new(result_key, vm);
+                let mut result_key_guard = DropGuard::new(result_key, vm);
                 {
                     let (result_key, vm) = result_key_guard.as_parts_mut();
 
-                    while let Some(item) = iter.for_next(vm)? {
+                    while let Some(item) = iter.py_next(vm)? {
                         defer_drop_mut!(item, vm);
                         let item_key = evaluate_key(item.clone_with_heap(vm), key_fn, key_context, vm)?;
                         defer_drop_mut!(item_key, vm);
@@ -123,14 +125,14 @@ fn run_min_max(
                 }
 
                 let result_key = result_key_guard.into_inner();
-                result_key.drop_with_heap(vm);
+                result_key.drop_with(vm);
             }
             Ok(result_guard.into_inner())
         } else {
-            let mut result_guard = HeapGuard::new(result, vm);
+            let mut result_guard = DropGuard::new(result, vm);
             let (result, vm) = result_guard.as_parts_mut();
 
-            while let Some(item) = iter.for_next(vm)? {
+            while let Some(item) = iter.py_next(vm)? {
                 defer_drop_mut!(item, vm);
 
                 if candidate_wins(result, item, is_min, vm)? {
@@ -143,7 +145,7 @@ fn run_min_max(
     } else {
         // Multiple arguments: compare them directly
         if default_value.is_some() {
-            first_arg.drop_with_heap(vm);
+            first_arg.drop_with(vm);
             // `default_value` and `args` are owned by their respective guards
             // — their Drop impls release the held values when the function
             // returns.
@@ -151,11 +153,11 @@ fn run_min_max(
         }
 
         if let Some(key_fn) = key_fn {
-            let mut result_guard = HeapGuard::new(first_arg, vm);
+            let mut result_guard = DropGuard::new(first_arg, vm);
             {
                 let (result, vm) = result_guard.as_parts_mut();
                 let result_key = evaluate_key(result.clone_with_heap(vm), key_fn, key_context, vm)?;
-                let mut result_key_guard = HeapGuard::new(result_key, vm);
+                let mut result_key_guard = DropGuard::new(result_key, vm);
                 {
                     let (result_key, vm) = result_key_guard.as_parts_mut();
 
@@ -172,11 +174,11 @@ fn run_min_max(
                 }
 
                 let result_key = result_key_guard.into_inner();
-                result_key.drop_with_heap(vm);
+                result_key.drop_with(vm);
             }
             Ok(result_guard.into_inner())
         } else {
-            let mut result_guard = HeapGuard::new(first_arg, vm);
+            let mut result_guard = DropGuard::new(first_arg, vm);
             let (result, vm) = result_guard.as_parts_mut();
 
             for item in args.drain(..) {
@@ -250,8 +252,13 @@ fn candidate_wins(
     is_min: bool,
     vm: &mut VM<'_, impl ResourceTracker>,
 ) -> RunResult<bool> {
-    let Some(ordering) = candidate.py_cmp(current, vm)? else {
-        return Err(ord_not_supported(candidate, current, is_min, vm));
+    let ordering = match candidate.py_cmp(current, vm)? {
+        CmpOrder::Ordered(ordering) => ordering,
+        // A `NaN` candidate (or `NaN`-carrying container) is neither smaller nor
+        // larger, so it never displaces the incumbent — matching CPython, where
+        // `min`/`max` only swap on a strict `<`/`>` and `NaN` yields neither.
+        CmpOrder::Unordered => return Ok(false),
+        CmpOrder::Incomparable => return Err(ord_not_supported(candidate, current, is_min, vm)),
     };
 
     Ok((is_min && ordering == Ordering::Less) || (!is_min && ordering == Ordering::Greater))
@@ -269,10 +276,8 @@ fn default_with_multiple_args(func_name: &str) -> RunError {
 
 #[cold]
 fn ord_not_supported(left: &Value, right: &Value, is_min: bool, vm: &VM<'_, impl ResourceTracker>) -> RunError {
-    let left_type = left.py_type(vm);
-    let right_type = right.py_type(vm);
-    let operator = if is_min { '<' } else { '>' };
-    ExcType::type_error(format!(
-        "'{operator}' not supported between instances of '{left_type}' and '{right_type}'"
-    ))
+    let left_type = left.py_type_name(vm);
+    let right_type = right.py_type_name(vm);
+    let operator = if is_min { "<" } else { ">" };
+    ExcType::type_error_ordering(operator, &left_type, &right_type)
 }

@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 
+from ..models.test_forwarder_request_method import TestForwarderRequestMethod, check_test_forwarder_request_method
 from ..types import UNSET, Unset
-
-from ..models.test_forwarder_request_method import check_test_forwarder_request_method
-from ..models.test_forwarder_request_method import TestForwarderRequestMethod
-from typing import cast
 
 if TYPE_CHECKING:
     from ..models.test_forwarder_request_headers import TestForwarderRequestHeaders
@@ -48,10 +45,10 @@ class TestForwarderRequest:
     method: TestForwarderRequestMethod | Unset = "POST"
     headers: TestForwarderRequestHeaders | Unset = UNSET
     success_status: str | Unset = "2xx"
-    timeout_ms: int | None | Unset = UNSET
+    timeout_ms: int | Unset | None = UNSET
     tls_verify: bool | Unset = True
-    ca_cert: None | str | Unset = UNSET
-    body: None | str | Unset = UNSET
+    ca_cert: str | Unset | None = UNSET
+    body: str | Unset | None = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         url = self.url
@@ -66,7 +63,7 @@ class TestForwarderRequest:
 
         success_status = self.success_status
 
-        timeout_ms: int | None | Unset
+        timeout_ms: int | Unset | None
         if isinstance(self.timeout_ms, Unset):
             timeout_ms = UNSET
         else:
@@ -74,13 +71,13 @@ class TestForwarderRequest:
 
         tls_verify = self.tls_verify
 
-        ca_cert: None | str | Unset
+        ca_cert: str | Unset | None
         if isinstance(self.ca_cert, Unset):
             ca_cert = UNSET
         else:
             ca_cert = self.ca_cert
 
-        body: None | str | Unset
+        body: str | Unset | None
         if isinstance(self.body, Unset):
             body = UNSET
         else:
@@ -133,7 +130,7 @@ class TestForwarderRequest:
 
         success_status = d.pop("success_status", UNSET)
 
-        def _parse_timeout_ms(data: object) -> int | None | Unset:
+        def _parse_timeout_ms(data: object) -> int | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -144,7 +141,7 @@ class TestForwarderRequest:
 
         tls_verify = d.pop("tls_verify", UNSET)
 
-        def _parse_ca_cert(data: object) -> None | str | Unset:
+        def _parse_ca_cert(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -153,7 +150,7 @@ class TestForwarderRequest:
 
         ca_cert = _parse_ca_cert(d.pop("ca_cert", UNSET))
 
-        def _parse_body(data: object) -> None | str | Unset:
+        def _parse_body(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

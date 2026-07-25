@@ -743,7 +743,6 @@ class GetResponderGatewayResponseTypeDef(TypedDict):
     tags: dict[str, str]
     activeLinksCount: int
     totalLinksCount: int
-    inboundLinksCount: int
     linksRequestedCount: int
     gatewayType: GatewayTypeType
     externalInboundEndpoint: str

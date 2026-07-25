@@ -1,20 +1,16 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.sso_connection_default_role import check_sso_connection_default_role
-from ..models.sso_connection_default_role import SSOConnectionDefaultRole
-from ..models.sso_connection_protocol import check_sso_connection_protocol
-from ..models.sso_connection_protocol import SSOConnectionProtocol
 from dateutil.parser import isoparse
-from typing import cast
-import datetime
+
+from ..models.sso_connection_default_role import SSOConnectionDefaultRole, check_sso_connection_default_role
+from ..models.sso_connection_protocol import SSOConnectionProtocol, check_sso_connection_protocol
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.sso_connection_group_role_mappings import SSOConnectionGroupRoleMappings
@@ -79,63 +75,63 @@ class SSOConnection:
     """
 
     protocol: SSOConnectionProtocol
-    oidc_issuer: None | str | Unset = UNSET
-    oidc_client_id: None | str | Unset = UNSET
-    oidc_client_secret: None | str | Unset = UNSET
-    saml_idp_entity_id: None | str | Unset = UNSET
-    saml_idp_sso_url: None | str | Unset = UNSET
-    saml_idp_slo_url: None | str | Unset = UNSET
-    saml_idp_x509_cert: None | str | Unset = UNSET
+    oidc_issuer: str | Unset | None = UNSET
+    oidc_client_id: str | Unset | None = UNSET
+    oidc_client_secret: str | Unset | None = UNSET
+    saml_idp_entity_id: str | Unset | None = UNSET
+    saml_idp_sso_url: str | Unset | None = UNSET
+    saml_idp_slo_url: str | Unset | None = UNSET
+    saml_idp_x509_cert: str | Unset | None = UNSET
     default_role: SSOConnectionDefaultRole | Unset = "MEMBER"
     group_role_mappings: SSOConnectionGroupRoleMappings | Unset = UNSET
     enforced: bool | Unset = False
-    sp_entity_id: None | str | Unset = UNSET
-    acs_url: None | str | Unset = UNSET
-    slo_url: None | str | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    updated_at: datetime.datetime | None | Unset = UNSET
+    sp_entity_id: str | Unset | None = UNSET
+    acs_url: str | Unset | None = UNSET
+    slo_url: str | Unset | None = UNSET
+    created_at: datetime.datetime | Unset | None = UNSET
+    updated_at: datetime.datetime | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         protocol: str = self.protocol
 
-        oidc_issuer: None | str | Unset
+        oidc_issuer: str | Unset | None
         if isinstance(self.oidc_issuer, Unset):
             oidc_issuer = UNSET
         else:
             oidc_issuer = self.oidc_issuer
 
-        oidc_client_id: None | str | Unset
+        oidc_client_id: str | Unset | None
         if isinstance(self.oidc_client_id, Unset):
             oidc_client_id = UNSET
         else:
             oidc_client_id = self.oidc_client_id
 
-        oidc_client_secret: None | str | Unset
+        oidc_client_secret: str | Unset | None
         if isinstance(self.oidc_client_secret, Unset):
             oidc_client_secret = UNSET
         else:
             oidc_client_secret = self.oidc_client_secret
 
-        saml_idp_entity_id: None | str | Unset
+        saml_idp_entity_id: str | Unset | None
         if isinstance(self.saml_idp_entity_id, Unset):
             saml_idp_entity_id = UNSET
         else:
             saml_idp_entity_id = self.saml_idp_entity_id
 
-        saml_idp_sso_url: None | str | Unset
+        saml_idp_sso_url: str | Unset | None
         if isinstance(self.saml_idp_sso_url, Unset):
             saml_idp_sso_url = UNSET
         else:
             saml_idp_sso_url = self.saml_idp_sso_url
 
-        saml_idp_slo_url: None | str | Unset
+        saml_idp_slo_url: str | Unset | None
         if isinstance(self.saml_idp_slo_url, Unset):
             saml_idp_slo_url = UNSET
         else:
             saml_idp_slo_url = self.saml_idp_slo_url
 
-        saml_idp_x509_cert: None | str | Unset
+        saml_idp_x509_cert: str | Unset | None
         if isinstance(self.saml_idp_x509_cert, Unset):
             saml_idp_x509_cert = UNSET
         else:
@@ -151,25 +147,25 @@ class SSOConnection:
 
         enforced = self.enforced
 
-        sp_entity_id: None | str | Unset
+        sp_entity_id: str | Unset | None
         if isinstance(self.sp_entity_id, Unset):
             sp_entity_id = UNSET
         else:
             sp_entity_id = self.sp_entity_id
 
-        acs_url: None | str | Unset
+        acs_url: str | Unset | None
         if isinstance(self.acs_url, Unset):
             acs_url = UNSET
         else:
             acs_url = self.acs_url
 
-        slo_url: None | str | Unset
+        slo_url: str | Unset | None
         if isinstance(self.slo_url, Unset):
             slo_url = UNSET
         else:
             slo_url = self.slo_url
 
-        created_at: None | str | Unset
+        created_at: str | Unset | None
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -177,7 +173,7 @@ class SSOConnection:
         else:
             created_at = self.created_at
 
-        updated_at: None | str | Unset
+        updated_at: str | Unset | None
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -232,7 +228,7 @@ class SSOConnection:
         d = dict(src_dict)
         protocol = check_sso_connection_protocol(d.pop("protocol"))
 
-        def _parse_oidc_issuer(data: object) -> None | str | Unset:
+        def _parse_oidc_issuer(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -241,7 +237,7 @@ class SSOConnection:
 
         oidc_issuer = _parse_oidc_issuer(d.pop("oidc_issuer", UNSET))
 
-        def _parse_oidc_client_id(data: object) -> None | str | Unset:
+        def _parse_oidc_client_id(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -250,7 +246,7 @@ class SSOConnection:
 
         oidc_client_id = _parse_oidc_client_id(d.pop("oidc_client_id", UNSET))
 
-        def _parse_oidc_client_secret(data: object) -> None | str | Unset:
+        def _parse_oidc_client_secret(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -259,7 +255,7 @@ class SSOConnection:
 
         oidc_client_secret = _parse_oidc_client_secret(d.pop("oidc_client_secret", UNSET))
 
-        def _parse_saml_idp_entity_id(data: object) -> None | str | Unset:
+        def _parse_saml_idp_entity_id(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -268,7 +264,7 @@ class SSOConnection:
 
         saml_idp_entity_id = _parse_saml_idp_entity_id(d.pop("saml_idp_entity_id", UNSET))
 
-        def _parse_saml_idp_sso_url(data: object) -> None | str | Unset:
+        def _parse_saml_idp_sso_url(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -277,7 +273,7 @@ class SSOConnection:
 
         saml_idp_sso_url = _parse_saml_idp_sso_url(d.pop("saml_idp_sso_url", UNSET))
 
-        def _parse_saml_idp_slo_url(data: object) -> None | str | Unset:
+        def _parse_saml_idp_slo_url(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -286,7 +282,7 @@ class SSOConnection:
 
         saml_idp_slo_url = _parse_saml_idp_slo_url(d.pop("saml_idp_slo_url", UNSET))
 
-        def _parse_saml_idp_x509_cert(data: object) -> None | str | Unset:
+        def _parse_saml_idp_x509_cert(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -311,7 +307,7 @@ class SSOConnection:
 
         enforced = d.pop("enforced", UNSET)
 
-        def _parse_sp_entity_id(data: object) -> None | str | Unset:
+        def _parse_sp_entity_id(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -320,7 +316,7 @@ class SSOConnection:
 
         sp_entity_id = _parse_sp_entity_id(d.pop("sp_entity_id", UNSET))
 
-        def _parse_acs_url(data: object) -> None | str | Unset:
+        def _parse_acs_url(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -329,7 +325,7 @@ class SSOConnection:
 
         acs_url = _parse_acs_url(d.pop("acs_url", UNSET))
 
-        def _parse_slo_url(data: object) -> None | str | Unset:
+        def _parse_slo_url(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -338,7 +334,7 @@ class SSOConnection:
 
         slo_url = _parse_slo_url(d.pop("slo_url", UNSET))
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -355,7 +351,7 @@ class SSOConnection:
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_updated_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

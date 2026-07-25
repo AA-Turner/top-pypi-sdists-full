@@ -5,6 +5,7 @@
 
 use std::fmt::{self, Write};
 
+use monty_types::{ResourceError, ResourceTracker};
 use strum::FromRepr;
 
 use crate::{
@@ -13,7 +14,6 @@ use crate::{
     exception_private::RunResult,
     heap::HeapId,
     intern::{StaticStrings, StringId},
-    resource::{ResourceError, ResourceTracker},
 };
 
 pub(crate) mod asyncio;
@@ -27,6 +27,7 @@ pub(crate) mod pathlib;
 pub(crate) mod re;
 pub(crate) mod sys;
 pub(crate) mod typing;
+pub(crate) mod unicodedata;
 
 /// Built-in modules that can be imported.
 #[repr(u8)]
@@ -50,6 +51,8 @@ pub(crate) enum StandardLib {
     Re,
     /// The `datetime` module providing date and time types.
     Datetime,
+    /// The `unicodedata` module providing Unicode Character Database access.
+    Unicodedata,
     /// The `gc` module exposing a single `collect()` for tests. Only present
     /// under the `test-hooks` feature so production sandboxes never see it.
     ///
@@ -74,6 +77,7 @@ impl StandardLib {
             StaticStrings::Json => Some(Self::Json),
             StaticStrings::Re => Some(Self::Re),
             StaticStrings::Datetime => Some(Self::Datetime),
+            StaticStrings::Unicodedata => Some(Self::Unicodedata),
             #[cfg(feature = "test-hooks")]
             StaticStrings::Gc => Some(Self::Gc),
             _ => None,
@@ -98,6 +102,7 @@ impl StandardLib {
             Self::Json => json::create_module(vm),
             Self::Re => re::create_module(vm),
             Self::Datetime => datetime::create_module(vm),
+            Self::Unicodedata => unicodedata::create_module(vm),
             #[cfg(feature = "test-hooks")]
             Self::Gc => gc::create_module(vm),
         }
@@ -112,10 +117,17 @@ pub(crate) enum ModuleFunctions {
     Math(math::MathFunctions),
     Os(os::OsFunctions),
     Re(re::ReFunctions),
+    Unicodedata(unicodedata::UnicodedataFunctions),
     /// `gc` module functions — only present under the `test-hooks` feature.
     /// See [`gc`] for why we keep this gated rather than always-on.
     #[cfg(feature = "test-hooks")]
     Gc(gc::GcFunctions),
+    /// `sys` module functions — only present under the `test-hooks` feature.
+    /// Production `sys` is attribute-only; the test feature adds callables
+    /// like `setrecursionlimit` that fixtures use to align behavior with
+    /// CPython. See [`sys`] for the rationale.
+    #[cfg(feature = "test-hooks")]
+    Sys(sys::SysFunctions),
 }
 
 impl fmt::Display for ModuleFunctions {
@@ -126,8 +138,11 @@ impl fmt::Display for ModuleFunctions {
             Self::Math(func) => write!(f, "{func}"),
             Self::Os(func) => write!(f, "{func}"),
             Self::Re(func) => write!(f, "{func}"),
+            Self::Unicodedata(func) => write!(f, "{func}"),
             #[cfg(feature = "test-hooks")]
             Self::Gc(func) => write!(f, "{func}"),
+            #[cfg(feature = "test-hooks")]
+            Self::Sys(func) => write!(f, "{func}"),
         }
     }
 }
@@ -144,13 +159,16 @@ impl ModuleFunctions {
             Self::Math(functions) => math::call(vm, functions, args).map(CallResult::Value),
             Self::Os(functions) => os::call(vm, functions, args),
             Self::Re(functions) => re::call(vm, functions, args),
+            Self::Unicodedata(functions) => unicodedata::call(vm, functions, args).map(CallResult::Value),
             #[cfg(feature = "test-hooks")]
             Self::Gc(functions) => gc::call(vm, functions, args).map(CallResult::Value),
+            #[cfg(feature = "test-hooks")]
+            Self::Sys(functions) => sys::call(vm, functions, args).map(CallResult::Value),
         }
     }
 
     /// Writes the Python repr() string for this function to a formatter.
-    pub fn py_repr_fmt<W: Write>(self, f: &mut W, py_id: usize) -> fmt::Result {
+    pub fn py_repr_fmt<W: Write>(self, f: &mut W, py_id: impl fmt::LowerHex) -> fmt::Result {
         write!(f, "<function {self} at 0x{py_id:x}>")
     }
 }

@@ -54,7 +54,12 @@ from dbt_state.dispatcher import (
     AsyncTelemetryDispatcher,
     NoOpTelemetryDispatcher,
 )
-from dbt_state.system_info import get_system_user_id, get_os_name
+from dbt_state.system_info import (
+    get_cloud_run_id,
+    get_invocation_id,
+    get_os_name,
+    get_system_user_id,
+)
 from dbt_state.run_cache import RunCache, NoRunResult
 from dbt_state.session import SessionManager
 from dbt_state.utils import (
@@ -443,6 +448,8 @@ class RunnerOverride:
                 session_id=self._session._session_id,
                 system_user_id=get_system_user_id(DBT_RUN_CACHE_PATH),
                 os_name=get_os_name(),
+                invocation_id=get_invocation_id(),
+                cloud_run_id=get_cloud_run_id(),
             )
             self._telemetry_dispatcher = (
                 NoOpTelemetryDispatcher()

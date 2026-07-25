@@ -8,9 +8,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from airbyte_ops_mcp import slack_posting
 from airbyte_ops_mcp.human_in_the_loop import (
     APPROVAL_REQUEST_SUMMARY_MAX_LENGTH,
+    classify_person_id,
     dispatch_escalation,
+    normalize_person_id,
     validate_approval_request_summary,
     validate_person_id,
 )
@@ -18,10 +21,14 @@ from airbyte_ops_mcp.mcp.human_in_the_loop import (
     RequestType,
     escalate_to_human,
 )
-from airbyte_ops_mcp.slack_posting import _build_hitl_blocks as _build_slack_blocks
 
 SESSION_URL = "https://app.devin.ai/sessions/abc123def456"
 DETAIL_URL = "https://github.com/airbytehq/airbyte/pull/123"
+
+_build_slack_blocks = slack_posting._build_hitl_blocks
+_format_mention = slack_posting._format_mention
+_resolve_to_slack_id = slack_posting._resolve_to_slack_id
+send_hitl_notification = slack_posting.send_hitl_notification
 
 
 def _find_actions_block(blocks: list[dict]) -> dict | None:
@@ -483,7 +490,9 @@ def test_request_type_resolves_header(
         pytest.param("user@airbyte.io", id="email_another_airbyte"),
         pytest.param("U05AKF1BCC9", id="slack_id"),
         pytest.param("U070BMPDUHJ", id="slack_id_2"),
+        pytest.param("S0BKR63VAN5", id="slack_usergroup_id"),
         pytest.param("  @aaronsteers  ", id="github_handle_whitespace"),
+        pytest.param("  S0BKR63VAN5  ", id="slack_usergroup_id_whitespace"),
     ],
 )
 def test_validate_person_id_accepts_valid(identifier: str) -> None:
@@ -503,6 +512,8 @@ def test_validate_person_id_accepts_valid(identifier: str) -> None:
         pytest.param("@", id="at_sign_only"),
         pytest.param("user@example.com", id="email_non_airbyte"),
         pytest.param("user@gmail.com", id="email_gmail"),
+        pytest.param("s0bkr63van5", id="lowercase_slack_usergroup_id"),
+        pytest.param("S1234567", id="short_slack_usergroup_id"),
     ],
 )
 def test_validate_person_id_rejects_invalid(identifier: str) -> None:
@@ -512,11 +523,147 @@ def test_validate_person_id_rejects_invalid(identifier: str) -> None:
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize(
+    "identifier, expected_classification",
+    [
+        pytest.param("S0BKR63VAN5", "slack_usergroup_id", id="slack_usergroup"),
+        pytest.param("U05AKF1BCC9", "slack_id", id="slack_user"),
+        pytest.param("@aaronsteers", "github_handle", id="github_handle"),
+        pytest.param("aj@airbyte.io", "email", id="email"),
+    ],
+)
+def test_classify_person_id(identifier: str, expected_classification: str) -> None:
+    """classify_person_id distinguishes Slack usergroups from other identifiers."""
+    assert classify_person_id(identifier) == expected_classification
+
+
+@pytest.mark.unit
+def test_normalize_person_id_preserves_slack_usergroup_id() -> None:
+    """normalize_person_id trims but does not alter a Slack usergroup ID."""
+    assert normalize_person_id("  S0BKR63VAN5  ") == "S0BKR63VAN5"
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.human_in_the_loop.trigger_workflow_dispatch")
+@patch("airbyte_ops_mcp.human_in_the_loop.resolve_ci_trigger_github_token")
+def test_dispatch_escalation_accepts_mixed_user_and_usergroup_cc(
+    mock_token: MagicMock, mock_dispatch: MagicMock
+) -> None:
+    """dispatch_escalation accepts Slack users and usergroups together in CC."""
+    mock_token.return_value = "fake-token"
+    mock_dispatch.return_value = MagicMock()
+
+    dispatch_escalation(
+        target_person="S0BKR63VAN5",
+        message="Test message.",
+        agent_session_url=SESSION_URL,
+        cc=["U05AKF1BCC9", "S08SNSK5RHQ"],
+    )
+
+    assert mock_dispatch.call_args.kwargs["inputs"]["target_person"] == "S0BKR63VAN5"
+    assert mock_dispatch.call_args.kwargs["inputs"]["cc_persons"] == (
+        "U05AKF1BCC9,S08SNSK5RHQ"
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "identifier, slack_id, expected",
+    [
+        pytest.param(
+            "S0BKR63VAN5",
+            "S0BKR63VAN5",
+            "<!subteam^S0BKR63VAN5>",
+            id="usergroup_id",
+        ),
+        pytest.param(
+            "U05AKF1BCC9",
+            "U05AKF1BCC9",
+            "<@U05AKF1BCC9>",
+            id="user_id",
+        ),
+        pytest.param(
+            "alice@example.com",
+            "W0123456789",
+            "<@W0123456789>",
+            id="enterprise-grid_user_id",
+        ),
+    ],
+)
+def test_format_mention_renders_slack_ids(
+    identifier: str, slack_id: str, expected: str
+) -> None:
+    """_format_mention renders usergroup and user IDs with Slack syntax."""
+    assert _format_mention(identifier, slack_id) == expected
+
+
+@pytest.mark.unit
+def test_resolve_to_slack_id_skips_roster_for_usergroup() -> None:
+    """_resolve_to_slack_id returns usergroup IDs without roster lookup."""
+    assert _resolve_to_slack_id("S0BKR63VAN5", []) == "S0BKR63VAN5"
+
+
+@pytest.mark.unit
+def test_build_slack_blocks_renders_usergroup_target_and_cc() -> None:
+    """HITL blocks render usergroup targets and CCs as subteam mentions."""
+    blocks = _build_slack_blocks(
+        target_person="S0BKR63VAN5",
+        target_slack_id="S0BKR63VAN5",
+        cc_mentions=["<!subteam^S08SNSK5RHQ>"],
+        message="Test message.",
+        agent_session_url=SESSION_URL,
+        pr_url=None,
+        issue_url=None,
+        additional_actions=None,
+    )
+
+    context = next(block for block in blocks if block["type"] == "context")
+    text = context["elements"][0]["text"]
+    assert "*To:* <!subteam^S0BKR63VAN5>" in text
+    assert "*CC:* <!subteam^S08SNSK5RHQ>" in text
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.slack_posting._post_message")
+def test_send_hitl_notification_renders_usergroups_end_to_end(
+    mock_post: MagicMock,
+) -> None:
+    """send_hitl_notification renders usergroups without roster resolution."""
+    send_hitl_notification(
+        target_person="S0BKR63VAN5",
+        message="Test message.",
+        agent_session_url=SESSION_URL,
+        cc_persons=["U05AKF1BCC9", "S08SNSK5RHQ"],
+        slack_token="xoxb-test",
+        roster=[],
+    )
+
+    blocks = mock_post.call_args.kwargs["blocks"]
+    context = next(block for block in blocks if block["type"] == "context")
+    text = context["elements"][0]["text"]
+    assert "*To:* <!subteam^S0BKR63VAN5>" in text
+    assert "<@U05AKF1BCC9>" in text
+    assert "<!subteam^S08SNSK5RHQ>" in text
+
+
+@pytest.mark.unit
+def test_test_suite_blocks_unstubbed_slack_posts() -> None:
+    """Outbound Slack posts fail loudly unless a test explicitly stubs them."""
+    with pytest.raises(AssertionError, match="Outbound notification attempted"):
+        send_hitl_notification(
+            target_person="S0BKR63VAN5",
+            message="Test message.",
+            slack_token="xoxb-test",
+            roster=[],
+        )
+
+
+@pytest.mark.unit
 @patch("airbyte_ops_mcp.mcp.human_in_the_loop.dispatch_escalation")
 def test_escalate_to_human_rejects_bare_handle(mock_dispatch: MagicMock) -> None:
     """escalate_to_human raises ValueError when target_person is a bare handle."""
     mock_dispatch.side_effect = ValueError(
-        "Person identifier 'aldo.gonzalez' is not a recognized format."
+        "Identifier 'aldo.gonzalez' is not a recognized format."
     )
     with pytest.raises(ValueError, match="not a recognized format"):
         escalate_to_human(

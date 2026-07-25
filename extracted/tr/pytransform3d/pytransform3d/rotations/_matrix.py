@@ -344,22 +344,27 @@ def axis_angle_from_matrix(R, strict_check=True, check=True):
     )
 
     if abs(angle - np.pi) < 1e-4:  # np.trace(R) close to -1
-        # The threshold 1e-4 is a result from this discussion:
-        # https://github.com/dfki-ric/pytransform3d/issues/43
-        # The standard formula becomes numerically unstable, however,
-        # Rodrigues' formula reduces to R = I + 2 (ee^T - I), with the
-        # rotation axis e, that is, ee^T = 0.5 * (R + I) and we can find the
-        # squared values of the rotation axis on the diagonal of this matrix.
-        # We can still use the original formula to reconstruct the signs of
-        # the rotation axis correctly.
-
-        # In case of floating point inaccuracies:
-        R_diag = np.clip(np.diag(R), -1.0, 1.0)
-
-        eeT_diag = 0.5 * (R_diag + 1.0)
-        signs = np.sign(axis_unnormalized)
-        signs[signs == 0.0] = 1.0
+        # Near pi the standard formula is numerically unstable. The 1e-4
+        # threshold comes from
+        # https://github.com/dfki-ric/pytransform3d/issues/43.
+        #
+        # At pi, R is symmetric, so the skew part R - R^T is zero and its
+        # sign cannot recover a general axis. From Rodrigues' formula
+        # R = 2 ee^T - I at pi, i.e. ee^T = 0.5 * (R + I), whose diagonal
+        # holds the squared axis components e_i^2. We read the magnitudes
+        # |e_i| off that diagonal and the relative signs off the dominant
+        # row k = argmax(e_i^2) of the symmetric part, where
+        # R_sym[k, j] gives sign(e_k) * sign(e_j). Using the symmetric part
+        # (not R) keeps this accurate just below pi, where the skew part then
+        # fixes the overall sign of the axis.
+        R_sym = 0.5 * (R + R.T)
+        eeT_diag = np.clip(0.5 * (np.diag(R_sym) + 1.0), 0.0, 1.0)
+        k = np.argmax(eeT_diag)
+        signs = np.sign(R_sym[k])
+        signs[k] = 1.0
         a[:3] = np.sqrt(eeT_diag) * signs
+        if angle < np.pi and np.dot(a[:3], axis_unnormalized) < 0.0:
+            a[:3] = -a[:3]
     else:
         a[:3] = axis_unnormalized
         # The norm of axis_unnormalized is 2.0 * np.sin(angle), that is, we

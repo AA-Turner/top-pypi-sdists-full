@@ -128,6 +128,7 @@ class DefaultNodeHashCalculator(NodeHashCalculator):
             self.node_configs_hash,
             self.node_persisted_docs_hash,
             self.node_macros_hash,
+            ".".join(self.node.fqn),
         ]
         return self._calculate_hash(*(p for p in parts if p is not None))
 
@@ -168,6 +169,7 @@ class ModelNodeHashCalculator(NodeHashCalculator):
             self.node_configs_hash,
             self.node_persisted_docs_hash,
             self.node_macros_hash,
+            ".".join(self.node.fqn),
             self.node_contract_hash,
             self.node_ref_representation_hash,
         ]
@@ -178,6 +180,7 @@ class GenericTestNodeCalculator(NodeHashCalculator):
     def calculate_node_hash(self) -> str:
         parts = [
             self.node_configs_hash,
+            ".".join(self.node.fqn),
         ]
         return self._calculate_hash(*(p for p in parts if p is not None))
 

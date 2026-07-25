@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: testcontainers
-Version: 4.14.2
+Version: 4.15.0
 Summary: Python library for throwaway instances of anything that can run in a Docker container
 Project-URL: Homepage, https://github.com/testcontainers/testcontainers-python
 Project-URL: Repository, https://github.com/testcontainers/testcontainers-python
@@ -45,13 +45,17 @@ Requires-Dist: clickhouse-driver; extra == 'clickhouse'
 Provides-Extra: cockroachdb
 Provides-Extra: cosmosdb
 Requires-Dist: azure-cosmos>=4; extra == 'cosmosdb'
+Provides-Extra: cratedb
+Requires-Dist: httpx; extra == 'cratedb'
+Requires-Dist: sqlalchemy-cratedb; extra == 'cratedb'
 Provides-Extra: db2
 Requires-Dist: ibm-db-sa; (platform_machine != 'aarch64' and platform_machine != 'arm64') and extra == 'db2'
-Requires-Dist: sqlalchemy>=2; extra == 'db2'
+Requires-Dist: sqlalchemy; extra == 'db2'
 Provides-Extra: elasticsearch
 Provides-Extra: generic
 Requires-Dist: httpx; extra == 'generic'
 Requires-Dist: redis>=7; extra == 'generic'
+Requires-Dist: sqlalchemy; extra == 'generic'
 Provides-Extra: google
 Requires-Dist: google-cloud-datastore>=2; extra == 'google'
 Requires-Dist: google-cloud-pubsub>=2; extra == 'google'
@@ -77,10 +81,10 @@ Requires-Dist: pymongo>=4; extra == 'mongodb'
 Provides-Extra: mqtt
 Provides-Extra: mssql
 Requires-Dist: pymssql>=2; extra == 'mssql'
-Requires-Dist: sqlalchemy>=2; extra == 'mssql'
+Requires-Dist: sqlalchemy; extra == 'mssql'
 Provides-Extra: mysql
 Requires-Dist: pymysql[rsa]>=1; extra == 'mysql'
-Requires-Dist: sqlalchemy>=2; extra == 'mysql'
+Requires-Dist: sqlalchemy; extra == 'mysql'
 Provides-Extra: nats
 Requires-Dist: nats-py>=2; extra == 'nats'
 Provides-Extra: neo4j
@@ -93,10 +97,10 @@ Provides-Extra: opensearch
 Requires-Dist: opensearch-py>=3; (python_version < '4.0') and extra == 'opensearch'
 Provides-Extra: oracle
 Requires-Dist: oracledb>=3; extra == 'oracle'
-Requires-Dist: sqlalchemy>=2; extra == 'oracle'
+Requires-Dist: sqlalchemy; extra == 'oracle'
 Provides-Extra: oracle-free
 Requires-Dist: oracledb>=3; extra == 'oracle-free'
-Requires-Dist: sqlalchemy>=2; extra == 'oracle-free'
+Requires-Dist: sqlalchemy; extra == 'oracle-free'
 Provides-Extra: postgres
 Provides-Extra: qdrant
 Requires-Dist: qdrant-client>=1; extra == 'qdrant'
@@ -107,7 +111,7 @@ Requires-Dist: redis>=7; extra == 'redis'
 Provides-Extra: registry
 Requires-Dist: bcrypt>=5; extra == 'registry'
 Provides-Extra: scylla
-Requires-Dist: cassandra-driver>=3; extra == 'scylla'
+Requires-Dist: cassandra-driver>=3; (python_version < '3.14') and extra == 'scylla'
 Provides-Extra: selenium
 Requires-Dist: selenium>=4; extra == 'selenium'
 Provides-Extra: sftp
@@ -116,6 +120,7 @@ Provides-Extra: test-module-import
 Requires-Dist: httpx; extra == 'test-module-import'
 Provides-Extra: trino
 Requires-Dist: trino; extra == 'trino'
+Provides-Extra: valkey
 Provides-Extra: vault
 Provides-Extra: weaviate
 Requires-Dist: weaviate-client>=4; extra == 'weaviate'

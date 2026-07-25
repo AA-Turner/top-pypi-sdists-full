@@ -1,37 +1,30 @@
-import six.moves.cPickle as pickle
 import os
+import pickle as pickle
 import signal
 import subprocess
 import sys
-import traceback
 import threading
 import time
+import traceback
 import unittest
 
 import numpy as np
-import nose
-import nose.plugins.skip
+import pytest
 
-from hyperopt.base import JOB_STATE_DONE, STATUS_OK
-from hyperopt.mongoexp import parse_url
-from hyperopt.mongoexp import MongoTrials
-from hyperopt.mongoexp import MongoWorker
-from hyperopt.mongoexp import ReserveTimeout
-from hyperopt.mongoexp import as_mongo_str
-from hyperopt.mongoexp import main_worker_helper
-from hyperopt.mongoexp import MongoJobs
-from hyperopt.fmin import fmin
-from hyperopt import hp, rand
 import hyperopt.tests.test_base
+from hyperopt import hp, rand
+from hyperopt.base import JOB_STATE_DONE, STATUS_OK
+from hyperopt.fmin import fmin
+from hyperopt.mongoexp import (
+    MongoJobs,
+    MongoTrials,
+    MongoWorker,
+    ReserveTimeout,
+    as_mongo_str,
+    main_worker_helper,
+    parse_url,
+)
 from hyperopt.tests.unit.test_domains import gauss_wave2
-
-
-def skiptest(f):
-    def wrapper(*args, **kwargs):
-        raise nose.plugins.skip.SkipTest()
-
-    wrapper.__name__ = f.__name__
-    return wrapper
 
 
 class TempMongo:
@@ -144,12 +137,12 @@ try:
 except OSError as e:
     print(e, file=sys.stderr)
     print(
-        ("Failed to create a TempMongo context," " skipping all mongo tests."),
+        ("Failed to create a TempMongo context, skipping all mongo tests."),
         file=sys.stderr,
     )
     if "such file" in str(e):
         print("Hint: is mongod executable on path?", file=sys.stderr)
-    raise nose.SkipTest()
+    pytest.skip(allow_module_level=True)
 
 
 class TestMongoTrials(hyperopt.tests.test_base.TestTrials):
@@ -211,7 +204,7 @@ def with_worker_threads(n_threads, dbname="foo", n_jobs=sys.maxsize, timeout=10.
             finally:
                 [th.join() for th in threads]
 
-        wrapper.__name__ = f.__name__  # -- nose requires test in name
+        wrapper.__name__ = f.__name__
         return wrapper
 
     return deco
@@ -396,7 +389,7 @@ def objective_with_attachments(x: float):
     """Objective function that includes extra information as attachments and
     dictionary attributes."""
     return {
-        "loss": x ** 2,
+        "loss": x**2,
         "status": STATUS_OK,
         "extra_stuff": {"type": None, "value": [0, 1, 2]},
         "attachments": {"time": pickle.dumps(time.time)},
@@ -416,7 +409,6 @@ def fmin_thread_fn(space, mongo_trials: MongoTrials, max_evals: int):
 
 
 def test_trial_attachments():
-
     exp_key = "A"
     with TempMongo() as tm:
         mj = tm.mongo_jobs("foo")
@@ -453,20 +445,20 @@ class FakeOptions:
 
 
 # -- assert that the test raises a ReserveTimeout within 5 seconds
-@nose.tools.timed(10.0)  # XXX:  this needs a suspiciously long timeout
-@nose.tools.raises(ReserveTimeout)
+@pytest.mark.timeout(10)  # XXX:  this needs a suspiciously long timeout
 @with_mongo_trials
 def test_main_worker(trials):
-    options = FakeOptions(
-        max_jobs=1,
-        # XXX: sync this with TempMongo
-        mongo=as_mongo_str("localhost:22334/foodb"),
-        reserve_timeout=1,
-        poll_interval=0.5,
-        workdir=None,
-        exp_key="foo",
-        last_job_timeout=None,
-    )
-    # -- check that it runs
-    #    and that the reserve timeout is respected
-    main_worker_helper(options, ())
+    with pytest.raises(ReserveTimeout):
+        options = FakeOptions(
+            max_jobs=1,
+            # XXX: sync this with TempMongo
+            mongo=as_mongo_str("localhost:22334/foodb"),
+            reserve_timeout=1,
+            poll_interval=0.5,
+            workdir=None,
+            exp_key="foo",
+            last_job_timeout=None,
+        )
+        # -- check that it runs
+        #    and that the reserve timeout is respected
+        main_worker_helper(options, ())

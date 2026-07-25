@@ -194,6 +194,7 @@ from .rst_to_myst import (
 )
 from .spinner import (  # type: ignore[no-redef]
     SPINNERS,
+    OperationTrail,
     ProgressOption,
     Spinner,
     SpinnerPreset,
@@ -323,6 +324,7 @@ __all__ = [
     "NoConfigOption",
     "NoSuchCommand",
     "NoSuchOption",
+    "OperationTrail",
     "Option",
     "OptionGroup",
     "OptionGroupMixin",
@@ -506,10 +508,10 @@ del annotations
 del warnings  # noqa: F821
 
 
-__version__ = "8.5.0"
+__version__ = "8.6.0"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "f3563b49c891d6c1c26929ef7ba33cdcec94a94b"
+__git_tag_sha__ = "8312e2dee1c1570b69ad6d90f6c339e2c12b8f97"

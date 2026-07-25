@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: igittigitt
-Version: 2.2.1
+Version: 2.2.2
 Summary: A spec-compliant .gitignore parser and path filter, 100% git-compatible, with an include/whitelist mode and a streaming, memory-bounded CLI
 Project-URL: Homepage, https://github.com/bitranox/igittigitt
 Project-URL: Repository, https://github.com/bitranox/igittigitt.git
@@ -21,18 +21,18 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: lib-cli-exit-tools>=2.3.2
-Requires-Dist: lib-layered-config>=5.6.0
-Requires-Dist: lib-log-rich>=6.3.5
+Requires-Dist: lib-cli-exit-tools>=2.3.3
+Requires-Dist: lib-layered-config>=5.6.1
+Requires-Dist: lib-log-rich>=6.3.6
 Requires-Dist: orjson>=3.11.9
 Requires-Dist: pydantic>=2.13.4
 Requires-Dist: rich-click>=1.9.8
 Requires-Dist: wcmatch>=11.0
 Provides-Extra: dev
 Requires-Dist: bandit>=1.9.4; extra == 'dev'
-Requires-Dist: build>=1.5.1; extra == 'dev'
-Requires-Dist: httpx2>=2.6.0; extra == 'dev'
-Requires-Dist: hypothesis>=6.156.6; extra == 'dev'
+Requires-Dist: build>=1.5.0; extra == 'dev'
+Requires-Dist: httpx2>=2.9.1; extra == 'dev'
+Requires-Dist: hypothesis>=6.161.2; extra == 'dev'
 Requires-Dist: import-linter>=2.13; extra == 'dev'
 Requires-Dist: jaraco-context>=6.1.2; extra == 'dev'
 Requires-Dist: pip-audit>=2.10.1; extra == 'dev'
@@ -42,11 +42,11 @@ Requires-Dist: pytest-cov>=7.1.0; extra == 'dev'
 Requires-Dist: pytest>=9.1.1; extra == 'dev'
 Requires-Dist: python-multipart>=0.0.32; extra == 'dev'
 Requires-Dist: rtoml>=0.13.0; extra == 'dev'
-Requires-Dist: ruff>=0.15.21; extra == 'dev'
+Requires-Dist: ruff>=0.16.0; extra == 'dev'
 Requires-Dist: textual>=8.2.8; extra == 'dev'
 Requires-Dist: twine>=6.2.0; extra == 'dev'
 Requires-Dist: urllib3>=2.7.0; extra == 'dev'
-Requires-Dist: virtualenv>=21.6.1; extra == 'dev'
+Requires-Dist: virtualenv>=21.7.0; extra == 'dev'
 Requires-Dist: wheel>=0.47.0; extra == 'dev'
 Description-Content-Type: text/markdown
 
@@ -134,8 +134,8 @@ parser.parse_rule_files(base_dir="/home/user/project")
 parser.add_rule("*.py[cod]", base_path="/home/user/project")
 parser.add_rule("!keep.pyc", base_path="/home/user/project")
 
-parser.match("/home/user/project/main.pyc")   # True  (ignored)
-parser.match("/home/user/project/keep.pyc")   # False (re-included by the negation)
+parser.match("/home/user/project/main.pyc")  # True  (ignored)
+parser.match("/home/user/project/keep.pyc")  # False (re-included by the negation)
 ```
 
 Use it as a `shutil.copytree` filter to copy a tree without the ignored files:
@@ -157,13 +157,13 @@ directory keeps its whole subtree, and unanchored patterns are found at any dept
 import shutil, igittigitt
 
 inc = igittigitt.IncludeParser()
-inc.add_rule("*.py", base_path="src_tree")          # keep only python files...
-inc.add_rule("docs/", base_path="src_tree")         # ...and the whole docs/ subtree
+inc.add_rule("*.py", base_path="src_tree")  # keep only python files...
+inc.add_rule("docs/", base_path="src_tree")  # ...and the whole docs/ subtree
 
 # copy only the kept files (parent directories are descended into automatically)
 shutil.copytree("src_tree", "dst_tree", ignore=inc.shutil_include)
 
-inc.match("src_tree/pkg/deep.py")                   # True  (kept)
+inc.match("src_tree/pkg/deep.py")  # True  (kept)
 ```
 
 ---

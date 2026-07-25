@@ -6,11 +6,8 @@ from typing import Any, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.register_request_entry_point import RegisterRequestEntryPoint, check_register_request_entry_point
 from ..types import UNSET, Unset
-
-from ..models.register_request_entry_point import check_register_request_entry_point
-from ..models.register_request_entry_point import RegisterRequestEntryPoint
-
 
 T = TypeVar("T", bound="RegisterRequest")
 

@@ -65,7 +65,7 @@ def _make_sync_client(**kwargs):
     parent = MagicMock()
     parent._api_key = "sk_test"
     parent._environment = "test"
-    parent._service = kwargs.get("service", None)
+    parent._service = kwargs.get("service")
     return LoggingClient(parent=parent, transport=_make_transport(), metrics=parent._metrics)
 
 
@@ -73,7 +73,7 @@ def _make_async_client(**kwargs):
     parent = MagicMock()
     parent._api_key = "sk_test"
     parent._environment = "test"
-    parent._service = kwargs.get("service", None)
+    parent._service = kwargs.get("service")
     return AsyncLoggingClient(parent=parent, transport=_make_transport(), metrics=parent._metrics)
 
 

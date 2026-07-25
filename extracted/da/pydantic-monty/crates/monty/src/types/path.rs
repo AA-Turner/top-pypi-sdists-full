@@ -12,7 +12,7 @@ use std::{
     mem,
 };
 
-use ahash::AHashSet;
+use monty_types::{MontyPath, ResourceTracker};
 use smallvec::SmallVec;
 
 use crate::{
@@ -20,13 +20,12 @@ use crate::{
     builtins::open::builtin_open,
     bytecode::{CallResult, VM},
     defer_drop,
-    exception_private::{ExcType, RunResult, SimpleException},
+    exception_private::{ExcType, ExcTypeExt, RunResult, SimpleException},
     hash::HashValue,
-    heap::{DropWithHeap, Heap, HeapData, HeapId, HeapItem, HeapRead},
+    heap::{DropWithContext, Heap, HeapData, HeapId, HeapItem, HeapRead, HeapReadOutput},
     intern::{Interns, StaticStrings},
-    os::{MontyPath, build_path_os_call, is_path_os_method},
-    resource::{ResourceError, ResourceTracker},
-    types::{PyTrait, Type, allocate_tuple, str::allocate_string},
+    os_dispatch::{build_path_os_call, is_path_os_method},
+    types::{LazyHeapSet, PyTrait, Type, allocate_tuple, str::allocate_string},
     value::{EitherStr, Value},
 };
 
@@ -313,12 +312,12 @@ fn extract_path_string<'a>(val: &Value, vm: &'a VM<'_, impl ResourceTracker>) ->
             HeapData::Path(p) => Ok(p.as_str()),
             _ => Err(ExcType::type_error(format!(
                 "expected str or Path, got {}",
-                val.py_type(vm)
+                val.py_type_name(vm)
             ))),
         },
         _ => Err(ExcType::type_error(format!(
             "expected str or Path, got {}",
-            val.py_type(vm)
+            val.py_type_name(vm)
         ))),
     }
 }
@@ -470,8 +469,11 @@ impl<'h> PyTrait<'h> for HeapRead<'h, Path> {
         None
     }
 
-    fn py_eq(&self, other: &Self, vm: &mut VM<'h, impl ResourceTracker>) -> Result<bool, ResourceError> {
-        Ok(self.get(vm.heap).path == other.get(vm.heap).path)
+    fn py_eq_impl(&self, other: &Value, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Option<bool>> {
+        let Some(HeapReadOutput::Path(other)) = other.read_heap(vm) else {
+            return Ok(None);
+        };
+        Ok(Some(self.get(vm.heap).path == other.get(vm.heap).path))
     }
 
     fn py_hash(&self, _self_id: HeapId, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Option<HashValue>> {
@@ -495,7 +497,7 @@ impl<'h> PyTrait<'h> for HeapRead<'h, Path> {
         &self,
         f: &mut impl Write,
         vm: &mut VM<'h, impl ResourceTracker>,
-        _heap_ids: &mut AHashSet<HeapId>,
+        _heap_ids: &mut LazyHeapSet,
     ) -> RunResult<()> {
         // Format like: PosixPath('/usr/bin')
         Ok(write!(f, "PosixPath('{}')", self.get(vm.heap).path)?)
@@ -515,7 +517,7 @@ impl<'h> PyTrait<'h> for HeapRead<'h, Path> {
         args: ArgValues,
     ) -> RunResult<CallResult> {
         let Some(method) = attr.static_string() else {
-            args.drop_with_heap(vm);
+            args.drop_with(vm);
             return Err(ExcType::attribute_error(Type::Path, attr.as_str(vm.interns)));
         };
 
@@ -596,7 +598,7 @@ impl<'h> PyTrait<'h> for HeapRead<'h, Path> {
                 return builtin_open(vm, args);
             }
             _ => {
-                args.drop_with_heap(vm);
+                args.drop_with(vm);
                 return Err(ExcType::attribute_error(Type::Path, attr.as_str(vm.interns)));
             }
         };

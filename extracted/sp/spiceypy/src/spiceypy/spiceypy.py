@@ -2378,7 +2378,7 @@ def dafrs(insum: ndarray) -> None:
     :param insum: New summary for current array.
     """
     insum = stypes.to_double_vector(insum)
-    libspice.dafrs_c(ctypes.byref(insum))
+    libspice.dafrs_c(insum)
 
 
 @spice_error_check
@@ -3438,7 +3438,7 @@ def dskb02(
     nv = ctypes.c_int(0)
     np = ctypes.c_int(0)
     nvxtot = ctypes.c_int(0)
-    vtxbds = stypes.empty_double_matrix(3, 2)
+    vtxbds = stypes.empty_double_matrix(2, 3)
     voxsiz = ctypes.c_double(0.0)
     voxori = stypes.empty_double_vector(3)
     vgrext = stypes.empty_int_vector(3)
@@ -10799,7 +10799,7 @@ def polyds(
     p = stypes.empty_double_vector(nderiv + 1)
     nderiv = ctypes.c_int(nderiv)
     t = ctypes.c_double(t)
-    libspice.polyds_c(ctypes.byref(coeffs), deg, nderiv, t, p)
+    libspice.polyds_c(coeffs, deg, nderiv, t, p)
     return stypes.c_vector_to_python(p)
 
 
@@ -12437,7 +12437,7 @@ def spkaps(
     ref: str,
     abcorr: str,
     stobs: ndarray,
-    accobs: Iterable[Union[float, float]],
+    accobs: Iterable[float],
 ) -> Tuple[ndarray, float, float]:
     """
     Given the state and acceleration of an observer relative to the
@@ -12457,7 +12457,7 @@ def spkaps(
     :param ref: Inertial reference frame of output state.
     :param abcorr: Aberration correction flag.
     :param stobs: State of the observer relative to the SSB.
-    :param accobs: Acceleration of the observer relative to the SSB.
+    :param accobs: Acceleration of the observer relative to the SSB (3-vector).
     :return:
              State of target in km and km/sec,
              One way light time between observer and target in seconds,
@@ -12468,7 +12468,8 @@ def spkaps(
     ref = stypes.string_to_char_p(ref)
     abcorr = stypes.string_to_char_p(abcorr)
     stobs = stypes.to_double_vector(stobs)
-    accobs = stypes.to_double_vector(accobs)
+    # CSPICE reads accobs[3]; older SpiceyPy versions required a zero-padded 6-vector
+    accobs = stypes.to_double_vector(list(accobs)[:3])
     starg = stypes.empty_double_vector(6)
     lt = ctypes.c_double()
     dlt = ctypes.c_double()

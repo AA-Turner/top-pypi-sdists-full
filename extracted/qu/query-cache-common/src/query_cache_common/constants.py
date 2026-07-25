@@ -6,6 +6,8 @@ SUBMITTED_AT_EPOCH_HEADER = "x-submitted-at-epoch"
 ORG_ID_HEADER = "x-organization-id"
 SYSTEM_USER_ID_HEADER = "x-system-user-id"
 OS_NAME_HEADER = "x-os-name"
+INVOCATION_ID_HEADER = "x-dbt-invocation-id"
+CLOUD_RUN_ID_HEADER = "x-dbt-cloud-run-id"
 
 NO_OP_STATUS = "NO-OP"
 

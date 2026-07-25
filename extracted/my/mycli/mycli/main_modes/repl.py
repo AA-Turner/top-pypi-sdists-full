@@ -750,20 +750,35 @@ def _one_iteration(
         mycli.explorer_formatter.query = text
         if polars_transform is not None:
             assert polars_pipeline is not None
-            if polars_pipeline.parquet_path is None:
-                polars_result = run_polars_transform(polars_transform, results)
+            if polars_pipeline.output_path is None:
+                polars_result = run_polars_transform(
+                    polars_transform,
+                    results,
+                    image_protocol=mycli.image_protocol,
+                    plot_scale_factor=mycli.plot_scale_factor,
+                    plot_ppi=mycli.plot_ppi,
+                    plot_theme=mycli.plot_theme,
+                )
             else:
-                polars_result = run_polars_transform(polars_transform, results, polars_pipeline.parquet_path)
-            if polars_pipeline.parquet_path is None:
+                polars_result = run_polars_transform(
+                    polars_transform,
+                    results,
+                    polars_pipeline.output_path,
+                    image_protocol=mycli.image_protocol,
+                    plot_scale_factor=mycli.plot_scale_factor,
+                    plot_ppi=mycli.plot_ppi,
+                    plot_theme=mycli.plot_theme,
+                )
+            if polars_pipeline.output_path is None:
                 if polars_pipeline.output_mode == 'explorer':
                     special.set_explorer_output(True)
                 elif polars_pipeline.output_mode == 'expanded':
                     special.set_expanded_output(True)
             _output_results(mycli, state, iter([polars_result]), start)
-            if polars_pipeline.parquet_path is not None:
+            if polars_pipeline.output_path is not None:
                 special.run_post_redirect_hook(
                     mycli.post_redirect_command,
-                    polars_pipeline.parquet_path,
+                    polars_pipeline.output_path,
                 )
         else:
             _output_results(mycli, state, results, start)

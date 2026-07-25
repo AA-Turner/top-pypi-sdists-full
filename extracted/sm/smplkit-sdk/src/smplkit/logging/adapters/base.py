@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Callable
+from collections.abc import Callable
 
 
 class LoggingAdapter(abc.ABC):

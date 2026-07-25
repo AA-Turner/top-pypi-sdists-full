@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from smplkit._metrics import _AsyncMetricsReporter, _Counter, _MetricsReporter
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -812,7 +811,7 @@ class TestFlagsInstrumentation:
         metrics.close()
 
     def test_no_metrics_when_disabled(self):
-        client, parent = self._make_flags_client(with_metrics=False)
+        client, _parent = self._make_flags_client(with_metrics=False)
         client._environment = "test"
         client._flag_store["checkout-v2"] = {
             "id": "checkout-v2",
@@ -864,14 +863,14 @@ class TestConfigInstrumentation:
         names = {k[0] for k in counters}
         assert "config.resolutions" in names
 
-        for key, counter in counters.items():
+        for key in counters:
             if key[0] == "config.resolutions":
                 dims = dict(key[1])
                 assert dims["config"] == "my-config"
         metrics.close()
 
     def test_subscribe_no_metrics_when_disabled(self):
-        client, parent = self._make_config_client(with_metrics=False)
+        client, _parent = self._make_config_client(with_metrics=False)
         client._connected = True
         client._config_cache["my-config"] = {"host": "localhost"}
 

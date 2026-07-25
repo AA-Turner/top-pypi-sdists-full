@@ -42,8 +42,6 @@ from uuid import UUID
 import httpx
 
 from smplkit._config import _service_url, resolve_client_config
-from smplkit._transport import with_default_user_agent
-
 from smplkit._generated.audit.api.categories import (
     list_categories as _gen_list_categories,
 )
@@ -52,21 +50,27 @@ from smplkit._generated.audit.api.event_types import (
 )
 from smplkit._generated.audit.api.events import (
     get_event as _gen_get_event,
+)
+from smplkit._generated.audit.api.events import (
     list_events as _gen_list_events,
+)
+from smplkit._generated.audit.api.events import (
     record_event as _gen_record_event,
 )
 from smplkit._generated.audit.api.resource_types import (
     list_resource_types as _gen_list_resource_types,
 )
-from smplkit.errors import Error as _SmplError, _raise_for_status
 from smplkit._generated.audit.client import AuthenticatedClient
 from smplkit._generated.audit.models.event import Event as _GenEvent
 from smplkit._generated.audit.models.event_data import EventData as _GenEventData
 from smplkit._generated.audit.models.event_resource import EventResource as _GenEventResource
 from smplkit._generated.audit.models.event_response import EventResponse as _GenEventResponse
 from smplkit._generated.audit.types import UNSET
+from smplkit._transport import with_default_user_agent
 from smplkit.audit._buffer import AuditEventBuffer, _PendingEvent
 from smplkit.audit.models import Category, Event, EventType, ResourceType
+from smplkit.errors import Error as _SmplError
+from smplkit.errors import _raise_for_status
 
 if TYPE_CHECKING:  # pragma: no cover
     from smplkit.audit.forwarders import AsyncForwardersClient, ForwardersClient
@@ -165,7 +169,7 @@ class ResourceTypeListPage:
     caller passed `meta_total=True` — `total` and `total_pages`).
     """
 
-    __slots__ = ("resource_types", "pagination")
+    __slots__ = ("pagination", "resource_types")
 
     def __init__(
         self,
@@ -342,7 +346,7 @@ def _record_post_fn(auth: AuthenticatedClient):
     never blocks it.
     """
 
-    def _post(item: _PendingEvent) -> "int | Exception":
+    def _post(item: _PendingEvent) -> int | Exception:
         try:
             idem = item.idempotency_key if item.idempotency_key is not None else UNSET
             resp = _gen_record_event.sync_detailed(
@@ -1337,7 +1341,7 @@ class AuditClient:
         """Release HTTP resources — only when this client owns its transport."""
         self._close()
 
-    def __enter__(self) -> "AuditClient":
+    def __enter__(self) -> AuditClient:
         return self
 
     def __exit__(self, *args: object) -> None:
@@ -1416,7 +1420,7 @@ class AsyncAuditClient:
         """Release async HTTP resources — only when this client owns its transport."""
         await self._close()
 
-    async def __aenter__(self) -> "AsyncAuditClient":
+    async def __aenter__(self) -> AsyncAuditClient:
         return self
 
     async def __aexit__(self, *args: object) -> None:

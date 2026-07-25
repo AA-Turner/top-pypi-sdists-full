@@ -45,7 +45,11 @@ DEFAULT_EXCLUDES = """\
 
 # split str by comma but allow for escaping
 def _split_comma(value: str) -> list[str]:
-    return [i.replace("\\,", ",") for i in _re.split(r"(?<!\\),", value)]
+    # whitespace around the separator is stripped, so that a list
+    # written the way prose is reads the same as a space free one
+    return [
+        i.replace("\\,", ",").strip() for i in _re.split(r"(?<!\\),", value)
+    ]
 
 
 def get_config(prog: str) -> dict[str, _t.Any]:
@@ -168,16 +172,9 @@ def build_parser() -> _ArgumentParser:
         help="check __init__ methods",
     )
     parser.add_argument(
-        "-D",
-        action="store_true",
-        help=_argparse.SUPPRESS,
-        dest="check_dunders",
-    )
-    parser.add_argument(
         "--check-dunders",
         action="store_true",
         help="check dunder methods",
-        dest="check_dunders",
     )
     parser.add_argument(
         "--check-nested",

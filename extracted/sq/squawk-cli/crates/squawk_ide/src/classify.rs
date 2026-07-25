@@ -34,6 +34,7 @@ pub(crate) enum NameRefClass {
     InsertQualifiedColumnTable,
     InsertTable,
     JoinUsingColumn,
+    JsonPath,
     Language,
     MergeColumn,
     MergeQualifiedColumnTable,
@@ -98,6 +99,7 @@ fn classify_object_definition(kind: SyntaxKind) -> Option<LocationKind> {
         SyntaxKind::COLLATION => LocationKind::Collation,
         SyntaxKind::CONSTRAINT_NAME => LocationKind::Constraint,
         SyntaxKind::CONVERSION => LocationKind::Conversion,
+        SyntaxKind::CTE_NAME => LocationKind::Table,
         SyntaxKind::CURSOR => LocationKind::Cursor,
         SyntaxKind::DATABASE => LocationKind::Database,
         SyntaxKind::DOMAIN => LocationKind::Type,
@@ -106,6 +108,7 @@ fn classify_object_definition(kind: SyntaxKind) -> Option<LocationKind> {
         SyntaxKind::FOREIGN_DATA_WRAPPER => LocationKind::ForeignDataWrapper,
         SyntaxKind::FUNCTION_NAME => LocationKind::Function,
         SyntaxKind::INDEX => LocationKind::Index,
+        SyntaxKind::JSON_PATH_NAME => LocationKind::JsonPath,
         SyntaxKind::LANGUAGE => LocationKind::Language,
         SyntaxKind::OP_CLASS_NAME => LocationKind::OperatorClass,
         SyntaxKind::OP_FAMILY_NAME => LocationKind::OperatorFamily,
@@ -121,7 +124,7 @@ fn classify_object_definition(kind: SyntaxKind) -> Option<LocationKind> {
         SyntaxKind::SERVER => LocationKind::Server,
         SyntaxKind::STATISTICS => LocationKind::Statistics,
         SyntaxKind::SUBSCRIPTION => LocationKind::Subscription,
-        SyntaxKind::TABLE_NAME => LocationKind::Table,
+        SyntaxKind::TABLE_ALIAS | SyntaxKind::TABLE_NAME => LocationKind::Table,
         SyntaxKind::TABLESPACE => LocationKind::Tablespace,
         SyntaxKind::TEXT_SEARCH_CONFIGURATION => LocationKind::TextSearchConfiguration,
         SyntaxKind::TEXT_SEARCH_DICTIONARY => LocationKind::TextSearchDictionary,
@@ -150,9 +153,11 @@ fn classify_object_ref(kind: SyntaxKind) -> Option<NameRefClass> {
         SyntaxKind::FOREIGN_DATA_WRAPPER_REF => NameRefClass::ForeignDataWrapper,
         SyntaxKind::FUNCTION_NAME_REF => NameRefClass::Function,
         SyntaxKind::INDEX_REF => NameRefClass::Index,
+        SyntaxKind::JSON_PATH_NAME_REF => NameRefClass::JsonPath,
         SyntaxKind::LANGUAGE_REF => NameRefClass::Language,
         SyntaxKind::OP_CLASS_REF => NameRefClass::OperatorClass,
         SyntaxKind::OP_FAMILY_REF => NameRefClass::OperatorFamily,
+        SyntaxKind::PARAM_NAME_REF => NameRefClass::NamedArgParameter,
         SyntaxKind::POLICY_REF => NameRefClass::Policy,
         SyntaxKind::PREPARED_STATEMENT_REF => NameRefClass::PreparedStatement,
         SyntaxKind::PROCEDURE_NAME_REF => NameRefClass::Procedure,
@@ -274,8 +279,9 @@ fn classify_ddl_function_option_value(ty_node: &SyntaxNode) -> Option<NameRefCla
     None
 }
 
-fn is_search_path(path: Option<ast::PathRef>) -> bool {
-    let Some(path) = path else {
+fn is_search_path(config_parameter: Option<ast::ConfigParameterRef>) -> bool {
+    let Some(path) = config_parameter.and_then(|config_parameter| config_parameter.path_ref())
+    else {
         return false;
     };
     if path.qualifier().is_some() {
@@ -353,7 +359,7 @@ fn classify_call_expr_name_ref(
 
 fn classify_object_column_path(node: &SyntaxNode) -> Option<NameRefClass> {
     let object_column = node.ancestors().find_map(ast::ObjectColumn::cast)?;
-    let mut path = object_column.path_ref()?;
+    let mut path = object_column.name()?.path_ref()?;
     let mut name_refs = Vec::new();
 
     loop {
@@ -381,13 +387,29 @@ fn classify_object_column_path(node: &SyntaxNode) -> Option<NameRefClass> {
     }
 }
 
+pub(crate) fn classify_config_value_name(node: &SyntaxNode) -> Option<NameRefClass> {
+    let parent = node.parent()?;
+    let config_parameter = if let Some(set_config) = ast::SetConfig::cast(parent.clone()) {
+        set_config.config_parameter_ref()
+    } else if let Some(set_config_param) = ast::SetConfigParam::cast(parent) {
+        set_config_param.config_parameter_ref()
+    } else {
+        return None;
+    };
+    if is_search_path(config_parameter) {
+        Some(NameRefClass::Schema)
+    } else {
+        None
+    }
+}
+
 pub(crate) fn classify_literal(node: &SyntaxNode) -> Option<NameRefClass> {
     let parent = node.parent()?;
     if ast::SetSchemaValue::can_cast(parent.kind()) {
         return Some(NameRefClass::Schema);
     }
     if let Some(set_config) = ast::SetConfig::cast(parent.clone())
-        && is_search_path(set_config.path_ref())
+        && is_search_path(set_config.config_parameter_ref())
         && set_config
             .config_values()
             .any(|config_value| config_value.syntax() == node)
@@ -395,7 +417,7 @@ pub(crate) fn classify_literal(node: &SyntaxNode) -> Option<NameRefClass> {
         return Some(NameRefClass::Schema);
     }
     if let Some(set_config_param) = ast::SetConfigParam::cast(parent)
-        && is_search_path(set_config_param.path_ref())
+        && is_search_path(set_config_param.config_parameter_ref())
         && set_config_param
             .literals()
             .any(|literal| literal.syntax() == node)
@@ -679,9 +701,10 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
                 _ => None,
             };
         }
-        if let Some(sequence_option) = path.syntax().parent().and_then(ast::SequenceOption::cast)
-            && sequence_option.owned_token().is_some()
-            && sequence_option.by_token().is_some()
+        if path
+            .syntax()
+            .parent()
+            .is_some_and(|parent| ast::QualifiedColumnNameRef::can_cast(parent.kind()))
         {
             return match hops_up {
                 0 => Some(NameRefClass::QualifiedColumn),
@@ -706,9 +729,10 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
     }
 
     if let Some(parent) = node.parent()
-        && let Some(expr_as_name) = ast::ExprAsName::cast(parent)
-        && let Some(expr_as_name_list) = ast::ExprAsNameList::cast(expr_as_name.syntax().parent()?)
-        && ast::Properties::cast(expr_as_name_list.syntax().parent()?).is_some()
+        && let Some(expr_as_property_name) = ast::ExprAsPropertyName::cast(parent)
+        && let Some(expr_as_property_name_list) =
+            ast::ExprAsPropertyNameList::cast(expr_as_property_name.syntax().parent()?)
+        && ast::Properties::cast(expr_as_property_name_list.syntax().parent()?).is_some()
     {
         return Some(NameRefClass::PropertyGraphColumn);
     }
@@ -758,22 +782,6 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
         }
         if in_type {
             return Some(NameRefClass::Type);
-        }
-        if let Some(set_config) = ast::SetConfig::cast(ancestor.clone())
-            && is_search_path(set_config.path_ref())
-            && set_config
-                .config_values()
-                .any(|config_value| config_value.syntax() == node)
-        {
-            return Some(NameRefClass::Schema);
-        }
-        if let Some(set_config_param) = ast::SetConfigParam::cast(ancestor.clone())
-            && is_search_path(set_config_param.path_ref())
-            && set_config_param
-                .name_refs()
-                .any(|name_ref| name_ref.syntax() == node)
-        {
-            return Some(NameRefClass::Schema);
         }
         if in_column_list
             && (ast::VertexTableDef::can_cast(ancestor.kind())
@@ -1128,7 +1136,10 @@ pub(crate) fn classify_def_node(def_node: &SyntaxNode) -> Option<LocationKind> {
         {
             return Some(LocationKind::Column);
         }
-        if ast::Alias::can_cast(ancestor.kind()) {
+        if ast::FromAlias::can_cast(ancestor.kind())
+            || ast::OptionalAsAlias::can_cast(ancestor.kind())
+            || ast::RequiredAsAlias::can_cast(ancestor.kind())
+        {
             if in_column {
                 return Some(LocationKind::Column);
             }

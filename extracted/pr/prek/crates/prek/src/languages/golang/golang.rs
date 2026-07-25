@@ -14,7 +14,6 @@ use crate::hook::{Hook, InstallInfo, InstalledHook};
 use crate::languages::LanguageBackend;
 use crate::languages::golang::GoRequest;
 use crate::languages::golang::installer::GoInstaller;
-use crate::languages::version::LanguageRequest;
 use crate::process::Cmd;
 use crate::run::run_by_batch;
 use crate::store::{CacheBucket, Store, ToolBucket};
@@ -36,13 +35,9 @@ impl LanguageBackend for Golang {
         let go_dir = store.tools_path(ToolBucket::Go);
         let installer = GoInstaller::new(go_dir);
 
-        let (version, allows_download) = match &hook.language_request {
-            LanguageRequest::Any { system_only } => (&GoRequest::Any, !system_only),
-            LanguageRequest::Golang(version) => (version, true),
-            _ => unreachable!(),
-        };
+        let version: &GoRequest = hook.language_request.version();
         let go = installer
-            .install(store, version, allows_download)
+            .install(store, version, hook.language_request.allows_download())
             .await
             .context("Failed to install go")?;
 
@@ -147,7 +142,7 @@ impl LanguageBackend for Golang {
 
         let entry = hook.entry.resolve(Some(&new_path), store)?;
         let run = async |batch: &[&Path]| {
-            let mut output = Cmd::new(&entry[0])
+            let output = Cmd::new(&entry[0])
                 .current_dir(hook.work_dir())
                 .args(&entry[1..])
                 .env(EnvVars::PATH, &new_path)
@@ -165,24 +160,14 @@ impl LanguageBackend for Golang {
 
             reporter.on_run_progress(progress, batch.len() as u64);
 
-            output.stdout.extend(output.stderr);
-            let code = output.status.code().unwrap_or(1);
-            anyhow::Ok((code, output.stdout))
+            anyhow::Ok(output)
         };
 
-        let results = run_by_batch(hook, filenames, entry.argv(), run).await?;
-
-        let mut combined_status = 0;
-        let mut combined_output = Vec::new();
-
-        for (code, output) in results {
-            combined_status |= code;
-            combined_output.extend(output);
-        }
+        let output = run_by_batch(hook, filenames, entry.argv(), run).await?;
 
         reporter.on_run_complete(progress);
 
-        Ok((combined_status, combined_output))
+        Ok(output)
     }
 }
 

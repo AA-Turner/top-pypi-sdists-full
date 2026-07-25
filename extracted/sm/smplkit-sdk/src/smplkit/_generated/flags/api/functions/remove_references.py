@@ -3,12 +3,11 @@ from typing import Any
 
 import httpx
 
-from ...client import AuthenticatedClient, Client
-from ...types import Response
 from ... import errors
-
+from ...client import AuthenticatedClient, Client
 from ...models.remove_references_request import RemoveReferencesRequest
 from ...models.remove_references_result_envelope import RemoveReferencesResultEnvelope
+from ...types import Response
 
 
 def _get_kwargs(

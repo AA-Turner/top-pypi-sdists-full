@@ -19,25 +19,32 @@ from typing import Any
 
 from smplkit._generated.audit.api.forwarders import (
     create_forwarder as _gen_create_forwarder,
+)
+from smplkit._generated.audit.api.forwarders import (
     delete_forwarder as _gen_delete_forwarder,
+)
+from smplkit._generated.audit.api.forwarders import (
     get_forwarder as _gen_get_forwarder,
+)
+from smplkit._generated.audit.api.forwarders import (
     list_forwarders as _gen_list_forwarders,
+)
+from smplkit._generated.audit.api.forwarders import (
     update_forwarder as _gen_update_forwarder,
 )
-from smplkit.errors import Error as _SmplError, _raise_for_status
 from smplkit._generated.audit.client import AuthenticatedClient as _AuditAuthClient
 from smplkit._generated.audit.models.forwarder import Forwarder as _GenForwarder
 from smplkit._generated.audit.models.forwarder_create_request import (
     ForwarderCreateRequest as _GenForwarderCreateRequest,
+)
+from smplkit._generated.audit.models.forwarder_create_resource import (
+    ForwarderCreateResource as _GenForwarderCreateResource,
 )
 from smplkit._generated.audit.models.forwarder_environments import (
     ForwarderEnvironments as _GenForwarderEnvironments,
 )
 from smplkit._generated.audit.models.forwarder_environments_additional_property import (
     ForwarderEnvironmentsAdditionalProperty as _GenForwarderEnvironment,
-)
-from smplkit._generated.audit.models.forwarder_create_resource import (
-    ForwarderCreateResource as _GenForwarderCreateResource,
 )
 from smplkit._generated.audit.models.forwarder_filter_type_0 import (
     ForwarderFilterType0 as _GenForwarderFilter,
@@ -66,6 +73,8 @@ from smplkit.audit.models import (
     HttpConfiguration,
     TransformType,
 )
+from smplkit.errors import Error as _SmplError
+from smplkit.errors import _raise_for_status
 
 
 def _expect_status(resp: Any, *expected: int) -> None:
@@ -657,7 +666,7 @@ __all__ = [
     "AsyncForwardersClient",
     "ForwarderEnvironment",
     "ForwarderListPage",
-    "ForwardersClient",
     "ForwarderType",
+    "ForwardersClient",
     "TransformType",
 ]

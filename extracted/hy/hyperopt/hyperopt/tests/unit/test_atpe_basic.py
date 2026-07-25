@@ -1,6 +1,8 @@
 import random
+
 import numpy as np
-from hyperopt import hp, fmin, atpe, space_eval
+
+from hyperopt import atpe, fmin, hp, space_eval
 
 random.seed(1)
 np.random.seed(1)
@@ -12,7 +14,7 @@ def test_run_basic_search():
         if case == "case 1":
             return val
         else:
-            return val ** 2
+            return val**2
 
     # define a search space
     space = hp.choice(

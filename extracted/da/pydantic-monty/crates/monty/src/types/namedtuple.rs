@@ -1,3 +1,11 @@
+use std::{
+    cell::Cell,
+    collections::hash_map::DefaultHasher,
+    fmt::Write,
+    hash::{Hash, Hasher},
+    mem,
+};
+
 /// Python named tuple type, combining tuple-like indexing with named attribute access.
 ///
 /// Named tuples are like regular tuples but with field names, providing two ways
@@ -15,26 +23,17 @@
 ///
 /// This type is used for `sys.version_info` and similar structured tuples where
 /// named access improves usability and readability.
-use std::{
-    cell::Cell,
-    collections::hash_map::DefaultHasher,
-    fmt::Write,
-    hash::{Hash, Hasher},
-    mem,
-};
-
-use ahash::AHashSet;
+use monty_types::ResourceTracker;
 
 use super::PyTrait;
 use crate::{
-    bytecode::{CallResult, VM},
-    defer_drop,
-    exception_private::{ExcType, RunResult},
+    bytecode::{CallResult, ContainsVM, RecursionToken, VM},
+    defer_drop, defer_drop_mut,
+    exception_private::{ExcType, ExcTypeExt, RunResult},
     hash::HashValue,
-    heap::{HeapId, HeapItem, HeapRead},
+    heap::{DropWithContext, HeapId, HeapItem, HeapRead, HeapReadOutput},
     intern::{Interns, StringId},
-    resource::{ResourceError, ResourceTracker},
-    types::Type,
+    types::{Type, py_trait::LazyHeapSet},
     value::{EitherStr, Value},
 };
 
@@ -165,29 +164,32 @@ impl<'h> HeapRead<'h, NamedTuple> {
         self.get(vm.heap).items[index].clone_with_heap(vm)
     }
 
-    /// Cross-type equality between NamedTuple and Tuple via HeapRead.
+    /// Returns a stack-borrowed lending iterator over the named tuple's items,
+    /// holding a recursion-depth token for its entire lifetime.
     ///
-    /// Uses index-based item access with short-lived borrows to compare elements
-    /// without holding a heap borrow across `py_eq` calls.
+    /// Named `iter` despite returning a non-stdlib lending iterator (see
+    /// [`NamedTupleIter`]) because that's the obvious entry point for
+    /// "iterate this container".
+    #[expect(clippy::iter_not_returning_iterator)]
+    pub(crate) fn iter<R: ResourceTracker>(&self, vm: &mut VM<'h, R>) -> RunResult<NamedTupleIter<'_, 'h>> {
+        NamedTupleIter::new(self, vm)
+    }
+
+    /// Cross-type equality between NamedTuple and Tuple via HeapRead.
     pub(crate) fn eq_tuple(
         &self,
         other: &HeapRead<'h, super::Tuple>,
         vm: &mut VM<'h, impl ResourceTracker>,
-    ) -> Result<bool, ResourceError> {
-        let a_len = self.get(vm.heap).len();
-        if a_len != other.get(vm.heap).as_slice().len() {
+    ) -> RunResult<bool> {
+        if self.get(vm.heap).len() != other.get(vm.heap).as_slice().len() {
             return Ok(false);
         }
-        let token = vm.heap.incr_recursion_depth()?;
-        defer_drop!(token, vm);
-        for i in 0..a_len {
-            vm.heap.check_time()?;
-            let a_val = self.clone_item(i, vm);
-            let b_val = other.clone_item(i, vm);
-            let result = a_val.py_eq(&b_val, vm);
-            a_val.drop_with_heap(vm);
-            b_val.drop_with_heap(vm);
-            if !result? {
+        let iter = self.iter(vm)?;
+        defer_drop_mut!(iter, vm);
+        while let Some((i, a)) = iter.next_with_index(vm)? {
+            let b = other.clone_item(i, vm);
+            defer_drop!(b, vm);
+            if !a.py_eq(b, vm)? {
                 return Ok(false);
             }
         }
@@ -195,9 +197,85 @@ impl<'h> HeapRead<'h, NamedTuple> {
     }
 }
 
+/// Stack-borrowed lending iterator over a [`NamedTuple`]'s items.
+///
+/// Same shape as [`TupleIter`](super::tuple::TupleIter): yields each item by
+/// reference, owns the most-recently-yielded item in a `Value::Undefined`
+/// sentinel slot, and holds a [`RecursionToken`] for its lifetime. MUST be
+/// wrapped in [`defer_drop_mut!`] so the token and the in-flight item are
+/// released on every exit path.
+///
+/// `NamedTuple` is immutable, so there is no size-change detection — only
+/// the recursion-depth bound matters here. Named-tuple iteration almost
+/// always feeds into operations that recurse (`py_eq`, `py_hash`,
+/// `py_repr`), and the token bounds the otherwise-unprotected native stack
+/// depth.
+pub(crate) struct NamedTupleIter<'a, 'h> {
+    tuple: &'a HeapRead<'h, NamedTuple>,
+    index: usize,
+    token: RecursionToken,
+    /// Most-recently-yielded item. `Value::Undefined` when nothing is held.
+    current: Value,
+}
+
+impl<'a, 'h> NamedTupleIter<'a, 'h> {
+    fn new<R: ResourceTracker>(tuple: &'a HeapRead<'h, NamedTuple>, vm: &mut VM<'h, R>) -> RunResult<Self> {
+        let token = vm.recursion_token()?;
+        Ok(Self {
+            tuple,
+            index: 0,
+            token,
+            current: Value::Undefined,
+        })
+    }
+
+    /// Advances the iterator and returns a borrow of the next item, or
+    /// `Ok(None)` when the tuple is exhausted.
+    ///
+    /// The returned reference is valid until the next call to `next` (or
+    /// until the iterator itself is dropped).
+    ///
+    /// Performs a [`check_time`](Heap::check_time) on every call so long
+    /// Rust-side loops cannot bypass the configured timeout.
+    pub(crate) fn next<'i, R: ResourceTracker>(&'i mut self, vm: &mut VM<'h, R>) -> RunResult<Option<&'i Value>> {
+        // Drop the previously-yielded item (no-op when `current` is `Undefined`).
+        mem::replace(&mut self.current, Value::Undefined).drop_with(vm.heap);
+        vm.heap.check_time()?;
+        let items = &self.tuple.get(vm.heap).items;
+        if self.index >= items.len() {
+            return Ok(None);
+        }
+        self.current = items[self.index].clone_with_heap(vm.heap);
+        self.index += 1;
+        Ok(Some(&self.current))
+    }
+
+    /// Like [`next`](Self::next), but also returns the 0-based position of
+    /// the yielded item — useful for `zip`-style sibling-container access.
+    pub(crate) fn next_with_index<'i, R: ResourceTracker>(
+        &'i mut self,
+        vm: &mut VM<'h, R>,
+    ) -> RunResult<Option<(usize, &'i Value)>> {
+        // Capture before `next` increments `self.index`.
+        let position = self.index;
+        Ok(self.next(vm)?.map(|item| (position, item)))
+    }
+}
+
+impl<'h, C: ContainsVM<'h>> DropWithContext<C> for NamedTupleIter<'_, 'h> {
+    fn drop_with(self, container: &mut C) {
+        self.current.drop_with(container);
+        self.token.drop_with(container);
+    }
+}
+
 /// `PyTrait` implementation for `HeapRead<NamedTuple>`, providing all Python operations
 /// on heap-allocated named tuples via short-lived borrow patterns.
 impl<'h> PyTrait<'h> for HeapRead<'h, NamedTuple> {
+    fn py_is_iterable(&self, _vm: &VM<'h, impl ResourceTracker>) -> bool {
+        true
+    }
+
     fn py_type(&self, _vm: &VM<'h, impl ResourceTracker>) -> Type {
         Type::NamedTuple
     }
@@ -210,7 +288,7 @@ impl<'h> PyTrait<'h> for HeapRead<'h, NamedTuple> {
         // Extract integer index from key, returning TypeError if not an int
         let index = match key {
             Value::Int(i) => *i,
-            _ => return Err(ExcType::type_error_indices(Type::NamedTuple, key.py_type(vm))),
+            _ => return Err(ExcType::type_error_indices(Type::NamedTuple, &key.py_type_name(vm))),
         };
 
         // Get by index with bounds checking
@@ -220,25 +298,30 @@ impl<'h> PyTrait<'h> for HeapRead<'h, NamedTuple> {
         }
     }
 
-    fn py_eq(&self, other: &Self, vm: &mut VM<'h, impl ResourceTracker>) -> Result<bool, ResourceError> {
-        let a_len = self.get(vm.heap).len();
-        if a_len != other.get(vm.heap).len() {
-            return Ok(false);
-        }
-        let token = vm.heap.incr_recursion_depth()?;
-        defer_drop!(token, vm);
-        for i in 0..a_len {
-            vm.heap.check_time()?;
-            let a_val = self.clone_item(i, vm);
-            let b_val = other.clone_item(i, vm);
-            let result = a_val.py_eq(&b_val, vm);
-            a_val.drop_with_heap(vm);
-            b_val.drop_with_heap(vm);
-            if !result? {
-                return Ok(false);
+    fn py_eq_impl(&self, other: &Value, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Option<bool>> {
+        // A namedtuple equals another namedtuple element-wise, and also equals a
+        // plain tuple with the same elements (class name is ignored). Both
+        // directions of the tuple case are covered here, so `Tuple::py_eq_impl`
+        // need not know about namedtuples.
+        match other.read_heap(vm) {
+            Some(HeapReadOutput::NamedTuple(other)) => {
+                if self.get(vm.heap).len() != other.get(vm.heap).len() {
+                    return Ok(Some(false));
+                }
+                let iter = self.iter(vm)?;
+                defer_drop_mut!(iter, vm);
+                while let Some((i, a)) = iter.next_with_index(vm)? {
+                    let b = other.clone_item(i, vm);
+                    defer_drop!(b, vm);
+                    if !a.py_eq(b, vm)? {
+                        return Ok(Some(false));
+                    }
+                }
+                Ok(Some(true))
             }
+            Some(HeapReadOutput::Tuple(other)) => Ok(Some(self.eq_tuple(&other, vm)?)),
+            _ => Ok(None),
         }
-        Ok(true)
     }
 
     /// Hashes by element only (not by class name), matching `Tuple::py_hash`
@@ -249,13 +332,10 @@ impl<'h> PyTrait<'h> for HeapRead<'h, NamedTuple> {
         if let Some(cached) = self.get(vm.heap).cached_hash.get() {
             return Ok(Some(cached));
         }
-        let token = vm.heap.incr_recursion_depth()?;
-        defer_drop!(token, vm);
-        let len = self.get(vm.heap).len();
         let mut hasher = DefaultHasher::new();
-        for i in 0..len {
-            let item = self.clone_item(i, vm);
-            defer_drop!(item, vm);
+        let iter = self.iter(vm)?;
+        defer_drop_mut!(iter, vm);
+        while let Some(item) = iter.next(vm)? {
             match item.py_hash(vm)? {
                 Some(h) => h.hash(&mut hasher),
                 None => return Ok(None),
@@ -274,13 +354,13 @@ impl<'h> PyTrait<'h> for HeapRead<'h, NamedTuple> {
         &self,
         f: &mut impl Write,
         vm: &mut VM<'h, impl ResourceTracker>,
-        heap_ids: &mut AHashSet<HeapId>,
+        heap_ids: &mut LazyHeapSet,
     ) -> RunResult<()> {
         // Check depth limit before recursing
-        let Ok(token) = vm.heap.incr_recursion_depth() else {
+        let Ok(mut guard) = vm.recursion_guard() else {
             return Ok(f.write_str("...")?);
         };
-        defer_drop!(token, vm);
+        let vm = &mut *guard;
 
         write!(f, "{}(", self.get(vm.heap).name.as_str(vm.interns))?;
 

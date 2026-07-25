@@ -17,41 +17,41 @@ from pydantic import BaseModel, Field, ConfigDict, RootModel
 
 from .. import schemas
 
-# Response model for validate
-ValidateResponse = schemas.WebhookConfigPutResponse
-
-
-# Response model for delete
-DeleteResponse = schemas.WebhookConfigDeleteResponse
-
-
-# Request model for create_webhook_replay_job
-CreateWebhookReplayJobRequest = schemas.WebhookReplayCreateRequest
-
-
-# Response model for create_webhook_replay_job
-CreateWebhookReplayJobResponse = schemas.ReplayJobCreateResponse
+# Response model for get_stream_links
+GetStreamLinksResponse = schemas.GetWebhooksStreamLinksResponse
 
 
 # Response model for get
-GetResponse = schemas.Get2WebhooksResponse
+GetResponse = schemas.GetWebhooksResponse
 
 
 # Request model for create
-CreateRequest = schemas.WebhookConfigCreateRequest
+CreateRequest = schemas.CreateWebhooksRequest
 
 
 # Response model for create
-CreateResponse = schemas.WebhookConfigCreateResponse
+CreateResponse = schemas.CreateWebhooksResponse
 
 
-# Response model for get_stream_links
-GetStreamLinksResponse = schemas.WebhookLinksGetResponse
+# Request model for create_webhook_replay_job
+CreateWebhookReplayJobRequest = schemas.CreateWebhookReplayJobRequest
+
+
+# Response model for create_webhook_replay_job
+CreateWebhookReplayJobResponse = schemas.CreateWebhookReplayJobResponse
+
+
+# Response model for validate
+ValidateResponse = schemas.ValidateWebhooksResponse
+
+
+# Response model for delete
+DeleteResponse = schemas.DeleteWebhooksResponse
 
 
 # Response model for create_stream_link
-CreateStreamLinkResponse = schemas.WebhookLinksCreateResponse
+CreateStreamLinkResponse = schemas.CreateWebhooksStreamLinkResponse
 
 
 # Response model for delete_stream_link
-DeleteStreamLinkResponse = schemas.WebhookLinksDeleteResponse
+DeleteStreamLinkResponse = schemas.DeleteWebhooksStreamLinkResponse

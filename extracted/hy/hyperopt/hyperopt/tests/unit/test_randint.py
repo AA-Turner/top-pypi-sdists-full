@@ -2,12 +2,12 @@ import unittest
 from functools import partial
 
 import numpy as np
-from hyperopt import hp, Trials, fmin, rand, tpe
+
 import hyperopt.pyll.stochastic
+from hyperopt import Trials, fmin, hp, rand, tpe
 
 
 def test_basic():
-
     space = hp.randint("a", 5)
     x = np.zeros(5)
     rng = np.random.default_rng(123)
@@ -21,7 +21,6 @@ def test_basic():
 
 
 def test_basic2():
-
     space = hp.randint("a", 5, 15)
     x = np.zeros(15)
     rng = np.random.default_rng(123)

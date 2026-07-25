@@ -219,6 +219,7 @@ nav:
           - GitHub Projects: trackers/github-projects.md
           - Plane: trackers/plane.md
           - ServiceNow: trackers/servicenow.md
+          - OData (system of record): operations/odata.md
           - Webhooks: trackers/webhooks.md
       - Git hosting & CI:
           - GitHub Action: integrations/github-action.md
@@ -351,10 +352,6 @@ nav:
           - Unified doctor: observability/unified-doctor.md
           - Telemetry share: observability/telemetry-share.md
           - Cluster observability: observability/cluster.md
-          - GlitchTip setup: operations/glitchtip-setup.md
-          - GlitchTip ingester: operations/glitchtip-ingester.md
-          - GlitchTip insights: observability/glitchtip-insights.md
-          - Sonar: observability/sonar.md
       - Merge & review automation:
           - Merge queue: operations/merge-queue.md
           - Merge gate: operations/merge-gate.md
@@ -365,7 +362,6 @@ nav:
           - Review responder: operations/review-responder.md
           - Review-bot acknowledgement: operations/review-bot-ack.md
           - Coverage ratchet: operations/coverage-ratchet.md
-          - Sonar sweeper: operations/sonar-sweeper.md
           - Nightly canary: operations/nightly-canary.md
           - CI: operations/ci.md
           - CI topology: operations/ci-topology.md
@@ -409,9 +405,12 @@ nav:
           - Lineage export: compliance/lineage-export.md
           - Lineage v1 (user reference): lineage.md
           - Lineage v2: operations/lineage-v2.md
+          - Artifact contract: operations/artifacts.md
           - Lineage conflict resolution: lineage/conflict-resolution.md
           - Tracker audit: lineage/tracker-audit.md
           - A2A message receipts: operations/a2a-message-receipts.md
+          - A2A JSON-RPC server surface: operations/a2a-server.md
+          - Datasources & query receipts: operations/datasources.md
   - Reference:
       - reference/index.md
       - CLI:
@@ -432,6 +431,7 @@ nav:
           - API server operations: operations/api.md
           - Supervisor API: api/supervisor.md
           - Local endpoints: reference/local-endpoints.md
+          - Self-hosted endpoints: operations/self-hosted-endpoints.md
           - ACP bridge: reference/acp-bridge.md
           - ACP server and client roles: interop/acp.md
           - A2A signed agent cards: architecture/a2a.md

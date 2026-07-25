@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.sso_connection_resource_type import SSOConnectionResourceType, check_sso_connection_resource_type
 from ..types import UNSET, Unset
-
-from ..models.sso_connection_resource_type import check_sso_connection_resource_type
-from ..models.sso_connection_resource_type import SSOConnectionResourceType
-from typing import cast
 
 if TYPE_CHECKING:
     from ..models.sso_connection import SSOConnection
@@ -56,7 +53,7 @@ class SSOConnectionResource:
 
     type_: SSOConnectionResourceType
     attributes: SSOConnection
-    id: None | str | Unset = UNSET
+    id: str | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -64,7 +61,7 @@ class SSOConnectionResource:
 
         attributes = self.attributes.to_dict()
 
-        id: None | str | Unset
+        id: str | Unset | None
         if isinstance(self.id, Unset):
             id = UNSET
         else:
@@ -92,7 +89,7 @@ class SSOConnectionResource:
 
         attributes = SSOConnection.from_dict(d.pop("attributes"))
 
-        def _parse_id(data: object) -> None | str | Unset:
+        def _parse_id(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

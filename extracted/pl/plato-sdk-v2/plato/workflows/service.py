@@ -264,7 +264,14 @@ class WorkflowService:
         The FIFO executor is tied to the app's startup/cleanup signals so an
         in-process aiohttp ``TestClient`` gets a fully functional executor too.
         """
-        app = web.Application(middlewares=[self._auth_middleware])
+        # client_max_size: aiohttp defaults to 1 MiB, which rejects large
+        # --args payloads (e.g. fan-outs carrying per-item documents) with
+        # HTTP 413. Scripts should still pass big payloads by results-mount
+        # path reference, but the cap shouldn't be the thing that breaks a run.
+        app = web.Application(
+            middlewares=[self._auth_middleware],
+            client_max_size=64 * 1024 * 1024,
+        )
         app.router.add_get("/healthz", self._handle_healthz)
         app.router.add_post("/workflows", self._handle_submit)
         app.router.add_get("/workflows/{workflow_id}", self._handle_status)

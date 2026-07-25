@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 
 from ..types import UNSET, Unset
-
-from typing import cast
 
 if TYPE_CHECKING:
     from ..models.event_search_request_filter_type_0 import EventSearchRequestFilterType0
@@ -73,26 +71,26 @@ class EventSearchRequest:
                 order. Default `-occurred_at` (newest first). Default: '-occurred_at'.
     """
 
-    filter_: EventSearchRequestFilterType0 | None | Unset = UNSET
-    filterenvironment: None | str | Unset = UNSET
-    filterevent_type: None | str | Unset = UNSET
-    filterresource_type: None | str | Unset = UNSET
-    filterresource_id: None | str | Unset = UNSET
-    filterseverity: None | str | Unset = UNSET
-    filtercategory: None | str | Unset = UNSET
-    filteractor_type: None | str | Unset = UNSET
-    filteractor_id: None | str | Unset = UNSET
-    filteroccurred_at: None | str | Unset = UNSET
-    filtersearch: None | str | Unset = UNSET
-    filterdo_not_forward: bool | None | Unset = UNSET
+    filter_: EventSearchRequestFilterType0 | Unset | None = UNSET
+    filterenvironment: str | Unset | None = UNSET
+    filterevent_type: str | Unset | None = UNSET
+    filterresource_type: str | Unset | None = UNSET
+    filterresource_id: str | Unset | None = UNSET
+    filterseverity: str | Unset | None = UNSET
+    filtercategory: str | Unset | None = UNSET
+    filteractor_type: str | Unset | None = UNSET
+    filteractor_id: str | Unset | None = UNSET
+    filteroccurred_at: str | Unset | None = UNSET
+    filtersearch: str | Unset | None = UNSET
+    filterdo_not_forward: bool | Unset | None = UNSET
     pagesize: int | Unset = 1000
-    pageafter: None | str | Unset = UNSET
+    pageafter: str | Unset | None = UNSET
     sort: str | Unset = "-occurred_at"
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.event_search_request_filter_type_0 import EventSearchRequestFilterType0
 
-        filter_: dict[str, Any] | None | Unset
+        filter_: dict[str, Any] | Unset | None
         if isinstance(self.filter_, Unset):
             filter_ = UNSET
         elif isinstance(self.filter_, EventSearchRequestFilterType0):
@@ -100,67 +98,67 @@ class EventSearchRequest:
         else:
             filter_ = self.filter_
 
-        filterenvironment: None | str | Unset
+        filterenvironment: str | Unset | None
         if isinstance(self.filterenvironment, Unset):
             filterenvironment = UNSET
         else:
             filterenvironment = self.filterenvironment
 
-        filterevent_type: None | str | Unset
+        filterevent_type: str | Unset | None
         if isinstance(self.filterevent_type, Unset):
             filterevent_type = UNSET
         else:
             filterevent_type = self.filterevent_type
 
-        filterresource_type: None | str | Unset
+        filterresource_type: str | Unset | None
         if isinstance(self.filterresource_type, Unset):
             filterresource_type = UNSET
         else:
             filterresource_type = self.filterresource_type
 
-        filterresource_id: None | str | Unset
+        filterresource_id: str | Unset | None
         if isinstance(self.filterresource_id, Unset):
             filterresource_id = UNSET
         else:
             filterresource_id = self.filterresource_id
 
-        filterseverity: None | str | Unset
+        filterseverity: str | Unset | None
         if isinstance(self.filterseverity, Unset):
             filterseverity = UNSET
         else:
             filterseverity = self.filterseverity
 
-        filtercategory: None | str | Unset
+        filtercategory: str | Unset | None
         if isinstance(self.filtercategory, Unset):
             filtercategory = UNSET
         else:
             filtercategory = self.filtercategory
 
-        filteractor_type: None | str | Unset
+        filteractor_type: str | Unset | None
         if isinstance(self.filteractor_type, Unset):
             filteractor_type = UNSET
         else:
             filteractor_type = self.filteractor_type
 
-        filteractor_id: None | str | Unset
+        filteractor_id: str | Unset | None
         if isinstance(self.filteractor_id, Unset):
             filteractor_id = UNSET
         else:
             filteractor_id = self.filteractor_id
 
-        filteroccurred_at: None | str | Unset
+        filteroccurred_at: str | Unset | None
         if isinstance(self.filteroccurred_at, Unset):
             filteroccurred_at = UNSET
         else:
             filteroccurred_at = self.filteroccurred_at
 
-        filtersearch: None | str | Unset
+        filtersearch: str | Unset | None
         if isinstance(self.filtersearch, Unset):
             filtersearch = UNSET
         else:
             filtersearch = self.filtersearch
 
-        filterdo_not_forward: bool | None | Unset
+        filterdo_not_forward: bool | Unset | None
         if isinstance(self.filterdo_not_forward, Unset):
             filterdo_not_forward = UNSET
         else:
@@ -168,7 +166,7 @@ class EventSearchRequest:
 
         pagesize = self.pagesize
 
-        pageafter: None | str | Unset
+        pageafter: str | Unset | None
         if isinstance(self.pageafter, Unset):
             pageafter = UNSET
         else:
@@ -218,7 +216,7 @@ class EventSearchRequest:
 
         d = dict(src_dict)
 
-        def _parse_filter_(data: object) -> EventSearchRequestFilterType0 | None | Unset:
+        def _parse_filter_(data: object) -> EventSearchRequestFilterType0 | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -235,7 +233,7 @@ class EventSearchRequest:
 
         filter_ = _parse_filter_(d.pop("filter", UNSET))
 
-        def _parse_filterenvironment(data: object) -> None | str | Unset:
+        def _parse_filterenvironment(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -244,7 +242,7 @@ class EventSearchRequest:
 
         filterenvironment = _parse_filterenvironment(d.pop("filter[environment]", UNSET))
 
-        def _parse_filterevent_type(data: object) -> None | str | Unset:
+        def _parse_filterevent_type(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -253,7 +251,7 @@ class EventSearchRequest:
 
         filterevent_type = _parse_filterevent_type(d.pop("filter[event_type]", UNSET))
 
-        def _parse_filterresource_type(data: object) -> None | str | Unset:
+        def _parse_filterresource_type(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -262,7 +260,7 @@ class EventSearchRequest:
 
         filterresource_type = _parse_filterresource_type(d.pop("filter[resource_type]", UNSET))
 
-        def _parse_filterresource_id(data: object) -> None | str | Unset:
+        def _parse_filterresource_id(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -271,7 +269,7 @@ class EventSearchRequest:
 
         filterresource_id = _parse_filterresource_id(d.pop("filter[resource_id]", UNSET))
 
-        def _parse_filterseverity(data: object) -> None | str | Unset:
+        def _parse_filterseverity(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -280,7 +278,7 @@ class EventSearchRequest:
 
         filterseverity = _parse_filterseverity(d.pop("filter[severity]", UNSET))
 
-        def _parse_filtercategory(data: object) -> None | str | Unset:
+        def _parse_filtercategory(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -289,7 +287,7 @@ class EventSearchRequest:
 
         filtercategory = _parse_filtercategory(d.pop("filter[category]", UNSET))
 
-        def _parse_filteractor_type(data: object) -> None | str | Unset:
+        def _parse_filteractor_type(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -298,7 +296,7 @@ class EventSearchRequest:
 
         filteractor_type = _parse_filteractor_type(d.pop("filter[actor_type]", UNSET))
 
-        def _parse_filteractor_id(data: object) -> None | str | Unset:
+        def _parse_filteractor_id(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -307,7 +305,7 @@ class EventSearchRequest:
 
         filteractor_id = _parse_filteractor_id(d.pop("filter[actor_id]", UNSET))
 
-        def _parse_filteroccurred_at(data: object) -> None | str | Unset:
+        def _parse_filteroccurred_at(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -316,7 +314,7 @@ class EventSearchRequest:
 
         filteroccurred_at = _parse_filteroccurred_at(d.pop("filter[occurred_at]", UNSET))
 
-        def _parse_filtersearch(data: object) -> None | str | Unset:
+        def _parse_filtersearch(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -325,7 +323,7 @@ class EventSearchRequest:
 
         filtersearch = _parse_filtersearch(d.pop("filter[search]", UNSET))
 
-        def _parse_filterdo_not_forward(data: object) -> bool | None | Unset:
+        def _parse_filterdo_not_forward(data: object) -> bool | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -336,7 +334,7 @@ class EventSearchRequest:
 
         pagesize = d.pop("page[size]", UNSET)
 
-        def _parse_pageafter(data: object) -> None | str | Unset:
+        def _parse_pageafter(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

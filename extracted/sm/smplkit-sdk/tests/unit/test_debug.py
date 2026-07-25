@@ -11,7 +11,6 @@ import pytest
 import smplkit._debug as _debug_mod
 from smplkit._debug import _parse_debug_env
 
-
 # ---------------------------------------------------------------------------
 # 1. _parse_debug_env — env-string parsing
 # ---------------------------------------------------------------------------

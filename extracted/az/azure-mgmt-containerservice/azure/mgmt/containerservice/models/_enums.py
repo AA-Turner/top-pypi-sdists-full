@@ -872,6 +872,16 @@ class ScaleSetPriority(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Regular VMs will be used."""
 
 
+class SchedulerConfigMode(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+    """The config customization mode for this scheduler instance."""
+
+    DEFAULT = "Default"
+    """No config customization. Use default configuration."""
+    MANAGED_BY_CRD = "ManagedByCRD"
+    """Enable config customization. Customer can specify scheduler configuration via a CRD. See
+    aka.ms/aks/scheduler-crd for details."""
+
+
 class ServiceMeshMode(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Mode of the service mesh."""
 

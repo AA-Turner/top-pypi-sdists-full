@@ -1,4 +1,5 @@
 import math
+import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from decimal import Decimal
@@ -6,7 +7,7 @@ from typing import Any, Literal
 from uuid import uuid4
 
 from httpx2 import AsyncClient
-from httpx2.websockets import HTTPXWSException
+from typing_extensions import deprecated
 
 from tastytrade import PAPER_URL
 from tastytrade.account import Account
@@ -18,20 +19,22 @@ from tastytrade.utils import validate_response
 class PaperSession(Session):
     """
     Contains a session which can be used to interact with the paper trading API.
-    Note these sessions are only valid for endpoints in the Account class.
+    Note these sessions are only valid for endpoints in the `Account` class.
 
-    :param api_key: user's paper API key, buy one at https://tastyware.dev/login
+    :param api_key:
+        tastyware paper API key, buy one at https://tastyware.dev/login
+        defaults to the $TW_API_KEY environment variable
     """
 
-    def __init__(self, api_key: str, **client_kwargs: Any):
+    def __init__(self, api_key: str | None, **client_kwargs: Any):
         super().__init__("kyrie", "eleison", is_test=True)
-        self.api_key = api_key
+        self.api_key = api_key or os.environ["TW_API_KEY"]
         self.session_expiration = math.inf
         # The headers to use for API requests
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
-            "X-Api-Key": api_key,
+            "X-Api-Key": self.api_key,
         }
         # httpx client for async requests
         self._client = AsyncClient(base_url=PAPER_URL, headers=headers, **client_kwargs)
@@ -86,7 +89,7 @@ class PaperSession(Session):
     ) -> AsyncGenerator[Account, None]:
         """
         Create an account for temporary use that will be cleaned up when exiting the
-        context manager. Useful for automated testing.
+        context manager. Useful for unit testing.
 
         :param margin_or_cash: whether the account should be margin or cash
         """
@@ -97,18 +100,13 @@ class PaperSession(Session):
             await self.delete_account(acc)
 
 
+@deprecated(
+    "`PaperAlertStreamer` is deprecated and may be removed in a future version. Use "
+    "`AlertStreamer` with a `PaperSession` instead."
+)
 class PaperAlertStreamer(AlertStreamer):
     """
-    Designed to mimic the behavior and API of :attr:`tastytrade.AlertStreamer`.
     Currently only supports listening to orders.
     """
 
-    def __init__(self, session: PaperSession) -> None:
-        super().__init__(session)
-        self.base_url = PAPER_URL.replace("http", "ws") + "/notifications"
-
-    def fail(self) -> None:
-        """
-        Raise an exception in the streamer that can be used to test retries.
-        """
-        raise HTTPXWSException("Something happened and the fake streamer broke, oh no!")
+    pass

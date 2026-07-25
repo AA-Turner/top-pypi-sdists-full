@@ -55,7 +55,22 @@ OPS_MCP_OAUTH_CLIENT_ID = (
 
 OAUTH_ISSUER = (
     config.get("oauth-issuer") or "https://cloud.airbyte.com/auth/realms/airbyte"
-)
+).rstrip("/")
+
+# Airbyte Cloud realm values for the cloud-mcp image. The branded PyAirbyte image
+# declares only the `AIRBYTE_MCP_*` env-var names and reads them; the concrete
+# values (non-secret, publicly discoverable) are owned here in the deployment
+# repo. Interactive OIDC uses the `airbyte` realm (`OAUTH_ISSUER`); headless
+# bearer tokens minted from `<api_root>/applications/token` are RS256 JWTs issued
+# by the distinct `_airbyte-application-clients` realm. Both are derived from
+# `OAUTH_ISSUER` so a Pulumi `oauth-issuer` override (e.g. staging/self-host)
+# keeps the interactive and headless realms on the same host.
+OAUTH_REALMS_BASE = OAUTH_ISSUER.rsplit("/", 1)[0]
+CLOUD_MCP_OIDC_CONFIG_URL = f"{OAUTH_ISSUER}/.well-known/openid-configuration"
+CLOUD_MCP_JWT_ISSUER = f"{OAUTH_REALMS_BASE}/_airbyte-application-clients"
+CLOUD_MCP_JWT_JWKS_URI = f"{CLOUD_MCP_JWT_ISSUER}/protocol/openid-connect/certs"
+CLOUD_MCP_JWT_AUDIENCE = "account"
+CLOUD_MCP_JWT_ALGORITHM = "RS256"
 
 DNS_ZONE_PROJECT = config.get("dns-zone-project") or "airbyte-intranet"
 DNS_ZONE_NAME = config.get("dns-zone-name") or "internal-airbyte-ai"
@@ -157,12 +172,53 @@ AGENT_MCP_CONTAINER_IMAGE = (
 
 LB_PREFIX = "internal-mcp"
 
+# --- Firestore Native for durable interactive OAuth state ---
+# The interactive OIDC path (FastMCP `OIDCProxy`) keeps per-client OAuth
+# registrations and refresh tokens in a key-value store. In-memory (the default)
+# loses that state on every Cloud Run cold start, new revision, or replica
+# change, forcing users to re-authenticate. A Cloud Firestore database in Native
+# mode makes it durable across all of those. Firestore is serverless and reached
+# over Google APIs with IAM auth -- the Cloud Run runtime service account
+# authenticates via Application Default Credentials, so there is no password/AUTH
+# secret and no VPC to operate. Public egress (Keycloak, the Airbyte Cloud API,
+# GitHub, Slack) is unchanged. The OAuth payload is additionally Fernet-encrypted
+# at rest by the server before it is written. Prod and preview get separate
+# Firestore databases so their OAuth state never mixes.
+OIDC_STORAGE_ENV = "AIRBYTE_MCP_OIDC_STORAGE"
+FIRESTORE_PROJECT_ENV = "AIRBYTE_MCP_FIRESTORE_PROJECT"
+FIRESTORE_DATABASE_ENV = "AIRBYTE_MCP_FIRESTORE_DATABASE"
+
+# Branded auth env-var names the cloud-mcp PyAirbyte image reads. The discovery
+# URL enables interactive OIDC; the JWKS/issuer/audience/algorithm enable the
+# headless bearer-token verifier.
+OIDC_CONFIG_URL_ENV = "AIRBYTE_MCP_OIDC_CONFIG_URL"
+AUTH_JWKS_URI_ENV = "AIRBYTE_MCP_AUTH_JWKS_URI"
+AUTH_ISSUER_ENV = "AIRBYTE_MCP_AUTH_ISSUER"
+AUTH_AUDIENCE_ENV = "AIRBYTE_MCP_AUTH_AUDIENCE"
+AUTH_ALGORITHM_ENV = "AIRBYTE_MCP_AUTH_ALGORITHM"
+OPS_MCP_FIRESTORE_DATABASE = "ops-mcp-oauth"
+OPS_MCP_PREVIEW_FIRESTORE_DATABASE = "ops-mcp-oauth-preview"
+
+# cloud-mcp runs the generic PyAirbyte image, which selects a durable OAuth-state
+# backend via a factory hook (not the `AIRBYTE_MCP_OIDC_STORAGE` selector the
+# ops-mcp server uses). `AIRBYTE_MCP_OIDC_CLIENT_STORAGE_FACTORY` names a
+# `module:callable` that PyAirbyte imports and calls with the OIDC client secret;
+# the callable returns the OAuth-state store. The concrete factory ships in the
+# cloud-mcp image (`cloud_mcp_oidc_storage.py`, built into `/app` on `PYTHONPATH`)
+# so the Firestore/Fernet construction stays out of public PyAirbyte. cloud-mcp
+# gets its own Firestore databases so its OAuth state never mixes with ops-mcp's.
+OIDC_CLIENT_STORAGE_FACTORY_ENV = "AIRBYTE_MCP_OIDC_CLIENT_STORAGE_FACTORY"
+CLOUD_MCP_STORAGE_FACTORY = "cloud_mcp_oidc_storage:build_store"
+CLOUD_MCP_FIRESTORE_DATABASE = "cloud-mcp-oauth"
+CLOUD_MCP_PREVIEW_FIRESTORE_DATABASE = "cloud-mcp-oauth-preview"
+
 
 def define_apis() -> list[gcp.projects.Service]:
     """Define required API enablements for the runtime project."""
     api_ids = [
         "artifactregistry.googleapis.com",
         "compute.googleapis.com",
+        "firestore.googleapis.com",
         "run.googleapis.com",
         "secretmanager.googleapis.com",
     ]
@@ -207,9 +263,110 @@ def define_service_account(
     )
 
 
+def define_firestore(
+    database_id: str,
+    api_services: list[gcp.projects.Service],
+) -> gcp.firestore.Database:
+    """Define a Cloud Firestore Native database backing durable OAuth state.
+
+    Firestore is serverless and reached over Google APIs, so there is no VPC or
+    private networking to operate and no AUTH secret: the Cloud Run runtime
+    service account authenticates with IAM via Application Default Credentials
+    (granted `roles/datastore.user` in `define_firestore_iam`). Data is encrypted
+    at rest by Google by default, and the server additionally Fernet-encrypts the
+    OAuth payload before writing it. Prod and preview each get their own database
+    so their OAuth state never mixes.
+    """
+    return gcp.firestore.Database(
+        database_id,
+        name=database_id,
+        project=PROJECT,
+        location_id=REGION,
+        type="FIRESTORE_NATIVE",
+        opts=pulumi.ResourceOptions(depends_on=api_services),
+    )
+
+
+def define_firestore_iam(
+    service_account: gcp.serviceaccount.Account,
+    api_services: list[gcp.projects.Service],
+) -> gcp.projects.IAMMember:
+    """Grant the runtime service account Firestore (Datastore) access.
+
+    `roles/datastore.user` lets the Cloud Run runtime SA read and write documents
+    in the project's Firestore databases -- the passwordless, IAM-based grant that
+    replaces the Redis AUTH secret. Project-scoped, so it covers both the prod and
+    preview databases.
+    """
+    return gcp.projects.IAMMember(
+        "internal-mcp-firestore-user",
+        project=PROJECT,
+        role="roles/datastore.user",
+        member=service_account.email.apply(lambda email: f"serviceAccount:{email}"),
+        opts=pulumi.ResourceOptions(depends_on=[service_account, *api_services]),
+    )
+
+
 def _env(name: str, value: str) -> gcp.cloudrunv2.ServiceTemplateContainerEnvArgs:
     """Define a Cloud Run literal environment variable."""
     return gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(name=name, value=value)
+
+
+def _firestore_storage_envs(
+    database: gcp.firestore.Database,
+) -> list[gcp.cloudrunv2.ServiceTemplateContainerEnvArgs]:
+    """Build the `AIRBYTE_MCP_OIDC_STORAGE` + `AIRBYTE_MCP_FIRESTORE_*` env for a service.
+
+    Enables the durable Firestore-backed OAuth-state store and points it at this
+    service's dedicated Firestore database in the runtime project. The database id
+    is a Pulumi `Output` resolved at apply time.
+    """
+    return [
+        _env(OIDC_STORAGE_ENV, "firestore"),
+        _env(FIRESTORE_PROJECT_ENV, PROJECT),
+        gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
+            name=FIRESTORE_DATABASE_ENV, value=database.name
+        ),
+    ]
+
+
+def _cloud_mcp_auth_envs() -> list[gcp.cloudrunv2.ServiceTemplateContainerEnvArgs]:
+    """Build the Airbyte Cloud realm auth env for the cloud-mcp service.
+
+    Supplies the branded `AIRBYTE_MCP_*` realm values the cloud-mcp PyAirbyte
+    image reads: the interactive-OIDC discovery URL and the headless
+    bearer-token verifier's JWKS/issuer/audience/algorithm. The image declares
+    only the env-var names; these concrete values are owned here in the
+    deployment repo rather than baked into the generic library.
+    """
+    return [
+        _env(OIDC_CONFIG_URL_ENV, CLOUD_MCP_OIDC_CONFIG_URL),
+        _env(AUTH_JWKS_URI_ENV, CLOUD_MCP_JWT_JWKS_URI),
+        _env(AUTH_ISSUER_ENV, CLOUD_MCP_JWT_ISSUER),
+        _env(AUTH_AUDIENCE_ENV, CLOUD_MCP_JWT_AUDIENCE),
+        _env(AUTH_ALGORITHM_ENV, CLOUD_MCP_JWT_ALGORITHM),
+    ]
+
+
+def _cloud_mcp_storage_envs(
+    database: gcp.firestore.Database,
+) -> list[gcp.cloudrunv2.ServiceTemplateContainerEnvArgs]:
+    """Build the durable OAuth-state storage env for a cloud-mcp service.
+
+    Points PyAirbyte's storage-factory hook at the image-bundled
+    `cloud_mcp_oidc_storage:build_store` and supplies this service's dedicated
+    Firestore database. Unlike `_firestore_storage_envs` (the ops-mcp server's
+    `AIRBYTE_MCP_OIDC_STORAGE=firestore` selector), the PyAirbyte image selects
+    durable storage purely by the presence of the factory env, so no storage-mode
+    flag is set here. The database id is a Pulumi `Output` resolved at apply time.
+    """
+    return [
+        _env(OIDC_CLIENT_STORAGE_FACTORY_ENV, CLOUD_MCP_STORAGE_FACTORY),
+        _env(FIRESTORE_PROJECT_ENV, PROJECT),
+        gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
+            name=FIRESTORE_DATABASE_ENV, value=database.name
+        ),
+    ]
 
 
 def _secret_env(
@@ -258,9 +415,10 @@ def define_mcp_cloud_run_service(
     The OIDC client credentials are passed under `oidc_client_id_env` /
     `oidc_client_secret_env`, and the discovery URL (when supplied) under
     `oidc_config_url_env`. These default to the Airbyte-branded names
-    (`AIRBYTE_MCP_OIDC_*`) that the current branded-auth images read, with
-    `oidc_config_url` defaulting to `None` because those images already default
-    the OIDC discovery URL to Airbyte Cloud (so it is not duplicated here). A
+    (`AIRBYTE_MCP_OIDC_*`) that the branded-auth images read. Any additional
+    realm values a given image needs (e.g. the discovery URL and the headless
+    JWT verifier settings for the generic cloud-mcp PyAirbyte image, which no
+    longer defaults a realm) are passed by the caller via `extra_envs`. A
     service on the pre-rename generic contract (e.g. the legacy `agent-mcp`
     image) overrides these with the generic names and an explicit discovery URL.
     """
@@ -758,6 +916,24 @@ def main() -> None:
     api_services = define_apis()
     secrets = define_secrets()
     service_account = define_service_account(api_services)
+    # Firestore Native databases backing durable interactive OAuth state. Both the
+    # Ops MCP services (via the `AIRBYTE_MCP_OIDC_STORAGE=firestore` selector) and
+    # the cloud-mcp services (via PyAirbyte's storage-factory hook) build a
+    # Fernet-encrypted store from the `AIRBYTE_MCP_FIRESTORE_*` env; agent-mcp runs
+    # a separate image that does not yet construct the store, so it stays on the
+    # in-memory default. ops-mcp and cloud-mcp each get their own prod/preview
+    # databases so no OAuth state ever mixes across servers or environments. The
+    # runtime SA reaches Firestore over IAM (no VPC, no AUTH secret) via the
+    # project-scoped `roles/datastore.user` grant.
+    ops_mcp_firestore = define_firestore(OPS_MCP_FIRESTORE_DATABASE, api_services)
+    ops_mcp_preview_firestore = define_firestore(
+        OPS_MCP_PREVIEW_FIRESTORE_DATABASE, api_services
+    )
+    cloud_mcp_firestore = define_firestore(CLOUD_MCP_FIRESTORE_DATABASE, api_services)
+    cloud_mcp_preview_firestore = define_firestore(
+        CLOUD_MCP_PREVIEW_FIRESTORE_DATABASE, api_services
+    )
+    firestore_iam = define_firestore_iam(service_account, api_services)
     # The runtime-SA `secretAccessor` grants for the Ops MCP backend secrets
     # (GitHub PAT, Orb key, MotherDuck token, shared Slack token, Zendesk API
     # token) are manual bootstrap steps -- same as the OAuth client secret and
@@ -772,13 +948,31 @@ def main() -> None:
         _env("ZENDESK_SUBDOMAIN", ZENDESK_SUBDOMAIN),
         _env("ZENDESK_EMAIL", ZENDESK_EMAIL),
         _secret_env("ZENDESK_API_TOKEN", ZENDESK_API_TOKEN_SECRET_ID),
+        # Opt in to the HTTP Basic client-credentials transport so a headless
+        # agent can present its long-lived Airbyte Cloud `client_id`/`client_secret`
+        # directly (`Authorization: Basic base64(client_id:client_secret)`); the
+        # server exchanges them for a short-lived token and rewrites the request to
+        # Bearer. Without this, only already-minted Bearer tokens and interactive
+        # OIDC work, which does not unblock static-config headless clients.
+        _env("AIRBYTE_MCP_AUTH_ALLOW_CLIENT_CREDENTIALS", "true"),
+        # Enable the internal admin surface so admin-gated tools (e.g.
+        # `set_cloud_connector_version_override`) are available on the hosted
+        # server. Individual admin operations still require a Slack approval
+        # record (`approval_comment_url` from `escalate_to_human`); the approver
+        # identity is resolved from that record, so this flag alone does not
+        # bypass human-in-the-loop.
+        _env("AIRBYTE_INTERNAL_ADMIN_FLAG", "airbyte.io"),
     ]
-    # ops-mcp and cloud-mcp (both branded-auth images) authenticate every HTTP
-    # request on their own and default the auth realm to Airbyte Cloud, so no
-    # auth realm env is passed here. They read the OIDC client credentials under
-    # the Airbyte-branded names and default their own OIDC discovery URL, which
-    # is exactly the factory default (`AIRBYTE_MCP_OIDC_*`, no `OIDC_CONFIG_URL`)
-    # — so they pass nothing extra. Only agent-mcp overrides, below.
+    # All services read the OIDC client credentials under the Airbyte-branded
+    # names (`AIRBYTE_MCP_OIDC_*`). The realm values differ by image:
+    #   - ops-mcp: its own (non-PyAirbyte) server defaults the Airbyte Cloud
+    #     realm internally, so no realm env is passed here.
+    #   - cloud-mcp: the generic PyAirbyte image declares only env-var names and
+    #     no longer defaults any realm, so this deployment supplies the concrete
+    #     Airbyte Cloud realm values via `_cloud_mcp_auth_envs()`, plus durable
+    #     OAuth-state storage via `_cloud_mcp_storage_envs()` (the image's
+    #     `cloud_mcp_oidc_storage` factory + its own Firestore database).
+    #   - agent-mcp: legacy generic contract, overridden below.
     # MCP services
     mcp_common = {
         "service_account": service_account,
@@ -792,7 +986,11 @@ def main() -> None:
         oauth_client_id=OPS_MCP_OAUTH_CLIENT_ID,
         oauth_client_secret_id=OPS_MCP_OAUTH_CLIENT_SECRET_ID,
         min_instances=MIN_INSTANCES,
-        extra_envs=ops_mcp_backend_envs,
+        extra_envs=[
+            *ops_mcp_backend_envs,
+            *_firestore_storage_envs(ops_mcp_firestore),
+        ],
+        extra_depends=[firestore_iam],
         **mcp_common,
     )
     ops_mcp_preview = define_mcp_cloud_run_service(
@@ -802,7 +1000,11 @@ def main() -> None:
         public_url=OPS_MCP_PREVIEW_PUBLIC_URL,
         oauth_client_id=OPS_MCP_OAUTH_CLIENT_ID,
         oauth_client_secret_id=OPS_MCP_OAUTH_CLIENT_SECRET_ID,
-        extra_envs=ops_mcp_backend_envs,
+        extra_envs=[
+            *ops_mcp_backend_envs,
+            *_firestore_storage_envs(ops_mcp_preview_firestore),
+        ],
+        extra_depends=[firestore_iam],
         **mcp_common,
     )
     cloud_mcp = define_mcp_cloud_run_service(
@@ -813,6 +1015,11 @@ def main() -> None:
         oauth_client_id=OPS_MCP_OAUTH_CLIENT_ID,
         oauth_client_secret_id=OPS_MCP_OAUTH_CLIENT_SECRET_ID,
         min_instances=MIN_INSTANCES,
+        extra_envs=[
+            *_cloud_mcp_auth_envs(),
+            *_cloud_mcp_storage_envs(cloud_mcp_firestore),
+        ],
+        extra_depends=[firestore_iam],
         **mcp_common,
     )
     cloud_mcp_preview = define_mcp_cloud_run_service(
@@ -822,6 +1029,11 @@ def main() -> None:
         public_url=CLOUD_MCP_PREVIEW_PUBLIC_URL,
         oauth_client_id=OPS_MCP_OAUTH_CLIENT_ID,
         oauth_client_secret_id=OPS_MCP_OAUTH_CLIENT_SECRET_ID,
+        extra_envs=[
+            *_cloud_mcp_auth_envs(),
+            *_cloud_mcp_storage_envs(cloud_mcp_preview_firestore),
+        ],
+        extra_depends=[firestore_iam],
         **mcp_common,
     )
     # agent-mcp still runs a generic pre-rename PyAirbyte image (its rebrand is a
@@ -906,6 +1118,8 @@ def main() -> None:
             f"{REGION}-docker.pkg.dev/{PROJECT}/{AGENT_MCP_SERVICE_NAME}"
         ),
         "cloud_armor_policy": armor_policy.name,
+        "ops_mcp_firestore_database": ops_mcp_firestore.name,
+        "ops_mcp_preview_firestore_database": ops_mcp_preview_firestore.name,
         **lb_outputs,
         **dns_outputs,
     }

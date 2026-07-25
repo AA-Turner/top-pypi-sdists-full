@@ -1,19 +1,15 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.contact_topic import check_contact_topic
-from ..models.contact_topic import ContactTopic
 from dateutil.parser import isoparse
-from typing import cast
-import datetime
 
+from ..models.contact_topic import ContactTopic, check_contact_topic
+from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="Email")
 
@@ -35,7 +31,7 @@ class Email:
 
     topic: ContactTopic
     body: str
-    sent_at: datetime.datetime | None | Unset = UNSET
+    sent_at: datetime.datetime | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -43,7 +39,7 @@ class Email:
 
         body = self.body
 
-        sent_at: None | str | Unset
+        sent_at: str | Unset | None
         if isinstance(self.sent_at, Unset):
             sent_at = UNSET
         elif isinstance(self.sent_at, datetime.datetime):
@@ -71,7 +67,7 @@ class Email:
 
         body = d.pop("body")
 
-        def _parse_sent_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_sent_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

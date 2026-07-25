@@ -35,7 +35,7 @@ LOCK_EXAMPLE = {
 }
 
 # marker environment for testing
-_ENV = _get_marker_environment(**LOCK_EXAMPLE["info"])  # type:ignore[arg-type]
+_ENV = _get_marker_environment(**LOCK_EXAMPLE["info"])  # type: ignore[arg-type]
 # marker environment for testing, filtered only to numerical values
 _ENV_NUM = {k: v for k, v in _ENV.items() if v[0] in "0123456789"}
 
@@ -76,7 +76,7 @@ def example_lock_data():
 
 @pytest.fixture
 def example_lock_spec():
-    return PyodideLockSpec(**deepcopy(LOCK_EXAMPLE))
+    return PyodideLockSpec.from_dict(deepcopy(LOCK_EXAMPLE))
 
 
 # build a wheel

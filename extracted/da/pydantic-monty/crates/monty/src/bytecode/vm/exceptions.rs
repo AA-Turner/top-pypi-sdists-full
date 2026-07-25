@@ -1,29 +1,35 @@
 //! Exception handling helpers for the VM.
 
+use std::fmt::{self, Write};
+
+use monty_types::ResourceTracker;
+
 use super::VM;
 use crate::{
     builtins::Builtins,
     defer_drop,
-    exception_private::{ExcType, ExceptionRaise, RawStackFrame, RunError, SimpleException},
-    heap::{HeapData, HeapGuard},
+    exception_private::{ExcType, ExcTypeExt, ExceptionRaise, RawStackFrame, RunError, RunResult, SimpleException},
+    expressions::CmpOperator,
+    heap::{DropGuard, HeapData},
     intern::{StaticStrings, StringId},
-    resource::ResourceTracker,
-    types::{PyTrait, Type},
+    types::{LazyHeapSet, PyTrait, Type},
     value::Value,
 };
 
 impl<T: ResourceTracker> VM<'_, T> {
-    /// Returns the current frame's name for traceback generation.
-    ///
-    /// Returns the function name for user-defined functions, or `<module>` for
-    /// module-level code. The frame stack must be non-empty: callers in the
-    /// async path that may run with no active frame (e.g. just before a spawned
-    /// task's first frame is pushed) are expected to route errors through
-    /// `handle_task_failure` rather than the regular exception machinery.
+    /// Returns the current frame's name for traceback generation: the
+    /// function name for user-defined functions, or `<module>` for
+    /// module-level code. The empty-frames branch is defensive — async
+    /// error paths now charge their tracker growth *before* draining
+    /// `self.frames`, so any caller reaching this with an empty stack
+    /// indicates a bug elsewhere; the `<module>` fallback keeps
+    /// traceback generation total rather than panicking.
     fn current_frame_name(&self) -> StringId {
-        let frame = self.current_frame();
-        match frame.function_id {
-            Some(func_id) => self.interns.get_function(func_id).name.name_id,
+        match self.frames.last() {
+            Some(frame) => match frame.function_id {
+                Some(func_id) => self.interns.get_function(func_id).name.name_id,
+                None => StaticStrings::Module.into(),
+            },
             None => StaticStrings::Module.into(),
         }
     }
@@ -110,6 +116,124 @@ impl<T: ResourceTracker> VM<'_, T> {
         })
     }
 
+    /// Runs fused bare `assert test`.
+    ///
+    /// Truthy values pass; falsy values raise with their repr, except literal
+    /// `False` has no detail because `assert False` adds no information.
+    pub(super) fn assert_test(&mut self) -> Result<(), RunError> {
+        let this = self;
+        let test = this.pop();
+        defer_drop!(test, this);
+        if test.py_bool(this) {
+            Ok(())
+        } else if matches!(test, Value::Bool(false)) {
+            Err(this.assertion_error(None))
+        } else {
+            let detail = assert_operand_repr(test, this).map(Some);
+            Err(this.assert_failure(detail))
+        }
+    }
+
+    /// Runs fused bare `assert lhs OP rhs`.
+    ///
+    /// Shares [`cmp_values`](VM::cmp_values) with the `Compare*` opcodes, so
+    /// the comparison (and any `TypeError` it raises) behaves identically to
+    /// the unfused form; only a `false` result diverges, raising with both
+    /// operand reprs.
+    pub(super) fn assert_cmp(&mut self, op: CmpOperator) -> Result<(), RunError> {
+        let this = self;
+        let rhs = this.pop();
+        defer_drop!(rhs, this);
+        let lhs = this.pop();
+        defer_drop!(lhs, this);
+        if this.cmp_values(op, lhs, rhs)? {
+            Ok(())
+        } else {
+            let detail = assert_operand_repr(lhs, this).and_then(|lhs_repr| {
+                let rhs_repr = assert_operand_repr(rhs, this)?;
+                Ok(Some(format!("{lhs_repr} {op} {rhs_repr}")))
+            });
+            Err(this.assert_failure(detail))
+        }
+    }
+
+    /// Converts best-effort detail into an `AssertionError` message.
+    /// Catchable formatting errors fall back to no detail; terminal errors propagate.
+    fn assert_failure(&self, detail: RunResult<Option<String>>) -> RunError {
+        match detail {
+            Ok(Some(detail)) => self.assertion_error(Some(format!("assert {detail}"))),
+            Ok(None) | Err(RunError::Exc(_)) => self.assertion_error(None),
+            Err(e) => e,
+        }
+    }
+
+    /// Raises for failed `assert test, msg`.
+    ///
+    /// Uses `msg` first and appends introspected detail when available. If
+    /// either formatting path raises a Python exception, the other still wins.
+    pub(super) fn assert_failed_msg(&mut self, cmp_op: Option<CmpOperator>) -> RunError {
+        let this = self;
+        let msg_value = this.pop();
+        defer_drop!(msg_value, this);
+        // Format the operands first so they are popped and released even if
+        // the message itself fails to stringify.
+        let detail = match this.assert_detail(cmp_op) {
+            Ok(detail) => detail,
+            Err(RunError::Exc(_)) => None,
+            Err(e) => return e,
+        };
+        let msg = match assert_msg_str(msg_value, this) {
+            // An empty message adds nothing, so treat it like an absent one and
+            // show only the detail — avoids a stray leading `\n` before `assert`.
+            Ok(msg) if msg.is_empty() => None,
+            Ok(msg) => Some(msg),
+            Err(RunError::Exc(_)) => None,
+            Err(e) => return e,
+        };
+        let full = match (msg, detail) {
+            (Some(msg), Some(detail)) => Some(format!("{msg}\nassert {detail}")),
+            (Some(msg), None) => Some(msg),
+            (None, Some(detail)) => Some(format!("assert {detail}")),
+            (None, None) => None,
+        };
+        this.assertion_error(full)
+    }
+
+    /// Pops failed assert operands and formats their detail.
+    ///
+    /// Comparisons produce `{lhs!r} {op} {rhs!r}`; other tests use the falsy
+    /// value repr. Literal `False` returns no detail.
+    fn assert_detail(&mut self, cmp_op: Option<CmpOperator>) -> RunResult<Option<String>> {
+        let this = self;
+        if let Some(op) = cmp_op {
+            let rhs = this.pop();
+            defer_drop!(rhs, this);
+            let lhs = this.pop();
+            defer_drop!(lhs, this);
+            let lhs_repr = assert_operand_repr(lhs, this)?;
+            let rhs_repr = assert_operand_repr(rhs, this)?;
+            Ok(Some(format!("{lhs_repr} {op} {rhs_repr}")))
+        } else {
+            let test = this.pop();
+            defer_drop!(test, this);
+            if matches!(test, Value::Bool(false)) {
+                Ok(None)
+            } else {
+                assert_operand_repr(test, this).map(Some)
+            }
+        }
+    }
+
+    /// Creates an `AssertionError` raised at the current source position.
+    fn assertion_error(&self, msg: Option<String>) -> RunError {
+        let frame = RawStackFrame::from_raise(self.current_position().unwrap_or_default(), self.current_frame_name());
+        RunError::Exc(ExceptionRaise {
+            exc: SimpleException::new(ExcType::AssertionError, msg),
+            frame: Some(frame),
+            hide_caret: false,
+        })
+    }
+
     /// Handles an exception by searching for a handler in the exception table.
     ///
     /// Returns:
@@ -125,7 +249,7 @@ impl<T: ResourceTracker> VM<'_, T> {
         // Ensure exception has initial frame info
         error = self.attach_frame_to_error(error);
 
-        // For uncatchable exceptions (ResourceError like RecursionError),
+        // For terminal resource errors such as memory limits,
         // we still need to unwind the stack to collect all frames for the traceback
         if matches!(error, RunError::UncatchableExc(_) | RunError::Internal(_)) {
             return Some(self.unwind_for_traceback(error));
@@ -144,9 +268,9 @@ impl<T: ResourceTracker> VM<'_, T> {
             Err(e) => return Some(e),
         };
 
-        // Use HeapGuard because exc_value is conditionally consumed (pushed onto
+        // Use DropGuard because exc_value is conditionally consumed (pushed onto
         // exception_stack when handler found) or dropped (when no handler found)
-        let mut exc_guard = HeapGuard::new(exc_value, self);
+        let mut exc_guard = DropGuard::new(exc_value, self);
 
         // Search for handler in current and outer frames
         loop {
@@ -169,7 +293,7 @@ impl<T: ResourceTracker> VM<'_, T> {
 
                 // Unwind stack to target depth (drop excess values)
                 for value in this.stack.drain(target_stack_depth..).rev() {
-                    value.drop_with_heap(this.heap);
+                    value.drop_with(this.heap);
                 }
 
                 // Drop any `exception_stack` entries left behind by handlers
@@ -180,7 +304,7 @@ impl<T: ResourceTracker> VM<'_, T> {
                 // later bare `raise` could resurrect it.
                 while this.exception_stack.len() > target_exc_stack_depth {
                     let value = this.exception_stack.pop().unwrap();
-                    value.drop_with_heap(this);
+                    value.drop_with(this);
                 }
 
                 // Push exception value onto stack (handler expects it)
@@ -226,9 +350,9 @@ impl<T: ResourceTracker> VM<'_, T> {
                 return Some(error);
             }
 
-            // Get the call site position before popping frame
-            // This is where the caller invoked the function that's failing
-            let call_position = this.current_frame().call_position;
+            // Get the caller's call-site offset before popping frame.
+            // This is where the caller invoked the function that's failing.
+            let call_offset = this.current_frame().call_offset;
 
             // Pop this frame
             if this.pop_frame() {
@@ -237,8 +361,11 @@ impl<T: ResourceTracker> VM<'_, T> {
                 return Some(error);
             }
 
-            // Add caller frame info to traceback (if we have call position)
-            if let Some(pos) = call_position {
+            // Add caller frame info to traceback (if we have a call site).
+            // Resolve the offset now — against the caller, which is the current
+            // frame after the pop above.
+            if let Some(off) = call_offset {
+                let pos = this.resolve_offset(off);
                 let frame_name = this.current_frame_name();
                 match &mut error {
                     RunError::Exc(exc) => exc.add_caller_frame(pos, frame_name),
@@ -251,19 +378,21 @@ impl<T: ResourceTracker> VM<'_, T> {
 
     /// Unwinds the call stack to collect all frames for a traceback.
     ///
-    /// Used for uncatchable exceptions (like RecursionError) that can't be handled
+    /// Used for terminal resource errors that can't be handled
     /// but still need a complete traceback showing all active call frames.
     fn unwind_for_traceback(&mut self, mut error: RunError) -> RunError {
         // Pop frames and add caller frame info to the traceback
         while self.frames.len() > 1 {
-            // Get the call site position before popping frame
-            let call_position = self.current_frame().call_position;
+            // Get the caller's call-site offset before popping frame
+            let call_offset = self.current_frame().call_offset;
 
             // Pop this frame (cleans up namespace, etc.)
             self.pop_frame();
 
-            // Add caller frame info to traceback
-            if let Some(pos) = call_position {
+            // Add caller frame info to traceback. Resolve the offset against the
+            // caller, which is the current frame after the pop above.
+            if let Some(off) = call_offset {
+                let pos = self.resolve_offset(off);
                 let frame_name = self.current_frame_name();
                 match &mut error {
                     RunError::Exc(exc) => exc.add_caller_frame(pos, frame_name),
@@ -350,5 +479,77 @@ impl<T: ResourceTracker> VM<'_, T> {
     /// exception that is a subclass of the handler's class.
     fn exc_matches_handler(exc_type_enum: Type, handler_type: ExcType) -> bool {
         matches!(exc_type_enum, Type::Exception(et) if et.is_subclass_of(handler_type))
+    }
+}
+
+/// Streams an assert operand's repr into the configured byte-capped writer.
+/// Reaching the cap stops formatting the remainder and appends `…`.
+fn assert_operand_repr(value: &Value, vm: &mut VM<'_, impl ResourceTracker>) -> RunResult<String> {
+    let mut writer = TruncatingWriter::new(vm.assert_repr_max_bytes as usize);
+    let mut heap_ids = LazyHeapSet::default();
+    match value.py_repr_fmt(&mut writer, vm, &mut heap_ids) {
+        Ok(()) => Ok(writer.into_string()),
+        // The cap abort is ours: the partial repr is the result. Genuine
+        // errors can only surface before the cap (post-cap writes do no VM work).
+        Err(_) if writer.truncated => Ok(writer.into_string()),
+        Err(e) => Err(e),
+    }
+}
+
+/// `str()` of an explicit assert message, matching how the message renders in
+/// `AssertionError: {msg}` — not truncated, since the user chose it explicitly.
+fn assert_msg_str(value: &Value, vm: &mut VM<'_, impl ResourceTracker>) -> RunResult<String> {
+    let str_value = value.py_str(vm)?;
+    defer_drop!(str_value, vm);
+    Ok(str_value.to_str(vm)?.to_owned())
+}
+
+/// Byte-capped sink that stops repr formatting on a character boundary.
+/// Its buffer is untracked because `py_repr_fmt` also needs mutable VM access.
+struct TruncatingWriter {
+    buf: String,
+    /// Bytes still accepted before the cap.
+    remaining: usize,
+    /// Set when input was cut at the cap; `into_string` then appends `…`.
+    truncated: bool,
+}
+
+impl TruncatingWriter {
+    fn new(max_bytes: usize) -> Self {
+        Self {
+            buf: String::new(),
+            remaining: max_bytes,
+            truncated: false,
+        }
+    }
+
+    /// Consumes the writer, appending `…` when input was cut at the cap.
+    fn into_string(mut self) -> String {
+        if self.truncated {
+            self.buf.push('…');
+        }
+        self.buf
+    }
+}
+
+impl Write for TruncatingWriter {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        if self.truncated {
+            Err(fmt::Error)
+        } else if let Some(remaining) = self.remaining.checked_sub(s.len()) {
+            self.remaining = remaining;
+            self.buf.push_str(s);
+            Ok(())
+        } else {
+            // Over budget: cut at the last char boundary in budget (≤3 steps back).
+            let mut idx = self.remaining;
+            while !s.is_char_boundary(idx) {
+                idx -= 1;
+            }
+            self.buf.push_str(&s[..idx]);
+            self.remaining = 0;
+            self.truncated = true;
+            Err(fmt::Error)
+        }
     }
 }

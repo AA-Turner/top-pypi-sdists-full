@@ -94,12 +94,23 @@ AUTH_PUBLIC_PATHS = frozenset(
         "/alive",
         # Agent / protocol discovery
         "/.well-known/agent.json",
+        # A2A v1.0 canonical discovery path (#2609): served identical to
+        # ``/.well-known/agent.json`` so shipped clients that fetch either the
+        # v1.0 name or the legacy name both resolve the signed card.
+        "/.well-known/agent-card.json",
         "/.well-known/agent.json/keys",
         "/.well-known/http-message-signatures-directory",
         "/.well-known/acp.json",
         "/.well-known/mcp-tools",
         "/llms.txt",
         "/acp/v0/agents",
+        # A2A JSON-RPC server surface (#2609). These endpoints run their OWN
+        # auth (card-declared API key + OAuth2 client-credentials) and reject
+        # unauthenticated calls per spec, so the server-wide bearer check must
+        # let them reach the handler. When the surface is disabled (the
+        # default) the handler answers 404, exposing nothing.
+        "/a2a/v1",
+        "/a2a/v1/oauth/token",
         # Auth flow endpoints (must be public for login to work)
         "/auth/login",
         "/auth/oidc/callback",
@@ -405,11 +416,17 @@ class SSOAuthMiddleware(BaseHTTPMiddleware):
         agent_identity_store: AgentIdentityStore | None = None,
         auth_disabled: bool | None = None,
         expected_resource: _ExpectedResourceConfig = None,
+        cluster_secret: str | None = None,
     ) -> None:
         super().__init__(app)
         self._auth_service = auth_service
         self._legacy_token = legacy_token
         self._agent_identity_store = agent_identity_store
+        # The cluster shared secret is accepted as a worker credential so a
+        # single token clears both this outer layer and the inner cluster
+        # route layer (#2805). It is barred from operator-only endpoints
+        # below, mirroring the agent-identity restriction.
+        self._cluster_secret = cluster_secret or None
         # Resolve opt-out from explicit arg > env var. Config-based opt-out
         # should be passed in via ``auth_disabled=True`` from the factory.
         resolved_disabled = bool(auth_disabled) or auth_disabled_via_opt_out()
@@ -442,6 +459,8 @@ class SSOAuthMiddleware(BaseHTTPMiddleware):
         if self._auth_service is not None:
             return True
         if self._legacy_token:
+            return True
+        if self._cluster_secret:
             return True
         if self._agent_identity_store is not None:
             return True
@@ -533,6 +552,32 @@ class SSOAuthMiddleware(BaseHTTPMiddleware):
                 # Legacy tokens get operator-level access
                 request.state.user = None  # type: ignore[attr-defined]
                 request.state.auth_claims = {"legacy": True}  # type: ignore[attr-defined]
+                response = await call_next(request)
+                return response
+
+        # Strategy 3b: Cluster shared secret. A cluster worker presents the
+        # cluster secret to register, heartbeat, and pull tasks; it must clear
+        # this outer layer as well as the inner cluster route layer (#2805).
+        # Accepted like the legacy operator token but - like agent tokens -
+        # barred from operator-only (admin:manage) endpoints so it cannot
+        # shut down or reconfigure the server.
+        if self._cluster_secret:
+            import hmac
+
+            if hmac.compare_digest(token, self._cluster_secret):
+                if (
+                    request.method not in _READ_METHODS
+                    and _get_required_permission(path, request.method) == _PERM_ADMIN_MANAGE
+                ):
+                    return JSONResponse(
+                        status_code=403,
+                        content={
+                            "detail": "Cluster credential cannot access operator-only endpoints",
+                            "required_permission": _PERM_ADMIN_MANAGE,
+                        },
+                    )
+                request.state.user = None  # type: ignore[attr-defined]
+                request.state.auth_claims = {"cluster": True}  # type: ignore[attr-defined]
                 response = await call_next(request)
                 return response
 

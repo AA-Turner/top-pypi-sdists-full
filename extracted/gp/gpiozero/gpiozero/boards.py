@@ -2,9 +2,9 @@
 #
 # GPIO Zero: a library for controlling the Raspberry Pi's GPIO pins
 #
+# Copyright (c) 2015-2026 Ben Nuttall <ben@bennuttall.com>
 # Copyright (c) 2015-2024 Dave Jones <dave@waveform.org.uk>
 # Copyright (c) 2016-2022 Andrew Scheller <github@loowis.durge.org>
-# Copyright (c) 2015-2021 Ben Nuttall <ben@bennuttall.com>
 # Copyright (c) 2020 Ryan Walmsley <ryanteck@gmail.com>
 # Copyright (c) 2020 Jack Wearden <jack@jackwearden.co.uk>
 # Copyright (c) 2019 tuftii <3215045+tuftii@users.noreply.github.com>
@@ -970,7 +970,7 @@ class LEDCharDisplay(LEDCollection):
             pins['dp'] = dp
             order.append('dp')
         super().__init__(
-            pwm=pwm, active_high=active_high, initial_value=None,
+            pwm=pwm, active_high=active_high, initial_value=0 if pwm else None,
             _order=order, pin_factory=pin_factory, **pins)
         if initial_value is not None:
             self.value = initial_value

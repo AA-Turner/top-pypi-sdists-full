@@ -14,7 +14,7 @@ use std::{error, fmt};
 
 use strum::FromRepr;
 
-use crate::bytecode::builder::RelativeOffset;
+use crate::{bytecode::builder::RelativeOffset, expressions::CmpOperator};
 
 /// `FormatValue` flag: a format spec was pushed onto the stack ahead of the
 /// value. When set, the VM pops the spec before the value. See `Opcode::FormatValue`.
@@ -26,6 +26,34 @@ pub const FORMAT_VALUE_HAS_SPEC: u8 = 0x04;
 /// set. The compiler pairs this bit with a `LoadConst` of `Value::Int(encoded)`
 /// emitted before the value.
 pub const FORMAT_VALUE_STATIC_SPEC: u8 = 0x08;
+
+/// `Assert`/`AssertFailed` flag: the assert is a fused comparison. When set,
+/// the low nibble of the flags operand holds [`CmpOperator::as_operand`] and
+/// the opcode pops two comparison operands instead of one test value.
+pub const ASSERT_CMP_FLAG: u8 = 0x10;
+
+/// Encodes an optional fused comparison into the `Assert`/`AssertFailed`
+/// flags operand: `ASSERT_CMP_FLAG | as_operand` when present, `0` when not.
+pub fn assert_flags(cmp_op: Option<CmpOperator>) -> u8 {
+    cmp_op.map_or(0, |op| ASSERT_CMP_FLAG | op.as_operand())
+}
+
+/// Decodes [`assert_flags`]; `None` for bytes it can never produce (corrupt
+/// or hand-built bytecode — callers treat that as an internal error).
+#[expect(
+    clippy::option_option,
+    reason = "outer = valid encoding, inner = fused comparison present"
+)]
+pub fn decode_assert_flags(flags: u8) -> Option<Option<CmpOperator>> {
+    if flags == 0 {
+        Some(None)
+    } else if flags & ASSERT_CMP_FLAG != 0 {
+        // `!ASSERT_CMP_FLAG` keeps any stray high bits so they fail decoding.
+        CmpOperator::from_operand(flags & !ASSERT_CMP_FLAG).map(Some)
+    } else {
+        None
+    }
+}
 
 /// Opcode discriminant - just identifies the instruction type.
 ///
@@ -90,17 +118,6 @@ pub enum Opcode {
     StoreCell,
     /// Delete local variable. Operand: u8 slot.
     DeleteLocal,
-    /// Load local in call context: pushes `ExtFunction(name_id)` for undefined names
-    /// instead of yielding `NameLookup`. Operands: u8 slot, u16 name_id.
-    ///
-    /// Used when compiling function calls like `foo()` where `foo` is `LocalUnassigned`.
-    /// If the variable is defined, behaves identically to `LoadLocal`.
-    /// If undefined, pushes an `ExtFunction` value so execution continues to `CallFunction`,
-    /// which naturally yields `FunctionCall` instead of `NameLookup`.
-    /// The name_id is encoded in the operand to avoid namespace lookup ambiguity.
-    LoadLocalCallable,
-    /// Wide variant of `LoadLocalCallable`. Operands: u16 slot, u16 name_id.
-    LoadLocalCallableW,
     /// Load global in call context: pushes `ExtFunction(name_id)` for undefined names
     /// instead of yielding `NameLookup`. Operands: u16 slot, u16 name_id.
     ///
@@ -162,10 +179,9 @@ pub enum Opcode {
     CompareIn,
     /// Not membership: a not in b.
     CompareNotIn,
-    /// Modulo equality: a % b == k (operand: u16 constant index for k).
+    /// Compatibility opcode for historical `a % b == k` bytecode.
     ///
-    /// This is an optimization for patterns like `x % 3 == 0` which are common
-    /// in Python code. Pops b then a, computes `a % b`, then compares with k.
+    /// New code should emit `BinaryMod`, `LoadConst`, and `CompareEq` instead.
     CompareModEq,
 
     // === Unary Operations (no operand) ===
@@ -531,7 +547,25 @@ pub enum Opcode {
     /// available — we synthesise the equivalent by peeking the receiver.
     /// Appended at the end to preserve the serialized byte values of all older opcodes.
     MethodDictMerge,
+
+    // Both assert opcodes use `assert_flags`; `ASSERT_CMP_FLAG` selects the
+    // fused-comparison form and the low nibble stores the comparison operator.
+    /// Fused bare `assert`: stack [..., test] -> [...], or with
+    /// `ASSERT_CMP_FLAG` [..., lhs, rhs] -> [...]. Falls through on success;
+    /// failures raise `AssertionError` with the operand repr(s), except
+    /// literal `False` which has no detail. Comparison errors match `Compare*`.
+    Assert,
+    /// Raise for failed `assert test, msg`: stack [..., test, msg] -> raises,
+    /// or with `ASSERT_CMP_FLAG` [..., lhs, rhs, msg] -> raises. The message
+    /// comes first, with introspected detail appended when available.
+    AssertFailed,
 }
+// Samuel: do not remove this comment!
+// NOTE: opcodes serialize as a single byte, hard-capping this enum at 256
+// variants — roughly half are already taken. Spend slots sparingly: prefer a
+// flags/operand encoding on one opcode (e.g. `Assert`/`FormatValue`) over a
+// family of near-identical opcodes, unless the instruction is hot enough that
+// decoding the discriminating operand would cost measurable dispatch time.
 
 impl TryFrom<u8> for Opcode {
     type Error = InvalidOpcodeError;
@@ -573,11 +607,9 @@ pub enum Operand<'a> {
     Offset(RelativeOffset),
     /// Two u8 operands (e.g. `UnpackEx`, `CallBuiltinFunction`).
     U8U8(u8, u8),
-    /// u8 then u16 little-endian (e.g. `LoadLocalCallable`).
-    U8U16(u8, u16),
     /// u16 little-endian then u8 (e.g. `MakeFunction`, `CallAttr`).
     U16U8(u16, u8),
-    /// Two u16 little-endian (e.g. `LoadLocalCallableW`, `LoadGlobalCallable`).
+    /// Two u16 little-endian (e.g. `LoadGlobalCallable`).
     U16U16(u16, u16),
     /// u16 then two u8s (e.g. `MakeClosure`).
     U16U8U8(u16, u8, u8),
@@ -595,6 +627,10 @@ impl Opcode {
     /// Returns the operand-stack effect of this opcode paired with `operand`
     /// (positive = push, negative = pop).
     ///
+    /// Returns `i32` because u16-count opcodes (notably `BuildDict`)
+    /// can pop up to `2 * u16::MAX` values, which overflows `i16`; the
+    /// builder's depth tracker accumulates in `i32` anyway.
+    ///
     /// Variable-effect opcodes have explicit `(opcode, operand-variant)` arms;
     /// fixed-effect opcodes match on the opcode alone and ignore the operand
     /// variant. A variable-effect opcode whose operand variant doesn't match
@@ -611,47 +647,63 @@ impl Opcode {
     /// because it doesn't have an `Operand` to pass (the operand is a raw
     /// i16 offset, not a stack-effect-bearing shape).
     #[must_use]
-    pub fn stack_effect(self, operand: Operand<'_>) -> i16 {
+    pub fn stack_effect(self, operand: Operand<'_>) -> i32 {
         #![expect(clippy::allow_attributes, reason = "expect seems broken with enum_glob_use")]
         #[allow(clippy::enum_glob_use, reason = "simplifies churn")]
         use Opcode::*; // allow local import
         match (self, operand) {
             // === Variable-effect: U8 operand ===
-            (CallFunction, Operand::U8(arg_count)) => -i16::from(arg_count),
-            (CallFunctionExtended, Operand::U8(flags)) => -(1 + i16::from(flags & 0x01)),
+            (CallFunction, Operand::U8(arg_count)) => -i32::from(arg_count),
+            (CallFunctionExtended, Operand::U8(flags)) => -(1 + i32::from(flags & 0x01)),
             (FormatValue, Operand::U8(flags)) => {
                 // Spec is on the stack iff `FORMAT_VALUE_HAS_SPEC` is set —
                 // the static/dynamic discriminator (`FORMAT_VALUE_STATIC_SPEC`)
                 // doesn't change the pop count.
                 if flags & FORMAT_VALUE_HAS_SPEC != 0 { -1 } else { 0 }
             }
-            (UnpackSequence, Operand::U8(n)) => i16::from(n) - 1,
+            (UnpackSequence, Operand::U8(n)) => i32::from(n) - 1,
+            // Fused forms pop two test operands; `AssertFailed` also pops the
+            // explicit message before entering dead code.
+            (Assert, Operand::U8(flags)) => {
+                if flags & ASSERT_CMP_FLAG != 0 {
+                    -2
+                } else {
+                    -1
+                }
+            }
+            (AssertFailed, Operand::U8(flags)) => {
+                if flags & ASSERT_CMP_FLAG != 0 {
+                    -3
+                } else {
+                    -2
+                }
+            }
 
             // === Variable-effect: U16 operand ===
-            (BuildList | BuildTuple | BuildSet | BuildFString, Operand::U16(n)) => 1 - n.cast_signed(),
-            (BuildDict, Operand::U16(n)) => 1 - 2 * n.cast_signed(),
+            (BuildList | BuildTuple | BuildSet | BuildFString, Operand::U16(n)) => 1 - i32::from(n),
+            (BuildDict, Operand::U16(n)) => 1 - 2 * i32::from(n),
 
             // === Variable-effect: U8U8 operand ===
             // UnpackEx: pops 1, pushes (before + 1 + after) → before + after.
-            (UnpackEx, Operand::U8U8(before, after)) => i16::from(before) + i16::from(after),
+            (UnpackEx, Operand::U8U8(before, after)) => i32::from(before) + i32::from(after),
             // Builtin calls: no callable on stack, pops args, pushes result → 1 - arg_count.
-            (CallBuiltinFunction | CallBuiltinType, Operand::U8U8(_, arg_count)) => 1 - i16::from(arg_count),
+            (CallBuiltinFunction | CallBuiltinType, Operand::U8U8(_, arg_count)) => 1 - i32::from(arg_count),
 
             // === Variable-effect: U16U8 operand ===
-            (MakeFunction, Operand::U16U8(_, defaults)) => 1 - i16::from(defaults),
-            (CallAttr, Operand::U16U8(_, arg_count)) => -i16::from(arg_count),
-            (CallAttrExtended, Operand::U16U8(_, flags)) => -(1 + i16::from(flags & 0x01)),
+            (MakeFunction, Operand::U16U8(_, defaults)) => 1 - i32::from(defaults),
+            (CallAttr, Operand::U16U8(_, arg_count)) => -i32::from(arg_count),
+            (CallAttrExtended, Operand::U16U8(_, flags)) => -(1 + i32::from(flags & 0x01)),
 
             // === Variable-effect: U16U8U8 operand ===
             // MakeClosure: pops `cell_count` cells AND `defaults_count` defaults,
             // pushes the closure → 1 - defaults - cells.
-            (MakeClosure, Operand::U16U8U8(_, defaults, cells)) => 1 - i16::from(defaults) - i16::from(cells),
+            (MakeClosure, Operand::U16U8U8(_, defaults, cells)) => 1 - i32::from(defaults) - i32::from(cells),
 
             // === Variable-effect: variable-length kw operands ===
             // pops callable + pos_args + kw_args, pushes result → -(pos_count + kw_count).
             (CallFunctionKw, Operand::CallKw { pos_count, kwname_ids }) => {
-                let kw_count = i16::try_from(kwname_ids.len()).expect("keyword count exceeds i16");
-                -(i16::from(pos_count) + kw_count)
+                let kw_count = i32::try_from(kwname_ids.len()).expect("keyword count exceeds i32");
+                -(i32::from(pos_count) + kw_count)
             }
             (
                 CallAttrKw,
@@ -659,8 +711,8 @@ impl Opcode {
                     pos_count, kwname_ids, ..
                 },
             ) => {
-                let kw_count = i16::try_from(kwname_ids.len()).expect("keyword count exceeds i16");
-                -(i16::from(pos_count) + kw_count)
+                let kw_count = i32::try_from(kwname_ids.len()).expect("keyword count exceeds i32");
+                -(i32::from(pos_count) + kw_count)
             }
 
             // === Fixed-effect, no operand ===
@@ -726,10 +778,10 @@ impl Opcode {
 
             // === Fixed-effect, U16 operand ===
             (LoadConst, Operand::U16(_)) => 1,
+            (CompareModEq, Operand::U16(_)) => -1,
             (LoadLocalW | LoadGlobal | LoadCell, Operand::U16(_)) => 1,
             (StoreLocalW | StoreGlobal | StoreCell, Operand::U16(_)) => -1,
             (DeleteGlobal, Operand::U16(_)) => 0,
-            (CompareModEq, Operand::U16(_)) => -1,
             (LoadAttr | LoadAttrImport, Operand::U16(_)) => 0,
             (StoreAttr, Operand::U16(_)) => -2,
             // `DictMerge` takes a u16 operand carrying the func_name_id for
@@ -743,12 +795,8 @@ impl Opcode {
             // code, but the tracker absorbs the bytes with effect 0 before the
             // following region starts.
             (RaiseUnboundLocal, Operand::U16(_)) => 0,
-
-            // === Fixed-effect, U8U16 operand ===
-            (LoadLocalCallable, Operand::U8U16(..)) => 1,
-
             // === Fixed-effect, U16U16 operand ===
-            (LoadLocalCallableW | LoadGlobalCallable, Operand::U16U16(..)) => 1,
+            (LoadGlobalCallable, Operand::U16U16(..)) => 1,
 
             // === Jumps: fall-through effect (what the tracker absorbs after the bytes are written).
             // Use `Offset` arguments to sanity check that jumps are correctly paired with offsets. ===
@@ -814,7 +862,7 @@ mod tests {
     #[test]
     fn test_opcode_roundtrip() {
         // Verify that all opcodes from 0 to the last opcode can be converted to u8 and back.
-        for byte in 0..=Opcode::MethodDictMerge as u8 {
+        for byte in 0..=Opcode::AssertFailed as u8 {
             let opcode = Opcode::try_from(byte).unwrap();
             assert_eq!(opcode as u8, byte, "opcode {opcode:?} has wrong discriminant");
         }
@@ -822,30 +870,35 @@ mod tests {
 
     #[test]
     fn test_serialized_opcode_values_remain_stable() {
-        // `RaiseImportError` was the tail opcode before `Dup2` was introduced. Keeping it at
-        // byte 110 preserves compatibility for serialized runners and snapshots compiled by
-        // older versions.
-        assert_eq!(Opcode::RaiseImportError as u8, 110);
-        assert_eq!(Opcode::Dup2 as u8, 111);
-        assert_eq!(Opcode::DeleteGlobal as u8, 112);
-        assert_eq!(Opcode::DictUpdate as u8, 113);
-        assert_eq!(Opcode::SetExtend as u8, 114);
+        // Locks the tail-opcode discriminants for the current wire-format version. Removing
+        // an opcode in the middle of the enum (e.g. `LoadLocalCallable`/`W` in v3) shifts
+        // everything after it down — update these assertions when that happens (any released
+        // serialized-`Code` format would also need a version bump, none exists today).
+        assert_eq!(Opcode::RaiseImportError as u8, 108);
+        assert_eq!(Opcode::Dup2 as u8, 109);
+        assert_eq!(Opcode::DeleteGlobal as u8, 110);
+        assert_eq!(Opcode::DictUpdate as u8, 111);
+        assert_eq!(Opcode::SetExtend as u8, 112);
         // Context-manager opcodes added with the `with` statement support.
-        assert_eq!(Opcode::BeforeWith as u8, 115);
-        assert_eq!(Opcode::WithExit as u8, 116);
-        assert_eq!(Opcode::WithExceptStart as u8, 117);
+        assert_eq!(Opcode::BeforeWith as u8, 113);
+        assert_eq!(Opcode::WithExit as u8, 114);
+        assert_eq!(Opcode::WithExceptStart as u8, 115);
         // Comprehension-support opcodes appended after the context-manager opcodes.
-        assert_eq!(Opcode::LiftToTop as u8, 118);
-        assert_eq!(Opcode::RaiseUnboundLocal as u8, 119);
+        assert_eq!(Opcode::LiftToTop as u8, 116);
+        assert_eq!(Opcode::RaiseUnboundLocal as u8, 117);
         // Method-call duplicate-kwarg qualifier; sister to `DictMerge` but appended at the
         // tail so older opcode bytes keep their discriminants.
-        assert_eq!(Opcode::MethodDictMerge as u8, 120);
+        assert_eq!(Opcode::MethodDictMerge as u8, 118);
+        // Assert opcodes (pytest-style introspection): fused test-and-raise
+        // for bare asserts, raise-only for the lazy explicit-message forms.
+        assert_eq!(Opcode::Assert as u8, 119);
+        assert_eq!(Opcode::AssertFailed as u8, 120);
     }
 
     #[test]
     fn test_invalid_opcode() {
         // Byte just after the last valid opcode should fail
-        let result = Opcode::try_from(Opcode::MethodDictMerge as u8 + 1);
+        let result = Opcode::try_from(Opcode::AssertFailed as u8 + 1);
         assert!(result.is_err());
         // 255 should also fail
         let result = Opcode::try_from(255u8);
@@ -856,5 +909,20 @@ mod tests {
     fn test_opcode_size() {
         // Verify opcode is 1 byte
         assert_eq!(mem::size_of::<Opcode>(), 1);
+    }
+
+    #[test]
+    fn test_assert_flags_roundtrip() {
+        // The bare form and every comparison operator must round-trip.
+        assert_eq!(decode_assert_flags(assert_flags(None)), Some(None));
+        for byte in 0..=9 {
+            let op = CmpOperator::from_operand(byte).unwrap();
+            assert_eq!(decode_assert_flags(assert_flags(Some(op))), Some(Some(op)));
+        }
+        // Bytes `assert_flags` can't produce are rejected: a cmp nibble
+        // without the flag, an out-of-range nibble, and stray high bits.
+        assert_eq!(decode_assert_flags(0x01), None);
+        assert_eq!(decode_assert_flags(ASSERT_CMP_FLAG | 0x0A), None);
+        assert_eq!(decode_assert_flags(0x20 | ASSERT_CMP_FLAG), None);
     }
 }

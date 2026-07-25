@@ -44,7 +44,7 @@ class OptimizerType(Enum):
     
     Available optimizers and their properties:
     - MLEM: Maximum Likelihood Expectation Maximization (multiplicative form)
-    - LS: Landweber (Least Squares) algorithm
+    - PGD: Projected Gradient Descent algorithm
     - MAPEM: Maximum A Posteriori Expectation Maximization
     - DEPIERRO: De Pierro's optimization transfer algorithm
     - PPGMLEM: Penalized Preconditioned Gradient MLEM
@@ -56,14 +56,11 @@ class OptimizerType(Enum):
     Maximum Likelihood Expectation Maximization.
     Multiplicative form implementation that truncates negative data to 0.
     Supports subsets (becomes OSEM).
-    Compatible with: emission and transmission data, histogram and list-mode.
     """
-    LS = 'LS'
+    PGD = 'PGD'
     """
-    Landweber Least Squares algorithm.
+    Projected Gradient Descent algorithm.
     Uses log-converted model for transmission data.
-    Requires manual relaxation parameter tuning.
-    Compatible with: histogram data, emission and transmission.
     """
     FISTA = 'FISTA'
     """

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: quickjs-rs
-Version: 0.2.4
+Version: 0.2.5
 Summary: Sandboxed JavaScript execution for Python, via wasmtime + rquickjs.
 Project-URL: Homepage, https://github.com/langchain-ai/quickjs-rs
 Project-URL: Issues, https://github.com/langchain-ai/quickjs-rs/issues

@@ -1,17 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.flag_bulk_item_type import FlagBulkItemType, check_flag_bulk_item_type
 from ..types import UNSET, Unset
-
-from ..models.flag_bulk_item_type import check_flag_bulk_item_type
-from ..models.flag_bulk_item_type import FlagBulkItemType
-from typing import cast
-
 
 T = TypeVar("T", bound="FlagBulkItem")
 
@@ -35,8 +31,8 @@ class FlagBulkItem:
     id: str
     type_: FlagBulkItemType
     default: Any
-    service: None | str | Unset = UNSET
-    environment: None | str | Unset = UNSET
+    service: str | Unset | None = UNSET
+    environment: str | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -46,13 +42,13 @@ class FlagBulkItem:
 
         default = self.default
 
-        service: None | str | Unset
+        service: str | Unset | None
         if isinstance(self.service, Unset):
             service = UNSET
         else:
             service = self.service
 
-        environment: None | str | Unset
+        environment: str | Unset | None
         if isinstance(self.environment, Unset):
             environment = UNSET
         else:
@@ -83,7 +79,7 @@ class FlagBulkItem:
 
         default = d.pop("default")
 
-        def _parse_service(data: object) -> None | str | Unset:
+        def _parse_service(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -92,7 +88,7 @@ class FlagBulkItem:
 
         service = _parse_service(d.pop("service", UNSET))
 
-        def _parse_environment(data: object) -> None | str | Unset:
+        def _parse_environment(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

@@ -31,6 +31,7 @@ from opensandbox.exceptions import (
     SandboxInternalException,
     SandboxReadyTimeoutException,
 )
+from opensandbox.internal.lifecycle_metrics import report_sandbox_create_metric
 from opensandbox.models.diagnostics import DiagnosticContent
 from opensandbox.models.sandboxes import (
     CreateSnapshotRequest,
@@ -83,8 +84,8 @@ class SandboxSync:
 
     - **Blocking**: Do not call these methods directly from an asyncio event loop thread.
       If you need non-blocking behavior, prefer the async :class:`~opensandbox.sandbox.Sandbox`.
-    - **Resource cleanup**: :meth:`close` closes *local* HTTP resources only. It does **not**
-      terminate the remote sandbox instance. Call :meth:`kill` to stop the remote sandbox.
+    - **Resource cleanup**: :meth:`destroy` terminates the remote sandbox and closes local
+      HTTP resources. Use :meth:`close` alone when the sandbox should remain available.
 
     Usage Example:
 
@@ -105,9 +106,8 @@ class SandboxSync:
     sandbox.files.write_file("script.py", "print('Hello World')")
     result = sandbox.commands.run("python script.py")
 
-    # Always clean up resources
-    sandbox.kill()   # terminate remote sandbox
-    sandbox.close()  # close local HTTP resources
+    # Always terminate the remote sandbox and close local resources
+    sandbox.destroy()
 
     # Or use a context manager for automatic close():
     with SandboxSync.create("python:3.11") as sandbox:
@@ -396,6 +396,21 @@ class SandboxSync:
                 f"Error closing resources for sandbox {self.id}: {e}", exc_info=True
             )
 
+    def destroy(self) -> None:
+        """
+        Terminate the remote sandbox and close local resources.
+
+        Local resources are always closed, even if terminating the remote sandbox
+        fails. Any termination error is re-raised after local cleanup completes.
+
+        Raises:
+            SandboxException: if termination fails
+        """
+        try:
+            self.kill()
+        finally:
+            self.close()
+
     def is_healthy(self) -> bool:
         """
         Check if the sandbox is healthy and responsive.
@@ -552,6 +567,7 @@ class SandboxSync:
         factory = AdapterFactorySync(config)
         sandbox_id: str | None = None
         sandbox_service: SandboxesSync | None = None
+        create_started = time.monotonic()
 
         try:
             sandbox_service = factory.create_sandbox_service()
@@ -603,8 +619,23 @@ class SandboxSync:
                     f"Sandbox {sandbox.id} created (skip_health_check=true, sandbox may not be ready yet)"
                 )
 
+            report_sandbox_create_metric(
+                config,
+                sandbox_id=sandbox.id,
+                image=startup_source,
+                create_duration_ms=int((time.monotonic() - create_started) * 1000),
+                success=True,
+            )
+
             return sandbox
         except Exception as e:
+            report_sandbox_create_metric(
+                config,
+                sandbox_id=sandbox_id,
+                image=startup_source,
+                create_duration_ms=int((time.monotonic() - create_started) * 1000),
+                success=False,
+            )
             if sandbox_id and sandbox_service:
                 try:
                     logger.warning(

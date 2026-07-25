@@ -2,6 +2,8 @@
 #
 # GPIO Zero: a library for controlling the Raspberry Pi's GPIO pins
 #
+# Copyright (c) 2026 Ben Nuttall <ben@bennuttall.com>
+# Copyright (c) 2024 Andrew Scheller <lurch@durge.org>
 # Copyright (c) 2015-2023 Dave Jones <dave@waveform.org.uk>
 # Copyright (c) 2018 Rick Ansell <rick@nbinvincible.org.uk>
 # Copyright (c) 2018 Mike Kazantsev <mk.fraggod@gmail.com>
@@ -14,14 +16,12 @@ from weakref import ref
 from threading import Lock
 from textwrap import dedent
 from itertools import cycle
-from operator import attrgetter
 from collections import defaultdict, namedtuple
 
 from .style import Style
 from ..devices import Device
 from ..exc import (
     PinInvalidPin,
-    PinInvalidFunction,
     PinSetInput,
     PinFixedPull,
     PinUnsupported,
@@ -272,7 +272,7 @@ class Pin:
             pin.function = 'input'
             pin.pull = pull
 
-        However, descendents may override this order to provide the smallest
+        However, descendents may override this in order to provide the smallest
         possible delay between configuring the pin for input and pulling the
         pin up/down (which can be important for avoiding "blips" in some
         configurations).

@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
-
-from typing import cast
 
 if TYPE_CHECKING:
     from ..models.config_bulk_item_items_type_0 import ConfigBulkItemItemsType0
@@ -44,12 +42,12 @@ class ConfigBulkItem:
     """
 
     id: str
-    name: None | str | Unset = UNSET
-    description: None | str | Unset = UNSET
-    parent: None | str | Unset = UNSET
-    items: ConfigBulkItemItemsType0 | None | Unset = UNSET
-    service: None | str | Unset = UNSET
-    environment: None | str | Unset = UNSET
+    name: str | Unset | None = UNSET
+    description: str | Unset | None = UNSET
+    parent: str | Unset | None = UNSET
+    items: ConfigBulkItemItemsType0 | Unset | None = UNSET
+    service: str | Unset | None = UNSET
+    environment: str | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -57,25 +55,25 @@ class ConfigBulkItem:
 
         id = self.id
 
-        name: None | str | Unset
+        name: str | Unset | None
         if isinstance(self.name, Unset):
             name = UNSET
         else:
             name = self.name
 
-        description: None | str | Unset
+        description: str | Unset | None
         if isinstance(self.description, Unset):
             description = UNSET
         else:
             description = self.description
 
-        parent: None | str | Unset
+        parent: str | Unset | None
         if isinstance(self.parent, Unset):
             parent = UNSET
         else:
             parent = self.parent
 
-        items: dict[str, Any] | None | Unset
+        items: dict[str, Any] | Unset | None
         if isinstance(self.items, Unset):
             items = UNSET
         elif isinstance(self.items, ConfigBulkItemItemsType0):
@@ -83,13 +81,13 @@ class ConfigBulkItem:
         else:
             items = self.items
 
-        service: None | str | Unset
+        service: str | Unset | None
         if isinstance(self.service, Unset):
             service = UNSET
         else:
             service = self.service
 
-        environment: None | str | Unset
+        environment: str | Unset | None
         if isinstance(self.environment, Unset):
             environment = UNSET
         else:
@@ -124,7 +122,7 @@ class ConfigBulkItem:
         d = dict(src_dict)
         id = d.pop("id")
 
-        def _parse_name(data: object) -> None | str | Unset:
+        def _parse_name(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -133,7 +131,7 @@ class ConfigBulkItem:
 
         name = _parse_name(d.pop("name", UNSET))
 
-        def _parse_description(data: object) -> None | str | Unset:
+        def _parse_description(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -142,7 +140,7 @@ class ConfigBulkItem:
 
         description = _parse_description(d.pop("description", UNSET))
 
-        def _parse_parent(data: object) -> None | str | Unset:
+        def _parse_parent(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -151,7 +149,7 @@ class ConfigBulkItem:
 
         parent = _parse_parent(d.pop("parent", UNSET))
 
-        def _parse_items(data: object) -> ConfigBulkItemItemsType0 | None | Unset:
+        def _parse_items(data: object) -> ConfigBulkItemItemsType0 | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -168,7 +166,7 @@ class ConfigBulkItem:
 
         items = _parse_items(d.pop("items", UNSET))
 
-        def _parse_service(data: object) -> None | str | Unset:
+        def _parse_service(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -177,7 +175,7 @@ class ConfigBulkItem:
 
         service = _parse_service(d.pop("service", UNSET))
 
-        def _parse_environment(data: object) -> None | str | Unset:
+        def _parse_environment(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

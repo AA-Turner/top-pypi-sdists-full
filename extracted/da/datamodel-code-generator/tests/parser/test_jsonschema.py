@@ -472,6 +472,40 @@ def test_split_json_pointer_slow_path_rejects_invalid_list_index() -> None:
         split_json_pointer(schema, "weird~1key/foo")
 
 
+def test_split_json_pointer_slow_path_preserves_out_of_range_index() -> None:
+    """Let deferred pointer resolution diagnose a valid but unavailable list index."""
+    schema = {"weird/key": ["x", "y"]}
+    assert split_json_pointer(schema, "weird~1key/1") == ["weird/key", "1"]
+    assert split_json_pointer(schema, "weird~1key/9") == ["weird/key", "9"]
+    assert split_json_pointer(schema, "weird~1key/9/nested") == ["weird/key", "9", "nested"]
+
+
+@pytest.mark.parametrize(
+    ("ref", "match"),
+    [
+        ("#/items/foo", "Invalid JSON pointer array index 'foo'"),
+        ("#/items/01", "Invalid JSON pointer array index '01'"),
+    ],
+)
+def test_parse_deferred_json_pointer_rejects_invalid_array_index(ref: str, match: str) -> None:
+    """Do not classify syntactically invalid array indices as dangling references."""
+    parser = JsonSchemaParser("")
+    with pytest.raises(Error, match=match):
+        parser.parse_json_pointer({"items": [{}]}, ref, [])
+
+
+@pytest.mark.skipif(
+    not hasattr(sys, "set_int_max_str_digits") or sys.get_int_max_str_digits() == 0,
+    reason="int string-conversion length limit requires Python 3.11+",
+)
+def test_parse_deferred_json_pointer_rejects_overlong_array_index() -> None:
+    """Keep integer-conversion failures outside dangling-reference diagnostics."""
+    parser = JsonSchemaParser("")
+    overlong = "9" * (sys.get_int_max_str_digits() + 1)
+    with pytest.raises(Error, match="integer string is too long to parse"):
+        parser.parse_json_pointer({"items": [{}]}, f"#/items/{overlong}", [])
+
+
 def test_validate_schema_python_import_path_rejects_non_string() -> None:
     """Test schema import path validation rejects non-string values."""
     with pytest.raises(Error, match="customTypePath must be a dotted Python identifier path: 1"):
@@ -610,6 +644,14 @@ def test_json_schema_parser_load_source_dict_rejects_non_dict_text_source() -> N
         parser._load_source_dict(Source(path=Path(), text="[1]"))
 
 
+def test_json_schema_parser_load_source_dict_rejects_non_dict_cached_source() -> None:
+    """Reject non-dict parsed data before parsing a JSON Schema source."""
+    parser = JsonSchemaParser("")
+
+    with pytest.raises(TypeError, match="Expected dict, got list"):
+        parser._load_source_dict(Source(path=Path(), raw_data=[]))
+
+
 def test_json_schema_iter_local_source_paths_ignores_non_local_source() -> None:
     """Test local source path iteration is empty for non-local source input."""
     assert list(JsonSchemaParser("{}")._iter_local_source_paths()) == []
@@ -666,7 +708,7 @@ def test_json_schema_object_ref_url_json(mocker: MockerFixture) -> None:
         "socket.getaddrinfo",
         return_value=[(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 0))],
     )
-    mock_fetch = mocker.patch("datamodel_code_generator.http._get_http_response")
+    mock_fetch = mocker.patch("datamodel_code_generator.http._HTTPFetchSession.get_response")
     mock_fetch.return_value.status_code = 200
     mock_fetch.return_value.headers = {}
     mock_fetch.return_value.text = json.dumps(
@@ -714,7 +756,7 @@ def test_json_schema_object_ref_url_yaml(mocker: MockerFixture) -> None:
         "socket.getaddrinfo",
         return_value=[(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 0))],
     )
-    mock_fetch = mocker.patch("datamodel_code_generator.http._get_http_response")
+    mock_fetch = mocker.patch("datamodel_code_generator.http._HTTPFetchSession.get_response")
     mock_fetch.return_value.status_code = 200
     mock_fetch.return_value.headers = {}
     mock_fetch.return_value.text = yaml.safe_dump(json.load((DATA_PATH / "user.json").open()))
@@ -761,7 +803,7 @@ def test_json_schema_object_cached_ref_url_yaml(mocker: MockerFixture) -> None:
         "socket.getaddrinfo",
         return_value=[(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 0))],
     )
-    mock_fetch = mocker.patch("datamodel_code_generator.http._get_http_response")
+    mock_fetch = mocker.patch("datamodel_code_generator.http._HTTPFetchSession.get_response")
     mock_fetch.return_value.status_code = 200
     mock_fetch.return_value.headers = {}
     mock_fetch.return_value.text = yaml.safe_dump(json.load((DATA_PATH / "user.json").open()))
@@ -801,7 +843,7 @@ def test_json_schema_ref_url_json(mocker: MockerFixture) -> None:
         "socket.getaddrinfo",
         return_value=[(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 0))],
     )
-    mock_fetch = mocker.patch("datamodel_code_generator.http._get_http_response")
+    mock_fetch = mocker.patch("datamodel_code_generator.http._HTTPFetchSession.get_response")
     mock_fetch.return_value.status_code = 200
     mock_fetch.return_value.headers = {}
     mock_fetch.return_value.text = json.dumps(json.load((DATA_PATH / "user.json").open()))

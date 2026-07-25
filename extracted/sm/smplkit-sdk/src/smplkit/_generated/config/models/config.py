@@ -1,16 +1,14 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+from dateutil.parser import isoparse
 
 from ..types import UNSET, Unset
-
-from dateutil.parser import isoparse
-from typing import cast
-import datetime
 
 if TYPE_CHECKING:
     from ..models.config_environments_type_0 import ConfigEnvironmentsType0
@@ -60,13 +58,13 @@ class Config:
     """
 
     name: str
-    description: None | str | Unset = UNSET
-    parent: None | str | Unset = UNSET
-    items: ConfigItemsType0 | None | Unset = UNSET
-    environments: ConfigEnvironmentsType0 | None | Unset = UNSET
-    managed: bool | None | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    updated_at: datetime.datetime | None | Unset = UNSET
+    description: str | Unset | None = UNSET
+    parent: str | Unset | None = UNSET
+    items: ConfigItemsType0 | Unset | None = UNSET
+    environments: ConfigEnvironmentsType0 | Unset | None = UNSET
+    managed: bool | Unset | None = UNSET
+    created_at: datetime.datetime | Unset | None = UNSET
+    updated_at: datetime.datetime | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -75,19 +73,19 @@ class Config:
 
         name = self.name
 
-        description: None | str | Unset
+        description: str | Unset | None
         if isinstance(self.description, Unset):
             description = UNSET
         else:
             description = self.description
 
-        parent: None | str | Unset
+        parent: str | Unset | None
         if isinstance(self.parent, Unset):
             parent = UNSET
         else:
             parent = self.parent
 
-        items: dict[str, Any] | None | Unset
+        items: dict[str, Any] | Unset | None
         if isinstance(self.items, Unset):
             items = UNSET
         elif isinstance(self.items, ConfigItemsType0):
@@ -95,7 +93,7 @@ class Config:
         else:
             items = self.items
 
-        environments: dict[str, Any] | None | Unset
+        environments: dict[str, Any] | Unset | None
         if isinstance(self.environments, Unset):
             environments = UNSET
         elif isinstance(self.environments, ConfigEnvironmentsType0):
@@ -103,13 +101,13 @@ class Config:
         else:
             environments = self.environments
 
-        managed: bool | None | Unset
+        managed: bool | Unset | None
         if isinstance(self.managed, Unset):
             managed = UNSET
         else:
             managed = self.managed
 
-        created_at: None | str | Unset
+        created_at: str | Unset | None
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -117,7 +115,7 @@ class Config:
         else:
             created_at = self.created_at
 
-        updated_at: None | str | Unset
+        updated_at: str | Unset | None
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -157,7 +155,7 @@ class Config:
         d = dict(src_dict)
         name = d.pop("name")
 
-        def _parse_description(data: object) -> None | str | Unset:
+        def _parse_description(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -166,7 +164,7 @@ class Config:
 
         description = _parse_description(d.pop("description", UNSET))
 
-        def _parse_parent(data: object) -> None | str | Unset:
+        def _parse_parent(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -175,7 +173,7 @@ class Config:
 
         parent = _parse_parent(d.pop("parent", UNSET))
 
-        def _parse_items(data: object) -> ConfigItemsType0 | None | Unset:
+        def _parse_items(data: object) -> ConfigItemsType0 | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -192,7 +190,7 @@ class Config:
 
         items = _parse_items(d.pop("items", UNSET))
 
-        def _parse_environments(data: object) -> ConfigEnvironmentsType0 | None | Unset:
+        def _parse_environments(data: object) -> ConfigEnvironmentsType0 | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -209,7 +207,7 @@ class Config:
 
         environments = _parse_environments(d.pop("environments", UNSET))
 
-        def _parse_managed(data: object) -> bool | None | Unset:
+        def _parse_managed(data: object) -> bool | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -218,7 +216,7 @@ class Config:
 
         managed = _parse_managed(d.pop("managed", UNSET))
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -235,7 +233,7 @@ class Config:
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_updated_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

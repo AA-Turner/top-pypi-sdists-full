@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from smplkit._config import ResolvedConfig, ResolvedClientConfig, _service_url
+from smplkit._config import ResolvedClientConfig, ResolvedConfig, _service_url
 from smplkit._generated.app.client import AuthenticatedClient as _AppAuthClient
 from smplkit._generated.config.client import AuthenticatedClient as _ConfigAuthClient
 from smplkit._generated.flags.client import AuthenticatedClient as _FlagsAuthClient

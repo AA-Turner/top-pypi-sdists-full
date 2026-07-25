@@ -189,6 +189,7 @@ impl TryFrom<LocationKind> for SemanticTokenType {
                 Ok(SemanticTokenType::Function)
             }
             LocationKind::Column => Ok(SemanticTokenType::Column),
+            LocationKind::JsonPath => Ok(SemanticTokenType::Name),
             LocationKind::NamedArgParameter => Ok(SemanticTokenType::Parameter),
             LocationKind::Schema => Ok(SemanticTokenType::Schema),
             LocationKind::PropertyGraph => Ok(SemanticTokenType::PropertyGraph),
@@ -315,16 +316,10 @@ pub fn semantic_tokens(
 
         match event {
             Enter(NodeOrToken::Node(node)) => {
-                if let Some(name) = ast::Name::cast(node.clone())
+                if let Some(name) = ast::AnyName::cast(node.clone())
                     && let Some(token_type) = token_type_for_node(db, InFile::new(file, &name))
                 {
                     out.push_token(name.syntax().clone().into(), token_type);
-                }
-
-                if let Some(name_ref) = ast::NameRef::cast(node.clone())
-                    && let Some(token_type) = token_type_for_node(db, InFile::new(file, &name_ref))
-                {
-                    out.push_token(name_ref.syntax().clone().into(), token_type);
                 }
 
                 if let Some(ty) = ast::Type::cast(node.clone()) {

@@ -5,19 +5,13 @@ Functions to visualize an Experiment.
 
 import pickle
 
-try:
-    unicode = unicode
-except NameError:
-    basestring = (str, bytes)
-else:
-    basestring = basestring
 # -- don't import this here because it locks in the backend
 #    and we want the unittests to be able to set the backend
 # TODO: this is really bad style, create a backend plotting
 # module for this that defaults to matplotlib.
 # import matplotlib.pyplot as plt
-
 import numpy as np
+
 from . import base
 from .base import miscs_to_idxs_vals
 

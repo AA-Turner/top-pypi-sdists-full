@@ -48,7 +48,7 @@ class TestChatPagination:
         method = getattr(self.chat_client, "get_conversation_events")
         # Should be able to create cursor without error
         try:
-            test_cursor = cursor(method, "test_value", max_results=10)
+            test_cursor = cursor(method, "test_id", max_results=10)
             assert test_cursor is not None
             assert isinstance(test_cursor, Cursor)
         except PaginationError:
@@ -63,7 +63,7 @@ class TestChatPagination:
             first_page_response.status_code = 200
             first_page_response.json.return_value = {
                 "data": json.loads(
-                    r"""[{"encoded_event":"test_value"}, {"encoded_event":"test_value"}]"""
+                    r"""[{"id": "1", "name": "Item 1"}, {"id": "1", "name": "Item 1"}]"""
                 ),
                 "meta": {
                     **json.loads(r"""{}"""),
@@ -77,7 +77,7 @@ class TestChatPagination:
             second_page_response = Mock()
             second_page_response.status_code = 200
             second_page_response.json.return_value = {
-                "data": json.loads(r"""[{"encoded_event":"test_value"}]"""),
+                "data": json.loads(r"""[{"id": "1", "name": "Item 1"}]"""),
                 "meta": {**json.loads(r"""{}"""), "result_count": 1},
             }
             second_page_response.raise_for_status.return_value = None
@@ -86,7 +86,7 @@ class TestChatPagination:
             mock_session.get.side_effect = [first_page_response, second_page_response]
             # Test pagination
             method = getattr(self.chat_client, "get_conversation_events")
-            test_cursor = cursor(method, "test_value", max_results=2)
+            test_cursor = cursor(method, "test_id", max_results=2)
             pages = list(test_cursor.pages(2))  # Limit to 2 pages
             assert len(pages) == 2, f"Should get 2 pages, got {len(pages)}"
             # Verify first page
@@ -109,7 +109,7 @@ class TestChatPagination:
             mock_response.status_code = 200
             mock_response.json.return_value = {
                 "data": json.loads(
-                    r"""[{"encoded_event":"test_value"}, {"encoded_event":"test_value"}, {"encoded_event":"test_value"}]"""
+                    r"""[{"id": "1", "name": "Item 1"}, {"id": "1", "name": "Item 1"}, {"id": "1", "name": "Item 1"}]"""
                 ),
                 # No next_token = single page
                 "meta": {**json.loads(r"""{}"""), "result_count": 3},
@@ -119,11 +119,11 @@ class TestChatPagination:
             mock_session.get.return_value = mock_response
             # Test item iteration
             method = getattr(self.chat_client, "get_conversation_events")
-            test_cursor = cursor(method, "test_value", max_results=10)
+            test_cursor = cursor(method, "test_id", max_results=10)
             items = list(test_cursor.items(5))  # Limit to 5 items
             assert len(items) == 3, f"Should get 3 items, got {len(items)}"
             # Verify items round-trip the spec-valid mock payload
-            _expected_item = json.loads(r"""{"encoded_event":"test_value"}""")
+            _expected_item = json.loads(r"""{"id": "1", "name": "Item 1"}""")
             for item in items:
                 if isinstance(_expected_item, dict):
                     for _key in _expected_item:
@@ -146,7 +146,7 @@ class TestChatPagination:
             mock_session.get.return_value = mock_response
             method = getattr(self.chat_client, "get_conversation_events")
             # Test with max_results parameter
-            test_cursor = cursor(method, "test_value", max_results=5)
+            test_cursor = cursor(method, "test_id", max_results=5)
             list(test_cursor.pages(1))  # Trigger one request
             # Verify max_results was passed in request
             call_args = mock_session.get.call_args
@@ -160,7 +160,7 @@ class TestChatPagination:
             mock_response_with_token = Mock()
             mock_response_with_token.status_code = 200
             mock_response_with_token.json.return_value = {
-                "data": json.loads(r"""[{"encoded_event":"test_value"}]"""),
+                "data": json.loads(r"""[{"id": "1", "name": "Item 1"}]"""),
                 "meta": {
                     **json.loads(r"""{}"""),
                     "next_token": "next_token_value",
@@ -181,7 +181,7 @@ class TestChatPagination:
                 mock_response_with_token,
                 second_page_response,
             ]
-            test_cursor = cursor(method, "test_value", max_results=1)
+            test_cursor = cursor(method, "test_id", max_results=1)
             pages = list(test_cursor.pages(2))
             # Should have made 2 requests
             assert (
@@ -222,7 +222,9 @@ class TestChatPagination:
             first_page_response = Mock()
             first_page_response.status_code = 200
             first_page_response.json.return_value = {
-                "data": json.loads(r"""[{"id":"test_value"}, {"id":"test_value"}]"""),
+                "data": json.loads(
+                    r"""[{"id": "1", "name": "Item 1"}, {"id": "1", "name": "Item 1"}]"""
+                ),
                 "meta": {
                     **json.loads(r"""{}"""),
                     "next_token": "next_page_token",
@@ -235,7 +237,7 @@ class TestChatPagination:
             second_page_response = Mock()
             second_page_response.status_code = 200
             second_page_response.json.return_value = {
-                "data": json.loads(r"""[{"id":"test_value"}]"""),
+                "data": json.loads(r"""[{"id": "1", "name": "Item 1"}]"""),
                 "meta": {**json.loads(r"""{}"""), "result_count": 1},
             }
             second_page_response.raise_for_status.return_value = None
@@ -267,7 +269,7 @@ class TestChatPagination:
             mock_response.status_code = 200
             mock_response.json.return_value = {
                 "data": json.loads(
-                    r"""[{"id":"test_value"}, {"id":"test_value"}, {"id":"test_value"}]"""
+                    r"""[{"id": "1", "name": "Item 1"}, {"id": "1", "name": "Item 1"}, {"id": "1", "name": "Item 1"}]"""
                 ),
                 # No next_token = single page
                 "meta": {**json.loads(r"""{}"""), "result_count": 3},
@@ -281,7 +283,7 @@ class TestChatPagination:
             items = list(test_cursor.items(5))  # Limit to 5 items
             assert len(items) == 3, f"Should get 3 items, got {len(items)}"
             # Verify items round-trip the spec-valid mock payload
-            _expected_item = json.loads(r"""{"id":"test_value"}""")
+            _expected_item = json.loads(r"""{"id": "1", "name": "Item 1"}""")
             for item in items:
                 if isinstance(_expected_item, dict):
                     for _key in _expected_item:
@@ -318,7 +320,7 @@ class TestChatPagination:
             mock_response_with_token = Mock()
             mock_response_with_token.status_code = 200
             mock_response_with_token.json.return_value = {
-                "data": json.loads(r"""[{"id":"test_value"}]"""),
+                "data": json.loads(r"""[{"id": "1", "name": "Item 1"}]"""),
                 "meta": {
                     **json.loads(r"""{}"""),
                     "next_token": "next_token_value",
@@ -376,7 +378,7 @@ class TestChatPagination:
             mock_session.get.return_value = empty_response
             # Pick first paginatable method for testing
             method = getattr(self.chat_client, "get_conversation_events")
-            test_cursor = cursor(method, "test_value", max_results=10)
+            test_cursor = cursor(method, "test_id", max_results=10)
             # Should handle empty responses gracefully
             pages = list(test_cursor.pages(1))
             assert len(pages) == 1, "Should get one page even if empty"

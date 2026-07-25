@@ -1,0 +1,23 @@
+---
+
+name: Check for Axe updates
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 1'
+
+jobs:
+  check-updates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: check for axe update && nag about it
+        run: |-
+          version=$(bash .github/scripts/check-axe-updates.sh)
+          [[ -z "${version}" ]] && exit 0
+          echo "found new version ${version}" >> /dev/stderr
+          bash .github/scripts/install-axe.sh "${version}"
+          git diff --stat --exit-code
+
+...

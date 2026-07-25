@@ -13,23 +13,41 @@ use chunk::chunk;
 
 use daggrs::{DoubleArrayAhoCorasick, MatchKind, Trie};
 
-use crate::encoder::{Encoder, EncoderIter, EncoderType, PretokenCache};
+use crate::encoder::{Encoder, EncoderIter, EncoderType, WorkerCaches};
 
-/// Minimum bytes a thread's work chunk must contain before it pays for a
-/// per-thread `PretokenCache` (4 MiB table; zeroing it costs ~100µs).
-const PRETOKEN_CACHE_MIN_BYTES: usize = 256 * 1024;
+/// Byte-length of a batch element: lets the work-stealing scaffold serve
+/// both `&str` batches (Python-boundary path) and `&[u8]` document slices
+/// (byte-source file path).
+trait ByteLen {
+    fn byte_len(&self) -> usize;
+}
+impl ByteLen for str {
+    #[inline]
+    fn byte_len(&self) -> usize {
+        self.len()
+    }
+}
+impl ByteLen for [u8] {
+    #[inline]
+    fn byte_len(&self) -> usize {
+        self.len()
+    }
+}
 
 /// Split `texts` into up to `parts` contiguous runs of roughly equal total
 /// bytes. Count-based chunking lets one oversized document serialize a whole
 /// thread; byte-balancing keeps workers evenly loaded.
-fn byte_balanced_chunks<'a, 'b>(texts: &'b [&'a str], parts: usize) -> Vec<&'b [&'a str]> {
-    let total: usize = texts.iter().map(|t| t.len()).sum();
+fn byte_balanced_chunks<'a, 'b, T: ByteLen + ?Sized>(
+    texts: &'b [&'a T],
+    parts: usize,
+) -> Vec<&'b [&'a T]> {
+    let total: usize = texts.iter().map(|t| t.byte_len()).sum();
     let target = total / parts + 1;
     let mut chunks = Vec::with_capacity(parts);
     let mut start = 0;
     let mut acc = 0usize;
     for (i, t) in texts.iter().enumerate() {
-        acc += t.len();
+        acc += t.byte_len();
         if acc >= target && chunks.len() + 1 < parts {
             chunks.push(&texts[start..=i]);
             start = i + 1;
@@ -41,6 +59,152 @@ fn byte_balanced_chunks<'a, 'b>(texts: &'b [&'a str], parts: usize) -> Vec<&'b [
     }
     chunks
 }
+/// Split raw file buffers into document byte-slices on `separator`,
+/// dropping empty documents (Python-`if d`-filter semantics). Documents
+/// never span files; an empty separator means one document per file.
+/// UTF-8 validation is deliberately NOT done here — the encode workers
+/// validate per document in parallel.
+fn split_file_docs<'a, B: AsRef<[u8]>>(buffers: &'a [B], separator: &[u8]) -> Vec<&'a [u8]> {
+    let mut docs: Vec<&'a [u8]> = Vec::new();
+    for buf in buffers {
+        let buf = buf.as_ref();
+        if separator.is_empty() {
+            if !buf.is_empty() {
+                docs.push(buf);
+            }
+            continue;
+        }
+        let mut start = 0usize;
+        for pos in memchr::memmem::find_iter(buf, separator) {
+            if pos > start {
+                docs.push(&buf[start..pos]);
+            }
+            start = pos + separator.len();
+        }
+        if start < buf.len() {
+            docs.push(&buf[start..]);
+        }
+    }
+    docs
+}
+
+/// File contents for the byte-source bulk path: small files are read
+/// into memory, large files are memory-mapped read-only. Mapping a
+/// page-cache-warm corpus costs microseconds where `fs::read` pays an
+/// allocation, a full copy, and a free — all inside the caller's timed
+/// region. Standard mmap caveat: truncating the file while it is mapped
+/// is undefined (SIGBUS), like every mmap-based reader.
+enum FileBytes {
+    Owned(Vec<u8>),
+    #[cfg(unix)]
+    Mapped(MmapFile),
+}
+
+impl AsRef<[u8]> for FileBytes {
+    #[inline]
+    fn as_ref(&self) -> &[u8] {
+        match self {
+            FileBytes::Owned(v) => v,
+            #[cfg(unix)]
+            FileBytes::Mapped(m) => m.as_slice(),
+        }
+    }
+}
+
+/// Minimal read-only `mmap` wrapper (unmapped on drop).
+#[cfg(unix)]
+struct MmapFile {
+    ptr: *mut libc::c_void,
+    len: usize,
+}
+
+// SAFETY: the mapping is immutable (PROT_READ, MAP_PRIVATE) and owned.
+#[cfg(unix)]
+unsafe impl Send for MmapFile {}
+#[cfg(unix)]
+unsafe impl Sync for MmapFile {}
+
+#[cfg(unix)]
+impl MmapFile {
+    fn map(file: &std::fs::File, len: usize) -> std::io::Result<Self> {
+        use std::os::unix::io::AsRawFd;
+        // SAFETY: fd is valid for the duration of the call; a MAP_FAILED
+        // result is checked before the pointer is used.
+        let ptr = unsafe {
+            libc::mmap(
+                std::ptr::null_mut(),
+                len,
+                libc::PROT_READ,
+                libc::MAP_PRIVATE,
+                file.as_raw_fd(),
+                0,
+            )
+        };
+        if ptr == libc::MAP_FAILED {
+            return Err(std::io::Error::last_os_error());
+        }
+        Ok(Self { ptr, len })
+    }
+
+    #[inline]
+    fn as_slice(&self) -> &[u8] {
+        // SAFETY: ptr..ptr+len is a live PROT_READ mapping owned by self.
+        unsafe { std::slice::from_raw_parts(self.ptr.cast::<u8>(), self.len) }
+    }
+}
+
+#[cfg(unix)]
+impl Drop for MmapFile {
+    fn drop(&mut self) {
+        // SAFETY: ptr/len came from a successful mmap and are unmapped once.
+        unsafe { libc::munmap(self.ptr, self.len) };
+    }
+}
+
+/// Touch every page of a fresh mapping from all cores. Serial demand
+/// paging during the separator scan costs ~15ms on a warm 191MB corpus;
+/// faulting in parallel first cuts that to ~2ms.
+#[cfg(unix)]
+fn prefault(slice: &[u8]) {
+    const STRIDE: usize = 4096;
+    let cpus = num_cpus();
+    if cpus <= 1 || slice.len() < (4 << 20) {
+        return;
+    }
+    let chunk = slice.len().div_ceil(cpus).next_multiple_of(STRIDE);
+    thread::scope(|s| {
+        for part in slice.chunks(chunk) {
+            s.spawn(move || {
+                let mut acc = 0u8;
+                let mut i = 0;
+                while i < part.len() {
+                    acc ^= part[i];
+                    i += STRIDE;
+                }
+                std::hint::black_box(acc);
+            });
+        }
+    });
+}
+
+/// Open one corpus file as [`FileBytes`], mmap-ing above a small
+/// threshold on unix.
+fn read_file_bytes(path: &Path) -> std::io::Result<FileBytes> {
+    #[cfg(unix)]
+    {
+        const MMAP_MIN: u64 = 1 << 20;
+        let file = std::fs::File::open(path)?;
+        let len = file.metadata()?.len();
+        if len >= MMAP_MIN {
+            let map = MmapFile::map(&file, len as usize)?;
+            prefault(map.as_slice());
+            return Ok(FileBytes::Mapped(map));
+        }
+        drop(file);
+    }
+    Ok(FileBytes::Owned(std::fs::read(path)?))
+}
+
 use crate::decoder::{Decoder, DecoderType};
 use crate::hf::{self, JsonLoadError};
 use crate::normalizer::Normalizer;
@@ -241,10 +405,11 @@ impl Tokenizer {
     /// long-lived pretoken cache, workers claim chunks as they finish
     /// (fast P-cores keep working instead of idling on the slowest
     /// E-core's tail), and return per-chunk results in input order.
-    fn steal_batches<'a, 'b, R, F>(&self, texts: &'b [&'a str], work: F) -> Vec<R>
+    fn steal_batches<'a, 'b, T, R, F>(&self, texts: &'b [&'a T], work: F) -> Vec<R>
     where
+        T: ByteLen + ?Sized + Sync,
         R: Send,
-        F: Fn(&'b [&'a str], &mut PretokenCache) -> R + Sync,
+        F: Fn(&'b [&'a T], &mut WorkerCaches) -> R + Sync,
     {
         use std::sync::atomic::{AtomicUsize, Ordering};
         let cpus = num_cpus();
@@ -267,7 +432,7 @@ impl Tokenizer {
                             if i >= chunks.len() {
                                 break;
                             }
-                            out.push((i, work(chunks[i], lease.cache())));
+                            out.push((i, work(chunks[i], lease.caches())));
                         }
                         out
                     })
@@ -384,8 +549,17 @@ impl Tokenizer {
         }
     }
 
-    /// Minimum text size (in bytes) to trigger chunked parallel encoding.
-    const PARALLEL_CHUNK_THRESHOLD: usize = 10_000;
+    /// Minimum text size (in bytes) to trigger chunked parallel encoding
+    /// on standalone (non-batch) calls.
+    ///
+    /// Phase-1 measurement (profile_spawn_cost, M3): a `thread::scope`
+    /// spawn+join of 8 workers costs ~100us, while the fused cache-first
+    /// sequential loop runs ~300 MB/s — so parallel chunking only breaks
+    /// even near `100us * 300MB/s * 8/7 ~ 34KB` even with warm worker
+    /// caches. 64 KiB adds margin for spawn-cost variance; below it the
+    /// old 10 KB threshold made 10-50KB documents ~2x SLOWER than the
+    /// sequential loop (140 vs 267 MB/s on OWT).
+    const PARALLEL_CHUNK_THRESHOLD: usize = 64 * 1024;
 
     // --- Loading ---
 
@@ -497,7 +671,7 @@ impl Tokenizer {
         &self,
         text: &str,
         add_special_tokens: bool,
-        cache: Option<&mut PretokenCache>,
+        cache: Option<&mut WorkerCaches>,
     ) -> Vec<TokenId> {
         let mut tokens = self.encode_raw_ctx(text, cache);
         if let Some(ref trunc) = self.truncation {
@@ -521,7 +695,7 @@ impl Tokenizer {
         &self,
         text: &str,
         add_special_tokens: bool,
-        cache: Option<&mut PretokenCache>,
+        cache: Option<&mut WorkerCaches>,
     ) -> Encoding {
         let mut tokens = self.encode_raw_ctx(text, cache);
 
@@ -661,14 +835,33 @@ impl Tokenizer {
         self.encode_raw_ctx(text, None)
     }
 
-    fn encode_raw_ctx(&self, text: &str, cache: Option<&mut PretokenCache>) -> Vec<TokenId> {
+    /// Cache-first: when no per-thread cache is supplied and the model is
+    /// BPE-with-pretokenizer, check out a pooled, process-lived
+    /// [`WorkerCaches`], so repeated pieces resolve to a single table probe
+    /// even across single-document calls.
+    /// A caller-supplied cache marks a batch-worker context: the batch is
+    /// already running one worker per CPU, so per-document parallel
+    /// chunking would only oversubscribe (a `thread::scope` spawn+join
+    /// costs ~100us on macOS — phase-1 profile_spawn_cost) and is
+    /// disabled. Standalone calls check out a pooled lease and keep the
+    /// parallel path for large documents.
+    fn encode_raw_ctx(&self, text: &str, cache: Option<&mut WorkerCaches>) -> Vec<TokenId> {
+        let allow_parallel = cache.is_none();
+        if cache.is_none() && self.encoder.as_backtracking().is_some() && self.pretokenizer.is_some() {
+            let mut lease = crate::pool::CacheLease::checkout(self.cache_generation);
+            return self.encode_raw_dispatch(text, Some(lease.caches()), allow_parallel);
+        }
+        self.encode_raw_dispatch(text, cache, allow_parallel)
+    }
+
+    fn encode_raw_dispatch(&self, text: &str, cache: Option<&mut WorkerCaches>, allow_parallel: bool) -> Vec<TokenId> {
         // If there are added tokens, split the text at their boundaries first.
         // HuggingFace scans for added tokens BEFORE pretokenization.
         if self.raw_added_matcher.is_some() || self.norm_added_matcher.is_some() {
-            return self.encode_with_added_tokens(text, cache);
+            return self.encode_with_added_tokens(text, cache, allow_parallel);
         }
 
-        self.encode_raw_inner(text, cache)
+        self.encode_raw_inner(text, cache, allow_parallel)
     }
 
     /// Encode text after splitting at added token boundaries.
@@ -681,7 +874,8 @@ impl Tokenizer {
     fn encode_with_added_tokens(
         &self,
         text: &str,
-        mut cache: Option<&mut PretokenCache>,
+        mut cache: Option<&mut WorkerCaches>,
+        allow_parallel: bool,
     ) -> Vec<TokenId> {
         let mut result = Vec::new();
 
@@ -706,7 +900,7 @@ impl Tokenizer {
 
             match &self.norm_added_matcher {
                 None => {
-                    result.extend(self.encode_segment(segment, first_segment, cache.as_deref_mut()));
+                    result.extend(self.encode_segment(segment, first_segment, cache.as_deref_mut(), allow_parallel));
                 }
                 Some(matcher) => {
                     let normalized = self.normalizer.normalize_segment(segment, first_segment);
@@ -719,7 +913,7 @@ impl Tokenizer {
                         }
                         let piece = &normalized[nrange];
                         if !piece.is_empty() {
-                            result.extend(self.encode_prenormalized(piece, cache.as_deref_mut()));
+                            result.extend(self.encode_prenormalized(piece, cache.as_deref_mut(), allow_parallel));
                         }
                     }
                 }
@@ -735,31 +929,37 @@ impl Tokenizer {
         &self,
         segment: &str,
         first_segment: bool,
-        cache: Option<&mut PretokenCache>,
+        cache: Option<&mut WorkerCaches>,
+        allow_parallel: bool,
     ) -> Vec<TokenId> {
         if self.pretokenizer.is_none() {
             let normalized = self.normalizer.normalize_segment(segment, first_segment);
-            return self.encoder.encode(normalized.as_ref().as_bytes());
+            let mut out = Vec::with_capacity(normalized.as_ref().len() / 3);
+            self.encoder
+                .encode_into(normalized.as_ref().as_bytes(), cache, &mut out);
+            return out;
         }
         // Models with a pretokenizer never use position-aware metaspace
         // prepending, so the standard path (with its parallel branch for
         // large segments) is equivalent.
-        self.encode_raw_inner(segment, cache)
+        self.encode_raw_inner(segment, cache, allow_parallel)
     }
 
     /// Encode an already-normalized piece (stage 2 of the added-token split).
-    fn encode_prenormalized(&self, piece: &str, cache: Option<&mut PretokenCache>) -> Vec<TokenId> {
+    fn encode_prenormalized(&self, piece: &str, cache: Option<&mut WorkerCaches>, allow_parallel: bool) -> Vec<TokenId> {
         if self.pretokenizer.is_none() {
-            return self.encoder.encode(piece.as_bytes());
+            let mut out = Vec::with_capacity(piece.len() / 3);
+            self.encoder.encode_into(piece.as_bytes(), cache, &mut out);
+            return out;
         }
         // Pretokenizer models pair with idempotent normalizers (None, NFC,
         // Bert clean-text), so re-normalizing in the standard path is a
         // no-op and keeps the parallel branch for large pieces.
-        self.encode_raw_inner(piece, cache)
+        self.encode_raw_inner(piece, cache, allow_parallel)
     }
 
     /// Inner encoding without added token splitting.
-    fn encode_raw_inner(&self, text: &str, cache: Option<&mut PretokenCache>) -> Vec<TokenId> {
+    fn encode_raw_inner(&self, text: &str, cache: Option<&mut WorkerCaches>, allow_parallel: bool) -> Vec<TokenId> {
         // For models without pretokenizer (SentencePiece, Unigram), normalize the full
         // text first and pass directly to the encoder. The encoder handles its own
         // chunking at safe boundaries (metaspace). We must NOT use encode_parallel here
@@ -768,10 +968,13 @@ impl Tokenizer {
         // - Metaspace sequence merging (Voyage-code-2, Voyage-law-2)
         if self.pretokenizer.is_none() {
             let normalized = self.normalizer.normalize(text);
-            return self.encoder.encode(normalized.as_ref().as_bytes());
+            let mut out = Vec::with_capacity(normalized.as_ref().len() / 3);
+            self.encoder
+                .encode_into(normalized.as_ref().as_bytes(), cache, &mut out);
+            return out;
         }
 
-        if text.len() >= Self::PARALLEL_CHUNK_THRESHOLD {
+        if allow_parallel && text.len() >= Self::PARALLEL_CHUNK_THRESHOLD {
             self.encode_parallel(text)
         } else {
             let normalized = self.normalizer.normalize(text);
@@ -867,13 +1070,52 @@ impl Tokenizer {
         }
     }
 
+    /// Sequential fused pretokenize+encode of one normalized text.
+    ///
+    /// For the Backtracking encoder both per-piece enum dispatches (the
+    /// `PretokenizerIter` match and the `Encoder` match) are hoisted out of
+    /// the loop: `for_each_piece` monomorphizes the walker per config and
+    /// the consumer closure calls the concrete encoder directly. Phase-1
+    /// profiling (profile_glue_costs, gpt2/OWT) put the two enum taxes at
+    /// ~1 ns/piece of a ~16 ns/piece loop.
     #[inline]
-    fn encode_sequential(&self, text: &str, mut cache: Option<&mut PretokenCache>) -> Vec<TokenId> {
+    fn encode_sequential(&self, text: &str, cache: Option<&mut WorkerCaches>) -> Vec<TokenId> {
         let mut out = Vec::with_capacity(text.len() / 3);
-        for piece in self.pretokenizer.as_ref().unwrap().split(text) {
-            self.encoder.encode_into(piece.as_bytes(), cache.as_deref_mut(), &mut out);
-        }
+        self.encode_sequential_into(text, cache, &mut out);
         out
+    }
+
+    /// [`Self::encode_sequential`] appending into a caller-owned buffer —
+    /// the byte-source bulk path reuses one buffer per worker chunk so no
+    /// per-document vector is ever allocated.
+    #[inline]
+    fn encode_sequential_into(
+        &self,
+        text: &str,
+        mut cache: Option<&mut WorkerCaches>,
+        out: &mut Vec<TokenId>,
+    ) {
+        let pretok = self.pretokenizer.as_ref().unwrap();
+        let db = text.as_bytes();
+        if let Some(bt) = self.encoder.as_backtracking() {
+            match cache {
+                // Only the BPE pretoken half of the worker caches is used on
+                // the Backtracking fused path.
+                Some(c) => {
+                    let pc = &mut c.pretok;
+                    pretok.for_each_piece(text, |p| {
+                        bt.encode_piece_into(db, p.as_bytes(), Some(&mut *pc), out)
+                    })
+                }
+                None => pretok.for_each_piece(text, |p| {
+                    bt.encode_piece_into(db, p.as_bytes(), None, out)
+                }),
+            }
+        } else {
+            for piece in pretok.split(text) {
+                self.encoder.encode_piece_into(db, piece.as_bytes(), cache.as_deref_mut(), out);
+            }
+        }
     }
 
     /// Split text into chunks at whitespace, encode each in parallel.
@@ -893,9 +1135,8 @@ impl Tokenizer {
             return self.encode_sequential(normalized.as_ref(), None);
         }
 
-        let encoder = &self.encoder;
         let normalizer = &self.normalizer;
-        let pretok = self.pretokenizer.as_ref().unwrap();
+        let generation = self.cache_generation;
         let results: Vec<Vec<TokenId>> = thread::scope(|s| {
             chunks
                 .iter()
@@ -904,13 +1145,13 @@ impl Tokenizer {
                         // SAFETY: Input was valid UTF-8, split at ASCII whitespace.
                         let chunk_str = unsafe { std::str::from_utf8_unchecked(chunk_bytes) };
                         let normalized = normalizer.normalize(chunk_str);
-                        let mut cache = (chunk_bytes.len() >= PRETOKEN_CACHE_MIN_BYTES)
-                            .then(PretokenCache::new);
-                        let mut out = Vec::with_capacity(chunk_bytes.len() / 3);
-                        for piece in pretok.split(normalized.as_ref()) {
-                            encoder.encode_into(piece.as_bytes(), cache.as_mut(), &mut out);
-                        }
-                        out
+                        // Pooled process-lived cache: warm across calls and
+                        // free of the 2 MiB alloc+zero a fresh table costs
+                        // (which the old code paid per chunk, and only for
+                        // chunks over 256 KiB — smaller chunks ran fully
+                        // uncached).
+                        let mut lease = crate::pool::CacheLease::checkout(generation);
+                        self.encode_sequential(normalized.as_ref(), Some(lease.caches()))
                     })
                 })
                 .collect::<Vec<_>>()
@@ -1078,6 +1319,232 @@ impl Tokenizer {
             lens.extend_from_slice(&l);
         }
         (ids, lens)
+    }
+
+    /// Encode corpus files in bulk into one contiguous id buffer.
+    ///
+    /// Reads each file's bytes in Rust, splits every file on the
+    /// `separator` byte sequence (documents never span files; an empty
+    /// separator treats each file as a single document), drops empty
+    /// documents — matching the usual Python
+    /// `[d for d in text.split(sep) if d]` pre-split — and encodes all
+    /// documents with the parallel bulk pipeline. No text ever crosses a
+    /// binding boundary, so this is the fastest way to tokenize corpora
+    /// from disk.
+    ///
+    /// Each document is UTF-8-validated once; documents containing invalid
+    /// UTF-8 fall back to lossy conversion (invalid sequences become
+    /// U+FFFD) instead of failing, so arbitrary bytes are safe. Valid
+    /// documents are borrowed straight from the read buffer — no copies.
+    ///
+    /// Returns `(ids, offsets)`: every document's token ids concatenated
+    /// in order, plus document boundaries with `offsets.len() == ndocs + 1`
+    /// — document `i` is `ids[offsets[i] as usize..offsets[i + 1] as usize]`.
+    /// Truncation and special tokens apply as in [`Self::encode_batch_flat`];
+    /// padding does not.
+    pub fn encode_files_flat<P: AsRef<Path>>(
+        &self,
+        paths: &[P],
+        separator: &[u8],
+        add_special_tokens: bool,
+    ) -> std::io::Result<(Vec<TokenId>, Vec<u64>)> {
+        let profile = std::env::var_os("TOKIE_PROFILE_FILES").is_some();
+        let t0 = std::time::Instant::now();
+        let buffers: Vec<FileBytes> = paths
+            .iter()
+            .map(|p| read_file_bytes(p.as_ref()))
+            .collect::<std::io::Result<_>>()?;
+        if profile {
+            eprintln!("[files] read : {:6.1} ms", t0.elapsed().as_secs_f64() * 1e3);
+        }
+        let t0 = std::time::Instant::now();
+        let docs = split_file_docs(&buffers, separator);
+        if profile {
+            eprintln!("[files] split: {:6.1} ms", t0.elapsed().as_secs_f64() * 1e3);
+        }
+        let t0 = std::time::Instant::now();
+        let (ids, lens) = self.encode_docs_bytes_flat(&docs, add_special_tokens);
+        if profile {
+            eprintln!("[files] encode: {:6.1} ms", t0.elapsed().as_secs_f64() * 1e3);
+        }
+        // Unmapping/freeing the corpus buffers is off the hot path too.
+        drop(docs);
+        std::thread::spawn(move || drop(buffers));
+        let mut offsets = Vec::with_capacity(lens.len() + 1);
+        let mut acc = 0u64;
+        offsets.push(0);
+        for l in lens {
+            acc += l;
+            offsets.push(acc);
+        }
+        Ok((ids, offsets))
+    }
+
+    /// Bulk-encode document byte-slices into one contiguous id buffer.
+    ///
+    /// Worker chunks validate UTF-8 per document (in parallel — a serial
+    /// prepass over a 191MB corpus costs ~60ms) and append ids straight
+    /// into one buffer per chunk: on the fused fast path (pretokenizer
+    /// model, no added tokens, no truncation, no special tokens) no
+    /// per-document vector is allocated at all. Chunk buffers are then
+    /// copied into the final flat buffer in parallel.
+    fn encode_docs_bytes_flat(
+        &self,
+        docs: &[&[u8]],
+        add_special_tokens: bool,
+    ) -> (Vec<TokenId>, Vec<u64>) {
+        if docs.is_empty() {
+            return (Vec::new(), Vec::new());
+        }
+        // Mirrors the exact conditions under which `encode_ids_ctx` with a
+        // caller-supplied cache reduces to normalize + `encode_sequential`
+        // (see `encode_raw_dispatch` / `encode_raw_inner`).
+        let fused = self.pretokenizer.is_some()
+            && self.raw_added_matcher.is_none()
+            && self.norm_added_matcher.is_none()
+            && self.truncation.is_none()
+            && !add_special_tokens;
+
+        let profile = std::env::var_os("TOKIE_PROFILE_FILES").is_some();
+        let t_workers = std::time::Instant::now();
+
+        // Allocate and prefault the final id buffer concurrently with the
+        // encode workers: zeroing ~180MB of fresh pages on first touch
+        // costs ~8ms serial, which would otherwise land in the concat
+        // phase. bytes/3 over-estimates every BPE corpus we ship (OWT/gpt2
+        // is ~bytes/4.4); the rare under-estimate falls back to a plain
+        // allocation below.
+        let est: usize = docs.iter().map(|d| d.len()).sum::<usize>() / 3;
+        let prealloc = std::thread::spawn(move || {
+            let mut v: Vec<TokenId> = Vec::with_capacity(est);
+            let spare = v.spare_capacity_mut();
+            let mut i = 0;
+            while i < spare.len() {
+                spare[i] = std::mem::MaybeUninit::new(0);
+                i += 1024;
+            }
+            v
+        });
+
+        let results: Vec<(Vec<TokenId>, Vec<u64>)> =
+            self.steal_batches(docs, |chunk, cache| {
+                let chunk_bytes: usize = chunk.iter().map(|d| d.len()).sum();
+                let mut ids: Vec<TokenId> = Vec::with_capacity(chunk_bytes / 3);
+                let mut lens: Vec<u64> = Vec::with_capacity(chunk.len());
+                for d in chunk {
+                    // One SIMD validation pass (`str::from_utf8` beats
+                    // `from_utf8_lossy`'s chunk walker on valid input);
+                    // documents with invalid bytes take the lossy path
+                    // (U+FFFD) so arbitrary bytes can never panic.
+                    let text: Cow<str> = match std::str::from_utf8(d) {
+                        Ok(s) => Cow::Borrowed(s),
+                        Err(_) => String::from_utf8_lossy(d),
+                    };
+                    let before = ids.len();
+                    if fused {
+                        let normalized = self.normalizer.normalize(&text);
+                        self.encode_sequential_into(normalized.as_ref(), Some(cache), &mut ids);
+                    } else {
+                        let v = self.encode_ids_ctx(&text, add_special_tokens, Some(cache));
+                        ids.extend_from_slice(&v);
+                    }
+                    lens.push((ids.len() - before) as u64);
+                }
+                (ids, lens)
+            });
+
+        if profile {
+            eprintln!("[files] workers: {:6.1} ms", t_workers.elapsed().as_secs_f64() * 1e3);
+        }
+        let t_concat = std::time::Instant::now();
+        let total_ids: usize = results.iter().map(|(i, _)| i.len()).sum();
+        let mut lens = Vec::with_capacity(docs.len());
+        for (_, l) in &results {
+            lens.extend_from_slice(l);
+        }
+
+        // Concatenate chunk id buffers in parallel: a serial memcpy of a
+        // large corpus' ids (~180MB for 191MB of OWT) costs ~15-20ms.
+        let mut ids: Vec<TokenId> = match prealloc.join() {
+            Ok(v) if v.capacity() >= total_ids => v,
+            _ => Vec::with_capacity(total_ids),
+        };
+        {
+            let mut spare = &mut ids.spare_capacity_mut()[..total_ids];
+            let mut jobs: Vec<(&mut [std::mem::MaybeUninit<TokenId>], &[TokenId])> =
+                Vec::with_capacity(results.len());
+            for (chunk_ids, _) in &results {
+                let (dst, rest) = spare.split_at_mut(chunk_ids.len());
+                spare = rest;
+                jobs.push((dst, chunk_ids));
+            }
+            let workers = num_cpus().min(jobs.len()).max(1);
+            let mut per_worker: Vec<Vec<(&mut [std::mem::MaybeUninit<TokenId>], &[TokenId])>> =
+                (0..workers).map(|_| Vec::new()).collect();
+            // Chunks are byte-balanced, so round-robin keeps copies even.
+            for (i, job) in jobs.into_iter().enumerate() {
+                per_worker[i % workers].push(job);
+            }
+            thread::scope(|s| {
+                for work in per_worker {
+                    s.spawn(move || {
+                        for (dst, src) in work {
+                            // SAFETY: dst and src have equal length; the
+                            // uninitialized destination is only written.
+                            unsafe {
+                                std::ptr::copy_nonoverlapping(
+                                    src.as_ptr(),
+                                    dst.as_mut_ptr().cast::<TokenId>(),
+                                    src.len(),
+                                );
+                            }
+                        }
+                    });
+                }
+            });
+        }
+        // SAFETY: the jobs above covered ..total_ids exactly.
+        unsafe { ids.set_len(total_ids) };
+        // Freeing ~180MB of chunk buffers costs several ms; hand them to a
+        // detached thread so the caller gets its result first.
+        std::thread::spawn(move || drop(results));
+        if profile {
+            eprintln!("[files] concat : {:6.1} ms", t_concat.elapsed().as_secs_f64() * 1e3);
+        }
+        (ids, lens)
+    }
+
+    /// Count tokens across corpus files without materializing ids.
+    ///
+    /// Same file reading, separator splitting, empty-document filtering,
+    /// and lossy UTF-8 handling as [`Self::encode_files_flat`]; returns the
+    /// total token count over all documents (no special tokens, as in
+    /// [`Self::count_tokens`]).
+    pub fn count_tokens_files<P: AsRef<Path>>(
+        &self,
+        paths: &[P],
+        separator: &[u8],
+    ) -> std::io::Result<usize> {
+        let buffers: Vec<FileBytes> = paths
+            .iter()
+            .map(|p| read_file_bytes(p.as_ref()))
+            .collect::<std::io::Result<_>>()?;
+        let docs = split_file_docs(&buffers, separator);
+        if docs.is_empty() {
+            return Ok(0);
+        }
+        let counts = self.steal_batches(&docs, |chunk, cache| {
+            let mut n = 0usize;
+            for d in chunk {
+                let text: Cow<str> = match std::str::from_utf8(d) {
+                    Ok(s) => Cow::Borrowed(s),
+                    Err(_) => String::from_utf8_lossy(d),
+                };
+                n += self.encode_raw_ctx(&text, Some(cache)).len();
+            }
+            n
+        });
+        Ok(counts.iter().sum())
     }
 
     /// Count tokens for multiple texts in parallel.
@@ -1375,6 +1842,91 @@ mod tests {
         assert!(flat.is_empty() && lens.is_empty());
     }
 
+    /// Unfused per-piece reference: full-text pretokenization, each piece
+    /// encoded independently through the ground-truth `Encoder::encode`.
+    /// No caches, no chunking, no fused loop.
+    fn reference_encode(tokenizer: &Tokenizer, text: &str) -> Vec<TokenId> {
+        let pretok = tokenizer.pretokenizer().expect("pretokenizer");
+        let mut out = Vec::new();
+        for piece in pretok.split(text) {
+            out.extend(tokenizer.encoder.encode(piece.as_bytes()));
+        }
+        out
+    }
+
+    fn tricky_texts() -> Vec<String> {
+        vec![
+            String::new(),
+            " ".to_string(),
+            "Hello world".to_string(),
+            "don't we're I'll O'Toole don'ts".to_string(),
+            "a\n\nb  c   d\te".to_string(),
+            "日本語のテキスト and English, русский текст".to_string(),
+            "money $100.99, 50% off! e.g. Dr. Smith's co-op".to_string(),
+            // Pieces over the 15-byte cache key limit (long letter runs)
+            "Supercalifragilisticexpialidocious antidisestablishmentarianism".to_string(),
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab".to_string(),
+            "«ab» ¹²³ ½ cup \u{200B}école".to_string(),
+        ]
+    }
+
+    #[test]
+    fn test_fused_sequential_matches_reference() {
+        let tokenizer = make_pretok_tokenizer();
+        for text in tricky_texts() {
+            let expect = reference_encode(&tokenizer, &text);
+            // Twice: second pass reads pooled-cache entries the first inserted.
+            for pass in 0..2 {
+                let got = tokenizer.encode(&text, false).ids;
+                assert_eq!(got, expect, "pass {pass}, text {:?}", text);
+                assert_eq!(tokenizer.count_tokens(&text), expect.len(), "count, text {:?}", text);
+            }
+        }
+    }
+
+    #[test]
+    fn test_parallel_path_matches_reference() {
+        // A document over PARALLEL_CHUNK_THRESHOLD exercises encode_parallel
+        // (chunked, pooled per-thread caches); output must equal the
+        // unchunked per-piece reference.
+        let tokenizer = make_pretok_tokenizer();
+        let atom = "The quick brown fox! Ate 1234 grapes, don't ask — «why?» \u{200B}école 日本語 ";
+        let big: String = atom.repeat(2 * Tokenizer::PARALLEL_CHUNK_THRESHOLD / atom.len());
+        assert!(big.len() > Tokenizer::PARALLEL_CHUNK_THRESHOLD);
+        let expect = reference_encode(&tokenizer, &big);
+        assert_eq!(tokenizer.encode(&big, false).ids, expect);
+        assert_eq!(tokenizer.count_tokens(&big), expect.len());
+    }
+
+    #[test]
+    fn test_batch_with_large_doc_matches_reference() {
+        // Batch workers never nest parallel chunking; a large doc inside a
+        // batch takes the fused sequential path and must still match both
+        // the reference and the standalone (parallel) result.
+        let tokenizer = make_pretok_tokenizer();
+        let atom = "Words, numbers 42 and unicode — ½ cup of \u{AD}soft hyphens. ";
+        let big: String = atom.repeat(2 * Tokenizer::PARALLEL_CHUNK_THRESHOLD / atom.len());
+        let mut texts: Vec<&str> = vec!["Hello world", "", "don't", &big, "tail piece"];
+        // Enough docs to force the steal_batches worker path.
+        for _ in 0..32 {
+            texts.push("filler doc with some text 123");
+        }
+        let counts = tokenizer.count_tokens_batch(&texts);
+        let encs = tokenizer.encode_batch(&texts, false);
+        for (i, t) in texts.iter().enumerate() {
+            let expect = reference_encode(&tokenizer, t);
+            assert_eq!(encs[i].ids, expect, "doc {i}");
+            assert_eq!(counts[i], expect.len(), "doc {i}");
+        }
+        let (flat, lens) = tokenizer.encode_batch_flat(&texts, false);
+        let mut off = 0usize;
+        for (i, t) in texts.iter().enumerate() {
+            let expect = reference_encode(&tokenizer, t);
+            assert_eq!(&flat[off..off + lens[i] as usize], &expect[..], "flat doc {i}");
+            off += lens[i] as usize;
+        }
+    }
+
     #[test]
     fn test_count_tokens_batch() {
         let tokenizer = make_pretok_tokenizer();
@@ -1391,6 +1943,197 @@ mod tests {
         let tokenizer = make_tokenizer();
         let result = tokenizer.count_tokens_batch(&[]);
         assert!(result.is_empty());
+    }
+
+    // --- encode_files_flat tests ---
+
+    /// Write bytes to a unique temp file and return its path.
+    fn tmp_file(name: &str, contents: &[u8]) -> std::path::PathBuf {
+        let path = std::env::temp_dir()
+            .join(format!("tokie_files_test_{}_{}", std::process::id(), name));
+        std::fs::write(&path, contents).unwrap();
+        path
+    }
+
+    /// Reference result: split on `sep`, drop empties, lossy-convert,
+    /// encode each doc with `encode_batch` and concatenate.
+    fn reference_files(
+        tokenizer: &Tokenizer,
+        contents: &[&[u8]],
+        sep: &[u8],
+    ) -> (Vec<TokenId>, Vec<u64>) {
+        let mut docs: Vec<String> = Vec::new();
+        for buf in contents {
+            let pieces: Vec<&[u8]> = if sep.is_empty() {
+                vec![&buf[..]]
+            } else {
+                let mut out = Vec::new();
+                let mut start = 0;
+                for pos in memchr::memmem::find_iter(buf, sep) {
+                    out.push(&buf[start..pos]);
+                    start = pos + sep.len();
+                }
+                out.push(&buf[start..]);
+                out
+            };
+            for p in pieces {
+                if !p.is_empty() {
+                    docs.push(String::from_utf8_lossy(p).into_owned());
+                }
+            }
+        }
+        let refs: Vec<&str> = docs.iter().map(|s| s.as_str()).collect();
+        let encs = tokenizer.encode_batch(&refs, false);
+        let mut ids = Vec::new();
+        let mut offsets = vec![0u64];
+        for e in encs {
+            ids.extend_from_slice(&e.ids);
+            offsets.push(ids.len() as u64);
+        }
+        (ids, offsets)
+    }
+
+    fn assert_files_match(name: &str, contents: &[&[u8]], sep: &[u8]) {
+        let tokenizer = make_pretok_tokenizer();
+        let paths: Vec<std::path::PathBuf> = contents
+            .iter()
+            .enumerate()
+            .map(|(i, c)| tmp_file(&format!("{name}_{i}"), c))
+            .collect();
+        let (ids, offsets) = tokenizer.encode_files_flat(&paths, sep, false).unwrap();
+        let (want_ids, want_offsets) = reference_files(&tokenizer, contents, sep);
+        for p in &paths {
+            let _ = std::fs::remove_file(p);
+        }
+        assert_eq!(ids, want_ids, "{name}: ids mismatch");
+        assert_eq!(offsets, want_offsets, "{name}: offsets mismatch");
+    }
+
+    #[test]
+    fn test_encode_files_multi_doc() {
+        assert_files_match(
+            "multi",
+            &[b"Hello world<SEP>second doc here<SEP>and a third"],
+            b"<SEP>",
+        );
+    }
+
+    #[test]
+    fn test_encode_files_separator_at_edges() {
+        // Separator at file start and end: leading/trailing empty docs are
+        // dropped, matching Python's `[d for d in text.split(sep) if d]`.
+        assert_files_match("edges", &[b"<SEP>middle doc<SEP>"], b"<SEP>");
+    }
+
+    #[test]
+    fn test_encode_files_consecutive_separators() {
+        assert_files_match("consecutive", &[b"one<SEP><SEP><SEP>two"], b"<SEP>");
+    }
+
+    #[test]
+    fn test_encode_files_no_separator() {
+        assert_files_match("nosep", &[b"just one document, no separator"], b"<SEP>");
+    }
+
+    #[test]
+    fn test_encode_files_non_utf8() {
+        // Invalid UTF-8 must take the lossy path (U+FFFD), never panic.
+        assert_files_match(
+            "nonutf8",
+            &[b"good doc<SEP>bad \xff\xfe bytes<SEP>trailing ok"],
+            b"<SEP>",
+        );
+    }
+
+    #[test]
+    fn test_encode_files_multiple_files() {
+        assert_files_match(
+            "multifile",
+            &[
+                b"file one doc a<SEP>file one doc b<SEP>",
+                b"file two doc a",
+                b"<SEP>file three doc a<SEP>file three doc b",
+            ],
+            b"<SEP>",
+        );
+    }
+
+    #[test]
+    fn test_encode_files_empty_file() {
+        assert_files_match("emptyfile", &[b"", b"only doc"], b"<SEP>");
+    }
+
+    #[test]
+    fn test_encode_files_empty_separator() {
+        // Empty separator: each file is a single doc.
+        assert_files_match("emptysep", &[b"whole file is one doc"], b"");
+    }
+
+    #[test]
+    fn test_encode_files_many_docs_parallel() {
+        // Enough docs to force the steal_batches worker path.
+        let mut content = Vec::new();
+        for i in 0..200 {
+            content.extend_from_slice(
+                format!("document number {i} with some text abc").as_bytes(),
+            );
+            content.extend_from_slice(b"<SEP>");
+        }
+        assert_files_match("parallel", &[&content], b"<SEP>");
+    }
+
+    #[test]
+    fn test_encode_files_special_tokens_fallback() {
+        // add_special_tokens=true leaves the fused fast path; the
+        // per-document fallback must still match encode_batch exactly.
+        let tokenizer = make_bert_tokenizer();
+        let path = tmp_file("special", b"abc<SEP>ab ab<SEP>zz");
+        let (ids, offsets) = tokenizer.encode_files_flat(&[&path], b"<SEP>", true).unwrap();
+        let _ = std::fs::remove_file(&path);
+        let encs = tokenizer.encode_batch(&["abc", "ab ab", "zz"], true);
+        let mut want = Vec::new();
+        let mut want_offsets = vec![0u64];
+        for e in encs {
+            want.extend_from_slice(&e.ids);
+            want_offsets.push(want.len() as u64);
+        }
+        assert_eq!(ids, want);
+        assert_eq!(offsets, want_offsets);
+    }
+
+    #[test]
+    fn test_encode_files_truncation_fallback() {
+        // Truncation also leaves the fused fast path.
+        let mut tokenizer = make_pretok_tokenizer();
+        tokenizer.enable_truncation(TruncationParams { max_length: 2, ..Default::default() });
+        let path = tmp_file("trunc", b"Hello world again<SEP>ab");
+        let (ids, offsets) = tokenizer.encode_files_flat(&[&path], b"<SEP>", false).unwrap();
+        let _ = std::fs::remove_file(&path);
+        let encs = tokenizer.encode_batch(&["Hello world again", "ab"], false);
+        let mut want = Vec::new();
+        for e in encs {
+            want.extend_from_slice(&e.ids);
+        }
+        assert_eq!(ids, want);
+        assert_eq!(offsets.len(), 3);
+    }
+
+    #[test]
+    fn test_encode_files_missing_file_errors() {
+        let tokenizer = make_pretok_tokenizer();
+        let missing = std::env::temp_dir().join("tokie_files_test_does_not_exist_xyz");
+        assert!(tokenizer.encode_files_flat(&[missing], b"<SEP>", false).is_err());
+    }
+
+    #[test]
+    fn test_count_tokens_files() {
+        let tokenizer = make_pretok_tokenizer();
+        let content: &[u8] = b"Hello world<SEP>second doc<SEP>third one here";
+        let path = tmp_file("count", content);
+        let total = tokenizer.count_tokens_files(&[&path], b"<SEP>").unwrap();
+        let (ids, _) = tokenizer.encode_files_flat(&[&path], b"<SEP>", false).unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(total, ids.len());
     }
 
     #[test]

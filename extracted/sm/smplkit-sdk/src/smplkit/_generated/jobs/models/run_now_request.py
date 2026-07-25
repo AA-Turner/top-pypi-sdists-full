@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
-
-from typing import cast
-
 
 T = TypeVar("T", bound="RunNowRequest")
 
@@ -28,11 +25,11 @@ class RunNowRequest:
                 one environment, or your credential is scoped to a single environment, that environment is used.
     """
 
-    environment: None | str | Unset = UNSET
+    environment: str | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        environment: None | str | Unset
+        environment: str | Unset | None
         if isinstance(self.environment, Unset):
             environment = UNSET
         else:
@@ -50,7 +47,7 @@ class RunNowRequest:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
 
-        def _parse_environment(data: object) -> None | str | Unset:
+        def _parse_environment(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

@@ -13,7 +13,6 @@ use crate::hook::{Hook, InstallInfo, InstalledHook};
 use crate::languages::LanguageBackend;
 use crate::languages::deno::DenoRequest;
 use crate::languages::deno::installer::{DenoInstaller, DenoResult, bin_dir};
-use crate::languages::version::LanguageRequest;
 use crate::process::Cmd;
 use crate::run::run_by_batch;
 use crate::store::{CacheBucket, Store, ToolBucket};
@@ -70,13 +69,9 @@ impl LanguageBackend for Deno {
         let deno_dir = store.tools_path(ToolBucket::Deno);
         let installer = DenoInstaller::new(deno_dir);
 
-        let (deno_request, allows_download) = match &hook.language_request {
-            LanguageRequest::Any { system_only } => (&DenoRequest::Any, !system_only),
-            LanguageRequest::Deno(deno_request) => (deno_request, true),
-            _ => unreachable!(),
-        };
+        let deno_request: &DenoRequest = hook.language_request.version();
         let deno = installer
-            .install(store, deno_request, allows_download)
+            .install(store, deno_request, hook.language_request.allows_download())
             .await
             .context("Failed to install deno")?;
 
@@ -194,7 +189,7 @@ impl LanguageBackend for Deno {
 
         let run = async |batch: &[&Path]| {
             let mut cmd = Cmd::new(&entry[0]);
-            let mut output = cmd
+            let output = cmd
                 .current_dir(hook.work_dir())
                 .env(EnvVars::PATH, &new_path)
                 .env(EnvVars::DENO_DIR, &deno_cache_dir)
@@ -210,25 +205,14 @@ impl LanguageBackend for Deno {
 
             reporter.on_run_progress(progress, batch.len() as u64);
 
-            output.stdout.extend(output.stderr);
-            let code = output.status.code().unwrap_or(1);
-            anyhow::Ok((code, output.stdout))
+            anyhow::Ok(output)
         };
 
-        let results = run_by_batch(hook, filenames, entry.argv(), run).await?;
-
-        // Collect results
-        let mut combined_status = 0;
-        let mut combined_output = Vec::new();
-
-        for (code, output) in results {
-            combined_status |= code;
-            combined_output.extend(output);
-        }
+        let output = run_by_batch(hook, filenames, entry.argv(), run).await?;
 
         reporter.on_run_complete(progress);
 
-        Ok((combined_status, combined_output))
+        Ok(output)
     }
 }
 

@@ -13,16 +13,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
+from smplkit.clients import AsyncSmplClient, SmplClient
+from smplkit.config.clients import AsyncConfigClient, ConfigClient, LiveConfigProxy
+from smplkit.config.helpers import _resource_to_config
+from smplkit.config.models import AsyncConfig, Config
 from smplkit.errors import (
     ConnectionError,
     NotFoundError,
     TimeoutError,
     ValidationError,
 )
-from smplkit.clients import AsyncSmplClient, SmplClient
-from smplkit.config.clients import AsyncConfigClient, ConfigClient, LiveConfigProxy
-from smplkit.config.helpers import _resource_to_config
-from smplkit.config.models import AsyncConfig, Config
 
 
 def _new_config() -> ConfigClient:
@@ -1269,7 +1269,7 @@ class TestAsyncConfigClientOnChange:
             pass
 
         assert len(client.config._listeners) == 1
-        fn, ci, ik = client.config._listeners[0]
+        fn, ci, _ik = client.config._listeners[0]
         assert fn is handler
         assert ci is None
 
@@ -1280,7 +1280,7 @@ class TestAsyncConfigClientOnChange:
         def handler(event):
             pass
 
-        fn, ci, ik = client.config._listeners[0]
+        _fn, ci, _ik = client.config._listeners[0]
         assert ci == "db"
 
     def test_with_config_id_and_item_key(self):
@@ -1290,7 +1290,7 @@ class TestAsyncConfigClientOnChange:
         def handler(event):
             pass
 
-        fn, ci, ik = client.config._listeners[0]
+        _fn, ci, ik = client.config._listeners[0]
         assert ci == "db"
         assert ik == "host"
 
@@ -1301,7 +1301,7 @@ class TestAsyncConfigClientOnChange:
         def handler(event):
             pass
 
-        fn, ci, ik = client.config._listeners[0]
+        _fn, ci, _ik = client.config._listeners[0]
         assert ci is None
 
     def test_fire_change_listeners(self):

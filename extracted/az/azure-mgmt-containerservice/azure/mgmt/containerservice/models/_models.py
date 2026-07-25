@@ -1724,6 +1724,46 @@ class AgentPoolWindowsProfile(_Model):
         super().__init__(*args, **kwargs)
 
 
+class AutoScaleProfile(_Model):
+    """Specifications on auto-scaling.
+
+    :ivar size: VM size that AKS will use when creating and scaling e.g. 'Standard_E4s_v3',
+     'Standard_E16s_v3' or 'Standard_D16s_v5'.
+    :vartype size: str
+    :ivar min_count: The minimum number of nodes of the specified sizes.
+    :vartype min_count: int
+    :ivar max_count: The maximum number of nodes of the specified sizes.
+    :vartype max_count: int
+    """
+
+    size: Optional[str] = rest_field(visibility=["read", "create", "update", "delete", "query"])
+    """VM size that AKS will use when creating and scaling e.g. 'Standard_E4s_v3', 'Standard_E16s_v3'
+     or 'Standard_D16s_v5'."""
+    min_count: Optional[int] = rest_field(name="minCount", visibility=["read", "create", "update", "delete", "query"])
+    """The minimum number of nodes of the specified sizes."""
+    max_count: Optional[int] = rest_field(name="maxCount", visibility=["read", "create", "update", "delete", "query"])
+    """The maximum number of nodes of the specified sizes."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        size: Optional[str] = None,
+        min_count: Optional[int] = None,
+        max_count: Optional[int] = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
 class AzureKeyVaultKms(_Model):
     """Azure Key Vault key management service settings for the security profile.
 
@@ -3914,6 +3954,7 @@ class ManagedCluster(TrackedResource):
         "node_provisioning_profile",
         "bootstrap_profile",
         "ai_toolchain_operator_profile",
+        "scheduler_profile",
         "hosted_system_profile",
         "status",
     ]
@@ -6907,6 +6948,10 @@ class ManagedClusterProperties(_Model):
      cluster.
     :vartype ai_toolchain_operator_profile:
      ~azure.mgmt.containerservice.models.ManagedClusterAIToolchainOperatorProfile
+    :ivar scheduler_profile: Profile with scheduler-related settings, like the configuration mode
+     for each scheduler managed by AKS. See `https://aka.ms/aks/scheduler-profile
+     <https://aka.ms/aks/scheduler-profile>`_.
+    :vartype scheduler_profile: ~azure.mgmt.containerservice.models.SchedulerProfile
     :ivar hosted_system_profile: Settings for hosted system addons. For more information, see
      `https://aka.ms/aks/automatic/systemcomponents
      <https://aka.ms/aks/automatic/systemcomponents>`_.
@@ -7105,6 +7150,11 @@ class ManagedClusterProperties(_Model):
         name="aiToolchainOperatorProfile", visibility=["read", "create", "update", "delete", "query"]
     )
     """AI toolchain operator settings that apply to the whole cluster."""
+    scheduler_profile: Optional["_models.SchedulerProfile"] = rest_field(
+        name="schedulerProfile", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """Profile with scheduler-related settings, like the configuration mode for each scheduler managed
+     by AKS. See `https://aka.ms/aks/scheduler-profile <https://aka.ms/aks/scheduler-profile>`_."""
     hosted_system_profile: Optional["_models.ManagedClusterHostedSystemProfile"] = rest_field(
         name="hostedSystemProfile", visibility=["read", "create", "update", "delete", "query"]
     )
@@ -7156,6 +7206,7 @@ class ManagedClusterProperties(_Model):
         node_provisioning_profile: Optional["_models.ManagedClusterNodeProvisioningProfile"] = None,
         bootstrap_profile: Optional["_models.ManagedClusterBootstrapProfile"] = None,
         ai_toolchain_operator_profile: Optional["_models.ManagedClusterAIToolchainOperatorProfile"] = None,
+        scheduler_profile: Optional["_models.SchedulerProfile"] = None,
         hosted_system_profile: Optional["_models.ManagedClusterHostedSystemProfile"] = None,
         status: Optional["_models.ManagedClusterStatus"] = None,
     ) -> None: ...
@@ -7494,6 +7545,13 @@ class ManagedClusterSecurityProfileDefender(_Model):
      security profile.
     :vartype security_monitoring:
      ~azure.mgmt.containerservice.models.ManagedClusterSecurityProfileDefenderSecurityMonitoring
+    :ivar security_gating: Microsoft Defender settings for security gating. This validates
+     container images eligibility for deployment based on Defender for Containers security findings.
+     Using Admission Controller, it either audits or prevents deployment of images that do not meet
+     security standards. For more information, see `https://aka.ms/KubernetesDefenderAuditRule
+     <https://aka.ms/KubernetesDefenderAuditRule>`_.
+    :vartype security_gating:
+     ~azure.mgmt.containerservice.models.ManagedClusterSecurityProfileDefenderSecurityGating
     """
 
     log_analytics_workspace_resource_id: Optional[str] = rest_field(
@@ -7506,6 +7564,14 @@ class ManagedClusterSecurityProfileDefender(_Model):
         name="securityMonitoring", visibility=["read", "create", "update", "delete", "query"]
     )
     """Microsoft Defender threat detection for Cloud settings for the security profile."""
+    security_gating: Optional["_models.ManagedClusterSecurityProfileDefenderSecurityGating"] = rest_field(
+        name="securityGating", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """Microsoft Defender settings for security gating. This validates container images eligibility
+     for deployment based on Defender for Containers security findings. Using Admission Controller,
+     it either audits or prevents deployment of images that do not meet security standards. For more
+     information, see `https://aka.ms/KubernetesDefenderAuditRule
+     <https://aka.ms/KubernetesDefenderAuditRule>`_."""
 
     @overload
     def __init__(
@@ -7513,6 +7579,111 @@ class ManagedClusterSecurityProfileDefender(_Model):
         *,
         log_analytics_workspace_resource_id: Optional[str] = None,
         security_monitoring: Optional["_models.ManagedClusterSecurityProfileDefenderSecurityMonitoring"] = None,
+        security_gating: Optional["_models.ManagedClusterSecurityProfileDefenderSecurityGating"] = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class ManagedClusterSecurityProfileDefenderSecurityGating(_Model):  # pylint: disable=name-too-long
+    """Microsoft Defender settings for security gating. This validates container image eligibility for
+    deployment based on Defender for Containers security findings. Using Admission Controller, it
+    either audits or prevents deployment of images that do not meet security standards.
+
+    :ivar enabled: Whether to enable Defender security gating. When enabled, the gating feature
+     scans container images and audits or blocks deployment of images that do not meet security
+     standards according to configured security rules. For more information, see
+     `https://aka.ms/KubernetesDefenderAuditRule <https://aka.ms/KubernetesDefenderAuditRule>`_.
+    :vartype enabled: bool
+    :ivar identities: List of identities that the admission controller uses to pull security
+     artifacts from registries. These are the same identities used by the cluster to pull container
+     images. For more information on configuring this identity, see
+     `https://learn.microsoft.com/en-us/azure/defender-for-cloud/gated-deployment-infrastructure-as-code
+     <https://learn.microsoft.com/en-us/azure/defender-for-cloud/gated-deployment-infrastructure-as-code>`_.
+    :vartype identities:
+     list[~azure.mgmt.containerservice.models.ManagedClusterSecurityProfileDefenderSecurityGatingIdentity]
+    :ivar allow_secret_access: In use only while registry access is granted by secret rather than
+     managed identity. Sets whether to grant the Defender gating agent access to cluster secrets for
+     pulling images from registries. If secret access is denied and the registry requires pull
+     secrets, the add-on will not perform image validation. Default value is false.
+    :vartype allow_secret_access: bool
+    """
+
+    enabled: Optional[bool] = rest_field(visibility=["read", "create", "update", "delete", "query"])
+    """Whether to enable Defender security gating. When enabled, the gating feature scans container
+     images and audits or blocks deployment of images that do not meet security standards according
+     to configured security rules. For more information, see
+     `https://aka.ms/KubernetesDefenderAuditRule <https://aka.ms/KubernetesDefenderAuditRule>`_."""
+    identities: Optional[list["_models.ManagedClusterSecurityProfileDefenderSecurityGatingIdentity"]] = rest_field(
+        visibility=["read", "create", "update", "delete", "query"]
+    )
+    """List of identities that the admission controller uses to pull security artifacts from
+     registries. These are the same identities used by the cluster to pull container images. For
+     more information on configuring this identity, see
+     `https://learn.microsoft.com/en-us/azure/defender-for-cloud/gated-deployment-infrastructure-as-code
+     <https://learn.microsoft.com/en-us/azure/defender-for-cloud/gated-deployment-infrastructure-as-code>`_."""
+    allow_secret_access: Optional[bool] = rest_field(
+        name="allowSecretAccess", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """In use only while registry access is granted by secret rather than managed identity. Sets
+     whether to grant the Defender gating agent access to cluster secrets for pulling images from
+     registries. If secret access is denied and the registry requires pull secrets, the add-on will
+     not perform image validation. Default value is false."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        enabled: Optional[bool] = None,
+        identities: Optional[list["_models.ManagedClusterSecurityProfileDefenderSecurityGatingIdentity"]] = None,
+        allow_secret_access: Optional[bool] = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class ManagedClusterSecurityProfileDefenderSecurityGatingIdentity(_Model):  # pylint: disable=name-too-long
+    """Identity mapping used by Defender security gating for registry access.
+
+    :ivar azure_container_registry: The container registry for which the identity will be used; the
+     identity specified here should have a federated identity credential attached to it.
+    :vartype azure_container_registry: str
+    :ivar identity: The identity object used to access the registry.
+    :vartype identity: ~azure.mgmt.containerservice.models.UserAssignedIdentity
+    """
+
+    azure_container_registry: Optional[str] = rest_field(
+        name="azureContainerRegistry", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """The container registry for which the identity will be used; the identity specified here should
+     have a federated identity credential attached to it."""
+    identity: Optional["_models.UserAssignedIdentity"] = rest_field(
+        visibility=["read", "create", "update", "delete", "query"]
+    )
+    """The identity object used to access the registry."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        azure_container_registry: Optional[str] = None,
+        identity: Optional["_models.UserAssignedIdentity"] = None,
     ) -> None: ...
 
     @overload
@@ -9376,18 +9547,31 @@ class ScaleProfile(_Model):
 
     :ivar manual: Specifications on how to scale the VirtualMachines agent pool to a fixed size.
     :vartype manual: list[~azure.mgmt.containerservice.models.ManualScaleProfile]
+    :ivar autoscale: Specifications on how to auto-scale the VirtualMachines agent pool within a
+     predefined size range. Each profile targets a specific VM SKU and is evaluated independently.
+     Scaling decisions across profiles are governed by the cluster autoscaler expander, configurable
+     via ``ManagedCluster.properties.autoScalerProfile.expander``.
+    :vartype autoscale: list[~azure.mgmt.containerservice.models.AutoScaleProfile]
     """
 
     manual: Optional[list["_models.ManualScaleProfile"]] = rest_field(
         visibility=["read", "create", "update", "delete", "query"]
     )
     """Specifications on how to scale the VirtualMachines agent pool to a fixed size."""
+    autoscale: Optional[list["_models.AutoScaleProfile"]] = rest_field(
+        visibility=["read", "create", "update", "delete", "query"]
+    )
+    """Specifications on how to auto-scale the VirtualMachines agent pool within a predefined size
+     range. Each profile targets a specific VM SKU and is evaluated independently. Scaling decisions
+     across profiles are governed by the cluster autoscaler expander, configurable via
+     ``ManagedCluster.properties.autoScalerProfile.expander``."""
 
     @overload
     def __init__(
         self,
         *,
         manual: Optional[list["_models.ManualScaleProfile"]] = None,
+        autoscale: Optional[list["_models.AutoScaleProfile"]] = None,
     ) -> None: ...
 
     @overload
@@ -9439,6 +9623,73 @@ class Schedule(_Model):
         weekly: Optional["_models.WeeklySchedule"] = None,
         absolute_monthly: Optional["_models.AbsoluteMonthlySchedule"] = None,
         relative_monthly: Optional["_models.RelativeMonthlySchedule"] = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class SchedulerInstanceProfile(_Model):
+    """Profile with settings related to a specific instance of an AKS-managed scheduler.
+
+    :ivar scheduler_config_mode: The configuration mode to be used by the AKS-managed scheduler.
+     Known values are: "Default" and "ManagedByCRD".
+    :vartype scheduler_config_mode: str or ~azure.mgmt.containerservice.models.SchedulerConfigMode
+    """
+
+    scheduler_config_mode: Optional[Union[str, "_models.SchedulerConfigMode"]] = rest_field(
+        name="schedulerConfigMode", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """The configuration mode to be used by the AKS-managed scheduler. Known values are: \"Default\"
+     and \"ManagedByCRD\"."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        scheduler_config_mode: Optional[Union[str, "_models.SchedulerConfigMode"]] = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class SchedulerProfile(_Model):
+    """Profile with scheduler-related settings, like the configuration mode for each scheduler managed
+    by AKS. See `https://aka.ms/aks/scheduler-profile <https://aka.ms/aks/scheduler-profile>`_.
+
+    :ivar upstream: Profile with settings related to upstream variant of kube-scheduler
+     (`https://github.com/kubernetes/kubernetes/tree/master/pkg/scheduler
+     <https://github.com/kubernetes/kubernetes/tree/master/pkg/scheduler>`_).
+    :vartype upstream: ~azure.mgmt.containerservice.models.SchedulerInstanceProfile
+    """
+
+    upstream: Optional["_models.SchedulerInstanceProfile"] = rest_field(
+        visibility=["read", "create", "update", "delete", "query"]
+    )
+    """Profile with settings related to upstream variant of kube-scheduler
+     (`https://github.com/kubernetes/kubernetes/tree/master/pkg/scheduler
+     <https://github.com/kubernetes/kubernetes/tree/master/pkg/scheduler>`_)."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        upstream: Optional["_models.SchedulerInstanceProfile"] = None,
     ) -> None: ...
 
     @overload

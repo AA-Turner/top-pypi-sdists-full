@@ -372,7 +372,7 @@ def Enumerator_unfold[STATE, T](f: Callable[[STATE], tuple[T, STATE] | None], st
     def current(__unit: Unit = UNIT) -> T:
         if curr is not None:
             x: Any = curr[0]
-            st: Any = curr[1]
+            curr[1]
             return x
 
         else:
@@ -382,7 +382,7 @@ def Enumerator_unfold[STATE, T](f: Callable[[STATE], tuple[T, STATE] | None], st
         nonlocal curr, acc
         curr = f(acc)
         if curr is not None:
-            x_1: Any = curr[0]
+            curr[0]
             st_1: Any = curr[1]
             acc = st_1
             return True

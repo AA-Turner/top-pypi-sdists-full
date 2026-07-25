@@ -6095,6 +6095,7 @@ __all__ = [
 # Type-checking-only imports for static analyzers (pyright/mypy).
 # At runtime TYPE_CHECKING is False, preserving lazy loading.
 if typing.TYPE_CHECKING:
+    pass
     from . import uv_config as uv_config
 
 publication.publish()

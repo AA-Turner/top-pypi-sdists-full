@@ -195,7 +195,7 @@ impl LanguageBackend for Python {
         let entry = hook.entry.resolve(Some(&new_path), store)?;
 
         let run = async |batch: &[&Path]| {
-            let mut output = Cmd::new(&entry[0])
+            let output = Cmd::new(&entry[0])
                 .current_dir(hook.work_dir())
                 .args(&entry[1..])
                 .env(EnvVars::VIRTUAL_ENV, env_dir)
@@ -211,41 +211,27 @@ impl LanguageBackend for Python {
 
             reporter.on_run_progress(progress, batch.len() as u64);
 
-            output.stdout.extend(output.stderr);
-            let code = output.status.code().unwrap_or(1);
-            anyhow::Ok((code, output.stdout))
+            anyhow::Ok(output)
         };
 
-        let results = run_by_batch(hook, filenames, entry.argv(), run).await?;
-
-        // Collect results
-        let mut combined_status = 0;
-        let mut combined_output = Vec::new();
-
-        for (code, output) in results {
-            combined_status |= code;
-            combined_output.extend(output);
-        }
+        let output = run_by_batch(hook, filenames, entry.argv(), run).await?;
 
         reporter.on_run_complete(progress);
 
-        Ok((combined_status, combined_output))
+        Ok(output)
     }
 }
 
 fn to_uv_python_request(request: &LanguageRequest) -> Option<String> {
+    let request: &PythonRequest = request.version();
     match request {
-        LanguageRequest::Any { .. } => None,
-        LanguageRequest::Python(request) => match request {
-            PythonRequest::Any => None,
-            PythonRequest::Major(major) => Some(format!("{major}")),
-            PythonRequest::MajorMinor(major, minor) => Some(format!("{major}.{minor}")),
-            PythonRequest::MajorMinorPatch(major, minor, patch) => {
-                Some(format!("{major}.{minor}.{patch}"))
-            }
-            PythonRequest::Range(_, raw) => Some(raw.clone()),
-        },
-        _ => unreachable!(),
+        PythonRequest::Any => None,
+        PythonRequest::Major(major) => Some(format!("{major}")),
+        PythonRequest::MajorMinor(major, minor) => Some(format!("{major}.{minor}")),
+        PythonRequest::MajorMinorPatch(major, minor, patch) => {
+            Some(format!("{major}.{minor}.{patch}"))
+        }
+        PythonRequest::Range(_, raw) => Some(raw.clone()),
     }
 }
 
@@ -448,7 +434,7 @@ mod tests {
 
         let info = InstallInfo::create(Language::Python, None, Vec::new(), &hooks_dir)
             .expect("create install info");
-        let store = Store::from_path(temp.path().join("store"));
+        let store = Store::from_path(temp.path().join("store")).expect("create store");
         let uv = Uv::new(PathBuf::from("uv"));
 
         (temp, uv, store, info)
@@ -471,7 +457,7 @@ mod tests {
         uses_prek_managed_store: bool,
     ) {
         let (_temp, uv, store, info) = setup_test_install();
-        let request = LanguageRequest::Any { system_only: false };
+        let request = LanguageRequest::default();
         let cmd = Python::create_venv_command(&uv, &store, &info, &request, attempt);
         let args = cmd
             .get_args()
@@ -496,7 +482,7 @@ mod tests {
     #[test]
     fn create_venv_command_removes_uv_system_python_override() {
         let (_temp, uv, store, info) = setup_test_install();
-        let request = LanguageRequest::Any { system_only: false };
+        let request = LanguageRequest::default();
         let cmd = Python::create_venv_command(&uv, &store, &info, &request, VenvAttempt::External);
         let envs = env_map(&cmd);
 

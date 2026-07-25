@@ -5,20 +5,20 @@ import enum
 from smplkit.account.clients import AccountClient, AsyncAccountClient
 from smplkit.audit.clients import AsyncAuditClient, AuditClient
 from smplkit.clients import AsyncSmplClient, SmplClient
+from smplkit.config.clients import AsyncConfigClient, ConfigChangeEvent, ConfigClient
+from smplkit.config.models import ConfigEnvironment, ConfigItem, ItemType
 from smplkit.context import ContextScope
 from smplkit.errors import (
     ApiErrorDetail,
-    Error,
-    ConnectionError,
     ConflictError,
+    ConnectionError,
+    Error,
     NotFoundError,
     NotInstalledError,
     PaymentRequiredError,
     TimeoutError,
     ValidationError,
 )
-from smplkit.config.clients import AsyncConfigClient, ConfigChangeEvent, ConfigClient
-from smplkit.config.models import ConfigEnvironment, ConfigItem, ItemType
 from smplkit.flags.clients import AsyncFlagsClient, FlagChangeEvent, FlagsClient
 from smplkit.flags.models import FlagEnvironment, FlagRule, FlagValue
 from smplkit.flags.types import AsyncContext, Context, FlagDeclaration, Op, Rule

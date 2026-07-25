@@ -66,6 +66,31 @@ fn validate_config() -> anyhow::Result<()> {
 }
 
 #[test]
+fn mutable_revision_warning_has_actionable_guidance() {
+    let context = TestContext::new();
+    context.write_pre_commit_config(indoc::indoc! {r"
+        repos:
+          - repo: https://example.com/hooks
+            rev: main
+            hooks: []
+    "});
+
+    cmd_snapshot!(context.filters(), context.validate_config().arg(PRE_COMMIT_CONFIG_YAML), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    warning: The following repositories use mutable `rev` values (branches or moving tags):
+    https://example.com/hooks: main
+    `prek` does not automatically detect changes to these references after the first install.
+    Use a tag or commit SHA for each `rev`, or run `prek update` to select the latest eligible tag.
+    See https://prek.j178.dev/reference/configuration/#rev for details.
+    success: All configs are valid
+    ");
+}
+
+#[test]
 fn invalid_config_error() {
     let context = TestContext::new();
     context.write_pre_commit_config(indoc::indoc! {r"
@@ -113,6 +138,92 @@ fn invalid_config_error() {
     8 |     hooks:
     9 |       - name: check-json
       |         ^ missing field `id`
+    ");
+}
+
+#[test]
+fn unknown_priority_alias_is_invalid() {
+    let context = TestContext::new();
+    context.write_pre_commit_config(indoc::indoc! {r"
+        priorities:
+          checks: 10
+        repos:
+          - repo: local
+            hooks:
+              - id: format
+                name: Format
+                entry: ruff format
+                language: system
+                priority: formatting
+    "});
+
+    cmd_snapshot!(context.filters(), context.validate_config().arg(PRE_COMMIT_CONFIG_YAML), @r"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Priority alias `formatting` referenced by hook `format` is not declared in `priorities`
+    ");
+}
+
+#[test]
+fn priority_aliases_cannot_contain_whitespace() {
+    let context = TestContext::new();
+    context.write_pre_commit_config(indoc::indoc! {r#"
+        priorities:
+          "static checks": 10
+        repos: []
+    "#});
+
+    cmd_snapshot!(context.filters(), context.validate_config().arg(PRE_COMMIT_CONFIG_YAML), @r#"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Failed to parse `.pre-commit-config.yaml`
+      caused by: error: line 2 column 3: priority alias `static checks` cannot contain whitespace
+     --> <input>:2:3
+      |
+    1 | priorities:
+    2 |   "static checks": 10
+      |   ^ priority alias `static checks` cannot contain whitespace
+    3 | repos: []
+      |
+    "#);
+}
+
+#[test]
+fn duplicate_and_unused_priority_aliases_are_valid() {
+    let context = TestContext::new();
+    context.write_pre_commit_config(indoc::indoc! {r"
+        priorities:
+          checks: 10
+          verification: 10
+          unused: 20
+        repos:
+          - repo: local
+            hooks:
+              - id: check
+                name: Check
+                entry: check
+                language: system
+                priority: checks
+              - id: verify
+                name: Verify
+                entry: verify
+                language: system
+                priority: verification
+    "});
+
+    cmd_snapshot!(context.filters(), context.validate_config().arg(PRE_COMMIT_CONFIG_YAML), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    success: All configs are valid
     ");
 }
 

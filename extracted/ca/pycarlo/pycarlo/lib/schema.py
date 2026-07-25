@@ -260,6 +260,26 @@ class AgentEvaluationRunSamplesStatus(pycarlo.lib.types.Enum):
     __choices__ = ("OK", "UNAVAILABLE", "UNSUPPORTED")
 
 
+class AgentEvaluationRunSamplesUnsupportedReason(pycarlo.lib.types.Enum):
+    """Why an evaluation run's exact samples are unsupported.
+
+    Enumeration Choices:
+
+    * `NON_AGENT_EVALUATION_MONITOR`None
+    * `NON_CLICKHOUSE_SPAN_EVALUATION`None
+    * `TRACE_AGGREGATION`None
+    * `UNSUPPORTED_SCORE_OUTPUT_TYPE`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "NON_AGENT_EVALUATION_MONITOR",
+        "NON_CLICKHOUSE_SPAN_EVALUATION",
+        "TRACE_AGGREGATION",
+        "UNSUPPORTED_SCORE_OUTPUT_TYPE",
+    )
+
+
 class AgentEvaluationSampleSortDirection(pycarlo.lib.types.Enum):
     """Score sort direction for evaluation run samples.
 
@@ -277,8 +297,13 @@ class AgentGraphNodeKind(pycarlo.lib.types.Enum):
     """Kind of a fused agent-graph node — derived from the underlying
     span.  `is_llm_call=True` → LLM; `is_tool_call=True` → TOOL;
     otherwise the Traceloop / OpenLLMetry suffix on the span name
-    (`.workflow`, `.task`, `.agent`, `.chain`) becomes the kind.
-    Anything left over is UNKNOWN.
+    (`.workflow`, `.task`, `.agent`, `.chain`) becomes the kind. Spans
+    those signals leave unclassified fall back to a convention ladder
+    (strongest evidence first): a populated model → LLM; a span named
+    after its declared task / workflow attribute → TASK / WORKFLOW; a
+    trace root → WORKFLOW; `agent.task.` / `agent.tool.` name
+    prefixes; then conservative name-keyword matching. Anything left
+    over is UNKNOWN.
 
     Enumeration Choices:
 
@@ -9113,9 +9138,8 @@ class AgentEvaluationRunSamplesInput(sgqlc.types.Input):
     """Number of stored evaluation rows to skip"""
 
     include_explanation = sgqlc.types.Field(Boolean, graphql_name="includeExplanation")
-    """Include the stored judge explanation when available. Evaluation
-    runs recorded before stored explanations were enabled may return
-    null.
+    """Include the stored judge explanation when available; explanation
+    is null when unavailable.
     """
 
     sort_direction = sgqlc.types.Field(
@@ -19851,7 +19875,7 @@ class AgentEvaluationRunSampleRow(sgqlc.types.Type):
     """Span identifier, when available"""
 
     explanation = sgqlc.types.Field(String, graphql_name="explanation")
-    """Stored judge reasoning, when available"""
+    """Stored judge reasoning; null when unavailable."""
 
     input_preview = sgqlc.types.Field(String, graphql_name="inputPreview")
     """Input/prompt preview, when available"""
@@ -19868,13 +19892,20 @@ class AgentEvaluationRunSampleRow(sgqlc.types.Type):
 
 class AgentEvaluationRunSamplesResult(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("status", "message", "rows", "total_count", "has_more")
+    __field_names__ = ("status", "message", "unsupported_reason", "rows", "total_count", "has_more")
     status = sgqlc.types.Field(
         sgqlc.types.non_null(AgentEvaluationRunSamplesStatus), graphql_name="status"
     )
 
     message = sgqlc.types.Field(String, graphql_name="message")
     """Human-readable unsupported/unavailable reason"""
+
+    unsupported_reason = sgqlc.types.Field(
+        AgentEvaluationRunSamplesUnsupportedReason, graphql_name="unsupportedReason"
+    )
+    """Structured reason when status is UNSUPPORTED; null for supported
+    or temporarily unavailable samples.
+    """
 
     rows = sgqlc.types.Field(
         sgqlc.types.non_null(
@@ -20058,8 +20089,12 @@ class AgentGraphNode(sgqlc.types.Type):
     kind = sgqlc.types.Field(sgqlc.types.non_null(AgentGraphNodeKind), graphql_name="kind")
     """Span kind. LLM and TOOL are derived from the ingest-layer flags on
     the span; WORKFLOW / TASK / AGENT / CHAIN come from the Traceloop
-    / OpenLLMetry kind suffix on the span name; UNKNOWN is the catch-
-    all.
+    / OpenLLMetry kind suffix on the span name. Spans those signals
+    leave unclassified fall back to conventions: a populated model →
+    LLM, a span named after its declared task / workflow attribute →
+    TASK / WORKFLOW, trace roots → WORKFLOW, `agent.task.` /
+    `agent.tool.` name prefixes, then conservative name-keyword
+    matching. UNKNOWN is the catch-all for spans with no safe signal.
     """
 
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
@@ -20480,6 +20515,7 @@ class AgentHealthIssue(sgqlc.types.Type):
         "related_evidence_ids",
         "focus_area",
         "lifecycle",
+        "first_detected",
         "evidence",
         "recommended_actions",
         "action_context",
@@ -20529,6 +20565,17 @@ class AgentHealthIssue(sgqlc.types.Type):
     """Cross-run status vs the previous published report. Null when there
     was no prior report to diff against (first run, or the lookup was
     skipped/failed) and on reports produced before lifecycle tracking
+    shipped.
+    """
+
+    first_detected = sgqlc.types.Field(DateTime, graphql_name="firstDetected")
+    """When this issue was FIRST detected across runs — carried forward
+    hop-by-hop through the lifecycle match (an ONGOING issue keeps its
+    prior first_detected; a NEW one is stamped with this run's
+    detection date), so the agent can report 'failing since <date>'
+    and the UI can derive an age/chronic badge. Null when there was no
+    prior report to diff against (first run, or the lookup was
+    skipped/failed) and on reports produced before chronicity tracking
     shipped.
     """
 

@@ -19,7 +19,7 @@ jobs:
       os-matrix: ${{ steps.metadata.outputs.os-matrix }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.x"
       - name: Parse pyproject.toml for Python versions and OS matrix
@@ -67,7 +67,7 @@ jobs:
       UV_BREAK_SYSTEM_PACKAGES: "1"
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
       - name: Install uv
@@ -169,7 +169,7 @@ jobs:
       - name: Restore ruff cache
         if: runner.environment == 'github-hosted'
         id: ruff-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: .ruff_cache
           key: ruff-${{ runner.os }}-py${{ matrix.python }}-${{ github.sha }}
@@ -201,7 +201,7 @@ jobs:
           # and stale journal files cause "database is locked" errors.
           COVERAGE_FILE: "${{ runner.temp }}/.coverage"
         run: >-
-          pytest -m "not local_only"
+          pytest -m "${{ env.PYTEST_MARKER_EXPR }}"
           --cov=${{ env.SRC_PATH }}/${{ env.PACKAGE_MODULE }}
           --cov-report=term-missing
           --cov-report=xml:${{ env.COV_REPORT_FILE }}
@@ -236,12 +236,62 @@ jobs:
         continue-on-error: true
         shell: python
         run: |
-          import subprocess, sys
+          import subprocess, sys, tempfile
           import rtoml
           from pathlib import Path
+
+          # Audit the project's OWN resolved dependency tree, not the ambient
+          # environment. "Install dev deps" uses --system, so the interpreter
+          # being audited is the runner image's, and that image ships packages
+          # this project neither declares nor distributes (setuptools, pip,
+          # wheel). Auditing those reported CVEs no consumer of this project is
+          # exposed to, and a scan that is permanently yellow is a scan everyone
+          # learns to ignore. Resolving pyproject.toml here keeps the result
+          # identical on every OS/python and dependent only on what we declare.
           data = rtoml.load(Path("pyproject.toml"))
+
+          # Not every project declares dev dependencies, and those that do may use
+          # either an extra or a PEP 735 group. Asking uv for one that does not
+          # exist is a hard error ("Requested extra not found"), which would leave
+          # the audit permanently broken here rather than merely noisy, so select
+          # the flag from what this project actually declares.
+          selector = []
+          if "dev" in data.get("project", {}).get("optional-dependencies", {}):
+              selector = ["--extra", "dev"]
+          elif "dev" in data.get("dependency-groups", {}):
+              selector = ["--group", "dev"]
+
+          tmp = Path(tempfile.mkdtemp())
+          req = tmp / "compiled-requirements.txt"
+          subprocess.check_call(
+              ["uv", "pip", "compile", *selector, "pyproject.toml", "-o", str(req), "--quiet"]
+          )
+
+          # Drop direct URL references ("pkg @ git+https://...") before auditing.
+          # pip-audit cannot audit those (they are not on PyPI) but, given a
+          # requirements file, first tries to `git clone` each one to resolve a
+          # version - a slow, credential-dependent fetch. No public project here
+          # uses one today, yet "allow-direct-references" is enabled, so this
+          # guards the day one appears and keeps this step identical to the
+          # default_cicd_private template's.
+          audit_req = tmp / "audit-requirements.txt"
+          kept, dropped = [], []
+          for line in req.read_text(encoding="utf-8").splitlines():
+              if " @ " in line and not line.lstrip().startswith("#"):
+                  dropped.append(line.split(" @ ", 1)[0].strip())
+              else:
+                  kept.append(line)
+          audit_req.write_text("\n".join(kept) + "\n", encoding="utf-8")
+          if dropped:
+              # Never drop coverage silently: name what is not being audited here.
+              print(f"::notice::pip-audit: not auditing {len(dropped)} direct-URL dependency/ies "
+                    f"(audited in their own repo): {', '.join(sorted(dropped))}")
+
+          req = audit_req
           vulns = data.get("tool", {}).get("pip-audit", {}).get("ignore-vulns", [])
-          cmd = ["pip-audit", "--skip-editable"]
+          # --no-deps: the compiled file is already a complete pinned resolution,
+          # so pip-audit must audit it verbatim rather than re-resolving it.
+          cmd = ["pip-audit", "--no-deps", "-r", str(req)]
           for v in vulns:
               cmd.extend(["--ignore-vuln", v])
           sys.exit(subprocess.call(cmd))
@@ -293,7 +343,7 @@ jobs:
 
       - name: Save ruff cache
         if: always() && runner.environment == 'github-hosted' && steps.ruff-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: .ruff_cache
           key: ruff-${{ runner.os }}-py${{ matrix.python }}-${{ github.sha }}
@@ -303,7 +353,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
 
@@ -342,7 +392,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
 

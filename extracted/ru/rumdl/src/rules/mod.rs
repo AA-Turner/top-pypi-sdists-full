@@ -72,6 +72,8 @@ mod md079_chunk_label_spaces;
 mod md080_heading_anchor_collision;
 mod md081_no_excessive_emphasis;
 mod md082_no_empty_sections;
+mod md083_mojibake;
+mod md084_invisible_characters;
 
 pub use code_fence_utils::CodeFenceStyle;
 pub use md001_heading_increment::MD001HeadingIncrement;
@@ -146,6 +148,8 @@ pub use md079_chunk_label_spaces::MD079ChunkLabelSpaces;
 pub use md080_heading_anchor_collision::MD080HeadingAnchorCollision;
 pub use md081_no_excessive_emphasis::MD081NoExcessiveEmphasis;
 pub use md082_no_empty_sections::MD082NoEmptySections;
+pub use md083_mojibake::MD083DetectMojibake;
+pub use md084_invisible_characters::MD084InvisibleCharacters;
 
 mod md012_no_multiple_blanks;
 pub use md012_no_multiple_blanks::MD012NoMultipleBlanks;
@@ -569,6 +573,16 @@ const RULES: &[RuleEntry] = &[
     RuleEntry {
         name: "MD082",
         ctor: MD082NoEmptySections::from_config,
+        opt_in: true,
+    },
+    RuleEntry {
+        name: "MD083",
+        ctor: MD083DetectMojibake::from_config,
+        opt_in: true,
+    },
+    RuleEntry {
+        name: "MD084",
+        ctor: MD084InvisibleCharacters::from_config,
         opt_in: true,
     },
 ];

@@ -1,19 +1,15 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.retry_policy_backoff import check_retry_policy_backoff
-from ..models.retry_policy_backoff import RetryPolicyBackoff
 from dateutil.parser import isoparse
-from typing import cast
-import datetime
 
+from ..models.retry_policy_backoff import RetryPolicyBackoff, check_retry_policy_backoff
+from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="RetryPolicy")
 
@@ -61,15 +57,15 @@ class RetryPolicy:
     max_retries: int
     backoff: RetryPolicyBackoff
     delay_seconds: int
-    max_delay_seconds: int | None | Unset = UNSET
+    max_delay_seconds: int | Unset | None = UNSET
     retry_on_timeout: bool | Unset = False
     retry_on_connection_error: bool | Unset = False
     retry_statuses: list[str] | Unset = UNSET
     retry_statuses_except: list[str] | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    updated_at: datetime.datetime | None | Unset = UNSET
-    deleted_at: datetime.datetime | None | Unset = UNSET
-    version: int | None | Unset = UNSET
+    created_at: datetime.datetime | Unset | None = UNSET
+    updated_at: datetime.datetime | Unset | None = UNSET
+    deleted_at: datetime.datetime | Unset | None = UNSET
+    version: int | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -81,7 +77,7 @@ class RetryPolicy:
 
         delay_seconds = self.delay_seconds
 
-        max_delay_seconds: int | None | Unset
+        max_delay_seconds: int | Unset | None
         if isinstance(self.max_delay_seconds, Unset):
             max_delay_seconds = UNSET
         else:
@@ -99,7 +95,7 @@ class RetryPolicy:
         if not isinstance(self.retry_statuses_except, Unset):
             retry_statuses_except = self.retry_statuses_except
 
-        created_at: None | str | Unset
+        created_at: str | Unset | None
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -107,7 +103,7 @@ class RetryPolicy:
         else:
             created_at = self.created_at
 
-        updated_at: None | str | Unset
+        updated_at: str | Unset | None
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -115,7 +111,7 @@ class RetryPolicy:
         else:
             updated_at = self.updated_at
 
-        deleted_at: None | str | Unset
+        deleted_at: str | Unset | None
         if isinstance(self.deleted_at, Unset):
             deleted_at = UNSET
         elif isinstance(self.deleted_at, datetime.datetime):
@@ -123,7 +119,7 @@ class RetryPolicy:
         else:
             deleted_at = self.deleted_at
 
-        version: int | None | Unset
+        version: int | Unset | None
         if isinstance(self.version, Unset):
             version = UNSET
         else:
@@ -171,7 +167,7 @@ class RetryPolicy:
 
         delay_seconds = d.pop("delay_seconds")
 
-        def _parse_max_delay_seconds(data: object) -> int | None | Unset:
+        def _parse_max_delay_seconds(data: object) -> int | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -188,7 +184,7 @@ class RetryPolicy:
 
         retry_statuses_except = cast(list[str], d.pop("retry_statuses_except", UNSET))
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -205,7 +201,7 @@ class RetryPolicy:
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_updated_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -222,7 +218,7 @@ class RetryPolicy:
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 
-        def _parse_deleted_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_deleted_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -239,7 +235,7 @@ class RetryPolicy:
 
         deleted_at = _parse_deleted_at(d.pop("deleted_at", UNSET))
 
-        def _parse_version(data: object) -> int | None | Unset:
+        def _parse_version(data: object) -> int | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

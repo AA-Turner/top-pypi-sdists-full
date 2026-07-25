@@ -1,19 +1,15 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.export_format import check_export_format
-from ..models.export_format import ExportFormat
 from dateutil.parser import isoparse
-from typing import cast
-import datetime
 
+from ..models.export_format import ExportFormat, check_export_format
+from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="Export")
 
@@ -65,83 +61,83 @@ class Export:
     """
 
     format_: ExportFormat
-    environment: None | str | Unset = UNSET
-    filteroccurred_at: None | str | Unset = UNSET
-    filteractor_type: None | str | Unset = UNSET
-    filteractor_id: None | str | Unset = UNSET
-    filterevent_type: None | str | Unset = UNSET
-    filterresource_type: None | str | Unset = UNSET
-    filterresource_id: None | str | Unset = UNSET
-    filtersearch: None | str | Unset = UNSET
-    filterdo_not_forward: bool | None | Unset = UNSET
-    url: None | str | Unset = UNSET
-    expires_at: datetime.datetime | None | Unset = UNSET
+    environment: str | Unset | None = UNSET
+    filteroccurred_at: str | Unset | None = UNSET
+    filteractor_type: str | Unset | None = UNSET
+    filteractor_id: str | Unset | None = UNSET
+    filterevent_type: str | Unset | None = UNSET
+    filterresource_type: str | Unset | None = UNSET
+    filterresource_id: str | Unset | None = UNSET
+    filtersearch: str | Unset | None = UNSET
+    filterdo_not_forward: bool | Unset | None = UNSET
+    url: str | Unset | None = UNSET
+    expires_at: datetime.datetime | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         format_: str = self.format_
 
-        environment: None | str | Unset
+        environment: str | Unset | None
         if isinstance(self.environment, Unset):
             environment = UNSET
         else:
             environment = self.environment
 
-        filteroccurred_at: None | str | Unset
+        filteroccurred_at: str | Unset | None
         if isinstance(self.filteroccurred_at, Unset):
             filteroccurred_at = UNSET
         else:
             filteroccurred_at = self.filteroccurred_at
 
-        filteractor_type: None | str | Unset
+        filteractor_type: str | Unset | None
         if isinstance(self.filteractor_type, Unset):
             filteractor_type = UNSET
         else:
             filteractor_type = self.filteractor_type
 
-        filteractor_id: None | str | Unset
+        filteractor_id: str | Unset | None
         if isinstance(self.filteractor_id, Unset):
             filteractor_id = UNSET
         else:
             filteractor_id = self.filteractor_id
 
-        filterevent_type: None | str | Unset
+        filterevent_type: str | Unset | None
         if isinstance(self.filterevent_type, Unset):
             filterevent_type = UNSET
         else:
             filterevent_type = self.filterevent_type
 
-        filterresource_type: None | str | Unset
+        filterresource_type: str | Unset | None
         if isinstance(self.filterresource_type, Unset):
             filterresource_type = UNSET
         else:
             filterresource_type = self.filterresource_type
 
-        filterresource_id: None | str | Unset
+        filterresource_id: str | Unset | None
         if isinstance(self.filterresource_id, Unset):
             filterresource_id = UNSET
         else:
             filterresource_id = self.filterresource_id
 
-        filtersearch: None | str | Unset
+        filtersearch: str | Unset | None
         if isinstance(self.filtersearch, Unset):
             filtersearch = UNSET
         else:
             filtersearch = self.filtersearch
 
-        filterdo_not_forward: bool | None | Unset
+        filterdo_not_forward: bool | Unset | None
         if isinstance(self.filterdo_not_forward, Unset):
             filterdo_not_forward = UNSET
         else:
             filterdo_not_forward = self.filterdo_not_forward
 
-        url: None | str | Unset
+        url: str | Unset | None
         if isinstance(self.url, Unset):
             url = UNSET
         else:
             url = self.url
 
-        expires_at: None | str | Unset
+        expires_at: str | Unset | None
         if isinstance(self.expires_at, Unset):
             expires_at = UNSET
         elif isinstance(self.expires_at, datetime.datetime):
@@ -186,7 +182,7 @@ class Export:
         d = dict(src_dict)
         format_ = check_export_format(d.pop("format"))
 
-        def _parse_environment(data: object) -> None | str | Unset:
+        def _parse_environment(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -195,7 +191,7 @@ class Export:
 
         environment = _parse_environment(d.pop("environment", UNSET))
 
-        def _parse_filteroccurred_at(data: object) -> None | str | Unset:
+        def _parse_filteroccurred_at(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -204,7 +200,7 @@ class Export:
 
         filteroccurred_at = _parse_filteroccurred_at(d.pop("filter[occurred_at]", UNSET))
 
-        def _parse_filteractor_type(data: object) -> None | str | Unset:
+        def _parse_filteractor_type(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -213,7 +209,7 @@ class Export:
 
         filteractor_type = _parse_filteractor_type(d.pop("filter[actor_type]", UNSET))
 
-        def _parse_filteractor_id(data: object) -> None | str | Unset:
+        def _parse_filteractor_id(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -222,7 +218,7 @@ class Export:
 
         filteractor_id = _parse_filteractor_id(d.pop("filter[actor_id]", UNSET))
 
-        def _parse_filterevent_type(data: object) -> None | str | Unset:
+        def _parse_filterevent_type(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -231,7 +227,7 @@ class Export:
 
         filterevent_type = _parse_filterevent_type(d.pop("filter[event_type]", UNSET))
 
-        def _parse_filterresource_type(data: object) -> None | str | Unset:
+        def _parse_filterresource_type(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -240,7 +236,7 @@ class Export:
 
         filterresource_type = _parse_filterresource_type(d.pop("filter[resource_type]", UNSET))
 
-        def _parse_filterresource_id(data: object) -> None | str | Unset:
+        def _parse_filterresource_id(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -249,7 +245,7 @@ class Export:
 
         filterresource_id = _parse_filterresource_id(d.pop("filter[resource_id]", UNSET))
 
-        def _parse_filtersearch(data: object) -> None | str | Unset:
+        def _parse_filtersearch(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -258,7 +254,7 @@ class Export:
 
         filtersearch = _parse_filtersearch(d.pop("filter[search]", UNSET))
 
-        def _parse_filterdo_not_forward(data: object) -> bool | None | Unset:
+        def _parse_filterdo_not_forward(data: object) -> bool | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -267,7 +263,7 @@ class Export:
 
         filterdo_not_forward = _parse_filterdo_not_forward(d.pop("filter[do_not_forward]", UNSET))
 
-        def _parse_url(data: object) -> None | str | Unset:
+        def _parse_url(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -276,7 +272,7 @@ class Export:
 
         url = _parse_url(d.pop("url", UNSET))
 
-        def _parse_expires_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_expires_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

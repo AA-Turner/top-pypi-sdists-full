@@ -4,28 +4,25 @@
 //! constructor validation and arithmetic behavior.
 
 use std::{
-    borrow::Cow,
-    cmp::Ordering,
     collections::hash_map::DefaultHasher,
-    fmt::Write,
+    fmt::{self, Write},
     hash::{Hash, Hasher},
     mem,
 };
 
-use ahash::AHashSet;
-use chrono::{Datelike, NaiveDate};
+use chrono::{Datelike, NaiveDate, format::StrftimeItems};
+use monty_types::{OsFunctionCall, ResourceError, ResourceTracker};
 
 use crate::{
-    args::{ArgValues, FromArgs},
+    args::{ArgValues, FromArgs, StrArg},
     bytecode::{CallResult, VM},
-    exception_private::{ExcType, RunError, RunResult, SimpleException},
+    defer_drop,
+    exception_private::{ExcType, ExcTypeExt, RunError, RunResult, SimpleException},
     hash::HashValue,
-    heap::{Heap, HeapData, HeapId, HeapItem, HeapRead},
+    heap::{Heap, HeapData, HeapId, HeapItem, HeapRead, HeapReadOutput},
     intern::{Interns, StaticStrings},
-    os::OsFunctionCall,
-    resource::{ResourceError, ResourceTracker},
     types::{
-        AttrCallResult, PyTrait, TimeDelta, Type,
+        AttrCallResult, CmpOrder, LazyHeapSet, PyTrait, TimeDelta, Type,
         str::{allocate_string, allocate_string_no_interning},
         timedelta,
     },
@@ -125,13 +122,13 @@ pub(crate) fn init(vm: &mut VM<'_, impl ResourceTracker>, args: ArgValues) -> Ru
 
 /// Argument shape for `date(year, month, day)`.
 ///
-/// CPython's `date()` is C-implemented (`PyArg_ParseTupleAndKeywords`) and uses
-/// `c_error` wording — "function takes at most N arguments", "function missing
-/// required argument 'X' (pos N)", etc. Unlike `datetime()` it does **not**
-/// prefix "positional" in the at-most message, so we leave `at_most_positional`
-/// unset.
+/// CPython's `date()` is C-implemented (`PyArg_ParseTupleAndKeywords`), hence
+/// `style = c` — "function takes at most N arguments", "function missing
+/// required argument 'X' (pos N)", etc. Unlike `datetime()` it has no
+/// keyword-only fields, so the derive keeps the plain (non-"positional")
+/// at-most wording automatically.
 #[derive(FromArgs)]
-#[from_args(name = "function", c_error, at_most_total)]
+#[from_args(name = "function", style = c, at_most_total)]
 struct DateInitArgs {
     year: i32,
     month: i32,
@@ -158,7 +155,7 @@ pub(crate) fn class_fromisoformat(
 ) -> RunResult<Value> {
     let value = args.get_one_arg("date.fromisoformat", heap)?;
     let s = extract_str_arg(&value, "fromisoformat", heap, interns);
-    value.drop_with_heap(heap);
+    value.drop_with(heap);
     let s = s?;
 
     let date = parse_iso_date(&s)
@@ -210,8 +207,11 @@ impl<'h> PyTrait<'h> for HeapRead<'h, Date> {
         None
     }
 
-    fn py_eq(&self, other: &Self, vm: &mut VM<'h, impl ResourceTracker>) -> Result<bool, ResourceError> {
-        Ok(*self.get(vm.heap) == *other.get(vm.heap))
+    fn py_eq_impl(&self, other: &Value, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Option<bool>> {
+        let Some(HeapReadOutput::Date(other)) = other.read_heap(vm) else {
+            return Ok(None);
+        };
+        Ok(Some(*self.get(vm.heap) == *other.get(vm.heap)))
     }
 
     fn py_hash(&self, _self_id: HeapId, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Option<HashValue>> {
@@ -220,8 +220,8 @@ impl<'h> PyTrait<'h> for HeapRead<'h, Date> {
         Ok(Some(HashValue::new(hasher.finish())))
     }
 
-    fn py_cmp(&self, other: &Self, vm: &mut VM<'h, impl ResourceTracker>) -> Result<Option<Ordering>, ResourceError> {
-        Ok(self.get(vm.heap).partial_cmp(other.get(vm.heap)))
+    fn py_cmp(&self, other: &Self, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<CmpOrder> {
+        Ok(CmpOrder::from_total(self.get(vm.heap).partial_cmp(other.get(vm.heap))))
     }
 
     fn py_bool(&self, _vm: &mut VM<'h, impl ResourceTracker>) -> bool {
@@ -232,16 +232,16 @@ impl<'h> PyTrait<'h> for HeapRead<'h, Date> {
         &self,
         f: &mut impl Write,
         vm: &mut VM<'h, impl ResourceTracker>,
-        _heap_ids: &mut AHashSet<HeapId>,
+        _heap_ids: &mut LazyHeapSet,
     ) -> RunResult<()> {
         let (year, month, day) = to_ymd(*self.get(vm.heap));
         write!(f, "datetime.date({year}, {month}, {day})")?;
         Ok(())
     }
 
-    fn py_str(&self, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Cow<'static, str>> {
+    fn py_str(&self, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Value> {
         let (year, month, day) = to_ymd(*self.get(vm.heap));
-        Ok(Cow::Owned(format!("{year:04}-{month:02}-{day:02}")))
+        Ok(allocate_string(format!("{year:04}-{month:02}-{day:02}"), vm.heap)?)
     }
 
     fn py_call_attr(
@@ -263,7 +263,8 @@ impl<'h> PyTrait<'h> for HeapRead<'h, Date> {
             }
             Some(id) if id == StaticStrings::Strftime => {
                 let StrftimeArgs { format } = StrftimeArgs::from_args(args, vm)?;
-                let formatted = date.0.format(&format).to_string();
+                defer_drop!(format, vm);
+                let formatted = format_date_strftime(date, format.as_str(vm))?;
                 Ok(CallResult::Value(allocate_string(formatted, vm.heap)?))
             }
             Some(id) if id == StaticStrings::Replace => {
@@ -362,10 +363,45 @@ pub(crate) fn py_sub_timedelta(
     }
 }
 
+/// Formats a [`Date`] with a `strftime` directive string, shared by the
+/// `date.strftime()` method and f-string formatting (`f"{d:%Y-%m-%d}"`).
+///
+/// Uses `chrono`'s **lenient** parser so an unrecognised directive is emitted
+/// verbatim (`%Q` → `"%Q"`), matching glibc/Linux CPython — see
+/// [`invalid_strftime_error`] for why that platform is the target. The
+/// `ValueError` path remains for the rare directive that parses but can't be
+/// rendered (so [`render_strftime`] never has to panic).
+pub(crate) fn format_date_strftime(date: Date, format: &str) -> RunResult<String> {
+    render_strftime(date.0.format_with_items(StrftimeItems::new_lenient(format))).ok_or_else(invalid_strftime_error)
+}
+
+/// Renders a `chrono` strftime result without the panic that `.to_string()`
+/// triggers on an invalid directive.
+///
+/// `chrono`'s `DelayedFormat` `Display` impl returns `fmt::Error` for an
+/// unsupported/invalid directive, and `ToString::to_string` turns that into a
+/// panic — unacceptable for untrusted sandbox input. Writing into our own
+/// buffer surfaces the failure as `None` so the caller can raise instead.
+pub(crate) fn render_strftime(formatted: impl fmt::Display) -> Option<String> {
+    let mut out = String::new();
+    write!(out, "{formatted}").ok().map(|()| out)
+}
+
+/// The `ValueError` raised when a `strftime` directive parses but can't be
+/// rendered for this value (e.g. a time directive on a bare `date`).
+///
+/// Unrecognised directives no longer reach this path — the lenient parser
+/// emits them verbatim to match glibc/Linux CPython (`strftime('%Q') == '%Q'`),
+/// rather than CPython's macOS behaviour (`'Q'`) which we deliberately don't
+/// follow; see `limitations/datetime.md`.
+pub(crate) fn invalid_strftime_error() -> RunError {
+    SimpleException::new_msg(ExcType::ValueError, "Invalid format string".to_owned()).into()
+}
+
 /// Argument shape for `date.strftime(format)` and `datetime.strftime(format)`.
 ///
 /// CPython implements `strftime` as a C method and reports errors with the
-/// bare method name (no class prefix), so we use `c_error_named` + the
+/// bare method name (no class prefix), so we use `style = c_named` + the
 /// `"strftime"` descriptor — matching wordings like
 /// `strftime() missing required argument 'format' (pos 1)` and
 /// `strftime() takes at most 1 argument (2 given)`.
@@ -375,9 +411,9 @@ pub(crate) fn py_sub_timedelta(
 /// `None`-vs-`NoneType` special case — so the type-check logic lives in
 /// the derive rather than a hand-written extract helper.
 #[derive(FromArgs)]
-#[from_args(name = "strftime", c_error_named, at_most_total, bad_arg)]
+#[from_args(name = "strftime", style = c_named, at_most_total, bad_arg)]
 pub(crate) struct StrftimeArgs {
-    pub(crate) format: String,
+    pub(crate) format: StrArg,
 }
 
 /// Keyword arguments for `date.replace()`. All keyword-only; absent fields

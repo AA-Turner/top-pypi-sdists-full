@@ -1,19 +1,17 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..types import UNSET, Unset
-
 from ..models.subscription_response_attributes_discount_source import (
+    SubscriptionResponseAttributesDiscountSource,
     check_subscription_response_attributes_discount_source,
 )
-from ..models.subscription_response_attributes_discount_source import SubscriptionResponseAttributesDiscountSource
-from typing import cast
-from uuid import UUID
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.next_tier_response import NextTierResponse
@@ -55,11 +53,11 @@ class SubscriptionResponseAttributes:
     discount_amount_cents: int
     total_cents: int
     items: list[SubscriptionItemResponse]
-    status: None | str | Unset = UNSET
-    current_period_start: None | str | Unset = UNSET
-    current_period_end: None | str | Unset = UNSET
+    status: str | Unset | None = UNSET
+    current_period_start: str | Unset | None = UNSET
+    current_period_end: str | Unset | None = UNSET
     next_tier: NextTierResponse | Unset = UNSET
-    payment_method: None | Unset | UUID = UNSET
+    payment_method: Unset | UUID | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -78,19 +76,19 @@ class SubscriptionResponseAttributes:
             items_item = items_item_data.to_dict()
             items.append(items_item)
 
-        status: None | str | Unset
+        status: str | Unset | None
         if isinstance(self.status, Unset):
             status = UNSET
         else:
             status = self.status
 
-        current_period_start: None | str | Unset
+        current_period_start: str | Unset | None
         if isinstance(self.current_period_start, Unset):
             current_period_start = UNSET
         else:
             current_period_start = self.current_period_start
 
-        current_period_end: None | str | Unset
+        current_period_end: str | Unset | None
         if isinstance(self.current_period_end, Unset):
             current_period_end = UNSET
         else:
@@ -100,7 +98,7 @@ class SubscriptionResponseAttributes:
         if not isinstance(self.next_tier, Unset):
             next_tier = self.next_tier.to_dict()
 
-        payment_method: None | str | Unset
+        payment_method: str | Unset | None
         if isinstance(self.payment_method, Unset):
             payment_method = UNSET
         elif isinstance(self.payment_method, UUID):
@@ -156,7 +154,7 @@ class SubscriptionResponseAttributes:
 
             items.append(items_item)
 
-        def _parse_status(data: object) -> None | str | Unset:
+        def _parse_status(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -165,7 +163,7 @@ class SubscriptionResponseAttributes:
 
         status = _parse_status(d.pop("status", UNSET))
 
-        def _parse_current_period_start(data: object) -> None | str | Unset:
+        def _parse_current_period_start(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -174,7 +172,7 @@ class SubscriptionResponseAttributes:
 
         current_period_start = _parse_current_period_start(d.pop("current_period_start", UNSET))
 
-        def _parse_current_period_end(data: object) -> None | str | Unset:
+        def _parse_current_period_end(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -190,7 +188,7 @@ class SubscriptionResponseAttributes:
         else:
             next_tier = NextTierResponse.from_dict(_next_tier)
 
-        def _parse_payment_method(data: object) -> None | Unset | UUID:
+        def _parse_payment_method(data: object) -> Unset | UUID | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

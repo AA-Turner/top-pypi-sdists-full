@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: connector-py
-Version: 4.240.0
+Version: 4.242.0
 Summary: An Abstract Tool to Perform Actions on Integrations.
 Author-email: teamlumos <security@lumos.com>
 License-Expression: Apache-2.0
@@ -18,7 +18,7 @@ License-File: LICENSE.txt
 Requires-Dist: connector-sdk-types==0.60.0
 Requires-Dist: gql[httpx]~=3.5.3
 Requires-Dist: httpx~=0.28.1
-Requires-Dist: msgpack~=1.1.2
+Requires-Dist: msgpack~=1.2.1
 Requires-Dist: pydantic~=2.9.2
 Requires-Dist: urllib3~=2.6.2
 Requires-Dist: botocore~=1.40.61
@@ -35,7 +35,7 @@ Requires-Dist: pytest-asyncio~=1.3.0; extra == "dev"
 Requires-Dist: pytest-httpx~=0.36.0; extra == "dev"
 Requires-Dist: Flask~=3.1.2; extra == "dev"
 Requires-Dist: pyinstaller~=6.8.0; extra == "dev"
-Requires-Dist: pip-licenses~=5.5.0; extra == "dev"
+Requires-Dist: pip-licenses~=5.5.5; extra == "dev"
 Provides-Extra: all
 Requires-Dist: connector-py[dev,fastapi]; extra == "all"
 Dynamic: license-file

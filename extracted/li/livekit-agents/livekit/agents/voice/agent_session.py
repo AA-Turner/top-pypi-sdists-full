@@ -30,7 +30,7 @@ from livekit.protocol.agent_pb import agent_session as agent_pb
 from .. import cli, inference, llm, stt, tts, utils, vad
 from .._exceptions import APIError
 from ..job import get_job_context
-from ..llm import AgentHandoff, ChatContext, MetricsReport
+from ..llm import LLM, AgentHandoff, ChatContext, MetricsReport
 from ..llm.chat_context import Instructions
 from ..log import logger
 from ..metrics import AgentSessionUsage, ModelUsageCollector
@@ -40,6 +40,7 @@ from ..types import (
     NOT_GIVEN,
     APIConnectOptions,
     NotGivenOr,
+    recording_enabled,
 )
 from ..utils.deprecation import deprecate_params
 from ..utils.misc import is_given
@@ -97,14 +98,16 @@ if TYPE_CHECKING:
 class RecordingOptions(TypedDict, total=False):
     """Granular control over which recording features are active.
 
-    All keys default to ``True`` when not specified, so ``{"logs": False}``
-    means "record everything except logs."
+    Recording keys default to ``True`` when not specified, so ``{"logs": False}``
+    means "record everything except logs." Redaction defaults to the project setting;
+    ``False`` is ignored when redaction is enabled globally for the project.
 
     Can be passed directly to :pymethod:`AgentSession.start(record=...)`:
 
     * ``record=True``  → all on (backward compatible)
     * ``record=False`` → all off (backward compatible)
     * ``record={"audio": True, "traces": False}`` → granular
+    * ``record={"redaction": True}`` → enable redaction for the session
     """
 
     audio: bool
@@ -115,6 +118,8 @@ class RecordingOptions(TypedDict, total=False):
     """Export OpenTelemetry logs. Defaults to ``True``."""
     transcript: bool
     """Upload the conversation transcript (chat history). Defaults to ``True``."""
+    redaction: bool
+    """Enable redaction. ``False`` does not disable project redaction."""
 
 
 _RECORDING_ALL_ON: RecordingOptions = {
@@ -122,12 +127,14 @@ _RECORDING_ALL_ON: RecordingOptions = {
     "traces": True,
     "logs": True,
     "transcript": True,
+    "redaction": False,
 }
 _RECORDING_ALL_OFF: RecordingOptions = {
     "audio": False,
     "traces": False,
     "logs": False,
     "transcript": False,
+    "redaction": False,
 }
 
 
@@ -477,6 +484,11 @@ class AgentSession(rtc.EventEmitter[EventTypes], Generic[Userdata_T]):
         self._llm = llm or None
         self._tts = tts or None
 
+        # eagerly establish DNS/TLS to the LLM provider so the first inference
+        # request doesn't pay connection setup costs
+        if isinstance(self._llm, LLM):
+            self._llm.prewarm(loop=self._loop)
+
         self._keyterm_detector = KeytermDetector(
             static_keyterms=self._opts.stt_context_options["keyterms"],
             options=self._opts.stt_context_options["keyterm_detection"],
@@ -761,7 +773,7 @@ class AgentSession(rtc.EventEmitter[EventTypes], Generic[Userdata_T]):
                     job_ctx._primary_agent_session = self
                 else:
                     is_primary = False
-                    if any(self._recording_options.values()):
+                    if recording_enabled(self._recording_options):
                         if record_is_given:
                             raise RuntimeError(
                                 "Only one `AgentSession` can be the primary at a time. "
@@ -1601,7 +1613,12 @@ class AgentSession(rtc.EventEmitter[EventTypes], Generic[Userdata_T]):
         if old_task is not None:
             await old_task
 
-        await self._update_activity(agent)
+        await self._update_activity(agent, wait_on_enter=False)
+
+        # watch on_enter so the run captures its output without awaiting it
+        if (activity := self._activity) is not None and activity._on_enter_task is not None:
+            if (run_state := self._global_run_state) is not None and not run_state.done():
+                run_state._watch_handle(activity._on_enter_task)
 
     def _emit_debug_message(self, payload: dict[str, Any]) -> None:
         """:meta private: internal — emit a debug/trace payload to the debugger/recorder."""
@@ -1820,9 +1837,13 @@ class AgentSession(rtc.EventEmitter[EventTypes], Generic[Userdata_T]):
             # a transcript means stt recovered; reset its error tolerance
             self._stt_error_counts = 0
 
-        if self.user_state == "away" and ev.is_final:
-            # reset user state from away to listening in case VAD has a miss detection
-            self._update_user_state("listening")
+        if ev.is_final and self.user_state != "speaking":
+            if self.user_state == "away":
+                # reset user state from away to listening in case VAD has a miss detection
+                self._update_user_state("listening")
+            elif self.user_state == "listening" and self._agent_state == "listening":
+                # VAD may have missed speech; STT still saw activity, so refresh away timeout
+                self._set_user_away_timer()
 
         self.emit("user_input_transcribed", ev)
 

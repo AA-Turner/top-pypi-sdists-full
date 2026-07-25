@@ -205,6 +205,33 @@ def dashboard(port: int, no_open: bool) -> None:
         )
         sys.exit(1)
 
+    # Probe /dashboard exactly as a browser would (no Authorization header). A
+    # detached run gates every non-public route behind an auto-generated Bearer
+    # token that a plain browser navigation cannot supply, so opening the URL
+    # would dead-end on a raw 401 JSON body. Guide the operator to a surface
+    # that authenticates on its own instead of launching a broken page (#2794).
+    try:
+        probe = httpx.get(url, timeout=2.0)
+        browser_reachable = probe.status_code != 401
+    except httpx.HTTPError:
+        # Probe failure is inconclusive; fall through to the normal open path
+        # rather than blocking on a transient error.
+        browser_reachable = True
+
+    if not browser_reachable:
+        from bernstein.core.defaults import SDD_AUTH_TOKEN
+
+        console.print(
+            "[yellow]The web dashboard requires authentication a browser cannot supply on its own.[/yellow]\n"
+            "This run auto-generated a Bearer token, so a plain browser navigation to the dashboard is "
+            "rejected with 401.\n"
+            "Use the terminal dashboard instead: [cyan]bernstein live[/cyan] (or [cyan]bernstein status[/cyan]), "
+            "which authenticate automatically from this workspace.\n"
+            f"The run token lives in [cyan]{SDD_AUTH_TOKEN}[/cyan] if you front the server with your own "
+            "authenticating proxy."
+        )
+        sys.exit(1)
+
     console.print(f"[green]Dashboard:[/green] [link={url}]{url}[/link]")
     if not no_open:
         webbrowser.open(url)
@@ -534,7 +561,7 @@ def plugins_cmd(workdir: str) -> None:
 @click.group(
     name="doctor",
     invoke_without_command=True,
-    subcommand_metavar="[airgap|sonar|glitchtip|...]",
+    subcommand_metavar="[airgap|observe|...]",
 )
 @click.option("--json", "as_json", is_flag=True, default=False, help="Output raw JSON.")
 @click.option("--fix", "auto_fix", is_flag=True, default=False, help="Attempt to auto-fix issues.")
@@ -615,8 +642,6 @@ def doctor(
                                         # certify a local OpenAI-compatible endpoint per role
       bernstein doctor --failover-drill # probe every declared provider fallback chain
       bernstein doctor airgap           # battery of checks for an air-gapped run
-      bernstein doctor sonar            # surface SonarQube insights for the project
-      bernstein doctor glitchtip        # surface GlitchTip issue counts and top unresolved
     """
     if ctx.invoked_subcommand is not None:
         ctx.obj = {"as_json": as_json, "auto_fix": auto_fix}
@@ -655,8 +680,6 @@ def doctor(
 
         topics = load_unanswered_topics()
         render_suggestions(console, topics, limit=DEFAULT_TOP_N)
-        _maybe_print_sonar_nudge(as_json=as_json)
-        _maybe_print_glitchtip_nudge(as_json=as_json)
         return
 
     from bernstein.cli.doctor.suggest_docs import hint_line
@@ -673,75 +696,9 @@ def doctor(
 
     if not as_json:
         console.print(f"[dim]{hint_line()}[/dim]")
-        _maybe_print_sonar_nudge(as_json=as_json)
-        _maybe_print_glitchtip_nudge(as_json=as_json)
 
     if exit_code:
         raise SystemExit(exit_code)
-
-
-def _maybe_print_sonar_nudge(*, as_json: bool) -> None:
-    """Print a single-line Sonar nudge when thresholds are crossed.
-
-    No-op when Sonar is not configured, the snapshot could not be
-    fetched, or when ``--json`` was requested (the nudge is advisory
-    and must not contaminate machine-readable output). All failures
-    here are swallowed so the doctor never crashes because of a side
-    integration.
-    """
-    if as_json:
-        return
-    try:
-        from bernstein.core.observability.sonar import (
-            collect_insights,
-            evaluate_nudge,
-            load_baseline,
-            load_config,
-        )
-    except Exception:  # pragma: no cover - defensive
-        return
-    config = load_config()
-    if config is None:
-        return
-    try:
-        insights = collect_insights(config)
-    except Exception:  # pragma: no cover - defensive
-        return
-    if not insights.fetched:
-        return
-    nudge = evaluate_nudge(insights, load_baseline())
-    if not nudge.should_nudge:
-        return
-    summary = "; ".join(nudge.reasons)
-    console.print(
-        f"[dim yellow]Sonar nudge: {summary}. Run `bernstein doctor sonar` for the full surface.[/dim yellow]"
-    )
-
-
-def _maybe_print_glitchtip_nudge(*, as_json: bool) -> None:
-    """Print a single-line GlitchTip nudge when new unresolved issues exist.
-
-    No-op when ``--json`` was requested (advisory output must not leak
-    into machine-readable streams), when ``BERNSTEIN_GLITCHTIP_TOKEN``
-    is not set, or when there is no delta against the cached baseline.
-    All exceptions are swallowed so the doctor command never crashes
-    because of a side integration.
-    """
-    if as_json:
-        return
-    try:
-        from bernstein.cli.commands.doctor.glitchtip import suggest_nudge_line
-    except ImportError:  # pragma: no cover - defensive
-        return
-    try:
-        line = suggest_nudge_line()
-    except Exception:  # pragma: no cover - defensive
-        # Log unexpected failures so we can diagnose regressions, but never
-        # raise: the nudge is advisory and must not crash `bernstein doctor`.
-        _LOGGER.warning("GlitchTip nudge failed", exc_info=True)
-        return
-    if line:
-        console.print(f"[dim yellow]{line}[/dim yellow]")
 
 
 @doctor.command("airgap")
@@ -1001,177 +958,6 @@ def doctor_promptware_scan_cmd(
             as_json=as_json,
         )
     )
-
-
-@doctor.command("sonar")
-@click.option(
-    "--json",
-    "as_json_flag",
-    is_flag=True,
-    default=False,
-    help="Emit JSON instead of the Rich table.",
-)
-@click.option(
-    "--smell-threshold",
-    "smell_threshold",
-    type=int,
-    default=None,
-    help="Override the default code-smell nudge threshold (50).",
-)
-@click.option(
-    "--no-update-baseline",
-    "no_update_baseline",
-    is_flag=True,
-    default=False,
-    help="Do not write the current snapshot to the baseline file.",
-)
-@click.pass_context
-def doctor_sonar_cmd(
-    ctx: click.Context,
-    as_json_flag: bool,
-    smell_threshold: int | None,
-    no_update_baseline: bool,
-) -> None:
-    """Surface SonarQube insights for the current project.
-
-    \b
-    Reads SONAR_HOST_URL and SONAR_TOKEN from the environment, then
-    fetches:
-      - coverage % (line coverage as reported by Sonar)
-      - code smells total and counts by severity
-      - bugs, vulnerabilities, security hotspots
-      - cognitive complexity hotspots (top 5 files)
-
-    \b
-    Soft-fails (exit 0) when env vars are not set or the server is
-    unreachable. Use --json to pipe the snapshot into other tools.
-    """
-    from bernstein.cli.commands.doctor_sonar_cmd import (
-        DEFAULT_SMELL_NUDGE,
-        run_doctor_sonar,
-    )
-
-    parent = ctx.obj if isinstance(ctx.obj, dict) else {}
-    inherited_json = bool(parent.get("as_json", False))
-    threshold = smell_threshold if smell_threshold is not None else DEFAULT_SMELL_NUDGE
-    raise SystemExit(
-        run_doctor_sonar(
-            as_json=as_json_flag or inherited_json,
-            smell_threshold=threshold,
-            update_baseline=not no_update_baseline,
-        )
-    )
-
-
-# Attach the GlitchTip insights subcommand to the existing ``doctor`` group.
-# Registration runs at import time so ``bernstein doctor glitchtip`` is
-# wired without circular imports between the per-backend module and the
-# group definition above.
-from bernstein.cli.commands.doctor.glitchtip import (  # noqa: E402
-    register as _register_doctor_glitchtip,
-)
-
-_register_doctor_glitchtip(doctor)
-
-
-@doctor.command("sonar-sweep")
-@click.option(
-    "--dry-run",
-    is_flag=True,
-    default=False,
-    help="Print the would-be ticket paths without writing files.",
-)
-@click.option(
-    "--severity-min",
-    "severity_min",
-    default="MAJOR",
-    show_default=True,
-    type=click.Choice(["BLOCKER", "CRITICAL", "MAJOR", "MINOR", "INFO"]),
-    help="Minimum severity to include.",
-)
-@click.option(
-    "--max-per-day",
-    "max_per_day",
-    type=int,
-    default=25,
-    show_default=True,
-    help="Cap on the number of tickets emitted in this run.",
-)
-@click.option(
-    "--out-dir",
-    "out_dir",
-    default=".sdd/backlog/open",
-    show_default=True,
-    help="Directory to write emitted ticket files into.",
-)
-@click.option(
-    "--create-gh-issues",
-    "create_gh_issues",
-    is_flag=True,
-    default=False,
-    help="For P0+P1 tickets (BLOCKER, CRITICAL, MAJOR), also open a GH issue.",
-)
-@click.option(
-    "--fixture",
-    default=None,
-    help="Use a saved JSON fixture instead of calling Sonar (for local dry-runs).",
-)
-def doctor_sonar_sweep_cmd(
-    dry_run: bool,
-    severity_min: str,
-    max_per_day: int,
-    out_dir: str,
-    create_gh_issues: bool,
-    fixture: str | None,
-) -> None:
-    """Turn open static-analysis findings into backlog tickets.
-
-    \b
-    Reads ``SONAR_HOST_URL`` and ``SONAR_TOKEN`` from the environment,
-    fetches the open findings, applies de-dup against existing tickets
-    under ``.sdd/backlog/*``, and writes one Markdown ticket per new
-    finding into the configured output directory.
-
-    \b
-    With ``--dry-run`` the command lists the would-be file paths without
-    writing them. With ``--fixture`` it loads findings from a saved JSON
-    blob instead of calling the Sonar API at all -- useful for local
-    smoke tests.
-    """
-    # The sweeper lives under ``scripts/`` so the wheel stays slim. We
-    # import it lazily from the source tree.
-    from pathlib import Path as _Path
-
-    repo_root = _Path(__file__).resolve().parents[4]
-    scripts_dir = repo_root / "scripts"
-    import sys as _sys
-
-    if str(scripts_dir) not in _sys.path:
-        _sys.path.insert(0, str(scripts_dir))
-    try:
-        from sweep_sonar_findings import (
-            main as _sweep_main,  # type: ignore[import-not-found]
-        )
-    except ImportError as exc:
-        click.echo(f"error: cannot import sweeper: {exc}", err=True)
-        raise SystemExit(2) from exc
-
-    argv: list[str] = [
-        "--severity-min",
-        severity_min,
-        "--max-per-day",
-        str(max_per_day),
-        "--out-dir",
-        out_dir,
-    ]
-    if dry_run:
-        argv.append("--dry-run")
-    if create_gh_issues:
-        argv.append("--create-gh-issues")
-    if fixture:
-        argv.extend(["--fixture", fixture])
-
-    raise SystemExit(int(_sweep_main(argv)))
 
 
 # ---------------------------------------------------------------------------
@@ -2154,6 +1940,34 @@ def _replay_from_step(*, run_id: str, sdd_dir: str, from_step: int, as_json: boo
     default=None,
     help="Rebuild deterministic run state by walking the journal to step N.",
 )
+@click.option(
+    "--fork-from",
+    "fork_from",
+    type=int,
+    default=None,
+    help="replay debug: fork-and-reproduce a worktree anchored at parent step N.",
+)
+@click.option(
+    "--jump-to-failure",
+    "jump_to_failure",
+    is_flag=True,
+    default=False,
+    help="replay debug: position output at the diverging seq.",
+)
+@click.option(
+    "--sign",
+    "sign_key",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help="replay debug: Ed25519 key path to sign the debug receipt.",
+)
+@click.option(
+    "--full",
+    "full",
+    is_flag=True,
+    default=False,
+    help="replay debug: emit the unbounded step projection (default is capped).",
+)
 def replay_cmd(
     run_id: tuple[str, ...],
     sdd_dir: str,
@@ -2163,6 +1977,10 @@ def replay_cmd(
     extra_context: str | None,
     verify: bool,
     from_step: int | None,
+    fork_from: int | None,
+    jump_to_failure: bool,
+    sign_key: str | None,
+    full: bool,
 ) -> None:
     """Replay a past orchestration run step-by-step.
 
@@ -2187,6 +2005,9 @@ def replay_cmd(
       bernstein replay publish <AGENT_ID> -o RECEIPT  # redacted publish (#1799)
       bernstein replay verify <RECEIPT>           # offline verifier (#1799)
       bernstein replay diff-journal A B           # per-step divergence finder
+      bernstein replay debug <RUN>                # forensic single-chain walk (#2605)
+      bernstein replay debug <LEFT> <RIGHT>       # two-run time-travel path diff
+      bernstein replay debug <RUN> --fork-from N  # fork-and-reproduce at step N
     """
     # ``nargs=-1`` lets us implement the pseudo-subcommand ``diff`` without
     # converting ``replay`` to a full :class:`click.Group` (which would
@@ -2194,6 +2015,18 @@ def replay_cmd(
     args = list(run_id)
     if args and args[0] == "diff":
         _replay_diff_dispatch(args[1:], sdd_dir=sdd_dir, as_json=as_json)
+        return
+    if args and args[0] == "debug":
+        _replay_debug_dispatch(
+            args[1:],
+            sdd_dir=sdd_dir,
+            as_json=as_json,
+            fork_from=fork_from,
+            jump_to_failure=jump_to_failure,
+            sign_key=sign_key,
+            full=full,
+            limit=limit,
+        )
         return
     if args and args[0] in {"export", "publish", "verify", "diff-journal"}:
         _replay_journal_dispatch(args, sdd_dir=sdd_dir, as_json=as_json)
@@ -2244,6 +2077,39 @@ def replay_cmd(
         model=model,
         extra_context=extra_context,
     )
+
+
+def _replay_debug_dispatch(
+    args: list[str],
+    *,
+    sdd_dir: str,
+    as_json: bool,
+    fork_from: int | None,
+    jump_to_failure: bool,
+    sign_key: str | None,
+    full: bool,
+    limit: int | None,
+) -> None:
+    """Dispatch ``bernstein replay debug`` (#2605).
+
+    Forensic time-travel debugger over the per-step journal. Local-only by
+    default under ``.sdd/runtime/``; it never re-executes anything.
+    """
+    from bernstein.cli.commands.replay_cmd import replay_debug
+
+    rc = replay_debug(
+        args,
+        Path(sdd_dir),
+        as_json=as_json,
+        fork_from=fork_from,
+        jump_to_failure=jump_to_failure,
+        sign_key_path=Path(sign_key) if sign_key else None,
+        full=full,
+        limit=limit,
+        repo_root=Path.cwd(),
+    )
+    if rc != 0:
+        raise SystemExit(rc)
 
 
 def _replay_journal_dispatch(

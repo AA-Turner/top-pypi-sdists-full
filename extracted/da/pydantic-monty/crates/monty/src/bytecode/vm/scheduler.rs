@@ -9,16 +9,23 @@
 use std::{collections::VecDeque, mem};
 
 use ahash::AHashMap;
+use monty_types::{ResourceError, ResourceTracker};
 
 use crate::{
     asyncio::{Awaiter, CallId, ExternalFutureState, TaskId},
     exception_private::RunError,
-    heap::{ContainsHeap, DropWithHeap, Heap, HeapId, HeapReadOutput, HeapReader},
+    heap::{ContainsHeap, DropWithContext, Heap, HeapId, HeapReadOutput, HeapReader},
     intern::FunctionId,
-    parse::CodeRange,
-    resource::ResourceTracker,
     value::Value,
 };
+
+/// Per-spawn scheduler overhead charged against the tracker so memory
+/// budgets bound recursive gathers. The exact value isn't load-bearing
+/// — it just needs to be non-zero. HashMap bucket overhead is elided to
+/// match `py_estimate_size` conventions elsewhere; the `(TaskId, Task)`
+/// entry covers the `Task` value, so it isn't summed in separately.
+pub(crate) const SCHEDULER_TASK_OVERHEAD: usize =
+    mem::size_of::<(TaskId, Task)>() + mem::size_of::<(HeapId, TaskId)>() + mem::size_of::<TaskId>();
 
 /// Task execution state for async scheduling.
 ///
@@ -43,12 +50,12 @@ pub(crate) enum TaskState {
     Failed(RunError),
 }
 
-impl DropWithHeap for TaskState {
-    fn drop_with_heap<H: ContainsHeap>(self, heap: &mut H) {
+impl<C: ContainsHeap> DropWithContext<C> for TaskState {
+    fn drop_with(self, heap: &mut C) {
         match self {
             Self::Ready | Self::Failed(_) => {}
             Self::Blocked(id) => heap.heap_mut().dec_ref(id),
-            Self::Completed(value) => value.drop_with_heap(heap),
+            Self::Completed(value) => value.drop_with(heap),
         }
     }
 }
@@ -88,15 +95,15 @@ pub(crate) struct Task {
     pub state: TaskState,
 }
 
-impl DropWithHeap for Task {
-    fn drop_with_heap<H: ContainsHeap>(mut self, heap: &mut H) {
+impl<C: ContainsHeap> DropWithContext<C> for Task {
+    fn drop_with(mut self, heap: &mut C) {
         for value in self.stack.drain(..) {
-            value.drop_with_heap(heap);
+            value.drop_with(heap);
         }
         for value in self.exception_stack.drain(..) {
-            value.drop_with_heap(heap);
+            value.drop_with(heap);
         }
-        self.state.drop_with_heap(heap);
+        self.state.drop_with(heap);
         if let Some(coro_id) = self.coroutine_id.take() {
             heap.heap_mut().dec_ref(coro_id);
         }
@@ -123,8 +130,12 @@ pub(crate) struct SerializedTaskFrame {
     /// Base index into the VM-wide `exception_stack` for this frame.
     /// See `CallFrame.exception_stack_base`.
     pub exception_stack_base: usize,
-    /// Call site position (for tracebacks).
-    pub call_position: Option<CodeRange>,
+    /// Caller's bytecode offset at the call site (for tracebacks). See
+    /// `CallFrame.call_offset`.
+    pub call_offset: Option<u32>,
+    /// Whether this frame is a class `__init__` (see `CallFrame.is_initializer`).
+    #[serde(default)]
+    pub is_initializer: bool,
 }
 
 impl Task {
@@ -151,6 +162,16 @@ impl Task {
     #[inline]
     pub fn is_finished(&self) -> bool {
         matches!(self.state, TaskState::Completed(_) | TaskState::Failed(_))
+    }
+
+    /// Estimated bytes occupied by this task's saved VM context — the
+    /// charge `save_task_context` takes and `load_or_init_task` /
+    /// `cancel_task` release. Vec capacity overhead is elided to match
+    /// `py_estimate_size`'s len-based estimates elsewhere.
+    pub(crate) fn saved_context_size(&self) -> usize {
+        mem::size_of_val(self.frames.as_slice())
+            + mem::size_of_val(self.stack.as_slice())
+            + mem::size_of_val(self.exception_stack.as_slice())
     }
 }
 
@@ -298,29 +319,34 @@ impl Scheduler {
         self.ready_queue.retain(|&id| id != task_id);
     }
 
-    /// Spawns a new task from a coroutine.
+    /// Spawns a new task from a coroutine, enforcing one-task-per-coroutine.
     ///
-    /// Creates a new task that will execute the given coroutine when scheduled.
-    /// The task is added to the ready queue.
+    /// Returns `Ok(None)` if `coroutine_id` is already driving a task —
+    /// caught here because cross-gather reuse can hit two spawns while
+    /// both coroutine states are still `New`, so the state check in
+    /// `await_coroutine` doesn't catch it. Callers translate `None`
+    /// into a `RuntimeError: cannot reuse already awaited coroutine`.
+    /// Returns `Err(ResourceError)` if charging
+    /// [`SCHEDULER_TASK_OVERHEAD`] would exceed the memory limit.
     ///
     /// Both `coroutine_id` and `gather_id` (when present) become **owning**
-    /// references held by the new task — `inc_ref` is called on each before
-    /// storing. The matching `dec_ref` happens in [`Scheduler::remove_task`]
-    /// when the task is eventually removed (typically at gather finalization).
-    ///
-    /// # Arguments
-    /// * `heap` - Heap to increment reference counts in
-    /// * `coroutine_id` - HeapId of the coroutine to execute
-    /// * `gather_id` - Optional HeapId of the GatherFuture this task belongs to
-    ///
-    /// # Returns
-    /// The TaskId of the newly created task.
+    /// references held by the new task; the matching `dec_ref` happens in
+    /// [`Scheduler::cancel_task`].
     pub fn spawn(
         &mut self,
         heap: &Heap<impl ResourceTracker>,
         coroutine_id: HeapId,
         gather_id: Option<HeapId>,
-    ) -> TaskId {
+    ) -> Result<Option<TaskId>, ResourceError> {
+        if self.coroutine_to_task.contains_key(&coroutine_id) {
+            return Ok(None);
+        }
+
+        // Charge the per-spawn scheduler overhead *before* mutating any
+        // state, so an over-budget spawn leaves the scheduler untouched
+        // and the caller's error path doesn't have to undo half a spawn.
+        heap.track_growth(SCHEDULER_TASK_OVERHEAD)?;
+
         let task_id = TaskId::new(self.next_task_id);
         self.next_task_id += 1;
 
@@ -336,7 +362,7 @@ impl Scheduler {
         self.coroutine_to_task.insert(coroutine_id, task_id);
         self.ready_queue.push_back(task_id);
 
-        task_id
+        Ok(Some(task_id))
     }
 
     /// Returns the task driving `coroutine_id`, if any.
@@ -355,12 +381,23 @@ impl Scheduler {
         self.ready_queue.pop_front()
     }
 
+    /// Pushes `task_id` back onto the front of the ready queue.
+    ///
+    /// Used by error-recovery paths that popped a task via
+    /// [`Scheduler::next_ready_task`] and then hit a fallible step
+    /// (e.g. `save_task_context`'s growth charge) — re-queueing at the
+    /// front keeps the original scheduling order intact instead of
+    /// sending the task to the back.
+    pub fn requeue_ready_front(&mut self, task_id: TaskId) {
+        self.ready_queue.push_front(task_id);
+    }
+
     /// Replaces a task's state, properly releasing any heap references owned
     /// by the previous state.
     pub fn set_state(&mut self, task_id: TaskId, new_state: TaskState, heap: &mut Heap<impl ResourceTracker>) {
         let task = self.get_task_mut(task_id);
         let old_state = mem::replace(&mut task.state, new_state);
-        old_state.drop_with_heap(heap);
+        old_state.drop_with(heap);
     }
 
     /// Adds a task back to the ready queue.
@@ -399,13 +436,21 @@ impl Scheduler {
     /// result, and tears down any inner gather it was blocked on. After this
     /// call the task no longer exists in `Scheduler::tasks`; its owning
     /// references to its coroutine and (outer) gather are released by the
-    /// `Task::drop_with_heap` call at the end.
+    /// `Task::drop_with` call at the end.
     pub fn cancel_task(&mut self, task_id: TaskId, heap: &mut HeapReader<'_, impl ResourceTracker>) {
         // No-op if the task has already been removed (idempotent — finalization
         // sites may iterate task ids that include already-cancelled siblings).
         let Some(task) = self.tasks.remove(&task_id) else {
             return;
         };
+
+        // The main task is pre-created in `Scheduler::new`, not via `spawn`,
+        // so it was never charged for `SCHEDULER_TASK_OVERHEAD`; skipping
+        // its decrement keeps cleanup balanced across VM drops.
+        if task_id != TaskId::default() {
+            heap.heap_mut().track_shrink(SCHEDULER_TASK_OVERHEAD);
+        }
+        heap.heap_mut().track_shrink(task.saved_context_size());
 
         // If we're cancelling the current task, clear `current_task` so callers
         // don't try to look up a task that's about to be dropped (e.g.
@@ -450,7 +495,7 @@ impl Scheduler {
             }
         }
 
-        task.drop_with_heap(heap);
+        task.drop_with(heap);
     }
 
     /// Records a host-side failure for `call_id` and returns the awaiter the

@@ -24,6 +24,7 @@ from bernstein.cli.helpers import (
 from bernstein.cli.status import collect_rate_limit_snapshots, render_status
 from bernstein.cli.ui import make_console
 from bernstein.core.agent_discovery import AgentCapabilities, DiscoveryResult, discover_agents_cached
+from bernstein.core.process_utils import list_command_lines, process_cwd
 from bernstein.tui.worker_badges import format_worker_badge, get_badge_for_worker
 
 logger = logging.getLogger(__name__)
@@ -281,7 +282,11 @@ def _collect_pid_agents(pid_path: Path) -> tuple[list[dict[str, Any]], list[Path
             continue
 
         worker_pid = info.get("worker_pid", 0)
-        alive = is_process_alive(worker_pid) if worker_pid else False
+        child_pid = info.get("child_pid")
+        # Probe the leaf child PID independently: an adapter leaf process can
+        # outlive its worker briefly, and reporting on ``worker_pid`` alone made
+        # ``ps`` go blind to a still-running agent (issue #2800).
+        alive = (bool(worker_pid) and is_process_alive(worker_pid)) or (bool(child_pid) and is_process_alive(child_pid))
         if not alive:
             stale_files.append(pid_file)
             continue
@@ -299,13 +304,92 @@ def _collect_pid_agents(pid_path: Path) -> tuple[list[dict[str, Any]], list[Path
                 "command": info.get("command", "?"),
                 "model": info.get("model", "?"),
                 "worker_pid": worker_pid,
-                "child_pid": info.get("child_pid"),
+                "child_pid": child_pid,
                 "runtime": runtime_str,
                 "started_at": started_at,
             }
         )
 
     return agents, stale_files
+
+
+def _ps_scan_workdir(pid_path: Path) -> Path:
+    """Resolve the project root for the live scan from the PID directory.
+
+    ``ps`` matches processes by their absolute ``.sdd`` path prefixes, so the
+    scan needs the absolute project root. The default PID directory is
+    ``<project>/.sdd/runtime/pids``; when the layout matches we walk up to the
+    project root, otherwise we fall back to the current working directory.
+    """
+    resolved = pid_path.resolve()
+    if resolved.name == "pids" and resolved.parent.name == "runtime" and resolved.parent.parent.name == ".sdd":
+        return resolved.parent.parent.parent
+    return Path.cwd()
+
+
+def _classify_live_process(
+    pid: int, command: str, workdir: Path, worktree_prefix: str, heartbeat_prefix: str
+) -> str | None:
+    """Return the role of a repo-owned process, or ``None`` when unrelated.
+
+    Agents are matched by worktree/heartbeat path markers alone; the
+    orchestrator, server, and watchdog must additionally run with a cwd inside
+    this project so a sibling checkout's server is never attributed here.
+    """
+    if worktree_prefix in command or heartbeat_prefix in command:
+        return "agent"
+    is_watchdog = "bernstein.core.orchestration.bootstrap" in command and "--watchdog" in command
+    is_spawner = "bernstein.core.orchestrator" in command
+    is_server = "uvicorn bernstein.core.server:app" in command
+    if not (is_watchdog or is_spawner or is_server):
+        return None
+    if process_cwd(pid) != workdir:
+        return None
+    if is_watchdog:
+        return "watchdog"
+    if is_spawner:
+        return "spawner"
+    return "server"
+
+
+def _scan_live_agent_rows(workdir: Path, known_pids: set[int]) -> list[dict[str, Any]]:
+    """Cross-check the OS process table for live repo-owned processes.
+
+    PID files are the primary source, but ``hard_stop`` deletes them; this scan
+    keeps ``ps`` honest by surfacing the orchestrator, server, watchdog, and
+    agent processes that are still alive after the files are gone (#2874). PIDs
+    already covered by a PID-file row are skipped. Each candidate's liveness is
+    re-probed so a process that exited between the ``ps`` snapshot and now is
+    dropped rather than reported as a phantom.
+    """
+    worktree_prefix = str(workdir / ".sdd" / "worktrees")
+    heartbeat_prefix = str(workdir / ".sdd" / "runtime" / "heartbeats")
+    self_pid = os.getpid()
+    seen = set(known_pids)
+    rows: list[dict[str, Any]] = []
+    for pid, command in list_command_lines():
+        if pid in seen or pid == self_pid:
+            continue
+        role = _classify_live_process(pid, command, workdir, worktree_prefix, heartbeat_prefix)
+        if role is None:
+            continue
+        # Race guard: the pid was in the ps snapshot but may have exited since.
+        if not is_process_alive(pid):
+            continue
+        seen.add(pid)
+        rows.append(
+            {
+                "session": f"{role}:{pid}",
+                "role": role,
+                "command": "-",
+                "model": "-",
+                "worker_pid": pid,
+                "child_pid": None,
+                "runtime": "-",
+                "source": "scan",
+            }
+        )
+    return rows
 
 
 @click.command("ps")
@@ -329,6 +413,17 @@ def ps_cmd(as_json: bool, pid_dir: str) -> None:
             agents.append(remote)
 
     _decorate_agent_rows(agents)
+
+    # Live process-table cross-check: surface repo-owned processes that outlived
+    # their PID files (e.g. after ``bernstein stop --force``) so ``ps`` never
+    # goes blind while the orchestrator or an agent is still running (#2874).
+    known_pids: set[int] = set()
+    for agent in agents:
+        for key in ("worker_pid", "child_pid"):
+            value = agent.get(key)
+            if isinstance(value, int) and value > 0:
+                known_pids.add(value)
+    agents.extend(_scan_live_agent_rows(_ps_scan_workdir(pid_path), known_pids))
 
     from bernstein.core.agents.spawn_supervisor import get_supervisor
 
@@ -613,6 +708,28 @@ def _doctor_check_eval_gate_power(checks: list[dict[str, Any]], workdir: Path) -
     fix = advisory.get("fix", "")
     # Advisory only: never fail the run, but keep the underpowered note visible.
     _add_check(checks, advisory["name"], True, detail, fix)
+
+
+def _doctor_check_otel_export(checks: list[dict[str, Any]]) -> None:
+    """Surface the live OTLP export advisory (#2526, Phase 4).
+
+    Advisory only: with ``BERNSTEIN_OTEL_ENDPOINT`` set but the optional
+    ``opentelemetry-exporter-otlp-proto-grpc`` extra missing, every
+    journal-anchored span is silently dropped on the wire path. This warns the
+    operator without failing the doctor run (the ci-tools/last-green pattern:
+    WARN rows stay ``ok`` and prefix the detail).
+    """
+    from bernstein.cli.commands.doctor_cmd import check_otel_export_advisory
+
+    row = check_otel_export_advisory()
+    warn = row["status"] == "WARN"
+    _add_check(
+        checks,
+        row["name"],
+        True,
+        f"WARNING: {row['detail']}" if warn else row["detail"],
+        row["fix"],
+    )
 
 
 def _doctor_check_python(checks: list[dict[str, Any]]) -> bool:
@@ -1095,6 +1212,7 @@ def doctor(as_json: bool, auto_fix: bool) -> None:
     _doctor_check_compliance(checks, workdir)
     _doctor_check_schedule_supervisor(checks, workdir)
     _doctor_check_eval_gate_power(checks, workdir)
+    _doctor_check_otel_export(checks)
 
     if auto_fix:
         _doctor_auto_fix(checks, stale_pid_paths, workdir, fixed, manual_needed)

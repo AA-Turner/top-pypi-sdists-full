@@ -3,7 +3,6 @@ from __future__ import annotations
 import functools
 import operator
 from collections.abc import Mapping, Sequence
-from copy import copy
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -101,10 +100,6 @@ def pca_overview(adata: AnnData, **params):
     pca(adata, **params, show=False)
     pca_loadings(adata, show=False)
     pca_variance_ratio(adata, show=show)
-
-
-# backwards compat
-pca_scatter = pca
 
 
 @old_positionals("include_lowest", "n_points", "show", "save")
@@ -1645,11 +1640,9 @@ def embedding_density(  # noqa: PLR0912, PLR0913, PLR0915
         wspace = 0.75 / rcParams["figure.figsize"][0] + 0.02
 
     # Make the color map
-    if isinstance(color_map, str):
-        color_map = copy(colormaps.get_cmap(color_map))
-
-    color_map.set_over("black")
-    color_map.set_under("lightgray")
+    color_map = colormaps.get_cmap(color_map).with_extremes(
+        over="black", under="lightgray"
+    )
     # a name to store the density values is needed. To avoid
     # overwriting a user name a new random name is created
     while True:

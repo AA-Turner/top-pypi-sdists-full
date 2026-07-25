@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: citeproc-py
-Version: 0.10.2
+Version: 0.10.3
 Summary: Citations and bibliography formatter
 Home-page: https://github.com/brechtm/citeproc-py
 Author: Brecht Machiels
@@ -25,6 +25,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Documentation
 Classifier: Topic :: Printing
 Classifier: Topic :: Software Development :: Documentation
@@ -159,6 +160,24 @@ If you want git to fully ignore the submodule, you can type
 git update-index --assume-unchanged citeproc/data/schema
 ```
 
+
+# v0.10.3 (Fri Jul 24 2026)
+
+#### 🐛 Bug Fix
+
+- swap csl 1.0.1 harvard1 for harvard-cite-them-right [#197](https://github.com/citeproc-py/citeproc-py/pull/197) ([@tmorrell](https://github.com/tmorrell))
+- tests: add python 3.14 [#199](https://github.com/citeproc-py/citeproc-py/pull/199) ([@tmorrell](https://github.com/tmorrell))
+
+#### 🔩 Dependency Updates
+
+- build(deps): bump actions/setup-python from 6 to 7 [#200](https://github.com/citeproc-py/citeproc-py/pull/200) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
+#### Authors: 2
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- Tom Morrell ([@tmorrell](https://github.com/tmorrell))
+
+---
 
 # v0.10.2 (Tue Jul 21 2026)
 

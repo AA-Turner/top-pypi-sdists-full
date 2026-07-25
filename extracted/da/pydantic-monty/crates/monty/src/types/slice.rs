@@ -11,17 +11,17 @@ use std::{
     mem,
 };
 
-use ahash::AHashSet;
+use monty_types::ResourceTracker;
 
+use super::LazyHeapSet;
 use crate::{
     args::ArgValues,
     bytecode::{CallResult, VM},
     defer_drop,
-    exception_private::{ExcType, RunResult},
+    exception_private::{ExcType, ExcTypeExt, RunResult},
     hash::HashValue,
-    heap::{HeapData, HeapId, HeapItem, HeapRead},
+    heap::{HeapData, HeapId, HeapItem, HeapRead, HeapReadOutput},
     intern::StaticStrings,
-    resource::{ResourceError, ResourceTracker},
     types::{PyTrait, Type},
     value::{EitherStr, Value},
 };
@@ -170,10 +170,13 @@ impl<'h> PyTrait<'h> for HeapRead<'h, Slice> {
         None
     }
 
-    fn py_eq(&self, other: &Self, vm: &mut VM<'h, impl ResourceTracker>) -> Result<bool, ResourceError> {
+    fn py_eq_impl(&self, other: &Value, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Option<bool>> {
+        let Some(HeapReadOutput::Slice(other)) = other.read_heap(vm) else {
+            return Ok(None);
+        };
         let a = self.get(vm.heap);
         let b = other.get(vm.heap);
-        Ok(a.start == b.start && a.stop == b.stop && a.step == b.step)
+        Ok(Some(a.start == b.start && a.stop == b.stop && a.step == b.step))
     }
 
     fn py_hash(&self, _self_id: HeapId, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Option<HashValue>> {
@@ -191,7 +194,7 @@ impl<'h> PyTrait<'h> for HeapRead<'h, Slice> {
         &self,
         f: &mut impl Write,
         vm: &mut VM<'h, impl ResourceTracker>,
-        _heap_ids: &mut AHashSet<HeapId>,
+        _heap_ids: &mut LazyHeapSet,
     ) -> RunResult<()> {
         f.write_str("slice(")?;
         format_option_i64(f, self.get(vm.heap).start)?;

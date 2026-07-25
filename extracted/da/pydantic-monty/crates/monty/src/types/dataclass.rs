@@ -4,22 +4,21 @@ use std::{
     mem,
 };
 
-use ahash::AHashSet;
+use monty_types::ResourceTracker;
 use serde::ser::SerializeStruct;
 
-use super::{Dict, PyTrait};
+use super::{Dict, LazyHeapSet, PyTrait};
 use crate::{
     args::ArgValues,
     bytecode::{CallResult, VM},
     defer_drop,
-    exception_private::{ExcType, RunResult, SimpleException},
+    exception_private::{ExcType, ExcTypeExt, RunResult, SimpleException},
     hash::HashValue,
     heap::{
-        BorrowedHeapRead, BorrowedHeapReadMut, HeapId, HeapItem, HeapRead, heap_read_ref_as_field,
+        BorrowedHeapRead, BorrowedHeapReadMut, HeapId, HeapItem, HeapRead, HeapReadOutput, heap_read_ref_as_field,
         heap_read_ref_as_field_mut,
     },
     intern::Interns,
-    resource::{ResourceError, ResourceTracker},
     types::Type,
     value::{EitherStr, Value},
 };
@@ -133,14 +132,17 @@ impl<'h> HeapRead<'h, Dataclass> {
         vm: &mut VM<'h, impl ResourceTracker>,
     ) -> RunResult<Option<Value>> {
         if self.get(vm.heap).frozen {
-            // Get attribute name for error message
+            // Build the error message from the field name's repr (a heap `str`
+            // `Value`), dropping that temporary before dropping our own args.
+            let name_repr = name.py_repr(vm)?;
+            defer_drop!(name_repr, vm);
             let exc = SimpleException::new_msg(
                 ExcType::FrozenInstanceError,
-                format!("cannot assign to field {}", name.py_repr(vm)?),
+                format!("cannot assign to field {}", name_repr.to_str(vm)?),
             );
             // Drop the values we were given ownership of
-            name.drop_with_heap(vm);
-            value.drop_with_heap(vm);
+            name.drop_with(vm);
+            value.drop_with(vm);
             return Err(exc.into());
         }
         self.attrs_mut().set(name, value, vm)
@@ -165,9 +167,15 @@ impl<'h> PyTrait<'h> for HeapRead<'h, Dataclass> {
         None
     }
 
-    fn py_eq(&self, other: &Self, vm: &mut VM<'h, impl ResourceTracker>) -> Result<bool, ResourceError> {
-        // Dataclasses are equal if they have the same name and equal attrs
-        Ok(self.get(vm.heap).name == other.get(vm.heap).name && self.attrs().py_eq(&other.attrs(), vm)?)
+    fn py_eq_impl(&self, other: &Value, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Option<bool>> {
+        let Some(HeapReadOutput::Dataclass(other)) = other.read_heap(vm) else {
+            return Ok(None);
+        };
+        // Dataclasses are equal only if they are the same class and have equal attrs.
+        if self.get(vm.heap).type_id() != other.get(vm.heap).type_id() {
+            return Ok(Some(false));
+        }
+        Ok(Some(self.attrs().eq_dict(&other.attrs(), vm)?))
     }
 
     /// Hashes a frozen dataclass by its class name and the values of declared fields.
@@ -178,8 +186,8 @@ impl<'h> PyTrait<'h> for HeapRead<'h, Dataclass> {
         if !self.get(vm.heap).frozen {
             return Ok(None);
         }
-        let token = vm.heap.incr_recursion_depth()?;
-        crate::defer_drop!(token, vm);
+        let mut guard = vm.recursion_guard()?;
+        let vm = &mut *guard;
         let mut hasher = DefaultHasher::new();
         // Hash the class name
         self.get(vm.heap).name.hash(&mut hasher);
@@ -209,13 +217,13 @@ impl<'h> PyTrait<'h> for HeapRead<'h, Dataclass> {
         &self,
         f: &mut impl Write,
         vm: &mut VM<'h, impl ResourceTracker>,
-        heap_ids: &mut AHashSet<HeapId>,
+        heap_ids: &mut LazyHeapSet,
     ) -> RunResult<()> {
         // Check depth limit before recursing
-        let Ok(token) = vm.heap.incr_recursion_depth() else {
+        let Ok(mut guard) = vm.recursion_guard() else {
             return Ok(f.write_str("...")?);
         };
-        defer_drop!(token, vm);
+        let vm = &mut *guard;
 
         // Format: ClassName(field1=value1, field2=value2, ...)
         // Only declared fields are shown, not dynamically added attributes
@@ -285,8 +293,8 @@ impl<'h> PyTrait<'h> for HeapRead<'h, Dataclass> {
 
             // If the attribute exists in attrs, it's a data value (not callable)
             if let Some(value) = self.get(vm.heap).attrs.get_by_str(method_name, vm.heap, vm.interns) {
-                let type_name = value.py_type(vm);
-                Err(ExcType::type_error_not_callable_object(type_name))
+                let type_name = value.py_type_name(vm);
+                Err(ExcType::type_error_not_callable_object(&type_name))
             } else {
                 // Attribute doesn't exist — use the class name (e.g., "Point") not "Dataclass"
                 Err(ExcType::attribute_error(

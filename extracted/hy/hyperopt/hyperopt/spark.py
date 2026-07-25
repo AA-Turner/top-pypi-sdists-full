@@ -2,18 +2,16 @@ import copy
 import threading
 import time
 import timeit
-import traceback
 
-from hyperopt import base, fmin, Trials
-from hyperopt.base import validate_timeout, validate_loss_threshold
-from hyperopt.utils import coarse_utcnow, _get_logger, _get_random_id
-
-from py4j.clientserver import ClientServer
+from hyperopt import Trials, base, fmin
+from hyperopt.base import STATUS_OK, validate_loss_threshold, validate_timeout
+from hyperopt.utils import _get_logger, _get_random_id, coarse_utcnow
 
 try:
+    import pyspark
+    from py4j.clientserver import ClientServer
     from pyspark.sql import SparkSession
     from pyspark.util import VersionUtils
-    import pyspark
 
     _have_spark = True
     _spark_major_minor_version = VersionUtils.majorMinorVersion(pyspark.__version__)
@@ -22,6 +20,10 @@ except ImportError as e:
     _spark_major_minor_version = None
 
 logger = _get_logger("hyperopt-spark")
+
+FMIN_CANCELLED_REASON_EARLY_STOPPING = "early stopping condition"
+FMIN_CANCELLED_REASON_TIMEOUT = "fmin run timeout"
+FMIN_CANCELLED_REASON_USER = "fmin run cancelled by user"
 
 
 class SparkTrials(Trials):
@@ -54,8 +56,16 @@ class SparkTrials(Trials):
     # Hard cap on the number of concurrent hyperopt tasks (Spark jobs) to run. Set at 128.
     MAX_CONCURRENT_JOBS_ALLOWED = 128
 
+    def __str__(self):
+        return f"SparkTrials(trials={self.trials})"
+
     def __init__(
-        self, parallelism=None, timeout=None, loss_threshold=None, spark_session=None
+        self,
+        parallelism=None,
+        timeout=None,
+        loss_threshold=None,
+        spark_session=None,
+        resource_profile=None,
     ):
         """
         :param parallelism: Maximum number of parallel trials to run,
@@ -73,6 +83,8 @@ class SparkTrials(Trials):
                               to use an existing SparkSession or create a new one. SparkSession is
                               the entry point for various facilities provided by Spark. For more
                               information, visit the documentation for PySpark.
+        :param resource_profile: A ResourceProfile object. If not None, SparkTrials will use resources
+                                 specified by the profile in Spark training tasks.
         """
         super().__init__(exp_key=None, refresh=False)
         if not _have_spark:
@@ -101,6 +113,20 @@ class SparkTrials(Trials):
             requested_parallelism=parallelism,
             spark_default_parallelism=spark_default_parallelism,
         )
+        self.user_specified_parallelism = parallelism
+
+        self._spark_supports_resource_profile = hasattr(
+            self._spark_context.parallelize([1]), "withResources"
+        ) and not self._spark.conf.get("spark.master", "").startswith("local")
+        if self._spark_supports_resource_profile:
+            self._resource_profile = resource_profile
+        else:
+            self._resource_profile = None
+            if resource_profile is not None:
+                logger.warning(
+                    "SparkTrials was constructed with a ResourceProfile, but this Apache "
+                    "Spark version does not support stage-level scheduling."
+                )
 
         if not self._spark_supports_job_cancelling and timeout is not None:
             logger.warning(
@@ -127,24 +153,24 @@ class SparkTrials(Trials):
             parallelism = max(spark_default_parallelism, 1)
             logger.warning(
                 "Because the requested parallelism was None or a non-positive value, "
-                "parallelism will be set to ({d}), which is Spark's default parallelism ({s}), "
+                f"parallelism will be set to ({parallelism}), which is Spark's default parallelism ({spark_default_parallelism}), "
                 "or 1, whichever is greater. "
                 "We recommend setting parallelism explicitly to a positive value because "
-                "the total of Spark task slots is subject to cluster sizing.".format(
-                    d=parallelism, s=spark_default_parallelism
-                )
+                "the total of Spark task slots is subject to cluster sizing."
             )
         else:
             parallelism = requested_parallelism
 
         if parallelism > SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED:
             logger.warning(
-                "Parallelism ({p}) is capped at SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED ({c}).".format(
-                    p=parallelism, c=SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED
-                )
+                f"Parallelism ({parallelism}) is capped at SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED ({SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED})."
             )
             parallelism = SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED
         return parallelism
+
+    @property
+    def fmin_cancelled_reason(self):
+        return self._fmin_cancelled_reason
 
     def count_successful_trials(self):
         """
@@ -223,14 +249,21 @@ class SparkTrials(Trials):
             validate_loss_threshold(loss_threshold)
             self.loss_threshold = loss_threshold
 
-        assert (
-            not pass_expr_memo_ctrl
-        ), "SparkTrials does not support `pass_expr_memo_ctrl`"
-        assert (
-            not catch_eval_exceptions
-        ), "SparkTrials does not support `catch_eval_exceptions`"
+        assert not pass_expr_memo_ctrl, (
+            "SparkTrials does not support `pass_expr_memo_ctrl`"
+        )
+        assert not catch_eval_exceptions, (
+            "SparkTrials does not support `catch_eval_exceptions`"
+        )
 
-        state = _SparkFMinState(self._spark, fn, space, self)
+        state = _SparkFMinState(
+            self._spark,
+            self._resource_profile,
+            fn,
+            space,
+            self,
+            early_stop_fn=early_stop_fn,
+        )
 
         # Will launch a dispatcher thread which runs each trial task as one spark job.
         state.launch_dispatcher()
@@ -253,9 +286,15 @@ class SparkTrials(Trials):
                 return_argmin=return_argmin,
                 points_to_evaluate=None,  # not supported
                 show_progressbar=show_progressbar,
-                early_stop_fn=early_stop_fn,
+                # do not check early stopping in fmin. SparkTrials early stopping is implemented in run_dispatcher
+                early_stop_fn=None,
                 trials_save_file="",  # not supported
             )
+        except KeyboardInterrupt as e:
+            self._fmin_cancelled = True
+            self._fmin_cancelled_reason = FMIN_CANCELLED_REASON_USER
+            logger.debug("fmin thread terminated by user.")
+            raise e
         except BaseException as e:
             logger.debug("fmin thread exits with an exception raised.")
             raise e
@@ -266,12 +305,7 @@ class SparkTrials(Trials):
             state.wait_for_all_threads()
 
             logger.info(
-                "Total Trials: {t}: {s} succeeded, {f} failed, {c} cancelled.".format(
-                    t=self.count_total_trials(),
-                    s=self.count_successful_trials(),
-                    f=self.count_failed_trials(),
-                    c=self.count_cancelled_trials(),
-                )
+                f"Total Trials: {self.count_total_trials()}: {self.count_successful_trials()} succeeded, {self.count_failed_trials()} failed, {self.count_cancelled_trials()} cancelled."
             )
 
 
@@ -283,11 +317,22 @@ class _SparkFMinState:
     Each trial's thread runs 1 Spark job with 1 task.
     """
 
-    def __init__(self, spark, eval_function, space, trials):
+    def __init__(
+        self,
+        spark,
+        resource_profile,
+        eval_function,
+        space,
+        trials,
+        early_stop_fn,
+    ):
         self.spark = spark
+        self.resource_profile = resource_profile
         self.eval_function = eval_function
         self.space = space
         self.trials = trials
+        self.early_stop_fn = early_stop_fn
+        self.early_stop_args = []
         self._fmin_done = False
         self._dispatcher_thread = None
         self._task_threads = set()
@@ -310,11 +355,7 @@ class _SparkFMinState:
             if self._job_desc is None:
                 self._job_desc = "Trial evaluation jobs launched by hyperopt fmin"
             logger.debug(
-                "Job group id: {g}, job desc: {d}, job interrupt on cancel: {i}".format(
-                    g=self._job_group_id,
-                    d=self._job_desc,
-                    i=self._job_interrupt_on_cancel,
-                )
+                f"Job group id: {self._job_group_id}, job desc: {self._job_desc}, job interrupt on cancel: {self._job_interrupt_on_cancel}"
             )
 
     def running_trial_count(self):
@@ -366,6 +407,7 @@ class _SparkFMinState:
 
     def launch_dispatcher(self):
         def run_dispatcher():
+            prev_num_ok_trials = 0  # number of trials that succeeded with STATUS_OK
             start_time = timeit.default_timer()
 
             while not self._fmin_done:
@@ -376,6 +418,33 @@ class _SparkFMinState:
 
                 cur_time = timeit.default_timer()
                 elapsed_time = cur_time - start_time
+
+                # check early stopping condition if it is defined
+                if self.early_stop_fn:
+                    curr_num_ok_trials = 0
+                    for trial in self.trials:
+                        if trial["result"]["status"] == STATUS_OK:
+                            curr_num_ok_trials += 1
+
+                    if curr_num_ok_trials > prev_num_ok_trials:
+                        # check early stopping condition
+                        stop, kwargs = self.early_stop_fn(
+                            self.trials, *self.early_stop_args
+                        )
+                        self.early_stop_args = kwargs
+
+                        if stop:
+                            # same logic as timeouts
+                            self.trials._fmin_cancelled = True
+                            self.trials._fmin_cancelled_reason = (
+                                "early stopping condition"
+                            )
+                            self._cancel_running_trials()
+                            logger.warning(
+                                "fmin cancelled because of "
+                                + self.trials._fmin_cancelled_reason
+                            )
+                        prev_num_ok_trials = curr_num_ok_trials
 
                 # In the future, timeout checking logic could be moved to `fmin`.
                 # For now, timeouts are specific to SparkTrials.
@@ -404,8 +473,7 @@ class _SparkFMinState:
 
             logger.debug("dispatcher thread exits normally.")
 
-        self._dispatcher_thread = threading.Thread(target=run_dispatcher)
-        self._dispatcher_thread.setDaemon(True)
+        self._dispatcher_thread = threading.Thread(target=run_dispatcher, daemon=True)
         self._dispatcher_thread.start()
 
     @staticmethod
@@ -459,6 +527,8 @@ class _SparkFMinState:
             params = self._get_spec_from_trial(trial)
 
             def run_task_on_executor(_):
+                import traceback
+
                 domain = base.Domain(
                     local_eval_function, local_space, pass_expr_memo_ctrl=None
                 )
@@ -478,6 +548,8 @@ class _SparkFMinState:
 
             try:
                 worker_rdd = self.spark.sparkContext.parallelize([0], 1)
+                if self.resource_profile:
+                    worker_rdd = worker_rdd.withResources(self.resource_profile)
                 if self.trials._spark_supports_job_cancelling:
                     if self.trials._spark_pinned_threads_enabled:
                         spark_context = self.spark.sparkContext
@@ -501,9 +573,7 @@ class _SparkFMinState:
                             self._job_group_id,
                             self._job_desc,
                             self._job_interrupt_on_cancel,
-                        )[
-                            0
-                        ]
+                        )[0]
                 else:
                     result_or_e = worker_rdd.mapPartitions(
                         run_task_on_executor
@@ -529,8 +599,7 @@ class _SparkFMinState:
             except ImportError:
                 pass
 
-        task_thread = threading.Thread(target=run_task_thread)
-        task_thread.setDaemon(True)
+        task_thread = threading.Thread(target=run_task_thread, daemon=True)
         task_thread.start()
         self._task_threads.add(task_thread)
 
@@ -548,9 +617,7 @@ class _SparkFMinState:
     def _cancel_running_trials(self):
         if self.trials._spark_supports_job_cancelling:
             logger.debug(
-                "Cancelling all running jobs in job group {g}".format(
-                    g=self._job_group_id
-                )
+                f"Cancelling all running jobs in job group {self._job_group_id}"
             )
             self.spark.sparkContext.cancelJobGroup(self._job_group_id)
             # Make a copy of trials by slicing

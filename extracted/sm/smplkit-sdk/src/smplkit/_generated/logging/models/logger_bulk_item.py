@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
-
-from typing import cast
-
 
 T = TypeVar("T", bound="LoggerBulkItem")
 
@@ -33,34 +30,34 @@ class LoggerBulkItem:
     """
 
     id: str
-    level: None | str | Unset = UNSET
-    resolved_level: None | str | Unset = UNSET
-    service: None | str | Unset = UNSET
-    environment: None | str | Unset = UNSET
+    level: str | Unset | None = UNSET
+    resolved_level: str | Unset | None = UNSET
+    service: str | Unset | None = UNSET
+    environment: str | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         id = self.id
 
-        level: None | str | Unset
+        level: str | Unset | None
         if isinstance(self.level, Unset):
             level = UNSET
         else:
             level = self.level
 
-        resolved_level: None | str | Unset
+        resolved_level: str | Unset | None
         if isinstance(self.resolved_level, Unset):
             resolved_level = UNSET
         else:
             resolved_level = self.resolved_level
 
-        service: None | str | Unset
+        service: str | Unset | None
         if isinstance(self.service, Unset):
             service = UNSET
         else:
             service = self.service
 
-        environment: None | str | Unset
+        environment: str | Unset | None
         if isinstance(self.environment, Unset):
             environment = UNSET
         else:
@@ -89,7 +86,7 @@ class LoggerBulkItem:
         d = dict(src_dict)
         id = d.pop("id")
 
-        def _parse_level(data: object) -> None | str | Unset:
+        def _parse_level(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -98,7 +95,7 @@ class LoggerBulkItem:
 
         level = _parse_level(d.pop("level", UNSET))
 
-        def _parse_resolved_level(data: object) -> None | str | Unset:
+        def _parse_resolved_level(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -107,7 +104,7 @@ class LoggerBulkItem:
 
         resolved_level = _parse_resolved_level(d.pop("resolved_level", UNSET))
 
-        def _parse_service(data: object) -> None | str | Unset:
+        def _parse_service(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -116,7 +113,7 @@ class LoggerBulkItem:
 
         service = _parse_service(d.pop("service", UNSET))
 
-        def _parse_environment(data: object) -> None | str | Unset:
+        def _parse_environment(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

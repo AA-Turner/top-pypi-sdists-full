@@ -2,75 +2,128 @@ use crate::backend::Tag;
 use crate::error::{PyroscopeError, Result};
 use crate::pyroscope::{PyroscopeAgentBuilder, PyroscopeAgentRunning};
 use crate::{PyroscopeAgent, ThreadId};
-use lazy_static::lazy_static;
-use std::sync::{
-    Mutex,
-    mpsc::{self, Receiver, Sender},
-};
+use crate::{forksafety, memory};
+use pyo3::Python;
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum Signal {
-    Kill,
-    AddThreadTag(ThreadId, Tag),
-    RemoveThreadTag(ThreadId, Tag),
+static STATE: forksafety::LeakableMutex<State> = forksafety::LeakableMutex::new();
+
+#[derive(Default)]
+enum State {
+    #[default]
+    Idle,
+    Busy,
+    Running(Box<PyroscopeAgent<PyroscopeAgentRunning>>),
 }
 
-const TAG: &str = "pyroscope::ffikit";
-
-lazy_static! {
-    static ref SENDER: Mutex<Option<Sender<Signal>>> = Mutex::new(None);
+fn create_http_client() -> Result<reqwest::blocking::Client> {
+    // reqwest's blocking client waits on its runtime thread via Thread::park.
+    // Captured crash when this ran on the fork-surviving thread:
+    //   EXC_BREAKPOINT (SIGTRAP)
+    //   libdispatch: BUG IN CLIENT OF LIBDISPATCH:
+    //                Use-after-free of dispatch_semaphore_t or dispatch_group_t
+    //   libsystem_c: crashed on child side of fork pre-exec
+    //
+    //   _dispatch_semaphore_wait_slow
+    //   std::thread::Thread::park
+    //   reqwest::blocking::client::ClientBuilder::build
+    //   _native::session::SessionManager::new
+    //   _native::pyroscope::PyroscopeAgentBuilder::build
+    //   _native::ffikit::run
+    //   _native::initialize_agent
+    Ok(forksafety::no_dispatch_semaphore(|| {
+        reqwest::blocking::Client::builder().build()
+    })?)
 }
-pub fn run(agent: PyroscopeAgentBuilder) -> Result<()> {
-    let mut sender_holder = SENDER.lock()?;
-    if (*sender_holder).is_some() {
-        return Err(PyroscopeError::new("FFI channel already initialized"));
+
+pub fn run(py: Python<'_>, agent: PyroscopeAgentBuilder) -> Result<()> {
+    let mut guard = STATE.mutex().lock()?;
+    match *guard {
+        State::Idle => {}
+        State::Busy => return Err(PyroscopeError::ConcurrentOperation),
+        State::Running(_) => return Err(PyroscopeError::AgentAlreadyRunning),
     }
+    let mem_config = agent.config.mem_config.clone();
+    let start_agent = || -> Result<PyroscopeAgent<PyroscopeAgentRunning>> {
+        // Create the client only after the Idle check, so an already-running or
+        // busy agent doesn't build (and, on macOS, spawn a thread for) a client
+        // that would just be thrown away.
+        let http_client = create_http_client()?;
+        agent.build(http_client)?.start()
+    };
 
-    let agent = agent.build()?;
+    memory::start(py, &mem_config)
+        .map_err(|err| PyroscopeError::new(&format!("failed to start memory profiler: {err}")))?;
 
-    let agent = agent.start()?;
+    let agent = start_agent();
+    match agent {
+        Ok(agent) => {
+            *guard = State::Running(Box::new(agent));
+            Ok(())
+        }
+        Err(err) => {
+            memory::stop(py);
+            Err(err)
+        }
+    }
+}
 
-    let (sender, receiver): (Sender<Signal>, Receiver<Signal>) = mpsc::channel();
+pub fn add_thread_tag(tid: ThreadId, tag: Tag) -> Result<()> {
+    if let State::Running(agent) = &*STATE.mutex().lock()? {
+        agent.add_thread_tag(tid, tag)
+    } else {
+        Err(PyroscopeError::AgentNotRunning)
+    }
+}
 
-    *sender_holder = Some(sender);
+pub fn remove_thread_tag(tid: ThreadId, tag: Tag) -> Result<()> {
+    if let State::Running(agent) = &*STATE.mutex().lock()? {
+        agent.remove_thread_tag(tid, tag)
+    } else {
+        Err(PyroscopeError::AgentNotRunning)
+    }
+}
 
-    std::thread::spawn(move || {
-        while let Ok(signal) = receiver.recv() {
-            match signal {
-                Signal::Kill => {
-                    if let Err(err) = stop(agent) {
-                        log::error!(target: TAG, "failed to stop agent {err}");
-                    }
-                    break;
-                }
-                Signal::AddThreadTag(thread_id, tag) => {
-                    if let Err(err) = agent.add_thread_tag(thread_id, tag) {
-                        log::error!(target: TAG, "failed to add tag {err}");
-                    }
-                }
-                Signal::RemoveThreadTag(thread_id, tag) => {
-                    if let Err(err) = agent.remove_thread_tag(thread_id, tag) {
-                        log::error!(target: TAG, "failed to remove tag {err}");
-                    }
-                }
+pub fn stop(py: Python<'_>) -> Result<()> {
+    // Claim the agent and leave a Busy marker so concurrent run/stop calls
+    // fail fast instead of racing with the teardown below.
+    let agent = {
+        let mut guard = STATE.mutex().lock()?;
+        match std::mem::replace(&mut *guard, State::Busy) {
+            State::Running(agent) => agent,
+            State::Busy => return Err(PyroscopeError::ConcurrentOperation),
+            State::Idle => {
+                *guard = State::Idle;
+                return Err(PyroscopeError::AgentNotRunning);
             }
         }
-    });
+    };
 
-    Ok(())
+    // The lock must not be held while joining the agent threads: the snapshot
+    // thread attaches to Python for the memory flush, and a third thread
+    // already attached to Python could block on the lock, which would
+    // deadlock the three of them (stopper -> snapshot thread -> GIL holder ->
+    // lock). The GIL is detached for the same reason.
+    //
+    // agent.stop() sends a Kill over the bounded session channel; a full
+    // channel makes SyncSender::send park. On macOS that parker is a
+    // dispatch_semaphore_t inherited across fork and aborts in the child:
+    //   _dispatch_semaphore_wait_slow
+    //   std::thread::Thread::park
+    //   std::sync::mpmc::zero::Channel::send
+    //   std::sync::mpmc::Sender::send
+    //   _native::pyroscope::PyroscopeAgent::stop
+    //   _native::ffikit::stop
+    //   _native::__pyfunction_drop_agent
+    // so run it on a fresh thread via no_dispatch_semaphore.
+    let res = py.detach(|| forksafety::no_dispatch_semaphore(|| agent.stop()));
+    crate::memory::stop(py);
+    *STATE.mutex().lock()? = State::Idle;
+    res
 }
 
-pub fn send(signal: Signal) -> Result<()> {
-    if let Some(sender) = &*SENDER.lock()? {
-        sender.send(signal)?;
-    } else {
-        return Err(PyroscopeError::new("FFI channel not initialized"));
-    }
-    Ok(())
-}
-
-fn stop(agent: PyroscopeAgent<PyroscopeAgentRunning>) -> Result<()> {
-    agent.stop()?;
-    *SENDER.lock()? = None;
-    Ok(())
+pub fn at_fork_after_in_child(_py: Python<'_>) {
+    // Here we intentionally leak the whole running agent.
+    // This runs post-fork in the child, the old agent must never be dropped there (its
+    // stop() joins threads that don't survive fork)
+    STATE.leak_and_reset();
 }

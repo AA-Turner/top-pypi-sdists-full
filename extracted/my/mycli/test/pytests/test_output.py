@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import itertools
 import shutil
-from types import SimpleNamespace
+import sys
+from types import ModuleType, SimpleNamespace
 from typing import Any, cast
 
 import click
@@ -11,9 +12,11 @@ import prompt_toolkit
 from prompt_toolkit.formatted_text import ANSI, FormattedText, to_plain_text
 import pytest
 
+from mycli import compat
 from mycli import output as output_module
 from mycli.output import OutputMixin
 from mycli.packages.sqlresult import SQLResult
+from mycli.types import ImageProtocol
 from test.utils import DummyFormatter, FakeCursorBase, make_bare_mycli  # type: ignore[attr-defined]
 
 
@@ -77,6 +80,92 @@ def test_echo_logs_and_prints(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert logged == ['message']
     assert printed == [('message', {'fg': 'red'})]
+
+
+def test_output_emits_iterm2_image_without_text_sinks(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli = make_bare_mycli()
+    cli.explicit_pager = False
+    cli.get_output_margin = lambda status=None: 1  # type: ignore[assignment]
+    logged: list[Any] = []
+    emitted: list[str] = []
+    cli.log_output = lambda value: logged.append(value)  # type: ignore[assignment]
+    monkeypatch.setattr(click, 'echo', lambda value=None, **_kwargs: emitted.append(value))
+
+    OutputMixin.output(cli, itertools.chain(), SQLResult(image=b'png', image_protocol='iterm2'))
+
+    assert logged == []
+    assert emitted == ['\x1b]1337;File=name=Y2hhcnQucG5n;size=3;width=auto;height=auto;preserveAspectRatio=1;inline=1:cG5n\x07']
+
+
+def test_output_emits_kitty_image_in_base64_chunks(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli = make_bare_mycli()
+    cli.explicit_pager = False
+    cli.get_output_margin = lambda status=None: 1  # type: ignore[assignment]
+    emitted: list[tuple[str | None, dict[str, Any]]] = []
+    monkeypatch.setattr(click, 'echo', lambda value=None, **kwargs: emitted.append((value, kwargs)))
+    image = b'x' * 4000
+
+    OutputMixin.output(cli, itertools.chain(), SQLResult(image=image, image_protocol='kitty'))
+
+    encoded = output_module.base64.b64encode(image).decode('ascii')
+    assert emitted == [
+        (f'\x1b_Ga=T,f=100,m=1;{encoded[:4096]}\x1b\\', {'nl': False}),
+        (f'\x1b_Gm=0;{encoded[4096:]}\x1b\\', {'nl': False}),
+        (None, {}),
+    ]
+
+
+@pytest.mark.parametrize('image_protocol', ['iterm2', 'kitty'])
+def test_output_suppresses_images_in_windows_console(
+    monkeypatch: pytest.MonkeyPatch,
+    image_protocol: ImageProtocol,
+) -> None:
+    cli = make_bare_mycli()
+    cli.prompt_session = cast(
+        Any,
+        SimpleNamespace(output=SimpleNamespace(get_size=lambda: SimpleNamespace(columns=80, rows=24))),
+    )
+    cli.get_output_margin = lambda status=None: 1  # type: ignore[assignment]
+    emitted: list[str | None] = []
+    monkeypatch.setattr(output_module, 'is_windows_console', lambda output: True)
+    monkeypatch.setattr(click, 'echo', lambda value=None, **_kwargs: emitted.append(value))
+
+    OutputMixin.output(cli, itertools.chain(), SQLResult(image=b'png', image_protocol=image_protocol))
+
+    assert emitted == []
+
+
+def test_is_windows_console_detects_prompt_toolkit_backends(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeWin32Output:
+        pass
+
+    class FakeWindows10Output:
+        pass
+
+    class FakeConEmuOutput:
+        pass
+
+    modules = (
+        ('prompt_toolkit.output.win32', 'Win32Output', FakeWin32Output),
+        ('prompt_toolkit.output.windows10', 'Windows10_Output', FakeWindows10Output),
+        ('prompt_toolkit.output.conemu', 'ConEmuOutput', FakeConEmuOutput),
+    )
+    for module_name, class_name, output_class in modules:
+        module = ModuleType(module_name)
+        setattr(module, class_name, output_class)
+        monkeypatch.setitem(sys.modules, module_name, module)
+    monkeypatch.setattr(compat.sys, 'platform', 'win32')
+
+    assert compat.is_windows_console(FakeWin32Output())
+    assert compat.is_windows_console(FakeWindows10Output())
+    assert compat.is_windows_console(FakeConEmuOutput())
+    assert not compat.is_windows_console(object())
+
+
+def test_is_windows_console_ignores_non_windows_platform(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(compat.sys, 'platform', 'cygwin')
+
+    assert not compat.is_windows_console(object())
 
 
 def test_get_output_margin_renders_prompt_once_and_counts_status_lines(monkeypatch: pytest.MonkeyPatch) -> None:

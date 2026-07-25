@@ -6,15 +6,15 @@ import tempfile
 import time
 import timeit
 import unittest
+from io import StringIO
 
 import numpy as np
+from py4j.clientserver import ClientServer
 from pyspark.sql import SparkSession
-from six import StringIO
 
 from hyperopt import SparkTrials, anneal, base, fmin, hp, rand
-
+from hyperopt.base import STATUS_OK
 from hyperopt.tests.unit.test_fmin import test_quadratic1_tpe
-from py4j.clientserver import ClientServer
 
 
 @contextlib.contextmanager
@@ -109,7 +109,7 @@ def fn_succeed_within_range(x):
     if -3 < x < 3:
         return 1
     else:
-        raise RuntimeError
+        raise RuntimeError(f"{x} is out of range")
 
 
 class FMinTestCase(unittest.TestCase, BaseSparkContext):
@@ -131,65 +131,49 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         self.assertEqual(
             spark_trials.count_total_trials(),
             num_total,
-            "Wrong number of total trial runs: Expected {e} but got {r}.".format(
-                e=num_total, r=spark_trials.count_total_trials()
-            ),
+            f"Wrong number of total trial runs: Expected {num_total} but got {spark_trials.count_total_trials()}.",
         )
         self.assertEqual(
             spark_trials.count_successful_trials(),
             num_success,
-            "Wrong number of successful trial runs: Expected {e} but got {r}.".format(
-                e=num_success, r=spark_trials.count_successful_trials()
-            ),
+            f"Wrong number of successful trial runs: Expected {num_success} but got {spark_trials.count_successful_trials()}.",
         )
         self.assertEqual(
             spark_trials.count_failed_trials(),
             num_failure,
-            "Wrong number of failed trial runs: Expected {e} but got {r}.".format(
-                e=num_failure, r=spark_trials.count_failed_trials()
-            ),
+            f"Wrong number of failed trial runs: Expected {num_failure} but got {spark_trials.count_failed_trials()}.",
         )
         log_output = output.getvalue().strip()
         self.assertIn(
             "Total Trials: " + str(num_total),
             log_output,
-            """Logging "Total Trials: {num}" missing from the log: {log}""".format(
-                num=str(num_total), log=log_output
-            ),
+            f"""Logging "Total Trials: {str(num_total)}" missing from the log: {log_output}""",
         )
         self.assertIn(
             str(num_success) + " succeeded",
             log_output,
-            """Logging "{num} succeeded " missing from the log: {log}""".format(
-                num=str(num_success), log=log_output
-            ),
+            f"""Logging "{str(num_success)} succeeded " missing from the log: {log_output}""",
         )
         self.assertIn(
             str(num_failure) + " failed",
             log_output,
-            """ Logging "{num} failed " missing from the log: {log}""".format(
-                num=str(num_failure), log=log_output
-            ),
+            f""" Logging "{str(num_failure)} failed " missing from the log: {log_output}""",
         )
 
     def assert_task_succeeded(self, log_output, task):
         self.assertIn(
             f"trial {task} task thread exits normally",
             log_output,
-            """Debug info "trial {task} task thread exits normally" missing from log:
-             {log_output}""".format(
-                task=task, log_output=log_output
-            ),
+            f"""Debug info "trial {task} task thread exits normally" missing from log:
+             {log_output}""",
         )
 
     def assert_task_failed(self, log_output, task):
         self.assertIn(
             f"trial {task} task thread catches an exception",
             log_output,
-            """Debug info "trial {task} task thread catches an exception" missing from log:
-             {log_output}""".format(
-                task=task, log_output=log_output
-            ),
+            f"""Debug info "trial {task} task thread catches an exception" missing from log:
+             {log_output}""",
         )
 
     def test_quadratic1_tpe(self):
@@ -208,10 +192,10 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 max_evals=8,
                 return_argmin=False,
                 trials=spark_trials,
-                rstate=np.random.default_rng(99),
+                rstate=np.random.default_rng(94),
             )
             self.check_run_status(
-                spark_trials, output, num_total=8, num_success=7, num_failure=1
+                spark_trials, output, num_total=8, num_success=6, num_failure=2
             )
 
         expected_result = {"loss": 1.0, "status": "ok"}
@@ -220,9 +204,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 self.assertEqual(
                     trial["result"],
                     expected_result,
-                    "Wrong result has been saved: Expected {e} but got {r}.".format(
-                        e=expected_result, r=trial["result"]
-                    ),
+                    f"Wrong result has been saved: Expected {expected_result} but got {trial['result']}.",
                 )
             elif trial["state"] == base.JOB_STATE_ERROR:
                 err_message = trial["misc"]["error"][1]
@@ -240,18 +222,14 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         num_success = spark_trials.count_by_state_unsynced(base.JOB_STATE_DONE)
         self.assertEqual(
             num_success,
-            7,
-            "Wrong number of successful trial runs: Expected {e} but got {r}.".format(
-                e=7, r=num_success
-            ),
+            6,
+            f"Wrong number of successful trial runs: Expected 6 but got {num_success}.",
         )
         num_failure = spark_trials.count_by_state_unsynced(base.JOB_STATE_ERROR)
         self.assertEqual(
             num_failure,
-            1,
-            "Wrong number of failed trial runs: Expected {e} but got {r}.".format(
-                e=1, r=num_failure
-            ),
+            2,
+            f"Wrong number of failed trial runs: Expected 2 but got {num_failure}.",
         )
 
     def test_accepting_sparksession(self):
@@ -280,17 +258,15 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
                 self.assertEqual(
                     parallelism,
                     default_parallelism,
-                    "Failed to set parallelism to be default parallelism ({p})"
-                    " ({e})".format(p=parallelism, e=default_parallelism),
+                    f"Failed to set parallelism to be default parallelism ({parallelism})"
+                    f" ({default_parallelism})",
                 )
                 log_output = output.getvalue().strip()
                 self.assertIn(
                     "Because the requested parallelism was None or a non-positive value, "
-                    "parallelism will be set to ({d})".format(d=default_parallelism),
+                    f"parallelism will be set to ({default_parallelism})",
                     log_output,
-                    """set to default parallelism missing from log: {log_output}""".format(
-                        log_output=log_output
-                    ),
+                    f"""set to default parallelism missing from log: {log_output}""",
                 )
 
         # Test requested_parallelism exceeds hard cap
@@ -302,19 +278,13 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             self.assertEqual(
                 parallelism,
                 SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED,
-                "Failed to limit parallelism ({p}) to MAX_CONCURRENT_JOBS_ALLOWED ({e})".format(
-                    p=parallelism, e=SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED
-                ),
+                f"Failed to limit parallelism ({parallelism}) to MAX_CONCURRENT_JOBS_ALLOWED ({SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED})",
             )
             log_output = output.getvalue().strip()
             self.assertIn(
-                "SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED ({c})".format(
-                    c=SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED
-                ),
+                f"SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED ({SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED})",
                 log_output,
-                """MAX_CONCURRENT_JOBS_ALLOWED value missing from log: {log_output}""".format(
-                    log_output=log_output
-                ),
+                f"""MAX_CONCURRENT_JOBS_ALLOWED value missing from log: {log_output}""",
             )
 
     def test_all_successful_trials(self):
@@ -333,10 +303,8 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             self.assertIn(
                 "fmin thread exits normally",
                 log_output,
-                """Debug info "fmin thread exits normally" missing from 
-                log: {log_output}""".format(
-                    log_output=log_output
-                ),
+                f"""Debug info "fmin thread exits normally" missing from 
+                log: {log_output}""",
             )
             self.assert_task_succeeded(log_output, 0)
 
@@ -358,7 +326,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
 
         spark_trials = SparkTrials(parallelism=4)
         # Here return_argmin is True (by default) and an exception should be thrown
-        with self.assertRaisesRegexp(Exception, "There are no evaluation tasks"):
+        with self.assertRaisesRegex(Exception, "There are no evaluation tasks"):
             fmin(
                 fn=fn_succeed_within_range,
                 space=hp.uniform("x", 5, 8),
@@ -396,27 +364,23 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             self.assertIn(
                 "fmin is cancelled, so new trials will not be launched",
                 log_output,
-                """ "fmin is cancelled, so new trials will not be launched" missing from log:
-                {log_output}""".format(
-                    log_output=log_output
-                ),
+                f""" "fmin is cancelled, so new trials will not be launched" missing from log:
+                {log_output}""",
             )
             self.assertIn(
                 "SparkTrials will block",
                 log_output,
-                """ "SparkTrials will block" missing from log: {log_output}""".format(
-                    log_output=log_output
-                ),
+                f""" "SparkTrials will block" missing from log: {log_output}""",
             )
             self.assert_task_succeeded(log_output, 0)
 
     def test_timeout_without_job_cancellation_fmin_timeout(self):
-        timeout = 4
+        timeout = 5
         spark_trials = SparkTrials(parallelism=1)
         spark_trials._spark_supports_job_cancelling = False
 
         def fn(x):
-            time.sleep(0.5)
+            time.sleep(1)
             return x
 
         with patch_logger("hyperopt-spark", logging.DEBUG) as output:
@@ -441,17 +405,13 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             self.assertIn(
                 "fmin is cancelled, so new trials will not be launched",
                 log_output,
-                """ "fmin is cancelled, so new trials will not be launched" missing from log:
-                {log_output}""".format(
-                    log_output=log_output
-                ),
+                f""" "fmin is cancelled, so new trials will not be launched" missing from log:
+                {log_output}""",
             )
             self.assertIn(
                 "SparkTrials will block",
                 log_output,
-                """ "SparkTrials will block" missing from log: {log_output}""".format(
-                    log_output=log_output
-                ),
+                f""" "SparkTrials will block" missing from log: {log_output}""",
             )
             self.assert_task_succeeded(log_output, 0)
 
@@ -495,16 +455,12 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             self.assertIn(
                 "Cancelling all running jobs",
                 log_output,
-                """ "Cancelling all running jobs" missing from log: {log_output}""".format(
-                    log_output=log_output
-                ),
+                f""" "Cancelling all running jobs" missing from log: {log_output}""",
             )
             self.assertIn(
                 "trial task 0 cancelled",
                 log_output,
-                """ "trial task 0 cancelled" missing from log: {log_output}""".format(
-                    log_output=log_output
-                ),
+                f""" "trial task 0 cancelled" missing from log: {log_output}""",
             )
             self.assert_task_failed(log_output, 0)
 
@@ -540,12 +496,12 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         )
 
     def test_invalid_timeout(self):
-        with self.assertRaisesRegexp(
+        with self.assertRaisesRegex(
             Exception,
             "timeout argument should be None or a positive value. Given value: -1",
         ):
             SparkTrials(parallelism=4, timeout=-1)
-        with self.assertRaisesRegexp(
+        with self.assertRaisesRegex(
             Exception,
             "timeout argument should be None or a positive value. Given value: True",
         ):
@@ -557,7 +513,7 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
         orig_have_spark = hyperopt.spark._have_spark
         hyperopt.spark._have_spark = False
         try:
-            with self.assertRaisesRegexp(Exception, "cannot import pyspark"):
+            with self.assertRaisesRegex(Exception, "cannot import pyspark"):
                 SparkTrials(parallelism=4)
         finally:
             hyperopt.spark._have_spark = orig_have_spark
@@ -622,3 +578,40 @@ class FMinTestCase(unittest.TestCase, BaseSparkContext):
             trials=spark_trials,
         )
         self.assertEqual(spark_trials.count_successful_trials(), 5)
+
+    def test_early_stop(self):
+        # stop after at least 3 trials succeed
+        def early_stop_fn(trials):
+            num_ok_trials = 0
+            for trial in trials:
+                if trial["result"]["status"] == STATUS_OK:
+                    num_ok_trials += 1
+            return num_ok_trials >= 3, []
+
+        spark_trials = SparkTrials(parallelism=2)
+        with patch_logger("hyperopt-spark", logging.DEBUG) as output:
+            fmin(
+                fn=lambda x: {"loss": x, "status": STATUS_OK, "other_info": "hello"},
+                space=hp.uniform("x", -1, 1),
+                algo=rand.suggest,
+                max_evals=10,
+                trials=spark_trials,
+                early_stop_fn=early_stop_fn,
+            )
+            log_output = output.getvalue().strip()
+
+            num_successful_trials = spark_trials.count_successful_trials()
+            self.assertGreaterEqual(num_successful_trials, 3)
+            self.assertLess(num_successful_trials, 10)
+
+            self.assertIn(
+                "fmin thread exits normally",
+                log_output,
+                f'Debug info "fmin thread exits normally" missing from log: {log_output}',
+            )
+
+            self.assertIn(
+                "fmin cancelled because of early stopping condition",
+                log_output,
+                f"Debug info for early stopping missing from log: {log_output}",
+            )

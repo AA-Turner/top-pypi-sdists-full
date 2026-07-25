@@ -157,6 +157,29 @@ def test_enum_model() -> None:
         models["Model"].model_validate({"status": "invalid"})
 
 
+def test_imported_model_classes_are_not_returned() -> None:
+    """Return only classes defined by the generated module."""
+    schema = json.loads((DATA_PATH / "imported_model_classes.json").read_text(encoding="utf-8"))
+    config = GenerateConfig(
+        input_file_type=InputFileType.JsonSchema,
+        output_model_type=DataModelType.PydanticV2BaseModel,
+        additional_imports=[
+            "pydantic.RootModel",
+            "datamodel_code_generator.enums.DataModelType",
+        ],
+    )
+
+    models = generate_dynamic_models(schema, config=config, cache_size=0)
+    actual = {
+        "models": sorted(models),
+        "validated": models["GeneratedUser"].model_validate({"name": "Alice"}).model_dump(mode="json"),
+    }
+    assert_output(
+        f"{json.dumps(actual, indent=2, sort_keys=True)}\n",
+        EXPECTED_PATH / "imported_model_classes.txt",
+    )
+
+
 def test_circular_reference() -> None:
     """Test generating models with circular references."""
     schema: dict[str, Any] = {
@@ -403,6 +426,15 @@ def test_cache_shrinks_when_smaller_size_requested() -> None:
     for schema in schemas:
         generate_dynamic_models(schema, cache_size=10)
     generate_dynamic_models(make_object_schema({"new_field": {"type": "string"}}), cache_size=2)
+    assert clear_dynamic_models_cache() == 2
+
+
+def test_cache_hit_shrinks_when_smaller_size_requested() -> None:
+    """Test that a cache hit still enforces a smaller cache_size."""
+    schemas = [make_object_schema({f"field{i}": {"type": "string"}}) for i in range(5)]
+    cached_models = [generate_dynamic_models(schema, cache_size=10) for schema in schemas]
+
+    assert generate_dynamic_models(schemas[-1], cache_size=2) is cached_models[-1]
     assert clear_dynamic_models_cache() == 2
 
 

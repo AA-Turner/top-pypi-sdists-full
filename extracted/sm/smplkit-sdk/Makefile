@@ -16,7 +16,7 @@ DEV_DEPS := \
 	'openapi-python-client>=0.21.0,<0.29.0' \
 	'pytest>=7.0' \
 	'pytest-cov>=4.0' \
-	'ruff>=0.4.0' \
+	'ruff==0.16.0' \
 	'loguru>=0.7.0'
 
 SHOWCASE_RUN := PYTHONPATH=src $(PYTHON)

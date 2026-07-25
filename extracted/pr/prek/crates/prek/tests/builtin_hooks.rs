@@ -78,6 +78,170 @@ fn builtin_hooks_unknown_hook() {
 }
 
 #[test]
+fn deny_pattern_hook_reports_matching_lines() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    context.write_pre_commit_config(indoc::indoc! {r"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: deny-pattern
+                args:
+                  - --ignore-case
+                  - '\btodo\b'
+                  - 'remove'
+                  - '^#import\s+.+:\s+\*$'
+                files: '\.typ$'
+    "});
+
+    let cwd = context.work_dir();
+    cwd.child("policy.typ").write_str(indoc::indoc! {"
+        permitted content
+        TODO: remove this
+        #import package: *
+    "})?;
+    cwd.child("ignored.txt")
+        .write_str("TODO: ignored by files filter\n")?;
+    context.git_add(".");
+
+    cmd_snapshot!(context.filters(), context.run(), @r"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    deny patterns............................................................Failed
+    - hook id: deny-pattern
+    - exit code: 1
+
+      policy.typ:2:TODO: remove this
+      policy.typ:3:#import package: *
+
+    ----- stderr -----
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn deny_pattern_hook_rejects_invalid_regex() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    context.write_pre_commit_config(indoc::indoc! {r"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: deny-pattern
+                args: ['*invalid-pattern*']
+    "});
+
+    context
+        .work_dir()
+        .child("file.txt")
+        .write_str("content\n")?;
+    context.git_add(".");
+
+    cmd_snapshot!(context.filters(), context.run(), @r#"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Failed to run hook `deny-pattern`
+      caused by: Failed to compile regex patterns
+      caused by: error parsing pattern 0
+      caused by: regex parse error:
+        *invalid-pattern*
+        ^
+    error: repetition operator missing expression
+    "#);
+
+    Ok(())
+}
+
+#[test]
+fn deny_pattern_hook_reports_earliest_multiline_match() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    // `END` is listed first, but `BEGIN.*END` starts earlier in the file.
+    // Multiline matching should report the earliest match, not the first pattern.
+    context.write_pre_commit_config(indoc::indoc! {r"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: deny-pattern
+                args: [-m, 'END', 'BEGIN.*END']
+                files: '\.txt$'
+    "});
+
+    context
+        .work_dir()
+        .child("block.txt")
+        .write_str(indoc::indoc! {"
+        before
+        BEGIN
+        middle
+        END
+        after
+    "})?;
+    context.git_add(".");
+
+    cmd_snapshot!(context.filters(), context.run(), @r"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    deny patterns............................................................Failed
+    - hook id: deny-pattern
+    - exit code: 1
+
+      block.txt:2:BEGIN
+      middle
+      END
+
+    ----- stderr -----
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn require_pattern_hook_reports_files_without_any_match() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    context.write_pre_commit_config(indoc::indoc! {r"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: require-pattern
+                args: [--ignore-case, --multiline, 'begin.*end', 'copyright']
+                files: '\.txt$'
+    "});
+
+    let cwd = context.work_dir();
+    cwd.child("block.txt").write_str("BEGIN\nmiddle\nEND\n")?;
+    cwd.child("copyright.txt").write_str("Copyright 2026\n")?;
+    cwd.child("missing.txt").write_str("No required marker\n")?;
+    context.git_add(".");
+
+    cmd_snapshot!(context.filters(), context.run(), @r"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    require patterns.........................................................Failed
+    - hook id: require-pattern
+    - exit code: 1
+
+      missing.txt: no pattern matched
+
+    ----- stderr -----
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn end_of_file_fixer_hook() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
@@ -205,6 +369,135 @@ fn file_contents_sorter_hook() -> Result<()> {
 
     ----- stderr -----
     ");
+
+    Ok(())
+}
+
+#[test]
+fn builtin_hook_checks_filename_from_args_after_options() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    context.write_pre_commit_config(indoc::indoc! {r"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: file-contents-sorter
+                args: [--ignore-case, configured.txt, configured.txt, selected.txt]
+                files: ^selected\.txt$
+    "});
+
+    let cwd = context.work_dir();
+    cwd.child("configured.txt").write_str("beta\nAlpha\n")?;
+    cwd.child("selected.txt").write_str("Beta\nalpha\n")?;
+    context.git_add(".");
+
+    cmd_snapshot!(context.filters(), context.run(), @r"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    file contents sorter.....................................................Failed
+    - hook id: file-contents-sorter
+    - exit code: 1
+    - files were modified by this hook
+
+      Sorting configured.txt
+      Sorting selected.txt
+
+    ----- stderr -----
+    ");
+
+    assert_eq!(context.read("configured.txt"), "Alpha\nbeta\n");
+    assert_eq!(context.read("selected.txt"), "alpha\nBeta\n");
+
+    Ok(())
+}
+
+#[test]
+fn requirements_txt_fixer_hook() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    context.write_pre_commit_config(indoc::indoc! {r"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: requirements-txt-fixer
+    "});
+
+    let cwd = context.work_dir();
+    cwd.child("requirements.txt").write_str(indoc::indoc! {"
+        requests==2
+        # Flask is needed by the web application.
+        Flask==3
+        requests==2
+        pkg-resources==0.0.0
+    "})?;
+    cwd.child("requirements.in")
+        .write_str("z-project\na-project\n")?;
+    context.git_add(".");
+
+    cmd_snapshot!(context.filters(), context.run(), @r"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    fix requirements.txt.....................................................Failed
+    - hook id: requirements-txt-fixer
+    - exit code: 1
+    - files were modified by this hook
+
+      Sorting requirements.txt
+
+    ----- stderr -----
+    ");
+
+    assert_eq!(
+        context.read("requirements.txt"),
+        indoc::indoc! {"
+            # Flask is needed by the web application.
+            Flask==3
+            requests==2
+        "}
+    );
+    assert_eq!(context.read("requirements.in"), "z-project\na-project\n");
+
+    context.git_add(".");
+    cmd_snapshot!(context.filters(), context.run(), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    fix requirements.txt.....................................................Passed
+
+    ----- stderr -----
+    ");
+
+    context.write_pre_commit_config(indoc::indoc! {r"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: requirements-txt-fixer
+              - id: check-json
+    "});
+    cwd.child("requirements.txt")
+        .write_str("flask\n  requests==2\n")?;
+    cwd.child("valid.json").write_str("{}\n")?;
+    context.git_add(".");
+
+    cmd_snapshot!(context.filters(), context.run(), @r"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    fix requirements.txt.....................................................Failed
+    - hook id: requirements-txt-fixer
+    - exit code: 1
+
+      requirements.txt:2: requirement entry starts with whitespace
+    check json...............................................................Passed
+
+    ----- stderr -----
+    ");
+
+    assert_eq!(context.read("requirements.txt"), "flask\n  requests==2\n");
 
     Ok(())
 }

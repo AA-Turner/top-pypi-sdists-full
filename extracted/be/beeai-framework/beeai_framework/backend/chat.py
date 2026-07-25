@@ -195,12 +195,12 @@ class ChatModelOptions(RunnableOptions, total=False):
 
     temperature: float | None
     """
-    Model paramater that controls the randomness of the generated text.
+    Model parameter that controls the randomness of the generated text.
     """
 
     top_p: float | None
     """
-    Model parameter (nucleous sampling) that decides how many possible words to consider.
+    Model parameter (nucleus sampling) that decides how many possible words to consider.
     """
 
     top_k: int | None
@@ -226,6 +226,11 @@ class ChatModelOptions(RunnableOptions, total=False):
     stream_partial_tool_calls: bool | None
     """
     Generated chunks will be streamed without validation of the produced tool calls.
+    """
+
+    reasoning_effort: str | None
+    """
+    Controls the amount of reasoning effort for models that support it (e.g., "low", "medium", "high").
     """
 
     fallback_tool: AnyTool | None
@@ -565,6 +570,7 @@ class ChatModel(Runnable[ChatModelOutput]):
                             {"tempMessage": True},
                         )
                     )
+                    await cache_entry.delete()
                 elif self.retry_on_empty_response and isinstance(e, EmptyChatModelResponseError):
                     model_input.messages = model_input.messages.copy()
                     model_input.messages.append(AssistantMessage("", {"tempMessage": True}))

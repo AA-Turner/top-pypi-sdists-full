@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
-
-from typing import cast
 
 if TYPE_CHECKING:
     from ..models.test_forwarder_response_response_headers import TestForwarderResponseResponseHeaders
@@ -34,8 +32,8 @@ class TestForwarderResponse:
     response_status: int | None
     latency_ms: int | None
     response_headers: TestForwarderResponseResponseHeaders | Unset = UNSET
-    response_body: None | str | Unset = UNSET
-    error: None | str | Unset = UNSET
+    response_body: str | Unset | None = UNSET
+    error: str | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -51,13 +49,13 @@ class TestForwarderResponse:
         if not isinstance(self.response_headers, Unset):
             response_headers = self.response_headers.to_dict()
 
-        response_body: None | str | Unset
+        response_body: str | Unset | None
         if isinstance(self.response_body, Unset):
             response_body = UNSET
         else:
             response_body = self.response_body
 
-        error: None | str | Unset
+        error: str | Unset | None
         if isinstance(self.error, Unset):
             error = UNSET
         else:
@@ -109,7 +107,7 @@ class TestForwarderResponse:
         else:
             response_headers = TestForwarderResponseResponseHeaders.from_dict(_response_headers)
 
-        def _parse_response_body(data: object) -> None | str | Unset:
+        def _parse_response_body(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -118,7 +116,7 @@ class TestForwarderResponse:
 
         response_body = _parse_response_body(d.pop("response_body", UNSET))
 
-        def _parse_error(data: object) -> None | str | Unset:
+        def _parse_error(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

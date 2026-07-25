@@ -2,17 +2,15 @@
 #
 # GPIO Zero: a library for controlling the Raspberry Pi's GPIO pins
 #
+# Copyright (c) 2026 Ben Nuttall <ben@bennuttall.com>
 # Copyright (c) 2021-2023 Dave Jones <dave@waveform.org.uk>
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-import argparse
 import sys
-import warnings
 
 from . import CliTool
 from gpiozero import Device
-from gpiozero.pins.pi import PiBoardInfo
 
 
 class PintestTool(CliTool):

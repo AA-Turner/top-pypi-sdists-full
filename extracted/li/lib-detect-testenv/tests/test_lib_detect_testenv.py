@@ -288,7 +288,7 @@ def test_add_path_to_syspath_resolves_relative_paths(tmp_path: pathlib.Path) -> 
     """add_path_to_syspath() should resolve relative paths to absolute paths."""
     import os
 
-    original_cwd = os.getcwd()
+    original_cwd = pathlib.Path.cwd()
     original_syspath = sys.path.copy()
 
     try:

@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
-
-from typing import cast
 
 if TYPE_CHECKING:
     from ..models.run_list_links import RunListLinks
@@ -31,7 +29,7 @@ class RunListResponse:
 
     data: list[RunResource]
     meta: RunListMeta
-    links: None | RunListLinks | Unset = UNSET
+    links: RunListLinks | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -44,7 +42,7 @@ class RunListResponse:
 
         meta = self.meta.to_dict()
 
-        links: dict[str, Any] | None | Unset
+        links: dict[str, Any] | Unset | None
         if isinstance(self.links, Unset):
             links = UNSET
         elif isinstance(self.links, RunListLinks):
@@ -81,7 +79,7 @@ class RunListResponse:
 
         meta = RunListMeta.from_dict(d.pop("meta"))
 
-        def _parse_links(data: object) -> None | RunListLinks | Unset:
+        def _parse_links(data: object) -> RunListLinks | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awsiotsdk
-Version: 1.30.0
+Version: 1.31.0
 Summary: AWS IoT SDK based on the AWS Common Runtime
 Home-page: https://github.com/aws/aws-iot-device-sdk-python-v2
 Author: AWS SDK Common Runtime Team
@@ -10,7 +10,7 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Requires-Dist: awscrt==0.34.1
+Requires-Dist: awscrt==0.36.1
 Dynamic: author
 Dynamic: classifier
 Dynamic: description
@@ -154,4 +154,4 @@ Check out our resources for additional guidance too before opening an issue:
 
 This library is licensed under the [Apache 2.0 License](./documents/LICENSE).
 
-Latest released version: v1.30.0
+Latest released version: v1.31.0

@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
-
-from typing import cast
 
 if TYPE_CHECKING:
     from ..models.event_resource import EventResource
@@ -38,7 +36,7 @@ class EventSearchResponse:
 
     data: list[EventResource]
     meta: EventSearchListMeta
-    links: EventSearchListLinks | None | Unset = UNSET
+    links: EventSearchListLinks | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -51,7 +49,7 @@ class EventSearchResponse:
 
         meta = self.meta.to_dict()
 
-        links: dict[str, Any] | None | Unset
+        links: dict[str, Any] | Unset | None
         if isinstance(self.links, Unset):
             links = UNSET
         elif isinstance(self.links, EventSearchListLinks):
@@ -88,7 +86,7 @@ class EventSearchResponse:
 
         meta = EventSearchListMeta.from_dict(d.pop("meta"))
 
-        def _parse_links(data: object) -> EventSearchListLinks | None | Unset:
+        def _parse_links(data: object) -> EventSearchListLinks | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
-
-from typing import cast
 
 if TYPE_CHECKING:
     from ..models.plan_definition_limits import PlanDefinitionLimits
@@ -34,7 +32,7 @@ class PlanDefinition:
 
     price_monthly_cents: int
     limits: PlanDefinitionLimits
-    overage_rates: None | PlanDefinitionOverageRates | Unset = UNSET
+    overage_rates: PlanDefinitionOverageRates | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -44,7 +42,7 @@ class PlanDefinition:
 
         limits = self.limits.to_dict()
 
-        overage_rates: dict[str, Any] | None | Unset
+        overage_rates: dict[str, Any] | Unset | None
         if isinstance(self.overage_rates, Unset):
             overage_rates = UNSET
         elif isinstance(self.overage_rates, PlanDefinitionOverageRates):
@@ -75,7 +73,7 @@ class PlanDefinition:
 
         limits = PlanDefinitionLimits.from_dict(d.pop("limits"))
 
-        def _parse_overage_rates(data: object) -> None | PlanDefinitionOverageRates | Unset:
+        def _parse_overage_rates(data: object) -> PlanDefinitionOverageRates | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

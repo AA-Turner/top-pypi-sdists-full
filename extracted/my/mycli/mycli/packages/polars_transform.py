@@ -2,16 +2,21 @@ from __future__ import annotations
 
 import builtins
 from dataclasses import dataclass
+import datetime
+import decimal
+import fractions
+from io import BytesIO
 from types import CodeType
-from typing import Any, Iterable
+from typing import Any, Iterable, Sequence
 
 import sqlglot
 
 from mycli.packages.special.delimitercommand import DelimiterCommand
 from mycli.packages.sqlresult import SQLResult
-from mycli.types import OutputMode
+from mycli.types import ImageProtocol, OutputMode
 
 delimiter_command = DelimiterCommand()
+PLOT_FORMATS = ('png', 'pdf', 'svg', 'html')
 
 
 class PolarsTransformError(RuntimeError):
@@ -22,7 +27,7 @@ class PolarsTransformError(RuntimeError):
 class PolarsPipeline:
     sql: str
     expression: str | None
-    parquet_path: str | None
+    output_path: str | None
     output_mode: OutputMode
 
 
@@ -35,8 +40,27 @@ class PolarsTransform:
     altair: Any | None
 
 
+def _is_coerceable_scalarish(value: Any) -> bool:
+    # pretend str/bytes are scalars
+    return isinstance(
+        value,
+        (
+            bool,
+            int,
+            float,
+            complex,
+            bytes,
+            str,
+            datetime.datetime,
+            datetime.timedelta,
+            decimal.Decimal,
+            fractions.Fraction,
+        ),
+    )
+
+
 def parse_polars_transform(command: str) -> PolarsPipeline | None:
-    """Parse a SQL statement with optional Polars transform and Parquet output."""
+    """Parse a SQL statement with optional Polars transform and file output."""
     try:
         tokens = sqlglot.tokenize(command)
     except sqlglot.errors.TokenError as exc:
@@ -55,7 +79,7 @@ def parse_polars_transform(command: str) -> PolarsPipeline | None:
         if following.end + 1 >= len(command):
             if following.token_type == sqlglot.TokenType.PIPE:
                 raise PolarsTransformError('Polars transforms require a Python expression.')
-            raise PolarsTransformError('Parquet saves require a destination path.')
+            raise PolarsTransformError('File saves require a destination path.')
         if not command[following.end + 1].isspace():
             continue
         if following.token_type == sqlglot.TokenType.PIPE:
@@ -64,7 +88,7 @@ def parse_polars_transform(command: str) -> PolarsPipeline | None:
             pipe_index = index
         else:
             if parquet_index is not None:
-                raise PolarsTransformError('Parquet saves support only one ".>" operator.')
+                raise PolarsTransformError('File saves support only one ".>" operator.')
             parquet_index = index
 
     if pipe_index is None and parquet_index is None:
@@ -76,19 +100,20 @@ def parse_polars_transform(command: str) -> PolarsPipeline | None:
     assert first_index is not None
     sql = command[: tokens[first_index].start].strip()
     expression: str | None = None
-    parquet_path: str | None = None
+    output_path: str | None = None
     if pipe_index is not None:
         pipe_operator = tokens[pipe_index + 1]
         expression_end = tokens[parquet_index].start if parquet_index is not None else len(command)
         expression = command[pipe_operator.end + 1 : expression_end].strip()
     if parquet_index is not None:
         parquet_operator = tokens[parquet_index + 1]
-        parquet_path = command[parquet_operator.end + 1 :].strip()
-        parquet_path = parquet_path.removesuffix(delimiter_command.current).rstrip()
+        output_path = command[parquet_operator.end + 1 :].strip()
+        output_path = output_path.removesuffix(delimiter_command.current).rstrip()
+        output_path = output_path.removesuffix(r'\g').rstrip()
 
-    has_display_terminator = any(value is not None and value.endswith((r'\x', r'\G', r'\g')) for value in (sql, expression, parquet_path))
-    if parquet_path is not None and has_display_terminator:
-        raise PolarsTransformError('Parquet saves cannot use special display terminators.')
+    has_display_terminator = any(value is not None and value.endswith((r'\x', r'\G')) for value in (sql, expression, output_path))
+    if output_path is not None and has_display_terminator:
+        raise PolarsTransformError('File saves cannot use special display terminators.')
     if sql.endswith(r'\x') or expression is not None and expression.endswith(r'\x'):
         output_mode: OutputMode = 'explorer'
     elif sql.endswith(r'\G') or expression is not None and expression.endswith(r'\G'):
@@ -105,24 +130,29 @@ def parse_polars_transform(command: str) -> PolarsPipeline | None:
         raise PolarsTransformError('Polars transforms require a SQL statement.')
     if expression is not None and not expression:
         raise PolarsTransformError('Polars transforms require a Python expression.')
-    if parquet_path is not None:
-        if not parquet_path:
-            raise PolarsTransformError('Parquet saves require a destination path.')
-        parquet_path = _parse_parquet_path(parquet_path)
+    if output_path is not None:
+        if not output_path:
+            raise PolarsTransformError('File saves require a destination path.')
+        output_path = _parse_output_path(output_path)
     _validate_sql(sql)
-    return PolarsPipeline(sql=sql, expression=expression, parquet_path=parquet_path, output_mode=output_mode)
+    return PolarsPipeline(sql=sql, expression=expression, output_path=output_path, output_mode=output_mode)
 
 
-def _parse_parquet_path(path: str) -> str:
+def _parse_output_path(path: str) -> str:
     if path[0] in ('\'', '"'):
         if len(path) < 2 or path[-1] != path[0]:
-            raise PolarsTransformError('Parquet save paths must use matching quotes.')
+            raise PolarsTransformError('File save paths must use matching quotes.')
         path = path[1:-1]
     elif any(character.isspace() for character in path):
-        raise PolarsTransformError('Parquet save paths containing spaces must be quoted.')
-    if not path.lower().endswith('.parquet'):
-        raise PolarsTransformError('Parquet save paths must end in ".parquet".')
+        raise PolarsTransformError('File save paths containing spaces must be quoted.')
+    if not path.lower().endswith(('.parquet', '.png', '.pdf', '.svg', '.html')):
+        raise PolarsTransformError('File save paths must end in ".parquet", ".png", ".pdf", ".svg", or ".html".')
     return path
+
+
+def _plot_format_for_path(path: str) -> str | None:
+    path = path.lower()
+    return next((plot_format for plot_format in PLOT_FORMATS if path.endswith(f'.{plot_format}')), None)
 
 
 def _validate_sql(sql: str) -> None:
@@ -169,10 +199,22 @@ def _load_altair() -> Any:
     return alt
 
 
+def _load_vl_convert() -> None:
+    try:
+        import vl_convert  # noqa: F401
+    except ImportError as exc:
+        raise PolarsTransformError('Altair plot rendering requires vl-convert-python. Install mycli[dataframe].') from exc
+
+
 def run_polars_transform(
     transform: PolarsTransform,
     results: Iterable[SQLResult],
-    parquet_path: str | None = None,
+    output_path: str | None = None,
+    *,
+    image_protocol: ImageProtocol = 'none',
+    plot_scale_factor: float = 1.0,
+    plot_ppi: int = 200,
+    plot_theme: str = 'carbong90',
 ) -> SQLResult:
     iterator = iter(results)
     try:
@@ -193,28 +235,95 @@ def run_polars_transform(
     try:
         value = eval(
             transform.code,
-            {'__builtins__': builtins, 'df': dataframe, 'pl': transform.polars, 'alt': transform.altair},
+            {
+                '__builtins__': builtins,
+                'df': dataframe,
+                'pl': transform.polars,
+                'alt': transform.altair,
+            },
         )
     except Exception as exc:
         raise PolarsTransformError(f'Polars expression failed: {type(exc).__name__}: {exc}') from exc
+
+    if _is_coerceable_scalarish(value):
+        try:
+            value = transform.polars.DataFrame([value], schema=[str(value)])
+        except Exception as exc:
+            raise PolarsTransformError(f'Unable to render scalar as DataFrame: {type(exc).__name__}: {exc}') from exc
+    elif isinstance(value, dict):
+        try:
+            value = transform.polars.DataFrame(value)
+        except Exception as exc:
+            raise PolarsTransformError(f'Unable to render dictionary as DataFrame: {type(exc).__name__}: {exc}') from exc
+    elif isinstance(value, Sequence):
+        try:
+            value = transform.polars.Series(value, strict=False)
+        except Exception as exc:
+            raise PolarsTransformError(f'Unable to render Sequence as Series: {type(exc).__name__}: {exc}') from exc
+
     if isinstance(value, transform.polars.DataFrame):
-        if parquet_path is not None:
+        if output_path is not None:
+            if not output_path.lower().endswith('.parquet'):
+                raise PolarsTransformError('Polars DataFrame results can only be written to ".parquet" files.')
             try:
-                value.write_parquet(parquet_path)
+                value.write_parquet(output_path)
             except Exception as exc:
-                raise PolarsTransformError(f'Unable to write Parquet file "{parquet_path}": {type(exc).__name__}: {exc}') from exc
-            return SQLResult(status=f'Wrote {len(value)} rows to {parquet_path}.')
+                raise PolarsTransformError(f'Unable to write Parquet file "{output_path}": {type(exc).__name__}: {exc}') from exc
+            return SQLResult(status=f'Wrote {len(value)} rows to {output_path}.')
         return SQLResult(header=list(value.columns), rows=list(value.iter_rows()))
-    if isinstance(value, transform.polars.Series):
+    elif isinstance(value, transform.polars.Series):
         column_name = value.name or 'value'
-        if parquet_path is not None:
+        if output_path is not None:
+            if not output_path.lower().endswith('.parquet'):
+                raise PolarsTransformError('Polars Series results can only be written to ".parquet" files.')
             try:
                 series_dataframe = value.rename(column_name).to_frame()
-                series_dataframe.write_parquet(parquet_path)
+                series_dataframe.write_parquet(output_path)
             except Exception as exc:
-                raise PolarsTransformError(f'Unable to write Parquet file "{parquet_path}": {type(exc).__name__}: {exc}') from exc
-            return SQLResult(status=f'Wrote {len(series_dataframe)} rows to {parquet_path}.')
+                raise PolarsTransformError(f'Unable to write Parquet file "{output_path}": {type(exc).__name__}: {exc}') from exc
+            return SQLResult(status=f'Wrote {len(series_dataframe)} rows to {output_path}.')
         return SQLResult(header=[column_name], rows=[(item,) for item in value])
-    if parquet_path is not None:
-        raise PolarsTransformError('Polars transforms must return a DataFrame or Series before writing Parquet output.')
+    elif transform.altair is not None and isinstance(value, transform.altair.TopLevelMixin):
+        plot_format = _plot_format_for_path(output_path) if output_path is not None else None
+        if output_path is not None and plot_format is None:
+            raise PolarsTransformError('Altair plots can only be written to ".png", ".pdf", ".svg", or ".html" files.')
+        if output_path is None and image_protocol == 'none':
+            return SQLResult(status='image_protocol is unset in ~/.myclirc. Inline plotting is disabled.')
+        if plot_format != 'html':
+            _load_vl_convert()
+        try:
+            transform.altair.theme.enable(plot_theme)
+        except Exception as exc:
+            raise PolarsTransformError(f'Unable to enable Altair plot theme "{plot_theme}": {type(exc).__name__}: {exc}') from exc
+        if output_path is not None:
+            assert plot_format is not None
+            save_kwargs: dict[str, Any] = {
+                'format': plot_format,
+            }
+            if plot_format != 'html':
+                save_kwargs['scale_factor'] = plot_scale_factor
+            if plot_format == 'png':
+                save_kwargs['ppi'] = plot_ppi
+            try:
+                value.save(output_path, **save_kwargs)
+            except Exception as exc:
+                raise PolarsTransformError(
+                    f'Unable to write {plot_format.upper()} file "{output_path}": {type(exc).__name__}: {exc}'
+                ) from exc
+            output_kind = 'document' if plot_format == 'html' else 'image'
+            return SQLResult(status=f'Wrote {plot_format.upper()} {output_kind} to {output_path}.')
+        png = BytesIO()
+        try:
+            value.save(
+                png,
+                format='png',
+                scale_factor=plot_scale_factor,
+                ppi=plot_ppi,
+            )
+        except Exception as exc:
+            raise PolarsTransformError(f'Unable to render Altair plot: {type(exc).__name__}: {exc}') from exc
+        return SQLResult(image=png.getvalue(), image_protocol=image_protocol)
+    elif value is None:
+        return SQLResult()
+
     return SQLResult(status=f'Nothing could be displayed for return type: {type(value)}')

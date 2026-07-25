@@ -29,7 +29,22 @@ from .messagesadvisortoolresultblock import (
     MessagesAdvisorToolResultBlock,
     MessagesAdvisorToolResultBlockTypedDict,
 )
-from openrouter.types import BaseModel, Nullable, UNSET_SENTINEL, UnrecognizedStr
+from .messagestooladditionblock import (
+    MessagesToolAdditionBlock,
+    MessagesToolAdditionBlockTypedDict,
+)
+from .messagestoolremovalblock import (
+    MessagesToolRemovalBlock,
+    MessagesToolRemovalBlockTypedDict,
+)
+from openrouter.types import (
+    BaseModel,
+    Nullable,
+    OptionalNullable,
+    UNSET,
+    UNSET_SENTINEL,
+    UnrecognizedStr,
+)
 from openrouter.utils import get_discriminator
 from pydantic import Discriminator, Tag, model_serializer
 from typing import Any, List, Literal, Optional, Union
@@ -44,6 +59,7 @@ class ContentCompactionTypedDict(TypedDict):
     type: MessagesMessageParamTypeCompaction
     cache_control: NotRequired[AnthropicCacheControlDirectiveTypedDict]
     r"""Enable automatic prompt caching. When set at the top level, the system automatically applies cache breakpoints to the last cacheable block in the request. When set on an individual content block, it marks an explicit cache breakpoint; block-level markers also work on OpenAI models that support explicit prompt caching — OpenRouter converts them to the provider's native format."""
+    encrypted_content: NotRequired[Nullable[str]]
 
 
 class ContentCompaction(BaseModel):
@@ -54,10 +70,12 @@ class ContentCompaction(BaseModel):
     cache_control: Optional[AnthropicCacheControlDirective] = None
     r"""Enable automatic prompt caching. When set at the top level, the system automatically applies cache breakpoints to the last cacheable block in the request. When set on an individual content block, it marks an explicit cache breakpoint; block-level markers also work on OpenAI models that support explicit prompt caching — OpenRouter converts them to the provider's native format."""
 
+    encrypted_content: OptionalNullable[str] = UNSET
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["cache_control"])
-        nullable_fields = set(["content"])
+        optional_fields = set(["cache_control", "encrypted_content"])
+        nullable_fields = set(["content", "encrypted_content"])
         serialized = handler(self)
         m = {}
 
@@ -231,18 +249,18 @@ class ContentThinking(BaseModel):
     type: TypeThinking
 
 
-TypeToolReference = Literal["tool_reference",]
+MessagesMessageParamTypeToolReference = Literal["tool_reference",]
 
 
 class ContentToolReferenceTypedDict(TypedDict):
     tool_name: str
-    type: TypeToolReference
+    type: MessagesMessageParamTypeToolReference
 
 
 class ContentToolReference(BaseModel):
     tool_name: str
 
-    type: TypeToolReference
+    type: MessagesMessageParamTypeToolReference
 
 
 MessagesMessageParamContentUnion1TypedDict = TypeAliasType(
@@ -368,16 +386,18 @@ MessagesMessageParamContentUnion4TypedDict = TypeAliasType(
     Union[
         ContentRedactedThinkingTypedDict,
         AnthropicImageBlockParamTypedDict,
+        MessagesToolRemovalBlockTypedDict,
+        MessagesToolAdditionBlockTypedDict,
         ContentThinkingTypedDict,
-        ContentCompactionTypedDict,
         MessagesAdvisorToolResultBlockTypedDict,
+        ContentCompactionTypedDict,
         AnthropicTextBlockParamTypedDict,
         ContentWebSearchToolResultTypedDict,
         ContentToolUseTypedDict,
-        ContentToolResultTypedDict,
         ContentServerToolUseTypedDict,
-        AnthropicDocumentBlockParamTypedDict,
+        ContentToolResultTypedDict,
         AnthropicSearchResultBlockParamTypedDict,
+        AnthropicDocumentBlockParamTypedDict,
     ],
 )
 
@@ -396,6 +416,8 @@ MessagesMessageParamContentUnion4 = Annotated[
         Annotated[AnthropicSearchResultBlockParam, Tag("search_result")],
         Annotated[ContentCompaction, Tag("compaction")],
         Annotated[MessagesAdvisorToolResultBlock, Tag("advisor_tool_result")],
+        Annotated[MessagesToolAdditionBlock, Tag("tool_addition")],
+        Annotated[MessagesToolRemovalBlock, Tag("tool_removal")],
     ],
     Discriminator(lambda m: get_discriminator(m, "type", "type")),
 ]

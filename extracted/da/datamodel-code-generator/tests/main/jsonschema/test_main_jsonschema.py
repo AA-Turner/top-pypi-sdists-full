@@ -6,6 +6,7 @@ import importlib.util
 import itertools
 import json
 import os
+import shutil
 import sys
 import tempfile
 import warnings
@@ -23,11 +24,13 @@ from datamodel_code_generator import (
     DataModelType,
     Error,
     InputFileType,
+    InvalidFileFormatError,
     PythonVersion,
     PythonVersionMin,
     SchemaValidatorType,
     TargetPydanticVersion,
     _clear_parser_source_data_cache,
+    cached_path_exists,
     chdir,
     generate,
     load_data_from_path,
@@ -35,7 +38,10 @@ from datamodel_code_generator import (
 from datamodel_code_generator.__main__ import Exit
 from datamodel_code_generator.format import Formatter, is_supported_in_black
 from datamodel_code_generator.model import base as model_base
-from datamodel_code_generator.model.pydantic_v2.version import PYDANTIC_V2_DATACLASS_ALIAS_NEEDS_FALLBACK
+from datamodel_code_generator.model.pydantic_v2.version import (
+    PYDANTIC_V2_DATACLASS_ALIAS_NEEDS_FALLBACK,
+    PYDANTIC_V2_ROOT_MODEL_DICT_KEY_FORWARD_REF_NEEDS_SORTING,
+)
 from tests.conftest import (
     HttpxGetMockFactory,
     MockHttpxResponse,
@@ -2483,6 +2489,66 @@ def test_main_msgspec_reserved_field_name(output_file: Path) -> None:
     )
 
 
+@BLACK_PY314_SKIP
+def test_main_msgspec_python_314_without_forward_reference(output_file: Path) -> None:
+    """Keep non-forward msgspec output free of an unnecessary future import."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "msgspec_reserved_field_name.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="msgspec_reserved_field_name_python_314.py",
+        extra_args=[
+            "--output-model-type",
+            "msgspec.Struct",
+            "--class-name",
+            "Payload",
+            "--target-python-version",
+            "3.14",
+        ],
+        force_exec_validation=True,
+        importable_module_name="generated_msgspec_reserved_field_name_python_314",
+        importable_module_attribute="Payload",
+    )
+
+
+@BLACK_PY314_SKIP
+@pytest.mark.parametrize(
+    ("disable_future_imports", "expected_file"),
+    [
+        (False, "msgspec_forward_reference.py"),
+        (True, "msgspec_forward_reference_disable_future_imports.py"),
+    ],
+)
+def test_main_msgspec_python_314_forward_reference(
+    output_file: Path,
+    *,
+    disable_future_imports: bool,
+    expected_file: str,
+) -> None:
+    """Generate an importable msgspec self-reference for Python 3.14."""
+    extra_args = [
+        "--disable-timestamp",
+        "--output-model-type",
+        "msgspec.Struct",
+        "--target-python-version",
+        "3.14",
+    ]
+    if disable_future_imports:
+        extra_args.append("--disable-future-imports")
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "msgspec_forward_reference.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=extra_args,
+        force_exec_validation=True,
+        importable_module_name=f"generated_{Path(expected_file).stem}",
+        importable_module_attribute="Node",
+    )
+
+
 def test_main_root_model_with_additional_properties_literal(min_version: str, output_file: Path) -> None:
     """Test root model additional properties with literal types."""
     run_main_and_assert(
@@ -3585,6 +3651,27 @@ def test_main_jsonschema_special_enum(output_file: Path) -> None:
         assert_func=assert_file_content,
         expected_file="special_enum.py",
     )
+
+
+@pytest.mark.isolate_builtin_formatter_config
+def test_main_jsonschema_builtin_formatter_preserves_unicode_line_separators(output_file: Path) -> None:
+    """Keep Unicode separators in generated enum values without creating source lines."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "unicode_line_separators.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="unicode_line_separators_builtin.py",
+        extra_args=["--disable-timestamp", "--formatters", "builtin"],
+        force_exec_validation=True,
+    )
+
+    expected_values = ["next\u0085line", "line\u2028separator", "paragraph\u2029separator"]
+    with _generated_model(output_file, "unicode_line_separators", "UnicodeSeparator") as enum_model:
+        assert_output(
+            f"{json.dumps([enum_model(value).value for value in expected_values], indent=2)}\n",
+            EXPECTED_JSON_SCHEMA_PATH / "unicode_line_separators_values.txt",
+        )
 
 
 @pytest.mark.cli_doc(
@@ -7435,12 +7522,17 @@ def test_main_jsonschema_property_names_allof_ref(output_file: Path) -> None:
 
 def test_main_jsonschema_property_names_ref_enum(output_file: Path) -> None:
     """Test propertyNames with $ref to enum definition uses enum type as dict key."""
+    expected_file = (
+        "property_names_ref_enum_legacy_pydantic.py"
+        if PYDANTIC_V2_ROOT_MODEL_DICT_KEY_FORWARD_REF_NEEDS_SORTING
+        else "property_names_ref_enum.py"
+    )
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "property_names_ref_enum.json",
         output_path=output_file,
         input_file_type="jsonschema",
         assert_func=assert_file_content,
-        expected_file="property_names_ref_enum.py",
+        expected_file=expected_file,
         extra_args=[
             "--output-model-type",
             "pydantic_v2.BaseModel",
@@ -10550,6 +10642,39 @@ def test_main_jsonschema_reuse_scope_tree_typeddict(output_dir: Path) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("output_model_type", "expected_directory"),
+    [
+        pytest.param(
+            "pydantic_v2.dataclass",
+            "reuse_scope_tree_pydantic_dataclass",
+            id="pydantic-dataclass",
+        ),
+        pytest.param("msgspec.Struct", "reuse_scope_tree_msgspec", id="msgspec"),
+    ],
+)
+def test_main_jsonschema_reuse_scope_tree_non_inheriting_outputs(
+    output_model_type: str,
+    expected_directory: str,
+    output_dir: Path,
+) -> None:
+    """Keep direct shared-model references for non-inheriting tree reuse outputs."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "reuse_scope_tree",
+        output_path=output_dir,
+        expected_directory=EXPECTED_JSON_SCHEMA_PATH / expected_directory,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--reuse-model",
+            "--reuse-scope",
+            "tree",
+            "--output-model-type",
+            output_model_type,
+            "--disable-timestamp",
+        ],
+    )
+
+
 def test_main_jsonschema_empty_items_array(output_file: Path) -> None:
     """Test that arrays with empty items ({}) generate List[Any] instead of bare List."""
     run_main_and_assert(
@@ -11638,6 +11763,7 @@ def test_main_jsonschema_ref_with_additional_keywords(output_dir: Path) -> None:
     [
         ("typing.TypedDict", "reserved_field_name_schema_typed_dict.py"),
         ("dataclasses.dataclass", "reserved_field_name_schema_dataclass.py"),
+        ("pydantic_v2.dataclass", "reserved_field_name_schema_pydantic_dataclass.py"),
         ("pydantic_v2.BaseModel", "reserved_field_name_schema_pydantic.py"),
     ],
 )
@@ -11654,6 +11780,7 @@ TypedDict and dataclass preserve the name, while Pydantic renames with alias."""
     model_outputs={
         "typeddict": "main/jsonschema/reserved_field_name_schema_typed_dict.py",
         "dataclass": "main/jsonschema/reserved_field_name_schema_dataclass.py",
+        "pydantic_v2.dataclass": "main/jsonschema/reserved_field_name_schema_pydantic_dataclass.py",
         "pydantic_v2": "main/jsonschema/reserved_field_name_schema_pydantic.py",
     },
 )
@@ -11665,6 +11792,7 @@ def test_main_jsonschema_reserved_field_name(output_model: str, expected_file: s
     This demonstrates how 'schema' field is handled:
     - TypedDict: not renamed (schema is not reserved)
     - dataclass: not renamed (schema is not reserved)
+    - Pydantic dataclass: not renamed (schema is not reserved)
     - Pydantic: renamed to 'schema_' with alias (BaseModel.schema conflicts)
     """
     run_main_and_assert(
@@ -11883,6 +12011,69 @@ def test_main_use_default_factory_for_optional_nested_models(
             "--use-default-factory-for-optional-nested-models",
         ],
     )
+
+
+@pytest.mark.parametrize(
+    ("output_model", "expected_file"),
+    [
+        ("dataclasses.dataclass", "default_factory_forward_nested_models_dataclass.py"),
+        ("pydantic_v2.BaseModel", "default_factory_forward_nested_models_pydantic_v2.py"),
+        ("msgspec.Struct", "default_factory_forward_nested_models_msgspec.py"),
+    ],
+)
+def test_main_defer_forward_nested_model_default_factories(
+    output_model: str,
+    expected_file: str,
+    output_file: Path,
+) -> None:
+    """Defer only nested model factories whose classes are not yet declared."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "default_factory_forward_nested_models.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=[
+            "--disable-timestamp",
+            "--output-model-type",
+            output_model,
+            "--use-default-factory-for-optional-nested-models",
+        ],
+        force_exec_validation=True,
+        importable_module_name=f"generated_{Path(expected_file).stem}",
+        importable_module_attribute="Model",
+    )
+    match output_model:
+        case "msgspec.Struct":
+            from msgspec import UNSET
+
+            terminal_default = UNSET
+        case _:
+            terminal_default = None
+
+    recursive_fields = {
+        "Node": "child",
+        "CycleA": "b",
+        "CycleB": "a",
+    }
+    for model_name, field_name in recursive_fields.items():
+        with _generated_model(
+            output_file,
+            f"constructed_{Path(expected_file).stem}_{model_name}",
+            model_name,
+        ) as model:
+            if getattr(model(), field_name) is not terminal_default:  # pragma: no cover
+                pytest.fail(f"{model_name}.{field_name} did not retain its terminating default")
+
+    with _generated_model(
+        output_file,
+        f"constructed_{Path(expected_file).stem}_Model",
+        "Model",
+    ) as model:
+        instance = model()
+        actual_nested_types = tuple(type(getattr(instance, name)).__name__ for name in ("existing", "cycle", "node"))
+        if actual_nested_types != ("Existing", "CycleA", "Node"):  # pragma: no cover
+            pytest.fail(f"Model factories did not construct the expected nested types: {actual_nested_types!r}")
 
 
 @pytest.mark.parametrize(
@@ -12715,6 +12906,37 @@ def test_main_jsonschema_schema_id(
         )
 
 
+def test_generate_refreshes_custom_template_directory_between_calls(tmp_path: Path) -> None:
+    """A custom template directory created after generate() starts being used on the next call."""
+    custom_template_dir = tmp_path / "templates"
+    output_file = tmp_path / "output.py"
+    generate_kwargs = {
+        "custom_template_dir": custom_template_dir,
+    }
+
+    with freeze_time(TIMESTAMP):
+        for _ in range(2):
+            run_generate_file_and_assert(
+                input_path=JSON_SCHEMA_DATA_PATH / "pet_simple.json",
+                output_path=output_file,
+                input_file_type=InputFileType.JsonSchema,
+                assert_func=assert_file_content,
+                expected_file=EXPECTED_JSON_SCHEMA_PATH / "custom_template_refresh_default.py",
+                **generate_kwargs,
+            )
+        for index in range(257):
+            cached_path_exists(tmp_path / f"evict-{index}")
+        shutil.copytree(DATA_PATH / "templates_refresh" / "v1", custom_template_dir)
+        run_generate_file_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / "pet_simple.json",
+            output_path=output_file,
+            input_file_type=InputFileType.JsonSchema,
+            assert_func=assert_file_content,
+            expected_file=EXPECTED_JSON_SCHEMA_PATH / "custom_template_refresh_v1.py",
+            **generate_kwargs,
+        )
+
+
 @pytest.mark.parametrize(
     ("output_model", "expected_output"),
     [
@@ -12858,8 +13080,8 @@ def test_main_jsonschema_non_dict_files_in_directory(output_dir: Path) -> None:
 
 
 def test_main_jsonschema_ref_to_json_list_file() -> None:
-    """Test that $ref to a JSON file containing a list raises TypeError."""
-    with pytest.raises(TypeError, match="Expected dict, got list"):
+    """Test that $ref to a JSON list file raises a concise input-format error."""
+    with pytest.raises(InvalidFileFormatError, match="Expected dict, got list"):
         generate(
             input_=JSON_SCHEMA_DATA_PATH / "ref_to_json_list" / "main.json",
             input_file_type=InputFileType.JsonSchema,
@@ -14171,6 +14393,26 @@ def test_unique_items_enum_set(output_file: Path) -> None:
             "--use-unique-items-as-set",
             "--use-standard-collections",
         ],
+    )
+
+
+def test_unique_items_set_typed_dict(output_file: Path) -> None:
+    """Test uniqueItems arrays use sets in TypedDict output."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "unique_items_typed_dict.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="unique_items_typed_dict.py",
+        extra_args=[
+            "--output-model-type",
+            "typing.TypedDict",
+            "--target-python-version",
+            "3.10",
+            "--use-unique-items-as-set",
+            "--use-standard-collections",
+        ],
+        force_exec_validation=True,
     )
 
 

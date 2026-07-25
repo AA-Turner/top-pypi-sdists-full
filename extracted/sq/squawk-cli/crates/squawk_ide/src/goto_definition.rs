@@ -1,4 +1,4 @@
-use crate::db::{list_files, parse};
+use crate::db::{File, list_files, parse};
 use crate::file::InFile;
 use crate::location::{Location, LocationKind};
 use crate::offsets::token_from_offset;
@@ -10,6 +10,19 @@ use squawk_syntax::{
     SyntaxKind,
     ast::{self, AstNode},
 };
+
+fn resolve_in_files(
+    db: &dyn Db,
+    origin_file: File,
+    mut resolve: impl FnMut(File) -> Option<SmallVec<[Location; 1]>>,
+) -> Option<SmallVec<[Location; 1]>> {
+    for definition_file in list_files(db, origin_file) {
+        if let Some(locations) = resolve(definition_file) {
+            return Some(locations);
+        }
+    }
+    None
+}
 
 pub fn goto_definition(db: &dyn Db, position: InFile<TextSize>) -> SmallVec<[Location; 1]> {
     let file = position.file_id;
@@ -59,19 +72,174 @@ pub fn goto_definition(db: &dyn Db, position: InFile<TextSize>) -> SmallVec<[Loc
         return smallvec![Location::new(file, end_range, LocationKind::CommitEnd)];
     }
 
-    if let Some(name) = ast::Name::cast(parent.clone())
+    if let Some(name) = ast::AnyName::cast(parent.clone())
+        && matches!(
+            &name,
+            ast::AnyName::AccessMethod(_)
+                | ast::AnyName::Channel(_)
+                | ast::AnyName::ColumnName(_)
+                | ast::AnyName::ConstraintName(_)
+                | ast::AnyName::CteName(_)
+                | ast::AnyName::Cursor(_)
+                | ast::AnyName::Database(_)
+                | ast::AnyName::EventTrigger(_)
+                | ast::AnyName::Extension(_)
+                | ast::AnyName::ForeignDataWrapper(_)
+                | ast::AnyName::JsonPathName(_)
+                | ast::AnyName::Language(_)
+                | ast::AnyName::Name(_)
+                | ast::AnyName::ParamName(_)
+                | ast::AnyName::Policy(_)
+                | ast::AnyName::PreparedStatement(_)
+                | ast::AnyName::Publication(_)
+                | ast::AnyName::Role(_)
+                | ast::AnyName::Rule(_)
+                | ast::AnyName::Savepoint(_)
+                | ast::AnyName::Schema(_)
+                | ast::AnyName::Server(_)
+                | ast::AnyName::Subscription(_)
+                | ast::AnyName::TableAlias(_)
+                | ast::AnyName::Tablespace(_)
+                | ast::AnyName::TransitionRelationName(_)
+                | ast::AnyName::Trigger(_)
+                | ast::AnyName::Window(_)
+        )
         && let Some(location) = Location::from_node(file, name.syntax())
     {
         return smallvec![location];
     }
 
-    if let Some(name_ref) = ast::NameRef::cast(parent.clone()) {
-        for definition_file in list_files(db, file) {
-            if let Some(locations) =
-                // TODO: we shouldn't be wrapping name_ref like this since it's
-                // a different file. Probably a bug.
+    if let Some(name_ref) = ast::AnyNameRef::cast(parent.clone()) {
+        // TODO: these nodes come from the origin file, but we wrap them in each
+        // definition file below. Probably a bug.
+        let locations = match name_ref {
+            ast::AnyNameRef::AccessMethodRef(name_ref) => {
+                resolve_in_files(db, file, |definition_file| {
+                    resolve::resolve_access_method_ref(db, InFile::new(definition_file, &name_ref))
+                })
+            }
+            ast::AnyNameRef::BindParamNameRef(_) => None,
+            ast::AnyNameRef::ChannelRef(name_ref) => {
+                resolve_in_files(db, file, |definition_file| {
+                    resolve::resolve_channel_ref(db, InFile::new(definition_file, &name_ref))
+                })
+            }
+            ast::AnyNameRef::ColumnNameRef(name_ref) => {
+                resolve_in_files(db, file, |definition_file| {
+                    resolve::resolve_column_name_ref(db, InFile::new(definition_file, &name_ref))
+                })
+            }
+            ast::AnyNameRef::CursorRef(name_ref) => resolve_in_files(db, file, |definition_file| {
+                resolve::resolve_cursor_ref(db, InFile::new(definition_file, &name_ref))
+            }),
+            ast::AnyNameRef::DatabaseRef(name_ref) => {
+                resolve_in_files(db, file, |definition_file| {
+                    resolve::resolve_database_ref(db, InFile::new(definition_file, &name_ref))
+                })
+            }
+            ast::AnyNameRef::EventTriggerRef(name_ref) => {
+                resolve_in_files(db, file, |definition_file| {
+                    resolve::resolve_event_trigger_ref(db, InFile::new(definition_file, &name_ref))
+                })
+            }
+            ast::AnyNameRef::ExtensionRef(name_ref) => {
+                resolve_in_files(db, file, |definition_file| {
+                    resolve::resolve_extension_ref(db, InFile::new(definition_file, &name_ref))
+                })
+            }
+            ast::AnyNameRef::ForeignDataWrapperRef(name_ref) => {
+                resolve_in_files(db, file, |definition_file| {
+                    resolve::resolve_foreign_data_wrapper_ref(
+                        db,
+                        InFile::new(definition_file, &name_ref),
+                    )
+                })
+            }
+            ast::AnyNameRef::JsonPathNameRef(name_ref) => {
+                return resolve::resolve_json_path_name_ref(file, &name_ref).unwrap_or_default();
+            }
+            ast::AnyNameRef::LanguageRef(name_ref) => {
+                resolve_in_files(db, file, |definition_file| {
+                    resolve::resolve_language_ref(db, InFile::new(definition_file, &name_ref))
+                })
+            }
+            ast::AnyNameRef::NameRef(name_ref) => resolve_in_files(db, file, |definition_file| {
                 resolve::resolve_name_ref(db, InFile::new(definition_file, &name_ref))
-            {
+            }),
+            ast::AnyNameRef::ParamNameRef(name_ref) => {
+                resolve_in_files(db, file, |definition_file| {
+                    resolve::resolve_param_name_ref(db, InFile::new(definition_file, &name_ref))
+                })
+            }
+            ast::AnyNameRef::PolicyRef(name_ref) => resolve_in_files(db, file, |definition_file| {
+                resolve::resolve_policy_ref(db, InFile::new(definition_file, &name_ref))
+            }),
+            ast::AnyNameRef::PreparedStatementRef(name_ref) => {
+                resolve_in_files(db, file, |definition_file| {
+                    resolve::resolve_prepared_statement_ref(
+                        db,
+                        InFile::new(definition_file, &name_ref),
+                    )
+                })
+            }
+            ast::AnyNameRef::PublicationRef(name_ref) => {
+                resolve_in_files(db, file, |definition_file| {
+                    resolve::resolve_publication_ref(db, InFile::new(definition_file, &name_ref))
+                })
+            }
+            ast::AnyNameRef::RemoteTableNameRef(_) => None,
+            ast::AnyNameRef::RoleRef(name_ref) => resolve_in_files(db, file, |definition_file| {
+                resolve::resolve_role_ref(db, InFile::new(definition_file, &name_ref))
+            }),
+            ast::AnyNameRef::RuleRef(name_ref) => resolve_in_files(db, file, |definition_file| {
+                resolve::resolve_rule_ref(db, InFile::new(definition_file, &name_ref))
+            }),
+            ast::AnyNameRef::SavepointRef(name_ref) => {
+                resolve_in_files(db, file, |definition_file| {
+                    resolve::resolve_savepoint_ref(db, InFile::new(definition_file, &name_ref))
+                })
+            }
+            ast::AnyNameRef::SchemaRef(name_ref) => resolve_in_files(db, file, |definition_file| {
+                resolve::resolve_schema_ref(db, InFile::new(definition_file, &name_ref))
+            }),
+            ast::AnyNameRef::ServerRef(name_ref) => resolve_in_files(db, file, |definition_file| {
+                resolve::resolve_server_ref(db, InFile::new(definition_file, &name_ref))
+            }),
+            ast::AnyNameRef::SubscriptionRef(name_ref) => {
+                resolve_in_files(db, file, |definition_file| {
+                    resolve::resolve_subscription_ref(db, InFile::new(definition_file, &name_ref))
+                })
+            }
+            ast::AnyNameRef::TablespaceRef(name_ref) => {
+                resolve_in_files(db, file, |definition_file| {
+                    resolve::resolve_tablespace_ref(db, InFile::new(definition_file, &name_ref))
+                })
+            }
+            ast::AnyNameRef::TriggerRef(name_ref) => {
+                resolve_in_files(db, file, |definition_file| {
+                    resolve::resolve_trigger_ref(db, InFile::new(definition_file, &name_ref))
+                })
+            }
+            ast::AnyNameRef::VertexTableRef(name_ref) => {
+                resolve_in_files(db, file, |definition_file| {
+                    resolve::resolve_vertex_table_ref(db, InFile::new(definition_file, &name_ref))
+                })
+            }
+            ast::AnyNameRef::WindowRef(name_ref) => {
+                return resolve::resolve_window_ref(file, &name_ref).unwrap_or_default();
+            }
+        };
+        if let Some(locations) = locations {
+            return locations;
+        }
+    }
+
+    if let Some(config_value_name) = ast::ConfigValueName::cast(parent.clone()) {
+        for definition_file in list_files(db, file) {
+            if let Some(locations) = resolve::resolve_config_value_name(
+                db,
+                InFile::new(definition_file, &config_value_name),
+            ) {
                 return locations;
             }
         }
@@ -6746,6 +6914,50 @@ select 1 from t, json_table(
     }
 
     #[test]
+    fn goto_json_table_plan_root_path() {
+        assert_snapshot!(goto("
+select * from json_table(
+  '{}'::jsonb, '$' as root
+  columns (
+    nested path '$.items[*]' as items columns (
+      value text path '$'
+    )
+  )
+  plan (ro$0ot outer items)
+);
+"), @"
+          ╭▸ 
+        3 │   '{}'::jsonb, '$' as root
+          │                       ──── 2. destination
+          ‡
+        9 │   plan (root outer items)
+          ╰╴         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_json_table_plan_nested_path() {
+        assert_snapshot!(goto("
+select * from json_table(
+  '{}'::jsonb, '$' as root
+  columns (
+    nested path '$.items[*]' as items columns (
+      value text path '$'
+    )
+  )
+  plan (root outer ite$0ms)
+);
+"), @"
+          ╭▸ 
+        5 │     nested path '$.items[*]' as items columns (
+          │                                 ───── 2. destination
+          ‡
+        9 │   plan (root outer items)
+          ╰╴                     ─ 1. source
+        ");
+    }
+
+    #[test]
     fn goto_fn_call_column_from_cte() {
         assert_snapshot!(goto("
 with cte as (select 1 as a)
@@ -7357,6 +7569,16 @@ update t as u set a = t$0.a;
     }
 
     #[test]
+    fn goto_update_alias_hides_table_name_qualified_column() {
+        goto_not_found(
+            "
+create table t(a int);
+update t as u set a = t.a$0;
+",
+        );
+    }
+
+    #[test]
     fn goto_insert_alias_hides_table_name() {
         goto_not_found(
             "
@@ -7372,6 +7594,16 @@ insert into t as u values (1) returning t$0.a;
             "
 create table t(a int);
 delete from t as u where t$0.a = 1;
+",
+        );
+    }
+
+    #[test]
+    fn goto_delete_alias_hides_table_name_qualified_column() {
+        goto_not_found(
+            "
+create table t(a int);
+delete from t as u where t.a$0 = 1;
 ",
         );
     }

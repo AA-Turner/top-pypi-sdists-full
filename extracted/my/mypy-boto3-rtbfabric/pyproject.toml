@@ -4,10 +4,10 @@
 
 [project]
 name = "mypy-boto3-rtbfabric"
-version = "1.43.11"
+version = "1.43.56"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 RTBFabric 1.43.11 service generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 RTBFabric 1.43.56 service generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",

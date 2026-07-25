@@ -1,19 +1,16 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.forwarder_delivery_status import check_forwarder_delivery_status
-from ..models.forwarder_delivery_status import ForwarderDeliveryStatus
 from dateutil.parser import isoparse
-from typing import cast
-from uuid import UUID
-import datetime
+
+from ..models.forwarder_delivery_status import ForwarderDeliveryStatus, check_forwarder_delivery_status
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.forwarder_delivery_request_type_0 import ForwarderDeliveryRequestType0
@@ -48,12 +45,12 @@ class ForwarderDelivery:
     event: UUID
     attempt_number: int
     status: ForwarderDeliveryStatus
-    request: ForwarderDeliveryRequestType0 | None | Unset = UNSET
-    response_status: int | None | Unset = UNSET
-    response_body: None | str | Unset = UNSET
-    latency_ms: int | None | Unset = UNSET
-    error: None | str | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
+    request: ForwarderDeliveryRequestType0 | Unset | None = UNSET
+    response_status: int | Unset | None = UNSET
+    response_body: str | Unset | None = UNSET
+    latency_ms: int | Unset | None = UNSET
+    error: str | Unset | None = UNSET
+    created_at: datetime.datetime | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -69,7 +66,7 @@ class ForwarderDelivery:
 
         status: str = self.status
 
-        request: dict[str, Any] | None | Unset
+        request: dict[str, Any] | Unset | None
         if isinstance(self.request, Unset):
             request = UNSET
         elif isinstance(self.request, ForwarderDeliveryRequestType0):
@@ -77,31 +74,31 @@ class ForwarderDelivery:
         else:
             request = self.request
 
-        response_status: int | None | Unset
+        response_status: int | Unset | None
         if isinstance(self.response_status, Unset):
             response_status = UNSET
         else:
             response_status = self.response_status
 
-        response_body: None | str | Unset
+        response_body: str | Unset | None
         if isinstance(self.response_body, Unset):
             response_body = UNSET
         else:
             response_body = self.response_body
 
-        latency_ms: int | None | Unset
+        latency_ms: int | Unset | None
         if isinstance(self.latency_ms, Unset):
             latency_ms = UNSET
         else:
             latency_ms = self.latency_ms
 
-        error: None | str | Unset
+        error: str | Unset | None
         if isinstance(self.error, Unset):
             error = UNSET
         else:
             error = self.error
 
-        created_at: None | str | Unset
+        created_at: str | Unset | None
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -150,7 +147,7 @@ class ForwarderDelivery:
 
         status = check_forwarder_delivery_status(d.pop("status"))
 
-        def _parse_request(data: object) -> ForwarderDeliveryRequestType0 | None | Unset:
+        def _parse_request(data: object) -> ForwarderDeliveryRequestType0 | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -167,7 +164,7 @@ class ForwarderDelivery:
 
         request = _parse_request(d.pop("request", UNSET))
 
-        def _parse_response_status(data: object) -> int | None | Unset:
+        def _parse_response_status(data: object) -> int | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -176,7 +173,7 @@ class ForwarderDelivery:
 
         response_status = _parse_response_status(d.pop("response_status", UNSET))
 
-        def _parse_response_body(data: object) -> None | str | Unset:
+        def _parse_response_body(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -185,7 +182,7 @@ class ForwarderDelivery:
 
         response_body = _parse_response_body(d.pop("response_body", UNSET))
 
-        def _parse_latency_ms(data: object) -> int | None | Unset:
+        def _parse_latency_ms(data: object) -> int | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -194,7 +191,7 @@ class ForwarderDelivery:
 
         latency_ms = _parse_latency_ms(d.pop("latency_ms", UNSET))
 
-        def _parse_error(data: object) -> None | str | Unset:
+        def _parse_error(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -203,7 +200,7 @@ class ForwarderDelivery:
 
         error = _parse_error(d.pop("error", UNSET))
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

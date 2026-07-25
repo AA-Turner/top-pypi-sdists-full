@@ -4,7 +4,7 @@
 //! objects store only the virtual path, requested mode, a small Python-visible
 //! state such as `closed`, and (lazily) a heap-resident full-file buffer
 //! populated on the first sized/line read or `seek()`. Each OS round-trip is a
-//! complete one-shot [`OsFunction`](crate::os::OsFunction) operation, so host
+//! complete one-shot [`OsFunctionCall`] operation, so host
 //! filesystem access remains mediated by the same boundary used by
 //! `pathlib.Path`.
 //!
@@ -62,23 +62,21 @@
 //! Any code path that needs one of these should be added explicitly
 //! rather than relying on CPython parity.
 
-use std::{borrow::Cow, fmt::Write, mem, str::FromStr};
+use std::{fmt::Write, mem};
 
-use ahash::AHashSet;
+use monty_types::{MontyPath, OsFunctionCall, PathBytesDataArgs, PathStringDataArgs, ResourceTracker};
 
 use super::{
-    List, PyTrait, Type,
+    LazyHeapSet, List, PyTrait, Type,
     bytes::Bytes,
     str::{allocate_string, allocate_string_no_interning},
 };
 use crate::{
     args::ArgValues,
     bytecode::{CallResult, VM},
-    exception_private::{ExcType, RunError, RunResult, SimpleException},
-    heap::{DropWithHeap, Heap, HeapData, HeapGuard, HeapId, HeapItem, HeapRead, HeapReadOutput},
+    exception_private::{ExcType, ExcTypeExt, RunError, RunResult, SimpleException},
+    heap::{DropGuard, DropWithContext, Heap, HeapData, HeapId, HeapItem, HeapRead, HeapReadOutput},
     intern::StaticStrings,
-    os::{MontyPath, OsFunctionCall, PathBytesDataArgs, PathStringDataArgs},
-    resource::{ResourceError, ResourceTracker},
     types::str::StringRepr,
     value::{EitherStr, Value},
 };
@@ -133,214 +131,23 @@ pub(crate) enum PendingFileEffect {
     },
 }
 
-/// A parsed Python `open()` mode.
-///
-/// This single enum captures everything that matters about how a file was
-/// opened: the access pattern (`r`/`w`/`a` and the `+` update flag) and
-/// whether the file is binary. The variant name encodes the access pattern;
-/// the `bool` payload is `true` for binary and `false` for text — i.e.
-/// `Read(true)` is `'rb'` and `Read(false)` is `'r'`.
-///
-/// Construct one with the [`FromStr`] impl (`mode_str.parse::<FileMode>()`).
-/// The original input string is
-/// intentionally not preserved; [`FileMode::as_str`] rebuilds the canonical
-/// CPython form (`'r'`, `'rb+'`, `'wb'`, …), matching how CPython itself
-/// normalizes input like `'rt'` → `'r'` and `'r+b'` → `'rb+'`.
-///
-/// `+` update modes (`ReadUpdate`/`WriteUpdate`/`AppendUpdate`) are reserved
-/// in the enum so the mode space is fully represented, but [`FromStr`]
-/// currently rejects them — properly modelling them needs read-position
-/// tracking that the file wrapper does not yet implement. Treat the `Update`
-/// variants as unreachable at runtime; do not pattern-match against them as
-/// if they were a valid result of parsing user input.
-///
-/// Carried publicly by [`MontyObject::FileHandle`] so a host servicing file
-/// operations can inspect the mode without re-parsing the raw string.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-pub enum FileMode {
-    /// `r` / `rb`: read-only; the file must already exist.
-    Read(bool),
-    /// `r+` / `rb+`: read and write an existing file. Reserved; not yet
-    /// produced by [`FromStr`].
-    ReadUpdate(bool),
-    /// `w` / `wb`: write-only; truncate the file (creating it if missing) on open.
-    Write(bool),
-    /// `w+` / `wb+`: read and write; truncate the file (creating it if missing).
-    /// Reserved; not yet produced by [`FromStr`].
-    WriteUpdate(bool),
-    /// `a` / `ab`: write-only appending; create the file if missing, preserving content.
-    Append(bool),
-    /// `a+` / `ab+`: read and append; create the file if missing, preserving content.
-    /// Reserved; not yet produced by [`FromStr`].
-    AppendUpdate(bool),
+pub use monty_types::FileMode;
+
+/// Crate-internal extension mapping a [`FileMode`] to the runtime `_io`
+/// wrapper [`Type`] (`FileMode` lives in `monty-types`, `Type` does not).
+pub(crate) trait FileModeExt {
+    /// Returns the `_io` wrapper type a file opened with this mode presents as.
+    fn file_type(&self) -> Type;
 }
 
-impl FileMode {
-    /// Returns the canonical Python `open()` mode string for this mode,
-    /// matching what CPython exposes via `file.mode`.
-    ///
-    /// The result is always one of the 12 well-formed mode strings (`r`, `rb`,
-    /// `r+`, `rb+`, `w`, `wb`, `w+`, `wb+`, `a`, `ab`, `a+`, `ab+`). This is
-    /// the canonical form CPython itself normalizes user input into — e.g.
-    /// `'rt'` → `'r'`, `'r+b'` → `'rb+'`, `'br'` → `'rb'`.
-    #[must_use]
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Read(false) => "r",
-            Self::Read(true) => "rb",
-            Self::ReadUpdate(false) => "r+",
-            Self::ReadUpdate(true) => "rb+",
-            Self::Write(false) => "w",
-            Self::Write(true) => "wb",
-            Self::WriteUpdate(false) => "w+",
-            Self::WriteUpdate(true) => "wb+",
-            Self::Append(false) => "a",
-            Self::Append(true) => "ab",
-            Self::AppendUpdate(false) => "a+",
-            Self::AppendUpdate(true) => "ab+",
-        }
-    }
-
-    /// Whether the file is binary (`'rb'`, `'wb'`, …) rather than text.
-    #[must_use]
-    pub fn is_binary(&self) -> bool {
-        let (Self::Read(b)
-        | Self::ReadUpdate(b)
-        | Self::Write(b)
-        | Self::WriteUpdate(b)
-        | Self::Append(b)
-        | Self::AppendUpdate(b)) = self;
-        *b
-    }
-
-    /// Whether `read()` is allowed by this mode.
-    #[must_use]
-    pub fn readable(&self) -> bool {
-        matches!(
-            self,
-            Self::Read(_) | Self::ReadUpdate(_) | Self::WriteUpdate(_) | Self::AppendUpdate(_)
-        )
-    }
-
-    /// Whether `write()` is allowed by this mode.
-    #[must_use]
-    pub fn writable(&self) -> bool {
-        matches!(
-            self,
-            Self::Write(_) | Self::WriteUpdate(_) | Self::Append(_) | Self::AppendUpdate(_) | Self::ReadUpdate(_)
-        )
-    }
-
-    /// Whether writes should always append (`a`/`a+`).
-    #[must_use]
-    pub fn is_append(&self) -> bool {
-        matches!(self, Self::Append(_) | Self::AppendUpdate(_))
-    }
-
-    /// Whether `open()` must truncate the file to empty immediately (`w`/`w+`).
-    #[must_use]
-    pub fn truncate(&self) -> bool {
-        matches!(self, Self::Write(_) | Self::WriteUpdate(_))
-    }
-
-    /// Whether `open()` must create the file immediately if missing.
-    ///
-    /// True for the `w`/`w+` and `a`/`a+` families. For append modes this must
-    /// not disturb existing content.
-    #[must_use]
-    pub fn create(&self) -> bool {
-        matches!(
-            self,
-            Self::Write(_) | Self::WriteUpdate(_) | Self::Append(_) | Self::AppendUpdate(_)
-        )
-    }
-
-    /// Returns the `_io` wrapper type a file opened with this mode presents as.
-    #[must_use]
-    pub fn file_type(&self) -> Type {
+impl FileModeExt for FileMode {
+    fn file_type(&self) -> Type {
         match self {
             _ if !self.is_binary() => Type::TextIOWrapper,
             Self::ReadUpdate(_) | Self::WriteUpdate(_) | Self::AppendUpdate(_) => Type::BufferedRandom,
             Self::Read(_) => Type::BufferedReader,
             Self::Write(_) | Self::Append(_) => Type::BufferedWriter,
         }
-    }
-
-    /// Returns the bare Python type name (`type(f).__name__`) for this mode.
-    #[must_use]
-    pub fn type_name(&self) -> &'static str {
-        match self {
-            _ if !self.is_binary() => "TextIOWrapper",
-            Self::ReadUpdate(_) | Self::WriteUpdate(_) | Self::AppendUpdate(_) => "BufferedRandom",
-            Self::Read(_) => "BufferedReader",
-            Self::Write(_) | Self::Append(_) => "BufferedWriter",
-        }
-    }
-}
-
-/// Parses a Python `open()` mode string into a [`FileMode`].
-///
-/// Monty supports the common read, write, append, and update combinations in
-/// text or binary form. Exclusive creation (`x`) is rejected for now because
-/// it needs a dedicated mount-table operation to be race-free.
-///
-/// The `Err` payload is a CPython-matched message — empty input, an unknown
-/// mode character, duplicated `b`/`t`/`+`, conflicting binary+text flags, or
-/// more than one of the `r`/`w`/`a` actions.
-impl FromStr for FileMode {
-    type Err = Cow<'static, str>;
-
-    fn from_str(mode: &str) -> Result<Self, Self::Err> {
-        if mode.is_empty() {
-            // CPython's empty-mode error message, mirrored verbatim. Note: the
-            // duplicate-action message is different (lowercase, no `... and at most one
-            // plus` suffix) — see the `'r' | 'w' | 'a'` arm.
-            return Err("Must have exactly one of create/read/write/append mode and at most one plus".into());
-        }
-
-        let mut action = None;
-        let mut binary = false;
-        let mut text = false;
-
-        for ch in mode.chars() {
-            match ch {
-                'r' | 'w' | 'a' => {
-                    if action.replace(ch).is_some() {
-                        return Err("must have exactly one of create/read/write/append mode".into());
-                    }
-                }
-                'x' => return Err("exclusive creation mode is not supported".into()),
-                'b' => {
-                    if binary {
-                        return Err("invalid mode: binary mode specified twice".into());
-                    }
-                    binary = true;
-                }
-                't' => {
-                    if text {
-                        return Err("invalid mode: text mode specified twice".into());
-                    }
-                    text = true;
-                }
-                // `+` modes (`r+`, `w+`, `a+`, and their `b` variants) need
-                // read-position tracking that Monty does not yet implement.
-                // Reject them outright rather than silently truncating on the
-                // first write (which would happen because the OS-level read
-                // and write ops are full-file one-shots).
-                '+' => return Err("update modes ('+') are not yet supported".into()),
-                _ => return Err(format!("invalid mode: {ch:?}").into()),
-            }
-        }
-
-        if binary && text {
-            return Err("can't have text and binary mode at once".into());
-        }
-
-        Ok(match action.unwrap_or('r') {
-            'w' => Self::Write(binary),
-            'a' => Self::Append(binary),
-            _ => Self::Read(binary),
-        })
     }
 }
 
@@ -439,7 +246,7 @@ struct BufferMeta {
 impl OpenFile {
     /// Creates a path-backed file wrapper from a parsed `open()` mode and the
     /// `position` carried across the host boundary by a
-    /// [`MontyObject::FileHandle`](crate::MontyObject::FileHandle).
+    /// [`monty_types::MontyObject::FileHandle`].
     ///
     /// Truncating modes (`w`/`w+`) have already had the file emptied by the
     /// host at `open()` time, so the wrapper starts with `first_write_done`
@@ -486,6 +293,16 @@ impl OpenFile {
         self.position
     }
 
+    /// The heap id of the loaded full-file buffer, if any.
+    ///
+    /// The file owns one `inc_ref` on this buffer; the heap's child-traversal
+    /// (`for_each_child_id`) and free (`py_dec_ref_ids`) paths use this to keep
+    /// the buffer's refcount balanced when the file is freed.
+    #[must_use]
+    pub(crate) fn buffer_id(&self) -> Option<HeapId> {
+        self.buffer
+    }
+
     /// Returns the type represented by this file wrapper.
     #[must_use]
     pub fn file_type(&self) -> Type {
@@ -516,8 +333,9 @@ impl<'h> PyTrait<'h> for HeapRead<'h, OpenFile> {
         None
     }
 
-    fn py_eq(&self, _other: &Self, _vm: &mut VM<'h, impl ResourceTracker>) -> Result<bool, ResourceError> {
-        Ok(false)
+    fn py_eq_impl(&self, _other: &Value, _vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Option<bool>> {
+        // File objects use identity equality (handled before the heap read).
+        Ok(None)
     }
 
     fn py_bool(&self, _vm: &mut VM<'h, impl ResourceTracker>) -> bool {
@@ -528,7 +346,7 @@ impl<'h> PyTrait<'h> for HeapRead<'h, OpenFile> {
         &self,
         f: &mut impl Write,
         vm: &mut VM<'h, impl ResourceTracker>,
-        _heap_ids: &mut AHashSet<HeapId>,
+        _heap_ids: &mut LazyHeapSet,
     ) -> RunResult<()> {
         let file = self.get(vm.heap);
         write!(
@@ -549,8 +367,11 @@ impl<'h> PyTrait<'h> for HeapRead<'h, OpenFile> {
         args: ArgValues,
     ) -> RunResult<CallResult> {
         let Some(method) = attr.static_string() else {
-            args.drop_with_heap(vm);
-            return Err(ExcType::attribute_error(self.py_type(vm), attr.as_str(vm.interns)));
+            args.drop_with(vm);
+            return Err(ExcType::attribute_error(
+                self.py_type(vm).name(vm.heap, vm.interns),
+                attr.as_str(vm.interns),
+            ));
         };
 
         match method {
@@ -566,13 +387,16 @@ impl<'h> PyTrait<'h> for HeapRead<'h, OpenFile> {
             StaticStrings::Writable => self.writable(vm, args),
             StaticStrings::Seekable => self.seekable(vm, args),
             _ => {
-                args.drop_with_heap(vm);
-                Err(ExcType::attribute_error(self.py_type(vm), attr.as_str(vm.interns)))
+                args.drop_with(vm);
+                Err(ExcType::attribute_error(
+                    self.py_type(vm).name(vm.heap, vm.interns),
+                    attr.as_str(vm.interns),
+                ))
             }
         }
     }
 
-    fn py_is_context_manager(&self) -> bool {
+    fn py_is_context_manager(&self, _vm: &VM<'h, impl ResourceTracker>) -> bool {
         true
     }
 
@@ -584,7 +408,7 @@ impl<'h> PyTrait<'h> for HeapRead<'h, OpenFile> {
         // Return the file itself. Bumping the refcount here gives the new
         // Value::Ref its own count — constructing a fresh Value::Ref without
         // an inc_ref would let the Drop impl panic when an in-flight value
-        // is later discarded without a matching drop_with_heap.
+        // is later discarded without a matching drop_with.
         vm.heap.inc_ref(self_id);
         Ok(CallResult::Value(Value::Ref(self_id)))
     }
@@ -607,7 +431,10 @@ impl<'h> PyTrait<'h> for HeapRead<'h, OpenFile> {
 
     fn py_getattr(&self, attr: &EitherStr, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<Option<CallResult>> {
         let Some(method) = attr.static_string() else {
-            return Err(ExcType::attribute_error(self.py_type(vm), attr.as_str(vm.interns)));
+            return Err(ExcType::attribute_error(
+                self.py_type(vm).name(vm.heap, vm.interns),
+                attr.as_str(vm.interns),
+            ));
         };
 
         let file = self.get(vm.heap);
@@ -616,7 +443,12 @@ impl<'h> PyTrait<'h> for HeapRead<'h, OpenFile> {
             StaticStrings::Mode => allocate_string(file.mode.as_str().to_owned(), vm.heap)?,
             StaticStrings::Closed => Value::Bool(file.closed),
             StaticStrings::Encoding if !file.mode.is_binary() => allocate_string("utf-8", vm.heap)?,
-            _ => return Err(ExcType::attribute_error(self.py_type(vm), attr.as_str(vm.interns))),
+            _ => {
+                return Err(ExcType::attribute_error(
+                    self.py_type(vm).name(vm.heap, vm.interns),
+                    attr.as_str(vm.interns),
+                ));
+            }
         };
         Ok(Some(CallResult::Value(value)))
     }
@@ -789,18 +621,18 @@ impl<'h> HeapRead<'h, OpenFile> {
         let data = args.get_one_arg("write", vm.heap)?;
         let binary = self.get(vm.heap).mode.is_binary();
         if let Err(err) = validate_write_data(&data, binary, vm) {
-            data.drop_with_heap(vm);
+            data.drop_with(vm);
             return Err(err);
         }
         if let Err(err) = self.get(vm.heap).ensure_open() {
-            data.drop_with_heap(vm);
+            data.drop_with(vm);
             return Err(err);
         }
         let (path, append, binary) = {
             let file = self.get_mut(vm.heap);
             if !file.mode.writable() {
                 let message = if file.mode.is_binary() { "write" } else { "not writable" };
-                data.drop_with_heap(vm);
+                data.drop_with(vm);
                 return Err(unsupported_operation(message));
             }
             let append = file.mode.is_append() || file.first_write_done;
@@ -817,7 +649,7 @@ impl<'h> HeapRead<'h, OpenFile> {
         let path = MontyPath::new(path);
         let call = if binary {
             let bytes = extract_bytes_payload(&data, vm).expect("validate_write_data accepted a bytes-shaped value");
-            data.drop_with_heap(vm);
+            data.drop_with(vm);
             let args = PathBytesDataArgs { path, data: bytes };
             if append {
                 OsFunctionCall::AppendBytes(args)
@@ -826,7 +658,7 @@ impl<'h> HeapRead<'h, OpenFile> {
             }
         } else {
             let text = extract_str_payload(&data, vm).expect("validate_write_data accepted a str-shaped value");
-            data.drop_with_heap(vm);
+            data.drop_with(vm);
             let args = PathStringDataArgs { path, data: text };
             if append {
                 OsFunctionCall::AppendText(args)
@@ -936,19 +768,17 @@ impl OpenFile {
     }
 }
 
-/// Increments `file_id`'s refcount by 2 for an OS call that pins the file
-/// across the host yield.
+/// Increments `file_id`'s refcount by 1 to pin the file across the host yield.
 ///
-/// One ref is owned by the [`ArgValues`] passed to the host (released when
-/// the host boundary converts the args to `MontyObject` and drops them); the
-/// other ref is owned by the VM's `pending_file_effect` slot and is released
-/// in [`apply_buffer_store`] / [`apply_write_position`] (or by
-/// [`VM::resume_with_exception`](crate::bytecode::VM::resume_with_exception)
-/// if the host raises). Keeping both inc_refs behind this one helper makes
-/// the matched dec_refs easier to verify by eye.
+/// The buffered read/write OS calls carry only the file's path, never a
+/// `Value::Ref` to the file object, so there is no argument ref to release at
+/// the host boundary. The single pin is owned by the VM's `pending_file_effect`
+/// slot and released by exactly one site per path: [`apply_buffer_store`] /
+/// [`apply_write_position`] (success), `resume_with_exception` (host raised),
+/// `VM::drop` (abandoned), or `CallResult`'s drop (call discarded before
+/// dispatch).
 fn inc_ref_for_pending_oscall(vm: &VM<'_, impl ResourceTracker>, file_id: HeapId) {
-    vm.heap.inc_ref(file_id); // released at the host boundary (args drop)
-    vm.heap.inc_ref(file_id); // released in apply_*_position / resume_with_exception (pin)
+    vm.heap.inc_ref(file_id);
 }
 
 /// Materialises the host-returned `result` into a heap-resident `HeapId`
@@ -962,9 +792,9 @@ fn inc_ref_for_pending_oscall(vm: &VM<'_, impl ResourceTracker>, file_id: HeapId
 /// heap-resident `Str` / `Bytes`, so interned variants are reallocated
 /// onto the heap here.
 ///
-/// `result` is fully consumed: every path runs `drop_with_heap` exactly
+/// `result` is fully consumed: every path runs `drop_with` exactly
 /// once. The two `Value::Ref`-producing arms `inc_ref` the entry they
-/// hand back so the upcoming `drop_with_heap`'s dec_ref balances out and
+/// hand back so the upcoming `drop_with`'s dec_ref balances out and
 /// the returned `HeapId` keeps the refcount it would have had without
 /// the dance. This avoids `mem::forget`, which clippy flags on the
 /// no-Drop release configuration.
@@ -979,7 +809,7 @@ fn os_read_result_to_heap_id(result: Value, vm: &mut VM<'_, impl ResourceTracker
         Value::InternString(string_id) => {
             let s = vm.interns.get_str(*string_id).to_owned();
             // `allocate_string_no_interning` returns `Value::Ref` with
-            // refcount 1; inc_ref+drop_with_heap below nets to zero and
+            // refcount 1; inc_ref+drop_with below nets to zero and
             // lets us drop the temporary Value cleanly.
             let v = allocate_string_no_interning(s, vm.heap)?;
             let Value::Ref(new_id) = &v else {
@@ -987,7 +817,7 @@ fn os_read_result_to_heap_id(result: Value, vm: &mut VM<'_, impl ResourceTracker
             };
             let new_id = *new_id;
             vm.heap.inc_ref(new_id);
-            v.drop_with_heap(vm);
+            v.drop_with(vm);
             new_id
         }
         Value::InternBytes(bytes_id) => {
@@ -995,13 +825,13 @@ fn os_read_result_to_heap_id(result: Value, vm: &mut VM<'_, impl ResourceTracker
             vm.heap.allocate(HeapData::Bytes(Bytes::new(b)))?
         }
         _ => {
-            result.drop_with_heap(vm);
+            result.drop_with(vm);
             return Err(RunError::internal(
                 "os_read_result_to_heap_id: OS result must be a string or bytes value",
             ));
         }
     };
-    result.drop_with_heap(vm);
+    result.drop_with(vm);
     Ok(id)
 }
 
@@ -1022,7 +852,7 @@ fn os_read_result_to_heap_id(result: Value, vm: &mut VM<'_, impl ResourceTracker
 ///
 /// The file owns one inc_ref on `result` for its `buffer` slot. The caller's
 /// inc_ref on `file_id` (held by the in-flight OS call) is released here
-/// via the RAII [`HeapGuard`] on `Value::Ref(file_id)`, so every error path
+/// via the RAII [`DropGuard`] on `Value::Ref(file_id)`, so every error path
 /// drops the pin without explicit `dec_ref` boilerplate.
 ///
 /// **Error handling**: `pending_read` is taken up-front so every subsequent
@@ -1035,14 +865,14 @@ pub(crate) fn apply_buffer_store(
 ) -> RunResult<Value> {
     // The pin's dec_ref happens automatically on every path via the guard's
     // Drop, so the early-return branches do not need explicit `dec_ref`s.
-    let mut pin = HeapGuard::new(Value::Ref(file_id), vm);
+    let mut pin = DropGuard::new(Value::Ref(file_id), vm);
 
     // Stage 1: drain `pending_read` from the file. `result_guard` keeps the
     // host-returned value alive across early-return branches; on the success
     // path we hand ownership back via `into_inner`.
     let (result, spec) = {
         let (_, vm) = pin.as_parts_mut();
-        let mut result_guard = HeapGuard::new(result, vm);
+        let mut result_guard = DropGuard::new(result, vm);
         let (_, vm) = result_guard.as_parts_mut();
 
         let HeapReadOutput::OpenFile(mut file) = vm.heap.read(file_id) else {
@@ -1105,16 +935,16 @@ pub(crate) fn apply_buffer_store(
 /// values returned by Monty's filesystem backends and CPython's `write()`.
 ///
 /// As with [`apply_buffer_store`], the pending-file-effect pin on `file_id`
-/// is released via the RAII [`HeapGuard`] regardless of which path the
+/// is released via the RAII [`DropGuard`] regardless of which path the
 /// function takes.
 pub(crate) fn apply_write_position(
     file_id: HeapId,
     result: Value,
     vm: &mut VM<'_, impl ResourceTracker>,
 ) -> RunResult<Value> {
-    let mut pin = HeapGuard::new(Value::Ref(file_id), vm);
+    let mut pin = DropGuard::new(Value::Ref(file_id), vm);
     let (_, vm) = pin.as_parts_mut();
-    let mut result_guard = HeapGuard::new(result, vm);
+    let mut result_guard = DropGuard::new(result, vm);
     let (result_ref, vm) = result_guard.as_parts_mut();
 
     let written = result_ref.as_int(vm)?;
@@ -1576,7 +1406,7 @@ fn parse_read_size_arg(size_arg: Option<Value>, vm: &mut VM<'_, impl ResourceTra
             Err(err) => Err(err),
         },
     };
-    size.drop_with_heap(vm);
+    size.drop_with(vm);
     spec
 }
 
@@ -1603,7 +1433,7 @@ fn validate_write_data(data: &Value, binary: bool, vm: &VM<'_, impl ResourceTrac
         } else {
             Err(ExcType::type_error(format!(
                 "a bytes-like object is required, not '{}'",
-                data.py_type(vm)
+                data.py_type_name(vm)
             )))
         }
     } else if data.is_str(vm.heap) {
@@ -1611,7 +1441,7 @@ fn validate_write_data(data: &Value, binary: bool, vm: &VM<'_, impl ResourceTrac
     } else {
         Err(ExcType::type_error(format!(
             "write() argument must be str, not {}",
-            data.py_type(vm)
+            data.py_type_name(vm)
         )))
     }
 }

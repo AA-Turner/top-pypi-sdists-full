@@ -1,16 +1,14 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+from dateutil.parser import isoparse
 
 from ..types import UNSET, Unset
-
-from dateutil.parser import isoparse
-from typing import cast
-import datetime
 
 if TYPE_CHECKING:
     from ..models.metric_attributes_dimensions import MetricAttributesDimensions
@@ -38,9 +36,9 @@ class MetricAttributes:
     value: float | str
     period_seconds: int
     recorded_at: datetime.datetime
-    unit: None | str | Unset = UNSET
+    unit: str | Unset | None = UNSET
     dimensions: MetricAttributesDimensions | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
+    created_at: datetime.datetime | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -53,7 +51,7 @@ class MetricAttributes:
 
         recorded_at = self.recorded_at.isoformat()
 
-        unit: None | str | Unset
+        unit: str | Unset | None
         if isinstance(self.unit, Unset):
             unit = UNSET
         else:
@@ -63,7 +61,7 @@ class MetricAttributes:
         if not isinstance(self.dimensions, Unset):
             dimensions = self.dimensions.to_dict()
 
-        created_at: None | str | Unset
+        created_at: str | Unset | None
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -106,7 +104,7 @@ class MetricAttributes:
 
         recorded_at = isoparse(d.pop("recorded_at"))
 
-        def _parse_unit(data: object) -> None | str | Unset:
+        def _parse_unit(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -122,7 +120,7 @@ class MetricAttributes:
         else:
             dimensions = MetricAttributesDimensions.from_dict(_dimensions)
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

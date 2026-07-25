@@ -2,14 +2,15 @@
 
 use std::mem;
 
+use monty_types::ResourceTracker;
+
 use crate::{
     args::ArgValues,
     bytecode::{CallResult, VM},
     defer_drop,
-    exception_private::{ExcType, RunResult},
-    heap::{HeapGuard, HeapId, HeapItem, HeapRead},
+    exception_private::{ExcType, ExcTypeExt, RunResult},
+    heap::{DropGuard, HeapId, HeapItem, HeapRead},
     intern::StringId,
-    resource::ResourceTracker,
     types::Dict,
     value::{EitherStr, Value},
 };
@@ -110,8 +111,8 @@ impl<'h> HeapRead<'h, Module> {
         attr: &EitherStr,
         args: ArgValues,
     ) -> RunResult<CallResult> {
-        let mut args_guard = HeapGuard::new(args, vm);
-        let vm = args_guard.heap();
+        let mut args_guard = DropGuard::new(args, vm);
+        let vm = args_guard.ctx();
 
         let attr_str = match attr {
             EitherStr::Interned(id) => vm.interns.get_str(*id),

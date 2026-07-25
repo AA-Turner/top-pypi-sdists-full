@@ -76,6 +76,40 @@ class _OriginType(str, Enum):
     CONNECTOR_ROLLOUT = "connector_rollout"
 
 
+def _raise_config_api_error(
+    response: requests.Response,
+    *,
+    operation: str,
+    endpoint: str,
+    extra_context: dict[str, object] | None = None,
+) -> None:
+    """Raise a user-facing error for a failed Config API request."""
+    if response.status_code == 401:
+        message = (
+            f"Config API authentication failed during {operation}. "
+            "Check that the bearer token is valid and not expired."
+        )
+    elif response.status_code == 403:
+        message = (
+            f"Authenticated principal lacks Config API administrator permissions "
+            f"for {operation}. This is an authorization failure, not an invalid "
+            "or expired authentication token."
+        )
+    else:
+        message = (
+            f"Config API request failed during {operation}: "
+            f"{response.status_code} {response.text}"
+        )
+    context: dict[str, object] = {
+        "endpoint": endpoint,
+        "status_code": response.status_code,
+        "response": response.text,
+    }
+    if extra_context:
+        context.update(extra_context)
+    raise PyAirbyteInputError(message=message, context=context)
+
+
 def _auth_root_for_config_api_root(config_api_root: str | None) -> str:
     """Return the token exchange root for the configured API target."""
     if not config_api_root:
@@ -297,14 +331,11 @@ def resolve_connector_version_id(
     )
 
     if response.status_code != 200:
-        raise PyAirbyteInputError(
-            message=f"Failed to resolve version: {response.status_code} {response.text}",
-            context={
-                "endpoint": endpoint,
-                "payload": payload,
-                "status_code": response.status_code,
-                "response": response.text,
-            },
+        _raise_config_api_error(
+            response,
+            operation="resolve connector version",
+            endpoint=endpoint,
+            extra_context={"payload": payload},
         )
 
     data = response.json()
@@ -430,15 +461,13 @@ def _get_scoped_configuration_context(
     )
 
     if response.status_code != 200:
-        raise PyAirbyteInputError(
-            message=f"Failed to get scoped configuration context for {scope_type.value} scope: "
-            f"{response.status_code} {response.text}",
-            context={
-                "endpoint": endpoint,
+        _raise_config_api_error(
+            response,
+            operation=f"get scoped configuration context for {scope_type.value} scope",
+            endpoint=endpoint,
+            extra_context={
                 "payload": context_payload,
                 "scope_type": scope_type.value,
-                "status_code": response.status_code,
-                "response": response.text,
             },
         )
 
@@ -577,16 +606,15 @@ def get_connector_version(
     )
 
     if response.status_code != 200:
-        raise PyAirbyteInputError(
-            message=f"Failed to get connector version: {response.status_code} {response.text}",
-            context={
+        _raise_config_api_error(
+            response,
+            operation="get connector version",
+            endpoint=endpoint,
+            extra_context={
                 "connector_id": connector_id,
                 "connector_type": connector_type,
-                "endpoint": endpoint,
                 "payload": payload,
                 "config_api_root": config_api_root,
-                "status_code": response.status_code,
-                "response": response.text,
             },
         )
 
@@ -739,8 +767,15 @@ def set_connector_version_override(
         )
 
         if get_response.status_code != 200:
-            raise PyAirbyteInputError(
-                message=f"Failed to get {connector_type} info: {get_response.status_code} {get_response.text}",
+            _raise_config_api_error(
+                get_response,
+                operation=f"get {connector_type} info",
+                endpoint=get_endpoint,
+                extra_context={
+                    "connector_id": connector_id,
+                    "connector_type": connector_type,
+                    "payload": get_payload,
+                },
             )
 
         connector_info = get_response.json()
@@ -780,13 +815,13 @@ def set_connector_version_override(
         )
 
         if response.status_code not in (200, 204):
-            raise PyAirbyteInputError(
-                message=f"Failed to delete version override: {response.status_code} {response.text}",
-                context={
-                    "delete_endpoint": delete_endpoint,
+            _raise_config_api_error(
+                response,
+                operation="delete version override",
+                endpoint=delete_endpoint,
+                extra_context={
                     "config_id": active_config["id"],
-                    "status_code": response.status_code,
-                    "response": response.text,
+                    "payload": delete_payload,
                 },
             )
 
@@ -811,8 +846,15 @@ def set_connector_version_override(
         )
 
         if get_response.status_code != 200:
-            raise PyAirbyteInputError(
-                message=f"Failed to get {connector_type} info: {get_response.status_code} {get_response.text}",
+            _raise_config_api_error(
+                get_response,
+                operation=f"get {connector_type} info",
+                endpoint=get_endpoint,
+                extra_context={
+                    "connector_id": connector_id,
+                    "connector_type": connector_type,
+                    "payload": get_payload,
+                },
             )
 
         connector_info = get_response.json()
@@ -849,13 +891,13 @@ def set_connector_version_override(
             timeout=30,
         )
         if workspace_response.status_code != 200:
-            raise PyAirbyteInputError(
-                message=f"Failed to get workspace info: {workspace_response.status_code} {workspace_response.text}. "
-                "Workspace info is required to determine organization_id for comprehensive scope checking.",
-                context={
+            _raise_config_api_error(
+                workspace_response,
+                operation="get workspace info",
+                endpoint=workspace_endpoint,
+                extra_context={
                     "workspace_id": workspace_id,
-                    "status_code": workspace_response.status_code,
-                    "response": workspace_response.text,
+                    "payload": workspace_payload,
                 },
             )
         workspace_info = workspace_response.json()
@@ -984,6 +1026,19 @@ def set_connector_version_override(
             )
 
             if delete_response.status_code not in (200, 204):
+                if delete_response.status_code in (401, 403):
+                    _raise_config_api_error(
+                        delete_response,
+                        operation="delete existing actor-level version override",
+                        endpoint=delete_endpoint,
+                        extra_context={
+                            "config_id": actor_config["id"],
+                            "existing_version": existing_version_name,
+                            "requested_version": version,
+                            "scope_level": _ScopeType.ACTOR.value,
+                            "payload": delete_payload,
+                        },
+                    )
                 raise PyAirbyteInputError(
                     message=f"Failed to delete existing actor-level version override before setting new one: "
                     f"{delete_response.status_code} {delete_response.text}. "
@@ -1060,6 +1115,21 @@ def set_connector_version_override(
         )
 
         if response.status_code not in (200, 201):
+            if response.status_code in (401, 403):
+                _raise_config_api_error(
+                    response,
+                    operation="set version override",
+                    endpoint=endpoint,
+                    extra_context={
+                        "connector_id": connector_id,
+                        "connector_type": connector_type,
+                        "version": version,
+                        "version_id": version_id,
+                        "payload": payload,
+                        "actor_definition_id": actor_definition_id,
+                        "inherited_pins": inherited_pins if inherited_pins else None,
+                    },
+                )
             # Provide helpful guidance for 500 errors which often indicate duplicates
             error_message = f"Failed to set version override: {response.status_code} {response.text}"
             if response.status_code == 500:
@@ -1209,13 +1279,13 @@ def set_workspace_connector_version_override(
         )
 
         if response.status_code not in (200, 204):
-            raise PyAirbyteInputError(
-                message=f"Failed to delete workspace version override: {response.status_code} {response.text}",
-                context={
-                    "delete_endpoint": delete_endpoint,
+            _raise_config_api_error(
+                response,
+                operation="delete workspace version override",
+                endpoint=delete_endpoint,
+                extra_context={
                     "config_id": active_config["id"],
-                    "status_code": response.status_code,
-                    "response": response.text,
+                    "payload": delete_payload,
                 },
             )
 
@@ -1280,9 +1350,16 @@ def set_workspace_connector_version_override(
             )
 
             if delete_response.status_code not in (200, 204):
-                raise PyAirbyteInputError(
-                    message=f"Failed to delete existing workspace version override: "
-                    f"{delete_response.status_code} {delete_response.text}",
+                _raise_config_api_error(
+                    delete_response,
+                    operation="delete existing workspace version override",
+                    endpoint=delete_endpoint,
+                    extra_context={
+                        "config_id": existing_config["id"],
+                        "payload": delete_payload,
+                        "workspace_id": workspace_id,
+                        "connector_name": connector_name,
+                    },
                 )
 
     # Get user ID from email
@@ -1325,15 +1402,15 @@ def set_workspace_connector_version_override(
     )
 
     if response.status_code not in (200, 201):
-        raise PyAirbyteInputError(
-            message=f"Failed to set workspace version override: {response.status_code} {response.text}",
-            context={
+        _raise_config_api_error(
+            response,
+            operation="set workspace version override",
+            endpoint=endpoint,
+            extra_context={
                 "workspace_id": workspace_id,
                 "connector_name": connector_name,
                 "version": version,
-                "endpoint": endpoint,
-                "status_code": response.status_code,
-                "response": response.text,
+                "payload": payload,
             },
         )
 
@@ -1455,13 +1532,13 @@ def set_organization_connector_version_override(
         )
 
         if response.status_code not in (200, 204):
-            raise PyAirbyteInputError(
-                message=f"Failed to delete organization version override: {response.status_code} {response.text}",
-                context={
-                    "delete_endpoint": delete_endpoint,
+            _raise_config_api_error(
+                response,
+                operation="delete organization version override",
+                endpoint=delete_endpoint,
+                extra_context={
                     "config_id": active_config["id"],
-                    "status_code": response.status_code,
-                    "response": response.text,
+                    "payload": delete_payload,
                 },
             )
 
@@ -1526,9 +1603,16 @@ def set_organization_connector_version_override(
             )
 
             if delete_response.status_code not in (200, 204):
-                raise PyAirbyteInputError(
-                    message=f"Failed to delete existing organization version override: "
-                    f"{delete_response.status_code} {delete_response.text}",
+                _raise_config_api_error(
+                    delete_response,
+                    operation="delete existing organization version override",
+                    endpoint=delete_endpoint,
+                    extra_context={
+                        "config_id": existing_config["id"],
+                        "payload": delete_payload,
+                        "organization_id": organization_id,
+                        "connector_name": connector_name,
+                    },
                 )
 
     # Get user ID from email
@@ -1571,15 +1655,15 @@ def set_organization_connector_version_override(
     )
 
     if response.status_code not in (200, 201):
-        raise PyAirbyteInputError(
-            message=f"Failed to set organization version override: {response.status_code} {response.text}",
-            context={
+        _raise_config_api_error(
+            response,
+            operation="set organization version override",
+            endpoint=endpoint,
+            extra_context={
                 "organization_id": organization_id,
                 "connector_name": connector_name,
                 "version": version,
-                "endpoint": endpoint,
-                "status_code": response.status_code,
-                "response": response.text,
+                "payload": payload,
             },
         )
 
@@ -1689,6 +1773,7 @@ def start_connector_rollout(
                 "docker_image_tag": docker_image_tag,
                 "actor_definition_id": actor_definition_id,
                 "rollout_strategy": rollout_strategy,
+                "payload": payload,
                 "endpoint": endpoint,
                 "status_code": response.status_code,
                 "response": response.text,
@@ -1696,16 +1781,16 @@ def start_connector_rollout(
         )
 
     if response.status_code != 200:
-        raise PyAirbyteInputError(
-            message=f"Failed to start connector rollout: {response.status_code} {response.text}",
-            context={
+        _raise_config_api_error(
+            response,
+            operation="start connector rollout",
+            endpoint=endpoint,
+            extra_context={
                 "docker_repository": docker_repository,
                 "docker_image_tag": docker_image_tag,
                 "actor_definition_id": actor_definition_id,
                 "rollout_strategy": rollout_strategy,
-                "endpoint": endpoint,
-                "status_code": response.status_code,
-                "response": response.text,
+                "payload": payload,
             },
         )
 
@@ -1803,6 +1888,7 @@ def progress_connector_rollout(
                 "docker_image_tag": docker_image_tag,
                 "target_percentage": target_percentage,
                 "actor_ids": actor_ids,
+                "payload": payload,
                 "endpoint": endpoint,
                 "status_code": response.status_code,
                 "response": response.text,
@@ -1810,17 +1896,17 @@ def progress_connector_rollout(
         )
 
     if response.status_code != 200:
-        raise PyAirbyteInputError(
-            message=f"Failed to progress connector rollout: {response.status_code} {response.text}",
-            context={
+        _raise_config_api_error(
+            response,
+            operation="progress connector rollout",
+            endpoint=endpoint,
+            extra_context={
                 "rollout_id": rollout_id,
                 "docker_repository": docker_repository,
                 "docker_image_tag": docker_image_tag,
                 "target_percentage": target_percentage,
                 "actor_ids": actor_ids,
-                "endpoint": endpoint,
-                "status_code": response.status_code,
-                "response": response.text,
+                "payload": payload,
             },
         )
 
@@ -1924,6 +2010,7 @@ def finalize_connector_rollout(
                 "docker_repository": docker_repository,
                 "docker_image_tag": docker_image_tag,
                 "state": state,
+                "payload": payload,
                 "endpoint": endpoint,
                 "status_code": response.status_code,
                 "response": response.text,
@@ -1931,16 +2018,16 @@ def finalize_connector_rollout(
         )
 
     if response.status_code != 200:
-        raise PyAirbyteInputError(
-            message=f"Failed to finalize connector rollout: {response.status_code} {response.text}",
-            context={
+        _raise_config_api_error(
+            response,
+            operation="finalize connector rollout",
+            endpoint=endpoint,
+            extra_context={
                 "rollout_id": rollout_id,
                 "docker_repository": docker_repository,
                 "docker_image_tag": docker_image_tag,
                 "state": state,
-                "endpoint": endpoint,
-                "status_code": response.status_code,
-                "response": response.text,
+                "payload": payload,
             },
         )
 
@@ -2009,13 +2096,13 @@ def get_actor_sync_info(
         )
 
     if response.status_code != 200:
-        raise PyAirbyteInputError(
-            message=f"Failed to get actor sync info: {response.status_code} {response.text}",
-            context={
+        _raise_config_api_error(
+            response,
+            operation="get actor sync info",
+            endpoint=endpoint,
+            extra_context={
                 "rollout_id": rollout_id,
-                "endpoint": endpoint,
-                "status_code": response.status_code,
-                "response": response.text,
+                "payload": payload,
             },
         )
 

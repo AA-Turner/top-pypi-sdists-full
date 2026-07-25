@@ -1,18 +1,15 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.flag_type import check_flag_type
-from ..models.flag_type import FlagType
 from dateutil.parser import isoparse
-from typing import cast
-import datetime
+
+from ..models.flag_type import FlagType, check_flag_type
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.flag_environments import FlagEnvironments
@@ -66,13 +63,13 @@ class Flag:
     name: str
     type_: FlagType
     default: Any
-    description: None | str | Unset = UNSET
-    values: list[FlagValue] | None | Unset = UNSET
+    description: str | Unset | None = UNSET
+    values: list[FlagValue] | Unset | None = UNSET
     environments: FlagEnvironments | Unset = UNSET
-    managed: bool | None | Unset = UNSET
-    sources: list[FlagSource] | None | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    updated_at: datetime.datetime | None | Unset = UNSET
+    managed: bool | Unset | None = UNSET
+    sources: list[FlagSource] | Unset | None = UNSET
+    created_at: datetime.datetime | Unset | None = UNSET
+    updated_at: datetime.datetime | Unset | None = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -82,13 +79,13 @@ class Flag:
 
         default = self.default
 
-        description: None | str | Unset
+        description: str | Unset | None
         if isinstance(self.description, Unset):
             description = UNSET
         else:
             description = self.description
 
-        values: list[dict[str, Any]] | None | Unset
+        values: list[dict[str, Any]] | Unset | None
         if isinstance(self.values, Unset):
             values = UNSET
         elif isinstance(self.values, list):
@@ -104,13 +101,13 @@ class Flag:
         if not isinstance(self.environments, Unset):
             environments = self.environments.to_dict()
 
-        managed: bool | None | Unset
+        managed: bool | Unset | None
         if isinstance(self.managed, Unset):
             managed = UNSET
         else:
             managed = self.managed
 
-        sources: list[dict[str, Any]] | None | Unset
+        sources: list[dict[str, Any]] | Unset | None
         if isinstance(self.sources, Unset):
             sources = UNSET
         elif isinstance(self.sources, list):
@@ -122,7 +119,7 @@ class Flag:
         else:
             sources = self.sources
 
-        created_at: None | str | Unset
+        created_at: str | Unset | None
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -130,7 +127,7 @@ class Flag:
         else:
             created_at = self.created_at
 
-        updated_at: None | str | Unset
+        updated_at: str | Unset | None
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -177,7 +174,7 @@ class Flag:
 
         default = d.pop("default")
 
-        def _parse_description(data: object) -> None | str | Unset:
+        def _parse_description(data: object) -> str | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -186,7 +183,7 @@ class Flag:
 
         description = _parse_description(d.pop("description", UNSET))
 
-        def _parse_values(data: object) -> list[FlagValue] | None | Unset:
+        def _parse_values(data: object) -> list[FlagValue] | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -215,7 +212,7 @@ class Flag:
         else:
             environments = FlagEnvironments.from_dict(_environments)
 
-        def _parse_managed(data: object) -> bool | None | Unset:
+        def _parse_managed(data: object) -> bool | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -224,7 +221,7 @@ class Flag:
 
         managed = _parse_managed(d.pop("managed", UNSET))
 
-        def _parse_sources(data: object) -> list[FlagSource] | None | Unset:
+        def _parse_sources(data: object) -> list[FlagSource] | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -246,7 +243,7 @@ class Flag:
 
         sources = _parse_sources(d.pop("sources", UNSET))
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -263,7 +260,7 @@ class Flag:
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_updated_at(data: object) -> datetime.datetime | Unset | None:
             if data is None:
                 return data
             if isinstance(data, Unset):

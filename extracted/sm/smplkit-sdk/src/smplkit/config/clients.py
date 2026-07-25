@@ -27,7 +27,6 @@ The client supports two construction shapes:
 
 from __future__ import annotations
 
-
 import dataclasses
 import logging
 import threading
@@ -38,19 +37,9 @@ from typing import TYPE_CHECKING, Any, TypeVar
 import httpx
 from pydantic import BaseModel
 
+from smplkit._buffer import _CONFIG_BATCH_FLUSH_SIZE, _ConfigRegistrationBuffer
 from smplkit._config import _service_url, resolve_client_config
-from smplkit._transport import with_default_user_agent
-from smplkit.errors import (
-    ConflictError,
-    ConnectionError,
-    NotFoundError,
-    TimeoutError,
-    ValidationError,
-    _raise_for_status,
-)
-from smplkit._helpers import PAGE_SIZE, key_to_display_name, paginate_async, paginate_sync
-from smplkit._resolver import resolve
-from smplkit._generated.config.api.configs import (  # noqa: F401  (re-exported for test patches)
+from smplkit._generated.config.api.configs import (
     bulk_register_configs,
     create_config,
     delete_config,
@@ -72,14 +61,24 @@ from smplkit._generated.config.models.config_item_definition import (
     ConfigItemDefinition as _GenConfigItemDefinition,
 )
 from smplkit._generated.config.types import UNSET as _CONFIG_UNSET
+from smplkit._helpers import PAGE_SIZE, key_to_display_name, paginate_async, paginate_sync
+from smplkit._resolver import resolve
+from smplkit._transport import with_default_user_agent
+from smplkit._ws import SharedWebSocket
 from smplkit.config.helpers import (
     _build_config_request_body,
     _resource_to_async_config,
     _resource_to_config,
 )
 from smplkit.config.models import AsyncConfig, Config
-from smplkit._buffer import _CONFIG_BATCH_FLUSH_SIZE, _ConfigRegistrationBuffer
-from smplkit._ws import SharedWebSocket
+from smplkit.errors import (
+    ConflictError,
+    ConnectionError,
+    NotFoundError,
+    TimeoutError,
+    ValidationError,
+    _raise_for_status,
+)
 
 if TYPE_CHECKING:
     from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter

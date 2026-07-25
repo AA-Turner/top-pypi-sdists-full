@@ -9,6 +9,9 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
+from smplkit._generated.logging.models.log_group_environments_type_0 import LogGroupEnvironmentsType0
+from smplkit._generated.logging.models.logger_environments_type_0 import LoggerEnvironmentsType0
+from smplkit._generated.logging.types import UNSET
 from smplkit.errors import (
     ConflictError,
     ConnectionError,
@@ -16,14 +19,11 @@ from smplkit.errors import (
     TimeoutError,
     ValidationError,
 )
-from smplkit._generated.logging.models.log_group_environments_type_0 import LogGroupEnvironmentsType0
-from smplkit._generated.logging.models.logger_environments_type_0 import LoggerEnvironmentsType0
-from smplkit._generated.logging.types import UNSET
 from smplkit.logging.clients import (
-    AsyncSmplLogGroup,
     AsyncSmplLogger,
-    SmplLogGroup,
+    AsyncSmplLogGroup,
     SmplLogger,
+    SmplLogGroup,
     _build_group_body,
     _build_logger_body,
     _check_response_status,

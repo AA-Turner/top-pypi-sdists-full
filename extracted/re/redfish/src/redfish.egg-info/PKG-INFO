@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: redfish
-Version: 3.3.6
+Version: 3.3.7
 Summary: Redfish Python Library
 Home-page: https://github.com/DMTF/python-redfish-library
 Author: DMTF, https://www.dmtf.org/standards/feedback

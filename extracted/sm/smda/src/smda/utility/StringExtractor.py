@@ -3,8 +3,8 @@ import string
 import struct
 from typing import Iterator, Tuple
 
-from smda.common import SmdaFunction
 from smda.common.ExceptionHandling import reraise_non_operational_exception
+from smda.common.SmdaFunction import SmdaFunction
 
 _IS_PRINTABLE_CHAR_CODE = tuple(chr(char) in string.printable for char in range(256))
 _ASCII_RE = re.compile(b"[\x09-\x0d\x20-\x7e]*")
@@ -164,7 +164,7 @@ def read_string(smda_report, offset, maxlen=None):
     return res
 
 
-def extract_strings(f: SmdaFunction, mode=None) -> Iterator[Tuple[str, int]]:
+def extract_strings(f: SmdaFunction, mode=None) -> Iterator[Tuple[str, int, int, str]]:
     """parse string features from the given instruction."""
     if mode == "go":
         # we address stack assigned strings and String structs

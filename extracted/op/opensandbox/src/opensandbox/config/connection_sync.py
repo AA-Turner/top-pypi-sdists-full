@@ -53,7 +53,7 @@ class ConnectionConfigSync(BaseModel):
     )
     debug: bool = Field(default=False, description="Enable debug logging for HTTP requests")
     user_agent: str = Field(
-        default="OpenSandbox-Python-SDK/0.1.14", description="User agent string"
+        default="OpenSandbox-Python-SDK/0.1.15", description="User agent string"
     )
     headers: dict[str, str] = Field(default_factory=dict, description="User defined headers")
 
@@ -84,6 +84,13 @@ class ConnectionConfigSync(BaseModel):
         default=False,
         description="Disable endpoint caching entirely.",
     )
+    disable_metrics: bool = Field(
+        default=False,
+        description=(
+            "Disable SDK telemetry (sandbox.create latency reports). "
+            "Also honored via OPENSANDBOX_DISABLE_METRICS=1."
+        ),
+    )
 
     _ENV_API_KEY = "OPEN_SANDBOX_API_KEY"
     _ENV_DOMAIN = "OPEN_SANDBOX_DOMAIN"
@@ -92,6 +99,10 @@ class ConnectionConfigSync(BaseModel):
 
     def model_post_init(self, __context: object) -> None:
         self._owns_transport = "transport" not in self.model_fields_set
+        # Best-effort: attach the SDK host's own IP (see async ConnectionConfig).
+        from opensandbox.config import client_ip
+
+        client_ip.apply_client_ip(self.headers)
 
     def with_transport_if_missing(self) -> "ConnectionConfigSync":
         """

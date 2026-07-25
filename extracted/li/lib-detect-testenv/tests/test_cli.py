@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import pytest
-from click.testing import CliRunner, Result
 
-from lib_detect_testenv import cli as cli_mod
 from lib_detect_testenv import __init__conf__
+from lib_detect_testenv import cli as cli_mod
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from click.testing import CliRunner, Result
 
 
 @pytest.mark.os_agnostic

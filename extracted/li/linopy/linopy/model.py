@@ -13,7 +13,8 @@ import warnings
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from tempfile import NamedTemporaryFile, gettempdir
-from typing import TYPE_CHECKING, Any, Literal, overload
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any, Literal, get_args, overload
 from warnings import warn
 
 import numpy as np
@@ -111,6 +112,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+DtypeKey = Literal["labels"]
+
 
 class Model:
     """
@@ -139,6 +142,7 @@ class Model:
     _termination_condition: str
     _xCounter: int
     _cCounter: int
+    _dtypes: dict[DtypeKey, type[np.signedinteger]]
     _varnameCounter: int
     _connameCounter: int
     _pwlCounter: int
@@ -162,6 +166,7 @@ class Model:
         # TODO: move counters to Variables and Constraints class
         "_xCounter",
         "_cCounter",
+        "_dtypes",
         "_varnameCounter",
         "_connameCounter",
         "_pwlCounter",
@@ -180,6 +185,25 @@ class Model:
         "__weakref__",
     )
 
+    @staticmethod
+    def _resolve_dtypes(
+        dtypes: Mapping[DtypeKey, type[np.signedinteger]] | None,
+    ) -> dict[DtypeKey, type[np.signedinteger]]:
+        """Validate the ``dtypes`` argument and merge it onto the defaults."""
+        resolved: dict[DtypeKey, type[np.signedinteger]] = {"labels": np.int32}
+        for key, dtype in (dtypes or {}).items():
+            if key not in get_args(DtypeKey):
+                raise ValueError(
+                    f"dtypes only supports the keys {list(get_args(DtypeKey))}, "
+                    f"got unknown key {key!r}"
+                )
+            if dtype not in (np.int32, np.int64):
+                raise ValueError(
+                    f"dtypes[{key!r}] must be np.int32 or np.int64, got {dtype}"
+                )
+            resolved[key] = dtype
+        return resolved
+
     def __init__(
         self,
         solver_dir: str | None = None,
@@ -188,6 +212,7 @@ class Model:
         auto_mask: bool = False,
         freeze_constraints: bool = False,
         set_names_in_solver_io: bool = True,
+        dtypes: Mapping[DtypeKey, type[np.signedinteger]] | None = None,
     ) -> None:
         """
         Initialize the linopy model.
@@ -217,11 +242,21 @@ class Model:
         set_names_in_solver_io : bool
             Whether direct solver exports should include variable and
             constraint names by default. The default is True.
+        dtypes : mapping, optional
+            Integer dtypes for the model's data, exposed read-only as
+            ``Model.dtypes``. Only ``"labels"`` is supported, e.g.
+            ``Model(dtypes={"labels": np.int64})``. The default ``np.int32``
+            halves label memory but caps the model at ~2.1 billion labels,
+            after which it widens to ``np.int64`` automatically; pass
+            ``np.int64`` upfront to avoid that mid-build upcast.
 
         Returns
         -------
         linopy.Model
         """
+        self._dtypes: dict[DtypeKey, type[np.signedinteger]] = self._resolve_dtypes(
+            dtypes
+        )
         self._variables: Variables = Variables({}, model=self)
         self._constraints: Constraints = Constraints({}, model=self)
         self._objective: Objective = Objective(LinearExpression(None, self), self)
@@ -495,6 +530,37 @@ class Model:
         self._solver_dir = Path(value)
 
     @property
+    def dtypes(self) -> Mapping[DtypeKey, type[np.signedinteger]]:
+        """
+        Read-only mapping of the model's integer dtypes.
+
+        Currently holds only ``"labels"``, the dtype of the variable and
+        constraint labels, which widens to ``int64`` automatically once the
+        labels outgrow int32.
+        """
+        return MappingProxyType(self._dtypes)
+
+    def _widen_label_dtype(self) -> None:
+        """Widen this model's label dtype to ``int64`` (monotonic, never narrows)."""
+        if self._dtypes["labels"] == np.int64:
+            return
+        self._dtypes["labels"] = np.int64
+        warnings.warn(
+            "The model exceeded the int32 label limit (~2.1 billion labels); "
+            "its label dtype was widened to int64. Pass "
+            'dtypes={"labels": np.int64} to Model() when building large models '
+            "to avoid the mid-build upcast.",
+            UserWarning,
+            stacklevel=4,
+        )
+
+    def _allocate_labels(self, start: int, end: int) -> np.ndarray:
+        """Return the label range ``[start, end)``, widening the dtype on overflow."""
+        if end > np.iinfo(self._dtypes["labels"]).max:
+            self._widen_label_dtype()
+        return np.arange(start, end, dtype=self._dtypes["labels"])
+
+    @property
     def dataset_attrs(self) -> list[str]:
         return ["parameters"]
 
@@ -620,11 +686,11 @@ class Model:
         Parameters
         ----------
         lower : float/array_like, optional
-            Lower bound of the variable(s). Ignored if `binary` is True.
-            The default is -inf.
+            Lower bound of the variable(s). For binary variables it
+            defaults to 0 and, if given, must be 0 or 1. The default is -inf.
         upper : TYPE, optional
-            Upper bound of the variable(s). Ignored if `binary` is True.
-            The default is inf.
+            Upper bound of the variable(s). For binary variables it
+            defaults to 1 and, if given, must be 0 or 1. The default is inf.
         coords : list/dict/xarray.Coordinates, optional
             The coords of the variable array. When provided with **named
             dimensions** (a ``Mapping``, ``xarray.Coordinates``, a
@@ -773,10 +839,14 @@ class Model:
             )
 
         if binary:
-            if (lower != -inf) or (upper != inf):
-                raise ValueError("Binary variables cannot have lower or upper bounds.")
-            else:
-                lower, upper = 0, 1
+            if np.isscalar(lower) and lower == -inf:
+                lower = 0
+            elif not (np.isin(lower, (0, 1)) | pd.isna(lower)).all():
+                raise ValueError("Binary variable lower bounds must be 0 or 1.")
+            if np.isscalar(upper) and upper == inf:
+                upper = 1
+            elif not (np.isin(upper, (0, 1)) | pd.isna(upper)).all():
+                raise ValueError("Binary variable upper bounds must be 0 or 1.")
 
         if semi_continuous:
             if not np.isscalar(lower) or float(lower) <= 0:  # type: ignore[arg-type]
@@ -820,7 +890,9 @@ class Model:
 
         start = self._xCounter
         end = start + data.labels.size
-        data.labels.values = np.arange(start, end).reshape(data.labels.shape)
+        data.labels.values = self._allocate_labels(start, end).reshape(
+            data.labels.shape
+        )
         self._xCounter += data.labels.size
 
         if mask is not None:
@@ -965,7 +1037,9 @@ class Model:
         """Assign label ranges from the constraint counter and apply an optional mask."""
         start = self._cCounter
         end = start + data.labels.size
-        data.labels.values = np.arange(start, end).reshape(data.labels.shape)
+        data.labels.values = self._allocate_labels(start, end).reshape(
+            data.labels.shape
+        )
         self._cCounter += data.labels.size
         if mask is not None:
             data.labels.values = np.where(mask.values, data.labels.values, -1)
@@ -1798,6 +1872,17 @@ class Model:
         status : tuple
             Tuple containing the status and termination condition of the
             optimization process.
+
+        Notes
+        -----
+        After solving, the solver stays attached as ``model.solver`` for
+        post-solve introspection (``model.solver_model``,
+        ``compute_infeasibilities()``) and reuse, e.g. persistent in-place
+        re-solves. For solvers with limited licenses (e.g. Gurobi) this
+        means the license remains acquired until the solver is released:
+        call ``model.solver.close()`` (or assign ``model.solver = None``)
+        to free it explicitly. It is also released on the next ``solve()``
+        call and when the model is garbage-collected.
         """
         if mock_solve:
             return self._mock_solve(
@@ -1986,7 +2071,7 @@ class Model:
         for _, var in self.variables.items():
             start, end = var.range
             var.solution = xr.DataArray(
-                primal[start:end].reshape(var.shape), var.coords
+                primal[start:end].reshape(var.shape), var.coords, dims=var.dims
             )
 
         if len(result.solution.dual):

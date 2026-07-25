@@ -132,16 +132,15 @@ class JPEGSerializer(Serializer):
         raise TypeError(f"The provided item should be of type `JpegImageFile`. Found {item}.")
 
     def deserialize(self, data: bytes) -> torch.Tensor:
-        from torchvision.io import decode_image, decode_jpeg
+        from torchvision.io import ImageReadMode, decode_image, decode_jpeg
 
         array = torch.frombuffer(data, dtype=torch.uint8)
-        # Try decoding as JPEG. Some datasets (e.g., ImageNet) may have PNG images with a JPEG extension,
-        # which will cause decode_jpeg to fail. In that case, fall back to a generic image decoder.
+        # Prefer RGB JPEG decode (matches ImageNet training tensors). Some
+        # datasets store PNG bytes under a JPEG extension — fall back.
         with suppress(RuntimeError):
-            return decode_jpeg(array)
+            return decode_jpeg(array, mode=ImageReadMode.RGB)
 
-        # Fallback: decode as a generic image (handles PNG, etc.)
-        return decode_image(array)
+        return decode_image(array, mode=ImageReadMode.RGB)
 
     def can_serialize(self, item: Any) -> bool:
         if not _PIL_AVAILABLE:
@@ -469,11 +468,23 @@ class NumericSerializer:
     def __init__(self, dtype: type) -> None:
         self.dtype = dtype
         self.size = self.dtype().nbytes
+        # Prefer ``struct`` on the hot deserialize path — it avoids a numpy array allocation
+        # for every scalar leaf. Store the format string (not a ``struct.Struct``) so the
+        # serializer stays deepcopy/pickle friendly for DataLoader workers.
+        self._struct_fmt: str | None
+        if dtype is np.int64:
+            self._struct_fmt = "<q"
+        elif dtype is np.float64:
+            self._struct_fmt = "<d"
+        else:
+            self._struct_fmt = None
 
     def serialize(self, obj: Any) -> tuple[bytes, str | None]:
         return self.dtype(obj).tobytes(), None
 
     def deserialize(self, data: bytes) -> Any:
+        if self._struct_fmt is not None:
+            return struct.unpack(self._struct_fmt, data)[0]
         return np.frombuffer(data, self.dtype)[0]
 
 

@@ -940,15 +940,14 @@ def MapTreeModule_foldSectionOpt[KEY, VALUE, A](
                     else:
                         return x_3
 
-                elif (
-                    (comparer.Compare(MapTreeLeaf_2__get_Key(m2), hi) <= int32.ZERO)
-                    if (comparer.Compare(lo, MapTreeLeaf_2__get_Key(m2)) <= int32.ZERO)
-                    else False
-                ):
-                    return f_1(MapTreeLeaf_2__get_Key(m2), MapTreeLeaf_2__get_Value(m2), x_1)
-
                 else:
-                    return x_1
+                    c_lo_key_1: int32 = comparer.Compare(lo, MapTreeLeaf_2__get_Key(m2))
+                    c_key_hi_1: int32 = comparer.Compare(MapTreeLeaf_2__get_Key(m2), hi)
+                    if (c_key_hi_1 <= int32.ZERO) if (c_lo_key_1 <= int32.ZERO) else False:
+                        return f_1(MapTreeLeaf_2__get_Key(m2), MapTreeLeaf_2__get_Value(m2), x_1)
+
+                    else:
+                        return x_1
 
             else:
                 return x_1

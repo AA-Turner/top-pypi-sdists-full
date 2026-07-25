@@ -2,8 +2,6 @@
 This submodule contains the client class that provides most of the SDK functionality.
 """
 
-import hashlib
-import hmac
 import threading
 import traceback
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
@@ -19,6 +17,11 @@ from ldclient.hook import (
     _EvaluationWithHookResult
 )
 from ldclient.impl.big_segments import BigSegmentStoreManager
+from ldclient.impl.client_common import (
+    get_environment_metadata,
+    get_plugin_hooks
+)
+from ldclient.impl.client_common import secure_mode_hash as _secure_mode_hash
 from ldclient.impl.datasource.feature_requester import FeatureRequesterImpl
 from ldclient.impl.datasource.polling import PollingUpdateProcessor
 from ldclient.impl.datasource.status import (
@@ -57,12 +60,7 @@ from ldclient.interfaces import (
     ReadOnlyStore
 )
 from ldclient.migrations import OpTracker, Stage
-from ldclient.plugin import (
-    ApplicationMetadata,
-    EnvironmentMetadata,
-    SdkMetadata
-)
-from ldclient.version import VERSION
+from ldclient.plugin import EnvironmentMetadata
 from ldclient.versioned_data_kind import FEATURES, SEGMENTS, VersionedDataKind
 
 from .impl import AnyNum
@@ -239,8 +237,8 @@ class LDClient:
         self.__start_up(start_wait)
 
     def __start_up(self, start_wait: float):
-        environment_metadata = self.__get_environment_metadata()
-        plugin_hooks = self.__get_plugin_hooks(environment_metadata)
+        environment_metadata = get_environment_metadata(self._config, "python-server-sdk")
+        plugin_hooks = get_plugin_hooks(self._config, environment_metadata)
 
         self.__hooks_lock = ReadWriteLock()
         self.__hooks = self._config.hooks + plugin_hooks  # type: List[Hook]
@@ -304,36 +302,6 @@ class LDClient:
             log.info("Started LaunchDarkly Client: OK")
         else:
             log.warning("Initialization timeout exceeded for LaunchDarkly Client or an error occurred. " "Feature Flags may not yet be available.")
-
-    def __get_environment_metadata(self) -> EnvironmentMetadata:
-        sdk_metadata = SdkMetadata(
-            name="python-server-sdk",
-            version=VERSION,
-            wrapper_name=self._config.wrapper_name,
-            wrapper_version=self._config.wrapper_version
-        )
-
-        application_metadata = None
-        if self._config.application:
-            application_metadata = ApplicationMetadata(
-                id=self._config.application.get('id'),
-                version=self._config.application.get('version'),
-            )
-
-        return EnvironmentMetadata(
-            sdk=sdk_metadata,
-            application=application_metadata,
-            sdk_key=self._config.sdk_key
-        )
-
-    def __get_plugin_hooks(self, environment_metadata: EnvironmentMetadata) -> List[Hook]:
-        hooks = []
-        for plugin in self._config.plugins:
-            try:
-                hooks.extend(plugin.get_hooks(environment_metadata))
-            except Exception as e:
-                log.error("Error getting hooks from plugin %s: %s", plugin.metadata.name, e)
-        return hooks
 
     def __register_plugins(self, environment_metadata: EnvironmentMetadata):
         for plugin in self._config.plugins:
@@ -464,12 +432,23 @@ class LDClient:
         return self._config.offline
 
     def is_initialized(self) -> bool:
-        """Returns true if the client has successfully connected to LaunchDarkly.
+        """Returns whether the client is initialized and has flag data available to serve requests.
 
-        If this returns false, it means that the client has not yet successfully connected to LaunchDarkly.
-        It might still be in the process of starting up, or it might be attempting to reconnect after an
-        unsuccessful attempt, or it might have received an unrecoverable error (such as an invalid SDK key)
-        and given up.
+        If this returns true, it means the client has data it can use to evaluate flags. That could be
+        because it connected to LaunchDarkly at least once and received flag data, or because it has
+        cached data from a persistent store, or because it was configured for offline or LDD (daemon)
+        mode. It could still have encountered a connection problem after that point, and cached data may
+        not be current, so this does not guarantee that the flag data is up to date; if you need to know
+        the connection status in more detail, use :attr:`data_source_status_provider`.
+
+        If this returns false, it means the client has not yet obtained any flag data. It might still be
+        starting up, or attempting to reconnect after an unsuccessful attempt, or it might have received
+        an unrecoverable error (such as an invalid SDK key) and given up. In this state, feature flag
+        evaluations will return default values -- unless you are using a persistent store integration and
+        flag data had already been stored by a successfully connected SDK in the past. You can use
+        :attr:`data_source_status_provider` to get information on errors, or to wait for a successful retry.
+
+        :return: true if the client is initialized and has flag data available
         """
         if self.is_offline() or self._config.use_ldd:
             return True
@@ -693,10 +672,7 @@ class LDClient:
         :param context: the evaluation context
         :return: the hash string
         """
-        if not context.valid:
-            log.warning("Context was invalid for secure_mode_hash (%s); returning empty hash" % context.error)
-            return ""
-        return hmac.new(str(self._config.sdk_key).encode(), context.fully_qualified_key.encode(), hashlib.sha256).hexdigest()
+        return _secure_mode_hash(self._config, context)
 
     def add_hook(self, hook: Hook):
         """

@@ -58,9 +58,11 @@ def _last_prose_char(text: str) -> tuple[str | None, bool]:
             continue
         if para_start is None:
             para_start = stripped_ln
-        if stripped_ln.startswith(".."):
+        if stripped_ln == ".." or stripped_ln.startswith(".. "):
             # a directive or comment, e.g. `.. versionchanged:: 2.0`,
             # is not prose, and its indented content belongs to it
+            # rst explicit markup is `..` followed by whitespace, so an
+            # ellipsis starting a prose line is not a directive
             in_block = True
             continue
         if stripped_ln.endswith("::"):
@@ -338,20 +340,14 @@ class FunctionChecker:  # pylint: disable=too-few-public-methods
         return not seen
 
     def _sig4xx_parameters(self, doc: _Param, sig: _Param) -> None:
-        # freeze result as it is a property and PyCharm complains
-        # `Expected type 'str', got 'str | None' instead ' in
-        # _almost_equal as property could theoretically have different
-        # result from sig.name is not None and doc.name is not None
+        # freeze the properties so every check sees the same values
         sig_name = sig.name
         doc_name = doc.name
         if doc.indent > 0:
             # incorrect-indent
             self._add(_E[401])
         elif doc != sig:
-            if (
-                sig_name in self._func.docstring.args.names
-                or doc_name in self._func.signature.args.names
-            ) and len(self._func.docstring.args) > 1:
+            if self._out_of_order(sig_name, doc_name):
                 # params-out-of-order
                 self._add(_E[402])
             elif (
@@ -365,6 +361,18 @@ class FunctionChecker:  # pylint: disable=too-few-public-methods
                 else:
                     # param-not-equal-to-arg
                     self._add(_E[404])
+
+    def _out_of_order(
+        self,
+        sig_name: str | None,
+        doc_name: str | None,
+    ) -> bool:
+        # both names exist on the other side, they are just not at the
+        # same position
+        return (
+            sig_name in self._func.docstring.args.names
+            or doc_name in self._func.signature.args.names
+        ) and len(self._func.docstring.args) > 1
 
     def _sig5xx_returns(self, check_property_returns: bool) -> None:
         if not self._func.isinit and not (

@@ -180,6 +180,32 @@ def _safe_call(label: str, fn: Any, default: Any) -> Any:
         return default
 
 
+def _seed_config_overrides(
+    request: Request, config_state: dict[str, Any] | None
+) -> tuple[dict[str, object], str | None]:
+    """Extract the run seed's effective config values for provenance threading.
+
+    Returns ``(overrides, seed_path)`` where *overrides* maps config keys to
+    the values the server's loaded seed (``app.state.seed_config``) enforces.
+    Empty when no seed is loaded, so the resolver falls back to the file-based
+    chain byte-for-byte as before (#2874). ``budget`` is only threaded when the
+    seed actually sets it (``budget_usd is not None``); an unset seed budget
+    must not shadow a project/global budget layer.
+    """
+    seed_config = getattr(request.app.state, "seed_config", None)
+    if seed_config is None:
+        return {}, None
+    overrides: dict[str, object] = {}
+    max_agents = getattr(seed_config, "max_agents", None)
+    if isinstance(max_agents, int):
+        overrides["max_agents"] = max_agents
+    budget_usd = getattr(seed_config, "budget_usd", None)
+    if budget_usd is not None:
+        overrides["budget"] = budget_usd
+    seed_path = config_state.get("seed_path") if config_state else None
+    return overrides, seed_path if isinstance(seed_path, str) else None
+
+
 def _runtime_summary(request: Request, store: TaskStore) -> dict[str, Any]:
     """Build runtime operational metadata for status and TUI consumers.
 
@@ -213,6 +239,13 @@ def _runtime_summary(request: Request, store: TaskStore) -> dict[str, Any]:
         disk_usage_bytes = _safe_call("disk_usage_bytes", lambda: directory_size_bytes(sdd_dir), 0)
         config_state = _safe_call("config_state", lambda: read_config_state(sdd_dir), None)
 
+    # The run seed (``bernstein.yaml``) is the value the orchestrator caps
+    # concurrency and spend with, but the file resolver only reads
+    # ``.sdd/config.yaml``. Thread the seed the server loaded at bootstrap so
+    # the dashboard capacity denominator is honest for seed-configured runs
+    # (#2874) rather than falling back to the built-in default of 6.
+    seed_overrides, seed_overrides_path = _seed_config_overrides(request, config_state)
+
     _runtime_cache = {
         "git_branch": _safe_call("git_branch", lambda: current_git_branch(workdir), ""),
         "restart_count": restart_count,
@@ -231,6 +264,8 @@ def _runtime_summary(request: Request, store: TaskStore) -> dict[str, Any]:
                 home=BernsteinHome.default(),
                 project_dir=workdir,
                 keys=_STATUS_CONFIG_KEYS,
+                seed_overrides=seed_overrides or None,
+                seed_overrides_path=seed_overrides_path,
             ),
             {},
         ),
@@ -299,6 +334,25 @@ def _status_task_items(tasks: list[Task], now: float) -> list[dict[str, Any]]:
     return items
 
 
+def _agent_model_label(agent: Any) -> str:
+    """Return the agent's real spawn model for dashboard display.
+
+    Reads the model from the agent's ``model_config`` (attribute- or
+    dict-shaped), then the agent's own ``model`` field. When none is known it
+    falls back to the provider or a neutral ``"unknown"`` - never a hardcoded
+    ``"sonnet"``, which mislabels non-Claude agents (issue #2800).
+    """
+    mc = getattr(agent, "model_config", None)
+    model = getattr(mc, "model", None)
+    if model is None and isinstance(mc, dict):
+        model = mc.get("model")
+    if model is None:
+        model = getattr(agent, "model", None)
+    if model:
+        return str(model)
+    return str(getattr(agent, "provider", None) or "unknown")
+
+
 def _status_agent_items(
     store: TaskStore,
     agent_snapshots: dict[str, dict[str, Any]],
@@ -310,7 +364,7 @@ def _status_agent_items(
     live_agents = list(store.agents.values())
     for agent in live_agents:
         snapshot = agent_snapshots.get(agent.id, {})
-        model_name = agent.model_config.model if hasattr(agent.model_config, "model") else "sonnet"
+        model_name = _agent_model_label(agent)
         role_alive_count = max(1, len([candidate for candidate in live_agents if candidate.role == agent.role]))
         estimated_cost = total_cost_by_role.get(agent.role, 0.0) / role_alive_count
         items.append(
@@ -1044,7 +1098,7 @@ def _build_single_agent_detail(
 ) -> dict[str, Any]:
     """Build a single agent detail dict for the dashboard data endpoint."""
     runtime_s = int(now - a.spawn_ts)
-    model_name = a.model_config.model if hasattr(a.model_config, "model") else "sonnet"
+    model_name = _agent_model_label(a)
     context_window_tokens = int(getattr(a, "context_window_tokens", 0) or snapshot.get("context_window_tokens", 0) or 0)
     context_utilization_pct = float(
         getattr(a, "context_utilization_pct", 0.0) or snapshot.get("context_utilization_pct", 0.0) or 0.0

@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
-
-
-from typing import cast
 
 if TYPE_CHECKING:
     from ..models.forwarder_type_header import ForwarderTypeHeader
@@ -29,14 +26,14 @@ class ForwarderTypeHttpConfiguration:
     """
 
     method: str
-    url: None | str
+    url: str | None
     success_status: str
     headers: list[ForwarderTypeHeader]
 
     def to_dict(self) -> dict[str, Any]:
         method = self.method
 
-        url: None | str
+        url: str | None
         url = self.url
 
         success_status = self.success_status
@@ -66,7 +63,7 @@ class ForwarderTypeHttpConfiguration:
         d = dict(src_dict)
         method = d.pop("method")
 
-        def _parse_url(data: object) -> None | str:
+        def _parse_url(data: object) -> str | None:
             if data is None:
                 return data
             return cast(None | str, data)

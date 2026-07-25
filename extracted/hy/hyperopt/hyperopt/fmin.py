@@ -1,5 +1,3 @@
-from future import standard_library
-
 import functools
 import inspect
 import logging
@@ -10,14 +8,12 @@ from timeit import default_timer as timer
 
 import numpy as np
 
-from hyperopt import tpe, exceptions
-from hyperopt.base import validate_timeout, validate_loss_threshold
-from . import pyll
-from .utils import coarse_utcnow
-from . import base
-from . import progress
+from hyperopt import exceptions, tpe
+from hyperopt.base import validate_loss_threshold, validate_timeout
 
-standard_library.install_aliases()
+from . import base, progress, pyll
+from .utils import coarse_utcnow
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,7 +24,7 @@ except Exception as e:
         'Failed to load cloudpickle, try installing cloudpickle via "pip install '
         'cloudpickle" for enhanced pickling support.'
     )
-    import six.moves.cPickle as pickler
+    import pickle as pickler
 
 
 def generate_trial(tid, space):
@@ -157,7 +153,7 @@ class FMinIter:
         self.rstate = rstate
         self.verbose = verbose
 
-        if self.asynchronous:
+        if self.asynchronous and not hasattr(self.trials, "_spark"):
             if "FMinIter_Domain" in trials.attachments:
                 logger.warning("over-writing old domain trials attachment")
             msg = pickler.dumps(domain)
@@ -252,7 +248,6 @@ class FMinIter:
         with self.progress_callback(
             initial=initial_n_done, total=self.max_evals
         ) as progress_ctx:
-
             all_trials_complete = False
             best_loss = float("inf")
             while (
@@ -276,7 +271,7 @@ class FMinIter:
                     # `new_trials`. This is the core of `run`, all the rest is just
                     # processes orchestration
                     new_trials = algo(
-                        new_ids, self.domain, trials, self.rstate.integers(2 ** 31 - 1)
+                        new_ids, self.domain, trials, self.rstate.integers(2**31 - 1)
                     )
                     assert len(new_ids) >= len(new_trials)
 
@@ -481,7 +476,7 @@ def fmin(
         value helps to slightly speed up parallel simulatulations which sometimes lag
         on suggesting a new trial.
 
-    show_progressbar : bool or context manager, default True (or False is verbose is False).
+    show_progressbar : bool or context manager, default True (or False if verbose is False).
         Show a progressbar. See `hyperopt.progress` for customizing progress reporting.
 
     early_stop_fn: callable ((result, *args) -> (Boolean, *args)).
@@ -561,7 +556,7 @@ def fmin(
         elif points_to_evaluate is None:
             trials = base.Trials()
         else:
-            assert type(points_to_evaluate) == list
+            assert isinstance(points_to_evaluate, list)
             trials = generate_trials_to_calculate(points_to_evaluate)
 
     domain = base.Domain(fn, space, pass_expr_memo_ctrl=pass_expr_memo_ctrl)

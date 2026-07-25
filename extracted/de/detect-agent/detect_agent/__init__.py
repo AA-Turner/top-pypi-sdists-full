@@ -1,8 +1,17 @@
+"""Detect if code is running in an AI agent or automated development environment."""
+
+from __future__ import annotations
+
 import os
-from pathlib import Path
 from typing import Literal, TypedDict, Union
 
+from detect_agent._evaluate import evaluate_condition
+from detect_agent._spec import known_agents_map, load_agents_file
+
+# Kept for backward-compatible imports/tests; Devin detection reads path from agents.json.
 DEVIN_LOCAL_PATH = "/opt/.devin"
+
+KNOWN_AGENTS: dict[str, str] = known_agents_map()
 
 CURSOR: Literal["cursor"] = "cursor"
 CURSOR_CLI: Literal["cursor-cli"] = "cursor-cli"
@@ -16,9 +25,12 @@ ANTIGRAVITY: Literal["antigravity"] = "antigravity"
 AUGMENT_CLI: Literal["augment-cli"] = "augment-cli"
 OPENCODE: Literal["opencode"] = "opencode"
 GITHUB_COPILOT: Literal["github-copilot"] = "github-copilot"
-GITHUB_COPILOT_CLI: Literal["github-copilot-cli"] = "github-copilot-cli"
-V0: Literal["v0"] = "v0"
+CLINE: Literal["cline"] = "cline"
+GOOSE: Literal["goose"] = "goose"
+JUNIE: Literal["junie"] = "junie"
 PI: Literal["pi"] = "pi"
+KIRO: Literal["kiro"] = "kiro"
+OPENCLAW: Literal["openclaw"] = "openclaw"
 
 KnownAgentNames = Literal[
     "cursor",
@@ -33,13 +45,17 @@ KnownAgentNames = Literal[
     "augment-cli",
     "opencode",
     "github-copilot",
-    "v0",
+    "cline",
+    "goose",
+    "junie",
     "pi",
+    "kiro",
+    "openclaw",
 ]
 
 
 class KnownAgentDetails(TypedDict):
-    name: KnownAgentNames
+    name: str
 
 
 class AgentResultAgent(TypedDict):
@@ -54,84 +70,38 @@ class AgentResultNone(TypedDict):
 
 AgentResult = Union[AgentResultAgent, AgentResultNone]
 
-KNOWN_AGENTS = {
-    "PI": PI,
-    "CURSOR": CURSOR,
-    "CURSOR_CLI": CURSOR_CLI,
-    "CLAUDE": CLAUDE,
-    "COWORK": COWORK,
-    "DEVIN": DEVIN,
-    "REPLIT": REPLIT,
-    "GEMINI": GEMINI,
-    "CODEX": CODEX,
-    "ANTIGRAVITY": ANTIGRAVITY,
-    "AUGMENT_CLI": AUGMENT_CLI,
-    "OPENCODE": OPENCODE,
-    "GITHUB_COPILOT": GITHUB_COPILOT,
-    "V0": V0,
-}
+
+def _resolve_ai_agent_standard(ai_agent_var: str) -> str | None:
+    raw = os.environ.get(ai_agent_var)
+    if not raw:
+        return None
+    value = raw.strip()
+    if not value:
+        return None
+    return value
 
 
 def determine_agent() -> AgentResult:
-    ai_agent = os.environ.get("AI_AGENT")
+    """Inspect the environment and return which AI agent is running, if any.
+
+    ``AI_AGENT`` takes highest priority. After that, agents from ``agents.json``
+    are evaluated in order and the first match wins.
+
+    Python-port extension: ``PI_CODING_AGENT`` also detects Pi for backward
+    compatibility with earlier releases of this package.
+    """
+    spec = load_agents_file()
+
+    ai_agent = _resolve_ai_agent_standard(spec["aiAgentVar"])
     if ai_agent:
-        name = ai_agent.strip()
-        if name:
-            if name in (GITHUB_COPILOT, GITHUB_COPILOT_CLI):
-                return {"is_agent": True, "agent": {"name": GITHUB_COPILOT}}
-            if name == V0:
-                return {"is_agent": True, "agent": {"name": V0}}
-            return {"is_agent": True, "agent": {"name": name}}  # type: ignore[return-value, misc]
+        return {"is_agent": True, "agent": {"name": ai_agent}}
 
+    # Backward-compatible Pi marker from earlier Python port releases.
     if os.environ.get("PI_CODING_AGENT"):
-        return {"is_agent": True, "agent": {"name": PI}}
+        return {"is_agent": True, "agent": {"name": KNOWN_AGENTS["PI"]}}
 
-    # Cursor IDE agent-terminal sessions expose CURSOR_TRACE_ID; the
-    # cursor-agent CLI sets CURSOR_AGENT for commands it executes.
-    if os.environ.get("CURSOR_TRACE_ID"):
-        return {"is_agent": True, "agent": {"name": CURSOR}}
-
-    if (
-        os.environ.get("CURSOR_AGENT")
-        or os.environ.get("CURSOR_EXTENSION_HOST_ROLE") == "agent-exec"
-    ):
-        return {"is_agent": True, "agent": {"name": CURSOR_CLI}}
-
-    if os.environ.get("GEMINI_CLI"):
-        return {"is_agent": True, "agent": {"name": GEMINI}}
-
-    if (
-        os.environ.get("CODEX_SANDBOX")
-        or os.environ.get("CODEX_CI")
-        or os.environ.get("CODEX_THREAD_ID")
-    ):
-        return {"is_agent": True, "agent": {"name": CODEX}}
-
-    if os.environ.get("ANTIGRAVITY_AGENT"):
-        return {"is_agent": True, "agent": {"name": ANTIGRAVITY}}
-
-    if os.environ.get("AUGMENT_AGENT"):
-        return {"is_agent": True, "agent": {"name": AUGMENT_CLI}}
-
-    if os.environ.get("OPENCODE_CLIENT"):
-        return {"is_agent": True, "agent": {"name": OPENCODE}}
-
-    if os.environ.get("CLAUDECODE") or os.environ.get("CLAUDE_CODE"):
-        if os.environ.get("CLAUDE_CODE_IS_COWORK"):
-            return {"is_agent": True, "agent": {"name": COWORK}}
-        return {"is_agent": True, "agent": {"name": CLAUDE}}
-
-    if os.environ.get("REPL_ID"):
-        return {"is_agent": True, "agent": {"name": REPLIT}}
-
-    if (
-        os.environ.get("COPILOT_MODEL")
-        or os.environ.get("COPILOT_ALLOW_ALL")
-        or os.environ.get("COPILOT_GITHUB_TOKEN")
-    ):
-        return {"is_agent": True, "agent": {"name": GITHUB_COPILOT}}
-
-    if Path(DEVIN_LOCAL_PATH).exists():
-        return {"is_agent": True, "agent": {"name": DEVIN}}
+    for agent in spec["agents"]:
+        if evaluate_condition(agent["match"]):
+            return {"is_agent": True, "agent": {"name": agent["name"]}}
 
     return {"is_agent": False, "agent": None}

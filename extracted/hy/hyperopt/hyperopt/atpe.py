@@ -1,30 +1,33 @@
 """
-    Implements the ATPE algorithm. See
-    https://www.electricbrain.io/blog/learning-to-optimize
-    and
-    https://www.electricbrain.io/blog/optimizing-optimization to learn more
+Implements the ATPE algorithm. See
+https://articulon.bradleyarsenault.me/article/learning-to-optimize
+and
+https://articulon.bradleyarsenault.me/article/optimizing-optimization to learn more
 """
 
 __authors__ = "Bradley Arsenault"
 __license__ = "3-clause BSD License"
 __contact__ = "github.com/hyperopt/hyperopt"
 
-from hyperopt import hp
-from contextlib import contextmanager
-import re
+import copy
+import datetime
 import functools
+import json
+import math
+import os
 import random
+import re
+import tempfile
+from contextlib import contextmanager
+from importlib import resources
+
 import numpy
 import numpy.random
-import pkg_resources
-import tempfile
 import scipy.stats
-import os
-import math
+
 import hyperopt
-import datetime
-import json
-import copy
+import hyperopt.atpe_models
+from hyperopt import hp
 
 # Windows doesn't support opening a NamedTemporaryFile.
 # Solution inspired in https://stackoverflow.com/a/46501017/147507
@@ -380,10 +383,10 @@ class Hyperparameter:
             data = {"type": "object", "properties": {}}
 
             for key in domain.params:
-                data["properties"][
-                    key
-                ] = Hyperparameter.createHyperparameterConfigForHyperoptDomain(
-                    domain.params[key]
+                data["properties"][key] = (
+                    Hyperparameter.createHyperparameterConfigForHyperoptDomain(
+                        domain.params[key]
+                    )
                 )
 
                 if "name" not in data["properties"][key]:
@@ -394,9 +397,9 @@ class Hyperparameter:
             data = {"type": "object", "properties": {}}
 
             for item in domain.named_args:
-                data["properties"][
-                    item[0]
-                ] = Hyperparameter.createHyperparameterConfigForHyperoptDomain(item[1])
+                data["properties"][item[0]] = (
+                    Hyperparameter.createHyperparameterConfigForHyperoptDomain(item[1])
+                )
 
             return data
         elif domain.name == "switch":
@@ -655,11 +658,12 @@ class ATPEOptimizer:
                 "You must install lightgbm and sklearn in order to use the ATPE algorithm. Please run `pip install lightgbm scikit-learn` and try again. These are not built in dependencies of hyperopt."
             )
 
-        scalingModelData = json.loads(
-            pkg_resources.resource_string(
-                __name__, "atpe_models/scaling_model.json"
-            ).decode("utf-8")
-        )
+        with (
+            resources.files(hyperopt.atpe_models.__name__)
+            .joinpath("scaling_model.json")
+            .open()
+        ) as fd:
+            scalingModelData = json.load(fd)
         self.featureScalingModels = {}
         for key in self.atpeModelFeatureKeys:
             self.featureScalingModels[key] = sklearn.preprocessing.StandardScaler()
@@ -677,19 +681,22 @@ class ATPEOptimizer:
         self.parameterModels = {}
         self.parameterModelConfigurations = {}
         for param in self.atpeParameters:
-            modelData = pkg_resources.resource_string(
-                __name__, "atpe_models/model-" + param + ".txt"
+            modelData = (
+                resources.files(hyperopt.atpe_models.__name__)
+                .joinpath(f"model-{param}.txt")
+                .read_bytes()
             )
             with ClosedNamedTempFile(modelData) as model_file_name:
                 self.parameterModels[param] = lightgbm.Booster(
                     model_file=model_file_name
                 )
 
-            configString = pkg_resources.resource_string(
-                __name__, "atpe_models/model-" + param + "-configuration.json"
-            )
-            data = json.loads(configString.decode("utf-8"))
-            self.parameterModelConfigurations[param] = data
+            with (
+                resources.files(hyperopt.atpe_models.__name__)
+                .joinpath(f"model-{param}-configuration.json")
+                .open()
+            ) as config_fd:
+                self.parameterModelConfigurations[param] = json.load(config_fd)
 
         self.lastATPEParameters = None
         self.lastLockedParameters = []
@@ -698,7 +705,7 @@ class ATPEOptimizer:
     def recommendNextParameters(
         self, hyperparameterSpace, results, currentTrials, lockedValues=None
     ):
-        rstate = numpy.random.default_rng(seed=int(random.randint(1, 2 ** 32 - 1)))
+        rstate = numpy.random.default_rng(seed=int(random.randint(1, 2**32 - 1)))
 
         params = {"param": {}}
 
@@ -880,7 +887,7 @@ class ATPEOptimizer:
                     featureContributions = numpy.mean(
                         numpy.reshape(
                             featureContributions,
-                            newshape=(
+                            (
                                 len(allFeatureKeysForATPEParamModel) + 1,
                                 len(self.atpeParameterValues[atpeParameter]),
                             ),
@@ -1133,9 +1140,9 @@ class ATPEOptimizer:
                                     secondary.name
                                 ]
                         elif atpeParams["secondaryLockingMode"] == "random":
-                            lockedValues[
-                                secondary.name
-                            ] = self.chooseRandomValueForParameter(secondary)
+                            lockedValues[secondary.name] = (
+                                self.chooseRandomValueForParameter(secondary)
+                            )
 
                 elif atpeParams["secondaryProbabilityMode"] == "correlation":
                     probability = max(
@@ -1158,9 +1165,9 @@ class ATPEOptimizer:
                                     secondary.name
                                 ]
                         elif atpeParams["secondaryLockingMode"] == "random":
-                            lockedValues[
-                                secondary.name
-                            ] = self.chooseRandomValueForParameter(secondary)
+                            lockedValues[secondary.name] = (
+                                self.chooseRandomValueForParameter(secondary)
+                            )
 
             # Now last step, we filter results prior to sending them into ATPE
             for resultIndex, result in enumerate(results):
@@ -1255,7 +1262,8 @@ class ATPEOptimizer:
         elif parameter.config.get("mode", "uniform") == "randint":
             min = parameter.config["min"]
             max = parameter.config["max"]
-            value = random.randint(min, max)
+            # `max` should be reduced by one, as native randint includes `max`, while numpy randint excludes it
+            value = random.randint(min, max - 1)
 
         return value
 
@@ -1270,8 +1278,6 @@ class ATPEOptimizer:
         percentile50Loss = 0
         percentile75Loss = 0
         statistics = {}
-
-        numpy.warnings.filterwarnings("ignore")
 
         if len(set(losses)) > 1:
             bestLoss = numpy.percentile(losses, 0)

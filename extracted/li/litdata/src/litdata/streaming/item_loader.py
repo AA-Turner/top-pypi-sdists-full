@@ -12,13 +12,17 @@
 # limitations under the License.
 import functools
 import logging
+import mmap
 import os
+import struct
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
+from collections.abc import Callable
 from copy import deepcopy
 from datetime import datetime
 from io import BytesIO, FileIO
 from multiprocessing import Queue
+from threading import Event
 from time import sleep, time
 from typing import Any
 
@@ -36,12 +40,127 @@ from litdata.constants import (
 )
 from litdata.debugger import ChromeTraceColors, _get_log_msg
 from litdata.streaming.serializers import Serializer
-from litdata.utilities._pytree import PyTree, tree_unflatten
+from litdata.utilities._pytree import SUPPORTED_NODES, PyTree, TreeSpec, tree_unflatten
 from litdata.utilities.encryption import Encryption, EncryptionLevel
 
 Interval = namedtuple("Interval", ["chunk_start", "roi_start_idx", "roi_end_idx", "chunk_end"])
 
 logger = logging.getLogger("litdata.streaming.item_loader")
+
+
+def _open_chunk_file(chunk_filepath: str) -> FileIO:
+    """Open a chunk for reading, retrying Windows ``PermissionError`` races.
+
+    On Windows, antivirus / ``os.replace`` from decompression can briefly deny
+    ``open()`` even after the file exists at the expected size. Retry with a short
+    backoff instead of failing the read.
+    """
+    last_err: PermissionError | None = None
+    for attempt in range(20):
+        try:
+            return open(chunk_filepath, "rb", 0)
+        except PermissionError as e:
+            last_err = e
+            sleep(0.05)
+    assert last_err is not None
+    raise last_err
+
+
+# Module-level unflatten callables (not nested closures) so item loaders remain picklable for
+# DataLoader workers under the ``spawn`` start method.
+
+
+class _LeafUnflatten:
+    __slots__ = ()
+
+    def __call__(self, leaves: list[Any]) -> Any:
+        return leaves[0]
+
+
+class _DictOfLeavesUnflatten:
+    __slots__ = ("keys",)
+
+    def __init__(self, keys: tuple[Any, ...]) -> None:
+        self.keys = keys
+
+    def __call__(self, leaves: list[Any]) -> dict[Any, Any]:
+        return dict(zip(self.keys, leaves))
+
+
+class _ListOfLeavesUnflatten:
+    __slots__ = ()
+
+    def __call__(self, leaves: list[Any]) -> list[Any]:
+        return list(leaves)
+
+
+class _TupleOfLeavesUnflatten:
+    __slots__ = ()
+
+    def __call__(self, leaves: list[Any]) -> tuple[Any, ...]:
+        return tuple(leaves)
+
+
+class _NestedUnflatten:
+    __slots__ = ("child_leaf_counts", "child_runners", "context", "unflatten_fn")
+
+    def __init__(
+        self,
+        unflatten_fn: Any,
+        child_runners: list[Any],
+        child_leaf_counts: list[int],
+        context: Any,
+    ) -> None:
+        self.unflatten_fn = unflatten_fn
+        self.child_runners = child_runners
+        self.child_leaf_counts = child_leaf_counts
+        self.context = context
+
+    def __call__(self, leaves: list[Any]) -> Any:
+        values = []
+        start = 0
+        for runner, count in zip(self.child_runners, self.child_leaf_counts):
+            end = start + count
+            # Children that are themselves leaves can index directly; nested children get a slice.
+            if count == 1 and isinstance(runner, _LeafUnflatten):
+                values.append(leaves[start])
+            else:
+                values.append(runner(leaves[start:end]))
+            start = end
+        return self.unflatten_fn(values, self.context)
+
+
+_LEAF_UNFLATTEN = _LeafUnflatten()
+_LIST_OF_LEAVES_UNFLATTEN = _ListOfLeavesUnflatten()
+_TUPLE_OF_LEAVES_UNFLATTEN = _TupleOfLeavesUnflatten()
+
+
+def _compile_treespec_unflatten(spec: TreeSpec) -> Any:
+    """Compile a ``TreeSpec`` into a fast, picklable ``leaves -> tree`` callable.
+
+    The stock ``tree_unflatten`` is recursive and slices the leaves list at every node, which
+    dominates the per-item cost for typical nested samples. Compiling once per dataset replaces
+    that with a tight index walk over the flat leaf list.
+    """
+    if spec.is_leaf():
+        return _LEAF_UNFLATTEN
+
+    # Fast paths for the shapes that dominate StreamingDataset workloads.
+    children = spec.children_specs
+    if all(child.is_leaf() for child in children):
+        if spec.type is dict:
+            return _DictOfLeavesUnflatten(tuple(spec.context))
+        if spec.type is list:
+            return _LIST_OF_LEAVES_UNFLATTEN
+        if spec.type is tuple:
+            return _TUPLE_OF_LEAVES_UNFLATTEN
+
+    return _NestedUnflatten(
+        SUPPORTED_NODES[spec.type].unflatten_fn,
+        [_compile_treespec_unflatten(child) for child in children],
+        [child.num_leaves for child in children],
+        spec.context,
+    )
 
 
 class BaseItemLoader(ABC):
@@ -62,6 +181,8 @@ class BaseItemLoader(ABC):
         self._shift_idx = len(self._data_format) * 4  # each item takes 4 bytes
         self.region_of_interest = region_of_interest
         self._force_download_queue = force_download_queue
+        # Optional provider of per-chunk readiness Events from PrepareChunksThread.
+        self._chunk_ready_provider: Callable[[int], Event] | None = getattr(self, "_chunk_ready_provider", None)
 
         # setup the serializers on restart
         for data_format in self._data_format:
@@ -69,9 +190,97 @@ class BaseItemLoader(ABC):
             serializer.setup(data_format)
             self._serializers[data_format] = serializer
 
+        # Precompute the per-leaf serializer list and the data spec so the per-item `deserialize`
+        # hot path avoids a dict lookup per leaf and a config lookup per item.
+        self._serializers_list = [self._serializers[data_format] for data_format in self._data_format]
+        self._data_spec = self._config["data_spec"]
+        # Compile a specialized unflatten for this dataset's fixed treespec. Falls back to the
+        # stock pytree path only when there is no data_spec (e.g. some parquet/MDS shapes).
+        self._unflatten = (
+            _compile_treespec_unflatten(self._data_spec) if isinstance(self._data_spec, TreeSpec) else None
+        )
+        # Fixed size-header layout: one little-endian uint32 per leaf.
+        # Keep a format string (pickle-friendly) rather than a ``struct.Struct`` instance.
+        self._sizes_fmt = "<" + "I" * len(self._data_format) if self._data_format else None
+
     def force_download(self, chunk_index: int) -> None:
-        if self._force_download_queue:
-            self._force_download_queue.put(chunk_index)
+        force_download_queue = getattr(self, "_force_download_queue", None)
+        if force_download_queue:
+            force_download_queue.put(chunk_index)
+
+    def set_mmap_allowed_chunks(self, chunk_indexes: set[int]) -> None:
+        """Declare which chunks are safe to memory-map (i.e. not shared with another worker).
+
+        Only ``PyTreeLoader`` acts on this; other loaders ignore it. Memory-mapping a chunk that a
+        co-worker may delete/replace while it is mapped can crash with SIGSEGV (see issues #459,
+        #756), so only non-shared chunks are mapped.
+        """
+
+    def set_chunk_ready_provider(self, provider: Callable[[int], Event] | None) -> None:
+        """Install a provider of per-chunk readiness Events from the prefetch thread."""
+        self._chunk_ready_provider = provider
+
+    def _wait_until_chunk_ready(self, chunk_index: int, chunk_filepath: str, filesize_bytes: int) -> None:
+        """Block until ``chunk_filepath`` exists and is at least ``filesize_bytes``.
+
+        Prefers the in-process readiness Event (set by ``PrepareChunksThread`` after download /
+        decompress) and falls back to a short filesystem poll so co-worker downloads still work.
+
+        If a readiness Event is already set but the file is missing (e.g. the chunk was deleted
+        after a prior download), clear the Event and sleep so we do not busy-spin and starve the
+        prefetch thread under the GIL.
+
+        Without a prefetch thread / force-download queue (local uncompressed caches), the chunk
+        should already be on disk — fail fast instead of polling for ``_MAX_WAIT_TIME`` (often the
+        same as the test timeout), which otherwise looks like a DataLoader worker hang.
+
+        Attributes are read via ``getattr`` because some loaders (e.g. ``ParquetLoader``) do not
+        call ``BaseItemLoader.setup``, and unit tests may invoke this helper before setup.
+        """
+        start_time = time()
+        requested_force_download = False
+        chunk_ready_provider = getattr(self, "_chunk_ready_provider", None)
+        force_download_queue = getattr(self, "_force_download_queue", None)
+        # Remote/prefetch path keeps the long timeout; local-only missing files fail quickly.
+        max_wait = (
+            _MAX_WAIT_TIME
+            if chunk_ready_provider is not None or force_download_queue is not None
+            else min(2.0, float(_MAX_WAIT_TIME))
+        )
+
+        while True:
+            if os.path.exists(chunk_filepath) and os.stat(chunk_filepath).st_size >= filesize_bytes:
+                return
+
+            if chunk_ready_provider is not None:
+                event = chunk_ready_provider(chunk_index)
+                signaled = event.wait(timeout=0.1)
+                # Stale signal: chunk was ready once, then deleted / not yet re-published.
+                if signaled and not (
+                    os.path.exists(chunk_filepath) and os.stat(chunk_filepath).st_size >= filesize_bytes
+                ):
+                    event.clear()
+                    sleep(0.1)
+            else:
+                sleep(0.1)
+
+            # Always attempt force-download after the grace period (no-op without a queue).
+            # Tests override ``force_download`` to assert this path is reached.
+            if not requested_force_download and (time() - start_time) > _FORCE_DOWNLOAD_TIME:
+                if _DEBUG:
+                    print(f"[ItemLoader] Requested force download for {chunk_filepath} at {datetime.now().isoformat()}")
+                self.force_download(chunk_index)
+                requested_force_download = True
+
+            if (time() - start_time) > max_wait:
+                raise FileNotFoundError(f"The {chunk_filepath} hasn't been found.")
+
+    def __getstate__(self) -> dict[str, Any]:
+        state = self.__dict__.copy()
+        # Prefetch-thread handles are process-local and reattached after worker spawn.
+        state["_chunk_ready_provider"] = None
+        state["_force_download_queue"] = None
+        return state
 
     @functools.lru_cache(maxsize=128)
     def _data_format_to_key(self, data_format: str) -> str:
@@ -134,6 +343,16 @@ class PyTreeLoader(BaseItemLoader):
         self._chunk_filepath: str | None = None
         self._decrypted_chunks: dict[int, bytes] = {}
         self._open_handle: FileIO | None = None
+        # Memory-map + cached offset table for the current chunk, used only for chunks that are
+        # safe to map (non-shared, unencrypted). Per-item reads then become one mmap slice instead
+        # of two `seek`+`read` syscalls on the unbuffered handle.
+        self._mmap: mmap.mmap | None = None
+        # Owned copy of the chunk offset table as plain ints (not a view into the mmap).
+        self._offsets: list[int] | None = None
+        self._mmap_allowed_chunks: set[int] = set()
+
+    def set_mmap_allowed_chunks(self, chunk_indexes: set[int]) -> None:
+        self._mmap_allowed_chunks = chunk_indexes
 
     def generate_intervals(self) -> list[Interval]:
         intervals = []
@@ -203,37 +422,33 @@ class PyTreeLoader(BaseItemLoader):
 
         if chunk_filepath != self._chunk_filepath:
             start_time = time()
-            exists = os.path.exists(chunk_filepath) and os.stat(chunk_filepath).st_size >= filesize_bytes
-            requested_force_download = False
-
-            while not exists:
-                sleep(0.1)
-                exists = os.path.exists(chunk_filepath) and os.stat(chunk_filepath).st_size >= filesize_bytes
-
-                if not requested_force_download and (time() - start_time) > _FORCE_DOWNLOAD_TIME:
-                    if _DEBUG:
-                        print(
-                            f"[ItemLoader] Requested force download for {chunk_filepath} "
-                            f"at {datetime.now().isoformat()}"
-                        )
-                    self.force_download(chunk_index)
-                    requested_force_download = True
-
-                if (time() - start_time) > _MAX_WAIT_TIME:
-                    raise FileNotFoundError(f"The {chunk_filepath} hasn't been found.")
+            self._wait_until_chunk_ready(chunk_index, chunk_filepath, filesize_bytes)
 
             if _DEBUG and time() - start_time > 5:
                 print("WAIT TIME", time() - start_time)
 
             self._chunk_filepath = chunk_filepath
 
-            if self._open_handle is not None:
-                self._open_handle.close()
+            # Release the previous chunk's handle / memory-map before opening the new one.
+            self._close_open_chunk()
 
-            self._open_handle = open(chunk_filepath, "rb", 0)  # noqa: SIM115
+            # Only memory-map chunks that are safe: not encrypted (encrypted chunks are read and
+            # decrypted whole) and not shared with another worker (a shared chunk can be
+            # deleted/replaced by a co-worker while mapped -> SIGSEGV; see issues #459, #756).
+            if self._config.get("encryption") or chunk_index not in self._mmap_allowed_chunks:
+                self._open_handle = _open_chunk_file(chunk_filepath)
+            else:
+                self._open_chunk_mmap(chunk_filepath, chunk_index)
 
         if self._config.get("encryption"):
             data = self._load_encrypted_data(chunk_filepath, chunk_index, offset, encryption)
+        elif self._mmap is not None:
+            # `offset` points at the item's start entry in the offset table (byte (i+1)*4 holds
+            # entry i), so this item's table index is `offset // 4 - 1`.
+            # `mmap[start:end]` returns a fresh `bytes` object directly — no memoryview hop.
+            assert self._offsets is not None
+            table_idx = offset // 4 - 1
+            data = self._mmap[self._offsets[table_idx] : self._offsets[table_idx + 1]]
         else:
             assert self._open_handle
             # load the data from raw bytes using the offset for the item we want to load
@@ -314,20 +529,51 @@ class PyTreeLoader(BaseItemLoader):
     def deserialize(self, raw_item_data: bytes) -> "PyTree":
         """Deserialize the raw bytes into their python equivalent."""
         idx = self._shift_idx
-        sizes = np.frombuffer(raw_item_data[:idx], np.uint32)
+        sizes = struct.unpack_from(self._sizes_fmt, raw_item_data, 0) if self._sizes_fmt is not None else ()
         data = []
-        for size, data_format in zip(sizes, self._data_format):
-            serializer = self._serializers[data_format]
+        for size, serializer in zip(sizes, self._serializers_list):
             data_bytes = raw_item_data[idx : idx + size]
             data.append(serializer.deserialize(data_bytes))
             idx += size
-        return tree_unflatten(data, self._config["data_spec"])
+        if self._unflatten is not None:
+            return self._unflatten(data)
+        return tree_unflatten(data, self._data_spec)
 
-    def close(self, chunk_index: int) -> None:
-        """Close the open file handle."""
+    def _open_chunk_mmap(self, chunk_filepath: str, chunk_index: int) -> None:
+        """Memory-map a chunk and cache its offset table (``uint32[num_items + 1]``)."""
+        handle = _open_chunk_file(chunk_filepath)
+        chunk_mmap = mmap.mmap(handle.fileno(), 0, access=mmap.ACCESS_READ)
+        # Prefer the on-disk header over index.json so a mismatched/stale index cannot
+        # silently over-read the offset table into the item payload.
+        header_num_items = int(np.frombuffer(chunk_mmap, dtype=np.uint32, count=1, offset=0)[0])
+        index_num_items = int(self._chunks[chunk_index]["chunk_size"])
+        if header_num_items != index_num_items:
+            chunk_mmap.close()
+            handle.close()
+            raise RuntimeError(
+                f"Chunk {chunk_index} header item count ({header_num_items}) does not match "
+                f"index.json chunk_size ({index_num_items}) for {chunk_filepath}."
+            )
+        # Materialize the offset table as a Python list so per-item indexing is cheap and the
+        # mmap has no exported buffers left (avoids BufferError on close).
+        self._offsets = np.frombuffer(chunk_mmap, dtype=np.uint32, count=header_num_items + 1, offset=4).tolist()
+        self._open_handle = handle
+        self._mmap = chunk_mmap
+
+    def _close_open_chunk(self) -> None:
+        """Release the memory-map / file handle for the currently open chunk (if any)."""
+        self._offsets = None
+        if self._mmap is not None:
+            self._mmap.close()
+            self._mmap = None
         if self._open_handle is not None:
             self._open_handle.close()
             self._open_handle = None
+
+    def close(self, chunk_index: int) -> None:
+        """Close the open file handle / memory-map for the current chunk."""
+        self._close_open_chunk()
+        self._chunk_filepath = None
 
     def delete(self, chunk_index: int, chunk_filepath: str) -> None:
         logger.debug(
@@ -392,11 +638,23 @@ class PyTreeLoader(BaseItemLoader):
         body = b"".join(data)
         return head + body, None
 
-    def __getstate__(self):
-        state = self.__dict__.copy()
+    def __getstate__(self) -> dict[str, Any]:
+        state = super().__getstate__()
+        # File handle / memory-map are per-process and not picklable; lazily re-created on the
+        # first read in the receiving process.
         state["_open_handle"] = None
         state["_chunk_filepath"] = None
+        state["_mmap"] = None
+        state["_offsets"] = None
+        # Compiled unflatten closures aren't picklable; rebuild after unpickle.
+        state["_unflatten"] = None
         return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        self.__dict__.update(state)
+        data_spec = getattr(self, "_data_spec", None)
+        if isinstance(data_spec, TreeSpec):
+            self._unflatten = _compile_treespec_unflatten(data_spec)
 
 
 class TokensLoader(BaseItemLoader):
@@ -498,22 +756,7 @@ class TokensLoader(BaseItemLoader):
             del self._chunk_filepaths[chunk_filepath]
 
         if chunk_filepath not in self._chunk_filepaths:
-            exists = os.path.exists(chunk_filepath) and os.stat(chunk_filepath).st_size > filesize_bytes
-
-            start_time = time()
-            requested_force_download = False
-
-            while not exists:
-                sleep(0.1)
-                exists = os.path.exists(chunk_filepath) and os.stat(chunk_filepath).st_size >= filesize_bytes
-
-                if not requested_force_download and (time() - start_time) > _FORCE_DOWNLOAD_TIME:
-                    self.force_download(chunk_index)
-                    requested_force_download = True
-
-                if (time() - start_time) > _MAX_WAIT_TIME:
-                    raise FileNotFoundError(f"The {chunk_filepath} hasn't been found.")
-
+            self._wait_until_chunk_ready(chunk_index, chunk_filepath, filesize_bytes)
             self._chunk_filepaths[chunk_filepath] = True
 
         self._load_chunk(chunk_index, chunk_filepath)
@@ -639,6 +882,9 @@ class ParquetLoader(BaseItemLoader):
         self._data_format = self._config["data_format"]
         self._shift_idx = len(self._data_format) * 4
         self.region_of_interest = region_of_interest
+        # ParquetLoader does not call ``BaseItemLoader.setup``; keep wait/force-download attrs defined.
+        self._force_download_queue = None
+        self._chunk_ready_provider = getattr(self, "_chunk_ready_provider", None)
         self._df: dict[int, Any] = {}
         self._chunk_row_groups: dict[int, Any] = {}
         self._chunk_row_group_item_read_count: dict[int, Any] = {}
@@ -682,12 +928,7 @@ class ParquetLoader(BaseItemLoader):
             del self._chunk_filepaths[chunk_filepath]
 
         if chunk_filepath not in self._chunk_filepaths:
-            exists = os.path.exists(chunk_filepath) and os.stat(chunk_filepath).st_size >= filesize_bytes
-
-            while not exists:
-                sleep(0.1)
-                exists = os.path.exists(chunk_filepath) and os.stat(chunk_filepath).st_size >= filesize_bytes
-
+            self._wait_until_chunk_ready(chunk_index, chunk_filepath, filesize_bytes)
             self._chunk_filepaths[chunk_filepath] = True
 
         # relative index of the desired row within the chunk.

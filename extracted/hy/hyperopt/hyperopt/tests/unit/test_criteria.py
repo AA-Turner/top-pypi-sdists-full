@@ -1,5 +1,5 @@
-from past.utils import old_div
 import numpy as np
+
 import hyperopt.criteria as crit
 
 
@@ -21,7 +21,7 @@ def test_ei():
 
         if not np.allclose(v_n, v_a, atol=0.03, rtol=0.03):
             for t, n, a in zip(thresholds, v_n, v_a):
-                print((t, n, a, abs(n - a), old_div(abs(n - a), (abs(n) + abs(a)))))
+                print((t, n, a, abs(n - a), abs(n - a) / (abs(n) + abs(a))))
             assert 0
             # mean, var, thresh, v_n, v_a)
 

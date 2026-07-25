@@ -19,7 +19,7 @@ import tempfile
 from abc import ABC
 from contextlib import suppress
 from time import time
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 from urllib import parse
 
 from filelock import FileLock, Timeout
@@ -35,7 +35,24 @@ from litdata.constants import (
 from litdata.debugger import _get_log_msg
 from litdata.streaming.client import R2Client, S3Client
 
+if TYPE_CHECKING:
+    from obstore.store import ClientConfig
+
 logger = logging.getLogger("litdata.streaming.downloader")
+
+
+# Obstore stream yield size. Default matches boto3 multipart chunksize (8MB).
+# Override with LITDATA_OBSTORE_STREAM_MIN_CHUNK_MIB (integer MiB) for benches.
+def _obstore_stream_min_chunk_size() -> int:
+    raw = os.getenv("LITDATA_OBSTORE_STREAM_MIN_CHUNK_MIB")
+    if raw:
+        return max(1, int(raw)) * 1024 * 1024
+    return 8 * 1024 * 1024
+
+
+# Obstore default request timeout is 30s; large chunk GETs under worker
+# contention can exceed that. Speed-neutral, avoids spurious retries.
+_OBSTORE_CLIENT_OPTIONS = cast("ClientConfig", {"timeout": "200s"})
 
 
 class Downloader(ABC):
@@ -87,6 +104,16 @@ class Downloader(ABC):
     def download_file(self, remote_chunkpath: str, local_chunkpath: str) -> None:
         pass
 
+    @staticmethod
+    def _temp_download_path(local_filepath: str) -> str:
+        """Return a process-unique temp path used for atomic downloads."""
+        return f"{local_filepath}.tmp.{os.getpid()}"
+
+    @staticmethod
+    def _atomic_replace(tmp_path: str, local_filepath: str) -> None:
+        """Publish a completed download by atomically replacing the destination path."""
+        os.replace(tmp_path, local_filepath)
+
     def download_bytes(self, remote_chunkpath: str, offset: int, length: int, local_chunkpath: str) -> bytes:
         """Download a specific range of bytes from the remote file.
 
@@ -106,6 +133,33 @@ class Downloader(ABC):
     async def adownload_fileobj(self, remote_filepath: str) -> Any:
         """Download a file from remote storage directly to a file-like object asynchronously."""
         pass
+
+    async def adownload_file(self, remote_filepath: str, local_filepath: str) -> None:
+        """Async download of ``remote_filepath`` straight to ``local_filepath``.
+
+        Subclasses that can stream should override this to avoid buffering the
+        entire object in memory (important for large chunks under
+        ``LITDATA_ASYNC_CHUNK_PREFETCH``). The base implementation falls back to
+        :meth:`adownload_fileobj` + an atomic write.
+        """
+        if os.path.exists(local_filepath):
+            return
+        data = await self.adownload_fileobj(remote_filepath)
+        if data is None:
+            raise NotImplementedError(
+                f"{type(self).__name__}.adownload_fileobj returned None; "
+                "override adownload_file or adownload_fileobj for async prefetch."
+            )
+        tmp_path = self._temp_download_path(local_filepath)
+        try:
+            os.makedirs(os.path.dirname(local_filepath) or ".", exist_ok=True)
+            with open(tmp_path, "wb") as f:
+                f.write(data)
+            self._atomic_replace(tmp_path, local_filepath)
+        except Exception:
+            with contextlib.suppress(FileNotFoundError, PermissionError):
+                os.remove(tmp_path)
+            raise
 
 
 class S3Downloader(Downloader):
@@ -135,19 +189,35 @@ class S3Downloader(Downloader):
             suppress(Timeout, FileNotFoundError),
             FileLock(local_filepath + ".lock", timeout=1 if obj.path.endswith(_INDEX_FILENAME) else 0),
         ):
-            from boto3.s3.transfer import TransferConfig
+            if os.path.exists(local_filepath):
+                return
+            # Prefer obstore for sync downloads too (Studio: often faster than
+            # boto3 serial on ~64MB chunks). Fall back to boto3 if unavailable.
+            tmp_path = self._temp_download_path(local_filepath)
+            try:
+                os.makedirs(os.path.dirname(local_filepath) or ".", exist_ok=True)
+                if _OBSTORE_AVAILABLE:
+                    import obstore as obs
 
-            extra_args: dict[str, Any] = {}
+                    store = self._get_store(obj.netloc)
+                    resp = obs.get(store, obj.path.lstrip("/"))
+                    with open(tmp_path, "wb", buffering=1024 * 1024) as f:
+                        for chunk in resp.stream(min_chunk_size=_obstore_stream_min_chunk_size()):
+                            f.write(chunk)
+                else:
+                    from boto3.s3.transfer import TransferConfig
 
-            if not os.path.exists(local_filepath):
-                # Issue: https://github.com/boto/boto3/issues/3113
-                self._client.client.download_file(
-                    obj.netloc,
-                    obj.path.lstrip("/"),
-                    local_filepath,
-                    ExtraArgs=extra_args,
-                    Config=TransferConfig(use_threads=False),
-                )
+                    self._client.client.download_file(
+                        obj.netloc,
+                        obj.path.lstrip("/"),
+                        tmp_path,
+                        Config=TransferConfig(use_threads=False),
+                    )
+                self._atomic_replace(tmp_path, local_filepath)
+            except Exception:
+                with suppress(FileNotFoundError, PermissionError):
+                    os.remove(tmp_path)
+                raise
 
     def download_bytes(self, remote_filepath: str, offset: int, length: int, local_chunkpath: str) -> bytes:
         obj = parse.urlparse(remote_filepath)
@@ -197,11 +267,15 @@ class S3Downloader(Downloader):
 
             session = boto3.Session(**self._storage_options, **self.session_options)
             credential_provider = Boto3CredentialProvider(session)
-            self._store = S3Store(bucket, credential_provider=credential_provider)
+            self._store = S3Store(
+                bucket,
+                credential_provider=credential_provider,
+                client_options=_OBSTORE_CLIENT_OPTIONS,
+            )
         return self._store
 
     async def adownload_fileobj(self, remote_filepath: str) -> bytes:
-        """Download a file from S3 directly to a file-like object asynchronously."""
+        """Download a file from S3 into memory asynchronously (prefer :meth:`adownload_file`)."""
         import obstore as obs
 
         obj = parse.urlparse(remote_filepath)
@@ -216,6 +290,33 @@ class S3Downloader(Downloader):
         resp = await obs.get_async(store, key)
         bytes_object = await resp.bytes_async()
         return bytes(bytes_object)  # Convert obstore.Bytes to bytes
+
+    async def adownload_file(self, remote_filepath: str, local_filepath: str) -> None:
+        """Stream an S3 object to ``local_filepath`` without buffering the full body."""
+        import obstore as obs
+
+        if os.path.exists(local_filepath):
+            return
+
+        obj = parse.urlparse(remote_filepath)
+        if obj.scheme != "s3":
+            raise ValueError(f"Expected obj.scheme to be `s3`, instead, got {obj.scheme} for remote={remote_filepath}")
+
+        bucket = obj.netloc
+        key = obj.path.lstrip("/")
+        store = self._get_store(bucket)
+        tmp_path = self._temp_download_path(local_filepath)
+        try:
+            os.makedirs(os.path.dirname(local_filepath) or ".", exist_ok=True)
+            resp = await obs.get_async(store, key)
+            with open(tmp_path, "wb", buffering=1024 * 1024) as f:
+                async for chunk in resp.stream(min_chunk_size=_obstore_stream_min_chunk_size()):
+                    f.write(chunk)
+            self._atomic_replace(tmp_path, local_filepath)
+        except Exception:
+            with suppress(FileNotFoundError, PermissionError):
+                os.remove(tmp_path)
+            raise
 
 
 class R2Downloader(Downloader):
@@ -252,13 +353,20 @@ class R2Downloader(Downloader):
             if not os.path.exists(local_filepath):
                 # Issue: https://github.com/boto/boto3/issues/3113
                 t0 = time()
-                self._client.client.download_file(
-                    obj.netloc,
-                    obj.path.lstrip("/"),
-                    local_filepath,
-                    ExtraArgs=extra_args,
-                    Config=TransferConfig(use_threads=False),
-                )
+                tmp_path = self._temp_download_path(local_filepath)
+                try:
+                    self._client.client.download_file(
+                        obj.netloc,
+                        obj.path.lstrip("/"),
+                        tmp_path,
+                        ExtraArgs=extra_args,
+                        Config=TransferConfig(use_threads=False),
+                    )
+                    self._atomic_replace(tmp_path, local_filepath)
+                except Exception:
+                    with suppress(FileNotFoundError, PermissionError):
+                        os.remove(tmp_path)
+                    raise
                 if _DEBUG:
                     print("DOWNLOAD TIME", time() - t0)
 
@@ -372,7 +480,14 @@ class GCPDownloader(Downloader):
             client = storage.Client(**self._storage_options)
             bucket = client.bucket(bucket_name)
             blob = bucket.blob(key)
-            blob.download_to_filename(local_filepath)
+            tmp_path = self._temp_download_path(local_filepath)
+            try:
+                blob.download_to_filename(tmp_path)
+                self._atomic_replace(tmp_path, local_filepath)
+            except Exception:
+                with suppress(FileNotFoundError, PermissionError):
+                    os.remove(tmp_path)
+                raise
 
     def download_bytes(self, remote_filepath: str, offset: int, length: int, local_chunkpath: str) -> bytes:
         from google.cloud import storage
@@ -480,9 +595,16 @@ class AzureDownloader(Downloader):
 
             service = BlobServiceClient(**self._storage_options)
             blob_client = service.get_blob_client(container=obj.netloc, blob=obj.path.lstrip("/"))
-            with open(local_filepath, "wb") as download_file:
-                blob_data = blob_client.download_blob()
-                blob_data.readinto(download_file)
+            tmp_path = self._temp_download_path(local_filepath)
+            try:
+                with open(tmp_path, "wb") as download_file:
+                    blob_data = blob_client.download_blob()
+                    blob_data.readinto(download_file)
+                self._atomic_replace(tmp_path, local_filepath)
+            except Exception:
+                with suppress(FileNotFoundError, PermissionError):
+                    os.remove(tmp_path)
+                raise
 
     def download_fileobj(self, remote_filepath: str, fileobj: Any) -> None:
         """Download a file from Azure Blob Storage directly to a file-like object."""

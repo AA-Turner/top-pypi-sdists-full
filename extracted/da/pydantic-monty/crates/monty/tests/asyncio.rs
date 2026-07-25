@@ -3,9 +3,10 @@
 //! These tests verify the behavior of the async execution model, specifically around
 //! resolving external futures incrementally via `ResolveFutures::resume()`.
 
-use monty::{
-    ExcType, ExtFunctionResult, MontyException, MontyObject, MontyRun, NameLookupResult, NoLimitTracker, PrintWriter,
-    ResolveFutures, RunProgress,
+use monty::{MontyRun, ResolveFutures, RunProgress};
+use monty_types::{
+    CompileOptions, ExcType, ExtFunctionResult, MontyException, MontyObject, NameLookupResult, NoLimitTracker,
+    PrintWriter, ResourceTracker,
 };
 
 /// Helper to create a MontyRun for async external function tests.
@@ -22,7 +23,7 @@ async def main():
 
 await main()
 ";
-    MontyRun::new(code.to_owned(), "test.py", vec![]).unwrap()
+    MontyRun::new(code.to_owned(), "test.py", vec![], CompileOptions::default()).unwrap()
 }
 
 /// Helper to create a MontyRun for async external function tests with three functions.
@@ -36,13 +37,11 @@ async def main():
 
 await main()
 ";
-    MontyRun::new(code.to_owned(), "test.py", vec![]).unwrap()
+    MontyRun::new(code.to_owned(), "test.py", vec![], CompileOptions::default()).unwrap()
 }
 
 /// Resolves consecutive `NameLookup` yields by providing a `Function` object for each name.
-fn resolve_name_lookups<T: monty::ResourceTracker>(
-    mut progress: RunProgress<T>,
-) -> Result<RunProgress<T>, monty::MontyException> {
+fn resolve_name_lookups<T: ResourceTracker>(mut progress: RunProgress<T>) -> Result<RunProgress<T>, MontyException> {
     while let RunProgress::NameLookup(lookup) = progress {
         let name = lookup.name.clone();
         progress = lookup.resume(
@@ -57,7 +56,7 @@ fn resolve_name_lookups<T: monty::ResourceTracker>(
 ///
 /// Returns (pending_call_ids, state, collected_call_ids) where collected_call_ids
 /// are the call_ids from all the FunctionCalls we processed with resume_pending().
-fn drive_to_resolve_futures<T: monty::ResourceTracker>(mut progress: RunProgress<T>) -> (ResolveFutures<T>, Vec<u32>) {
+fn drive_to_resolve_futures<T: ResourceTracker>(mut progress: RunProgress<T>) -> (ResolveFutures<T>, Vec<u32>) {
     let mut collected_call_ids = Vec::new();
 
     loop {
@@ -107,7 +106,7 @@ async def ready():
 
 await asyncio.gather(parked(), ready())
 ";
-    let runner = MontyRun::new(code.to_owned(), "test.py", vec![]).unwrap();
+    let runner = MontyRun::new(code.to_owned(), "test.py", vec![], CompileOptions::default()).unwrap();
     let progress = runner.start(vec![], NoLimitTracker, PrintWriter::Stdout).unwrap();
 
     let (state, call_ids) = drive_to_resolve_futures(progress);
@@ -365,7 +364,7 @@ async def main():
 
 await main()
 ";
-    MontyRun::new(code.to_owned(), "test.py", vec![]).unwrap()
+    MontyRun::new(code.to_owned(), "test.py", vec![], CompileOptions::default()).unwrap()
 }
 
 #[test]
@@ -602,7 +601,7 @@ async def double(x):
 results = await asyncio.gather(double(5), async_call(100))
 results
 ";
-    let runner = MontyRun::new(code.to_owned(), "test.py", vec![]).unwrap();
+    let runner = MontyRun::new(code.to_owned(), "test.py", vec![], CompileOptions::default()).unwrap();
 
     let progress = runner.start(vec![], NoLimitTracker, PrintWriter::Stdout).unwrap();
 
@@ -679,9 +678,7 @@ fn gather_three_all_at_once_mixed() {
 /// Helper to drive execution, collecting function calls and resolving them async,
 /// until we reach ResolveFutures. Returns the snapshot and a vec of
 /// (call_id, function_name) pairs for all external calls made.
-fn drive_collecting_calls<T: monty::ResourceTracker>(
-    mut progress: RunProgress<T>,
-) -> (ResolveFutures<T>, Vec<(u32, String)>) {
+fn drive_collecting_calls<T: ResourceTracker>(mut progress: RunProgress<T>) -> (ResolveFutures<T>, Vec<(u32, String)>) {
     let mut collected = Vec::new();
 
     loop {
@@ -730,7 +727,7 @@ async def slow_b():
 results = await asyncio.gather(slow_a(), slow_b(), async_call(999))
 results
 ";
-    let runner = MontyRun::new(code.to_owned(), "test.py", vec![]).unwrap();
+    let runner = MontyRun::new(code.to_owned(), "test.py", vec![], CompileOptions::default()).unwrap();
 
     let progress = runner.start(vec![], NoLimitTracker, PrintWriter::Stdout).unwrap();
 
@@ -805,7 +802,7 @@ async def main():
 await main()
 ";
 
-    let runner = MontyRun::new(code.to_owned(), "test.py", vec![]).unwrap();
+    let runner = MontyRun::new(code.to_owned(), "test.py", vec![], CompileOptions::default()).unwrap();
 
     let progress = runner.start(vec![], NoLimitTracker, PrintWriter::Stdout).unwrap();
 
@@ -875,7 +872,7 @@ async def main():
 await main()
 ";
 
-    let runner = MontyRun::new(code.to_owned(), "test.py", vec![]).unwrap();
+    let runner = MontyRun::new(code.to_owned(), "test.py", vec![], CompileOptions::default()).unwrap();
 
     let progress = runner.start(vec![], NoLimitTracker, PrintWriter::Stdout).unwrap();
 

@@ -8,7 +8,7 @@ authors = [
 ]
 requires-python = ">=3.11,<3.13"
 dependencies = [
-    "airbyte>=0.52.0,<1.0.0",
+    "airbyte>=0.53.1,<1.0.0",
     "airbyte-cdk>=7.3.9,<8.0",
     "airbyte-connector-models>=0.1.7,<0.2.0",
     "airbyte-protocol-models-pdv2>=0.13.0",
@@ -20,7 +20,13 @@ dependencies = [
     "docker>=6.0,<7.0",
     "dpath>=2.1.5,<3.0",
     "fastmcp>=3.0,<4.0",
-    "fastmcp-extensions[cli]>=0.11.0,<1.0",
+    # 0.14.0 ships the generic `NormalizedKeysWrapper` + `HashKeyNormalizer`
+    # (airbytehq/fastmcp-extensions#81) used to make arbitrary OAuth keys legal
+    # Firestore document IDs, and the pure typed auth API (`build_mcp_auth`,
+    # `OIDCAuthConfig.client_storage`) after the env-mapping strip
+    # (airbytehq/fastmcp-extensions#80).
+    "fastmcp-extensions[cli]>=0.14.0,<1.0",
+    "py-key-value-aio[firestore]>=0.4.4,<0.5.0",
     "fsspec>=2024.0.0",
     "gcsfs>=2024.0.0",
     "s3fs>=2024.0.0",
