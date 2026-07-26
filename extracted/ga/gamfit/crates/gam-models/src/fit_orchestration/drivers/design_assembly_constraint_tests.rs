@@ -4140,7 +4140,14 @@ fn iso_kappa_fd_variant_driver(
         theta_alt[rho_dim + k] = 0.4;
     }
 
-    let h = 1e-5_f64;
+    // #2425: DERIVED central-difference step, kept in step with the live copy
+    // in `iso_kappa_reml_gradient_fd_tests` (see the derivation there). The
+    // evaluator is inexact — each cost runs an inner PIRLS solve — so its value
+    // carries an absolute noise floor `ν ≈ 1.5e-11`, measured by
+    // `zz_measure_psi_only_rho1_fd_step_law_2425`, and the central-difference
+    // error `ν/h + h²S'''/6` is minimized at `h* = (3ν/S''')^(1/3) ≈ 3.6e-4`,
+    // not at the exact-evaluator `eps^(1/3) ≈ 6e-6` the old `1e-5` assumed.
+    let h = 3e-4_f64;
     let rel_tol = 5e-3_f64;
     let mut violations: Vec<String> = Vec::new();
     let mut worst_psi_rel = 0.0_f64;
@@ -6052,6 +6059,7 @@ struct DuchonProbitSetup {
     y: Array1<f64>,
     weights: Array1<f64>,
     offset: Array1<f64>,
+    raw: TermCollectionSpec,
     frozen: TermCollectionSpec,
     frozen_design: TermCollectionDesign,
     spatial_terms: Vec<usize>,
@@ -6115,6 +6123,7 @@ fn build_duchon_probit_setup() -> DuchonProbitSetup {
         y,
         weights,
         offset,
+        raw: spec,
         frozen,
         frozen_design,
         spatial_terms,
@@ -6122,6 +6131,49 @@ fn build_duchon_probit_setup() -> DuchonProbitSetup {
         rho_dim,
         psi_dim,
     }
+}
+
+#[test]
+fn incremental_realizer_replays_raw_duchon_spec_in_emitted_chart_2433() {
+    let DuchonProbitSetup {
+        data,
+        raw,
+        frozen_design,
+        ..
+    } = build_duchon_probit_setup();
+    let mut realizer = FrozenTermCollectionIncrementalRealizer::new(
+        data.view(),
+        raw,
+        frozen_design.clone(),
+    )
+    .unwrap_or_else(|e| panic!("raw-spec realizer construction failed: {e}"));
+
+    // The constructor must freeze the caller's pre-assembly spec against the
+    // authoritative design before the first κ proposal. Otherwise this update
+    // rebuilds the source term's five-block chart and collides with the four
+    // blocks retained by collection-level identifiability.
+    let replay_spec = realizer.spec().clone();
+    let spatial_terms = spatial_length_scale_term_indices(&replay_spec);
+    let updated_log_kappa = SpatialLogKappaCoords::new_with_dims(array![0.2], vec![1]);
+    let updated_spec = updated_log_kappa
+        .apply_tospec(&replay_spec, &spatial_terms)
+        .unwrap_or_else(|e| panic!("updated frozen replay spec failed: {e}"));
+    realizer
+        .apply_log_kappa(&updated_log_kappa, &spatial_terms)
+        .unwrap_or_else(|e| panic!("first raw-spec κ replay failed: {e}"));
+
+    let rebuilt = build_term_collection_design(data.view(), &updated_spec)
+        .unwrap_or_else(|e| panic!("full frozen-chart rebuild failed: {e}"));
+    assert_term_collection_designs_match(
+        realizer.design(),
+        &rebuilt,
+        "raw-spec incremental replay",
+    );
+    assert_eq!(
+        realizer.design().penalties.len(),
+        frozen_design.penalties.len(),
+        "κ replay must preserve the authoritative emitted penalty topology",
+    );
 }
 
 /// Behavioral pin for the iso-κ Duchon ψ-axis under BinomialProbit: the
@@ -6134,6 +6186,7 @@ fn iso_kappa_duchon_outer_gradient_matches_centered_fd() {
         y,
         weights,
         offset,
+        raw: _,
         frozen,
         frozen_design,
         spatial_terms,
@@ -6272,6 +6325,7 @@ fn duchon_probit_pirls_determinism_at_zero() {
         y,
         weights,
         offset,
+        raw: _,
         frozen,
         frozen_design,
         spatial_terms,
@@ -7221,108 +7275,6 @@ fn single_block_exact_joint_design_cache_clears_memo_on_theta_change() {
         .unwrap_or_else(|e| panic!("{} failed: {:?}", "updated spec", e));
     let rebuilt = build_term_collection_design(data.view(), &updated_spec).unwrap_or_else(|e| panic!("{} failed: {:?}", "rebuilt design", e));
     assert_term_collection_designs_match(cache.design(), &rebuilt, "single-block cache");
-}
-
-#[test]
-fn single_block_latent_coord_design_cache_invalidates_memo_on_outer_iter_advance() {
-    // Pins θ and re-evaluates after current_outer_iter() advances; the
-    // scheduled penalty weight at that θ has changed, so the memo must miss.
-    use gam_solve::estimate::reml::outer_eval::{
-        current_outer_iter, record_current_outer_iter_for_ift,
-    };
-    use gam_terms::latent::{LatentCoordValues, LatentIdMode, LatentManifold};
-
-    let n = 16usize;
-    let latent_dim = 1usize;
-    let mut data = Array2::<f64>::zeros((n, 1));
-    for i in 0..n {
-        data[[i, 0]] = i as f64 / (n as f64 - 1.0);
-    }
-
-    let spec = TermCollectionSpec {
-        linear_terms: vec![],
-        random_effect_terms: vec![],
-        smooth_terms: vec![SmoothTermSpec {
-            name: "s(x0)".to_string(),
-            basis: SmoothBasisSpec::BSpline1D {
-                feature_col: 0,
-                spec: BSplineBasisSpec {
-                    degree: 3,
-                    penalty_order: 2,
-                    knotspec: BSplineKnotSpec::Generate {
-                        data_range: (0.0, 1.0),
-                        num_internal_knots: 3,
-                    },
-                    double_penalty: false,
-                    identifiability: BSplineIdentifiability::WeightedSumToZero { weights: None },
-                    boundary_conditions: BSplineBoundaryConditions::default(),
-                    boundary: OneDimensionalBoundary::Open,
-                },
-            },
-            shape: ShapeConstraint::None,
-            joint_null_rotation: None,
-        }],
-    };
-    let design = build_term_collection_design(data.view(), &spec).unwrap_or_else(|e| panic!("{} failed: {:?}", "design", e));
-    let rho_dim = design.penalties.len();
-
-    let flat = Array1::<f64>::from_iter((0..n).map(|i| i as f64 / (n as f64 - 1.0)));
-    let latent_values = std::sync::Arc::new(LatentCoordValues::from_flat_with_manifold(
-        flat,
-        n,
-        latent_dim,
-        LatentIdMode::None,
-        LatentManifold::Euclidean,
-    ));
-    let latent = StandardLatentCoordConfig {
-        values: latent_values,
-        term_index: gam_problem::SmoothTermIdx::new(0),
-        feature_cols: vec![0],
-        manifold: LatentManifold::Euclidean,
-        manifold_auto: false,
-        retraction_registry: gam_problem::LatentRetractionRegistry::default(),
-        analytic_penalties: None,
-    };
-
-    let mut cache = SingleBlockLatentCoordDesignCache::new(
-        data.clone(),
-        spec.clone(),
-        design.clone(),
-        &latent,
-        rho_dim,
-    )
-    .unwrap_or_else(|e| panic!("{} failed: {:?}", "latent-coord cache", e));
-
-    // Seed θ + cached eval directly (skip `ensure_theta`'s latent rebuild;
-    // we only exercise the memo invalidation property). Same-module access.
-    let theta = Array1::<f64>::zeros(rho_dim + n * latent_dim);
-    cache.current_theta = Some(theta.clone());
-
-    let initial_iter = current_outer_iter();
-    let eval = (
-        1.25_f64,
-        Array1::<f64>::from_elem(theta.len(), 0.5),
-        gam_problem::HessianValue::Dense(Array2::<f64>::eye(theta.len())),
-    );
-    cache.store_eval(eval.clone());
-
-    let hit = cache
-        .memoized_eval(&theta)
-        .unwrap_or_else(|| panic!("{} failed", "memo should hit at the same outer iter"));
-    assert!((hit.0 - eval.0).abs() <= 1e-12);
-    assert_eq!(cache.memoized_cost(&theta), Some(eval.0));
-
-    record_current_outer_iter_for_ift(initial_iter.wrapping_add(1));
-    assert!(
-        cache.memoized_eval(&theta).is_none(),
-        "memoized_eval returned a stale cached eval after current_outer_iter advanced"
-    );
-    assert!(
-        cache.memoized_cost(&theta).is_none(),
-        "memoized_cost returned a stale cached cost after current_outer_iter advanced"
-    );
-
-    record_current_outer_iter_for_ift(initial_iter);
 }
 
 #[test]

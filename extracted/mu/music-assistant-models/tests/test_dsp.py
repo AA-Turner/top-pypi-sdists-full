@@ -4,6 +4,7 @@ import pytest
 
 from music_assistant_models.dsp import (
     BalanceFilter,
+    CompressorFilter,
     ConvolutionFilter,
     CrossfeedFilter,
     DSPConfig,
@@ -12,7 +13,9 @@ from music_assistant_models.dsp import (
     HighLowPassFilter,
     HighLowPassMode,
     HighLowPassSlope,
+    SafetyLimiterFilter,
     StereoWidthFilter,
+    TransposeFilter,
 )
 
 
@@ -136,6 +139,27 @@ def test_dsp_config_convolution_roundtrip() -> None:
 
     assert restored == config
     assert isinstance(restored.filters[0], ConvolutionFilter)
+
+
+def test_dsp_config_safety_limiter_compressor_roundtrip() -> None:
+    """A DSPConfig with Safety Limiter and Compressor filters round-trips to the correct classes."""
+    config = DSPConfig(
+        enabled=True,
+        filters=[
+            SafetyLimiterFilter(enabled=True, ceiling=-3.0),
+            CompressorFilter(enabled=False, threshold=-20.0, ratio=4.0),
+        ],
+    )
+    serialized = config.to_dict()
+
+    assert serialized["filters"][0]["type"] == "safety_limiter"
+    assert serialized["filters"][1]["type"] == "compressor"
+
+    restored = DSPConfig.from_dict(serialized)
+
+    assert restored == config
+    assert isinstance(restored.filters[0], SafetyLimiterFilter)
+    assert isinstance(restored.filters[1], CompressorFilter)
 
 
 def test_dsp_config_stereo_width_crossfeed_roundtrip() -> None:
@@ -291,3 +315,152 @@ def test_crossfeed_filter_validate() -> None:
         CrossfeedFilter(enabled=True, soundstage=-0.1).validate()
     with pytest.raises(ValueError, match="Soundstage"):
         CrossfeedFilter(enabled=True, soundstage=1.1).validate()
+
+
+def test_transpose_filter_defaults() -> None:
+    """Transpose constructs with its documented defaults and validates."""
+    transpose = TransposeFilter(enabled=True)
+
+    assert transpose.type == "transpose"
+    assert transpose.semitones == 0.0
+
+    transpose.validate()
+
+
+def test_transpose_filter_roundtrip() -> None:
+    """A Transpose filter round-trips through to_dict/from_dict."""
+    transpose = TransposeFilter(enabled=True, semitones=-3.0)
+    payload = transpose.to_dict()
+
+    assert payload["type"] == "transpose"
+    assert payload["semitones"] == -3.0
+    assert TransposeFilter.from_dict(payload) == transpose
+
+
+def test_transpose_filter_validate() -> None:
+    """Semitones validates within +-12 and rejects values outside."""
+    TransposeFilter(enabled=True, semitones=-12.0).validate()
+    # Alternative concert pitch (A=432Hz) is a fraction of a semitone.
+    TransposeFilter(enabled=True, semitones=-0.318).validate()
+    TransposeFilter(enabled=True, semitones=0.0).validate()
+    TransposeFilter(enabled=True, semitones=12.0).validate()
+
+    with pytest.raises(ValueError, match="Semitones"):
+        TransposeFilter(enabled=True, semitones=-12.1).validate()
+    with pytest.raises(ValueError, match="Semitones"):
+        TransposeFilter(enabled=True, semitones=12.1).validate()
+
+
+def test_dsp_config_transpose_roundtrip() -> None:
+    """A DSPConfig containing a Transpose filter resolves back to TransposeFilter."""
+    config = DSPConfig(
+        enabled=True,
+        filters=[TransposeFilter(enabled=True, semitones=2.0)],
+    )
+    serialized = config.to_dict()
+
+    assert serialized["filters"][0]["type"] == "transpose"
+
+    restored = DSPConfig.from_dict(serialized)
+
+    assert restored == config
+    assert isinstance(restored.filters[0], TransposeFilter)
+
+
+def test_safety_limiter_filter_defaults() -> None:
+    """Safety Limiter constructs with its documented defaults and validates."""
+    safety_limiter = SafetyLimiterFilter(enabled=True)
+
+    assert safety_limiter.type == "safety_limiter"
+    assert safety_limiter.ceiling == -2.0
+
+    safety_limiter.validate()
+
+
+def test_safety_limiter_filter_validate() -> None:
+    """Ceiling validates within -24..0 dB and rejects values outside."""
+    SafetyLimiterFilter(enabled=True, ceiling=-2.0).validate()
+    SafetyLimiterFilter(enabled=True, ceiling=-24.0).validate()
+    SafetyLimiterFilter(enabled=True, ceiling=0.0).validate()
+
+    with pytest.raises(ValueError, match="Ceiling"):
+        SafetyLimiterFilter(enabled=True, ceiling=-24.1).validate()
+    with pytest.raises(ValueError, match="Ceiling"):
+        SafetyLimiterFilter(enabled=True, ceiling=0.1).validate()
+
+
+def test_compressor_filter_defaults() -> None:
+    """Compressor constructs with its documented defaults and validates."""
+    compressor = CompressorFilter(enabled=True)
+
+    assert compressor.type == "compressor"
+    assert compressor.threshold == -18.0
+    assert compressor.ratio == 2.0
+    assert compressor.attack == 20.0
+    assert compressor.release == 250.0
+    assert compressor.knee == 9.0
+    assert compressor.makeup == 0.0
+
+    compressor.validate()
+
+
+def test_compressor_filter_validate() -> None:
+    """Each Compressor field validates within its range and rejects values just outside."""
+    # An in-range configuration passes.
+    CompressorFilter(
+        enabled=True,
+        threshold=-24.0,
+        ratio=6.0,
+        attack=10.0,
+        release=100.0,
+        knee=6.0,
+        makeup=3.0,
+    ).validate()
+
+    # threshold: -60.0 .. 0.0 dB
+    CompressorFilter(enabled=True, threshold=-60.0).validate()
+    CompressorFilter(enabled=True, threshold=0.0).validate()
+    with pytest.raises(ValueError, match="Threshold"):
+        CompressorFilter(enabled=True, threshold=-60.1).validate()
+    with pytest.raises(ValueError, match="Threshold"):
+        CompressorFilter(enabled=True, threshold=0.1).validate()
+
+    # ratio: 1.0 .. 20.0
+    CompressorFilter(enabled=True, ratio=1.0).validate()
+    CompressorFilter(enabled=True, ratio=20.0).validate()
+    with pytest.raises(ValueError, match="Ratio"):
+        CompressorFilter(enabled=True, ratio=0.9).validate()
+    with pytest.raises(ValueError, match="Ratio"):
+        CompressorFilter(enabled=True, ratio=20.1).validate()
+
+    # attack: 0.01 .. 2000.0 ms
+    CompressorFilter(enabled=True, attack=0.01).validate()
+    CompressorFilter(enabled=True, attack=2000.0).validate()
+    with pytest.raises(ValueError, match="Attack"):
+        CompressorFilter(enabled=True, attack=0.0).validate()
+    with pytest.raises(ValueError, match="Attack"):
+        CompressorFilter(enabled=True, attack=2000.1).validate()
+
+    # release: 0.01 .. 9000.0 ms
+    CompressorFilter(enabled=True, release=0.01).validate()
+    CompressorFilter(enabled=True, release=9000.0).validate()
+    with pytest.raises(ValueError, match="Release"):
+        CompressorFilter(enabled=True, release=0.0).validate()
+    with pytest.raises(ValueError, match="Release"):
+        CompressorFilter(enabled=True, release=9000.1).validate()
+
+    # knee: 0.0 .. 18.0 dB
+    CompressorFilter(enabled=True, knee=0.0).validate()
+    CompressorFilter(enabled=True, knee=18.0).validate()
+    with pytest.raises(ValueError, match="Knee"):
+        CompressorFilter(enabled=True, knee=-0.1).validate()
+    with pytest.raises(ValueError, match="Knee"):
+        CompressorFilter(enabled=True, knee=18.1).validate()
+
+    # makeup: 0.0 .. 36.0 dB
+    CompressorFilter(enabled=True, makeup=0.0).validate()
+    CompressorFilter(enabled=True, makeup=36.0).validate()
+    with pytest.raises(ValueError, match="Make-up gain"):
+        CompressorFilter(enabled=True, makeup=-0.1).validate()
+    with pytest.raises(ValueError, match="Make-up gain"):
+        CompressorFilter(enabled=True, makeup=36.1).validate()

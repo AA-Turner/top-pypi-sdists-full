@@ -36,7 +36,7 @@ type SharedCache<K, V> = Rc<RefCell<AHashMap<K, V>>>;
 /// Type alias for shared sets in compiler state.
 type SharedSet<T> = Rc<RefCell<AHashSet<T>>>;
 
-pub(crate) trait CompilationOptions {
+pub(crate) trait CompilationOptions<F: Json> {
     fn validate_formats(&self) -> Option<bool>;
     fn are_unknown_formats_ignored(&self) -> bool;
     fn get_content_media_type_check(&self, media_type: &str) -> Option<ContentMediaTypeCheckType>;
@@ -45,13 +45,13 @@ pub(crate) trait CompilationOptions {
         &self,
         content_encoding: &str,
     ) -> Option<ContentEncodingConverterType>;
-    fn get_keyword_factory(&self, name: &str) -> Option<&Arc<dyn KeywordFactory>>;
+    fn get_keyword_factory(&self, name: &str) -> Option<&Arc<dyn KeywordFactory<F>>>;
     fn get_format(&self, format: &str) -> Option<(&String, &Arc<dyn Format>)>;
     fn pattern_options(&self) -> PatternEngineOptions;
     fn email_options(&self) -> Option<&email_address::Options>;
 }
 
-impl<R> CompilationOptions for ValidationOptions<'_, R> {
+impl<R, F: Json> CompilationOptions<F> for ValidationOptions<'_, R, F> {
     fn validate_formats(&self) -> Option<bool> {
         ValidationOptions::validate_formats(self)
     }
@@ -75,7 +75,7 @@ impl<R> CompilationOptions for ValidationOptions<'_, R> {
         ValidationOptions::get_content_encoding_convert(self, content_encoding)
     }
 
-    fn get_keyword_factory(&self, name: &str) -> Option<&Arc<dyn KeywordFactory>> {
+    fn get_keyword_factory(&self, name: &str) -> Option<&Arc<dyn KeywordFactory<F>>> {
         ValidationOptions::get_keyword_factory(self, name)
     }
 
@@ -202,7 +202,7 @@ impl<F: Json> SharedContextState<F> {
 
 /// Per-location view used while compiling schemas into validators.
 pub(crate) struct Context<'a, F: Json = SerdeJson> {
-    config: &'a dyn CompilationOptions,
+    config: &'a dyn CompilationOptions<F>,
     resolver: Resolver<'a>,
     vocabularies: VocabularySet,
     location: Location,
@@ -242,7 +242,7 @@ impl<F: Json> Clone for Context<'_, F> {
 
 impl<'a, F: Json> Context<'a, F> {
     pub(crate) fn new(
-        config: &'a dyn CompilationOptions,
+        config: &'a dyn CompilationOptions<F>,
         resolver: Resolver<'a>,
         vocabularies: VocabularySet,
         draft: Draft,
@@ -262,7 +262,7 @@ impl<'a, F: Json> Context<'a, F> {
     pub(crate) fn draft(&self) -> Draft {
         self.draft
     }
-    pub(crate) fn config(&self) -> &dyn CompilationOptions {
+    pub(crate) fn config(&self) -> &dyn CompilationOptions<F> {
         self.config
     }
 
@@ -281,20 +281,6 @@ impl<'a, F: Json> Context<'a, F> {
             location: self.location.clone(),
             shared: self.shared.clone(),
         })
-    }
-    /// A context over a different JSON representation at the same location, with fresh caches.
-    /// Used by keywords that compile a subschema against `serde_json` regardless of `F` (e.g.
-    /// `propertyNames`, which validates materialized property-name strings).
-    pub(crate) fn to_representation<G: Json>(&self) -> Context<'a, G> {
-        Context {
-            config: self.config,
-            resolver: self.resolver.clone(),
-            vocabularies: self.vocabularies.clone(),
-            draft: self.draft,
-            resource_base: self.resource_base.clone(),
-            location: self.location.clone(),
-            shared: SharedContextState::new(0),
-        }
     }
     pub(crate) fn as_resource_ref<'r>(&'a self, contents: &'r Value) -> ResourceRef<'r> {
         self.draft.detect(contents).create_resource_ref(contents)
@@ -420,7 +406,7 @@ impl<'a, F: Json> Context<'a, F> {
     ) -> Option<ContentEncodingConverterType> {
         self.config.get_content_encoding_convert(content_encoding)
     }
-    pub(crate) fn get_keyword_factory(&self, name: &str) -> Option<&Arc<dyn KeywordFactory>> {
+    pub(crate) fn get_keyword_factory(&self, name: &str) -> Option<&Arc<dyn KeywordFactory<F>>> {
         self.config.get_keyword_factory(name)
     }
     pub(crate) fn get_format(&self, format: &str) -> Option<(&String, &Arc<dyn Format>)> {
@@ -808,8 +794,8 @@ impl<'a, F: Json> Context<'a, F> {
     }
 }
 
-pub(crate) fn build_registry<'a>(
-    config: &'a ValidationOptions<'a>,
+pub(crate) fn build_registry<'a, F: Json>(
+    config: &'a ValidationOptions<'a, Arc<dyn referencing::Retrieve>, F>,
     draft: Draft,
     resource: ResourceRef<'a>,
     schema_id: Option<&'a str>,
@@ -823,14 +809,14 @@ pub(crate) fn build_registry<'a>(
     Ok((registry, base_uri))
 }
 
-pub(crate) fn build_validator(
-    config: &ValidationOptions<'_>,
+/// Compile `schema` into a validator over representation `F`, honoring `config`.
+pub(crate) fn build_validator<F: Json>(
+    config: &ValidationOptions<'_, Arc<dyn referencing::Retrieve>, F>,
     schema: &Value,
-) -> Result<Validator, ValidationError<'static>> {
+) -> Result<Validator<F>, ValidationError<'static>> {
     let draft = config.draft_for(schema)?;
     let resource = draft.create_resource_ref(schema);
 
-    // Validate the schema itself
     if config.validate_schema {
         validate_schema(draft, schema)?;
     }
@@ -844,14 +830,13 @@ pub(crate) fn build_validator(
             .prepare()?;
         return build_validator_with_registry(config, schema, draft, resource, &registry);
     }
-
     let (registry, _) = build_registry(config, draft, resource, resource.id())?;
     build_validator_with_registry(config, schema, draft, resource, &registry)
 }
 
 #[cfg(feature = "resolve-async")]
-pub(crate) async fn build_registry_async<'a>(
-    config: &'a ValidationOptions<'a, Arc<dyn referencing::AsyncRetrieve>>,
+pub(crate) async fn build_registry_async<'a, F: Json>(
+    config: &'a ValidationOptions<'a, Arc<dyn referencing::AsyncRetrieve>, F>,
     draft: Draft,
     resource: ResourceRef<'a>,
     schema_id: Option<&'a str>,
@@ -867,10 +852,10 @@ pub(crate) async fn build_registry_async<'a>(
 }
 
 #[cfg(feature = "resolve-async")]
-pub(crate) async fn build_validator_async(
-    config: &ValidationOptions<'_, Arc<dyn referencing::AsyncRetrieve>>,
+pub(crate) async fn build_validator_async<F: Json>(
+    config: &ValidationOptions<'_, Arc<dyn referencing::AsyncRetrieve>, F>,
     schema: &Value,
-) -> Result<Validator, ValidationError<'static>> {
+) -> Result<Validator<F>, ValidationError<'static>> {
     let draft = config.draft_for(schema).await?;
     let resource_ref = draft.create_resource_ref(schema); // single computation
 
@@ -907,7 +892,7 @@ fn estimate_subschema_count(schema: &Value) -> usize {
 }
 
 fn compile_root_with_registry<R, F: Json>(
-    config: &ValidationOptions<'_, R>,
+    config: &ValidationOptions<'_, R, F>,
     schema: &Value,
     draft: Draft,
     resource: ResourceRef<'_>,
@@ -928,15 +913,14 @@ fn compile_root_with_registry<R, F: Json>(
     );
     compile(&ctx, resource).map_err(ValidationError::to_owned)
 }
-fn build_validator_with_registry<R>(
-    config: &ValidationOptions<'_, R>,
+fn build_validator_with_registry<R, F: Json>(
+    config: &ValidationOptions<'_, R, F>,
     schema: &Value,
     draft: Draft,
     resource: ResourceRef<'_>,
     registry: &Registry<'_>,
-) -> Result<Validator, ValidationError<'static>> {
-    let root =
-        compile_root_with_registry::<_, SerdeJson>(config, schema, draft, resource, registry)?;
+) -> Result<Validator<F>, ValidationError<'static>> {
+    let root = compile_root_with_registry::<_, F>(config, schema, draft, resource, registry)?;
     Ok(Validator {
         root,
         draft: config.draft(),
@@ -1162,20 +1146,18 @@ fn compile_without_cache<'a, F: Json>(
 /// Each subschema is compiled with its own fresh [`Context`] so that caches from
 /// sibling compilations do not interfere. Nodes that fail to compile (e.g.
 /// unresolvable `$ref`) are silently skipped.
-fn collect_validators<'a>(
-    config: &'a dyn CompilationOptions,
+fn collect_validators<'a, F: Json>(
+    config: &'a dyn CompilationOptions<F>,
     resolver: &Resolver<'a>,
     vocabularies: &VocabularySet,
     schema: &'a Value,
     draft: Draft,
-) -> AHashMap<String, Validator> {
-    let mut validators: AHashMap<String, Validator> = AHashMap::new();
+) -> AHashMap<String, Validator<F>> {
+    let mut validators: AHashMap<String, Validator<F>> = AHashMap::new();
     let mut stack: Vec<(&'a Value, String)> = vec![(schema, "#".to_string())];
-
     while let Some((current, pointer)) = stack.pop() {
-        // Only Object and Bool are valid JSON schemas — skip compilation for everything else
         if matches!(current, Value::Object(_) | Value::Bool(_)) {
-            let ctx = Context::new(
+            let ctx: Context<'_, F> = Context::new(
                 config,
                 resolver.clone(),
                 vocabularies.clone(),
@@ -1184,16 +1166,10 @@ fn collect_validators<'a>(
                 estimate_subschema_count(current),
             );
             let resource_ref = ctx.as_resource_ref(current);
-            if let Ok(node) = compile(&ctx, resource_ref) {
-                // Store each sub-validator with the same draft as the top-level schema.
-                // Per-subschema draft detection is not performed here; subschemas that
-                // declare their own `$schema` will still compile correctly since the
-                // registry handles resolution, but their Validator::draft() will reflect
-                // the top-level draft.
-                validators.insert(pointer.clone(), Validator { root: node, draft });
+            if let Ok(root) = compile(&ctx, resource_ref) {
+                validators.insert(pointer.clone(), Validator { root, draft });
             }
         }
-
         match current {
             Value::Object(obj) => {
                 for (key, value) in obj {
@@ -1210,32 +1186,31 @@ fn collect_validators<'a>(
             _ => {}
         }
     }
-
     validators
 }
 
-fn build_validator_map_with_registry<R>(
-    config: &ValidationOptions<'_, R>,
+fn build_validator_map_with_registry<R, F: Json>(
+    config: &ValidationOptions<'_, R, F>,
     schema: &Value,
     draft: Draft,
     resource: ResourceRef<'_>,
     registry: &Registry<'_>,
-) -> Result<ValidatorMap, ValidationError<'static>> {
+) -> Result<ValidatorMap<F>, ValidationError<'static>> {
     let requested_base_uri = resolve_base_uri(config.base_uri.as_ref(), resource.id())?;
     let base_uri = normalize_base_uri(registry, &requested_base_uri);
     let vocabularies = registry.find_vocabularies(draft, schema);
     let resolver = registry.resolver(base_uri);
-    let validators = collect_validators(config, &resolver, &vocabularies, schema, draft);
+    let validators = collect_validators::<F>(config, &resolver, &vocabularies, schema, draft);
     Ok(ValidatorMap { validators })
 }
 
-pub(crate) fn build_validator_map(
-    config: &ValidationOptions<'_>,
+/// Compile every reachable subschema into a validator over representation `F`, honoring `config`.
+pub(crate) fn build_validator_map<F: Json>(
+    config: &ValidationOptions<'_, Arc<dyn referencing::Retrieve>, F>,
     schema: &Value,
-) -> Result<ValidatorMap, ValidationError<'static>> {
+) -> Result<ValidatorMap<F>, ValidationError<'static>> {
     let draft = config.draft_for(schema)?;
     let resource = draft.create_resource_ref(schema);
-
     validate_schema(draft, schema)?;
 
     if let Some(registry) = config.registry {
@@ -1253,10 +1228,10 @@ pub(crate) fn build_validator_map(
 }
 
 #[cfg(feature = "resolve-async")]
-pub(crate) async fn build_validator_map_async(
-    config: &ValidationOptions<'_, Arc<dyn referencing::AsyncRetrieve>>,
+pub(crate) async fn build_validator_map_async<F: Json>(
+    config: &ValidationOptions<'_, Arc<dyn referencing::AsyncRetrieve>, F>,
     schema: &Value,
-) -> Result<ValidatorMap, ValidationError<'static>> {
+) -> Result<ValidatorMap<F>, ValidationError<'static>> {
     let draft = config.draft_for(schema).await?;
     let resource = draft.create_resource_ref(schema);
 

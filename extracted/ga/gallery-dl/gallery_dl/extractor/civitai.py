@@ -6,7 +6,7 @@
 # it under the terms of the GNU General Public License version 2 as
 # published by the Free Software Foundation.
 
-"""Extractors for https://www.civitai.red/ and https://www.civitai.com/"""
+"""Extractors for https://civitai.com/ and https://civitai.red/"""
 
 from .common import Extractor, Message, Dispatch
 from .. import text, util
@@ -694,7 +694,7 @@ class CivitaiTrpcAPI():
         self.root = extractor.root + "/api/trpc/"
         self.headers = {
             "content-type"    : "application/json",
-            "x-client-version": "5.0.1386",
+            "x-client-version": "5.0.2142",
             "x-client-date"   : "",
             "x-client"        : "web",
             "x-fingerprint"   : "undefined",
@@ -861,8 +861,46 @@ class CivitaiTrpcAPI():
 
         params = {"input": util.json_dumps(input)}
         headers["x-client-date"] = str(int(time.time() * 1000))
-        return self.extractor.request_json(
-            url, params=params, headers=headers)["result"]["data"]["json"]
+
+        data = self.extractor.request_json(
+            url, params=params, headers=headers)["result"]["data"]
+
+        if not isinstance(data, str):
+            return data["json"]
+
+        meta = util.json_loads(data)
+        data = meta[0]
+
+        items = data.get("items") or 0
+        if items > 0:
+            data["items"] = items = [meta[i] for i in meta[items]]
+            resolve = items.copy()
+            while resolve:
+                item = resolve.pop()
+                for key, i in item.items():
+                    if i > 0:
+                        item[key] = value = meta[i]
+                        if isinstance(value, dict):
+                            resolve.append(value)
+                        elif value and isinstance(value, list):
+                            first = value[0]
+                            if first == "Date":
+                                item[key] = value[1]
+                            elif isinstance(first, int):
+                                for index, i in enumerate(value):
+                                    value[index] = meta[i]
+                            elif isinstance(first, dict) and all(
+                                    isinstance(v, int) for v in first.values()):  # noqa: E501
+                                resolve.extend(value)
+                    else:
+                        item[key] = None
+
+        else:
+            data["items"] = ()
+
+        cursor = data.get("nextCursor") or 0
+        data["nextCursor"] = meta[cursor] if cursor > 0 else None
+        return data
 
     def _pagination(self, endpoint, params, meta=None, user=False):
         if "cursor" not in params:

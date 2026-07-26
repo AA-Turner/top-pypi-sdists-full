@@ -7,7 +7,6 @@ import numbers
 import os
 import random
 import re
-import shutil
 import time
 from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
@@ -22,6 +21,9 @@ import requests
 from requests import HTTPError
 
 from . import client
+from .activity_details import (
+    parse_activity_detail_metrics as parse_activity_detail_metrics,
+)
 from .fit import FitEncoderWeight  # type: ignore
 
 logger = logging.getLogger(__name__)
@@ -37,6 +39,11 @@ MAX_ACTIVITY_LIMIT = 1000
 MAX_HYDRATION_ML = 10000  # 10 liters
 DATE_FORMAT_REGEX = r"^\d{4}-\d{2}-\d{2}$"
 DATE_FORMAT_STR = "%Y-%m-%d"
+
+# Holes 1-18, separated by ',' or '-'; Garmin treats both as plain delimiters,
+# not a range operator (e.g. "1-18" selects holes 1 and 18, not the full front/back).
+HOLE_NUMBERS_REGEX = r"^([1-9]|1[0-8])([,-]([1-9]|1[0-8]))*$"
+SPORT_KEY_REGEX = r"^[A-Z_]+$"
 VALID_WEIGHT_UNITS = {"kg", "lbs"}
 
 
@@ -97,6 +104,27 @@ def _validate_positive_integer(value: int, param_name: str = "value") -> int:
     if value <= 0:
         raise ValueError(f"{param_name} must be a positive integer, got: {value}")
     return value
+
+
+def _validate_hole_numbers(value: str, param_name: str = "hole_numbers") -> str:
+    """Validate a golf hole-numbers string: holes 1-18 separated by ',' or '-'."""
+    if not isinstance(value, str):
+        raise ValueError(f"{param_name} must be a string")
+    if not re.fullmatch(HOLE_NUMBERS_REGEX, value):
+        raise ValueError(
+            f"{param_name} must be holes 1-18 separated by ',' or '-', got: {value!r}"
+        )
+    return value
+
+
+def _validate_sport_key(value: str, param_name: str = "sport") -> str:
+    """Validate and normalize a Garmin sport key (letters and underscores only)."""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{param_name} must be a non-empty string")
+    normalized = value.strip().upper()
+    if not re.fullmatch(SPORT_KEY_REGEX, normalized):
+        raise ValueError(f"{param_name} must contain only letters and underscores")
+    return normalized
 
 
 def _fmt_ts(dt: datetime) -> str:
@@ -210,6 +238,14 @@ def _handle_api_errors(
                         raise GarminConnectTooManyRequestsError(
                             f"Rate limit exceeded: {e}"
                         ) from e
+                    if status == 404:
+                        not_found_exc = GarminConnectNotFoundError(
+                            f"{label} client error ({status}): {e}"
+                        )
+                        resp = getattr(e, "response", None)
+                        if resp is not None:
+                            not_found_exc.response = resp  # type: ignore[attr-defined]
+                        raise not_found_exc from e
                     if status and 400 <= status < 500:
                         new_exc = GarminConnectConnectionError(
                             f"{label} client error ({status}): {e}"
@@ -335,6 +371,8 @@ class Garmin:
         self.garmin_connect_devices_url = "/device-service/deviceregistration/devices"
         self.garmin_connect_device_url = "/device-service/deviceservice"
 
+        self.garmin_connect_devicemessage_url = "/device-service/devicemessage/messages"
+
         self.garmin_connect_primary_device_url = (
             "/web-gateway/device-info/primary-training-device"
         )
@@ -346,6 +384,8 @@ class Garmin:
         self.garmin_connect_biometric_url = "/biometric-service/biometric"
 
         self.garmin_connect_biometric_stats_url = "/biometric-service/stats"
+        self.garmin_connect_heart_rate_zones_url = "/biometric-service/heartRateZones"
+        self.garmin_connect_power_zones_url = "/biometric-service/powerZones"
         self.garmin_connect_daily_hydration_url = (
             "/usersummary-service/usersummary/hydration/daily"
         )
@@ -500,6 +540,8 @@ class Garmin:
         self.garmin_golf_scorecard_summary = f"{self.garmin_golf}/scorecard/summary"
         self.garmin_golf_scorecard_detail = f"{self.garmin_golf}/scorecard/detail"
         self.garmin_golf_shot = f"{self.garmin_golf}/shot/scorecard"
+        self.garmin_golf_club_stats = f"{self.garmin_golf}/club/player"
+        self.garmin_golf_user_stats = f"{self.garmin_golf}/player/stats"
 
         self.garmin_connect_delete_activity_url = "/activity-service/activity"
 
@@ -823,11 +865,11 @@ class Garmin:
         return self.display_name
 
     def get_full_name(self) -> str | None:
-        """Return full name."""
+        """Return full name of the authenticated user."""
         return self.full_name
 
     def get_unit_system(self) -> str | None:
-        """Return unit system."""
+        """Return the user's unit system (e.g. metric)."""
         return self.unit_system
 
     def get_stats(self, cdate: str) -> dict[str, Any]:
@@ -839,7 +881,15 @@ class Garmin:
         return self.get_user_summary(cdate)
 
     def get_user_summary(self, cdate: str) -> dict[str, Any]:
-        """Return user activity summary for 'cdate' format 'YYYY-MM-DD'."""
+        """Return user activity summary for 'cdate' format 'YYYY-MM-DD'.
+
+        Args:
+            cdate: The date to fetch the summary for.
+
+        Returns:
+            Dictionary containing the user activity summary.
+
+        """
         # Validate input
         cdate = _validate_date_format(cdate, "cdate")
 
@@ -1583,21 +1633,21 @@ class Garmin:
         return self.connectapi(url)
 
     def get_earned_badges(self) -> list[dict[str, Any]]:
-        """Return earned badges for current user."""
+        """Return all earned badges for the current user."""
         url = self.garmin_connect_earned_badges_url
         logger.debug("Requesting earned badges for user")
 
         return self.connectapi(url)
 
     def get_available_badges(self) -> list[dict[str, Any]]:
-        """Return available badges for current user."""
+        """Return available (not yet earned) badges for the current user."""
         url = self.garmin_connect_available_badges_url
         logger.debug("Requesting available badges for user")
 
         return self.connectapi(url, params={"showExclusiveBadge": "true"})
 
     def get_in_progress_badges(self) -> list[dict[str, Any]]:
-        """Return in progress badges for current user."""
+        """Return all badges currently in progress for the current user."""
         logger.debug("Requesting in progress badges for user")
 
         earned_badges = self.get_earned_badges()
@@ -1628,7 +1678,7 @@ class Garmin:
         return list(combined.values())
 
     def get_adhoc_challenges(self, start: int, limit: int) -> dict[str, Any]:
-        """Return adhoc challenges for current user."""
+        """Return adhoc challenges for the current user."""
         start = _validate_non_negative_integer(start, "start")
         limit = _validate_positive_integer(limit, "limit")
         url = self.garmin_connect_adhoc_challenges_url
@@ -1638,7 +1688,7 @@ class Garmin:
         return self.connectapi(url, params=params)
 
     def get_badge_challenges(self, start: int, limit: int) -> dict[str, Any]:
-        """Return badge challenges for current user."""
+        """Return badge challenges for the current user."""
         start = _validate_non_negative_integer(start, "start")
         limit = _validate_positive_integer(limit, "limit")
         url = self.garmin_connect_badge_challenges_url
@@ -1682,7 +1732,7 @@ class Garmin:
         return self.connectapi(url, params=params)
 
     def get_sleep_data(self, cdate: str) -> dict[str, Any]:
-        """Return sleep data for current user."""
+        """Return sleep data for 'cdate' format 'YYYY-MM-DD'."""
         cdate = _validate_date_format(cdate, "cdate")
         url = f"{self.garmin_connect_daily_sleep_url}/{self.display_name}"
         params = {"date": cdate, "nonSleepBufferMinutes": 60}
@@ -1691,7 +1741,7 @@ class Garmin:
         return self.connectapi(url, params=params)
 
     def get_stress_data(self, cdate: str) -> dict[str, Any]:
-        """Return stress data for current user."""
+        """Return stress data for 'cdate' format 'YYYY-MM-DD'."""
         cdate = _validate_date_format(cdate, "cdate")
         url = f"{self.garmin_connect_daily_stress_url}/{cdate}"
         logger.debug("Requesting stress data")
@@ -1699,7 +1749,7 @@ class Garmin:
         return self.connectapi(url)
 
     def get_lifestyle_logging_data(self, cdate: str) -> dict[str, Any]:
-        """Return lifestyle logging data for current user."""
+        """Return lifestyle logging data for 'cdate' format 'YYYY-MM-DD'."""
         cdate = _validate_date_format(cdate, "cdate")
         url = f"{self.garmin_connect_daily_lifestyle_logging_url}/{cdate}"
         logger.debug("Requesting lifestyle logging data")
@@ -1707,7 +1757,7 @@ class Garmin:
         return self.connectapi(url)
 
     def get_rhr_day(self, cdate: str) -> dict[str, Any]:
-        """Return resting heartrate data for current user."""
+        """Return resting heart rate data for 'cdate' format 'YYYY-MM-DD'."""
         cdate = _validate_date_format(cdate, "cdate")
         url = f"{self.garmin_connect_rhr_url}/{self._require_display_name()}"
         params = {
@@ -1720,7 +1770,7 @@ class Garmin:
         return self.connectapi(url, params=params)
 
     def get_hrv_data(self, cdate: str) -> dict[str, Any] | None:
-        """Return Heart Rate Variability (hrv) data for current user."""
+        """Return HRV (Heart Rate Variability) data for 'cdate' format 'YYYY-MM-DD'."""
         cdate = _validate_date_format(cdate, "cdate")
         url = f"{self.garmin_connect_hrv_url}/{cdate}"
         logger.debug("Requesting Heart Rate Variability (hrv) data")
@@ -1728,7 +1778,7 @@ class Garmin:
         return self.connectapi(url)
 
     def get_training_readiness(self, cdate: str) -> list[dict[str, Any]]:
-        """Return training readiness data for current user."""
+        """Return training readiness data for 'cdate' format 'YYYY-MM-DD'."""
         cdate = _validate_date_format(cdate, "cdate")
         url = f"{self.garmin_connect_training_readiness_url}/{cdate}"
         logger.debug("Requesting training readiness data")
@@ -2427,13 +2477,14 @@ class Garmin:
         return goals
 
     def get_gear(self, userProfileNumber: str) -> dict[str, Any]:
-        """Return all user gear."""
+        """Return a list of gear for the specified user profile number."""
         url = f"{self.garmin_connect_gear}?userProfilePk={userProfileNumber}"
         logger.debug("Requesting gear for user %s", userProfileNumber)
 
         return self.connectapi(url)
 
     def get_gear_stats(self, gearUUID: str) -> dict[str, Any]:
+        """Return statistics (e.g. distance) for specific gear UUID."""
         url = f"{self.garmin_connect_gear_baseurl}/stats/{gearUUID}"
         logger.debug("Requesting gear stats for gearUUID %s", gearUUID)
 
@@ -2571,6 +2622,24 @@ class Garmin:
         """Return cycling Functional Threshold Power (FTP) information."""
         url = f"{self.garmin_connect_biometric_url}/latestFunctionalThresholdPower/CYCLING"
         logger.debug("Requesting latest cycling FTP")
+        return self.connectapi(url)
+
+    def get_heart_rate_zones(self) -> list[dict[str, Any]]:
+        """Return configured heart rate zones for all sport profiles."""
+        logger.debug("Requesting heart rate zones")
+        return self.connectapi(self.garmin_connect_heart_rate_zones_url)
+
+    def get_power_zones(self) -> list[dict[str, Any]]:
+        """Return configured power zones for all supported sports."""
+        url = f"{self.garmin_connect_power_zones_url}/sports/all"
+        logger.debug("Requesting power zones for all sports")
+        return self.connectapi(url)
+
+    def get_power_zones_for_sport(self, sport: str) -> dict[str, Any]:
+        """Return configured power zones for a Garmin sport key."""
+        normalized_sport = _validate_sport_key(sport)
+        url = f"{self.garmin_connect_power_zones_url}/sport/{normalized_sport}"
+        logger.debug("Requesting power zones for sport %s", normalized_sport)
         return self.connectapi(url)
 
     def get_activity(self, activity_id: str) -> dict[str, Any]:
@@ -2792,6 +2861,35 @@ class Garmin:
             raise ValueError("workout_json must be a JSON object or array")
         return self.client.post("connectapi", url, json=payload, api=True)
 
+    def update_workout(
+        self, workout_id: int | str, workout_json: dict[str, Any] | str
+    ) -> dict[str, Any]:
+        """Update (replace) an existing workout in place using json data.
+
+        Garmin's workout endpoint replaces the whole workout via PUT, so
+        ``workout_json`` must be the complete structure (as returned by
+        ``get_workout_by_id`` or built the same way as for ``upload_workout``).
+        The workout keeps its id, so any calendar schedules pointing at it stay
+        valid. ``workoutId`` in the body is forced to match ``workout_id``.
+        """
+        workout_id = _validate_positive_integer(int(workout_id), "workout_id")
+        url = f"{self.garmin_workouts}/workout/{workout_id}"
+        logger.debug("Updating workout using %s", url)
+
+        if isinstance(workout_json, str):
+            import json as _json
+
+            try:
+                payload = _json.loads(workout_json)
+            except Exception as e:
+                raise ValueError(f"invalid workout_json string: {e}") from e
+        else:
+            payload = workout_json
+        if not isinstance(payload, dict):
+            raise ValueError("workout_json must be a JSON object")
+        body = payload | {"workoutId": workout_id}
+        return self.client.put("connectapi", url, json=body, api=True)
+
     def upload_running_workout(self, workout: Any) -> dict[str, Any]:
         """Upload a typed running workout.
 
@@ -2934,6 +3032,93 @@ class Garmin:
                 "Install it with: pip install pydantic or pip install garminconnect[workout]"
             ) from None
 
+    def upload_strength_workout(self, workout: Any) -> dict[str, Any]:
+        """Upload a typed strength training workout.
+
+        Args:
+            workout: StrengthWorkout instance from garminconnect.workout
+
+        Returns:
+            Dictionary containing the uploaded workout data
+
+        Example:
+            from garminconnect.workout import StrengthWorkout, WorkoutSegment
+            from garminconnect.workout import create_strength_set
+
+            workout = StrengthWorkout(
+                workoutName="Upper Body",
+                estimatedDurationInSecs=0,
+                workoutSegments=[
+                    WorkoutSegment(
+                        segmentOrder=1,
+                        sportType={"sportTypeId": 5, "sportTypeKey": "strength_training"},
+                        workoutSteps=[
+                            create_strength_set("BENCH_PRESS", step_order=1,
+                                                sets=4, reps=10, rest_seconds=120),
+                        ],
+                    )
+                ],
+            )
+            api.upload_strength_workout(workout)
+
+        """
+        try:
+            from .workout import StrengthWorkout
+
+            if not isinstance(workout, StrengthWorkout):
+                raise TypeError("workout must be a StrengthWorkout instance")
+            return self.upload_workout(workout.to_dict())
+        except ImportError:
+            raise ImportError(
+                "Pydantic is required for typed workouts. "
+                "Install it with: pip install pydantic or pip install garminconnect[workout]"
+            ) from None
+
+    def push_workout_to_device(
+        self, workout_id: int | str | None = None, device_id: int | str | None = None
+    ) -> dict[str, Any]:
+        """Push a workout to a device.
+
+        Args:
+            workout_id: The workout ID returned after uploading. If not provided, will push last workout in the library.
+            device_id: Optional device ID to push the workout to. If not provided,  will choose the last used device.
+
+        Returns:
+            Dictionary containing the result of the push operation.
+
+        """
+        if device_id is None:
+            device_id = self.get_device_last_used()["userDeviceId"]
+
+        device_id = _validate_positive_integer(int(device_id), "device_id")
+
+        if workout_id is None:
+            workouts = self.get_workouts(start=0, limit=1)
+            if not workouts:
+                raise ValueError("No workouts found to push.")
+            workout_id = workouts[0]["workoutId"]
+
+        workout_id = _validate_positive_integer(int(workout_id), "workout_id")
+        workout_name = self.get_workout_by_id(workout_id)["workoutName"]
+
+        url = self.garmin_connect_devicemessage_url
+
+        payload = [
+            {
+                "deviceId": device_id,
+                "messageUrl": f"workout-service/workout/FIT/{workout_id}",
+                "messageType": "workouts",
+                "groupName": None,
+                "messageName": workout_name,
+                "priority": 1,
+                "fileType": "FIT",
+                "metaDataId": workout_id,
+            }
+        ]
+
+        logger.debug("Pushing workout %s to device %s", workout_id, device_id)
+        return self.client.post("connectapi", url, json=payload, api=True)
+
     def get_scheduled_workouts(
         self, year: int | str, month: int | str
     ) -> dict[str, Any]:
@@ -3010,7 +3195,7 @@ class Garmin:
         return self.connectapi(url)
 
     def get_pregnancy_summary(self) -> dict[str, Any]:
-        """Return snapshot of pregnancy data."""
+        """Return pregnancy summary for the current user."""
         url = f"{self.garmin_connect_pregnancy_snapshot_url}"
         logger.debug("Requesting pregnancy snapshot data")
 
@@ -3050,20 +3235,22 @@ class Garmin:
         stale/poisoned cached tokens. ``login()`` already self-heals from
         rejected cached tokens, so this is only needed for manual control.
 
-        :param tokenstore: Path to the token directory/file to remove. Falls
-            back to the ``GARMINTOKENS`` environment variable. Token strings
-            passed inline (length > 512) are ignored — nothing to delete.
+        This only clears local authentication state. It does not revoke an
+        already-issued token at Garmin. The token-store directory and any
+        unrelated files in it are preserved.
+
+        :param tokenstore: Path to the token directory or JSON file whose
+            ``garmin_tokens.json`` file should be removed. Falls back to the
+            ``GARMINTOKENS`` environment variable. Token strings passed inline
+            (length > 512) are ignored — nothing to delete.
         """
         self.client._clear_auth_state()
         tokenstore = tokenstore or os.getenv("GARMINTOKENS")
         if not tokenstore or len(tokenstore) > 512:
             return
-        path = Path(tokenstore).expanduser()
-        with contextlib.suppress(Exception):
-            if path.is_dir():
-                shutil.rmtree(path)
-            elif path.exists():
-                path.unlink()
+        path = client.token_file_path(tokenstore)
+        with contextlib.suppress(FileNotFoundError):
+            path.unlink()
 
     def get_training_plans(self) -> dict[str, Any]:
         """Return all available training plans."""
@@ -3150,13 +3337,14 @@ class Garmin:
     def get_golf_shot_data(
         self,
         scorecard_id: int | str,
-        hole_numbers: str = "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18",
+        hole_numbers: str | None = None,
     ) -> dict[str, Any]:
         """Return golf shot data for a scorecard and specific holes.
 
         Args:
             scorecard_id: The scorecard ID to get shot data for.
-            hole_numbers: Comma-separated hole numbers (default: all 18).
+            hole_numbers: Holes 1-18 separated by ',' or '-' (e.g. "1,2,3").
+                Omit to get every hole on the scorecard.
 
         Returns:
             Dictionary containing shot data per hole.
@@ -3164,18 +3352,52 @@ class Garmin:
         """
         scorecard_id = _validate_positive_integer(int(scorecard_id), "scorecard_id")
         url = f"{self.garmin_golf_shot}/{scorecard_id}/hole"
-        params = {"hole-numbers": hole_numbers}
+        params = None
+        if hole_numbers is not None:
+            hole_numbers = _validate_hole_numbers(hole_numbers)
+            params = f"hole-numbers={hole_numbers}"
         logger.debug(
             "Requesting golf shot data for scorecard %d, holes %s",
             scorecard_id,
-            hole_numbers,
+            "all" if hole_numbers is None else hole_numbers,
         )
         return self.connectapi(url, params=params)
+
+    def get_golf_club_stats(
+        self,
+        limit: int = 1000,
+    ) -> dict[str, Any]:
+        """Return golf club names and statistics.
+
+        Args:
+            limit: Maximum number of results to return.
+
+        Returns:
+            Dictionary containing club list and distance data.
+
+        """
+        limit = _validate_positive_integer(limit, "limit")
+        url = f"{self.garmin_golf_club_stats}"
+        params = {"per-page": str(limit), "include-stats": "true"}
+        logger.debug("Requesting golf club data for the user.")
+        return self.connectapi(url, params=params)
+
+    def get_golf_user_stats(self) -> dict[str, Any]:
+        """Return overview of the users golf statistics.
+
+        Returns:
+            Dictionary containing user stats such as handicap and strokes gained.
+
+        """
+        url = f"{self.garmin_golf_user_stats}"
+        logger.debug("Requesting golf user statistics")
+        return self.connectapi(url)
 
 
 from .exceptions import (  # noqa: E402
     GarminConnectAuthenticationError,
     GarminConnectConnectionError,
     GarminConnectInvalidFileFormatError,
+    GarminConnectNotFoundError,
     GarminConnectTooManyRequestsError,
 )

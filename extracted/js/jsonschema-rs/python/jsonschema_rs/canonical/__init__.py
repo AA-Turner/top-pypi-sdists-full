@@ -7,7 +7,10 @@ FalseView = _canonical.FalseView
 MultiTypeView = _canonical.MultiTypeView
 TypedGroupView = _canonical.TypedGroupView
 StringView = _canonical.StringView
+NumberView = _canonical.NumberView
 IntegerView = _canonical.IntegerView
+ArrayView = _canonical.ArrayView
+ObjectView = _canonical.ObjectView
 AnyOfView = _canonical.AnyOfView
 ConstView = _canonical.ConstView
 EnumView = _canonical.EnumView
@@ -19,7 +22,10 @@ CanonicalViewType = (
     | MultiTypeView
     | TypedGroupView
     | StringView
+    | NumberView
     | IntegerView
+    | ArrayView
+    | ObjectView
     | AnyOfView
     | ConstView
     | EnumView
@@ -53,6 +59,7 @@ class InvalidPattern(CanonicalizationError):
 
 __all__ = [
     "AnyOfView",
+    "ArrayView",
     "CanonicalViewType",
     "CanonicalizationError",
     "ConstView",
@@ -62,8 +69,10 @@ __all__ = [
     "InvalidPattern",
     "InvalidSchemaType",
     "MultiTypeView",
+    "ObjectView",
     "RawView",
     "StringView",
+    "NumberView",
     "TrueView",
     "TypedGroupView",
     "json",

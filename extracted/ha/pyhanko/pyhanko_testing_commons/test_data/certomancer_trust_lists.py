@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 from aiohttp.test_utils import TestClient
@@ -123,7 +123,11 @@ def certomancer_pki_as_trusted_list(
     pki_arch: PKIArchitecture, tlso_entity: EntityLabel
 ):
     xml_root = ts_119612.TrustServiceStatusList(
-        scheme_information=ts_119612.SchemeInformation(),
+        scheme_information=ts_119612.SchemeInformation(
+            list_issue_date_time=XmlDateTime.from_datetime(
+                datetime.now(tz=timezone.utc)
+            ),
+        ),
         trust_service_provider_list=ts_119612.TrustServiceProviderList(
             trust_service_provider=tuple(
                 ts_119612.TrustServiceProvider(
@@ -139,7 +143,7 @@ def certomancer_pki_as_trusted_list(
 def certomancer_lotl(
     pki_arch: PKIArchitecture,
     lotl_tlso_entity: EntityLabel,
-    entries: List[Tuple[CertLabel, str, str]],
+    entries: list[tuple[CertLabel, str, str]],
 ):
     pointers = [
         ts_119612.OtherTSLPointer(
@@ -173,9 +177,12 @@ def certomancer_lotl(
 
     xml_root = ts_119612.TrustServiceStatusList(
         scheme_information=ts_119612.SchemeInformation(
-            scheme_information_uri=ts_119612.SchemeInformationURI(uri=tuple()),
+            scheme_information_uri=ts_119612.SchemeInformationURI(uri=()),
             pointers_to_other_tsl=ts_119612.PointersToOtherTSL(
                 other_tslpointer=tuple(pointers)
+            ),
+            list_issue_date_time=XmlDateTime.from_datetime(
+                datetime.now(tz=timezone.utc)
             ),
         ),
     )

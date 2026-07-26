@@ -743,8 +743,8 @@ class Flags():
 #  _ch_ver = (_ord_today - 735562) // 28
 
 _ord_today = dt.date.today().toordinal()
-_ff_ver = (_ord_today - 735_513) // 28  # 147 on 2026-01-13
-_ch_ver = (_ord_today - 735_599) // 28  # 143 on 2025-12-18
+_ff_ver = (_ord_today - 735_534) // 28  # 153 on 2026-07-21
+_ch_ver = (_ord_today - 735_597) // 28  # 150 on 2026-06-30
 
 re = text.re
 re_compile = text.re_compile

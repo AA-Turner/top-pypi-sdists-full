@@ -1,19 +1,24 @@
-import binascii
-
 import pytest
 
-from scramp.utils import b64dec, xor
+from scramp.utils import ScramException, b64dec, xor
 
 
 @pytest.mark.parametrize(
-    "string",
+    "string,error_msg,server_error",
     [
-        "!!!!",
+        [
+            "!!!!",
+            "Invalid base 64 encoding '!!!!': invalid-encoding",
+            "invalid-encoding",
+        ],
     ],
 )
-def test_b64dec_fails(string):
-    with pytest.raises(binascii.Error):
+def test_b64dec_fails(string, error_msg, server_error):
+    with pytest.raises(ScramException) as exc_info:
         b64dec(string)
+
+    assert str(exc_info.value) == error_msg
+    assert str(exc_info.value.server_error) == server_error
 
 
 @pytest.mark.parametrize(

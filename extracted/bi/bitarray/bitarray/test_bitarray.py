@@ -15,7 +15,8 @@ import unittest
 import shutil
 import tempfile
 from io import BytesIO, UnsupportedOperation
-from random import choice, choices, getrandbits, randrange, randint, shuffle
+from random import (choice, choices, getrandbits, randrange, randint,
+                    sample, shuffle)
 from string import whitespace
 from collections import deque
 
@@ -630,7 +631,7 @@ class DelItemTests(unittest.TestCase, Util):
         self.assertFalse(b.readonly)
         self.assertRaises(BufferError, b.__delitem__, 13)
 
-# -------------------------- Slice index tests ------------------------------
+# ------------------------ Slice subscript tests ----------------------------
 
 class GetSliceTests(unittest.TestCase, Util):
 
@@ -1154,9 +1155,9 @@ class DelSliceTests(unittest.TestCase, Util):
         # even though we don't delete anything, raise error
         self.assertRaises(BufferError, b.__delitem__, slice(3, 3))
 
-# ----------------------------- Masked index tests --------------------------
+# ---------------------------- Mask subscript tests -------------------------
 
-class GetMaskedIndexTests(unittest.TestCase, Util):
+class GetMaskTests(unittest.TestCase, Util):
 
     def test_basic(self):
         a =    bitarray('1001001')
@@ -1191,6 +1192,23 @@ class GetMaskedIndexTests(unittest.TestCase, Util):
             self.assertEqual(list(a[mask]),
                              [a[i] for i in range(n) if mask[i]])
 
+    def test_random_sparse_mask(self):
+        for k in range(25):
+            n = randrange(100, 1000)
+            a = urandom_2(n)
+            b = a.copy()
+            mask = zeros(n)
+            mask[sample(range(n), k)] = 1
+            for inv in 0, 1:
+                if inv:
+                    mask.invert()
+                self.assertEqual(mask.count(), n - k if inv else k)
+                res = bitarray(mask.count())
+                for i, j in enumerate(mask.search(1)):
+                    res[i] = a[j]
+                self.assertEqual(a[mask], res)
+            self.assertEQUAL(a, b)
+
     def test_random_slice_mask(self):
         for n in range(100):
             s = self.random_slice(n, step=randint(1, 5))
@@ -1199,7 +1217,7 @@ class GetMaskedIndexTests(unittest.TestCase, Util):
             mask[s] = 1
             self.assertEQUAL(a[mask], a[s])
 
-class SetMaskedIndexTests(unittest.TestCase, Util):
+class SetMaskTests(unittest.TestCase, Util):
 
     def test_basic(self):
         a =    bitarray('1001001')
@@ -1239,6 +1257,21 @@ class SetMaskedIndexTests(unittest.TestCase, Util):
             a[mask] = c
             self.assertEqual(a, c)
 
+    def test_self_mask(self):
+        for n in range(50):
+            a = urandom_2(n)
+            b = a.copy()
+            k = a.count()
+            a[a] = ones(k)  # set all 1 bits to 1
+            self.assertEqual(a, b)
+            a[a] = zeros(k)  # set all 1 bits to 0
+            self.assertEqual(a, zeros(n))
+
+            a = urandom_2(n)
+            b = a.copy()
+            a[ones(n)] = a  # copy a onto itself
+            self.assertEqual(a, b)
+
     def test_random_mask_set_random(self):
         for a in self.randombitarrays():
             b = a.copy()
@@ -1259,6 +1292,23 @@ class SetMaskedIndexTests(unittest.TestCase, Util):
             other = urandom_2(slicelength)
             a[mask] = b[s] = other
             self.assertEQUAL(a, b)
+
+    def test_random_sparse_mask(self):
+        for k in range(25):
+            n = randrange(100, 1000)
+            mask = zeros(n)
+            mask[sample(range(n), k)] = 1
+            for inv in 0, 1:
+                if inv:
+                    mask.invert()
+                a = urandom_2(n)
+                b = a.copy()
+                self.assertEqual(mask.count(), n - k if inv else k)
+                other = urandom_2(mask.count())
+                a[mask] = other
+                for i, j in enumerate(mask.search(1)):
+                    b[j] = other[i]
+                self.assertEQUAL(a, b)
 
     def test_random_mask_set_zeros(self):
         for a in self.randombitarrays():
@@ -1295,7 +1345,7 @@ class SetMaskedIndexTests(unittest.TestCase, Util):
         b[c] = bitarray(' 1001   01  10')
         self.assertEqual(a, bytearray([0b00001001, 0b11011110]))
 
-class DelMaskedIndexTests(unittest.TestCase, Util):
+class DelMaskTests(unittest.TestCase, Util):
 
     def test_basic(self):
         a =    bitarray('1001001')
@@ -1349,6 +1399,23 @@ class DelMaskedIndexTests(unittest.TestCase, Util):
             del a[mask], b[s]
             self.assertEQUAL(a, b)
 
+    def test_random_sparse_mask(self):
+        for k in range(25):
+            n = randrange(100, 1000)
+            mask = zeros(n)
+            mask[sample(range(n), k)] = 1
+            for inv in 0, 1:
+                if inv:
+                    mask.invert()
+                a = urandom_2(n)
+                b = a.copy()
+                self.assertEqual(mask.count(), n - k if inv else k)
+                del a[mask]
+                for i, j in enumerate(mask.search(1)):
+                    # remove j - i as previous deletions shift locations
+                    del b[j - i]
+                self.assertEQUAL(a, b)
+
     @unittest.skipIf(is_pypy, "skip test on PyPy")
     def test_imported(self):
         a = bytearray([5, 3])
@@ -1359,24 +1426,24 @@ class DelMaskedIndexTests(unittest.TestCase, Util):
         # even though we don't delete anything, raise error
         self.assertRaises(BufferError, b.__delitem__, bitarray(16))
 
-# ------------------------- Sequence index tests ----------------------------
+# ----------------------- Sequence subscript tests --------------------------
 
-class CommonSequenceIndexTests(unittest.TestCase, Util):
+class CommonSubscritsTests(unittest.TestCase, Util):
 
     def test_type_messages(self):
         for item, msg in [
                 (tuple([1, 2]), "multiple dimensions not supported"),
-                (None, "bitarray indices must be integers, slices or "
-                       "sequences, not 'NoneType'"),
-                (0.12, "bitarray indices must be integers, slices or "
-                       "sequences, not 'float'"),
+                (None, "bitarray subscript must be an index, slice or "
+                       "sequence, not 'NoneType'"),
+                (0.12, "bitarray subscript must be an index, slice or "
+                       "sequence, not 'float'"),
         ]:
             a = bitarray('10111')
             self.assertRaisesMessage(TypeError, msg, a.__getitem__, item)
             self.assertRaisesMessage(TypeError, msg, a.__setitem__, item, 1)
             self.assertRaisesMessage(TypeError, msg, a.__delitem__, item)
 
-class GetSequenceIndexTests(unittest.TestCase, Util):
+class GetSequenceTests(unittest.TestCase, Util):
 
     def test_basic(self):
         a = bitarray('00110101 00')
@@ -1423,7 +1490,7 @@ class GetSequenceIndexTests(unittest.TestCase, Util):
             a = urandom_2(n)
             self.assertEQUAL(a[r], a[s])
 
-class SetSequenceIndexTests(unittest.TestCase, Util):
+class SetSequenceTests(unittest.TestCase, Util):
 
     def test_bool_basic(self):
         a = zeros(10)
@@ -1520,7 +1587,7 @@ class SetSequenceIndexTests(unittest.TestCase, Util):
         b[range(0, 10)] = bitarray("00001111 01", "little")
         self.assertEqual(a, bytearray([0x0f, 0x41, 0x82, 0x83]))
 
-class DelSequenceIndexTests(unittest.TestCase, Util):
+class DelSequenceTests(unittest.TestCase, Util):
 
     def test_basic(self):
         a = bitarray('00110101 00')
@@ -1554,6 +1621,19 @@ class DelSequenceIndexTests(unittest.TestCase, Util):
             del a[lst]
             self.assertEqual(len(a), n - len(set(lst)))
             for i in sorted(set(lst), reverse=True):
+                del b[i]
+            self.assertEqual(a, b)
+
+    def test_random_sparse(self):
+        for k in range(25):
+            n = randrange(100, 1000)
+            a = urandom_2(n)
+            lst = choices(range(n), k=k)
+            indices = set(lst)
+            b = a.copy()
+            del a[lst]
+            self.assertEqual(len(a), n - len(indices))
+            for i in sorted(indices, reverse=True):
                 del b[i]
             self.assertEqual(a, b)
 
@@ -5353,6 +5433,9 @@ class FrozenbitarrayTests(unittest.TestCase, Util):
         self.assertFalse(a.readonly)  # not readonly
         a._freeze()
         self.assertTrue(a.readonly)   # readonly
+        # This is a test for .check_obj() as a bitarray (unless created
+        # by importing a readonly buffer) is always writable.
+        self.assertRaises(AssertionError, self.check_obj, a)
 
     def test_memoryview(self):
         a = frozenbitarray('01000001 01000010', 'big')

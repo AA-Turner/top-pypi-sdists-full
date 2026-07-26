@@ -277,11 +277,6 @@ pub(crate) enum SmoothingCorrectionUnavailable {
     },
     PenaltyStructure { error: String },
     NonFiniteCorrection,
-    MateriallyIndefiniteCorrection {
-        min_eigenvalue: f64,
-        tolerance: f64,
-    },
-    CorrectionEigendecomposition,
 }
 
 /// Certified inverse of the rho-space LAML Hessian. A pseudoinverse is admitted
@@ -293,6 +288,9 @@ pub(crate) struct InvertedRhoHessian {
     pub inverse: Array2<f64>,
     pub active_rank: usize,
     pub structural_zero: usize,
+    /// Directions dropped because their curvature sits under the outer loop's
+    /// own gradient noise floor (#2428). Distinct from `structural_zero`.
+    pub below_gradient_floor: usize,
     pub used_structural_pseudoinverse: bool,
     pub eigenvalue_backward_error_bound: f64,
     pub eigenvalues: Array1<f64>,
@@ -304,6 +302,81 @@ pub(crate) struct InvertedRhoHessian {
 pub(crate) enum EigenClassification {
     Active,
     StructuralZero,
+    /// Curvature indistinguishable from zero at the accuracy the OUTER LOOP
+    /// itself demonstrated when it accepted this ρ̂ (#2428).
+    ///
+    /// Not a structural zero of the penalty map: it is created dynamically by
+    /// a smoothing parameter running to its saturation limit, where the term
+    /// is numerically pinned to its own null space and the REML profile goes
+    /// flat in that coordinate. The count is therefore NOT knowable a priori
+    /// and is excluded from the structural-nullity identity below.
+    BelowGradientFloor,
+}
+
+/// Assemble `Q J Vρ Jᵀ Qᵀ` through a rectangular square-root factor.
+///
+/// `invert_identified_rho_hessian` has already classified every retained
+/// eigendirection as strictly positive and resolved. Therefore
+///
+/// ```text
+/// Vρ = U_active diag(1 / σ_active) U_activeᵀ
+/// Q J Vρ Jᵀ Qᵀ = B Bᵀ,
+/// B = Q J U_active diag(1 / sqrt(σ_active)).
+/// ```
+///
+/// Forming the covariance as the Gram matrix `B Bᵀ` preserves its defining
+/// positive-semidefinite structure in floating-point arithmetic. In
+/// particular, each diagonal is accumulated as a sum of squares. The previous
+/// `(J Vρ) Jᵀ` followed by `Q (…) Qᵀ` route accumulated signed cancellation in
+/// two generic matrix products. When a true correction diagonal was zero or
+/// much smaller than the matrix's signed off-diagonal scale, that route could
+/// emit a negative diagonal of order ε; a small conditional covariance need
+/// not dominate that error when the corrected covariance is assembled.
+fn smoothing_correction_gram(
+    jacobian_trans: &Array2<f64>,
+    qs: &Array2<f64>,
+    eigenvalues: &Array1<f64>,
+    eigenvectors: &Array2<f64>,
+    classifications: &[EigenClassification],
+) -> Array2<f64> {
+    let rho_dimension = jacobian_trans.ncols();
+    assert_eq!(eigenvalues.len(), rho_dimension);
+    assert_eq!(eigenvectors.dim(), (rho_dimension, rho_dimension));
+    assert_eq!(classifications.len(), rho_dimension);
+    assert_eq!(qs.ncols(), jacobian_trans.nrows());
+
+    let active_directions: Vec<usize> = classifications
+        .iter()
+        .enumerate()
+        .filter_map(|(index, class)| {
+            matches!(class, EigenClassification::Active).then_some(index)
+        })
+        .collect();
+    let mut factor_trans =
+        Array2::<f64>::zeros((jacobian_trans.nrows(), active_directions.len()));
+    for (factor_column, &eigen_index) in active_directions.iter().enumerate() {
+        let eigenvalue = eigenvalues[eigen_index];
+        assert!(
+            eigenvalue.is_finite() && eigenvalue > 0.0,
+            "an active rho-Hessian eigendirection must have finite positive curvature"
+        );
+        let scale = eigenvalue.sqrt().recip();
+        let direction = jacobian_trans.dot(&eigenvectors.column(eigen_index));
+        factor_trans
+            .column_mut(factor_column)
+            .assign(&direction.mapv(|value| value * scale));
+    }
+
+    let factor_orig = qs.dot(&factor_trans);
+    let mut correction = factor_orig.dot(&factor_orig.t());
+    gam_linalg::matrix::symmetrize_in_place(&mut correction);
+    // Make the Gram diagonal's non-negativity explicit rather than relying on
+    // a backend-specific GEMM diagonal accumulation path.
+    for index in 0..factor_orig.nrows() {
+        let row = factor_orig.row(index);
+        correction[[index, index]] = row.dot(&row);
+    }
+    correction
 }
 
 fn eigenpair_backward_error_bound(
@@ -399,9 +472,34 @@ fn penalty_map_structural_nullity(
     Ok(k - rank)
 }
 
+/// Invert the ρ-Hessian on the subspace where its curvature is actually
+/// resolvable, judged by the SAME standard the outer certificate used to accept
+/// this ρ̂ (#2428).
+///
+/// `outer_gradient` is the outer loop's residual gradient at the certified
+/// point, per ρ coordinate; pass an empty array when it is unavailable. The
+/// outer certificate admits a point as a minimum by testing that
+/// `H + diag(|g|)` is PSD off the railed coordinates
+/// (`certificate_hessian_is_psd_off_railed_above_gradient_floor`): a curvature
+/// smaller than the residual gradient in that coordinate is below the noise
+/// floor of the very machinery that produced both numbers, so it cannot be
+/// called negative. Along eigenvector `v` that test is exactly
+/// `σ + Σ_k |g_k| v_k² ≥ 0`, so the per-direction floor is `Σ_k |g_k| v_k²`,
+/// evaluated here on the eigenvectors we already have.
+///
+/// Applying any WEAKER standard here than the certificate applied there lets the
+/// two subsystems reach opposite verdicts on one matrix at one converged point —
+/// which is exactly #2428: the outer loop certified the fit, and this inversion
+/// then destroyed it over an eigenvalue 19x below the residual gradient.
+///
+/// Directions under that floor are dropped from the inverse rather than
+/// regularized. That is the correct limit, not a convenience: they arise when a
+/// smoothing parameter saturates, and there `∂β̂/∂ρ → 0`, so the direction
+/// contributes nothing to `J·V_ρ·Jᵀ` however large `1/σ` would have been.
 pub(crate) fn invert_identified_rho_hessian(
     hessian_rho: &Array2<f64>,
     expected_structural_nullity: usize,
+    outer_gradient: &Array1<f64>,
 ) -> Result<InvertedRhoHessian, String> {
     let n = hessian_rho.nrows();
     if expected_structural_nullity > n {
@@ -409,34 +507,49 @@ pub(crate) fn invert_identified_rho_hessian(
             "structural nullity {expected_structural_nullity} exceeds rho dimension {n}"
         ));
     }
-    if expected_structural_nullity == 0 {
-        let certified = gam_linalg::utils::certified_spd_inverse(
-            hessian_rho,
-            "unperturbed rho Hessian",
-        )
-        .map_err(|error| error.to_string())?;
-        return Ok(InvertedRhoHessian {
-            inverse: certified.into_inverse(),
-            active_rank: n,
-            structural_zero: 0,
-            used_structural_pseudoinverse: false,
-            eigenvalue_backward_error_bound: 0.0,
-            eigenvalues: Array1::<f64>::zeros(0),
-            eigenvectors: Array2::<f64>::zeros((0, 0)),
-            classifications: Vec::new(),
-        });
+    if !outer_gradient.is_empty() && outer_gradient.len() != n {
+        return Err(format!(
+            "outer gradient has {} coordinate(s) but the rho Hessian is {n}x{n}",
+            outer_gradient.len()
+        ));
     }
+    // Reject a non-finite Hessian before the eigensolver sees it: a NaN spectrum
+    // would otherwise classify as "unresolvable" rather than as the hard input
+    // defect it is.
+    gam_linalg::utils::validate_finite_symmetric_matrix(hessian_rho, "rho Hessian")
+        .map_err(|error| error.to_string())?;
 
     let (eigenvalues, eigenvectors) = hessian_rho
         .eigh(faer::Side::Lower)
         .map_err(|error| format!("rho-Hessian eigendecomposition failed: {error}"))?;
     let zero_bound = eigenpair_backward_error_bound(hessian_rho, &eigenvalues, &eigenvectors)?;
-    let min_eigenvalue = eigenvalues.iter().copied().fold(f64::INFINITY, f64::min);
-    if min_eigenvalue < -zero_bound {
-        let neg_zero_bound = -zero_bound;
-        return Err(format!(
-            "rho Hessian has negative curvature {min_eigenvalue:.3e} below eigensolver backward-error bound {neg_zero_bound:.3e}"
-        ));
+
+    // Per-direction resolution floor: the eigensolver's own backward error, or
+    // the outer certificate's gradient floor along this eigenvector, whichever
+    // admits more. Both are measurements, not tolerances chosen by hand.
+    let direction_floor = |i: usize| -> f64 {
+        if outer_gradient.is_empty() {
+            return zero_bound;
+        }
+        let v = eigenvectors.column(i);
+        let mut floor = 0.0_f64;
+        for k in 0..n {
+            floor += outer_gradient[k].abs() * v[k] * v[k];
+        }
+        if floor.is_finite() { floor.max(zero_bound) } else { zero_bound }
+    };
+
+    for i in 0..n {
+        let sigma = eigenvalues[i];
+        let floor = direction_floor(i);
+        if sigma < -floor {
+            return Err(format!(
+                "rho Hessian has negative curvature {sigma:.3e} below the outer certificate's own \
+                 resolution floor {floor:.3e} on that direction (eigensolver backward error \
+                 {zero_bound:.3e}); the outer loop certified this point as a minimum, so this is a \
+                 genuine contradiction rather than an unresolvable direction"
+            ));
+        }
     }
 
     let mut inverse = Array2::<f64>::zeros((n, n));
@@ -444,13 +557,19 @@ pub(crate) fn invert_identified_rho_hessian(
     let mut classifications = Vec::with_capacity(n);
     let mut active_rank = 0usize;
     let mut structural_zero = 0usize;
+    let mut below_gradient_floor = 0usize;
 
     for i in 0..n {
         let sigma = eigenvalues[i];
-        let class = if sigma > zero_bound {
+        let floor = direction_floor(i);
+        let class = if sigma > floor {
             EigenClassification::Active
-        } else {
+        } else if sigma.abs() <= zero_bound {
+            // Zero to the eigensolver's own backward error: this is the
+            // structural kind the penalty map counts.
             EigenClassification::StructuralZero
+        } else {
+            EigenClassification::BelowGradientFloor
         };
         classifications.push(class);
         match class {
@@ -471,13 +590,46 @@ pub(crate) fn invert_identified_rho_hessian(
                 }
             }
             EigenClassification::StructuralZero => structural_zero += 1,
+            EigenClassification::BelowGradientFloor => below_gradient_floor += 1,
         }
     }
-    if structural_zero != expected_structural_nullity {
+    // The penalty map certifies HOW MANY directions must be null; it cannot say
+    // which eigenpair each one lands on, and once a rail saturates, a structural
+    // zero and a saturation null are indistinguishable by magnitude (both sit
+    // under the assembly noise, which is far above eigensolver backward error).
+    // So the identity to enforce is that the Hessian exhibits AT LEAST the
+    // certified number of null directions — finding fewer contradicts the
+    // penalty map and is a real defect. Finding more is a saturated rail, which
+    // is a property of this ρ̂, not of the penalty map, and is expected.
+    let identified_null = structural_zero + below_gradient_floor;
+    if identified_null < expected_structural_nullity {
         return Err(format!(
-            "rho Hessian has {structural_zero} zero direction(s) within eigensolver backward error, but the penalty map certifies {expected_structural_nullity}"
+            "rho Hessian has only {identified_null} null direction(s) ({structural_zero} within eigensolver backward error, {below_gradient_floor} under the outer gradient floor), but the penalty map certifies {expected_structural_nullity}"
         ));
     }
+
+    // Every direction resolvable: return the Cholesky-certified inverse, which
+    // is what this function has always returned for a strictly positive
+    // definite ρ-Hessian. Keeping that path verbatim means no fit that succeeds
+    // today moves by a single ulp — the eigen route below engages only where the
+    // old code aborted.
+    if active_rank == n {
+        let certified =
+            gam_linalg::utils::certified_spd_inverse(hessian_rho, "unperturbed rho Hessian")
+                .map_err(|error| error.to_string())?;
+        return Ok(InvertedRhoHessian {
+            inverse: certified.into_inverse(),
+            active_rank: n,
+            structural_zero: 0,
+            below_gradient_floor: 0,
+            used_structural_pseudoinverse: false,
+            eigenvalue_backward_error_bound: zero_bound,
+            eigenvalues,
+            eigenvectors,
+            classifications,
+        });
+    }
+
     gam_linalg::matrix::symmetrize_in_place(&mut inverse);
     let matrix_max_abs = gam_linalg::utils::validate_finite_symmetric_matrix(
         hessian_rho,
@@ -499,6 +651,7 @@ pub(crate) fn invert_identified_rho_hessian(
         inverse,
         active_rank,
         structural_zero,
+        below_gradient_floor,
         used_structural_pseudoinverse: true,
         eigenvalue_backward_error_bound: zero_bound,
         eigenvalues,
@@ -573,10 +726,11 @@ fn dump_indefinite_rho_hessian_diagnostic(
     );
     if let Some(inv) = inverted {
         log::warn!(
-            "[INDEF-HESS] active_rank={}/{} structural_zero={} eigenvalue_backward_error_bound={:.3e}",
+            "[INDEF-HESS] active_rank={}/{} structural_zero={} below_gradient_floor={} eigenvalue_backward_error_bound={:.3e}",
             inv.active_rank,
             k,
             inv.structural_zero,
+            inv.below_gradient_floor,
             inv.eigenvalue_backward_error_bound,
         );
         if !inv.classifications.is_empty() {
@@ -586,10 +740,12 @@ fn dump_indefinite_rho_hessian_diagnostic(
                 .map(|c| match c {
                     EigenClassification::Active => "A",
                     EigenClassification::StructuralZero => "Z",
+                    EigenClassification::BelowGradientFloor => "G",
                 })
                 .collect();
             log::warn!(
-                "[INDEF-HESS] classifications={:?} (A=active Z=structurally certified zero)",
+                "[INDEF-HESS] classifications={:?} (A=active Z=structurally certified zero \
+                 G=under the outer loop's own gradient floor, i.e. a saturation null)",
                 labels,
             );
         }
@@ -755,13 +911,18 @@ fn dump_indefinite_rho_hessian_diagnostic(
     }
 }
 
+/// `outer_gradient` is the outer loop's residual gradient at the certified ρ̂,
+/// per coordinate (empty when unavailable). It is the resolution floor the
+/// ρ-Hessian's definiteness must be judged against — see
+/// [`invert_identified_rho_hessian`] and #2428.
 pub(crate) fn compute_smoothing_correction(
     reml_state: &RemlState<'_>,
     final_rho: &Array1<f64>,
     lambdas: &Array1<f64>,
     final_fit: &pirls::PirlsResult,
+    outer_gradient: &Array1<f64>,
 ) -> SmoothingCorrectionComputation {
-    use gam_linalg::faer_ndarray::{FaerCholesky, FaerEigh};
+    use gam_linalg::faer_ndarray::FaerCholesky;
 
     let n_rho = final_rho.len();
     if n_rho == 0 {
@@ -775,7 +936,6 @@ pub(crate) fn compute_smoothing_correction(
     }
 
     let n_coeffs_trans = final_fit.beta_transformed.len();
-    let n_coeffs_orig = final_fit.reparam_result.qs.nrows();
     let ct = &final_fit.reparam_result.canonical_transformed;
     if lambdas.len() != n_rho || ct.len() != n_rho {
         return SmoothingCorrectionComputation {
@@ -975,7 +1135,8 @@ pub(crate) fn compute_smoothing_correction(
     // Step 3: invert the exact, unperturbed Hessian on its explicitly
     // identified spectral subspace. A diagonal ridge would change V_rho and
     // therefore the covariance estimand while being invisible in the result.
-    let inverted = match invert_identified_rho_hessian(&hessian_rho, structural_nullity) {
+    let inverted =
+        match invert_identified_rho_hessian(&hessian_rho, structural_nullity, outer_gradient) {
         Ok(inverse) => inverse,
         Err(error) => {
             log::warn!("Exact LAML rho-Hessian inversion failed: {error}");
@@ -1024,10 +1185,11 @@ pub(crate) fn compute_smoothing_correction(
 
     if inverted.active_rank < n_rho_total {
         log::info!(
-            "LAML rho Hessian has independently certified structural redundancy (active_rank={}/{}, structural_zero={}, eigenvalue_backward_error_bound={:.3e}); using its certified structural pseudoinverse.",
+            "LAML rho Hessian is not fully identified (active_rank={}/{}, structural_zero={}, below_gradient_floor={}, eigenvalue_backward_error_bound={:.3e}); using its certified structural pseudoinverse. `below_gradient_floor` counts saturation nulls: directions whose curvature is under the outer loop\'s own residual gradient, so they carry no resolvable rho-variance (#2428).",
             inverted.active_rank,
             n_rho_total,
             inverted.structural_zero,
+            inverted.below_gradient_floor,
             inverted.eigenvalue_backward_error_bound,
         );
         dump_indefinite_rho_hessian_diagnostic(
@@ -1040,15 +1202,13 @@ pub(crate) fn compute_smoothing_correction(
 
     let used_structural_pseudoinverse = inverted.used_structural_pseudoinverse;
     let active_rank_used = inverted.active_rank;
-    let v_rho = inverted.inverse;
-    let rho_covariance = v_rho.clone();
     if used_structural_pseudoinverse {
         log::debug!(
             "Applied rank-deficient pseudo-inverse on identified rho-Hessian subspace before smoothing correction."
         );
     }
 
-    // Step 4: Compute V_corr = J * V_rho * J^T in transformed space.
+    // Step 4: Compute V_corr through the identified square-root factor of V_rho.
     //
     // This is the first-order smoothing-parameter uncertainty inflation:
     //   Var(β̂) ≈ Var(β̂|ρ̂) + (dβ̂/dρ) Var(ρ̂) (dβ̂/dρ)ᵀ.
@@ -1056,22 +1216,15 @@ pub(crate) fn compute_smoothing_correction(
     // Here:
     //   J = dβ̂/dρ,  J[:,k] = -H^{-1}(A_k β̂),
     //   V_ρ = (∇²_{ρρ}V)^{-1} evaluated at the final ρ.
-    let jv_rho = jacobian_trans.dot(&v_rho); // (n_coeffs_trans x n_rho)
-    let v_corr_trans = jv_rho.dot(&jacobian_trans.t()); // (n_coeffs_trans x n_coeffs_trans)
-
-    // Step 5: Transform back to original coefficient basis:
-    // V_corr_orig = Qs * V_corr_trans * Qs^T
     let qs = &final_fit.reparam_result.qs;
-    let qsv = qs.dot(&v_corr_trans);
-    let mut v_corr_orig = qsv.dot(&qs.t());
-    // The congruence Qs·M·Qsᵀ is symmetric in exact arithmetic, but the two
-    // matrix products fill v[i,j] and v[j,i] via independent dot-products,
-    // leaving O(ε) asymmetry. This is a genuine covariance (added to the base
-    // Vb to form Vp, and consumed by model_comparison's corrected-EDF trace,
-    // which documents a "both symmetric" invariant it then relies on), so we
-    // symmetrize it like every other covariance-assembly site — unlike the
-    // influence matrix F = H⁻¹X'WX, which is deliberately left asymmetric.
-    gam_linalg::matrix::symmetrize_in_place(&mut v_corr_orig);
+    let v_corr_orig = smoothing_correction_gram(
+        &jacobian_trans,
+        qs,
+        &inverted.eigenvalues,
+        &inverted.eigenvectors,
+        &inverted.classifications,
+    );
+    let rho_covariance = inverted.inverse;
 
     // Validate the result
     if !v_corr_orig.iter().all(|v| v.is_finite()) {
@@ -1086,80 +1239,102 @@ pub(crate) fn compute_smoothing_correction(
             ),
         };
     }
-
-    // Ensure positive semi-definiteness without hiding a failed rho-space
-    // optimum. The smoothing correction V_corr = J·V_ρ·Jᵀ is an SE *inflation*
-    // (Var(β̂|ρ̂) + uncertainty-in-ρ̂). It is PSD *by construction*: V_ρ is the
-    // (active-subspace) inverse of the SPD ρ-Hessian, so the congruence
-    // J·V_ρ·Jᵀ cannot have genuine negative curvature. Crucially it is also
-    // rank-deficient — its rank is at most `n_rho`, while it lives in the
-    // `n_coeffs_orig`-dimensional coefficient space — so for every model with
-    // fewer smoothing parameters than coefficients (i.e. essentially all of
-    // them) it has exact-zero eigenvalues. A symmetric eigensolver renders
-    // those exact zeros as ±O(ε·‖V_corr‖), so the smallest eigenvalue is
-    // routinely a *sub-tolerance negative* that is pure floating-point
-    // roundoff, not curvature. Rejecting the whole correction on such a
-    // roundoff zero silently dropped Vp for the entire #smooth < #coef regime
-    // (every predict() interval lost its smoothing-parameter inflation).
-    //
-    // So we only treat a *material* negative (below the eigensolver roundoff
-    // floor `neg_tol`) as a real failure — that signals a corrupted V_ρ
-    // (near-saddle / pinv-imputed direction) and we skip loudly, letting the
-    // caller fall back to the honest base covariance. Sub-tolerance negatives
-    // are accepted as-is: the matrix is PSD to roundoff, and it is added to the
-    // (dominant) base covariance Vb, which keeps Vp PSD without any relabelling
-    // or clamping.
-    match v_corr_orig.eigh(faer::Side::Lower) {
-        // Eigenvectors are unused: only the smallest eigenvalue's magnitude
-        // distinguishes roundoff from genuine indefiniteness.
-        Ok((eigenvalues, _)) => {
-            let min_eig = eigenvalues.iter().fold(f64::INFINITY, |a, &b| a.min(b));
-            let spectral_scale = eigenvalues
-                .iter()
-                .copied()
-                .map(f64::abs)
-                .fold(0.0_f64, f64::max)
-                .max(1.0);
-            let neg_tol = 64.0 * f64::EPSILON * (n_coeffs_orig.max(1) as f64) * spectral_scale;
-            if min_eig < -neg_tol {
-                log::warn!(
-                    "Smoothing correction has material negative eigenvalue {:.3e} \
-                     below tolerance {:.3e}; skipping correction.",
-                    min_eig,
-                    neg_tol
-                );
-                return SmoothingCorrectionComputation {
-                    correction: None,
-                    hessian_rho: Some(hessian_rho),
-                    rho_covariance: Some(rho_covariance),
-                    active_rank: Some(active_rank_used),
-                    status: SmoothingCorrectionStatus::Unavailable(
-                        SmoothingCorrectionUnavailable::MateriallyIndefiniteCorrection {
-                            min_eigenvalue: min_eig,
-                            tolerance: neg_tol,
-                        },
-                    ),
-                };
-            }
-        }
-        Err(_) => {
-            log::warn!("Eigendecomposition failed for smoothing correction validation.");
-            return SmoothingCorrectionComputation {
-                correction: None,
-                hessian_rho: Some(hessian_rho),
-                rho_covariance: Some(rho_covariance),
-                active_rank: Some(active_rank_used),
-                status: SmoothingCorrectionStatus::Unavailable(
-                    SmoothingCorrectionUnavailable::CorrectionEigendecomposition,
-                ),
-            };
-        }
-    }
     SmoothingCorrectionComputation {
         correction: Some(v_corr_orig),
         hessian_rho: Some(hessian_rho),
         rho_covariance: Some(rho_covariance),
         active_rank: Some(active_rank_used),
         status: SmoothingCorrectionStatus::Computed,
+    }
+}
+
+#[cfg(test)]
+mod smoothing_correction_gram_tests {
+    use super::*;
+    use ndarray::array;
+
+    #[test]
+    fn zero_mode_response_produces_bit_exact_zero_covariance_2490() {
+        let jacobian = Array2::<f64>::zeros((3, 2));
+        let qs = array![
+            [1.0_f64, 0.25, -0.5],
+            [0.0, 0.75, 0.125],
+            [0.5, -0.25, 1.0],
+        ];
+        let eigenvalues = array![0.5_f64, 2.0];
+        let eigenvectors = Array2::<f64>::eye(2);
+        let classifications = vec![
+            EigenClassification::Active,
+            EigenClassification::Active,
+        ];
+
+        let correction = smoothing_correction_gram(
+            &jacobian,
+            &qs,
+            &eigenvalues,
+            &eigenvectors,
+            &classifications,
+        );
+
+        assert!(
+            correction.iter().all(|&value| value == 0.0),
+            "a zero coefficient response to rho must produce an exact zero covariance, got {correction:?}"
+        );
+        assert_eq!(
+            gam_problem::se_from_covariance(&correction).unwrap(),
+            Array1::<f64>::zeros(3),
+        );
+    }
+
+    #[test]
+    fn factor_gram_matches_dense_congruence_with_nonnegative_diagonal_2490() {
+        let jacobian = array![
+            [1.0_f64, -2.0],
+            [3.0, 4.0],
+            [-5.0, 6.0],
+        ];
+        let qs = array![
+            [1.0_f64, 0.0, 0.0],
+            [0.0, 0.8, -0.6],
+            [0.0, 0.6, 0.8],
+        ];
+        let inv_sqrt_two = 2.0_f64.sqrt().recip();
+        let eigenvectors = array![
+            [inv_sqrt_two, -inv_sqrt_two],
+            [inv_sqrt_two, inv_sqrt_two],
+        ];
+        let eigenvalues = array![0.25_f64, 4.0];
+        let classifications = vec![
+            EigenClassification::Active,
+            EigenClassification::Active,
+        ];
+
+        let correction = smoothing_correction_gram(
+            &jacobian,
+            &qs,
+            &eigenvalues,
+            &eigenvectors,
+            &classifications,
+        );
+        let inverse = eigenvectors
+            .dot(&Array2::from_diag(&eigenvalues.mapv(f64::recip)))
+            .dot(&eigenvectors.t());
+        let expected = qs
+            .dot(&jacobian)
+            .dot(&inverse)
+            .dot(&jacobian.t())
+            .dot(&qs.t());
+
+        let covariance_scale = expected
+            .iter()
+            .copied()
+            .map(f64::abs)
+            .fold(0.0_f64, f64::max);
+        let arithmetic_bound =
+            64.0 * correction.nrows().max(1) as f64 * f64::EPSILON * covariance_scale;
+        for (&actual, &reference) in correction.iter().zip(expected.iter()) {
+            assert!((actual - reference).abs() <= arithmetic_bound);
+        }
+        assert!(correction.diag().iter().all(|&value| value >= 0.0));
     }
 }

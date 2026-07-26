@@ -1,5 +1,7 @@
 """Tests for litestar_vite.executor module."""
 
+import os
+import subprocess
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -65,8 +67,10 @@ def test_apply_silent_flag_appends_when_no_run() -> None:
 
 @patch("subprocess.Popen")
 @patch("shutil.which")
-def test_executor_run_command(mock_which: Mock, mock_popen: Mock) -> None:
+def test_executor_run_command(mock_which: Mock, mock_popen: Mock, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test executor run command starts subprocess correctly."""
+    monkeypatch.delenv("LITESTAR_VITE_MANAGED", raising=False)
+    monkeypatch.setenv("LITESTAR_VITE_EXISTING", "preserved")
     mock_which.return_value = "/usr/bin/npm"
     executor = NodeExecutor()
     mock_process = Mock()
@@ -79,6 +83,12 @@ def test_executor_run_command(mock_which: Mock, mock_popen: Mock) -> None:
     args, kwargs = mock_popen.call_args
     assert args[0] == ["/usr/bin/npm", "install"]
     assert kwargs["cwd"] == Path("/tmp")
+    assert kwargs["shell"] is False
+    assert kwargs["start_new_session"] is True
+    assert kwargs["stderr"] is subprocess.PIPE
+    assert kwargs["env"]["LITESTAR_VITE_EXISTING"] == "preserved"
+    assert kwargs["env"]["LITESTAR_VITE_MANAGED"] == "1"
+    assert "LITESTAR_VITE_MANAGED" not in os.environ
 
 
 @patch("subprocess.Popen")
@@ -95,6 +105,26 @@ def test_executor_run_rewrites_bare_binary_when_resolved_name_has_extension(mock
     assert process == mock_process
     args, _kwargs = mock_popen.call_args
     assert args[0] == ["C:/Program Files/nodejs/npm.CMD", "run", "dev"]
+
+
+@patch("litestar_vite.executor.platform.system", return_value="Windows")
+@patch("subprocess.Popen")
+@patch("shutil.which")
+def test_executor_run_windows_uses_argv_without_shell(
+    mock_which: Mock, mock_popen: Mock, mock_system: Mock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Windows sidecars retain argv boundaries and a dedicated process group."""
+    monkeypatch.setattr("litestar_vite.executor._create_new_process_group", 512)
+    mock_which.return_value = "C:/Program Files/nodejs/npm.CMD"
+    executor = NodeExecutor()
+
+    executor.run(["npm", "run", "dev"], Path("C:/app"))
+
+    args, kwargs = mock_popen.call_args
+    assert args[0] == ["C:/Program Files/nodejs/npm.CMD", "run", "dev"]
+    assert kwargs["shell"] is False
+    assert kwargs["creationflags"] > 0
+    mock_system.assert_called()
 
 
 @patch("subprocess.run")

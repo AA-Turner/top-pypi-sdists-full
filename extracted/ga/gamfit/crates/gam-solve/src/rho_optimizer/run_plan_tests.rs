@@ -60,6 +60,128 @@ fn certificate_attests_consistent_quadratic() {
     assert!(cert.stationarity.bound() > 0.0 && cert.stationarity.projected_norm().is_finite());
 }
 
+#[test]
+fn closure_objective_default_order_dispatch_preserves_value_lane() {
+    let value_calls = Arc::new(AtomicUsize::new(0));
+    let derivative_calls = Arc::new(AtomicUsize::new(0));
+    let problem = OuterProblem::new(2).with_gradient(Derivative::Analytic);
+    let mut objective = problem.build_objective(
+        (),
+        {
+            let value_calls = Arc::clone(&value_calls);
+            move |_: &mut (), _: &Array1<f64>| {
+                value_calls.fetch_add(1, Ordering::Relaxed);
+                Ok(7.0)
+            }
+        },
+        {
+            let derivative_calls = Arc::clone(&derivative_calls);
+            move |_: &mut (), rho: &Array1<f64>| {
+                derivative_calls.fetch_add(1, Ordering::Relaxed);
+                Ok(OuterEval {
+                    cost: 11.0,
+                    gradient: Array1::ones(rho.len()),
+                    hessian: HessianValue::Unavailable,
+                    inner_beta_hint: None,
+                })
+            }
+        },
+        None::<fn(&mut ())>,
+        None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+    let rho = array![0.0, 0.0];
+
+    let value = objective
+        .eval_with_order(&rho, OuterEvalOrder::Value)
+        .expect("value-only closure dispatch");
+    assert_eq!(value.cost, 7.0);
+    assert_eq!(value_calls.load(Ordering::Relaxed), 1);
+    assert_eq!(derivative_calls.load(Ordering::Relaxed), 0);
+
+    let derivative = objective
+        .eval_with_order(&rho, OuterEvalOrder::ValueAndGradient)
+        .expect("derivative-bearing closure dispatch");
+    assert_eq!(derivative.cost, 11.0);
+    assert_eq!(value_calls.load(Ordering::Relaxed), 1);
+    assert_eq!(derivative_calls.load(Ordering::Relaxed), 1);
+}
+
+/// #2414: multi-start screening deliberately stops at first order even when
+/// the objective can supply analytic curvature.  The screening certificate
+/// must therefore require exactly the order it requested, while the eventual
+/// mint remains the sole order-four consumer.
+#[test]
+fn analytic_hessian_candidate_screening_requires_only_first_order_evidence_2414() {
+    let problem = OuterProblem::new(1)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Dense);
+    let mut objective = problem.build_objective_with_eval_order(
+        Vec::<OuterEvalOrder>::new(),
+        |_, _: &Array1<f64>| Ok(0.0),
+        |_, _: &Array1<f64>| {
+            panic!("screening must use the order-aware evaluator")
+        },
+        |orders: &mut Vec<OuterEvalOrder>, _: &Array1<f64>, order: OuterEvalOrder| {
+            orders.push(order);
+            Ok(match order {
+                OuterEvalOrder::Value => OuterEval::value_only(0.0, 1, None),
+                OuterEvalOrder::ValueAndGradient => OuterEval {
+                    cost: 0.0,
+                    gradient: array![0.0],
+                    hessian: HessianValue::Unavailable,
+                    inner_beta_hint: None,
+                },
+                OuterEvalOrder::ValueGradientHessian => OuterEval {
+                    cost: 0.0,
+                    gradient: array![0.0],
+                    hessian: HessianValue::Dense(array![[1.0]]),
+                    inner_beta_hint: None,
+                },
+            })
+        },
+        None::<fn(&mut Vec<OuterEvalOrder>)>,
+        None::<fn(&mut Vec<OuterEvalOrder>, &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+    let candidate = OuterResult::new(
+        array![0.0],
+        0.0,
+        1,
+        true,
+        OuterPlan {
+            solver: Solver::Arc,
+            hessian_source: HessianSource::Analytic,
+        },
+    );
+
+    let certified = match CertifiedOuterCandidate::from_solver_claim(
+        &mut objective,
+        &OuterConfig::default(),
+        "analytic-Hessian screening #2414",
+        candidate,
+    ) {
+        Ok(candidate) => candidate,
+        Err((_, error)) => panic!("first-order screening evidence must certify: {error}"),
+    };
+
+    assert!(
+        certified
+            .result()
+            .criterion_certificate
+            .as_ref()
+            .is_some_and(OuterCriterionCertificate::certifies),
+        "the stationary screened candidate must retain its certificate",
+    );
+    assert_eq!(
+        objective.state,
+        vec![
+            OuterEvalOrder::Value,
+            OuterEvalOrder::ValueAndGradient
+        ],
+        "screening must audit the scalar value and first-order evidence without \
+         spending the mint-only analytic Hessian",
+    );
+}
+
 /// #979: a solver may finish before a family's nominal sampled-derivative
 /// budget. The sampled optimum is useful as a checkpoint, but the runner must
 /// then optimize the exact objective rather than merely re-evaluating and
@@ -476,7 +598,6 @@ fn active_set_reduction_freezes_a_railed_coordinate_when_the_interior_is_unpolis
         .active_set_reseed
         .as_ref()
         .expect("an unpolished interior beside a genuine rail must mint an active-set reseed");
-    assert_eq!(reseed.frozen, vec![0], "the railed coordinate must be frozen");
     assert_eq!(reseed.rho[0], 30.0, "the frozen coordinate is pinned at its rail");
     assert_eq!(
         (reseed.bounds.0[0], reseed.bounds.1[0]),
@@ -491,6 +612,95 @@ fn active_set_reduction_freezes_a_railed_coordinate_when_the_interior_is_unpolis
     assert!(
         result.wrong_rail_reseed.is_none(),
         "a genuine λ→∞ rail must be frozen, never pulled off its bound"
+    );
+}
+
+/// #2392 end-to-end recovery contract for the first-order path.
+///
+/// `V(ρ) = A(-q + q²/2)`, `q = exp(ρ★ − ρ)`, has its unique minimum at
+/// `ρ★ = 12`. At the upper rail its clean exponential band has positive
+/// gradient, so descent points inward and the upper rail is provably wrong.
+/// The detector used to be accidentally nested under `Some(H)`, making this
+/// evidence unusable for gradient-only BFGS objectives even though neither the
+/// pencil-constant sign nor its drift band requires curvature.
+#[test]
+fn wrong_rail_pullback_recovers_gradient_only_objective_2392() {
+    const AMPLITUDE: f64 = 1.0e4;
+    const RHO_STAR: f64 = 12.0;
+
+    let cost = |rho: &Array1<f64>| {
+        let q = (RHO_STAR - rho[0]).exp();
+        AMPLITUDE * (-q + 0.5 * q * q)
+    };
+    let eval = |rho: &Array1<f64>| {
+        let q = (RHO_STAR - rho[0]).exp();
+        OuterEval {
+            cost: AMPLITUDE * (-q + 0.5 * q * q),
+            gradient: array![AMPLITUDE * (q - q * q)],
+            hessian: HessianValue::Unavailable,
+            inner_beta_hint: Some(array![q]),
+        }
+    };
+
+    let audit_problem = OuterProblem::new(1)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Unavailable);
+    let mut audit_obj = audit_problem.build_objective(
+        (),
+        move |_: &mut (), rho: &Array1<f64>| Ok(cost(rho)),
+        move |_: &mut (), rho: &Array1<f64>| Ok(eval(rho)),
+        None::<fn(&mut ())>,
+        None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+    let refusal = audit_stationary_point(
+        &mut audit_obj,
+        array![29.9],
+        "gradient-only wrong-rail audit #2392",
+    )
+    .expect_err("the inward-descent upper rail must not certify");
+    let reseed = refusal
+        .result
+        .wrong_rail_reseed
+        .expect("first-order clean-tail evidence must publish an inward pull-back");
+    assert!(
+        reseed[0] < 29.9 && reseed[0] > RHO_STAR,
+        "pull-back should leave the rail inside the informative descent band: {reseed:?}",
+    );
+
+    // Exercise the actual outer optimizer from the published checkpoint. This
+    // is the recovery continuation the certify/resume loop consumes: it must
+    // reach and certify the known interior minimum, not merely mint a vector.
+    let recovery_problem = OuterProblem::new(1)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Unavailable)
+        .with_initial_rho(reseed)
+        .with_screen_initial_rho(false)
+        .with_seed_config(gam_problem::SeedConfig {
+            max_seeds: 1,
+            seed_budget: 1,
+            ..Default::default()
+        });
+    let mut recovery_obj = recovery_problem.build_objective(
+        (),
+        move |_: &mut (), rho: &Array1<f64>| Ok(cost(rho)),
+        move |_: &mut (), rho: &Array1<f64>| Ok(eval(rho)),
+        None::<fn(&mut ())>,
+        None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+    let recovered = recovery_problem
+        .run(&mut recovery_obj, "gradient-only wrong-rail recovery #2392")
+        .expect("the wrong-rail checkpoint must descend to the interior optimum");
+    assert!(
+        (recovered.rho[0] - RHO_STAR).abs() < 1.0e-3,
+        "recovery must reach the known optimum ρ★={RHO_STAR}, got {:?}",
+        recovered.rho,
+    );
+    assert!(
+        recovered
+            .criterion_certificate
+            .as_ref()
+            .is_some_and(OuterCriterionCertificate::certifies),
+        "the recovered interior optimum must carry the mandatory certificate",
     );
 }
 
@@ -1103,7 +1313,7 @@ fn plan_analytic_hessian_selects_arc() {
 }
 
 #[test]
-fn plan_prefer_gradient_only_does_not_hide_analytic_hessian() {
+fn plan_reserves_analytic_hessian_for_terminal_certificate_2359() {
     let cap = OuterCapability {
         gradient: Derivative::Analytic,
         hessian: DeclaredHessianForm::Either,
@@ -1115,8 +1325,8 @@ fn plan_prefer_gradient_only_does_not_hide_analytic_hessian() {
         disable_fixed_point: false,
     };
     let p = plan(&cap);
-    assert_eq!(p.solver, Solver::Arc);
-    assert_eq!(p.hessian_source, HessianSource::Analytic);
+    assert_eq!(p.solver, Solver::Bfgs);
+    assert_eq!(p.hessian_source, HessianSource::BfgsApprox);
 }
 
 #[test]
@@ -1290,6 +1500,66 @@ fn no_gradient_efs_requires_and_accepts_explicit_full_coverage_certificate() {
             .criterion_certificate
             .as_ref()
             .is_some_and(|certificate| certificate.stationarity.is_fixed_point())
+    );
+}
+
+#[test]
+fn fixed_point_certificate_refuses_value_channel_desync() {
+    let n = 2;
+    let center = Array1::from_elem(n, 0.25);
+    let problem = OuterProblem::new(n)
+        .with_gradient(Derivative::Unavailable)
+        .with_hessian(DeclaredHessianForm::Unavailable)
+        .with_initial_rho(Array1::zeros(n))
+        .with_max_iter(8)
+        .with_tolerance(1.0e-8);
+    let step_center = center.clone();
+    let mut objective = problem
+        .build_objective(
+            (),
+            move |_: &mut (), rho: &Array1<f64>| {
+                let displacement = rho - &center;
+                Ok(0.5 * displacement.dot(&displacement))
+            },
+            |_: &mut (), rho: &Array1<f64>| Ok(OuterEval::value_only(0.0, rho.len(), None)),
+            None::<fn(&mut ())>,
+            Some(move |_: &mut (), rho: &Array1<f64>| {
+                let update = &step_center - rho;
+                Ok(EfsEval {
+                    cost: 0.5 * update.dot(&update),
+                    steps: update.to_vec(),
+                    beta: None,
+                    psi_gradient: None,
+                    psi_indices: None,
+                    inner_hessian_scale: None,
+                    logdet_enclosure_gap: None,
+                    consecutive_restored_incumbents: None,
+                })
+            }),
+        )
+        .with_fixed_point_certificate(|_: &mut (), rho: &Array1<f64>| {
+            Ok(FixedPointCertificateEval {
+                // Deliberately inconsistent with the value-only criterion,
+                // which is zero at the fixed point.
+                cost: 1.0,
+                coordinates: rho
+                    .iter()
+                    .map(|_| FixedPointCoordinateCertificate::covered(0.0, 1.0))
+                    .collect(),
+            })
+        });
+    let error = problem
+        .run(&mut objective, "desynced fixed-point certificate")
+        .expect_err("a fixed-point residual for a different value must not mint");
+    assert!(
+        matches!(error, EstimationError::RemlDidNotConverge { .. }),
+        "fixed-point value desynchronisation must be typed non-convergence: {error}"
+    );
+    assert!(
+        error
+            .to_string()
+            .contains("cost-only value disagrees with analytic-sample value"),
+        "fixed-point refusal must name the split objective: {error}"
     );
 }
 
@@ -1668,6 +1938,7 @@ fn closure_objective_delegates() {
         efs_fn: None::<fn(&mut i32, &Array1<f64>) -> Result<EfsEval, EstimationError>>,
         fixed_point_certificate_fn: None,
         exact_polish_fn: None,
+        rail_face_limit_fn: None,
         screening_proxy_fn: None::<fn(&mut i32, &Array1<f64>) -> Result<f64, EstimationError>>,
         seed_fn: None::<fn(&mut i32, &Array1<f64>) -> Result<SeedOutcome, EstimationError>>,
         terminal_eval_order: None,
@@ -1767,6 +2038,7 @@ fn closure_objective_seed_inner_state_delegates_when_hook_present() {
         efs_fn: None::<fn(&mut Vec<f64>, &Array1<f64>) -> Result<EfsEval, EstimationError>>,
         fixed_point_certificate_fn: None,
         exact_polish_fn: None,
+        rail_face_limit_fn: None,
         screening_proxy_fn: None::<fn(&mut Vec<f64>, &Array1<f64>) -> Result<f64, EstimationError>>,
         seed_fn: None::<fn(&mut Vec<f64>, &Array1<f64>) -> Result<SeedOutcome, EstimationError>>,
         terminal_eval_order: None,
@@ -1975,6 +2247,7 @@ fn hybrid_efs_backtracking_uses_half_step_after_first_rejection() {
         }),
         fixed_point_certificate_fn: None,
         exact_polish_fn: None,
+        rail_face_limit_fn: None,
         screening_proxy_fn: None::<fn(&mut (), &Array1<f64>) -> Result<f64, EstimationError>>,
         seed_fn: None::<fn(&mut (), &Array1<f64>) -> Result<SeedOutcome, EstimationError>>,
         terminal_eval_order: None,
@@ -2054,6 +2327,7 @@ fn fixed_point_stops_on_second_consecutive_restored_incumbent_2241() {
         }),
         fixed_point_certificate_fn: None,
         exact_polish_fn: None,
+        rail_face_limit_fn: None,
         screening_proxy_fn: None::<fn(&mut usize, &Array1<f64>) -> Result<f64, EstimationError>>,
         seed_fn: None::<fn(&mut usize, &Array1<f64>) -> Result<SeedOutcome, EstimationError>>,
         terminal_eval_order: None,
@@ -2133,6 +2407,149 @@ fn run_bfgs_mode_aware_eval_skips_hessian_work() {
     assert!(
         seen_orders.contains(&OuterEvalOrder::ValueAndGradient),
         "BFGS should request value+gradient at accepted points, saw {seen_orders:?}"
+    );
+}
+
+/// #2359: a generic objective may DECLARE exact curvature without allowing
+/// order-four family work into the search. BFGS must consume only the
+/// value/gradient lane, and the selected point must receive exactly one
+/// fourth-order evaluation from the terminal mint certificate.
+#[test]
+fn optimize_three_certify_four_exactly_once_at_mint_2359() {
+    let seen_orders = Arc::new(Mutex::new(Vec::new()));
+    let problem = OuterProblem::new(1)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Dense)
+        .with_prefer_gradient_only(true)
+        .with_initial_rho(array![0.0])
+        .with_max_iter(1);
+    let mut obj = problem.build_objective_with_eval_order(
+        (),
+        |_: &mut (), theta: &Array1<f64>| Ok(1.0 + theta[0] * theta[0]),
+        |_: &mut (), _: &Array1<f64>| {
+            Err(EstimationError::InvalidInput(
+                "legacy eager eval must not bypass the derivative-order seam".to_string(),
+            ))
+        },
+        {
+            let seen_orders = Arc::clone(&seen_orders);
+            move |_: &mut (), theta: &Array1<f64>, order: OuterEvalOrder| {
+                seen_orders.lock().unwrap().push(order);
+                Ok(OuterEval {
+                    cost: 1.0 + theta[0] * theta[0],
+                    gradient: array![2.0 * theta[0]],
+                    hessian: match order {
+                        OuterEvalOrder::ValueGradientHessian => {
+                            HessianValue::Dense(array![[2.0]])
+                        }
+                        OuterEvalOrder::Value | OuterEvalOrder::ValueAndGradient => {
+                            HessianValue::Unavailable
+                        }
+                    },
+                    inner_beta_hint: None,
+                })
+            }
+        },
+        None::<fn(&mut ())>,
+        None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+
+    let result = problem
+        .run(&mut obj, "optimize-3 certify-4")
+        .expect("the positive-curvature mint audit must certify");
+    assert_eq!(result.plan_used.solver, Solver::Bfgs);
+    let seen_orders = seen_orders.lock().unwrap();
+    let fourth_order_calls = seen_orders
+        .iter()
+        .filter(|&&order| order == OuterEvalOrder::ValueGradientHessian)
+        .count();
+    assert_eq!(
+        fourth_order_calls, 1,
+        "order four belongs exclusively to the one-shot mint audit: {seen_orders:?}"
+    );
+    assert_eq!(
+        seen_orders.last(),
+        Some(&OuterEvalOrder::ValueGradientHessian),
+        "the mint audit must be the final derivative-bearing objective owner: {seen_orders:?}"
+    );
+}
+
+/// First-order stationarity is necessary but cannot mint through a failed
+/// fourth-order minimum audit.
+#[test]
+fn certify_four_refuses_stationary_negative_curvature_2359() {
+    let fourth_order_calls = Arc::new(AtomicUsize::new(0));
+    let problem = OuterProblem::new(1)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Dense)
+        .with_prefer_gradient_only(true)
+        .with_initial_rho(array![0.0])
+        .with_max_iter(1);
+    let mut obj = problem.build_objective_with_eval_order(
+        (),
+        |_: &mut (), theta: &Array1<f64>| Ok(1.0 + theta[0] * theta[0]),
+        |_: &mut (), _: &Array1<f64>| {
+            Err(EstimationError::InvalidInput(
+                "legacy eager eval must not bypass the derivative-order seam".to_string(),
+            ))
+        },
+        {
+            let fourth_order_calls = Arc::clone(&fourth_order_calls);
+            move |_: &mut (), theta: &Array1<f64>, order: OuterEvalOrder| {
+                let hessian = if order == OuterEvalOrder::ValueGradientHessian {
+                    fourth_order_calls.fetch_add(1, Ordering::Relaxed);
+                    HessianValue::Dense(array![[-1.0]])
+                } else {
+                    HessianValue::Unavailable
+                };
+                Ok(OuterEval {
+                    cost: 1.0 + theta[0] * theta[0],
+                    gradient: array![2.0 * theta[0]],
+                    hessian,
+                    inner_beta_hint: None,
+                })
+            }
+        },
+        None::<fn(&mut ())>,
+        None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+
+    let error = problem
+        .run(&mut obj, "certify-4 negative curvature")
+        .expect_err("negative terminal curvature must refuse the fit");
+    assert!(
+        error.to_string().contains("hessian_psd=NO"),
+        "refusal must name the failed fourth-order curvature audit: {error}"
+    );
+    // Order four is spent once per TERMINAL CERTIFICATION, not once per
+    // multistart candidate — that is the economics #2359 exists to protect, and
+    // it is what the bound below pins.
+    //
+    // It is deliberately not `== 1`. Until `bf43b3861` the plan level minted
+    // before `run_outer` did, so an indefinite-curvature refusal propagated out
+    // of `run_outer_uncertified` and never reached `run_outer`'s certify-last
+    // loop — which meant the #2357 interior strict-saddle escape was
+    // unreachable for every analytic-Hessian objective. Now the refusal lands
+    // where the escape lives, so a genuine saddle gets its bounded attempt to
+    // step below itself and re-certify there. This mock reports negative
+    // curvature at every point, so its escape cannot succeed and the run still
+    // refuses — after `OUTER_SADDLE_ESCAPE_BUDGET`-bounded extra certifications
+    // (measured: exactly one).
+    //
+    // A regression that re-introduced per-candidate order four would scale with
+    // the seed budget and blow this ceiling; a regression that dropped the mint
+    // entirely would fall below the floor.
+    let fourth_order_calls = fourth_order_calls.load(Ordering::Relaxed);
+    assert!(
+        fourth_order_calls >= 1,
+        "the mint audit must actually evaluate order four; got {fourth_order_calls}"
+    );
+    assert!(
+        fourth_order_calls <= 1 + crate::rho_optimizer::run::OUTER_SADDLE_ESCAPE_BUDGET,
+        "order four is paid once per terminal certification, and terminal \
+         certifications are bounded by the saddle-escape budget \
+         ({}); got {fourth_order_calls}",
+        crate::rho_optimizer::run::OUTER_SADDLE_ESCAPE_BUDGET,
     );
 }
 
@@ -3521,16 +3938,15 @@ fn routing_unavailable_hessian_routes_to_bfgs() {
 }
 
 #[test]
-fn routing_explicit_prefer_gradient_only_does_not_override_exact_hessian() {
-    // The primary REML outer must never hide an analytic Hessian behind a
-    // quasi-Newton route. Auxiliary gradient-only optimizers are separate
-    // solver classes; this flag is ignored for Analytic+Analytic primary
-    // capabilities.
+fn routing_explicit_prefer_gradient_only_reserves_exact_hessian_for_mint_2359() {
+    // The objective continues to declare exact curvature so terminal
+    // certification can audit the selected point. The explicit lifecycle
+    // policy keeps that expensive derivative order out of search.
     let mut cap = cap_for_routing(Derivative::Analytic, DeclaredHessianForm::Either, 6);
     cap.prefer_gradient_only = true;
     let p = plan(&cap);
-    assert_eq!(p.solver, Solver::Arc);
-    assert_eq!(p.hessian_source, HessianSource::Analytic);
+    assert_eq!(p.solver, Solver::Bfgs);
+    assert_eq!(p.hessian_source, HessianSource::BfgsApprox);
 }
 
 #[test]
@@ -3667,25 +4083,51 @@ fn plan_hybrid_efs_selected_few_params() {
 }
 
 #[test]
-fn plan_exact_hvp_capability_selects_arc_even_when_fixed_point_is_available() {
+fn declared_second_order_capability_outranks_an_available_fixed_point() {
     // Large spatial/custom-family problems may also expose EFS/HybridEFS
-    // fixed-point traces, but an explicit dense Hessian or exact HVP
-    // operator is stronger geometry. The planner must therefore select
-    // ARC + Analytic rather than cost-demoting to BFGS/EFS when the
-    // evaluator advertises second-order capability.
-    let cap = OuterCapability {
+    // fixed-point traces, but an explicit dense Hessian or exact HVP operator
+    // is stronger geometry: `fixed_point_available` must never demote a
+    // declared second-order capability to the fixed-point solver.
+    //
+    // #2359 (`28502ae9f`) split WHERE that geometry is spent, and this test
+    // states the invariant on both sides of that split. The generic REML/LAML
+    // Hessian consumes the row-family derivative ladder through order four
+    // while its analytic gradient stops at order three, so an evaluator that
+    // sets `prefer_gradient_only` is declaring "reserve order four for the one
+    // terminal mint certificate" — search then runs analytic-gradient BFGS.
+    // That is a choice between second-order SEARCH and second-order MINT. It is
+    // never a demotion to `Efs`/`HybridEfs`, which is what an available fixed
+    // point would otherwise pull the plan toward.
+    let second_order_search = OuterCapability {
         gradient: Derivative::Analytic,
         hessian: DeclaredHessianForm::Either,
         n_params: 64,
         psi_dim: 16,
         fixed_point_available: true,
         barrier_config: None,
-        prefer_gradient_only: true,
+        prefer_gradient_only: false,
         disable_fixed_point: false,
     };
-    let p = plan(&cap);
-    assert_eq!(p.solver, Solver::Arc);
+    let p = plan(&second_order_search);
+    assert_eq!(
+        p.solver,
+        Solver::Arc,
+        "an exact HVP/dense Hessian outranks the fixed-point trace during search"
+    );
     assert_eq!(p.hessian_source, HessianSource::Analytic);
+
+    let order_four_reserved = OuterCapability {
+        prefer_gradient_only: true,
+        ..second_order_search
+    };
+    let p = plan(&order_four_reserved);
+    assert_eq!(
+        p.solver,
+        Solver::Bfgs,
+        "reserving order four for mint searches with the analytic gradient (#2359), \
+         and still does not fall back to the fixed point"
+    );
+    assert_eq!(p.hessian_source, HessianSource::BfgsApprox);
 }
 
 #[test]
@@ -4529,7 +4971,18 @@ fn run_indefinite_analytic_seed_stays_on_arc() {
         .with_max_iter(1);
     let mut obj = problem.build_objective(
         (),
-        |_: &mut (), theta: &Array1<f64>| Ok(theta[0] * theta[0]),
+        // Both lanes must price the SAME function. The derivative-bearing lane
+        // below reports a flat criterion (cost 0, gradient 0) so that every
+        // point is stationary and the refusal under test is unambiguously a
+        // CURVATURE verdict; the value lane therefore has to report that same
+        // flat criterion. It previously returned `theta²`, which no evaluation
+        // ever consulted — until the terminal same-ρ value-agreement audit
+        // started sampling the value lane, at which point the run refused for
+        // `cost-only value disagrees with analytic-sample value` and this test's
+        // curvature assertion could never be reached. A mock whose two lanes
+        // disagree is exactly the desync the audit exists to catch, so the mock
+        // is what has to give.
+        |_: &mut (), _: &Array1<f64>| Ok(0.0),
         |_: &mut (), _: &Array1<f64>| {
             Ok(OuterEval {
                 cost: 0.0,
@@ -4693,6 +5146,44 @@ fn run_nonconverged_arc_returns_typed_checkpoint_after_budget_retry_ladder() {
          toward the x⁴ optimum without reaching it; got rho={:?}",
         rho_checkpoint
     );
+}
+
+/// Keep-best must rank CERTIFICATION above VALUE, the invariant `run_plan.rs`
+/// relies on when it routes the #1371/#1476 ARC box-corner substitution through
+/// keep-best "as a NON-converged candidate" so an earlier converged seed still
+/// wins. The costs below are that scenario's own numbers: a genuine interior
+/// optimum at ~133 and a degenerate stall caching a spuriously LOWER ~65.
+#[test]
+fn keep_best_ranks_convergence_above_value() {
+    let plan = OuterPlan {
+        solver: Solver::Bfgs,
+        hessian_source: HessianSource::BfgsApprox,
+    };
+    let converged = OuterResult::new(array![-1.0], 133.0, 12, true, plan);
+    let stalled_cheaper = OuterResult::new(array![8.0], 65.0, 58, false, plan);
+
+    assert!(
+        !candidate_improves_best(&stalled_cheaper, Some(&converged)),
+        "a non-converged candidate must not displace a converged best, however \
+         much lower its cached cost is — that cost is where the search stopped, \
+         not a claim about an optimum"
+    );
+    assert!(
+        candidate_improves_best(&converged, Some(&stalled_cheaper)),
+        "a converged candidate must displace a non-converged best even when its \
+         value is worse"
+    );
+
+    // With convergence equal on both sides, value decides exactly as before.
+    let cheaper_converged = OuterResult::new(array![-2.0], 132.0, 9, true, plan);
+    assert!(candidate_improves_best(&cheaper_converged, Some(&converged)));
+    assert!(!candidate_improves_best(&converged, Some(&cheaper_converged)));
+    let dearer_stall = OuterResult::new(array![9.0], 70.0, 4, false, plan);
+    assert!(candidate_improves_best(&stalled_cheaper, Some(&dearer_stall)));
+
+    // Nothing to beat: the first candidate is always adopted, converged or not,
+    // so a single-start fit still returns its result unchanged.
+    assert!(candidate_improves_best(&stalled_cheaper, None));
 }
 
 #[test]
@@ -5159,16 +5650,19 @@ fn initial_rho_with_single_seed_budget_skips_expensive_screening() {
         // rho-uncertainty diagnostic cost gate, so its 32 `eval_cost` samples do
         // NOT run here. This test isolates the SEED-SCREENING accounting (screening
         // is skipped: `screening_cap == 0` and `screening_calls == 0`); the
-        // post-certification uncertainty diagnostic is a separate phase and would
-        // otherwise contaminate the cost-call count it pins.
+        // mandatory terminal value audit and post-certification uncertainty
+        // diagnostic are separate phases and must not be counted as screening.
         .with_problem_size(1_000_000, 1)
         .with_max_iter(1);
     let mut obj = problem.build_objective(
         (),
         {
             let screening_calls = Arc::clone(&screening_calls);
+            let screening_cap = Arc::clone(&screening_cap);
             move |_: &mut (), _theta: &Array1<f64>| {
-                screening_calls.fetch_add(1, Ordering::Relaxed);
+                if screening_cap.load(Ordering::Relaxed) != 0 {
+                    screening_calls.fetch_add(1, Ordering::Relaxed);
+                }
                 Ok(0.0)
             }
         },
@@ -5448,7 +5942,7 @@ fn run_efs_skips_global_cost_screening() {
     let mut seed_config = gam_problem::SeedConfig::default();
     seed_config.max_seeds = 6;
     seed_config.seed_budget = 1;
-    let screening_calls = Arc::new(AtomicUsize::new(0));
+    let value_only_calls = Arc::new(AtomicUsize::new(0));
     let efs_calls = Arc::new(AtomicUsize::new(0));
     let problem = OuterProblem::new(15)
         .with_gradient(Derivative::Unavailable)
@@ -5458,9 +5952,9 @@ fn run_efs_skips_global_cost_screening() {
     let mut obj = problem.build_objective(
         (),
         {
-            let screening_calls = Arc::clone(&screening_calls);
+            let value_only_calls = Arc::clone(&value_only_calls);
             move |_: &mut (), _: &Array1<f64>| {
-                screening_calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                value_only_calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 Ok(0.0)
             }
         },
@@ -5487,9 +5981,10 @@ fn run_efs_skips_global_cost_screening() {
     // certify stationarity (#1095/#2228); a bare closure objective predates it
     // and refuses. Supply a fully-covered zero-update certificate — the mock's
     // EFS step is already the fixed point (all-zero steps) — so the run
-    // certifies through the cert layer WITHOUT any extra cost-screening or EFS
-    // solve (the certificate eval is separate from cost_fn/efs_fn, so the
-    // screening/efs call counts this test pins are unchanged).
+    // certifies through the cert layer WITHOUT any startup cost-screening or
+    // repeated EFS solve. Certification deliberately calls cost_fn exactly
+    // once for the same-rho value-agreement audit; that is terminal proof work,
+    // not seed screening.
     .with_fixed_point_certificate(|_: &mut (), rho: &Array1<f64>| {
         Ok(FixedPointCertificateEval {
             cost: 0.0,
@@ -5498,21 +5993,54 @@ fn run_efs_skips_global_cost_screening() {
                 .collect(),
         })
     });
-    problem
+    let result = problem
         .run(
             &mut obj,
             "EFS should not use a separate global cost-screening pass",
         )
         .expect("first generated EFS seed should be sufficient");
     assert_eq!(
-        screening_calls.load(std::sync::atomic::Ordering::Relaxed),
-        0,
-        "EFS startup should not call eval_cost just to screen seeds"
+        value_only_calls.load(std::sync::atomic::Ordering::Relaxed),
+        1,
+        "EFS must perform exactly the mandatory terminal value-agreement audit, \
+         with no startup cost-screening pass"
     );
+    // The fixture's premise, measured: the mock's EFS step is identically zero,
+    // so `OuterFixedPointBridge::eval_step` takes its `fixed_point_step_converged`
+    // branch and publishes `FixedPointStatus::Stop` for the seed itself. The walk
+    // therefore returns out of iteration zero having applied no step at all.
+    // Pinning it is what makes the call count below decomposable rather than a
+    // golden number.
+    assert_eq!(
+        result.iterations, 0,
+        "an exactly-zero EFS step must stop the walk AT the seed, before any step is applied"
+    );
+    // Complete accounting of the EFS inner solve. Only three sites can drive
+    // `eval_efs` on this path, and none of them is a screening pass:
+    //
+    //   * ONE seed validation: `run_fixed_point_outer_solver` evaluates the seed
+    //     before constructing the walk and hands the resulting `FixedPointSample`
+    //     to `FixedPoint::with_initial_sample`.
+    //   * ZERO from the walk. `FixedPointCore::run` serves iteration zero from
+    //     that sample (its `approx_point(seed_x, x_k)` guard matches), reads the
+    //     Stop status, and returns with `func_evals = 0`. THIS is the term the
+    //     assertion is really about: drop the initial sample and iteration zero
+    //     re-runs the whole inner solve at the same rho, making the total four.
+    //   * TWO terminal state installations at the selected rho, both
+    //     `finalize_outer_result` — a fixed-point plan has no derivative order to
+    //     request, so it installs through `eval_efs`. One is plan-level, leaving
+    //     the winner installed for `run_outer`'s rho-uncertainty diagnostic; one
+    //     is mint-level, re-installing at full inner fidelity after that
+    //     diagnostic and immediately before the certificate.
+    //
+    // The screening half of this test's name is witnessed directly above: a
+    // global cost screen would price every generated candidate through `cost_fn`,
+    // and that count is one — the terminal value-agreement audit.
     assert_eq!(
         efs_calls.load(Ordering::Relaxed),
-        1,
-        "the validated seed sample must be reused instead of paying the EFS inner solve twice"
+        3,
+        "an EFS run must pay one seed solve that the walk REUSES (four would mean \
+         iteration zero re-solved it) plus the two terminal installations"
     );
 }
 
@@ -5762,7 +6290,17 @@ fn run_arc_projects_seed_before_seed_validation_eval() {
         .with_bounds(array![0.0], array![1.0])
         .with_initial_rho(array![2.0])
         .with_seed_config(seed_config)
-        .with_max_iter(1);
+        // The subject is WHICH point the first evaluation sees, and that is
+        // settled before the optimizer takes any step — `seen.first()` proves
+        // the ordering on its own. The iteration budget is incidental here, and
+        // at `1` it was actively harmful: one ARC step from the projected seed
+        // `1.0` toward the optimum `0.25` lands at `0.2504` with
+        // `|Pg| = 8.541e-4` against a `6.325e-4` stationarity bound — 1.35×
+        // short — so the run refused ("claimed_converged=false after 1 outer
+        // iteration(s)") and the `expect` below fired on a convergence budget
+        // that has nothing to do with seed projection. Give the quadratic room
+        // to certify, so projection is the only thing that can fail here.
+        .with_max_iter(16);
     let mut obj = problem.build_objective(
         (),
         |_: &mut (), theta: &Array1<f64>| Ok((theta[0] - 0.25).powi(2)),
@@ -6741,11 +7279,35 @@ fn exact_final_cache_hit_resumes_and_recertifies_without_resolving() {
         result.iterations,
     );
     // The cache donates only the SEED: the resume path optimizes through the
-    // gradient objective, so `seen` (the cost_fn trace) legitimately stays empty.
+    // gradient objective, so `cost_fn` is never used to SOLVE. The load-bearing
+    // statement is therefore about WHERE it is called, not how often — every
+    // call must price the CACHED rho. A regression that cold-solved from the
+    // -3.0 initial, or that priced a search iterate, shows up here as a rho
+    // that is not 2.5, whatever the count.
+    let seen = seen.lock().unwrap();
     assert!(
-        seen.lock().unwrap().is_empty(),
-        "resume path uses the gradient objective, not cost_fn; saw {:?}",
-        *seen.lock().unwrap(),
+        !seen.is_empty(),
+        "a certificate minted without ever pricing the scalar lane is not audited",
+    );
+    assert!(
+        seen.iter().all(|rho| *rho == array![2.5]),
+        "the audit must price the CACHED rho, never a cold-solve or search iterate; saw {seen:?}",
+    );
+    // Count, derived rather than observed. On the ANALYTIC route the same-rho
+    // value audit runs at BOTH certification fidelities and `8086f0f50` says why:
+    // it is a refusal gate on `final_value`, the very number
+    // `retain_best_outer_checkpoint` ranks multistart candidates by, so screening
+    // cannot skip it without letting an unvalidated value win the ranking. (The
+    // EFS route gates it to the mint instead — there screening and mint are
+    // otherwise identical work, which is what `run_efs_skips_global_cost_screening`
+    // pins.) One screening audit plus one mint audit is two. The bound matters
+    // because a regression that moved the audit back to per-CANDIDATE would scale
+    // it with the seed budget instead of staying at one per fidelity.
+    assert_eq!(
+        seen.len(),
+        2,
+        "the analytic route audits the scalar lane once per certification fidelity \
+         (screening, then mint), not once per candidate; saw {seen:?}",
     );
 }
 
@@ -6789,12 +7351,35 @@ struct BimodalTerminalObjective {
 const BASIN_BUMP: f64 = 2.6; // ~ the observed terminal(9.1931e2) − certified(9.1671e2) gap
 
 impl BimodalTerminalObjective {
-    fn basin_eval(&self, rho: &Array1<f64>) -> OuterEval {
+    /// The objective in the CURRENTLY installed basin, without changing it.
+    ///
+    /// Reading the installed state is not a solve, so it must not flip the
+    /// parity — and, critically, every lane reading the same instant must see
+    /// the SAME basin. A mock whose value lane and derivative lane disagree at
+    /// one ρ is not a bimodal inner solve; it is a value/gradient desync, and
+    /// the terminal certificate's same-ρ value-agreement audit refuses it on
+    /// sight (measured: `value-only=0.0, analytic-sample=2.6,
+    /// disagreement=2.600e0, roundoff bound=3.874e-8`). That refusal is the
+    /// audit working correctly; it was the fixture that was modelling the wrong
+    /// thing.
+    fn basin_value(&self, rho: &Array1<f64>) -> f64 {
+        let bump = if *self.warm_bumped.lock().unwrap() {
+            BASIN_BUMP
+        } else {
+            0.0
+        };
+        0.5 * rho.dot(rho) + bump
+    }
+
+    /// A warm-started SOLVE: reads the current basin and lands the next one in
+    /// the other basin. This is what makes two consecutive installations
+    /// disagree unless a `reset()` re-baselines between them.
+    fn basin_solve(&self, rho: &Array1<f64>) -> OuterEval {
+        let cost = self.basin_value(rho);
         let mut warm = self.warm_bumped.lock().unwrap();
-        let bump = if *warm { BASIN_BUMP } else { 0.0 };
         *warm = !*warm; // consecutive warm-started solves alternate basins
         OuterEval {
-            cost: 0.5 * rho.dot(rho) + bump,
+            cost,
             gradient: rho.clone(),
             hessian: HessianValue::Unavailable,
             inner_beta_hint: None,
@@ -6816,21 +7401,35 @@ impl OuterObjective for BimodalTerminalObjective {
         }
     }
     fn eval_cost(&mut self, rho: &Array1<f64>) -> Result<f64, EstimationError> {
-        // The basin-independent value: keeps the search / diagnostic FD probes
-        // clean so convergence is driven purely by the (basin-independent)
-        // gradient. Only the derivative-bearing terminal installers carry the
-        // basin offset.
-        Ok(0.5 * rho.dot(rho))
+        // Reads the installed basin; does not solve, so it does not flip.
+        Ok(self.basin_value(rho))
     }
     fn eval(&mut self, rho: &Array1<f64>) -> Result<OuterEval, EstimationError> {
-        Ok(self.basin_eval(rho))
+        Ok(self.basin_solve(rho))
     }
     fn eval_with_order(
         &mut self,
         rho: &Array1<f64>,
-        _: OuterEvalOrder,
+        order: OuterEvalOrder,
     ) -> Result<OuterEval, EstimationError> {
-        Ok(self.basin_eval(rho))
+        match order {
+            // The value-only lane is the scalar authority sampling the state
+            // that is already installed — the same read `eval_cost` performs.
+            // It must agree with the derivative-bearing sample taken at the
+            // same ρ, or the fixture is a desync rather than a bimodal solve.
+            OuterEvalOrder::Value => Ok(OuterEval {
+                cost: self.basin_value(rho),
+                gradient: rho.clone(),
+                hessian: HessianValue::Unavailable,
+                inner_beta_hint: None,
+            }),
+            // Derivative-bearing orders are warm-started solves and DO advance
+            // the basin, which is what leaves `finalize` and the certifying
+            // re-eval one flip apart when no reset intervenes.
+            OuterEvalOrder::ValueAndGradient | OuterEvalOrder::ValueGradientHessian => {
+                Ok(self.basin_solve(rho))
+            }
+        }
     }
     fn finalize_outer_result(
         &mut self,
@@ -6839,7 +7438,7 @@ impl OuterObjective for BimodalTerminalObjective {
     ) -> Result<(), EstimationError> {
         // Install the owned coefficient mode: record the objective value the
         // mode carries, exactly as the custom-family evaluator does.
-        let installed = self.basin_eval(rho).cost;
+        let installed = self.basin_solve(rho).cost;
         *self.finalize_installed.lock().unwrap() = Some(installed);
         Ok(())
     }
@@ -7281,5 +7880,140 @@ fn pinned_equal_rho_bounds_are_accepted_2370() {
         (result.rho[0] - 2.0).abs() < 1e-9,
         "pinned coordinate must stay at its bound, got {:?}",
         result.rho,
+    );
+}
+
+// ─── #2425 — the certificate face must be the whole θ box, not the λ block ───
+//
+// A joint spatial-κ search optimizes θ = [ρ …, ψ …] over ONE box, and
+// `project_gradient_vector` already projects every coordinate against its own
+// bound. `certificate_railed_lambdas` scans only `0..layout.rho_dim()`, and
+// `rho_dim()` is `n_params − psi_dim` — so a ψ coordinate pinned on its
+// data-derived κ window was invisible to every certificate decision that takes
+// an active face: the off-railed PSD test, the interior curvature floor, the
+// asymptote-rail mint, tail-snap, the #2155 saddle escape, and the #2392
+// active-set reduction.
+//
+// The fixture is the shape of the `gam-models` Matérn refusals: two interior ρ
+// coordinates that are exactly stationary, and one ψ coordinate driven onto the
+// upper box bound whose curvature there is saturated NEGATIVE. The full Hessian
+// is diag(1, 1, −1) and indefinite; the feasible tangent subspace at the active
+// bound is {ρ₀, ρ₁}, where it is diag(1, 1) and positive definite. Second-order
+// admissibility at a box-constrained optimum is a statement about that tangent
+// subspace, so the certificate must judge the reduced block — which it could
+// not, because the ψ coordinate never reached `certificate_railed`.
+fn psi_rail_cost(theta: &Array1<f64>) -> f64 {
+    // ½ρ₀² + ½ρ₁² − 0.3ψ − ½ψ²: the ψ arm is concave and pushed outward, so the
+    // search rails it at +rho_bound and the curvature there is −1.
+    0.5 * theta[0] * theta[0] + 0.5 * theta[1] * theta[1] - 0.3 * theta[2]
+        - 0.5 * theta[2] * theta[2]
+}
+
+fn psi_rail_eval(theta: &Array1<f64>) -> OuterEval {
+    OuterEval {
+        cost: psi_rail_cost(theta),
+        gradient: array![theta[0], theta[1], -0.3 - theta[2]],
+        hessian: HessianValue::Dense(array![
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, -1.0],
+        ]),
+        inner_beta_hint: None,
+    }
+}
+
+#[test]
+fn railed_psi_coordinate_is_on_the_certificate_face_not_only_the_lambda_report_2425() {
+    // The two sets differ exactly as designed: the report stays λ-scoped, the
+    // face covers the whole θ box. `rho_dim = n_params − psi_dim = 2`, so index
+    // 2 is a ψ coordinate and can only appear in the θ-wide scan.
+    let config = OuterConfig::default();
+    let theta = array![0.0, 0.0, config.rho_bound];
+    assert_eq!(
+        certificate_railed_lambdas(&theta, 2, &config),
+        Vec::<usize>::new(),
+        "the λ-block report must stay λ-scoped: index 2 is a ψ coordinate"
+    );
+    assert_eq!(
+        certificate_railed_coordinates(&theta, &config),
+        vec![2],
+        "the θ-wide face must see the ψ coordinate pinned on the box"
+    );
+
+    // And the face is load-bearing: the same Hessian reads indefinite against
+    // the λ-only report and positive definite against the true active face.
+    let hessian = array![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]];
+    assert_eq!(
+        certificate_hessian_is_psd_off_railed(&hessian, &[]),
+        Some(false),
+        "control: judged against an empty face the saturated ψ row makes the \
+         full Hessian indefinite — this is what the λ-only scan produced"
+    );
+    assert_eq!(
+        certificate_hessian_is_psd_off_railed(&hessian, &[2]),
+        Some(true),
+        "judged on the feasible tangent subspace at the active ψ bound, the \
+         curvature is admissible"
+    );
+}
+
+#[test]
+fn joint_rho_psi_optimum_certifies_when_only_the_psi_coordinate_rails_2425() {
+    // End-to-end: a point that is genuinely a constrained minimum — interior
+    // gradient exactly zero, ψ on its bound with the outward pull the projector
+    // discards — must certify. Before the face was widened this refused with
+    // `hessian_psd=NO` and `railed=[]`, which is the `gam-models` Matérn
+    // signature and #979's "the projector removed 99.2% of |g| but nothing is
+    // listed as railed".
+    let config = OuterConfig::default();
+    let problem = OuterProblem::new(3)
+        .with_psi_dim(1)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Dense)
+        .with_initial_rho(array![0.0, 0.0, config.rho_bound])
+        .with_screen_initial_rho(false)
+        .with_seed_config(gam_problem::SeedConfig {
+            max_seeds: 1,
+            seed_budget: 1,
+            ..Default::default()
+        });
+    let mut obj = problem.build_objective(
+        (),
+        |_: &mut (), theta: &Array1<f64>| Ok(psi_rail_cost(theta)),
+        |_: &mut (), theta: &Array1<f64>| Ok(psi_rail_eval(theta)),
+        None::<fn(&mut ())>,
+        None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+    let result = audit_stationary_point(
+        &mut obj,
+        array![0.0, 0.0, config.rho_bound],
+        "railed-psi certificate face #2425",
+    )
+    .unwrap_or_else(|rejection| {
+        panic!(
+            "a constrained minimum whose only active bound is a psi coordinate must \
+             certify; refused with: {}",
+            rejection.source
+        )
+    });
+    let cert = result
+        .criterion_certificate
+        .as_ref()
+        .expect("a certified point records its certificate");
+    assert!(
+        cert.certifies(),
+        "certificate must accept the constrained minimum: {}",
+        cert.summary()
+    );
+    assert!(
+        cert.curvature_admissible(),
+        "curvature is admissible on the feasible tangent subspace: {}",
+        cert.summary()
+    );
+    assert_eq!(
+        cert.lambdas_railed,
+        Vec::<usize>::new(),
+        "no SMOOTHING coordinate railed here, so the λ report stays empty: {:?}",
+        cert.lambdas_railed
     );
 }

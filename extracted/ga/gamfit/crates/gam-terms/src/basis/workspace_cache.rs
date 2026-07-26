@@ -1,5 +1,7 @@
 use super::*;
 
+use super::invariant_tie_break::resolve_sorted_profile_tie;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) struct ConstraintNullspaceCacheKey {
     pub(crate) centersrows: usize,
@@ -350,12 +352,7 @@ pub(crate) fn build_matern_operator_penalty_candidates(
     // (e.g. ν=1/2) is not over-smoothed by a higher-order roughness penalty its
     // own RKHS norm does not control (#707).
     let matern_spec = DuchonOperatorPenaltySpec::matern_for_smoothness(nu, centers.ncols());
-    operator_penalty_candidates_from_collocation(
-        &ops.d0,
-        &ops.d1,
-        &ops.d2,
-        &matern_spec,
-    )
+    operator_penalty_candidates_from_collocation(&ops.d0, &ops.d1, &ops.d2, &matern_spec)
 }
 
 /// True when every entry of `m` is finite.
@@ -649,6 +646,36 @@ pub(crate) fn validate_lat_lon_matrix(
     Ok(())
 }
 
+fn validate_spherical_wahba_gram_request(
+    penalty_order: usize,
+    kernel: SphereWahbaKernel,
+) -> Result<(), BasisError> {
+    if !(1..=4).contains(&penalty_order) {
+        crate::bail_invalid_basis!(
+            "spherical spline penalty_order must be one of 1, 2, 3, 4; got {penalty_order}"
+        );
+    }
+    if matches!(kernel, SphereWahbaKernel::Sobolev) && penalty_order == 1 {
+        // K_1 = (-ln(u) - 1)/(4π), u = (1 - cos(γ))/2, is log-singular
+        // at coincidence. A finite Gram diagonal therefore cannot be inferred
+        // from this closed form: the old epsilon floor silently selected one,
+        // equivalent to an unstated spectral resolution of about 3.8e9.
+        crate::bail_invalid_basis!(
+            "the m = 1 Sobolev sphere kernel is log-singular at coincident points, so its Gram \
+             diagonal does not exist and any finite value is a choice of resolution rather than a \
+             limit; use SobolevTruncated {{ lmax }} (the same kernel with the resolution stated, \
+             diagonal ~ ln(lmax)/2pi) or penalty_order >= 2, whose diagonals are finite closed \
+             forms (1/(4pi) at m = 2, (2*zeta3 - 2)/(4pi) at m = 3)"
+        );
+    }
+    Ok(())
+}
+
+/// Build a Wahba S² kernel matrix with the untruncated Sobolev kernel.
+///
+/// Untruncated Sobolev `m = 1` is refused because its coincident-point value
+/// diverges; use [`SphereWahbaKernel::SobolevTruncated`] with
+/// [`spherical_wahba_kernel_matrix_with_kind`] to state a finite resolution.
 pub fn spherical_wahba_kernel_matrix(
     data: ArrayView2<'_, f64>,
     centers: ArrayView2<'_, f64>,
@@ -664,6 +691,12 @@ pub fn spherical_wahba_kernel_matrix(
     )
 }
 
+/// Build a Wahba S² kernel matrix with an explicit kernel family.
+///
+/// Untruncated [`SphereWahbaKernel::Sobolev`] at `m = 1` is refused before
+/// either GPU dispatch or CPU scalar/SIMD evaluation. Its Gram diagonal does
+/// not exist; [`SphereWahbaKernel::SobolevTruncated`] is the explicit-
+/// resolution alternative.
 pub fn spherical_wahba_kernel_matrix_with_kind(
     data: ArrayView2<'_, f64>,
     centers: ArrayView2<'_, f64>,
@@ -671,6 +704,7 @@ pub fn spherical_wahba_kernel_matrix_with_kind(
     radians: bool,
     kernel: SphereWahbaKernel,
 ) -> Result<Array2<f64>, BasisError> {
+    validate_spherical_wahba_gram_request(penalty_order, kernel)?;
     validate_lat_lon_matrix(data, "spherical spline data", radians)?;
     validate_lat_lon_matrix(centers, "spherical spline centers", radians)?;
     // GPU fast path for the truncated-spectral kernels. The CPU SIMD loop
@@ -694,13 +728,17 @@ pub fn spherical_wahba_kernel_matrix_with_kind(
         })?;
         return Ok(gpu_matrix);
     }
-    spherical_wahba_kernel_matrix_cpu(data, centers, penalty_order, radians, kernel)
+    spherical_wahba_kernel_matrix_cpu_validated(data, centers, penalty_order, radians, kernel)
 }
 
 /// CPU oracle for the Wahba S² kernel design matrix — the bit-defining
 /// reference the GPU truncated path is held to. Always evaluates on host,
 /// regardless of the GPU dispatch decision, so parity tests and any caller that
 /// needs the deterministic reference can bypass device routing entirely.
+///
+/// It enforces the same kernel/order contract as
+/// [`spherical_wahba_kernel_matrix_with_kind`]; bypassing device routing does
+/// not bypass mathematical validation.
 pub fn spherical_wahba_kernel_matrix_cpu(
     data: ArrayView2<'_, f64>,
     centers: ArrayView2<'_, f64>,
@@ -708,8 +746,19 @@ pub fn spherical_wahba_kernel_matrix_cpu(
     radians: bool,
     kernel: SphereWahbaKernel,
 ) -> Result<Array2<f64>, BasisError> {
+    validate_spherical_wahba_gram_request(penalty_order, kernel)?;
     validate_lat_lon_matrix(data, "spherical spline data", radians)?;
     validate_lat_lon_matrix(centers, "spherical spline centers", radians)?;
+    spherical_wahba_kernel_matrix_cpu_validated(data, centers, penalty_order, radians, kernel)
+}
+
+fn spherical_wahba_kernel_matrix_cpu_validated(
+    data: ArrayView2<'_, f64>,
+    centers: ArrayView2<'_, f64>,
+    penalty_order: usize,
+    radians: bool,
+    kernel: SphereWahbaKernel,
+) -> Result<Array2<f64>, BasisError> {
     let n = data.nrows();
     let k = centers.nrows();
     let deg = if radians {
@@ -717,24 +766,22 @@ pub fn spherical_wahba_kernel_matrix_cpu(
     } else {
         std::f64::consts::PI / 180.0
     };
-    // Precompute (sin_lat, cos_lat, sin_lon, cos_lon) for each center once.
-    // Using cos(lon - lon_c) = cos(lon)·cos(lon_c) + sin(lon)·sin(lon_c)
-    // collapses the inner-loop trig from one `.cos()` per (i, j) down to
-    // four multiplies and an add — a ~10x speedup on the inner body at
-    // large-scale N·K.
+    // Precompute (sin_lat, cos_lat, sin_lon, cos_lon) for each center once and
+    // reuse it across the whole N x K grid. The pair separation is then pure
+    // `+ - *` arithmetic on those eight numbers — see
+    // `super::sphere_half_angle` for why it is taken in chord form rather than
+    // as a dot product (#2489) and why it costs no transcendental call per
+    // (i, j) either way.
     let mut sin_lat_c = Vec::<f64>::with_capacity(k);
     let mut cos_lat_c = Vec::<f64>::with_capacity(k);
     let mut sin_lon_c = Vec::<f64>::with_capacity(k);
     let mut cos_lon_c = Vec::<f64>::with_capacity(k);
     for c in centers.outer_iter() {
-        let lat = c[0] * deg;
-        let lon = c[1] * deg;
-        let (s_lat, c_lat) = lat.sin_cos();
-        let (s_lon, c_lon) = lon.sin_cos();
-        sin_lat_c.push(s_lat);
-        cos_lat_c.push(c_lat);
-        sin_lon_c.push(s_lon);
-        cos_lon_c.push(c_lon);
+        let trig = SphereTrig::from_radians(c[0] * deg, c[1] * deg);
+        sin_lat_c.push(trig.sin_lat);
+        cos_lat_c.push(trig.cos_lat);
+        sin_lon_c.push(trig.sin_lon);
+        cos_lon_c.push(trig.cos_lon);
     }
     let mut out = Array2::<f64>::zeros((n, k));
     let err_flag = std::sync::atomic::AtomicBool::new(false);
@@ -748,45 +795,44 @@ pub fn spherical_wahba_kernel_matrix_cpu(
             let tail = k % 4;
             for (local_i, mut out_row) in block.outer_iter_mut().enumerate() {
                 let i = row_offset + local_i;
-                let lat = data[(i, 0)] * deg;
-                let lon = data[(i, 1)] * deg;
-                let (sin_lat, cos_lat) = lat.sin_cos();
-                let (sin_lon, cos_lon) = lon.sin_cos();
-                let sin_lat_v = f64x4::from(sin_lat);
-                let cos_lat_v = f64x4::from(cos_lat);
-                let sin_lon_v = f64x4::from(sin_lon);
-                let cos_lon_v = f64x4::from(cos_lon);
+                let row = SphereTrig::from_radians(data[(i, 0)] * deg, data[(i, 1)] * deg);
+                let row_v = SphereTrig {
+                    sin_lat: f64x4::from(row.sin_lat),
+                    cos_lat: f64x4::from(row.cos_lat),
+                    sin_lon: f64x4::from(row.sin_lon),
+                    cos_lon: f64x4::from(row.cos_lon),
+                };
                 // SIMD over 4 centers at a time.
                 for cidx in 0..chunks {
                     let base = cidx * 4;
-                    let sl_c = f64x4::from([
-                        sin_lat_c[base],
-                        sin_lat_c[base + 1],
-                        sin_lat_c[base + 2],
-                        sin_lat_c[base + 3],
-                    ]);
-                    let cl_c = f64x4::from([
-                        cos_lat_c[base],
-                        cos_lat_c[base + 1],
-                        cos_lat_c[base + 2],
-                        cos_lat_c[base + 3],
-                    ]);
-                    let sn_c = f64x4::from([
-                        sin_lon_c[base],
-                        sin_lon_c[base + 1],
-                        sin_lon_c[base + 2],
-                        sin_lon_c[base + 3],
-                    ]);
-                    let cn_c = f64x4::from([
-                        cos_lon_c[base],
-                        cos_lon_c[base + 1],
-                        cos_lon_c[base + 2],
-                        cos_lon_c[base + 3],
-                    ]);
-                    let dlon_cos = cos_lon_v * cn_c + sin_lon_v * sn_c;
-                    let cos_gamma = sin_lat_v * sl_c + cos_lat_v * cl_c * dlon_cos;
-                    let vals =
-                        wahba_sphere_kernel_from_cos_simd_kind(cos_gamma, penalty_order, kernel);
+                    let center_v = SphereTrig {
+                        sin_lat: f64x4::from([
+                            sin_lat_c[base],
+                            sin_lat_c[base + 1],
+                            sin_lat_c[base + 2],
+                            sin_lat_c[base + 3],
+                        ]),
+                        cos_lat: f64x4::from([
+                            cos_lat_c[base],
+                            cos_lat_c[base + 1],
+                            cos_lat_c[base + 2],
+                            cos_lat_c[base + 3],
+                        ]),
+                        sin_lon: f64x4::from([
+                            sin_lon_c[base],
+                            sin_lon_c[base + 1],
+                            sin_lon_c[base + 2],
+                            sin_lon_c[base + 3],
+                        ]),
+                        cos_lon: f64x4::from([
+                            cos_lon_c[base],
+                            cos_lon_c[base + 1],
+                            cos_lon_c[base + 2],
+                            cos_lon_c[base + 3],
+                        ]),
+                    };
+                    let (u, v) = half_angle_separation(row_v, center_v);
+                    let vals = wahba_sphere_kernel_simd_kind(u, v, penalty_order, kernel);
                     let arr = vals.to_array();
                     for lane in 0..4 {
                         if !arr[lane].is_finite() {
@@ -800,9 +846,14 @@ pub fn spherical_wahba_kernel_matrix_cpu(
                 let tail_start = chunks * 4;
                 for t in 0..tail {
                     let j = tail_start + t;
-                    let dlon_cos = cos_lon * cos_lon_c[j] + sin_lon * sin_lon_c[j];
-                    let cos_gamma = sin_lat * sin_lat_c[j] + cos_lat * cos_lat_c[j] * dlon_cos;
-                    match wahba_sphere_kernel_from_cos_kind(cos_gamma, penalty_order, kernel) {
+                    let center = SphereTrig {
+                        sin_lat: sin_lat_c[j],
+                        cos_lat: cos_lat_c[j],
+                        sin_lon: sin_lon_c[j],
+                        cos_lon: cos_lon_c[j],
+                    };
+                    let sep = half_angle_separation_scalar(row, center);
+                    match wahba_sphere_kernel_kind(sep, penalty_order, kernel) {
                         Ok(v) => out_row[j] = v,
                         Err(_) => {
                             err_flag.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -816,6 +867,90 @@ pub fn spherical_wahba_kernel_matrix_cpu(
         crate::bail_invalid_basis!("spherical spline kernel produced a non-finite value");
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod spherical_wahba_kernel_contract_2475_tests {
+    use super::*;
+    use ndarray::array;
+
+    fn assert_sobolev_m1_refusal(entry_point: &str, result: Result<Array2<f64>, BasisError>) {
+        let error = result.expect_err("untruncated Sobolev m=1 has no Gram diagonal");
+        let message = error.to_string();
+        assert!(
+            message.contains("log-singular") && message.contains("SobolevTruncated"),
+            "{entry_point} must identify both the mathematical defect and the explicit-resolution \
+             remedy; got: {message}"
+        );
+    }
+
+    #[test]
+    fn all_public_matrix_entry_points_refuse_untruncated_sobolev_m1() {
+        // Deliberately use distinct points. Refusal is a structural property of
+        // the requested Gram-kernel family, not a floating-point coincidence test.
+        let data = array![[0.0, 0.0]];
+        let centers = array![[35.0, 70.0]];
+
+        assert_sobolev_m1_refusal(
+            "spherical_wahba_kernel_matrix",
+            spherical_wahba_kernel_matrix(data.view(), centers.view(), 1, false),
+        );
+        assert_sobolev_m1_refusal(
+            "spherical_wahba_kernel_matrix_with_kind",
+            spherical_wahba_kernel_matrix_with_kind(
+                data.view(),
+                centers.view(),
+                1,
+                false,
+                SphereWahbaKernel::Sobolev,
+            ),
+        );
+        assert_sobolev_m1_refusal(
+            "spherical_wahba_kernel_matrix_cpu",
+            spherical_wahba_kernel_matrix_cpu(
+                data.view(),
+                centers.view(),
+                1,
+                false,
+                SphereWahbaKernel::Sobolev,
+            ),
+        );
+    }
+
+    #[test]
+    fn explicit_resolution_and_finite_diagonal_m1_kernels_remain_available() {
+        let point = array![[0.0, 0.0]];
+
+        let pseudo = spherical_wahba_kernel_matrix_with_kind(
+            point.view(),
+            point.view(),
+            1,
+            false,
+            SphereWahbaKernel::Pseudo,
+        )
+        .expect("pseudo-Wahba m=1 has a finite analytic coincident-point value");
+        assert_eq!(
+            pseudo[(0, 0)],
+            1.0 / (4.0 * std::f64::consts::PI),
+            "the refusal must not absorb valid pseudo-Wahba m=1"
+        );
+
+        let truncated = spherical_wahba_kernel_matrix_with_kind(
+            point.view(),
+            point.view(),
+            1,
+            false,
+            SphereWahbaKernel::SobolevTruncated { lmax: 16 },
+        )
+        .expect("explicitly truncated Sobolev m=1 has a stated finite resolution");
+        assert!(
+            truncated[(0, 0)].is_finite(),
+            "a stated spectral resolution must produce a finite Gram diagonal"
+        );
+
+        spherical_wahba_kernel_matrix(point.view(), point.view(), 2, false)
+            .expect("untruncated Sobolev m=2 has a finite closed-form diagonal");
+    }
 }
 
 pub(crate) fn weighted_coefficient_sum_to_zero_transform(
@@ -858,28 +993,32 @@ fn spherical_center_dot(a: &[f64; 3], b: &[f64; 3]) -> f64 {
     a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 }
 
-/// Lexicographic comparison of the sorted intrinsic distance profiles of two
-/// spherical data rows. `Equal` means the unordered geometry cannot distinguish
-/// the two candidates: choosing one by row index would violate permutation
-/// invariance, so the selector must treat their whole class atomically.
-fn spherical_dot_profile_cmp(units: &[[f64; 3]], i: usize, j: usize) -> std::cmp::Ordering {
-    let mut pi: Vec<f64> = units
-        .iter()
-        .map(|u| spherical_center_dot(&units[i], u))
-        .collect();
-    let mut pj: Vec<f64> = units
-        .iter()
-        .map(|u| spherical_center_dot(&units[j], u))
-        .collect();
-    pi.sort_by(f64::total_cmp);
-    pj.sort_by(f64::total_cmp);
-    for (a, b) in pi.iter().zip(pj.iter()) {
-        let ordering = a.total_cmp(b);
-        if !ordering.is_eq() {
-            return ordering;
-        }
-    }
-    std::cmp::Ordering::Equal
+/// Reduce a candidate list that is already tied on every `O(1)` invariant key to
+/// the sub-list attaining the lexicographically least sorted **dot** profile —
+/// the multiset `{uᵢ·u_j : j}` of one row against the whole cloud, in ascending
+/// total order. Rows related by a rotation that maps the point cloud to itself
+/// have the SAME profile, which is what makes it a legal tie-break key: it
+/// depends on neither the frame nor the row order.
+///
+/// The tie-break machinery itself — extremum-then-refine, one `O(n log n)`
+/// profile per candidate serving both the choice and the class filter, none at
+/// all for a lone candidate — is shared with the Euclidean twin
+/// ([`select_thin_plate_knots`]) in [`crate::basis::invariant_tie_break`]. Only
+/// the pairwise scalar differs: a dot product here, a squared distance there.
+fn resolve_spherical_profile_tie<F>(
+    units: &[[f64; 3]],
+    tied: &[usize],
+    on_profile_builds: &mut F,
+) -> Vec<usize>
+where
+    F: FnMut(usize),
+{
+    resolve_sorted_profile_tie(
+        units.len(),
+        tied,
+        |anchor, row| spherical_center_dot(&units[anchor], &units[row]),
+        on_profile_builds,
+    )
 }
 
 /// Remove coincident directions from one invariant tie class without choosing
@@ -945,11 +1084,39 @@ fn distinct_spherical_orbit(
 /// Euclidean distance, which is the correct SO(3) invariant on S². Coincident
 /// data directions are not selected twice (a duplicate center makes the Wahba
 /// Gram singular).
+///
+/// Each step minimizes its composite key in extremum-then-refine order rather
+/// than by carrying a running incumbent: the two `O(1)` keys in one parallel
+/// reduction, then the rows attaining them in one parallel filter, then — only
+/// over that set, and only if it holds more than one row — the `O(n log n)`
+/// sorted dot profile. Lexicographic minimization is associative, so this is the
+/// same total preorder the incumbent scan applied; what changes is that the
+/// profile key is charged where it can still decide something instead of twice
+/// per outer iteration whether or not anything is tied. On data with no exact
+/// spherical symmetry it is never built at all (#2420).
 pub fn select_spherical_farthest_point_centers(
     data: ArrayView2<'_, f64>,
     num_centers: usize,
     radians: bool,
 ) -> Result<Array2<f64>, BasisError> {
+    select_spherical_farthest_point_center_rows_with_observer(data, num_centers, radians, |_| {})
+        .map(|chosen| {
+            // Return the selected rows VERBATIM (in the data's own lat/lon units), so
+            // the centers ARE data points and carry the rotation exactly.
+            Array2::from_shape_fn((chosen.len(), 2), |(r, c)| data[[chosen[r], c]])
+        })
+}
+
+fn select_spherical_farthest_point_center_rows_with_observer<F>(
+    data: ArrayView2<'_, f64>,
+    num_centers: usize,
+    radians: bool,
+    mut on_profile_builds: F,
+) -> Result<Vec<usize>, BasisError>
+where
+    F: FnMut(usize),
+{
+    use rayon::prelude::*;
     validate_lat_lon_matrix(data, "spherical farthest-point centers", radians)?;
     if num_centers == 0 {
         crate::bail_invalid_basis!("spherical farthest-point center count must be positive");
@@ -974,6 +1141,7 @@ pub fn select_spherical_farthest_point_centers(
     // "distance" comparison below is phrased directly in dot products — each of
     // which is exactly rotation invariant.
     let units: Vec<[f64; 3]> = (0..n)
+        .into_par_iter()
         .map(|i| {
             let lat = data[[i, 0]] * to_rad;
             let lon = data[[i, 1]] * to_rad;
@@ -992,37 +1160,35 @@ pub fn select_spherical_farthest_point_centers(
     // `select_thin_plate_knots`).
     let mut sum = [0.0_f64; 3];
     for (c, sum_c) in sum.iter_mut().enumerate() {
-        let mut col: Vec<f64> = units.iter().map(|u| u[c]).collect();
-        col.sort_by(|a, b| a.total_cmp(b));
+        let mut col: Vec<f64> = units.par_iter().map(|u| u[c]).collect();
+        // Sorted in parallel but summed sequentially: the value-sorted ORDER is
+        // what makes the key permutation invariant, and the accumulation must
+        // stay left-to-right over that order to keep the sum bit-reproducible.
+        col.par_sort_by(|a, b| a.total_cmp(b));
         *sum_c = col.iter().sum();
     }
     let dot_to_sum: Vec<f64> = units
-        .iter()
+        .par_iter()
         .map(|u| spherical_center_dot(u, &sum))
         .collect();
 
     // Seed class = rows nearest the mean direction (largest `dot_to_sum`), then
     // lexicographically smallest intrinsic dot profile. If that complete key is
     // tied, retain the whole symmetry orbit; a row-index tie-break is forbidden.
-    let mut seed = 0usize;
-    for i in 1..n {
-        let take = match dot_to_sum[i].total_cmp(&dot_to_sum[seed]) {
-            std::cmp::Ordering::Greater => true,
-            std::cmp::Ordering::Less => false,
-            std::cmp::Ordering::Equal => spherical_dot_profile_cmp(&units, i, seed).is_lt(),
-        };
-        if take {
-            seed = i;
-        }
-    }
+    // Both keys are minimized in extremum-then-refine order, so the `O(n log n)`
+    // profile key is built only for rows that survive the `O(1)` one — none at
+    // all when the mean-direction argmax is unique (#2420).
+    let seed_key = dot_to_sum.par_iter().copied().reduce(
+        || f64::NEG_INFINITY,
+        |a, b| if b.total_cmp(&a).is_gt() { b } else { a },
+    );
+    let seed_tied: Vec<usize> = (0..n)
+        .into_par_iter()
+        .filter(|&i| dot_to_sum[i].total_cmp(&seed_key).is_eq())
+        .collect();
 
     let target = num_centers;
-    let seed_class: Vec<usize> = (0..n)
-        .filter(|&i| {
-            dot_to_sum[i].total_cmp(&dot_to_sum[seed]).is_eq()
-                && spherical_dot_profile_cmp(&units, i, seed).is_eq()
-        })
-        .collect();
+    let seed_class = resolve_spherical_profile_tie(&units, &seed_tied, &mut on_profile_builds);
     let seed_orbit = distinct_spherical_orbit(&units, &seed_class, &[]);
     if seed_orbit.len() > target {
         crate::bail_invalid_basis!(
@@ -1041,12 +1207,12 @@ pub fn select_spherical_farthest_point_centers(
         chosen[i] = true;
     }
     selected.extend(seed_orbit);
-    for i in 0..n {
-        max_dot[i] = selected
+    max_dot.par_iter_mut().enumerate().for_each(|(i, slot)| {
+        *slot = selected
             .iter()
             .map(|&center| spherical_center_dot(&units[i], &units[center]))
             .fold(f64::NEG_INFINITY, f64::max);
-    }
+    });
 
     // A dot `≥ 1 − SPHERICAL_CENTER_COINCIDENT_TOL` is a geodesic angle
     // `≲ 1.4e-6` rad: the
@@ -1054,56 +1220,51 @@ pub fn select_spherical_farthest_point_centers(
     // a duplicate kernel column and a singular Wahba Gram. Stopping here caps the
     // center set at the number of DISTINCT data directions.
     while selected.len() < target {
-        let mut best: Option<usize> = None;
-        for i in 0..n {
-            if chosen[i] {
-                continue;
-            }
-            match best {
-                None => best = Some(i),
-                Some(b) => {
-                    // Maximin: prefer the larger geodesic distance to the chosen
-                    // set (the SMALLER `max_dot`). Exact `max_dot` ties — common on
-                    // symmetric clouds and in float arithmetic — break first toward
-                    // the MORE PERIPHERAL row (smaller `dot_to_sum`, which spreads
-                    // centers outward and is rotation invariant), then by the
-                    // invariant dot-profile. A tie after all three keys is a
-                    // symmetry orbit and is completed atomically below.
-                    let take = match max_dot[i].total_cmp(&max_dot[b]) {
-                        std::cmp::Ordering::Less => true,
-                        std::cmp::Ordering::Greater => false,
-                        std::cmp::Ordering::Equal => {
-                            match dot_to_sum[i].total_cmp(&dot_to_sum[b]) {
-                                std::cmp::Ordering::Less => true,
-                                std::cmp::Ordering::Greater => false,
-                                std::cmp::Ordering::Equal => {
-                                    spherical_dot_profile_cmp(&units, i, b).is_lt()
-                                }
-                            }
-                        }
-                    };
-                    if take {
-                        best = Some(i);
+        // Maximin: prefer the larger geodesic distance to the chosen set (the
+        // SMALLER `max_dot`). Exact `max_dot` ties — common on symmetric clouds
+        // and in float arithmetic — break first toward the MORE PERIPHERAL row
+        // (smaller `dot_to_sum`, which spreads centers outward and is rotation
+        // invariant), then by the invariant dot-profile. A tie after all three
+        // keys is a symmetry orbit and is completed atomically below.
+        //
+        // The composite key is minimized in extremum-then-refine order rather
+        // than by a running incumbent: one parallel reduction for the two `O(1)`
+        // keys, one parallel filter for the rows attaining them, and the
+        // `O(n log n)` profile key only over THAT set. The set is also exactly the
+        // tie-class filter's candidate set, so the profiles are built once and
+        // serve both. A unique maximin winner therefore builds no profile at all,
+        // where the incumbent scan built two per outer iteration — one for the
+        // winner and one to compare the winner against itself (#2420).
+        let cheap_key = (0..n)
+            .into_par_iter()
+            .filter(|&i| !chosen[i])
+            .map(|i| (max_dot[i], dot_to_sum[i]))
+            .reduce(
+                || (f64::INFINITY, f64::INFINITY),
+                |a, b| {
+                    if b.0.total_cmp(&a.0).then(b.1.total_cmp(&a.1)).is_lt() {
+                        b
+                    } else {
+                        a
                     }
-                }
-            }
+                },
+            );
+        let cheap_tied: Vec<usize> = (0..n)
+            .into_par_iter()
+            .filter(|&i| {
+                !chosen[i]
+                    && max_dot[i].total_cmp(&cheap_key.0).is_eq()
+                    && dot_to_sum[i].total_cmp(&cheap_key.1).is_eq()
+            })
+            .collect();
+        if cheap_tied.is_empty() {
+            break;
         }
-        let next = match best {
-            Some(i) => i,
-            None => break,
-        };
-        if max_dot[next] >= 1.0 - SPHERICAL_CENTER_COINCIDENT_TOL {
+        if cheap_key.0 >= 1.0 - SPHERICAL_CENTER_COINCIDENT_TOL {
             break;
         }
 
-        let tied_class: Vec<usize> = (0..n)
-            .filter(|&i| {
-                !chosen[i]
-                    && max_dot[i].total_cmp(&max_dot[next]).is_eq()
-                    && dot_to_sum[i].total_cmp(&dot_to_sum[next]).is_eq()
-                    && spherical_dot_profile_cmp(&units, i, next).is_eq()
-            })
-            .collect();
+        let tied_class = resolve_spherical_profile_tie(&units, &cheap_tied, &mut on_profile_builds);
         let orbit = distinct_spherical_orbit(&units, &tied_class, &selected);
         let remaining = target - selected.len();
         if orbit.len() > remaining {
@@ -1119,17 +1280,19 @@ pub fn select_spherical_farthest_point_centers(
             continue;
         }
         selected.extend(orbit.iter().copied());
-        for i in 0..n {
-            if chosen[i] {
-                continue;
+        let chosen_ref = &chosen;
+        let orbit_ref = &orbit;
+        max_dot.par_iter_mut().enumerate().for_each(|(i, slot)| {
+            if chosen_ref[i] {
+                return;
             }
-            for &center in &orbit {
+            for &center in orbit_ref {
                 let d = spherical_center_dot(&units[i], &units[center]);
-                if d > max_dot[i] {
-                    max_dot[i] = d;
+                if d > *slot {
+                    *slot = d;
                 }
             }
-        }
+        });
     }
 
     if selected.len() < target {
@@ -1144,20 +1307,38 @@ pub fn select_spherical_farthest_point_centers(
         });
     }
 
-    // Return the selected rows VERBATIM (in the data's own lat/lon units), so the
-    // centers ARE data points and carry the rotation exactly.
-    let mut centers = Array2::<f64>::zeros((selected.len(), 2));
-    for (r, &idx) in selected.iter().enumerate() {
-        centers[[r, 0]] = data[[idx, 0]];
-        centers[[r, 1]] = data[[idx, 1]];
-    }
-    Ok(centers)
+    Ok(selected)
 }
 
 #[cfg(test)]
 mod spherical_farthest_point_symmetry_tests {
     use super::*;
     use ndarray::{Array2, array};
+
+    /// The row indices [`select_spherical_farthest_point_centers`] selects, with
+    /// the number of sorted dot profiles the shared production algorithm built.
+    struct SphericalCenterRows {
+        rows: Vec<usize>,
+        profile_builds: usize,
+    }
+
+    fn select_spherical_farthest_point_center_rows(
+        data: ArrayView2<'_, f64>,
+        num_centers: usize,
+        radians: bool,
+    ) -> Result<SphericalCenterRows, BasisError> {
+        let mut profile_builds = 0usize;
+        let rows = select_spherical_farthest_point_center_rows_with_observer(
+            data,
+            num_centers,
+            radians,
+            |built| profile_builds += built,
+        )?;
+        Ok(SphericalCenterRows {
+            rows,
+            profile_builds,
+        })
+    }
 
     fn permute_rows(data: &Array2<f64>, order: &[usize]) -> Array2<f64> {
         Array2::from_shape_fn((order.len(), 2), |(row, col)| data[[order[row], col]])
@@ -1227,6 +1408,160 @@ mod spherical_farthest_point_symmetry_tests {
             error.to_string().contains("symmetry orbit"),
             "unexpected refusal: {error}"
         );
+    }
+
+    /// The canonical gridded-geospatial layout, matching the `sphere_gpu`
+    /// fixtures: latitude in (-85, 85), longitude spanning [-180, 180].
+    fn latlon_grid(n_lat: usize, n_lon: usize) -> Array2<f64> {
+        Array2::from_shape_fn((n_lat * n_lon, 2), |(row, col)| {
+            let (i, j) = (row / n_lon, row % n_lon);
+            if col == 0 {
+                -85.0 + (170.0 * i as f64) / (n_lat.saturating_sub(1).max(1) as f64)
+            } else {
+                -180.0 + (360.0 * j as f64) / (n_lon.saturating_sub(1).max(1) as f64)
+            }
+        })
+    }
+
+    /// Deterministic area-uniform cloud: no exact spherical symmetry, so no two
+    /// rows can tie the maximin key exactly.
+    fn latlon_cloud(n: usize) -> Array2<f64> {
+        let mut state = 0x2545_F491_4F6C_DD1D_u64;
+        let mut next = move || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state >> 11) as f64 / (1u64 << 53) as f64
+        };
+        let draws: Vec<f64> = (0..2 * n).map(|_| next()).collect();
+        Array2::from_shape_fn((n, 2), |(row, col)| {
+            if col == 0 {
+                (1.0 - 2.0 * draws[2 * row]).asin().to_degrees()
+            } else {
+                360.0 * draws[2 * row + 1] - 180.0
+            }
+        })
+    }
+
+    /// The `O(n log n)` sorted dot profile is a tie-break, and a tie-break must
+    /// only be paid for where something is actually tied. A cloud with no exact
+    /// spherical symmetry has a unique maximin winner at every step, so the
+    /// selection must complete having built NO profile at all — at any `n`, and
+    /// for any center budget.
+    ///
+    /// The running-incumbent scan this replaced (#2420) built two profiles per
+    /// outer iteration on exactly this input: one for the winner, and one to
+    /// compare the winner against its own profile in the tie-class filter. At
+    /// `m = 200` that was 400 sorts of `n` doubles to discover that nothing was
+    /// tied, and it was 88% of the whole spherical basis build.
+    #[test]
+    fn spherical_center_selection_costs_no_profile_without_an_exact_tie() {
+        for n in [2_000_usize, 8_000] {
+            for m in [40_usize, 200] {
+                let data = latlon_cloud(n);
+                let chosen = select_spherical_farthest_point_center_rows(data.view(), m, false)
+                    .expect("an asymmetric cloud admits any center budget below n");
+                assert_eq!(chosen.rows.len(), m, "exact center budget (n={n}, m={m})");
+                assert_eq!(
+                    chosen.profile_builds, 0,
+                    "no row can tie the maximin key exactly on an asymmetric cloud, so the \
+                     profile tie-break must never be built (n={n}, m={m})"
+                );
+            }
+        }
+    }
+
+    /// On a regular lat/lon grid the tie-break IS reached — a parallel's rows are
+    /// genuinely related by a rotation about the polar axis. The cost of reaching
+    /// it must still be a property of the symmetry, not of the row count: the
+    /// profile key may only be built for rows that tie both `O(1)` keys at the
+    /// maximin extremum, so the count stays below one profile per selected center
+    /// even as `n` grows 16-fold. The scan this replaced built strictly more than
+    /// two per center regardless of `n`.
+    #[test]
+    fn spherical_center_profile_cost_does_not_scale_with_the_row_count() {
+        for (n_lat, n_lon) in [(40_usize, 40_usize), (160, 160)] {
+            for m in [40_usize, 200] {
+                let data = latlon_grid(n_lat, n_lon);
+                let n = data.nrows();
+                let chosen = select_spherical_farthest_point_center_rows(data.view(), m, false)
+                    .expect("a lat/lon grid admits these center budgets");
+                assert_eq!(chosen.rows.len(), m, "exact center budget (n={n}, m={m})");
+                assert!(
+                    chosen.profile_builds < m,
+                    "profile-key builds must stay below one per selected center; got {} at \
+                     n={n} m={m} (the replaced incumbent scan built at least {})",
+                    chosen.profile_builds,
+                    2 * m
+                );
+            }
+        }
+    }
+
+    /// The gate above must not be satisfiable by deleting the tie-break. On the
+    /// pole/equator fixture the profile key is what proves north and south are one
+    /// indivisible orbit, so it must genuinely be built there.
+    #[test]
+    fn spherical_center_profile_key_is_still_built_where_it_decides_an_orbit() {
+        let data = array![[0.0_f64, 0.0], [0.0, 0.0], [90.0, 0.0], [-90.0, 0.0]];
+        let chosen = select_spherical_farthest_point_center_rows(data.view(), 3, false)
+            .expect("the complete three-direction symmetry orbit is representable");
+        assert!(
+            chosen.profile_builds > 0,
+            "the north/south orbit is only provable through the invariant profile key"
+        );
+    }
+
+    /// Extremum-then-refine reaches the same physical answer as the incumbent
+    /// scan it replaced only if the composite key is evaluated over the same
+    /// candidate set. On two symmetric parallels every `max_dot` extremum is a
+    /// multi-row tie, so the whole selection is decided inside the tie logic —
+    /// and it must still be blind to row order at every budget.
+    #[test]
+    fn polar_ring_selection_is_row_order_blind_at_every_budget() {
+        // Two parallels at ±30°, six points each.
+        let ring: Vec<[f64; 2]> = [-30.0_f64, 30.0]
+            .into_iter()
+            .flat_map(|lat| (0..6).map(move |j| [lat, -180.0 + 60.0 * j as f64]))
+            .collect();
+        let data = Array2::from_shape_fn((ring.len(), 2), |(r, c)| ring[r][c]);
+        let n = data.nrows();
+
+        for budget in 2..=n {
+            let reference = select_spherical_farthest_point_centers(data.view(), budget, false)
+                .map(|centers| sorted_center_rows(&centers));
+            for order in [
+                (0..n).rev().collect::<Vec<usize>>(),
+                (0..n).map(|i| (5 * i + 7) % n).collect::<Vec<usize>>(),
+                (0..n)
+                    .step_by(5)
+                    .chain((1..n).step_by(5))
+                    .collect::<Vec<usize>>(),
+            ] {
+                if order.len() != n {
+                    continue;
+                }
+                let permuted = permute_rows(&data, &order);
+                let got = select_spherical_farthest_point_centers(permuted.view(), budget, false)
+                    .map(|centers| sorted_center_rows(&centers));
+                match (&reference, &got) {
+                    (Ok(expected), Ok(actual)) => assert_eq!(
+                        actual, expected,
+                        "budget {budget}: selected physical directions changed under a row \
+                         permutation of a symmetric ring"
+                    ),
+                    (Err(a), Err(b)) => assert_eq!(
+                        a.to_string(),
+                        b.to_string(),
+                        "budget {budget}: refusal changed under a row permutation"
+                    ),
+                    _ => panic!(
+                        "budget {budget}: row order decided whether the request was \
+                         representable ({reference:?} vs {got:?})"
+                    ),
+                }
+            }
+        }
     }
 }
 

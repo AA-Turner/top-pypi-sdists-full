@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wlc
-Version: 2.1.0
+Version: 2.1.1
 Summary: A command-line utility for Weblate, translation tool with tight version control integration
 Author-email: Michal Čihař <michal@weblate.org>
 License-Expression: GPL-3.0-or-later

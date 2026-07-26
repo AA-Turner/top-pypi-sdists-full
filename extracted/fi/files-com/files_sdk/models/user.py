@@ -75,6 +75,8 @@ class User:
         "active_2fa": None,  # boolean - Is 2fa active for the user?
         "require_password_change": None,  # boolean - Is a password change required upon next user login?
         "password_expired": None,  # boolean - Is user's password expired?
+        "responsible_group_id": None,  # int64 - ID of the internal Group responsible for this Partner User, overriding the Partner default.
+        "responsible_user_id": None,  # int64 - ID of the internal User responsible for this Partner User, overriding the Partner default.
         "readonly_site_admin": None,  # boolean - Is the user an allowed to view all (non-billing) site configuration for this site?
         "restapi_permission": None,  # boolean - Can this user access the Web app, Desktop app, SDKs, or REST API?  (All of these tools use the API internally, so this is one unified permission set.)
         "self_managed": None,  # boolean - Does this user manage it's own credentials or is it a shared/bot user?
@@ -93,8 +95,8 @@ class User:
         "time_zone": None,  # string - User time zone
         "type_of_2fa": None,  # string - Type(s) of 2FA methods in use, for programmatic use.  Will be either `sms`, `totp`, `webauthn`, `yubi`, `email`, or multiple values sorted alphabetically and joined by an underscore.  Does not specify whether user has more than one of a given method.
         "type_of_2fa_for_display": None,  # string - Type(s) of 2FA methods in use, formatted for displaying in the UI.  Unlike `type_of_2fa`, this value will make clear when a user has more than 1 of the same type of method.
-        "user_root": None,  # string - Root folder for FTP (and optionally SFTP if the appropriate site-wide setting is set).  Note that this is not used for API, Desktop, or Web interface.
-        "user_home": None,  # string - Home folder for FTP/SFTP.  Note that this is not used for API, Desktop, or Web interface.
+        "user_root": None,  # string - If filesystem layout is user_root, this path is the root path the user is fixed to for all interfaces. If the filesystem layout is site_root or partner_root, this acts as a root folder only for FTP and SFTP (SFTP applicability also requires a site-wide setting to be set). For partner_root layout, this path is relative to the Partner root folder for all callers and blank opts out of an additional protocol root. In this situation, this path is not applied to the API, Desktop, or Web interface.
+        "user_home": None,  # string - Home folder for FTP/SFTP. For users with the partner_root filesystem layout, this path is relative to the Partner root folder. In all other cases, it is an absolute path. Only applies to FTP and SFTP, and not any other interface.
         "days_remaining_until_password_expire": None,  # int64 - Number of days remaining until password expires
         "password_expire_at": None,  # date-time - Password expiration datetime
         "avatar_file": None,  # file - An image file for your user avatar.
@@ -247,6 +249,8 @@ class User:
     #   notify_on_all_expectation_failures - boolean - Should the user receive expectation failures and misses via email?
     #   require_login_by - string - Require user to login by specified date otherwise it will be disabled.
     #   require_password_change - boolean - Is a password change required upon next user login?
+    #   responsible_group_id - int64 - ID of the internal Group responsible for this Partner User, overriding the Partner default.
+    #   responsible_user_id - int64 - ID of the internal User responsible for this Partner User, overriding the Partner default.
     #   restapi_permission - boolean - Can this user access the Web app, Desktop app, SDKs, or REST API?  (All of these tools use the API internally, so this is one unified permission set.)
     #   self_managed - boolean - Does this user manage it's own credentials or is it a shared/bot user?
     #   sftp_permission - boolean - Can the user access with SFTP?
@@ -258,8 +262,8 @@ class User:
     #   require_2fa - string - 2FA required setting. `use_system_setting` uses the site-wide setting, including SSO exemptions. `always_require` and `never_require` override the site-wide setting when user-level overrides are allowed.
     #   tags - string - Comma-separated list of Tags for this user. Tags are used for other features, such as UserLifecycleRules, which can target specific tags.  Tags must only contain lowercase letters, numbers, and hyphens.
     #   time_zone - string - User time zone
-    #   user_root - string - Root folder for FTP (and optionally SFTP if the appropriate site-wide setting is set).  Note that this is not used for API, Desktop, or Web interface.
-    #   user_home - string - Home folder for FTP/SFTP.  Note that this is not used for API, Desktop, or Web interface.
+    #   user_root - string - If filesystem layout is user_root, this path is the root path the user is fixed to for all interfaces. If the filesystem layout is site_root or partner_root, this acts as a root folder only for FTP and SFTP (SFTP applicability also requires a site-wide setting to be set). For partner_root layout, this path is relative to the Partner root folder for all callers and blank opts out of an additional protocol root. In this situation, this path is not applied to the API, Desktop, or Web interface.
+    #   user_home - string - Home folder for FTP/SFTP. For users with the partner_root filesystem layout, this path is relative to the Partner root folder. In all other cases, it is an absolute path. Only applies to FTP and SFTP, and not any other interface.
     #   workspace_admin - boolean - Is the user a Workspace administrator?  Applicable only to the workspace ID related to this user, if one is set.
     #   username - string - User's username
     #   workspace_id - int64 - Workspace ID
@@ -416,6 +420,18 @@ class User:
         ):
             raise InvalidParameterError(
                 "Bad parameter: require_login_by must be an str"
+            )
+        if "responsible_group_id" in params and not isinstance(
+            params["responsible_group_id"], int
+        ):
+            raise InvalidParameterError(
+                "Bad parameter: responsible_group_id must be an int"
+            )
+        if "responsible_user_id" in params and not isinstance(
+            params["responsible_user_id"], int
+        ):
+            raise InvalidParameterError(
+                "Bad parameter: responsible_user_id must be an int"
             )
         if "ssl_required" in params and not isinstance(
             params["ssl_required"], str
@@ -645,6 +661,8 @@ def get(id, params=None, options=None):
 #   notify_on_all_expectation_failures - boolean - Should the user receive expectation failures and misses via email?
 #   require_login_by - string - Require user to login by specified date otherwise it will be disabled.
 #   require_password_change - boolean - Is a password change required upon next user login?
+#   responsible_group_id - int64 - ID of the internal Group responsible for this Partner User, overriding the Partner default.
+#   responsible_user_id - int64 - ID of the internal User responsible for this Partner User, overriding the Partner default.
 #   restapi_permission - boolean - Can this user access the Web app, Desktop app, SDKs, or REST API?  (All of these tools use the API internally, so this is one unified permission set.)
 #   self_managed - boolean - Does this user manage it's own credentials or is it a shared/bot user?
 #   sftp_permission - boolean - Can the user access with SFTP?
@@ -656,8 +674,8 @@ def get(id, params=None, options=None):
 #   require_2fa - string - 2FA required setting. `use_system_setting` uses the site-wide setting, including SSO exemptions. `always_require` and `never_require` override the site-wide setting when user-level overrides are allowed.
 #   tags - string - Comma-separated list of Tags for this user. Tags are used for other features, such as UserLifecycleRules, which can target specific tags.  Tags must only contain lowercase letters, numbers, and hyphens.
 #   time_zone - string - User time zone
-#   user_root - string - Root folder for FTP (and optionally SFTP if the appropriate site-wide setting is set).  Note that this is not used for API, Desktop, or Web interface.
-#   user_home - string - Home folder for FTP/SFTP.  Note that this is not used for API, Desktop, or Web interface.
+#   user_root - string - If filesystem layout is user_root, this path is the root path the user is fixed to for all interfaces. If the filesystem layout is site_root or partner_root, this acts as a root folder only for FTP and SFTP (SFTP applicability also requires a site-wide setting to be set). For partner_root layout, this path is relative to the Partner root folder for all callers and blank opts out of an additional protocol root. In this situation, this path is not applied to the API, Desktop, or Web interface.
+#   user_home - string - Home folder for FTP/SFTP. For users with the partner_root filesystem layout, this path is relative to the Partner root folder. In all other cases, it is an absolute path. Only applies to FTP and SFTP, and not any other interface.
 #   workspace_admin - boolean - Is the user a Workspace administrator?  Applicable only to the workspace ID related to this user, if one is set.
 #   username (required) - string - User's username
 #   workspace_id - int64 - Workspace ID
@@ -919,6 +937,18 @@ def create(params=None, options=None):
         raise InvalidParameterError(
             "Bad parameter: require_password_change must be an bool"
         )
+    if "responsible_group_id" in params and not isinstance(
+        params["responsible_group_id"], int
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: responsible_group_id must be an int"
+        )
+    if "responsible_user_id" in params and not isinstance(
+        params["responsible_user_id"], int
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: responsible_user_id must be an int"
+        )
     if "restapi_permission" in params and not isinstance(
         params["restapi_permission"], bool
     ):
@@ -1107,6 +1137,8 @@ def user_2fa_reset(id, params=None, options=None):
 #   notify_on_all_expectation_failures - boolean - Should the user receive expectation failures and misses via email?
 #   require_login_by - string - Require user to login by specified date otherwise it will be disabled.
 #   require_password_change - boolean - Is a password change required upon next user login?
+#   responsible_group_id - int64 - ID of the internal Group responsible for this Partner User, overriding the Partner default.
+#   responsible_user_id - int64 - ID of the internal User responsible for this Partner User, overriding the Partner default.
 #   restapi_permission - boolean - Can this user access the Web app, Desktop app, SDKs, or REST API?  (All of these tools use the API internally, so this is one unified permission set.)
 #   self_managed - boolean - Does this user manage it's own credentials or is it a shared/bot user?
 #   sftp_permission - boolean - Can the user access with SFTP?
@@ -1118,8 +1150,8 @@ def user_2fa_reset(id, params=None, options=None):
 #   require_2fa - string - 2FA required setting. `use_system_setting` uses the site-wide setting, including SSO exemptions. `always_require` and `never_require` override the site-wide setting when user-level overrides are allowed.
 #   tags - string - Comma-separated list of Tags for this user. Tags are used for other features, such as UserLifecycleRules, which can target specific tags.  Tags must only contain lowercase letters, numbers, and hyphens.
 #   time_zone - string - User time zone
-#   user_root - string - Root folder for FTP (and optionally SFTP if the appropriate site-wide setting is set).  Note that this is not used for API, Desktop, or Web interface.
-#   user_home - string - Home folder for FTP/SFTP.  Note that this is not used for API, Desktop, or Web interface.
+#   user_root - string - If filesystem layout is user_root, this path is the root path the user is fixed to for all interfaces. If the filesystem layout is site_root or partner_root, this acts as a root folder only for FTP and SFTP (SFTP applicability also requires a site-wide setting to be set). For partner_root layout, this path is relative to the Partner root folder for all callers and blank opts out of an additional protocol root. In this situation, this path is not applied to the API, Desktop, or Web interface.
+#   user_home - string - Home folder for FTP/SFTP. For users with the partner_root filesystem layout, this path is relative to the Partner root folder. In all other cases, it is an absolute path. Only applies to FTP and SFTP, and not any other interface.
 #   workspace_admin - boolean - Is the user a Workspace administrator?  Applicable only to the workspace ID related to this user, if one is set.
 #   username - string - User's username
 #   workspace_id - int64 - Workspace ID
@@ -1385,6 +1417,18 @@ def update(id, params=None, options=None):
     ):
         raise InvalidParameterError(
             "Bad parameter: require_password_change must be an bool"
+        )
+    if "responsible_group_id" in params and not isinstance(
+        params["responsible_group_id"], int
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: responsible_group_id must be an int"
+        )
+    if "responsible_user_id" in params and not isinstance(
+        params["responsible_user_id"], int
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: responsible_user_id must be an int"
         )
     if "restapi_permission" in params and not isinstance(
         params["restapi_permission"], bool

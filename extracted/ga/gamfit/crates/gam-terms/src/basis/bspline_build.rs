@@ -173,10 +173,10 @@ pub fn build_bspline_basis_1d(
         let knots = cyclic_uniform_knot_vector(start, end, spec.degree, num_basis);
         let s_bend_raw = ConstructiveQuadratic::from_energy_factor(
             cyclic_bspline_derivative_penalty_factor(
-            spec.degree,
-            num_basis,
-            end - start,
-            spec.penalty_order,
+                spec.degree,
+                num_basis,
+                end - start,
+                spec.penalty_order,
             )?,
             "cyclic B-spline roughness",
         )?;
@@ -207,10 +207,8 @@ pub fn build_bspline_basis_1d(
         // penalty. Fit-invariant at the REML optimum (only `λ̂` rescales by `c`).
         let (_, s_bend_scale) = normalize_penalty(s_bend_raw.dense());
         let penalties_raw = vec![PenaltyCandidate {
-            matrix: s_bend_raw.scaled(
-                1.0 / s_bend_scale,
-                "normalized cyclic B-spline roughness",
-            )?,
+            matrix: s_bend_raw
+                .scaled(1.0 / s_bend_scale, "normalized cyclic B-spline roughness")?,
             source: PenaltySource::Primary,
             normalization_scale: s_bend_scale,
             kronecker_factors: None,
@@ -569,120 +567,116 @@ pub fn build_bspline_basis_1d(
         .iter()
         .map(|candidate| candidate.matrix.dense().clone())
         .collect();
-    let (design, transformed_candidates, identifiability_transform) = if let Some(sparse_basis) =
-        design_sparse_opt
-    {
-        match &spec.identifiability {
-            BSplineIdentifiability::None => {
-                (
+    let (design, transformed_candidates, identifiability_transform) =
+        if let Some(sparse_basis) = design_sparse_opt {
+            match &spec.identifiability {
+                BSplineIdentifiability::None => (
                     DesignMatrix::Sparse(gam_linalg::matrix::SparseDesignMatrix::new(sparse_basis)),
                     penalties_raw,
                     None,
-                )
-            }
-            BSplineIdentifiability::WeightedSumToZero { weights } => {
-                let (constrained_basis, z) = apply_sum_to_zero_constraint_sparse(
-                    &sparse_basis,
-                    weights.as_ref().map(|w| w.view()),
-                )?;
-                let gauge = gam_problem::Gauge::sum_to_zero(z);
-                let z = gauge.block_transform(0);
-                let transformed_candidates = penalties_raw
-                    .into_iter()
-                    .map(|candidate| -> Result<PenaltyCandidate, BasisError> {
-                        let matrix = candidate.matrix.restricted(
-                            &gauge,
-                            "sparse B-spline sum-to-zero restriction",
-                        )?;
-                        Ok(PenaltyCandidate {
-                            matrix,
-                            source: candidate.source,
-                            normalization_scale: candidate.normalization_scale,
-                            kronecker_factors: None,
-                            op: None,
+                ),
+                BSplineIdentifiability::WeightedSumToZero { weights } => {
+                    let (constrained_basis, z) = apply_sum_to_zero_constraint_sparse(
+                        &sparse_basis,
+                        weights.as_ref().map(|w| w.view()),
+                    )?;
+                    let gauge = gam_problem::Gauge::sum_to_zero(z);
+                    let z = gauge.block_transform(0);
+                    let transformed_candidates = penalties_raw
+                        .into_iter()
+                        .map(|candidate| -> Result<PenaltyCandidate, BasisError> {
+                            let matrix = candidate
+                                .matrix
+                                .restricted(&gauge, "sparse B-spline sum-to-zero restriction")?;
+                            Ok(PenaltyCandidate {
+                                matrix,
+                                source: candidate.source,
+                                normalization_scale: candidate.normalization_scale,
+                                kronecker_factors: None,
+                                op: None,
+                            })
                         })
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                // `apply_sum_to_zero_constraint_sparse` now returns a dense
-                // constrained basis `B_c = B Z` with orthonormal `Z`. The
-                // densification is the honest cost of using an orthonormal
-                // null-space basis (so that `ZZᵀ` is a true projector); the
-                // post-constraint matrix has `k-1` columns, which is the
-                // smooth's typical working dimension, so this stays small.
-                (
-                    DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(Arc::new(
-                        constrained_basis,
-                    ))),
-                    transformed_candidates,
-                    Some(z),
-                )
-            }
-            BSplineIdentifiability::RemoveLinearTrend
-            | BSplineIdentifiability::OrthogonalToDesignColumns { .. }
-            | BSplineIdentifiability::FrozenTransform { .. } => {
-                crate::bail_invalid_basis!(
-                    "sparse B-spline identifiability only supports None or \
+                        .collect::<Result<Vec<_>, _>>()?;
+                    // `apply_sum_to_zero_constraint_sparse` now returns a dense
+                    // constrained basis `B_c = B Z` with orthonormal `Z`. The
+                    // densification is the honest cost of using an orthonormal
+                    // null-space basis (so that `ZZᵀ` is a true projector); the
+                    // post-constraint matrix has `k-1` columns, which is the
+                    // smooth's typical working dimension, so this stays small.
+                    (
+                        DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(Arc::new(
+                            constrained_basis,
+                        ))),
+                        transformed_candidates,
+                        Some(z),
+                    )
+                }
+                BSplineIdentifiability::RemoveLinearTrend
+                | BSplineIdentifiability::OrthogonalToDesignColumns { .. }
+                | BSplineIdentifiability::FrozenTransform { .. } => {
+                    crate::bail_invalid_basis!(
+                        "sparse B-spline identifiability only supports None or \
                      WeightedSumToZero; RemoveLinearTrend, \
                      OrthogonalToDesignColumns, and FrozenTransform require \
                      the dense path"
-                        .to_string(),
-                );
+                            .to_string(),
+                    );
+                }
             }
-        }
-    } else {
-        let raw_design = design_dense_opt.expect("dense B-spline basis should be present");
-        // A `FrozenTransform` already maps from the RAW knot basis with the
-        // endpoint boundary projection baked in (it was composed as
-        // `boundary ∘ identifiability` at fit time). Re-deriving and re-applying
-        // the boundary nullspace transform here would project the raw basis a
-        // second time and shrink its width before the frozen transform replays,
-        // so a frozen anchored/clamped spec must NOT re-run the boundary step.
-        // Skipping it lets the frozen spec keep its original
-        // `boundary_conditions` (the single source of truth the intercept-
-        // suppression decision reads, #1238/#1265) without double-projecting.
-        let boundary_transform = if matches!(
-            spec.identifiability,
-            BSplineIdentifiability::FrozenTransform { .. }
-        ) {
-            None
         } else {
-            bspline_boundary_nullspace_transform(&knots, spec.degree, spec.boundary_conditions)?
-        };
-        let (boundary_design, boundary_penalties) = if let Some(z_bc) = boundary_transform.as_ref()
-        {
-            (
-                fast_ab(&raw_design, z_bc),
-                penalties_raw_mats
-                    .into_iter()
-                    .map(|s| project_penalty_matrix(&s, Some(z_bc)))
-                    .collect(),
-            )
-        } else {
-            (raw_design, penalties_raw_mats)
-        };
-        let (design, penalties, identifiability_local) =
-            apply_bspline_identifiability_policy_in_chart(
-                boundary_design,
-                boundary_penalties,
-                &knots,
-                spec.degree,
-                &spec.identifiability,
-                boundary_transform.as_ref(),
+            let raw_design = design_dense_opt.expect("dense B-spline basis should be present");
+            // A `FrozenTransform` already maps from the RAW knot basis with the
+            // endpoint boundary projection baked in (it was composed as
+            // `boundary ∘ identifiability` at fit time). Re-deriving and re-applying
+            // the boundary nullspace transform here would project the raw basis a
+            // second time and shrink its width before the frozen transform replays,
+            // so a frozen anchored/clamped spec must NOT re-run the boundary step.
+            // Skipping it lets the frozen spec keep its original
+            // `boundary_conditions` (the single source of truth the intercept-
+            // suppression decision reads, #1238/#1265) without double-projecting.
+            let boundary_transform = if matches!(
+                spec.identifiability,
+                BSplineIdentifiability::FrozenTransform { .. }
+            ) {
+                None
+            } else {
+                bspline_boundary_nullspace_transform(&knots, spec.degree, spec.boundary_conditions)?
+            };
+            let (boundary_design, boundary_penalties) =
+                if let Some(z_bc) = boundary_transform.as_ref() {
+                    (
+                        fast_ab(&raw_design, z_bc),
+                        penalties_raw_mats
+                            .into_iter()
+                            .map(|s| project_penalty_matrix(&s, Some(z_bc)))
+                            .collect(),
+                    )
+                } else {
+                    (raw_design, penalties_raw_mats)
+                };
+            let (design, penalties, identifiability_local) =
+                apply_bspline_identifiability_policy_in_chart(
+                    boundary_design,
+                    boundary_penalties,
+                    &knots,
+                    spec.degree,
+                    &spec.identifiability,
+                    boundary_transform.as_ref(),
+                )?;
+            let identifiability_transform =
+                compose_optional_bspline_transform(boundary_transform, identifiability_local)?;
+            drop(penalties);
+            let transformed_candidates = restrict_penalty_candidates(
+                penalties_raw,
+                identifiability_transform.as_ref(),
+                "B-spline boundary and identifiability restriction",
             )?;
-        let identifiability_transform =
-            compose_optional_bspline_transform(boundary_transform, identifiability_local)?;
-        drop(penalties);
-        let transformed_candidates = restrict_penalty_candidates(
-            penalties_raw,
-            identifiability_transform.as_ref(),
-            "B-spline boundary and identifiability restriction",
-        )?;
-        (
-            DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(design)),
-            transformed_candidates,
-            identifiability_transform,
-        )
-    };
+            (
+                DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(design)),
+                transformed_candidates,
+                identifiability_transform,
+            )
+        };
     let transformed_candidates =
         rebuild_double_penalty_nullspace_in_constrained_chart(transformed_candidates)?;
     let filtered = filter_penalty_candidates(renormalize_constrained_penalty_candidates(
@@ -762,10 +756,7 @@ pub fn build_cubic_regression_basis_1d(
     let want_nullspace = spec.double_penalty;
     let (bend_norm, bend_scale) = normalize_penalty(&s_bend_raw);
     let mut penalties_raw = vec![PenaltyCandidate {
-        matrix: ConstructiveQuadratic::try_from_dense_psd(
-            bend_norm,
-            "cubic-regression roughness",
-        )?,
+        matrix: ConstructiveQuadratic::try_from_dense_psd(bend_norm, "cubic-regression roughness")?,
         source: PenaltySource::Primary,
         normalization_scale: bend_scale,
         kronecker_factors: None,
@@ -1889,6 +1880,7 @@ pub fn filter_penalty_candidates(
             kronecker_factors,
             op,
         } = candidate;
+        let structural_null_frame = matrix.structural_null_frame().cloned();
         let analysis = analyze_penalty_block_with_op(&matrix, op)?;
         let dropped_reason = if analysis.rank == 0 {
             Some(if analysis.iszero {
@@ -1936,6 +1928,7 @@ pub fn filter_penalty_candidates(
                     effective_rank: analysis.rank,
                     normalization_scale,
                     kronecker_factors,
+                    structural_null_frame,
                 },
             });
         }
@@ -2109,9 +2102,7 @@ fn renormalize_constrained_penalty_candidates(
     for candidate in &mut candidates {
         let frob = stable_frobenius_norm(&candidate.matrix);
         if !frob.is_finite() {
-            crate::bail_invalid_basis!(
-                "constrained penalty Frobenius norm is not representable"
-            );
+            crate::bail_invalid_basis!("constrained penalty Frobenius norm is not representable");
         }
         if frob > 0.0 {
             let reciprocal = 1.0 / frob;
@@ -2243,11 +2234,9 @@ fn rebuild_double_penalty_nullspace_in_constrained_chart(
                 candidate.normalization_scale,
                 "physical constrained B-spline null ridge",
             )?;
-            candidate.matrix = rebuild_metric_consistent_ridge(
-                &primary_constrained,
-                &ridge_constrained,
-            )?
-            .unwrap_or_else(|| ConstructiveQuadratic::zero(p));
+            candidate.matrix =
+                rebuild_metric_consistent_ridge(&primary_constrained, &ridge_constrained)?
+                    .unwrap_or_else(|| ConstructiveQuadratic::zero(p));
             candidate.normalization_scale = 1.0;
             candidate.op = None;
         }
@@ -2343,10 +2332,7 @@ fn bspline_penalty_candidates(
     let Some(shrinkage) = shrinkage else {
         let (_, bend_scale) = normalize_penalty(s_bend_raw.dense());
         return Ok(vec![PenaltyCandidate {
-            matrix: s_bend_raw.scaled(
-                1.0 / bend_scale,
-                "normalized B-spline roughness",
-            )?,
+            matrix: s_bend_raw.scaled(1.0 / bend_scale, "normalized B-spline roughness")?,
             source: PenaltySource::Primary,
             normalization_scale: bend_scale,
             kronecker_factors: None,
@@ -2358,10 +2344,7 @@ fn bspline_penalty_candidates(
     let (ridge_norm, ridge_scale) = normalize_penalty(&shrinkage);
     Ok(vec![
         PenaltyCandidate {
-            matrix: s_bend_raw.scaled(
-                1.0 / bend_scale,
-                "normalized B-spline roughness",
-            )?,
+            matrix: s_bend_raw.scaled(1.0 / bend_scale, "normalized B-spline roughness")?,
             source: PenaltySource::Primary,
             normalization_scale: bend_scale,
             kronecker_factors: None,
@@ -2658,11 +2641,34 @@ fn constructive_ridge_from_null_metric_action(
     let c_raw = n.t().dot(w);
     let (c_sym, evals, evecs) = spectral_summary(&c_raw)?;
     let tol = generalized_spectral_tolerance(&evals, &c_sym);
-    if let Some(&invalid) = evals.iter().find(|&&value| value <= tol) {
+    // A materially NEGATIVE metric eigenvalue is a construction failure: `M` is
+    // a Gram of the function metric restricted to a subspace and cannot be
+    // indefinite, so this means the supplied `W` is not that metric's action.
+    if let Some(&invalid) = evals.iter().find(|&&value| value < -tol) {
         crate::bail_invalid_basis!(
-            "{context}: null-function metric is not strictly positive definite; eigenvalue {invalid:.6e} is at or below tolerance {tol:.6e}"
+            "{context}: null-function metric is indefinite; eigenvalue {invalid:.6e} is below tolerance -{tol:.6e}"
         );
     }
+    // A SINGULAR one is not. The double penalty is not obliged to cover every
+    // unpenalized direction: Duchon deliberately leaves the model intercept
+    // free while shrinking only the affine trend, so a null space that is
+    // larger than the ridge's own subspace is the designed state, not a defect.
+    // `N M Nᵀ` with PSD `M` is identically `Ñ M̃ Ñᵀ` on `M`'s positive part, so
+    // dropping the null part is an identity rather than an approximation, and
+    // an all-zero `M` correctly yields a zero block that the candidate filter
+    // then drops. Rejecting this instead made the shipped topology depend on
+    // whether the primary's numerical null space happened to coincide with the
+    // ridge's support (gam#2433).
+    let kept: Vec<usize> = evals
+        .iter()
+        .enumerate()
+        .filter_map(|(index, &value)| (value > tol).then_some(index))
+        .collect();
+    if kept.is_empty() {
+        return ConstructiveQuadratic::from_energy_factor(Array2::zeros((0, n.nrows())), context);
+    }
+    let evecs = evecs.select(Axis(1), &kept);
+    let evals = Array1::from_iter(kept.iter().map(|&index| evals[index]));
     // The double-penalty ridge is `R = N M Nᵀ`, NOT the metric projector
     // `W M⁻¹ Wᵀ = G_c N (Nᵀ G_c N)⁻¹ Nᵀ G_c`. Both weight the null directions by the
     // function metric `M`, but `R`'s range is `span(N) = null(S_c)` (so `S_c·R = 0`
@@ -2673,10 +2679,7 @@ fn constructive_ridge_from_null_metric_action(
     // `M = V Λ Vᵀ`, `R = (N V Λ^{1/2})(N V Λ^{1/2})ᵀ`, so the energy factor columns
     // are `N V Λ^{1/2}`.
     let mut metric_columns = n.dot(&evecs);
-    for (mut column, &eigenvalue) in metric_columns
-        .axis_iter_mut(Axis(1))
-        .zip(evals.iter())
-    {
+    for (mut column, &eigenvalue) in metric_columns.axis_iter_mut(Axis(1)).zip(evals.iter()) {
         column *= eigenvalue.sqrt();
     }
     ConstructiveQuadratic::from_energy_factor(metric_columns.t().to_owned(), context)
@@ -2687,7 +2690,31 @@ fn constructive_ridge_from_null_metric_action(
 /// Rank revelation acts on `A`, not on `AᵀA`: this avoids squaring the
 /// condition number and, critically, there is no negative-eigenvalue class to
 /// adjudicate because PSD is encoded by the type.
-fn constructive_nullspace_basis(
+///
+/// The null/range CUTOFF, however, is the canonical penalty-spectrum
+/// convention — [`spectral_tolerance`] — not machine epsilon. This is the
+/// #1425 single-classifier rule applied to the constructive representation: a
+/// direction is unpenalized exactly when its penalty eigenvalue is at or below
+/// `p · 1e-10 · λ_max`, which is what [`analyze_penalty_block_with_op`] reports
+/// as `nullity` for the very same block. The energy factor's singular values
+/// are `√λ`, so the cutoff transfers as `√tol`.
+///
+/// Using RRQR's machine-precision `rank_alpha` here instead made this the one
+/// penalty-spectrum consumer with its own convention, five decades tighter than
+/// every other. The observable consequence (gam#2433) is that whether a block
+/// has a null space depended on whether a `try_from_dense_psd` — which applies
+/// the loose canonical tolerance and DROPS sub-tolerance modes from the factor
+/// — happened to be interposed before a gauge restriction. The term collection
+/// restricts an already-factored raw penalty (`try_from_dense_psd` in the RAW
+/// chart, then `.restricted(Z)`), so a mode that collapses to `6.9e-13·λ_max`
+/// under `Z` stayed in the factor and read as full rank; the frozen single-term
+/// replay factors the dense constrained penalty (`try_from_dense_psd` in the
+/// CONSTRAINED chart), so the same mode was dropped and read as nullity 1. Both
+/// blocks then reported `nullity = 1` from `analyze_penalty_block`, while this
+/// function told the double-penalty rebuild there was nothing to shrink in one
+/// of them — a self-contradiction inside a single built term, and the origin of
+/// the realized 5-vs-4 Duchon penalty-topology split.
+pub(crate) fn constructive_nullspace_basis(
     quadratic: &ConstructiveQuadratic,
 ) -> Result<Option<Array2<f64>>, BasisError> {
     let coefficient_dim = quadratic.factor().ncols();
@@ -2697,8 +2724,14 @@ fn constructive_nullspace_basis(
     if quadratic.factor().nrows() == 0 {
         return Ok(Some(Array2::eye(coefficient_dim)));
     }
+    // Canonical eigenvalue-unit cutoff, read off the same dense Gram and with
+    // the same helper `analyze_penalty_block_with_op` uses, so the two can
+    // never disagree about this block's nullity.
+    let sym = symmetrize_penalty(quadratic.dense());
+    let (evals, _) = FaerEigh::eigh(&sym, Side::Lower).map_err(BasisError::LinalgError)?;
+    let singular_cutoff = spectral_tolerance(&sym, &evals).sqrt();
     let factor_transpose = quadratic.factor().t().to_owned();
-    let (null, rank) = rrqr_nullspace_basis(&factor_transpose, default_rrqr_rank_alpha())
+    let (null, rank) = rrqr_nullspace_basis_with_cutoff(&factor_transpose, singular_cutoff)
         .map_err(BasisError::LinalgError)?;
     if rank >= coefficient_dim || null.ncols() == 0 {
         Ok(None)
@@ -3009,8 +3042,28 @@ pub(crate) fn rebuild_metric_consistent_ridge(
     if primary_constrained.nrows() == 0 {
         return Ok(None);
     }
-    let Some(n) = constructive_nullspace_basis(primary_constrained)? else {
-        return Ok(None);
+    // A DECLARED structural null frame overrides the rank test (#2445): the
+    // null space of a curvature seminorm is a theorem (Duchon's polynomial
+    // block), and the shipped primary deliberately contains a `√ε`-relative
+    // conditioning ridge on exactly those directions (gam#880/#1816), so a
+    // rank test on the shipped matrix decides the double-penalty TOPOLOGY by
+    // the Gram's conditioning — and its frame rotates with ψ, which is the
+    // whole of the #2444 FD residue. The declaration is transported through
+    // every chart by `ConstructiveQuadratic::restricted`, so consuming it
+    // here keeps `P` ψ-invariant and the emitted topology structural.
+    let n = match primary_constrained.structural_null_frame() {
+        Some(frame) => {
+            if frame.ncols() == 0 {
+                return Ok(None);
+            }
+            frame.to_owned()
+        }
+        None => {
+            let Some(n) = constructive_nullspace_basis(primary_constrained)? else {
+                return Ok(None);
+            };
+            n
+        }
     };
     let w = ridge_constrained.dense().dot(&n);
     Ok(Some(constructive_ridge_from_null_metric_action(
@@ -3459,6 +3512,120 @@ mod function_space_null_shrinkage_tests {
         );
     }
 
+    /// gam#2433: the constructive rank revelation and `analyze_penalty_block`
+    /// are two views of ONE object — a candidate is filtered (and its `nullity`
+    /// reported) by the second, while its double-penalty ridge is rebuilt from
+    /// the first — so a private cutoff in either makes a single built term
+    /// self-contradictory: `nullity = 1` and "full rank, nothing to shrink" at
+    /// once. That is what dropped the Duchon trend ridge from the collection
+    /// design while the frozen replay kept it.
+    #[test]
+    fn constructive_null_space_uses_the_canonical_penalty_spectrum_cutoff_2433() {
+        // λ = (1, 1e-12). Canonically that second direction is UNPENALIZED
+        // (`spectral_tolerance` = 2·1e-10·1 = 2e-10, two decades above it), but
+        // in singular-value units it is 1e-6 — eight decades above RRQR's
+        // machine-precision cutoff (100·ε·2 ≈ 4.4e-14), which is what the
+        // constructive path used to ask.
+        let quadratic = ConstructiveQuadratic::from_energy_factor(
+            array![[1.0, 0.0], [0.0, 1.0e-6]],
+            "#2433 canonical-cutoff fixture",
+        )
+        .expect("finite factor");
+        let block =
+            analyze_penalty_block(quadratic.dense()).expect("canonical spectral classification");
+        assert_eq!(
+            block.nullity, 1,
+            "fixture must be rank-deficient under the canonical convention"
+        );
+        let null = constructive_nullspace_basis(&quadratic)
+            .expect("constructive null revelation")
+            .expect("the sub-tolerance direction is a null direction");
+        assert_eq!(
+            null.ncols(),
+            block.nullity,
+            "the constructive null space must have the dimension the canonical \
+             classifier reports for the same block"
+        );
+        assert!(
+            null[[0, 0]].abs() < 1.0e-12,
+            "the null direction must be the sub-tolerance coordinate, not the \
+             penalized one; got {null:?}"
+        );
+    }
+
+    /// The #2433 shape itself: one penalty, two routes into the same
+    /// constrained chart, which must not disagree about its null space.
+    ///
+    /// `try_from_dense_psd` applies the canonical tolerance and DROPS
+    /// sub-tolerance modes from the energy factor, so *where* it sits relative
+    /// to the identifiability restriction decides whether a mode that only
+    /// falls below tolerance under `Z` is still present when rank is revealed.
+    /// The term collection factors the RAW penalty and then restricts it; the
+    /// frozen single-term replay projects first and factors the CONSTRAINED
+    /// penalty. With a machine-precision cutoff those two answered differently.
+    #[test]
+    fn constructive_null_space_is_independent_of_where_the_chart_is_applied_2433() {
+        // A raw penalty whose second direction is 30× ABOVE the raw chart's
+        // tolerance (3·1e-10) and, after an orthonormal restriction that keeps
+        // only a 1e-2 component of it, 200× BELOW the constrained chart's
+        // (2·1e-10).
+        let component = 1.0e-2_f64;
+        let z = array![
+            [1.0, 0.0],
+            [0.0, (1.0 - component * component).sqrt()],
+            [0.0, -component]
+        ];
+        let raw_dense = array![
+            [1.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0e-8]
+        ];
+        let raw = ConstructiveQuadratic::try_from_dense_psd(raw_dense.clone(), "#2433 raw penalty")
+            .expect("PSD raw penalty");
+
+        // Route A — the term collection: restrict an already-factored penalty.
+        let by_restriction = ConstructiveQuadratic::from_energy_factor(
+            raw.factor().dot(&z),
+            "#2433 restricted-factor route",
+        )
+        .expect("finite restricted factor");
+        // Route B — the frozen replay: re-factor the dense congruence.
+        let by_refactoring = ConstructiveQuadratic::try_from_dense_psd(
+            congruence(&raw_dense, &z),
+            "#2433 dense-congruence route",
+        )
+        .expect("PSD dense congruence");
+
+        // The two routes describe the same penalty to the precision each one is
+        // entitled to: route B re-factors the dense congruence, so it discards
+        // the sub-tolerance mode that route A carries in its factor. That
+        // difference is bounded by the canonical cutoff itself, and it is
+        // precisely why the two used to disagree about the NULL SPACE — which
+        // is the thing asserted below.
+        let gap = max_abs_difference(by_restriction.dense(), by_refactoring.dense());
+        assert!(
+            gap < 1.0e-8,
+            "the two routes must describe the same constrained penalty (gap {gap:.3e}); \
+             the point of this fixture is that they disagreed about its null space, not \
+             about the matrix"
+        );
+        for (label, quadratic) in [
+            ("restricted factor", &by_restriction),
+            ("dense congruence", &by_refactoring),
+        ] {
+            let null = constructive_nullspace_basis(quadratic)
+                .expect("constructive null revelation")
+                .unwrap_or_else(|| {
+                    panic!("{label}: the constrained penalty has a null direction")
+                });
+            assert_eq!(
+                null.ncols(),
+                1,
+                "{label}: exactly one direction is unpenalized in the constrained chart"
+            );
+        }
+    }
+
     #[test]
     fn metric_ridge_rebuild_adjudicates_whitening_amplified_roundoff_2318() {
         // This is the rounded dense artifact that triggered #2318.  A tiny
@@ -3466,10 +3633,8 @@ mod function_space_null_shrinkage_tests {
         // ill-scaled metric into a macroscopically negative generalized value.
         // It is deliberately *not* admitted as a PenaltyCandidate: the actual
         // construction below retains A for S=AᵀA through every chart change.
-        let poisoned_dense =
-            array![[-1.0e-14, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 2.0]];
-        let ridge_dense =
-            array![[1.0e-12, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]];
+        let poisoned_dense = array![[-1.0e-14, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 2.0]];
+        let ridge_dense = array![[1.0e-12, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]];
         let amplified_negative =
             poisoned_dense[[0, 0]] / (poisoned_dense[[0, 0]] + ridge_dense[[0, 0]]);
         assert!(

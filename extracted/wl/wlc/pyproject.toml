@@ -13,7 +13,7 @@ lint = [
   {include-group = "pylint"}
 ]
 pre-commit = [
-  "prek==0.4.5"
+  "prek==0.4.10"
 ]
 pylint = [
   "pylint==4.0.6"
@@ -22,14 +22,14 @@ test = [
   "pytest-cov==7.1.0",
   "pytest-github-actions-annotate-failures==0.4.2",
   "pytest==9.1.1",
-  "responses==0.26.1"
+  "responses==0.26.2"
 ]
 types = [
-  "ty==0.0.55",
-  "mypy==2.1.0",
+  "ty==0.0.63",
+  "mypy==2.3.0",
   "types-pyxdg==0.28.0.20260518",
-  "types-python-dateutil==2.9.0.20260518",
-  "types-requests==2.33.0.20260518"
+  "types-python-dateutil==2.9.0.20260716",
+  "types-requests==2.33.0.20260712"
 ]
 
 [project]
@@ -170,6 +170,11 @@ ignore = [
   "N818"  # TODO: exception naming
 ]
 select = ["ALL"]
+
+[tool.ruff.lint.flake8-copyright]
+min-file-size = 2
+# Copyright without a year, see https://github.com/astral-sh/ruff/issues/10062
+notice-rgx = "(?i)Copyright\\s+©\\s+"
 
 [tool.ruff.lint.mccabe]
 max-complexity = 16

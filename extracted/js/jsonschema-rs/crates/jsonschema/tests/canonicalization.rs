@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, collections::HashSet};
 
 use jsonschema::{
     canonical::{options, CanonicalKind, CanonicalSchema, CanonicalView},
@@ -7,7 +7,7 @@ use jsonschema::{
 use serde_json::{json, Map, Number, Value};
 use test_case::test_case;
 
-#[test_case(&json!({"allOf": [{"type": "integer"}, {"minimum": 0}]}); "allOf")]
+#[test_case(&json!({"unevaluatedProperties": false}); "unevaluated properties")]
 #[test_case(&json!({"$defs": {"a": {"type": "null"}}, "$ref": "#/$defs/a"}); "ref into defs")]
 fn unmodeled_document_round_trips_verbatim(schema: &Value) {
     let canonical = canonicalize(schema).expect("canonicalizes");
@@ -42,30 +42,280 @@ fn integer_view_exposes_bounds() {
     assert_eq!(view.maximum, Some(Number::from(9)));
 }
 
-// Arbitrary precision models a bound past `u64`/`i64` as a big integer and emits it back exactly;
-// the default build keeps such a document raw.
-#[cfg(feature = "arbitrary-precision")]
-#[test_case(r#"{"type": "string", "minLength": 99999999999999999999999}"#, CanonicalKind::String, "minLength"; "length bound")]
-#[test_case(r#"{"type": "integer", "minimum": 99999999999999999999999}"#, CanonicalKind::Integer, "minimum"; "integer bound")]
-fn past_range_bound_round_trips(text: &str, kind: CanonicalKind, keyword: &str) {
-    let schema: Value = serde_json::from_str(text).expect("valid schema JSON");
-    let canonical = canonicalize(&schema).expect("canonicalizes");
-    assert_eq!(canonical.kind(), kind);
+#[test]
+fn array_view_exposes_bounds() {
+    let CanonicalView::Array(view) =
+        canonicalize(&json!({"type": "array", "minItems": 1, "maxItems": 3, "uniqueItems": true}))
+            .unwrap()
+            .view()
+    else {
+        panic!("expected an Array view");
+    };
+    assert_eq!(view.min_items, Some(Number::from(1u64)));
+    assert_eq!(view.max_items, Some(Number::from(3u64)));
+    assert!(view.unique_items);
+    assert!(view.prefix_items.is_empty());
+}
+
+#[test]
+fn array_view_exposes_prefix_items() {
+    let CanonicalView::Array(view) = canonicalize(&json!({
+        "type": "array",
+        "prefixItems": [{"type": "integer"}, {"type": "string"}],
+        "items": {"type": "boolean"}
+    }))
+    .unwrap()
+    .view() else {
+        panic!("expected an Array view");
+    };
+    let spellings: Vec<_> = view
+        .prefix_items
+        .iter()
+        .map(CanonicalSchema::to_json_schema)
+        .collect();
     assert_eq!(
-        canonical.to_json_schema()[keyword].to_string(),
-        "99999999999999999999999"
+        spellings,
+        vec![
+            json!({"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "integer"}),
+            json!({"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "string"})
+        ]
+    );
+    assert_eq!(
+        view.items.unwrap().to_json_schema(),
+        json!({"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "boolean"})
     );
 }
 
+#[test]
+fn object_view_exposes_bounds() {
+    let CanonicalView::Object(view) = canonicalize(
+        &json!({"type": "object", "minProperties": 1, "maxProperties": 3, "required": ["a"]}),
+    )
+    .unwrap()
+    .view() else {
+        panic!("expected an Object view");
+    };
+    // A required key already demands the one property `minProperties` asked for.
+    assert_eq!(view.min_properties, None);
+    assert_eq!(view.max_properties, Some(Number::from(3u64)));
+    assert_eq!(view.required, vec!["a".to_string()]);
+    assert!(view.property_names.is_none());
+    assert!(view.properties.is_empty());
+}
+
+#[test]
+fn object_view_exposes_properties() {
+    let CanonicalView::Object(view) =
+        canonicalize(&json!({"type": "object", "properties": {"a": {"type": "integer"}}}))
+            .unwrap()
+            .view()
+    else {
+        panic!("expected an Object view");
+    };
+    let schema = view.properties.get("a").expect("a property schema");
+    assert_eq!(
+        schema.to_json_schema(),
+        json!({"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "integer"})
+    );
+}
+
+#[test]
+fn object_view_exposes_property_names() {
+    let CanonicalView::Object(view) =
+        canonicalize(&json!({"type": "object", "propertyNames": {"maxLength": 4}}))
+            .unwrap()
+            .view()
+    else {
+        panic!("expected an Object view");
+    };
+    let names = view.property_names.expect("a key constraint");
+    assert_eq!(
+        names.to_json_schema(),
+        json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "string",
+            "maxLength": 4
+        })
+    );
+}
+
+// A format the canonicalizer cannot check may still be checked at validation, so a union must not
+// absorb a value into a leaf carrying one.
+#[test_case(&json!({"type": "object", "propertyNames": {"format": "only-ok"}}), &json!({"nope": 1}); "key constraint")]
+#[test_case(&json!({"type": "object", "properties": {"a": {"type": "string", "format": "only-ok"}}}), &json!({"a": "nope"}); "property schema")]
+#[test_case(&json!({"type": "object", "properties": {"a": {"format": "only-ok"}}}), &json!({"a": "nope"}); "untyped property schema")]
+#[test_case(&json!({"type": "object", "properties": {"a": {"type": "object", "propertyNames": {"format": "only-ok"}}}}), &json!({"a": {"nope": 1}}); "nested object")]
+#[test_case(&json!({"type": "array", "items": {"type": "string", "format": "only-ok"}}), &json!(["nope"]); "item schema")]
+#[test_case(&json!({"type": "array", "contains": {"type": "string", "format": "only-ok"}}), &json!(["nope"]); "contains schema")]
+#[test_case(&json!({"type": "object", "properties": {"a": {"type": "array", "contains": {"type": "string", "format": "only-ok"}}}}), &json!({"a": ["nope"]}); "contains under a property")]
+fn uncheckable_format_keeps_the_value_beside_the_leaf(leaf: &Value, instance: &Value) {
+    let schema = json!({"anyOf": [{"const": instance}, leaf]});
+    let canonical = options()
+        .should_validate_formats(true)
+        .canonicalize(&schema)
+        .expect("canonicalizes");
+    let build = |value: &Value| {
+        ::jsonschema::options()
+            .with_format("only-ok", |text: &str| text == "ok")
+            .should_validate_formats(true)
+            .build(value)
+            .expect("builds")
+    };
+    assert!(build(&schema).is_valid(instance));
+    assert!(build(&canonical.to_json_schema()).is_valid(instance));
+}
+
+// A Draft 4 integer property schema is a typed group, which the format scan walks past to reach the
+// key whose format it cannot check.
+#[test]
+fn uncheckable_format_scan_walks_a_typed_group() {
+    let instance = json!({"b": "nope"});
+    let schema = json!({"anyOf": [
+        {"enum": [instance]},
+        {"type": "object", "properties": {
+            "a": {"type": "integer", "enum": [1, 2]},
+            "b": {"type": "string", "format": "only-ok"}
+        }}
+    ]});
+    let canonical = options()
+        .with_draft(Draft::Draft4)
+        .should_validate_formats(true)
+        .canonicalize(&schema)
+        .expect("canonicalizes");
+    let build = |value: &Value| {
+        ::jsonschema::options()
+            .with_draft(Draft::Draft4)
+            .with_format("only-ok", |text: &str| text == "ok")
+            .should_validate_formats(true)
+            .build(value)
+            .expect("builds")
+    };
+    assert!(build(&schema).is_valid(&instance));
+    assert!(build(&canonical.to_json_schema()).is_valid(&instance));
+}
+
+// An unmodeled document keeps document identity, where `1` and `1.0` are distinct - unlike JSON
+// value equality, which reads them as the same number.
+#[test]
+fn unmodeled_documents_hash_by_document_identity() {
+    let canonical = |text: &str| {
+        canonicalize(&serde_json::from_str::<Value>(text).expect("valid schema JSON"))
+            .expect("canonicalizes")
+    };
+    let integer =
+        canonical(r#"{"unevaluatedProperties": {"enum": [1, null, true, "x", [2], {"b": 3}]}}"#);
+    let float =
+        canonical(r#"{"unevaluatedProperties": {"enum": [1.0, null, true, "x", [2], {"b": 3}]}}"#);
+    assert_eq!(integer.kind(), CanonicalKind::Raw);
+    let distinct: HashSet<CanonicalSchema> =
+        [integer.clone(), float, integer].into_iter().collect();
+    assert_eq!(distinct.len(), 2);
+}
+
+#[test]
+fn number_view_exposes_bounds() {
+    let CanonicalView::Number(view) = canonicalize(&json!({
+        "type": "number",
+        "exclusiveMinimum": 1.5,
+        "maximum": 9.5
+    }))
+    .unwrap()
+    .view() else {
+        panic!("expected a Number view");
+    };
+    assert_eq!(view.minimum, Number::from_f64(1.5));
+    assert!(view.exclusive_minimum);
+    assert_eq!(view.maximum, Number::from_f64(9.5));
+    assert!(!view.exclusive_maximum);
+}
+
+// Arbitrary precision models a bound past `u64`/`i64` - both signs, and the `(i64::MAX, u64::MAX]`
+// range specifically - as a big integer and emits it back exactly; the default build keeps such a
+// document raw.
+#[cfg(feature = "arbitrary-precision")]
+#[test_case(r#"{"type": "string", "minLength": 99999999999999999999999}"#, CanonicalKind::String, "minLength", "99999999999999999999999"; "length bound")]
+#[test_case(r#"{"type": "integer", "minimum": 99999999999999999999999}"#, CanonicalKind::Integer, "minimum", "99999999999999999999999"; "integer bound")]
+#[test_case(r#"{"type": "array", "minItems": 99999999999999999999999}"#, CanonicalKind::Array, "minItems", "99999999999999999999999"; "array length bound")]
+#[test_case(r#"{"type": "object", "minProperties": 99999999999999999999999}"#, CanonicalKind::Object, "minProperties", "99999999999999999999999"; "object size bound")]
+#[test_case(r#"{"type": "integer", "maximum": 18446744073709551615}"#, CanonicalKind::Integer, "maximum", "18446744073709551615"; "integer maximum at u64 max")]
+#[test_case(r#"{"type": "number", "maximum": 18446744073709551615}"#, CanonicalKind::Number, "maximum", "18446744073709551615"; "number maximum at u64 max")]
+#[test_case(r#"{"type": "integer", "minimum": -99999999999999999999999}"#, CanonicalKind::Integer, "minimum", "-99999999999999999999999"; "integer minimum below negative i64")]
+fn past_range_bound_round_trips(text: &str, kind: CanonicalKind, keyword: &str, bound: &str) {
+    let schema: Value = serde_json::from_str(text).expect("valid schema JSON");
+    let canonical = canonicalize(&schema).expect("canonicalizes");
+    assert_eq!(canonical.kind(), kind);
+    assert_eq!(canonical.to_json_schema()[keyword].to_string(), bound);
+}
+
+// Without a `type`, arbitrary precision keeps the bound on the number branch of the type split rather
+// than dropping to raw.
+#[cfg(feature = "arbitrary-precision")]
+#[test_case(r#"{"maximum": 18446744073709551615}"#, "maximum", "18446744073709551615"; "untyped maximum at u64 max")]
+#[test_case(r#"{"minimum": -18446744073709551615}"#, "minimum", "-18446744073709551615"; "untyped minimum below negative i64")]
+#[test_case(r#"{"maximum": -99999999999999999999999}"#, "maximum", "-99999999999999999999999"; "untyped maximum below negative i64")]
+fn untyped_past_range_numeric_bound_round_trips(text: &str, keyword: &str, bound: &str) {
+    let schema: Value = serde_json::from_str(text).expect("valid schema JSON");
+    let canonical = canonicalize(&schema).expect("canonicalizes");
+    assert_eq!(canonical.kind(), CanonicalKind::AnyOf);
+    let emitted = canonical.to_json_schema();
+    let branches = emitted["anyOf"].as_array().expect("anyOf branches");
+    let number_branch = branches
+        .iter()
+        .find(|branch| branch["type"] == json!("number"))
+        .expect("number branch");
+    assert_eq!(number_branch[keyword].to_string(), bound);
+}
+
 #[cfg(not(feature = "arbitrary-precision"))]
-#[test_case("minLength")]
-#[test_case("maxLength")]
-fn huge_length_bound_stays_raw(keyword: &str) {
+#[test_case("string", "minLength")]
+#[test_case("string", "maxLength")]
+#[test_case("array", "minItems")]
+#[test_case("array", "maxItems")]
+#[test_case("object", "minProperties")]
+#[test_case("object", "maxProperties")]
+fn huge_count_bound_stays_raw(ty: &str, keyword: &str) {
     let schema: Value = serde_json::from_str(&format!(
-        r#"{{"type": "string", "{keyword}": 99999999999999999999999}}"#
+        r#"{{"type": "{ty}", "{keyword}": 99999999999999999999999}}"#
     ))
     .unwrap();
     assert_eq!(canonicalize(&schema).unwrap().kind(), CanonicalKind::Raw);
+}
+
+// Default build: the integers past `i64` that such a bound admits have no modeled form. They still
+// satisfy the schema, so the document stays raw rather than collapsing to "nothing matches". A
+// `number` interval carries the same bound, and an `allOf` may put it against `integer` later.
+#[cfg(not(feature = "arbitrary-precision"))]
+#[test_case(r#"{"type": "integer", "minimum": 99999999999999999999999}"#; "integer minimum")]
+#[test_case(r#"{"type": "integer", "maximum": 99999999999999999999999}"#; "integer maximum")]
+#[test_case(r#"{"type": "number", "minimum": 99999999999999999999999}"#; "number minimum")]
+#[test_case(r#"{"type": "number", "maximum": 99999999999999999999999}"#; "number maximum")]
+#[test_case(r#"{"allOf": [{"type": "integer"}, {"minimum": 99999999999999999999999}]}"#; "interval meeting integer")]
+// No type keyword: the bound alone still projects onto the integers through a later `allOf`.
+#[test_case(r#"{"maximum": 18446744073709551615}"#; "untyped maximum at u64 max")]
+#[test_case(r#"{"minimum": -18446744073709551615}"#; "untyped minimum below negative i64")]
+#[test_case(r#"{"maximum": -99999999999999999999999}"#; "untyped maximum below negative i64")]
+// The `(i64::MAX, u64::MAX]` positive range and the mirror negative range both leave `i64`.
+#[test_case(r#"{"type": "integer", "maximum": 18446744073709551615}"#; "integer maximum at u64 max")]
+#[test_case(r#"{"type": "number", "maximum": 18446744073709551615}"#; "number maximum at u64 max")]
+#[test_case(r#"{"type": "integer", "minimum": -99999999999999999999999}"#; "integer minimum below negative i64")]
+fn huge_numeric_bound_stays_raw(text: &str) {
+    let schema: Value = serde_json::from_str(text).expect("valid schema JSON");
+    assert_eq!(canonicalize(&schema).unwrap().kind(), CanonicalKind::Raw);
+}
+
+// The representable integer range is exactly `i64`. Past `i64::MAX` the document parses as `u64` and
+// stays raw. Past `i64::MIN` it parses as `f64`, so one step past rounds back to exactly `i64::MIN`
+// and is still modeled; raw starts at the first float below it.
+#[cfg(not(feature = "arbitrary-precision"))]
+#[test_case(r#"{"maximum": 9223372036854775807}"#, false; "maximum at i64 max is modeled")]
+#[test_case(r#"{"maximum": 9223372036854775808}"#, true; "maximum one past i64 max stays raw")]
+#[test_case(r#"{"minimum": -9223372036854775808}"#, false; "minimum at i64 min is modeled")]
+#[test_case(r#"{"minimum": -9223372036854775809}"#, false; "minimum one past i64 min rounds to i64 min")]
+#[test_case(r#"{"minimum": -9223372036854777856}"#, true; "minimum at first float below i64 min stays raw")]
+fn representable_range_boundary(text: &str, stays_raw: bool) {
+    let schema: Value = serde_json::from_str(text).expect("valid schema JSON");
+    let is_raw = canonicalize(&schema).unwrap().kind() == CanonicalKind::Raw;
+    assert_eq!(is_raw, stays_raw);
 }
 
 // The `regex` engine rejects a negative lookahead the fancy engine accepts.
@@ -96,7 +346,8 @@ fn error_display(schema: &Value, message: &str) {
 #[test_case(&json!({}), CanonicalKind::True, "true"; "empty object")]
 #[test_case(&json!(false), CanonicalKind::False, "false"; "boolean false")]
 #[test_case(&json!({"type": "integer", "minimum": 0}), CanonicalKind::Integer, "integer"; "integer_leaf")]
-#[test_case(&json!({"type": "number", "minimum": 0}), CanonicalKind::Raw, "raw"; "raw")]
+#[test_case(&json!({"type": "number", "minimum": 0}), CanonicalKind::Number, "number"; "number_leaf")]
+#[test_case(&json!({"unevaluatedProperties": false}), CanonicalKind::Raw, "raw"; "raw")]
 fn kind_reports_its_label(schema: &Value, kind: CanonicalKind, label: &str) {
     let canonical = canonicalize(schema).expect("canonicalizes");
     assert_eq!(canonical.kind(), kind);
@@ -131,6 +382,16 @@ fn oversized_integer_compares_by_overflow_direction(text: &str, expected: &Value
         json!("https://json-schema.org/draft/2020-12/schema"),
     );
     assert_eq!(canonical.to_json_schema(), Value::Object(expected));
+}
+
+// Default build: a value past `i64` cannot lift into a window, so a covering interval absorbs it by
+// overflow direction alone.
+#[cfg(not(feature = "arbitrary-precision"))]
+#[test_case(r#"{"anyOf":[{"type":"integer","minimum":2},{"const":1e30}]}"#, CanonicalKind::Integer; "absorbed above every maximum")]
+#[test_case(r#"{"anyOf":[{"type":"integer","maximum":5},{"const":1e30}]}"#, CanonicalKind::AnyOf; "kept beyond the maximum")]
+fn oversized_member_absorption(text: &str, kind: CanonicalKind) {
+    let schema: Value = serde_json::from_str(text).expect("valid schema JSON");
+    assert_eq!(canonicalize(&schema).expect("canonicalizes").kind(), kind);
 }
 
 // Draft 4 `integer` is a typed group an interval bound narrows; a bound excluding every member leaves
@@ -200,16 +461,32 @@ fn validation_error_display_and_source() {
     assert!(std::error::Error::source(&error).is_some());
 }
 
+// `unevaluatedProperties` is unmodeled, so the document goes raw at the root without descending
+// into the nesting.
 #[test]
 fn deeply_nested_document_round_trips() {
     let mut schema = json!({"type": "string"});
     for _ in 0..300 {
         let mut map = Map::new();
-        map.insert("not".to_string(), schema);
+        map.insert("unevaluatedProperties".to_string(), schema);
         schema = Value::Object(map);
     }
     let canonical = canonicalize(&schema).expect("canonicalizes");
     assert_eq!(canonical.to_json_schema(), schema);
+}
+
+// The complement of a type set missing only `null` (or only `boolean`) is the same canonical node
+// the direct spelling produces, not a sibling `MultiType` shape.
+#[test]
+fn negated_type_set_complement_converges_with_direct_spelling() {
+    let negated =
+        canonicalize(&json!({"not": {"type": ["boolean", "number", "string", "array", "object"]}}))
+            .unwrap();
+    assert_eq!(negated, canonicalize(&json!({"type": "null"})).unwrap());
+    let negated =
+        canonicalize(&json!({"not": {"type": ["null", "number", "string", "array", "object"]}}))
+            .unwrap();
+    assert_eq!(negated, canonicalize(&json!({"type": "boolean"})).unwrap());
 }
 
 // Numerals `ext::numeric::try_parse_bigint` refuses (huge exponents / digit counts) have no
@@ -217,9 +494,48 @@ fn deeply_nested_document_round_trips() {
 #[cfg(feature = "arbitrary-precision")]
 #[test_case(r#"{"const":1e999999999999999999999}"#; "huge_exponent_const")]
 #[test_case(r#"{"enum":[1e999999999999999999999]}"#; "huge_exponent_enum")]
+#[test_case(r#"{"type":"number","minimum":1e999999999999999999999}"#; "huge_exponent_bound")]
+#[test_case(r#"{"type":"number","multipleOf":1e999999999999999999999}"#; "huge_exponent_divisor")]
 #[test_case(&format!(r#"{{"const":1{}}}"#, "0".repeat((1 << 20) + 1)); "huge_digit_count")]
 fn numerals_without_exact_comparison_stay_raw(text: &str) {
     let schema: Value = serde_json::from_str(text).expect("valid schema JSON");
+    let canonical = canonicalize(&schema).expect("canonicalizes");
+    assert!(matches!(canonical.view(), CanonicalView::Raw(_)));
+    assert_eq!(canonical.to_json_schema(), schema);
+}
+
+// A `contains` count bound with no modeled form keeps the document raw: past `u64` in the default
+// build, a spelling without an exact integer reading under arbitrary precision.
+#[cfg(not(feature = "arbitrary-precision"))]
+#[test_case(&json!({"type": "array", "contains": {"type": "null"}, "minContains": 1e100}); "minimum past u64")]
+#[test_case(&json!({"type": "array", "contains": {"type": "null"}, "maxContains": 1e100}); "maximum past u64")]
+fn contains_counts_without_modeled_form_stay_raw(schema: &Value) {
+    let canonical = canonicalize(schema).expect("canonicalizes");
+    assert!(matches!(canonical.view(), CanonicalView::Raw(_)));
+    assert_eq!(&canonical.to_json_schema(), schema);
+}
+
+#[cfg(feature = "arbitrary-precision")]
+#[test_case("string", "minLength"; "minimum string length past the expansion cap")]
+#[test_case("string", "maxLength"; "maximum string length past the expansion cap")]
+#[test_case("array", "minItems"; "minimum array length past the expansion cap")]
+#[test_case("array", "maxItems"; "maximum array length past the expansion cap")]
+#[test_case("object", "minProperties"; "minimum object size past the expansion cap")]
+#[test_case("object", "maxProperties"; "maximum object size past the expansion cap")]
+#[test_case("array", "minContains"; "minimum contains count past the expansion cap")]
+#[test_case("array", "maxContains"; "maximum contains count past the expansion cap")]
+fn count_bound_without_modeled_form_stays_raw(ty: &str, keyword: &str) {
+    // More digits than the canonical expansion cap, yet within the validator's exponent limit:
+    // the count is meta-valid, but its canonical spelling stays scientific.
+    let count = format!("1{}e1000000", "0".repeat(48_577));
+    let contains = keyword
+        .ends_with("Contains")
+        .then_some(r#","contains":{"type":"null"}"#);
+    let text = format!(
+        r#"{{"type":"{ty}"{},"{keyword}":{count}}}"#,
+        contains.unwrap_or_default()
+    );
+    let schema: Value = serde_json::from_str(&text).expect("valid schema JSON");
     let canonical = canonicalize(&schema).expect("canonicalizes");
     assert!(matches!(canonical.view(), CanonicalView::Raw(_)));
     assert_eq!(canonical.to_json_schema(), schema);
@@ -283,6 +599,18 @@ fn canonical_schema_ordering() {
     assert_eq!(one.cmp(&one), Ordering::Equal);
     assert!(one < two);
     assert!(two > one);
+
+    let raw = |text: &str| canonicalize(&serde_json::from_str(text).unwrap()).unwrap();
+    let raw_one = raw(r#"{"unevaluatedProperties":{"const":1}}"#);
+    let raw_two = raw(r#"{"unevaluatedProperties":{"const":2}}"#);
+    assert_eq!(raw_one.partial_cmp(&raw_two), Some(Ordering::Less));
+    assert!(raw_one < raw_two);
+
+    #[cfg(feature = "arbitrary-precision")]
+    assert!(
+        raw(r#"{"unevaluatedProperties":{"const":1e400}}"#)
+            < raw(r#"{"unevaluatedProperties":{"const":2e400}}"#)
+    );
 }
 
 // Each draft stamps its own `$schema` URI onto the emitted document.
@@ -297,4 +625,197 @@ fn draft_stamps_its_schema_uri(draft: Draft, uri: &str) {
         canonical.to_json_schema(),
         json!({"$schema": uri, "type": "string"})
     );
+}
+
+// Past `f64` precision a whole divisor keeps exact modulo only under arbitrary precision, so the
+// forms below are default-build behaviour.
+#[cfg(not(feature = "arbitrary-precision"))]
+#[test_case(
+    r#"{"type": "integer", "multipleOf": 9007199254740993}"#,
+    &json!({"type": "integer", "multipleOf": 9_007_199_254_740_993_u64});
+    "a divisor no decimal spells is kept as written"
+)]
+#[test_case(
+    r#"{"type": "integer", "multipleOf": 4611686018427387903}"#,
+    &json!({"type": "integer", "multipleOf": 4_611_686_018_427_387_903_u64});
+    "a divisor past f64 precision is kept as written"
+)]
+#[test_case(
+    r#"{"type": "integer", "multipleOf": 1e30}"#,
+    &json!({"type": "integer", "multipleOf": 1e30});
+    "a divisor past the integer range is kept as written"
+)]
+#[test_case(
+    r#"{"allOf":[{"type":"integer","multipleOf":9007199254740992},{"type":"integer","multipleOf":9007199254740991}]}"#,
+    &json!({"type": "integer", "allOf": [{"multipleOf": 9_007_199_254_740_991_u64}, {"multipleOf": 9_007_199_254_740_992_u64}]});
+    "divisors with no exact common multiple stay apart"
+)]
+#[test_case(
+    r#"{"allOf":[{"type":"integer","multipleOf":9007199254740992,"minimum":1},{"type":"integer","multipleOf":9007199254740991}]}"#,
+    &json!({"type": "integer", "minimum": 9_007_199_254_740_992_u64, "allOf": [{"multipleOf": 9_007_199_254_740_991_u64}, {"multipleOf": 9_007_199_254_740_992_u64}]});
+    "divisors with no exact common multiple keep a snapped bound"
+)]
+#[test_case(
+    r#"{"allOf":[{"type":"number","multipleOf":3},{"type":"number","multipleOf":3002399751580331}]}"#,
+    &json!({"type": "integer", "allOf": [{"multipleOf": 3}, {"multipleOf": 3_002_399_751_580_331_u64}]});
+    "divisors whose common multiple no decimal spells stay apart"
+)]
+fn divisors_past_exact_precision(text: &str, expected: &Value) {
+    let schema: Value = serde_json::from_str(text).expect("valid schema JSON");
+    let mut form = canonicalize(&schema)
+        .expect("canonicalizes")
+        .to_json_schema();
+    form.as_object_mut().expect("object").remove("$schema");
+    assert_eq!(&form, expected);
+}
+
+// A member the divisor admits survives even where the integer type cannot hold it.
+#[cfg(not(feature = "arbitrary-precision"))]
+#[test]
+fn divisor_keeps_member_past_representable_range() {
+    let schema = json!({"allOf": [{"type": "integer", "multipleOf": 2}, {"const": 1e30}]});
+    let mut form = canonicalize(&schema)
+        .expect("canonicalizes")
+        .to_json_schema();
+    form.as_object_mut().expect("object").remove("$schema");
+    assert_eq!(form, json!({"const": 1e30}));
+}
+
+// Membership for a divisor is decided by the validator's own arithmetic, so every rewrite the
+// algebra makes rests on this agreeing with a compiled `multipleOf`.
+#[test_case("2")]
+#[test_case("3")]
+#[test_case("1")]
+#[test_case("0.5")]
+#[test_case("0.75")]
+#[test_case("1.5")]
+#[test_case("0.123456789")]
+#[test_case("9007199254740992")]
+#[test_case("9007199254740993")]
+#[test_case("4503599627370496")]
+#[test_case("1e300")]
+#[test_case("1e-7")]
+fn divisor_oracle_matches_the_validator(divisor: &str) {
+    const INSTANCES: &[&str] = &[
+        "0",
+        "1",
+        "2",
+        "3",
+        "6",
+        "-4",
+        "1.5",
+        "2.5",
+        "0.25",
+        "9007199254740993",
+        "12345678900000001",
+        "27021597764222977",
+        "1e30",
+        "-9007199254740993",
+    ];
+    let divisor: serde_json::Number = divisor.parse().expect("divisor");
+    let validator = jsonschema::validator_for(&json!({"multipleOf": divisor})).expect("compiles");
+    for instance in INSTANCES {
+        let instance: serde_json::Number = instance.parse().expect("instance");
+        assert_eq!(
+            jsonschema_value::numeric_check::satisfies_multiple_of(&divisor, &instance),
+            validator.is_valid(&Value::Number(instance.clone())),
+            "multipleOf {divisor} on {instance}"
+        );
+    }
+}
+
+// A divisor no `f64` spells still constrains, so the leaf carries it instead of the document staying
+// raw; only the arithmetic that would need its exact value is skipped.
+#[cfg(not(feature = "arbitrary-precision"))]
+#[test]
+fn divisor_no_decimal_spells_is_modeled() {
+    let schema = json!({"type": "number", "multipleOf": 9_007_199_254_740_993_u64});
+    let canonical = canonicalize(&schema).expect("canonicalizes");
+    assert_ne!(canonical.kind(), jsonschema::canonical::CanonicalKind::Raw);
+    let mut form = canonical.to_json_schema();
+    form.as_object_mut().expect("object").remove("$schema");
+    // The validator reads the divisor as 2^53, whose multiples are all whole.
+    assert_eq!(
+        form,
+        json!({"type": "integer", "multipleOf": 9_007_199_254_740_993_u64})
+    );
+}
+
+// Bounds past `f64` precision: snapping must not move an end onto a value the validator reads
+// differently, and a progression whose next multiple is unrepresentable is not empty.
+#[cfg(not(feature = "arbitrary-precision"))]
+#[test_case(
+    r#"{"type":"number","minimum":9223372036854775807,"multipleOf":1}"#,
+    &["9223372036854775807", "9223372036854775808"];
+    "a bound with no representable multiple"
+)]
+#[test_case(
+    r#"{"type":"number","minimum":-4,"maximum":9223372036854775807,"multipleOf":0.5}"#,
+    &["9223372036854775808", "-4", "0.5"];
+    "an upper end past exact precision"
+)]
+#[test_case(
+    r#"{"type":"number","exclusiveMinimum":9007199254740992,"multipleOf":0.5}"#,
+    &["9007199254740992", "9007199254740993"];
+    "an excluded end past exact precision"
+)]
+#[test_case(
+    r#"{"type":"integer","minimum":9223372036854775807,"multipleOf":2}"#,
+    &["9223372036854775808", "1e30", "9223372036854775807"];
+    "an integer bound with no representable multiple"
+)]
+fn wide_bounds_keep_validation(text: &str, instances: &[&str]) {
+    let schema: Value = serde_json::from_str(text).expect("valid schema JSON");
+    let emitted = canonicalize(&schema)
+        .expect("canonicalizes")
+        .to_json_schema();
+    for instance in instances {
+        let instance: Value = serde_json::from_str(instance).expect("instance");
+        assert_eq!(
+            jsonschema::is_valid(&schema, &instance),
+            jsonschema::is_valid(&emitted, &instance),
+            "{instance} against {emitted}"
+        );
+    }
+}
+
+// A divisor of one adds nothing beside a whole one, whose multiples are already whole. The wide
+// divisor keeps its spelling only in the default build.
+#[cfg(not(feature = "arbitrary-precision"))]
+#[test]
+fn identity_divisor_drops_beside_a_whole_one() {
+    let schema = json!({"allOf": [
+        {"type": "number", "multipleOf": 2},
+        {"type": "number", "minimum": 0, "multipleOf": 1e30}
+    ]});
+    let mut form = canonicalize(&schema)
+        .expect("canonicalizes")
+        .to_json_schema();
+    form.as_object_mut().expect("object").remove("$schema");
+    assert_eq!(
+        form,
+        json!({"type": "integer", "minimum": 0, "multipleOf": 1e30})
+    );
+}
+
+// Arbitrary precision decides every divisor exactly, so divisors the default build reads with
+// different arithmetic still fold there.
+#[cfg(feature = "arbitrary-precision")]
+#[test_case(
+    r#"{"allOf":[{"type":"number","multipleOf":3},{"type":"number","multipleOf":1.5}]}"#,
+    &json!({"type": "integer", "multipleOf": 3});
+    "a whole divisor stands for a fractional one it covers"
+)]
+#[test_case(
+    r#"{"allOf":[{"type":"number","multipleOf":2},{"type":"number","multipleOf":2.5}]}"#,
+    &json!({"type": "integer", "multipleOf": 10});
+    "unlike divisors fold to their common multiple"
+)]
+fn unlike_divisors_fold_under_arbitrary_precision(text: &str, expected: &Value) {
+    let schema: Value = serde_json::from_str(text).expect("valid schema JSON");
+    let mut form = canonicalize(&schema)
+        .expect("canonicalizes")
+        .to_json_schema();
+    form.as_object_mut().expect("object").remove("$schema");
+    assert_eq!(&form, expected);
 }

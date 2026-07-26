@@ -14,18 +14,12 @@ import arxiv
 import mcp.types as types
 from mcp.types import ToolAnnotations
 
-from ..config import Settings
+from ..config import Settings, get_arxiv_client
+from ..arxiv_api import ARXIV_RATE_LIMITER
 from .list_papers import is_valid_arxiv_id
 
-try:
-    import numpy as np
-except ImportError:  # pragma: no cover - handled gracefully in runtime checks
-    np = None  # type: ignore[assignment]
-
-try:
-    from sentence_transformers import SentenceTransformer
-except ImportError:  # pragma: no cover - handled gracefully in runtime checks
-    SentenceTransformer = None  # type: ignore[assignment]
+np: Any = None
+SentenceTransformer: Any = None
 
 logger = logging.getLogger("arxiv-mcp-server")
 settings = Settings()
@@ -103,9 +97,24 @@ reindex_tool = types.Tool(
 )
 
 
+def _load_dependencies() -> bool:
+    """Load optional ML dependencies only when semantic functionality is used."""
+    global np, SentenceTransformer
+    if np is not None and SentenceTransformer is not None:
+        return True
+    try:
+        import numpy as numpy_module
+        from sentence_transformers import SentenceTransformer as model_class
+    except ImportError:
+        return False
+    np = numpy_module
+    SentenceTransformer = model_class
+    return True
+
+
 def _dependency_error() -> Optional[str]:
     """Return a friendly dependency error if pro packages are missing."""
-    if np is None or SentenceTransformer is None:
+    if not _load_dependencies():
         return (
             "Pro feature dependency missing. Install with: "
             '`uv pip install -e ".[pro]"`'
@@ -144,7 +153,7 @@ def _get_model() -> Any:
     global _model
     if _model is None:
         logger.info("Loading semantic embedding model %s", EMBEDDING_MODEL_NAME)
-        _model = SentenceTransformer(EMBEDDING_MODEL_NAME, silent=True)
+        _model = SentenceTransformer(EMBEDDING_MODEL_NAME)
     return _model
 
 
@@ -208,8 +217,10 @@ def _upsert_index_record(
 def index_paper_by_id(paper_id: str) -> bool:
     """Fetch arXiv metadata by ID and add/update it in the semantic index."""
     try:
-        client = arxiv.Client()
-        paper = next(client.results(arxiv.Search(id_list=[paper_id])))
+        client = get_arxiv_client()
+        paper = ARXIV_RATE_LIMITER.run_sync(
+            lambda: next(client.results(arxiv.Search(id_list=[paper_id])))
+        )
     except StopIteration:
         logger.warning("Could not index paper %s: not found on arXiv", paper_id)
         return False

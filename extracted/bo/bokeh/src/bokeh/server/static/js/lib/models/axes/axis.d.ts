@@ -79,6 +79,7 @@ export declare abstract class AxisView extends GuideRendererView {
         sy1: number;
     };
     get tick_coords(): TickCoords;
+    private _warned_bad_loc;
     get loc(): number;
     get face(): Face;
     remove(): void;

@@ -6,7 +6,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from .dpt import RANGE_UINT8, DPTComplex, DPTComplexData
+from .dpt import DPTComplex, DPTComplexData
+from .helpers.metadata import RANGE_UINT8
 from .payload import DPTArray, DPTBinary
 
 
@@ -51,7 +52,7 @@ class XYYColor(DPTComplexData):
             except ValueError as err:
                 raise ValueError(f"Invalid value for color axis: {err}") from err
         elif x_axis is not None or y_axis is not None:
-            raise ValueError("Both x_axis and y_axis must be provided")
+            raise ValueError("Provide both x_axis and y_axis, or neither")
 
         if brightness is not None:
             try:

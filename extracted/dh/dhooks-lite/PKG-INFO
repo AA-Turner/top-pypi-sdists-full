@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: dhooks-lite
-Version: 2.0.0
+Version: 2.0.1
 Summary: A wrapper for sending messages to Discord webhooks.
 Keywords: discord,webhooks
-Author-email: Erik Kalkoken <kalkoken87@gmail.com>
+Author-email: Erik Kalkoken <erik.kalkoken@gmail.com>
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 Classifier: Intended Audience :: Developers
@@ -162,7 +162,7 @@ pip install dhooks-lite
 
 ## Documentation
 
-For a full documentation of all classes please see the [official docs](https://dhooks-lite.readthedocs.io/en/latest/).
+For a full documentation of all classes please see the [official docs](https://dhooks-lite.readthedocs.io).
 
 ## Contribution
 

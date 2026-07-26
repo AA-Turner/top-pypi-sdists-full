@@ -161,6 +161,19 @@ class ImxtoGalleryExtractor(ImagehostImageExtractor):
             page = self.request(self.page_url, params=params).text
 
 
+class ImxtwImageExtractor(ImagehostImageExtractor):
+    """Extractor for single images from imx.tw"""
+    category = "imxtw"
+    pattern = (r"(?:https?://)?(?:www\.)?(imx\.tw/(\w+))")
+    example = "https://imx.tw/ID"
+    _params = "complex"
+
+    def get_info(self, page):
+        url, pos = text.extract(page, '<br><img src="', '"')
+        alt, pos = text.extract(page, ' alt="', '"', pos)
+        return url, alt or None
+
+
 class AcidimgImageExtractor(ImagehostImageExtractor):
     """Extractor for single images from acidimg.cc"""
     category = "acidimg"

@@ -1346,16 +1346,18 @@ fn summary_smooth_terms(
     };
 
     let mut out = Vec::<SummarySmoothTermRow>::new();
-    // The fit's GLOBAL penalty layout (and thus `penalty_block_trace`) opens with a
-    // single shared `LinearTermRidge` block IFF any linear term has
-    // `double_penalty=true` (`design_construction.rs`). Random-effect and smooth
-    // penalty blocks follow it. Seeding `penalty_cursor` at 0 ignored that leading
-    // block, sliding every per-term trace window off by one whenever a penalized
-    // linear term was present; on this persisted / column-conditioned path `F` is
-    // nulled, so `per_term_edf` falls back to the `penalty_block_trace` window and
-    // the off-by-one corrupts every per-term EDF (#1372). Start the cursor PAST any
-    // leading `LinearTermRidge` block by counting it in the recorded global ordering
-    // rather than re-deriving it.
+    // The fit's GLOBAL penalty layout (and thus `penalty_block_trace`) opens with
+    // ONE `LinearTermRidge` block PER linear term carrying `double_penalty=true`
+    // — not one shared block (`smooth/term_design.rs:289-311`; every non-intercept
+    // effect owns its own REML coordinate so an unsupported slope can be shrunk
+    // independently). Random-effect and smooth penalty blocks follow them.
+    // Seeding `penalty_cursor` at 0 ignored those leading blocks, sliding every
+    // per-term trace window off by the number of penalized linear terms; on this
+    // persisted / column-conditioned path `F` is nulled, so `per_term_edf` falls
+    // back to the `penalty_block_trace` window and the offset corrupts every
+    // per-term EDF (#1372). Start the cursor PAST them by COUNTING them in the
+    // recorded global ordering rather than re-deriving it — which is what the
+    // `.count()` below does, and why it must not be replaced by a boolean.
     let mut penalty_cursor = design
         .penaltyinfo
         .iter()
@@ -1618,6 +1620,50 @@ fn scan_summary_payload(model: &FittedModel, scan: &ScanIntrospection) -> Summar
         // Scan-routed (O(n) 1D spline) models carry no `curv(...)` curvature
         // smooths, so there are no curvature estimands to report.
         curvature_estimands: Vec::new(),
+        // The O(n) smoother solves no inner P-IRLS and no outer stationarity
+        // equation, so there is no termination to certify. Reporting a
+        // fabricated "certified" block here would be the exact confusion
+        // #2411 exists to remove.
+        convergence: None,
+    }
+}
+
+/// Project the fit's sealed convergence evidence onto the summary surface
+/// (#2411).
+///
+/// Strictly a read: every value comes from the `FitConvergenceEvidence` the
+/// fitted result already owns — the same object the mint gate consulted and
+/// the same one `Deserialize` revalidates on load. Recomputing any of it here
+/// would create a second source of truth that could drift from the verdict
+/// that allowed the fit to exist.
+fn summary_convergence(fit: &gam::solver::estimate::UnifiedFitResult) -> SummaryConvergence {
+    use gam::solver::rho_optimizer::OuterStationarityCertificate;
+
+    let evidence = fit.convergence_evidence();
+    let certificate = evidence.outer_certificate();
+    let outer = certificate.map(|certificate| SummaryOuterCertificate {
+        // The residual means a different thing in each arm, so the kind
+        // travels with the numbers rather than being inferred from them.
+        kind: match &certificate.stationarity {
+            OuterStationarityCertificate::AnalyticGradient { .. } => "analytic_gradient",
+            OuterStationarityCertificate::FixedPoint { .. } => "fixed_point",
+            OuterStationarityCertificate::AsymptoteRail { .. } => "asymptote_rail",
+        }
+        .to_string(),
+        gradient_norm: certificate.stationarity.raw_norm(),
+        projected_gradient_norm: certificate.stationarity.projected_norm(),
+        stationarity_bound: certificate.stationarity.bound(),
+        hessian_psd: certificate.hessian_psd,
+        lambdas_railed: certificate.lambdas_railed.clone(),
+    });
+    SummaryConvergence {
+        // No outer coordinate was optimized in the `Fixed` arm, so there is no
+        // outer equation that could fail: the converged inner mode is the
+        // complete proof, and the fit's existence already attests to it.
+        certified: certificate.is_none_or(|certificate| certificate.certifies()),
+        inner_status: evidence.inner_status().label().to_string(),
+        outer_iterations: evidence.outer_iterations(),
+        outer,
     }
 }
 
@@ -1687,6 +1733,7 @@ fn summary_json_impl(model_bytes: &[u8]) -> Result<String, String> {
         covariance_flat: covariance.map(|(_, cov)| cov.iter().copied().collect()),
         coefficient_se_source: display_uncertainty
             .map(|view| view.definition.as_str().to_string()),
+        convergence: Some(summary_convergence(&fit)),
     };
     serde_json::to_string(&payload).map_err(|err| format!("failed to serialize summary: {err}"))
 }
@@ -4042,10 +4089,13 @@ mod batch_tests {
                 _ => 0.01 * ((row as f64 + 1.3) * (col as f64 + 0.7)).sin(),
             }
         });
-        // Duchon decoder centers (the issue's geometry: a 1-D linspace).
+        // Periodic Duchon centers on the half-open circle. Including both -π
+        // and +π would name the same S¹ point twice; the basis correctly
+        // collapses that seam duplicate, which would make a penalty sized from
+        // the raw center count disagree with the realized design.
         let n_centers = 12usize;
         let centers = Array2::from_shape_fn((n_centers, 1), |(i, _)| {
-            -std::f64::consts::PI + i as f64 / (n_centers - 1) as f64 * TAU
+            -std::f64::consts::PI + i as f64 / n_centers as f64 * TAU
         });
         let penalty = Array2::<f64>::eye(n_centers);
 
@@ -4424,19 +4474,24 @@ fn compute_null_space_metadata(
     };
     let p = m;
 
-    // #757: A smooth-free model (`y ~ x1 + x2`, any family) carries no penalty
-    // blocks, so the assembled penalty is identically zero and its "null space"
-    // is the entire coefficient space. This metadata is the Tierney-Kadane /
-    // topology normalizer `log|Nᵀ H N|` over the *penalty* null space — a
-    // quantity that only discriminates among penalized-smooth topologies and is
-    // vacuous for a fully-parametric GLM (there is no penalized prior to
-    // Laplace-integrate; a REML restricted-likelihood already carries the
-    // fixed-effect `log|XᵀWX|` term). With an all-zero penalty the code below
-    // would Cholesky-factor the full Hessian in a basis that does not round-trip
-    // for the rank-zero penalty, which rejected every smooth-free fit from the
+    // #757: A model with NO penalty block at all (an intercept-only fit, or one
+    // whose every linear term was declared `double_penalty=false`) assembles an
+    // identically-zero penalty whose "null space" is the entire coefficient
+    // space. This metadata is the Tierney-Kadane / topology normalizer
+    // `log|Nᵀ H N|` over the *penalty* null space — a quantity that prices the
+    // flat directions of the penalized prior and is vacuous when there is no
+    // such prior to Laplace-integrate (a REML restricted-likelihood already
+    // carries the fixed-effect `log|XᵀWX|` term). With an all-zero penalty the
+    // code below would Cholesky-factor the full Hessian in a basis that does not
+    // round-trip for the rank-zero penalty, which rejected such fits from the
     // Python payload path even though the fit converged and the CLI (which never
     // computes this) accepts it. Treat "no penalty" as "no null-space
     // normalizer", consistent with the full-penalty-rank (`q == 0`) branch below.
+    //
+    // This is NOT the same test as "smooth-free": a formula linear term is
+    // penalized by default (its `LinearTermRidge`), so `y ~ x` reaches the code
+    // below with a rank-1 penalty and a one-dimensional null space — the
+    // intercept — and correctly earns a non-zero normalizer.
     if design.penalties.is_empty() {
         return Ok((0, 0.0));
     }

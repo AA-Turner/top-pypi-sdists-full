@@ -25,7 +25,9 @@
 
 use crate::gpu_polya_gamma::{PgSeed, PolyaGammaBatchInput};
 use faer::Side;
-use gam_linalg::faer_ndarray::{FaerCholesky, FaerEigh, fast_ata_into, fast_atv, fast_av_into};
+use gam_linalg::faer_ndarray::{
+    FaerCholesky, FaerEigh, fast_ab, fast_ata_into, fast_atv, fast_av, fast_av_into,
+};
 use gam_linalg::matrix::DesignMatrix;
 use gam_linalg::triangular::back_substitution_lower_transpose_guarded_into;
 use gam_models::wiggle::monotone_wiggle_basis_with_derivative_order;
@@ -43,7 +45,7 @@ use gam_terms::construction::CanonicalPenalty;
 use general_mcmc::generic_hmc::HamiltonianTarget;
 pub use general_mcmc::generic_nuts::NUTSMassMatrixConfig;
 use general_mcmc::generic_nuts::{GenericNUTS, MassMatrixAdaptation};
-use ndarray::{Array1, Array2, Array3, ArrayView1, ArrayView2, Axis};
+use ndarray::{Array1, Array2, Array3, ArrayView1, ArrayView2, Axis, s};
 use rand::{RngExt, SeedableRng, rngs::StdRng};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -1576,6 +1578,7 @@ mod tests {
             Some(FitGeometry {
                 coefficient_gauge: gam_problem::Gauge::identity(&[1, 1]),
                 penalized_hessian: hessian.clone().into(),
+                constrained_posterior: None,
                 working: None,
             }),
         );
@@ -1741,7 +1744,20 @@ mod tests {
             let (value, score) = exact_eta_geometry(&likelihood, &y, &weights, &eta)
                 .unwrap_or_else(|error| panic!("{}: {error}", likelihood.spec.pretty_name()));
             assert!(value.is_finite());
-            assert_eq!(score[0].to_bits(), 0.0_f64.to_bits());
+            // A zero prior weight must contribute EXACTLY zero — not merely
+            // something small — which is why this is an equality against 0.0
+            // and not a tolerance. The SIGN of that zero is not part of the
+            // contract: production reaches it as `-0.0` (bit pattern 2^63,
+            // which is what `left: 9223372036854775808` in the old failure
+            // was) through a negated product, and `-0.0 == 0.0` is precisely
+            // the numerical statement being made. Comparing `to_bits()`
+            // promoted an IEEE sign bit into a correctness claim; `== 0.0`
+            // still rejects every nonzero, including subnormals.
+            assert_eq!(
+                score[0], 0.0,
+                "{} must erase a zero-weight row's score exactly",
+                likelihood.spec.pretty_name()
+            );
             assert!(
                 score[1] != 0.0 && score[1].is_finite(),
                 "{} erased a positive tiny weight",
@@ -2012,10 +2028,13 @@ mod tests {
         let y = array![0.0, 1.0, 1.0];
         let weights = Array1::ones(3);
         let penalty_base = Array2::zeros((1, 1));
-        let penalty_link = Array2::zeros((1, 1));
+        let penalty_link = Array2::zeros((2, 2));
         let mode_beta = array![0.2];
-        let mode_theta = array![0.05];
-        let hessian = array![[4.0, 1.0], [1.0, 3.0]];
+        // A clamped quadratic spline with this six-knot vector has three
+        // B-spline functions. The monotone-wiggle construction removes the
+        // anchored first function, so its coefficient block has width two.
+        let mode_theta = array![0.05, -0.02];
+        let hessian = array![[4.0, 1.0, 0.2], [1.0, 3.0, 0.1], [0.2, 0.1, 2.0]];
         let spline = LinkWiggleSplineArtifacts {
             knot_range: (-1.0, 1.0),
             knot_vector: Array1::from_vec(vec![-1.0, -1.0, -1.0, 1.0, 1.0, 1.0]),
@@ -2039,8 +2058,8 @@ mod tests {
 
         let reconstructed_cov = posterior.chol().dot(&posterior.chol().t());
         let eye_from_hessian = hessian.dot(&reconstructed_cov);
-        for r in 0..2 {
-            for c in 0..2 {
+        for r in 0..hessian.nrows() {
+            for c in 0..hessian.ncols() {
                 let expected = if r == c { 1.0 } else { 0.0 };
                 assert!(
                     (eye_from_hessian[[r, c]] - expected).abs() < 1e-10,
@@ -2058,10 +2077,10 @@ mod tests {
         let y = array![1.0, 0.0, 1.0, 0.0];
         let weights = array![1.0, 1.2, 0.8, 1.4];
         let penalty_base = Array2::zeros((1, 1));
-        let penalty_link = Array2::zeros((1, 1));
+        let penalty_link = Array2::zeros((2, 2));
         let mode_beta = array![-0.8];
-        let mode_theta = array![0.04];
-        let hessian = Array2::eye(2);
+        let mode_theta = array![0.04, -0.015];
+        let hessian = Array2::eye(3);
         let spline = LinkWiggleSplineArtifacts {
             knot_range: (-1.5, 0.5),
             knot_vector: Array1::from_vec(vec![-1.5, -1.5, -1.5, 0.5, 0.5, 0.5]),
@@ -2083,7 +2102,7 @@ mod tests {
         )
         .expect("cloglog link-wiggle posterior");
 
-        let z = array![0.2, -0.03];
+        let z = array![0.2, -0.03, 0.01];
         let (_, grad) = posterior.compute_logp_and_grad(&z);
         let eps = 1e-6;
         for j in 0..z.len() {
@@ -3145,6 +3164,65 @@ mod tests {
         }
     }
 
+    /// The batched contraction must return, direction for direction, what the
+    /// single-direction contraction returns.
+    ///
+    /// Batching is a pure performance change, so the only thing that can go
+    /// wrong is arithmetic: a transposed direction matrix, a row panel that
+    /// drops or double-counts observations, or a sparse scatter that misroutes
+    /// a nonzero. Each of those produces a WRONG cubic rather than a slow one,
+    /// and the caller only compares it against a threshold — so a silent error
+    /// here shows up as a correction that engages when it should not, or vice
+    /// versa. Both storage arms are checked against the same reference, on a
+    /// design tall enough to cross the row-panel boundary.
+    #[test]
+    fn batched_directional_cubics_match_the_single_direction_contraction() {
+        use super::{directional_cubic_contraction, directional_cubic_contractions};
+        use gam_linalg::matrix::{DenseDesignMatrix, DesignMatrix};
+
+        let n = 37;
+        let p = 5;
+        // Deterministic, well-conditioned, and NOT symmetric in any way that
+        // would let a transposition slip through unnoticed.
+        let x = Array2::from_shape_fn((n, p), |(i, j)| {
+            ((i as f64) * 0.37 + (j as f64) * 1.13).sin() * (1.0 + j as f64 * 0.25)
+        });
+        let c = Array1::from_shape_fn(n, |i| 0.6 - 0.05 * (i as f64) + ((i % 3) as f64) * 0.4);
+        let directions = Array2::from_shape_fn((p, 4), |(j, r)| {
+            ((j as f64) * 0.91 - (r as f64) * 0.44).cos()
+        });
+
+        // A sparse twin of the same matrix: identical entries, different
+        // storage, so both arms must land on the same numbers.
+        use faer::sparse::{SparseColMat, Triplet};
+        let mut triplets = Vec::new();
+        for i in 0..n {
+            for j in 0..p {
+                if x[[i, j]] != 0.0 {
+                    triplets.push(Triplet::new(i, j, x[[i, j]]));
+                }
+            }
+        }
+        let dense = DesignMatrix::Dense(DenseDesignMatrix::from(x.clone()));
+        let sparse = DesignMatrix::Sparse(gam_linalg::matrix::SparseDesignMatrix::new(
+            SparseColMat::try_new_from_triplets(n, p, &triplets).expect("sparse twin"),
+        ));
+
+        for (label, design) in [("dense", &dense), ("sparse", &sparse)] {
+            let batched = directional_cubic_contractions(design, &c, &directions.view());
+            for r in 0..directions.ncols() {
+                let reference =
+                    directional_cubic_contraction(design, &c, &directions.column(r).view());
+                assert!(
+                    (batched[r] - reference).abs() <= 1.0e-9 * reference.abs().max(1.0),
+                    "{label} arm disagreed on direction {r}: batched {} vs reference {}",
+                    batched[r],
+                    reference
+                );
+            }
+        }
+    }
+
     /// Verify that joint HMC and REML compute identical penalty logdet
     /// derivatives for the same penalty system. This catches any divergence
     /// between the two code paths.
@@ -3246,7 +3324,19 @@ mod tests {
             weights: Arc::new(array![1.0, 1.0]),
             mode: Arc::new(Array1::zeros(1)),
             offset: None,
-            likelihood: GlmLikelihoodSpec::canonical(spec.clone()),
+            // `joint_family_logp_and_grad` is the already-resolved row
+            // oracle, not the fit-to-posterior scale resolver. A fitted
+            // profiled Gaussian is concretized to its fitted phi before it
+            // reaches this function; use that same target representation here
+            // instead of asking the row oracle to invent a dispersion.
+            likelihood: if matches!(&spec.response, ResponseFamily::Gaussian) {
+                GlmLikelihoodSpec {
+                    spec: spec.clone(),
+                    scale: LikelihoodScaleMetadata::FixedDispersion { phi: 1.0 },
+                }
+            } else {
+                GlmLikelihoodSpec::canonical(spec.clone())
+            },
             n_samples: 2,
             dim: 1,
         };
@@ -6417,15 +6507,24 @@ pub fn laplace_directional_cubic_diagnostic(
     // appropriate normalization), so gamma_r = T[v_r,v_r,v_r] / lambda_r^{3/2}.
 
     // Phase 1: evaluate gamma_r for all positive-curvature eigenvectors.
-    for r in 0..p {
-        let lambda = evals[r];
-        if lambda <= tol {
-            continue;
+    //
+    // Every direction here contracts the SAME design against a different
+    // eigenvector, so the whole phase is one `X V` product. Issuing it as p
+    // independent GEMVs re-streamed `X` from memory p times and made this the
+    // single largest cost in a fit profile; batching it hands faer a GEMM that
+    // reuses each row of `X` across all directions at once.
+    let positive: Vec<usize> = (0..p).filter(|&r| evals[r] > tol).collect();
+    if !positive.is_empty() {
+        let mut directions = Array2::<f64>::zeros((p, positive.len()));
+        for (slot, &r) in positive.iter().enumerate() {
+            directions.column_mut(slot).assign(&evecs.column(r));
         }
-        let v = evecs.column(r);
-        let gamma = directional_cubic_contraction(design, c_weights, &v) / lambda.powf(1.5);
-        directional[r] = if gamma.is_finite() { gamma } else { 0.0 };
-        max_abs = max_abs.max(directional[r].abs());
+        let cubics = directional_cubic_contractions(design, c_weights, &directions.view());
+        for (slot, &r) in positive.iter().enumerate() {
+            let gamma = cubics[slot] / evals[r].powf(1.5);
+            directional[r] = if gamma.is_finite() { gamma } else { 0.0 };
+            max_abs = max_abs.max(directional[r].abs());
+        }
     }
 
     // Phase 2: power-iteration refinement in whitened space.
@@ -6463,6 +6562,106 @@ pub fn laplace_directional_cubic_diagnostic(
     Ok((max_abs, directional))
 }
 
+/// Row-panel height for the batched contraction, chosen so one panel of
+/// projections stays inside a few MiB regardless of how many directions are
+/// batched: `rows × k ≲ 2^21` doubles (16 MiB).
+const CUBIC_PANEL_DOUBLES: usize = 1 << 21;
+
+/// Compute `T[v_r,v_r,v_r] = Σ_i c_i (x_iᵀ v_r)³` for EVERY column `v_r` of
+/// `directions` (p × k) in one pass.
+///
+/// The single-direction [`directional_cubic_contraction`] forms `X v`, so
+/// calling it once per direction forms `X v_1, …, X v_k` — which is the GEMM
+/// `X V` spelled as k separate GEMVs. The diagnostic's phase 1 does exactly
+/// that over every positive-curvature eigenvector, so the whole O(n·p²) step
+/// was running at BLAS-2 intensity: each GEMV re-streams all of `X` from
+/// memory to reuse a single vector. Forming the product once lets the rows of
+/// `X` be reused across all k directions while they are in cache, which is the
+/// entire difference between a memory-bound and a compute-bound kernel.
+///
+/// Rows are processed in panels so the intermediate never scales with `n·k`.
+fn directional_cubic_contractions(
+    design: &DesignMatrix,
+    c_weights: &Array1<f64>,
+    directions: &ArrayView2<f64>,
+) -> Array1<f64> {
+    let k = directions.ncols();
+    let mut cubics = Array1::<f64>::zeros(k);
+    if k == 0 {
+        return cubics;
+    }
+    match design.as_sparse() {
+        Some(x_sparse) => {
+            // One structural pass over the CSC nonzeros scatters into all k
+            // projection columns at once, instead of k passes that each walk
+            // the same index arrays.
+            let (symbolic, values) = x_sparse.as_ref().parts();
+            let col_ptr = symbolic.col_ptr();
+            let row_idx = symbolic.row_idx();
+            let rows = x_sparse.nrows().min(c_weights.len());
+            if rows == 0 {
+                return cubics;
+            }
+            let panel = (CUBIC_PANEL_DOUBLES / k).clamp(1, rows);
+            let mut start = 0;
+            while start < rows {
+                let stop = (start + panel).min(rows);
+                let mut projections = Array2::<f64>::zeros((stop - start, k));
+                for col in 0..x_sparse.ncols() {
+                    let coeffs = directions.row(col);
+                    for ptr in col_ptr[col]..col_ptr[col + 1] {
+                        let row = row_idx[ptr];
+                        if row < start || row >= stop {
+                            continue;
+                        }
+                        let value = values[ptr];
+                        let mut target = projections.row_mut(row - start);
+                        for r in 0..k {
+                            target[r] += value * coeffs[r];
+                        }
+                    }
+                }
+                for (offset, i) in (start..stop).enumerate() {
+                    let weight = c_weights[i];
+                    let row = projections.row(offset);
+                    for r in 0..k {
+                        cubics[r] += weight * row[r].powi(3);
+                    }
+                }
+                start = stop;
+            }
+        }
+        None => {
+            let x_dense = design.to_dense_cow();
+            let x_dense = x_dense.as_ref();
+            let rows = x_dense.nrows().min(c_weights.len());
+            if rows == 0 {
+                return cubics;
+            }
+            let panel = (CUBIC_PANEL_DOUBLES / k).clamp(1, rows);
+            let mut start = 0;
+            while start < rows {
+                let stop = (start + panel).min(rows);
+                let projections = fast_ab(&x_dense.slice(s![start..stop, ..]), directions);
+                for (offset, i) in (start..stop).enumerate() {
+                    let weight = c_weights[i];
+                    let row = projections.row(offset);
+                    for r in 0..k {
+                        cubics[r] += weight * row[r].powi(3);
+                    }
+                }
+                start = stop;
+            }
+        }
+    }
+    for value in cubics.iter_mut() {
+        if !value.is_finite() {
+            *value = 0.0;
+        }
+    }
+    cubics
+}
+
 /// Compute T[v,v,v] = Σ_i c_i (x_i^T v)^3 for a given direction v.
 fn directional_cubic_contraction(
     design: &DesignMatrix,
@@ -6490,10 +6689,22 @@ fn directional_cubic_contraction(
         None => {
             let x_dense = design.to_dense_cow();
             let x_dense = x_dense.as_ref();
+            let rows = x_dense.nrows().min(c_weights.len());
+            if rows == 0 {
+                return 0.0;
+            }
+            // `x_i · v` for every row IS `X v`. Issuing it as `rows` separate
+            // 1-D dots leaves ndarray on its scalar `dot_generic` fallback —
+            // this crate builds ndarray without the `blas` feature, so its
+            // `dot` never reaches a GEMV kernel. A profile of a temporal fit
+            // put 44% of total runtime in that one symbol, called from here
+            // and from `directional_cubic_gradient` under the power iteration
+            // below. One faer GEMV does the same arithmetic against the SIMD
+            // microkernels. The sparse arm above already batches this way.
+            let projections = fast_av(&x_dense.slice(s![..rows, ..]), v);
             let mut cubic = 0.0_f64;
-            for i in 0..x_dense.nrows().min(c_weights.len()) {
-                let proj = x_dense.row(i).dot(v);
-                cubic += c_weights[i] * proj.powi(3);
+            for i in 0..rows {
+                cubic += c_weights[i] * projections[i].powi(3);
             }
             cubic
         }
@@ -6540,18 +6751,24 @@ fn directional_cubic_gradient(
         None => {
             let x_dense = design.to_dense_cow();
             let x_dense = x_dense.as_ref();
-            let n = x_dense.nrows();
-            let mut grad = Array1::<f64>::zeros(p);
-            for i in 0..n.min(c_weights.len()) {
-                let proj = x_dense.row(i).dot(v);
-                let w = 3.0 * c_weights[i] * proj * proj;
-                // scaled_add works with any ArrayBase reference.
-                let row = x_dense.row(i);
-                for j in 0..p {
-                    grad[j] += w * row[j];
-                }
+            let rows = x_dense.nrows().min(c_weights.len());
+            if rows == 0 {
+                return Array1::<f64>::zeros(p);
             }
-            grad
+            // Same two products the sparse arm above forms explicitly:
+            // `X v` for the projections, then `Xᵀ w` for the gradient. Written
+            // row-at-a-time this was a scalar 1-D dot plus a hand-rolled
+            // `grad += w · row` inner loop, both of which show up in a fit
+            // profile (`dot_generic` and `scaled_add`, together the single
+            // largest cost in a temporal fit). Two faer GEMVs replace the
+            // whole nest.
+            let x_rows = x_dense.slice(s![..rows, ..]);
+            let projections = fast_av(&x_rows, v);
+            let mut quad_weights = Array1::<f64>::zeros(rows);
+            for i in 0..rows {
+                quad_weights[i] = 3.0 * c_weights[i] * projections[i] * projections[i];
+            }
+            fast_atv(&x_rows, &quad_weights)
         }
     }
 }

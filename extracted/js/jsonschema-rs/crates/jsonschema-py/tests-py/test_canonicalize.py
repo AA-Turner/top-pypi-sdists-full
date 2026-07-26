@@ -1,5 +1,6 @@
 import pytest
 
+import jsonschema_rs
 from jsonschema_rs import CanonicalSchema, ValidationError, canonical, canonicalize
 
 DRAFT202012 = "https://json-schema.org/draft/2020-12/schema"
@@ -8,7 +9,7 @@ DRAFT202012 = "https://json-schema.org/draft/2020-12/schema"
 @pytest.mark.parametrize(
     "schema",
     [
-        {"allOf": [{"type": "integer"}, {"minimum": 0}]},
+        {"unevaluatedProperties": False},
         {"$defs": {"a": {"type": "null"}}, "$ref": "#/$defs/a"},
     ],
 )
@@ -103,6 +104,182 @@ def test_view_string():
             pytest.fail(f"unexpected view: {other!r}")
 
 
+# Bounds past `u64` stay exact under arbitrary precision.
+@pytest.mark.parametrize("keyword, attribute", [("minLength", "min_length"), ("maxLength", "max_length")])
+def test_view_string_bound_past_u64(keyword, attribute):
+    huge = 10**23
+    match canonicalize({"type": "string", keyword: huge}).view():
+        case canonical.StringView() as view:
+            assert getattr(view, attribute) == huge
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
+def test_view_string_formats():
+    match canonicalize({"type": "string", "format": "email"}, validate_formats=True).view():
+        case canonical.StringView(patterns=patterns, formats=formats):
+            assert patterns == []
+            assert formats == ["email"]
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
+def test_view_string_content():
+    # Same-object contentEncoding+contentMediaType decode-then-check and stay raw; separate allOf
+    # branches model independently, which the view then exposes.
+    schema = {"allOf": [{"type": "string", "contentEncoding": "base64"}, {"contentMediaType": "application/json"}]}
+    match canonicalize(schema, draft=7).view():
+        case canonical.StringView(content_media_types=content_media_types, content_encodings=content_encodings):
+            assert content_media_types == ["application/json"]
+            assert content_encodings == ["base64"]
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
+def test_view_array_lengths():
+    schema = {"type": "array", "minItems": 1, "maxItems": 3, "uniqueItems": True, "items": {"type": "integer"}}
+    match canonicalize(schema).view():
+        case canonical.ArrayView(
+            min_items=min_items,
+            max_items=max_items,
+            unique_items=unique_items,
+            prefix_items=prefix_items,
+            items=items,
+        ):
+            assert min_items == 1
+            assert max_items == 3
+            assert unique_items is True
+            assert prefix_items == []
+            assert items.to_json_schema() == {"$schema": DRAFT202012, "type": "integer"}
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
+def test_view_array_prefix_items():
+    schema = {"type": "array", "prefixItems": [{"type": "integer"}, {"type": "string"}], "items": {"type": "boolean"}}
+    match canonicalize(schema).view():
+        case canonical.ArrayView(prefix_items=prefix_items, items=items):
+            assert [p.to_json_schema() for p in prefix_items] == [
+                {"$schema": DRAFT202012, "type": "integer"},
+                {"$schema": DRAFT202012, "type": "string"},
+            ]
+            assert items.to_json_schema() == {"$schema": DRAFT202012, "type": "boolean"}
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
+def test_view_array_contains():
+    schema = {"type": "array", "contains": {"type": "string"}, "minContains": 0, "maxContains": 2}
+    match canonicalize(schema).view():
+        case canonical.ArrayView(contains=[facet]):
+            assert facet.schema.to_json_schema() == {"$schema": DRAFT202012, "type": "string"}
+            assert facet.min_contains == 0
+            assert facet.max_contains == 2
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
+def test_view_array_contains_default_minimum():
+    schema = {"type": "array", "contains": {"type": "null"}}
+    match canonicalize(schema).view():
+        case canonical.ArrayView(contains=[facet]):
+            assert facet.schema.to_json_schema() == {"$schema": DRAFT202012, "type": "null"}
+            assert facet.min_contains is None
+            assert facet.max_contains is None
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
+def test_view_object_sizes():
+    schema = {
+        "type": "object",
+        "minProperties": 1,
+        "maxProperties": 3,
+        "required": ["a"],
+        "propertyNames": {"maxLength": 4},
+        "properties": {"a": {"type": "integer"}},
+    }
+    match canonicalize(schema).view():
+        case canonical.ObjectView(
+            min_properties=min_properties,
+            max_properties=max_properties,
+            required=required,
+            property_names=property_names,
+            properties=properties,
+        ):
+            assert min_properties is None
+            assert max_properties == 3
+            assert required == ["a"]
+            assert property_names is not None
+            assert property_names.to_json_schema() == {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "string",
+                "maxLength": 4,
+            }
+            assert list(properties) == ["a"]
+            assert properties["a"].to_json_schema() == {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "integer",
+            }
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
+def test_view_object_pattern_properties():
+    schema = {"type": "object", "patternProperties": {"^a": {"type": "integer"}}}
+    match canonicalize(schema).view():
+        case canonical.ObjectView(pattern_properties=pattern_properties):
+            assert list(pattern_properties) == ["^a"]
+            assert pattern_properties["^a"].to_json_schema() == {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "integer",
+            }
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
+def test_view_number_multiple_of():
+    match canonicalize({"type": "number", "multipleOf": 0.5}).view():
+        case canonical.NumberView(multiple_of=multiple_of):
+            assert multiple_of == [0.5]
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
+def test_view_number_interval():
+    match canonicalize({"type": "number", "minimum": 2, "exclusiveMaximum": 5}).view():
+        case canonical.NumberView(
+            minimum=minimum,
+            exclusive_minimum=exclusive_minimum,
+            maximum=maximum,
+            exclusive_maximum=exclusive_maximum,
+        ):
+            assert minimum == 2
+            assert exclusive_minimum is False
+            assert maximum == 5
+            assert exclusive_maximum is True
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
+def test_view_integer_multiple_of():
+    match canonicalize({"type": "integer", "multipleOf": 3}).view():
+        case canonical.IntegerView(minimum=minimum, multiple_of=multiple_of):
+            assert minimum is None
+            assert multiple_of == [3]
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
+def test_view_integer_bound_past_i64():
+    huge = 10**23
+    match canonicalize({"type": "integer", "minimum": huge}).view():
+        case canonical.IntegerView(minimum=minimum):
+            assert minimum == huge
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
 def test_view_integer():
     match canonicalize({"type": "integer", "minimum": 2, "maximum": 9}).view():
         case canonical.IntegerView(minimum=minimum, maximum=maximum):
@@ -122,9 +299,9 @@ def test_view_any_of():
 
 
 def test_view_raw():
-    match canonicalize({"not": {}}).view():
+    match canonicalize({"unevaluatedProperties": False}).view():
         case canonical.RawView(schema=payload):
-            assert payload == {"not": {}}
+            assert payload == {"unevaluatedProperties": False}
         case other:
             pytest.fail(f"unexpected view: {other!r}")
 
@@ -200,3 +377,29 @@ def test_invalid_pattern():
 )
 def test_string_canonical_forms(schema, expected):
     assert canonicalize(schema).to_json_schema() == expected
+
+
+# A pattern whose compiled size exceeds the default regex limit; real AWS schemas carry these.
+LARGE_PATTERN_SCHEMA = {"type": "string", "pattern": "^.{0,100000}$"}
+
+
+def test_large_pattern_is_rejected_by_default():
+    with pytest.raises(jsonschema_rs.canonical.InvalidPattern):
+        canonicalize(LARGE_PATTERN_SCHEMA)
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        jsonschema_rs.FancyRegexOptions(size_limit=150_000_000),
+        jsonschema_rs.RegexOptions(size_limit=150_000_000),
+    ],
+)
+def test_large_pattern_with_raised_size_limit(options):
+    canonical = canonicalize(LARGE_PATTERN_SCHEMA, pattern_options=options)
+    assert canonical.kind == "string"
+
+
+def test_pattern_options_rejects_other_types():
+    with pytest.raises(TypeError):
+        canonicalize(LARGE_PATTERN_SCHEMA, pattern_options=object())

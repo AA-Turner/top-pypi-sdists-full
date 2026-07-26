@@ -228,3 +228,15 @@ include!("design_assembly_constraint_tests.rs");
 // here where its `build_term_collection_design` / freeze / SAS-link-state /
 // joint-hyper FD deps resolve post-#1521 carve. Self-contained `#[cfg(test)] mod`.
 include!("adaptive_bounded_duchon_tests.rs");
+
+// #2425 Half-A instrumentation. Measurement-only probes (they print numbers and
+// assert only that the measurement completed), kept in-tree so the next lane
+// does not have to rebuild this crate to re-derive them. Self-contained
+// `#[cfg(test)] mod`, so it adds nothing to the non-test build.
+include!("zz_measure_2425_kappa_tests.rs");
+
+// #2450 criterion-identity instrumentation. A PAIRED A/B over `rho_prior` at
+// one SHA: same data, same seed, same spec, only the prior varies, so the
+// reported difference is the criterion own bias. Measurement-only, same
+// contract as the probe above. Self-contained `#[cfg(test)] mod`.
+include!("zz_measure_2450_rho_prior_criterion_tests.rs");

@@ -63,7 +63,19 @@ impl CertifiedOuterCandidate {
         context: &str,
         mut candidate: OuterResult,
     ) -> Result<Self, (OuterResult, EstimationError)> {
-        match certify_outer_optimality(obj, config, context, &mut candidate) {
+        // #2359: this is the multi-start's FILTER, not the mint. It spends
+        // first-order evidence only; the single order-four curvature audit is
+        // paid once, on the winner, at the `PlanRunOutcome::Converged` exit
+        // below. A candidate that is stationary but sits on inadmissible
+        // curvature therefore survives screening and is refused at mint, which
+        // is where the one order-four evaluation lives.
+        match certify_outer_optimality_with_fidelity(
+            obj,
+            config,
+            context,
+            &mut candidate,
+            CertificationFidelity::Screening,
+        ) {
             Ok(certificate) => {
                 candidate.criterion_certificate = Some(certificate);
                 Ok(Self(candidate))
@@ -92,6 +104,305 @@ fn retain_best_outer_checkpoint(slot: &mut Option<OuterResult>, candidate: Outer
     if improves {
         *slot = Some(candidate);
     }
+}
+
+fn evaluate_fd_cost_with_criterion_components(
+    obj: &mut dyn OuterObjective,
+    config: &OuterConfig,
+    context: &str,
+    inner_seed: &Array1<f64>,
+    theta: &Array1<f64>,
+) -> Result<(f64, [f64; 4], Array1<f64>), EstimationError> {
+    obj.reset();
+    install_matching_initial_inner_seed(obj, config, inner_seed, context)?;
+    crate::estimate::outer_eval_capture::begin_outer_criterion_component_capture();
+    let cost = obj.eval_cost(theta)?;
+    let (component_cost, components) =
+        crate::estimate::outer_eval_capture::take_outer_criterion_components().ok_or_else(|| {
+            EstimationError::InvalidInput(
+                "outer-gradient FD capture received no scalar criterion components".to_string(),
+            )
+        })?;
+    if component_cost.to_bits() != cost.to_bits() {
+        return Err(EstimationError::InvalidInput(format!(
+            "outer-gradient FD scalar-component cost mismatch: objective={cost:.17e} \
+             components={component_cost:.17e}"
+        )));
+    }
+    let (beta, _) =
+        crate::estimate::outer_eval_capture::take_outer_selected_mode().ok_or_else(|| {
+            EstimationError::InvalidInput(
+                "outer-gradient FD capture received no selected coefficient mode".to_string(),
+            )
+        })?;
+    Ok((cost, components, beta))
+}
+
+fn capture_outer_gradient_fd_at_seed(
+    obj: &mut dyn OuterObjective,
+    config: &OuterConfig,
+    context: &str,
+    seed: &Array1<f64>,
+    rho_dim: usize,
+    psi_dim: usize,
+    lower: &Array1<f64>,
+    upper: &Array1<f64>,
+) -> Result<(), EstimationError> {
+    if !crate::estimate::outer_eval_capture::outer_gradient_fd_capture_enabled(psi_dim) {
+        return Ok(());
+    }
+    if rho_dim.checked_add(psi_dim) != Some(seed.len())
+        || lower.len() != seed.len()
+        || upper.len() != seed.len()
+    {
+        return Err(EstimationError::InvalidInput(format!(
+            "outer-gradient FD capture received inconsistent layout: \
+             rho_dim={rho_dim} psi_dim={psi_dim} theta_dim={} lower_dim={} upper_dim={}",
+            seed.len(),
+            lower.len(),
+            upper.len()
+        )));
+    }
+    obj.reset();
+    install_matching_initial_inner_seed(obj, config, seed, context)?;
+    crate::estimate::outer_eval_capture::begin_outer_gradient_component_capture();
+    crate::estimate::outer_eval_capture::begin_outer_criterion_component_capture();
+    let analytic = obj.eval_with_order(seed, OuterEvalOrder::ValueAndGradient)?;
+    if analytic.gradient.len() != seed.len() || !analytic.cost.is_finite() {
+        return Err(EstimationError::InvalidInput(format!(
+            "outer-gradient FD capture received invalid analytic evidence: \
+             theta_dim={} gradient_dim={} cost={}",
+            seed.len(),
+            analytic.gradient.len(),
+            analytic.cost
+        )));
+    }
+    let analytic_psi_gradient =
+        Array1::from_iter((0..psi_dim).map(|psi_j| analytic.gradient[rho_dim + psi_j]));
+    let components = crate::estimate::outer_eval_capture::take_outer_gradient_components();
+    if components.len() != psi_dim {
+        return Err(EstimationError::InvalidInput(format!(
+            "outer-gradient FD capture received {} ψ component rows, expected {psi_dim}",
+            components.len()
+        )));
+    }
+    let fixed_beta_psi_gradient =
+        Array1::from_iter(components.iter().map(|component| component.0));
+    let logdet_h_psi_gradient =
+        Array1::from_iter(components.iter().map(|component| component.1));
+    let frozen_logdet_h_psi_gradient =
+        Array1::from_iter(components.iter().map(|component| component.2));
+    let mode_response_logdet_h_psi_gradient =
+        Array1::from_iter(components.iter().map(|component| component.3));
+    let logdet_s_psi_gradient =
+        Array1::from_iter(components.iter().map(|component| component.4));
+    let kkt_psi_gradient =
+        Array1::from_iter(components.iter().map(|component| component.5));
+    let (analytic_component_cost, analytic_cost_components) =
+        crate::estimate::outer_eval_capture::take_outer_criterion_components().ok_or_else(|| {
+            EstimationError::InvalidInput(
+                "outer-gradient FD capture received no analytic scalar criterion components"
+                    .to_string(),
+            )
+        })?;
+    if analytic_component_cost.to_bits() != analytic.cost.to_bits() {
+        return Err(EstimationError::InvalidInput(format!(
+            "outer-gradient FD analytic scalar-component cost mismatch: objective={:.17e} \
+             components={analytic_component_cost:.17e}",
+            analytic.cost
+        )));
+    }
+    let (analytic_beta, analytic_ext_mode_response_cols) =
+        crate::estimate::outer_eval_capture::take_outer_selected_mode().ok_or_else(|| {
+            EstimationError::InvalidInput(
+                "outer-gradient FD capture received no analytic selected coefficient mode"
+                    .to_string(),
+            )
+        })?;
+    let analytic_ext_mode_response_cols =
+        analytic_ext_mode_response_cols.ok_or_else(|| {
+            EstimationError::InvalidInput(
+                "outer-gradient FD capture received no analytic extended-coordinate mode responses"
+                    .to_string(),
+            )
+        })?;
+    if analytic_ext_mode_response_cols.nrows() != analytic_beta.len()
+        || analytic_ext_mode_response_cols.ncols() != psi_dim
+    {
+        return Err(EstimationError::InvalidInput(format!(
+            "outer-gradient FD mode-response layout mismatch: beta_dim={} response_shape={}x{} psi_dim={psi_dim}",
+            analytic_beta.len(),
+            analytic_ext_mode_response_cols.nrows(),
+            analytic_ext_mode_response_cols.ncols(),
+        )));
+    }
+    let mut finite_difference_psi_gradient = Array1::<f64>::zeros(psi_dim);
+    let mut finite_difference_component_psi_gradients: [Array1<f64>; 4] =
+        std::array::from_fn(|_| Array1::<f64>::zeros(psi_dim));
+    let mut psi_steps = Array1::<f64>::zeros(psi_dim);
+    let mut analytic_mode_response_norm = Array1::<f64>::zeros(psi_dim);
+    let mut finite_difference_mode_response_norm = Array1::<f64>::zeros(psi_dim);
+    let mut mode_response_relative_error = Array1::<f64>::zeros(psi_dim);
+    let mut mode_response_max_abs_error = Array1::<f64>::zeros(psi_dim);
+    let mut record_mode_response =
+        |psi_j: usize,
+         finite_difference_beta_dot: &Array1<f64>|
+         -> Result<(), EstimationError> {
+            if finite_difference_beta_dot.len() != analytic_beta.len() {
+                return Err(EstimationError::InvalidInput(format!(
+                    "outer-gradient FD coefficient-response length mismatch: analytic={} finite_difference={}",
+                    analytic_beta.len(),
+                    finite_difference_beta_dot.len(),
+                )));
+            }
+            let analytic_beta_dot = analytic_ext_mode_response_cols
+                .column(psi_j)
+                .mapv(|value| -value);
+            let analytic_norm = analytic_beta_dot.dot(&analytic_beta_dot).sqrt();
+            let finite_difference_norm = finite_difference_beta_dot
+                .dot(finite_difference_beta_dot)
+                .sqrt();
+            let mut squared_error = 0.0_f64;
+            let mut max_abs_error = 0.0_f64;
+            for (&analytic_value, &fd_value) in
+                analytic_beta_dot.iter().zip(finite_difference_beta_dot.iter())
+            {
+                let error = analytic_value - fd_value;
+                squared_error += error * error;
+                max_abs_error = max_abs_error.max(error.abs());
+            }
+            analytic_mode_response_norm[psi_j] = analytic_norm;
+            finite_difference_mode_response_norm[psi_j] = finite_difference_norm;
+            mode_response_relative_error[psi_j] =
+                squared_error.sqrt() / analytic_norm.max(finite_difference_norm).max(1e-12);
+            mode_response_max_abs_error[psi_j] = max_abs_error;
+            Ok(())
+        };
+    for psi_j in 0..psi_dim {
+        let j = rho_dim + psi_j;
+        let nominal_step = f64::EPSILON.powf(0.25) * (1.0 + seed[j].abs());
+        let left_room = (seed[j] - lower[j]).max(0.0);
+        let right_room = (upper[j] - seed[j]).max(0.0);
+        if left_room >= nominal_step && right_room >= nominal_step {
+            let mut plus = seed.clone();
+            let mut minus = seed.clone();
+            plus[j] += nominal_step;
+            minus[j] -= nominal_step;
+            let (cost_plus, components_plus, beta_plus) =
+                evaluate_fd_cost_with_criterion_components(obj, config, context, seed, &plus)?;
+            let (cost_minus, components_minus, beta_minus) =
+                evaluate_fd_cost_with_criterion_components(obj, config, context, seed, &minus)?;
+            finite_difference_psi_gradient[psi_j] =
+                (cost_plus - cost_minus) / (2.0 * nominal_step);
+            for atom in 0..4 {
+                finite_difference_component_psi_gradients[atom][psi_j] =
+                    (components_plus[atom] - components_minus[atom]) / (2.0 * nominal_step);
+            }
+            let beta_dot = Array1::from_iter(
+                beta_plus
+                    .iter()
+                    .zip(beta_minus.iter())
+                    .map(|(&plus_value, &minus_value)| {
+                        (plus_value - minus_value) / (2.0 * nominal_step)
+                    }),
+            );
+            record_mode_response(psi_j, &beta_dot)?;
+            psi_steps[psi_j] = nominal_step;
+        } else if right_room >= left_room && right_room > 0.0 {
+            let step = nominal_step.min(0.5 * right_room);
+            let mut one = seed.clone();
+            let mut two = seed.clone();
+            one[j] += step;
+            two[j] += 2.0 * step;
+            let (cost_one, components_one, beta_one) =
+                evaluate_fd_cost_with_criterion_components(obj, config, context, seed, &one)?;
+            let (cost_two, components_two, beta_two) =
+                evaluate_fd_cost_with_criterion_components(obj, config, context, seed, &two)?;
+            finite_difference_psi_gradient[psi_j] =
+                (-3.0 * analytic.cost + 4.0 * cost_one - cost_two) / (2.0 * step);
+            for atom in 0..4 {
+                finite_difference_component_psi_gradients[atom][psi_j] =
+                    (-3.0 * analytic_cost_components[atom] + 4.0 * components_one[atom]
+                        - components_two[atom])
+                        / (2.0 * step);
+            }
+            let beta_dot = Array1::from_iter(
+                analytic_beta
+                    .iter()
+                    .zip(beta_one.iter())
+                    .zip(beta_two.iter())
+                    .map(|((&base_value, &one_value), &two_value)| {
+                        (-3.0 * base_value + 4.0 * one_value - two_value) / (2.0 * step)
+                    }),
+            );
+            record_mode_response(psi_j, &beta_dot)?;
+            psi_steps[psi_j] = step;
+        } else if left_room > 0.0 {
+            let step = nominal_step.min(0.5 * left_room);
+            let mut one = seed.clone();
+            let mut two = seed.clone();
+            one[j] -= step;
+            two[j] -= 2.0 * step;
+            let (cost_one, components_one, beta_one) =
+                evaluate_fd_cost_with_criterion_components(obj, config, context, seed, &one)?;
+            let (cost_two, components_two, beta_two) =
+                evaluate_fd_cost_with_criterion_components(obj, config, context, seed, &two)?;
+            finite_difference_psi_gradient[psi_j] =
+                (3.0 * analytic.cost - 4.0 * cost_one + cost_two) / (2.0 * step);
+            for atom in 0..4 {
+                finite_difference_component_psi_gradients[atom][psi_j] =
+                    (3.0 * analytic_cost_components[atom] - 4.0 * components_one[atom]
+                        + components_two[atom])
+                        / (2.0 * step);
+            }
+            let beta_dot = Array1::from_iter(
+                analytic_beta
+                    .iter()
+                    .zip(beta_one.iter())
+                    .zip(beta_two.iter())
+                    .map(|((&base_value, &one_value), &two_value)| {
+                        (3.0 * base_value - 4.0 * one_value + two_value) / (2.0 * step)
+                    }),
+            );
+            record_mode_response(psi_j, &beta_dot)?;
+            psi_steps[psi_j] = step;
+        } else {
+            return Err(EstimationError::InvalidInput(format!(
+                "outer-gradient FD capture cannot perturb collapsed coordinate {j}"
+            )));
+        }
+    }
+    obj.reset();
+    crate::estimate::outer_eval_capture::record_outer_gradient_fd(
+        crate::estimate::OuterGradientFdRecord {
+            theta: seed.clone(),
+            rho_dim,
+            psi_dim,
+            cost: analytic.cost,
+            analytic_psi_gradient,
+            finite_difference_psi_gradient,
+            psi_steps,
+            fixed_beta_psi_gradient,
+            logdet_h_psi_gradient,
+            frozen_logdet_h_psi_gradient,
+            mode_response_logdet_h_psi_gradient,
+            analytic_mode_response_norm,
+            finite_difference_mode_response_norm,
+            mode_response_relative_error,
+            mode_response_max_abs_error,
+            logdet_s_psi_gradient,
+            kkt_psi_gradient,
+            finite_difference_fixed_beta_psi_gradient:
+                finite_difference_component_psi_gradients[0].clone(),
+            finite_difference_logdet_h_psi_gradient:
+                finite_difference_component_psi_gradients[1].clone(),
+            finite_difference_logdet_s_psi_gradient:
+                finite_difference_component_psi_gradients[2].clone(),
+            finite_difference_kkt_psi_gradient:
+                finite_difference_component_psi_gradients[3].clone(),
+        },
+    );
+    Ok(())
 }
 
 /// Execute a single plan attempt (seed generation → solver loop → best result).
@@ -309,8 +620,22 @@ pub(crate) fn run_outer_with_plan(
                 break;
             }
         }
-        crate::estimate::reml::outer_eval::record_current_outer_iter_for_ift(0);
         obj.reset();
+        if crate::estimate::outer_eval_capture::outer_gradient_fd_capture_enabled(cap.psi_dim) {
+            capture_outer_gradient_fd_at_seed(
+                obj,
+                config,
+                context,
+                seed,
+                cap.theta_layout().rho_dim(),
+                cap.psi_dim,
+                &bounds_template.0,
+                &bounds_template.1,
+            )?;
+            // The audit leaves the objective pristine, so the real seed path
+            // below (including any curvature homotopy) is bit-identical to a
+            // run with capture disabled.
+        }
         // Certified curvature-homotopy entry leg (#1007). When the objective
         // has a certified anchor (the SAE-manifold `η = 0` Eckart-Young
         // relaxation), run the predictor-corrector `η`-walk from it INSTEAD of
@@ -903,12 +1228,16 @@ pub(crate) fn run_outer_with_plan(
                             EstimationError::RemlOptimizationFailed(message)
                         }
                     })?;
+                    // Same rail-relaxed box the guard's later curvature reads
+                    // use (#2412); the seed must not be judged against a
+                    // different critical cone than the iterates that follow it.
+                    let seed_rail_bounds = rail_relaxed_bounds(&(lo.clone(), hi.clone()));
                     let seed_hessian_psd = seed_hessian.as_ref().and_then(|dense| {
                         reduced_hessian_psd_at_point(
                             &seed,
                             &seed_eval.gradient,
                             dense,
-                            Some((lo, hi)),
+                            Some((&seed_rail_bounds.0, &seed_rail_bounds.1)),
                         )
                     });
 
@@ -921,7 +1250,11 @@ pub(crate) fn run_outer_with_plan(
                     cost_stall_guard.observe_second_order_seed(
                         &seed,
                         seed_eval.cost,
-                        projected_gradient_norm(
+                        // Same rail-relaxed box the guard's later observations
+                        // and the terminal certificate use (#2412); a seed that
+                        // starts on a rail must not be scored against a
+                        // different box than the iterates that follow it.
+                        rail_projected_gradient_norm(
                             &seed,
                             &seed_eval.gradient,
                             Some(&(lo.clone(), hi.clone())),
@@ -1853,6 +2186,29 @@ pub(crate) fn run_outer_with_plan(
 
     if let Some(certified) = best {
         let result = certified.into_result();
+        // NO mint audit here (#2359). Every candidate above was screened at
+        // order three, and the winner's order-four audit is paid EXACTLY ONCE —
+        // but it is paid by `run_outer`, not here.
+        //
+        // The three production paths into this function
+        // (`run.rs:5034`, and the two retries at `:1962`/`:1993` below) are all
+        // reached from `run_outer_uncertified`, whose only callers are inside
+        // `run_outer` — and `run_outer` finishes with
+        // `certify_diagnose_and_install`, a `CertificationFidelity::Mint`
+        // certification that must run LAST so the certificate's own evaluation
+        // is the final objective-state installer (that is what makes the sealed
+        // terminal fit bind bitwise on a bimodal inner solve). Minting here as
+        // well spent the order-four derivative tower TWICE on every
+        // analytic-Hessian fit, and on the sampled-pilot path three times —
+        // which is exactly what #2359 exists to prevent. Measured on
+        // `optimize_three_certify_four_exactly_once_at_mint_2359`:
+        // `ValueGradientHessian` calls 2 → 1, and the last order seen is the
+        // mint's, by construction.
+        //
+        // The winner therefore leaves this function carrying its SCREENING
+        // certificate, which is first-order evidence only. That is the correct
+        // provenance: nothing downstream of here treats a plan result as minted
+        // until `run_outer` replaces the certificate with its own.
         // The finalize evaluation re-installs the selected outer result by
         // re-running the inner P-IRLS at θ̂. During the outer search the ARC /
         // BFGS bridge schedule throttles `RemlState::outer_inner_cap` down to a

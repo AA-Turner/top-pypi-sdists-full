@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # The MIT License (MIT)
-# Copyright (c) 2014-2022 Matias Bordese
+# Copyright (c) 2014-2023 Matias Bordese
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,30 +24,38 @@
 
 """Useful constants and regexes used by the package."""
 
-from __future__ import unicode_literals
-
 import re
 
 
+# the filename may be empty (e.g. difflib.unified_diff output without
+# fromfile/tofile emits bare "--- " and "+++ " headers)
 RE_SOURCE_FILENAME = re.compile(
-    r'^--- (?P<filename>[^\t\n]+)(?:\t(?P<timestamp>[^\n]+))?')
+    r'^--- (?P<filename>"?[^\t\n]*"?)(?:\t(?P<timestamp>[^\n]+))?')
 RE_TARGET_FILENAME = re.compile(
-    r'^\+\+\+ (?P<filename>[^\t\n]+)(?:\t(?P<timestamp>[^\n]+))?')
+    r'^\+\+\+ (?P<filename>"?[^\t\n]*"?)(?:\t(?P<timestamp>[^\n]+))?')
 
 
 # check diff git line for git renamed files support
 RE_DIFF_GIT_HEADER = re.compile(
-    r'^diff --git (?P<source>a/[^\t\n]+) (?P<target>b/[^\t\n]+)')
+    r'^diff --git (?P<source>"?a/[^\t\n]+"?) (?P<target>"?b/[^\t\n]+"?)')
 RE_DIFF_GIT_HEADER_URI_LIKE = re.compile(
     r'^diff --git (?P<source>.*://[^\t\n]+) (?P<target>.*://[^\t\n]+)')
 RE_DIFF_GIT_HEADER_NO_PREFIX = re.compile(
     r'^diff --git (?P<source>[^\t\n]+) (?P<target>[^\t\n]+)')
 
-# check diff git new file marker `deleted file mode 100644`
-RE_DIFF_GIT_DELETED_FILE = re.compile(r'^deleted file mode \d+$')
+# check diff git deleted file marker `deleted file mode 100644`
+RE_DIFF_GIT_DELETED_FILE = re.compile(r'^deleted file mode (?P<mode>\d+)$')
 
 # check diff git new file marker `new file mode 100644`
-RE_DIFF_GIT_NEW_FILE = re.compile(r'^new file mode \d+$')
+RE_DIFF_GIT_NEW_FILE = re.compile(r'^new file mode (?P<mode>\d+)$')
+
+# check diff git file mode change markers `old mode 100644` / `new mode 100755`
+RE_DIFF_GIT_OLD_MODE = re.compile(r'^old mode (?P<mode>\d+)$')
+RE_DIFF_GIT_NEW_MODE = re.compile(r'^new mode (?P<mode>\d+)$')
+
+# check diff git index line with a trailing mode `index abc..def 100644`
+RE_DIFF_GIT_INDEX = re.compile(
+    r'^index [0-9a-f]+\.\.[0-9a-f]+ (?P<mode>\d+)$')
 
 
 # @@ (source offset, length) (target offset, length) @@ (section header)
@@ -71,9 +79,18 @@ RE_BINARY_DIFF = re.compile(
     r'(?P<source_filename>[^\t]+?)(?:\t(?P<source_timestamp>[\s0-9:\+-]+))?'
     r'(?: and (?P<target_filename>[^\t]+?)(?:\t(?P<target_timestamp>[\s0-9:\+-]+))?)? (differ|has changed)')
 
+# git source/target filename prefixes: the standard "a/" and "b/", plus the
+# mnemonic prefixes used when diff.mnemonicPrefix is set (c/ i/ o/ w/) and the
+# 1/ 2/ pair used by `git diff --no-index`
+RE_PATCH_FILE_PREFIX = re.compile(r'^[abciow12]/')
+
 DEFAULT_ENCODING = 'UTF-8'
 
 DEV_NULL = '/dev/null'
+
+# git file mode for a symbolic link
+SYMLINK_FILE_MODE = '120000'
+
 LINE_TYPE_ADDED = '+'
 LINE_TYPE_REMOVED = '-'
 LINE_TYPE_CONTEXT = ' '

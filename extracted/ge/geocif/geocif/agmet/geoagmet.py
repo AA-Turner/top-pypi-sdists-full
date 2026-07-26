@@ -946,6 +946,15 @@ def loop_agmet(path_config_file=None):
     if do_parallel:
         fraction_cpus = obj.parser.getfloat("DEFAULT", "fraction_cpus")
         cpu_count = int(mp.cpu_count() * fraction_cpus)
+        # Cap concurrent workers. Each combo loads a full boundary GeoDataFrame
+        # + multi-year condition data and copies frames per region, so 64+
+        # workers OOM-kill on large admin_2 countries (France etc.). A killed
+        # worker made the old imap_unordered hang the whole run for hours.
+        # Override via [DEFAULT] agmet_max_workers (default 16).
+        cpu_count = max(1, min(
+            cpu_count,
+            obj.parser.getint("DEFAULT", "agmet_max_workers", fallback=16),
+        ))
         params.append(("CPUs", str(cpu_count)))
 
     ut.display_run_summary("GeoCIF Agmet Runner", params, wait=20)
@@ -955,12 +964,32 @@ def loop_agmet(path_config_file=None):
             (path_config_file, country, scale, crop, gs)
             for country, scale, crop, gs in all_combinations
         ]
+        # Consume results with a per-result timeout so a worker that dies
+        # (OOM/segfault) can NOT hang the whole run. imap_unordered loses a
+        # dead worker's task result; a plain list() then blocks on it forever
+        # (the 15h-hang bug). A TimeoutError means no worker produced a result
+        # within the window, so the remaining results are lost and we stop
+        # waiting. Override via [DEFAULT] agmet_task_timeout (seconds).
+        task_timeout = obj.parser.getint("DEFAULT", "agmet_task_timeout", fallback=1800)
+        n_items = len(work_items)
+        done = 0
         with mp.Pool(cpu_count) as pool:
-            list(tqdm(
-                pool.imap_unordered(_agmet_worker, work_items),
-                total=len(work_items),
-                desc="Agmet (parallel)",
-            ))
+            result_iter = pool.imap_unordered(_agmet_worker, work_items)
+            with tqdm(total=n_items, desc="Agmet (parallel)") as pbar:
+                for _ in range(n_items):
+                    try:
+                        result_iter.next(timeout=task_timeout)
+                        done += 1
+                    except mp.TimeoutError:
+                        obj.logger.error(
+                            f"Agmet: no worker result within {task_timeout}s "
+                            f"(a worker likely died/hung); {n_items - done} "
+                            f"combo(s) unfinished — stopping the wait."
+                        )
+                        break
+                    finally:
+                        pbar.update(1)
+        obj.logger.info(f"Agmet parallel plotting: {done}/{n_items} combos completed")
     else:
         pbar = tqdm(all_combinations, total=len(all_combinations))
         for country, scale, crop, growing_season in pbar:

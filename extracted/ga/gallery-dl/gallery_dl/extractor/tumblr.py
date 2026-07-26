@@ -82,8 +82,8 @@ class TumblrExtractor(Extractor):
                 r"https?://(\d+\.media\.tumblr\.com(?:/[0-9a-f]+)?"
                 r"/tumblr(?:_inline)?_[^_]+)_\d+\.([0-9a-z]+)").sub
             self._subn_orig_image = text.re(r"/s\d+x\d+/").subn
-            _findall_image = text.re('<img [^>]*src="([^"]+)"').findall
-            _findall_video = text.re('<source [^>]*src="([^"]+)"').findall
+            self._findall_image = text.re('<img [^>]*src="([^"]+)"').findall
+            self._findall_video = text.re('<source [^>]*src="([^"]+)"').findall
 
         for post in self.posts():
             if self.date_min > post["timestamp"]:
@@ -159,23 +159,18 @@ class TumblrExtractor(Extractor):
                     self._original_video(url), post.copy()))
 
             if self.inline and "reblog" in post:  # inline media
-                post["source"] = "inline"
                 # only "chat" posts are missing a "reblog" key in their
                 # API response, but they can't contain images/videos anyway
-                body = self._extract_body(post)
-                if "question" in post:
-                    body = (f"{body} {post['question']} "
-                            f"{post.get('answer') or ''}")
-                for url in util.unique(_findall_image(body)):
-                    url, fb = self._original_inline_image(url)
-                    if fb:
-                        post["_fallback"] = self._original_image_fallback(
-                            url, post["id"])
-                    posts.append(self._prepare_image(url, post.copy()))
-                    post.pop("_fallback", None)
-                for url in _findall_video(body):
-                    url = self._original_video(url)
-                    posts.append(self._prepare(url, post.copy()))
+                seen = set()
+                if txt := post.get("answer"):
+                    post["source"] = "answer"
+                    self._extract_inline(posts, post, seen, txt)
+                if txt := post.get("question"):
+                    post["source"] = "question"
+                    self._extract_inline(posts, post, seen, txt)
+                if txt := self._extract_body(post):
+                    post["source"] = "inline"
+                    self._extract_inline(posts, post, seen, txt)
 
             if self.external:  # external links
                 if url := post.get("permalink_url") or post.get("url"):
@@ -267,6 +262,23 @@ class TumblrExtractor(Extractor):
     def _extract_body(self, post):
         rb = post["reblog"]
         return rb["comment"] + rb["tree_html"]
+
+    def _extract_inline(self, posts, post, seen, txt):
+        for url in self._findall_image(txt):
+            if url not in seen:
+                seen.add(url)
+                url, fb = self._original_inline_image(url)
+                if fb:
+                    post["_fallback"] = self._original_image_fallback(
+                        url, post["id"])
+                posts.append(self._prepare_image(url, post.copy()))
+                post.pop("_fallback", None)
+
+        for url in self._findall_video(txt):
+            url = self._original_video(url)
+            if url not in seen:
+                seen.add(url)
+                posts.append(self._prepare(url, post.copy()))
 
     def _original_photo(self, url):
         resized = url.replace("/s2048x3072/", "/s99999x99999/", 1)

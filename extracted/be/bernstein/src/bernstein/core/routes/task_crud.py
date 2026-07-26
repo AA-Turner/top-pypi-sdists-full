@@ -29,6 +29,7 @@ from bernstein.core.eu_ai_act import (
 from bernstein.core.lifecycle import IllegalTransitionError
 from bernstein.core.role_classifier import classify_role
 from bernstein.core.routes._rate_limit_headers import rate_limit_exception
+from bernstein.core.security.auth_middleware import enforce_agent_task_scope_for_ids
 from bernstein.core.security.sanitize import sanitize_log
 
 # Import Pydantic models from server - this works because server.py's
@@ -61,6 +62,7 @@ from bernstein.core.server import (
     TaskFailRequest,
     TaskPatchRequest,
     TaskProgressRequest,
+    TaskReleaseRequest,
     TaskReopenRequest,
     TaskResponse,
     TaskSelfCreate,
@@ -91,7 +93,7 @@ logger = logging.getLogger(__name__)
 _DRAINING_DETAIL = "Server is draining -- no new claims accepted"
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
+    from collections.abc import AsyncGenerator, Sequence
     from pathlib import Path
 
     from bernstein.core.models import Task
@@ -220,6 +222,31 @@ def _require_task_access(task: Task, request: Request, requested_tenant: str | N
     effective_tenant = _resolve_request_tenant_scope(request, requested_tenant)
     if task.tenant_id != effective_tenant:
         raise HTTPException(status_code=404, detail=f"Task '{task.id}' not found")
+
+
+def _enforce_parent_task_scope(request: Request, parent_task_ids: Sequence[str | None]) -> None:
+    """Bind a create request's ``parent_task_id`` values to the agent's scope.
+
+    The created task is new and unconstrained, but the parent it names is an
+    EXISTING task, and grafting a child onto it writes into the subtree that
+    parent's completion logic reads: an ancestor sitting in
+    ``waiting_for_subtasks`` is promoted only once every direct child is
+    ``done``, so a new child changes whether and when it completes.  The id
+    arrives in the request body, where the middleware's path gate cannot see
+    it, so the same rule is applied here.
+
+    ``depends_on`` is deliberately NOT checked: a dependency edge is stored
+    on the new row and the referenced task is neither mutated nor made
+    unreachable by it.
+
+    Args:
+        request: The active request, carrying the resolved agent identity.
+        parent_task_ids: Parent ids from the body; ``None`` entries (no
+            parent) are dropped.
+    """
+    named = [task_id for task_id in parent_task_ids if task_id]
+    if named:
+        enforce_agent_task_scope_for_ids(request, named)
 
 
 # ---------------------------------------------------------------------------
@@ -697,6 +724,35 @@ def _try_generate_sbom(request: Request) -> None:
         logger.warning("SBOM generation failed (non-fatal)", exc_info=True)
 
 
+def _record_agent_trust(request: Request, role: str, *, success: bool) -> None:
+    """Record a task outcome against the acting role's trust tier.
+
+    Trust tiers live in ``.sdd/trust/<agent_id>.json`` and map onto an
+    ``AgentPermissions`` profile (see
+    :mod:`bernstein.core.agents.agent_trust`); ``bernstein agents trust``
+    reads them back.  Fires synchronously but swallows all exceptions so a
+    trust-store problem can never fail a task route.
+
+    Args:
+        request: FastAPI request (for ``sdd_dir`` access).
+        role: Role of the agent that finished the task.
+        success: Whether the task completed successfully.
+    """
+    if not role:
+        return
+    sdd_dir: Path | None = getattr(request.app.state, "sdd_dir", None)
+    if sdd_dir is None:
+        return
+    try:
+        from bernstein.core.agents.agent_trust import AgentTrustStore
+
+        AgentTrustStore(sdd_dir).record_task_outcome(role, success=success)
+    # intentional-broad-except: trust accounting is advisory and must not
+    # propagate to the route.
+    except Exception:
+        logger.warning("agent_trust: update failed (non-fatal)", exc_info=True)
+
+
 def _update_file_health(
     request: Request,
     task_id: str,
@@ -749,6 +805,7 @@ async def create_task(body: TaskCreate, request: Request) -> TaskResponse:
     """Create a new task."""
     store = _get_store(request)
     sse_bus = _get_sse_bus(request)
+    _enforce_parent_task_scope(request, [body.parent_task_id])
     effective_body = body.model_copy(update={"tenant_id": request_tenant_id(request)})
     if effective_body.metadata is None:
         effective_body.metadata = {}
@@ -891,6 +948,8 @@ async def create_tasks_batch(body: BatchCreateRequest, request: Request) -> Batc
     store = _get_store(request)
     sse_bus = _get_sse_bus(request)
 
+    _enforce_parent_task_scope(request, [entry.parent_task_id for entry in body.tasks])
+
     prepared: list[TaskCreate] = []
     assessments: list[TaskRiskAssessment] = []
     for task_body in body.tasks:
@@ -964,6 +1023,14 @@ async def self_create_subtask(body: TaskSelfCreate, request: Request) -> TaskRes
     """
     store = _get_store(request)
     sse_bus = _get_sse_bus(request)
+
+    # The new subtask is unconstrained, but ``parent_task_id`` names an
+    # EXISTING task that this route transitions to ``waiting_for_subtasks``
+    # below - the same mutation ``POST /tasks/{parent}/wait-for-subtasks``
+    # performs, and that route is path-scoped. The id arrives in the body, so
+    # the middleware gate cannot see it: without this call a token scoped to
+    # task A could park task B in ``waiting_for_subtasks`` one path over.
+    enforce_agent_task_scope_for_ids(request, [body.parent_task_id])
 
     # Validate parent exists
     parent = store.get_task(body.parent_task_id)
@@ -1061,6 +1128,11 @@ async def claim_batch(body: BatchClaimRequest, request: Request) -> BatchClaimRe
             detail=_DRAINING_DETAIL,
         )
     with start_span("task.claim_batch", {"agent_id": body.agent_id, "task_count": len(body.task_ids)}):
+        # The ids arrive in the body, so the path-level agent task-scope gate
+        # in the middleware cannot see them: a token scoped to task A would
+        # otherwise claim task B here after being denied on
+        # ``POST /tasks/B/claim``.
+        enforce_agent_task_scope_for_ids(request, body.task_ids)
         store = _get_store(request)
         tenant_id = _resolve_request_tenant_scope(request)
         # Tenant authorization is enforced inside store.claim_batch under
@@ -1365,6 +1437,7 @@ async def complete_task(task_id: str, body: TaskCompleteRequest, request: Reques
                     list(failed_task.owned_files),
                     "failure",
                 )
+                _record_agent_trust(request, failed_task.role, success=False)
             raise HTTPException(status_code=422, detail=detail) from None
         except IllegalTransitionError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from None
@@ -1384,6 +1457,7 @@ async def complete_task(task_id: str, body: TaskCompleteRequest, request: Reques
 
         # Update per-file health scores (fire-and-forget)
         _update_file_health(request, task.id, list(task.owned_files), "success")
+        _record_agent_trust(request, task.role, success=True)
 
         return task_to_response(task)
 
@@ -1452,7 +1526,44 @@ async def fail_task(task_id: str, body: TaskFailRequest, request: Request) -> Ta
 
     # Update per-file health scores with failure outcome (fire-and-forget)
     _update_file_health(request, task.id, list(task.owned_files), "failure")
+    _record_agent_trust(request, task.role, success=False)
 
+    return task_to_response(task)
+
+
+@router.post(
+    "/tasks/{task_id}/release",
+    responses={404: {"description": "Task not found"}, 409: {"description": "Invalid state transition"}},
+)
+async def release_task(task_id: str, body: TaskReleaseRequest, request: Request) -> TaskResponse:
+    """Release a claimed task back to the open pool without failing it.
+
+    A cluster worker that claims a task but cannot start its agent (e.g. the
+    workspace is not a usable git checkout, or the adapter spawn fails) must
+    return the task to the pool so another node can pick it up, rather than
+    stranding it in ``claimed`` with no live agent (#3018). Distinct from
+    ``/fail`` (terminal FAILED) and ``/reopen`` (DONE -> OPEN): the task
+    transitions CLAIMED/IN_PROGRESS -> OPEN and is immediately claimable again.
+    """
+    store = _get_store(request)
+    sse_bus = _get_sse_bus(request)
+    try:
+        existing_task = store.get_task(task_id)
+        if existing_task is None:
+            raise KeyError
+        _require_task_access(existing_task, request)
+        task = await store.release(task_id, body.reason)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found") from None
+    except IllegalTransitionError as exc:
+        logger.warning(
+            "task.release 409: task_id=%s current_status=%s reason=%s",
+            sanitize_log(task_id),
+            existing_task.status.value if existing_task is not None else "unknown",
+            sanitize_log(str(exc)),
+        )
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+    sse_bus.publish("task_update", json.dumps({"id": task.id, "status": task.status.value}))
     return task_to_response(task)
 
 

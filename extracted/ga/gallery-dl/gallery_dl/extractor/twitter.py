@@ -2193,8 +2193,9 @@ class TwitterAPI():
                         continue
 
                 if user := extr._user_obj:
-                    user = user["legacy"]
-                    if user.get("blocked_by"):
+                    core = user.get("core") or user["legacy"]
+                    if (user.get("relationship_perspectives") or
+                            user["legacy"]).get("blocked_by"):
                         if self.headers["x-twitter-auth-type"] and \
                                 extr.config("logout"):
                             extr.cookies_file = None
@@ -2203,10 +2204,11 @@ class TwitterAPI():
                             extr.log.info("Retrying API request as guest")
                             continue
                         raise self.exc.AuthorizationError(
-                            user["screen_name"] + " blocked your account")
-                    elif user.get("protected"):
+                            core["screen_name"] + " blocked your account")
+                    if (user.get("privacy") or
+                            user["legacy"]).get("protected"):
                         raise self.exc.AuthorizationError(
-                            user["screen_name"] + "'s Tweets are protected")
+                            core["screen_name"] + "'s Tweets are protected")
 
                 raise self.exc.AbortExtraction(
                     "Unable to retrieve Tweets from this timeline")

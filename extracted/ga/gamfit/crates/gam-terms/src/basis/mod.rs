@@ -15,6 +15,7 @@ include!("prelude.rs");
 // ---- Manifold / geometric smooth specifications and kernels ----
 mod constant_curvature_smooth;
 mod cyclic;
+mod sphere_half_angle;
 mod sphere_kernels;
 mod sphere_spec;
 mod sphere_spectral;
@@ -41,6 +42,7 @@ mod duchon_thinplate;
 mod implicit_psi_derivative;
 pub mod input_loc_derivatives;
 mod internal;
+mod invariant_tie_break;
 pub mod matern_gradient;
 mod matern_kernel;
 mod periodic_duchon;
@@ -130,3 +132,15 @@ pub use workspace_cache::*;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod zz_measure_2445_tests;
+
+#[cfg(test)]
+mod zz_measure_2475_tests;
+
+#[cfg(test)]
+mod zz_measure_2489_tests;
+
+#[cfg(test)]
+mod zz_measure_polar_harmonic_jet_tests;

@@ -6,7 +6,7 @@ use crate::{
     evaluation::{Annotations, ErrorDescription, Evaluation, EvaluationNode},
     node::SchemaNode,
     paths::{LazyLocation, Location, RefTracker},
-    Draft, Json, SerdeJson, ValidationError, ValidationOptions,
+    Draft, Json, NodeIdentity, SerdeJson, ValidationError, ValidationOptions,
 };
 use ahash::AHashMap;
 use serde_json::Value;
@@ -17,13 +17,13 @@ pub(crate) use crate::paths::LazyEvaluationPath;
 /// Validation state for cycle detection and memoization.
 #[derive(Default)]
 pub struct ValidationContext {
-    validating: Vec<(usize, usize)>,
+    validating: Vec<(usize, NodeIdentity)>,
     /// Stack of (validators, instance) pairs currently collecting evaluated properties/items,
     /// used to break cycles from self-referential `$dynamicRef`/`$recursiveRef` under
     /// `unevaluatedProperties`/`unevaluatedItems`.
-    marking: Vec<(usize, usize)>,
+    marking: Vec<(usize, NodeIdentity)>,
     /// Lazy-initialized cache for recursive schema validation.
-    is_valid_cache: Option<AHashMap<(usize, usize), bool>>,
+    is_valid_cache: Option<AHashMap<(usize, NodeIdentity), bool>>,
     /// Lazy-initialized cache for ECMA regex transformation results during format "regex" validation.
     ecma_regex_cache: Option<AHashMap<String, bool>>,
 }
@@ -35,7 +35,11 @@ impl ValidationContext {
 
     /// Returns `true` if cycle detected. `None` identity disables cycle tracking for this node.
     #[inline]
-    pub(crate) fn enter(&mut self, node_id: usize, instance_identity: Option<usize>) -> bool {
+    pub(crate) fn enter(
+        &mut self,
+        node_id: usize,
+        instance_identity: Option<NodeIdentity>,
+    ) -> bool {
         let Some(identity) = instance_identity else {
             return false;
         };
@@ -48,7 +52,7 @@ impl ValidationContext {
     }
 
     #[inline]
-    pub(crate) fn exit(&mut self, node_id: usize, instance_identity: Option<usize>) {
+    pub(crate) fn exit(&mut self, node_id: usize, instance_identity: Option<NodeIdentity>) {
         let Some(identity) = instance_identity else {
             return;
         };
@@ -65,7 +69,7 @@ impl ValidationContext {
     pub(crate) fn enter_marking(
         &mut self,
         validators_id: usize,
-        instance_identity: Option<usize>,
+        instance_identity: Option<NodeIdentity>,
     ) -> bool {
         let Some(identity) = instance_identity else {
             return false;
@@ -83,28 +87,33 @@ impl ValidationContext {
         self.marking.pop();
     }
 
-    /// Keyed by `JsonNode::container_cache_key`: only containers, to avoid false hits from stack address
-    /// reuse.
+    /// Containers only: the cache outlives them, and only they promise an identity no later node
+    /// reuses.
     #[inline]
     pub(crate) fn get_cached_result(
         &self,
         node_id: usize,
-        cache_key: Option<usize>,
+        identity: Option<NodeIdentity>,
     ) -> Option<bool> {
         let cache = self.is_valid_cache.as_ref()?;
-        cache.get(&(node_id, cache_key?)).copied()
+        cache.get(&(node_id, identity?)).copied()
     }
 
-    /// Keyed by `JsonNode::container_cache_key`: only containers, to avoid false hits from stack address
-    /// reuse.
+    /// Containers only: the cache outlives them, and only they promise an identity no later node
+    /// reuses.
     #[inline]
-    pub(crate) fn cache_result(&mut self, node_id: usize, cache_key: Option<usize>, result: bool) {
-        let Some(key) = cache_key else {
+    pub(crate) fn cache_result(
+        &mut self,
+        node_id: usize,
+        identity: Option<NodeIdentity>,
+        result: bool,
+    ) {
+        let Some(identity) = identity else {
             return;
         };
         self.is_valid_cache
             .get_or_insert_with(AHashMap::new)
-            .insert((node_id, key), result);
+            .insert((node_id, identity), result);
     }
     /// Check if an ECMA regex pattern is valid.
     pub(crate) fn is_valid_ecma_regex(&mut self, pattern: &str) -> bool {
@@ -301,13 +310,30 @@ impl From<EvaluationNode> for EvaluationResult {
 /// This structure represents a JSON Schema that has been parsed and compiled into
 /// an efficient internal representation for validation. It contains the root node
 /// of the schema tree and the configuration options used during compilation.
-#[derive(Clone, Debug)]
-pub struct Validator {
-    pub(crate) root: SchemaNode,
+pub struct Validator<F: Json = SerdeJson> {
+    pub(crate) root: SchemaNode<F>,
     pub(crate) draft: Draft,
 }
 
-impl Validator {
+impl<F: Json> Clone for Validator<F> {
+    fn clone(&self) -> Self {
+        Self {
+            root: self.root.clone(),
+            draft: self.draft,
+        }
+    }
+}
+
+impl<F: Json> std::fmt::Debug for Validator<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Validator")
+            .field("root", &self.root)
+            .field("draft", &self.draft)
+            .finish()
+    }
+}
+
+impl Validator<SerdeJson> {
     /// Create a default [`ValidationOptions`] for configuring JSON Schema validation.
     ///
     /// Use this to set the draft version and other validation parameters.
@@ -372,13 +398,19 @@ impl Validator {
     pub async fn async_new(schema: &Value) -> Result<Validator, ValidationError<'static>> {
         Self::async_options().build(schema).await
     }
+}
+
+// `F::Node` is a borrow handle (`&Value` for `serde_json`); taking it by value keeps the serde
+// call ergonomics (`&Value`, not `&&Value`) across every representation.
+#[allow(clippy::needless_pass_by_value)]
+impl<F: Json> Validator<F> {
     /// Validate `instance` against `schema` and return the first error if any.
     ///
     /// # Errors
     ///
     /// Returns the first [`ValidationError`] describing why `instance` does not satisfy the schema.
     #[inline]
-    pub fn validate<'i>(&self, instance: &'i Value) -> Result<(), ValidationError<'i>> {
+    pub fn validate<'i>(&self, instance: F::Node<'i>) -> Result<(), ValidationError<'i>> {
         let mut ctx = ValidationContext::new();
         self.root
             .validate(&instance, &LazyLocation::new(), None, &mut ctx)
@@ -386,7 +418,7 @@ impl Validator {
     /// Run validation against `instance` and return an iterator over [`ValidationError`] in the error case.
     #[inline]
     #[must_use]
-    pub fn iter_errors<'i>(&'i self, instance: &'i Value) -> ErrorIterator<'i> {
+    pub fn iter_errors<'i>(&'i self, instance: F::Node<'i>) -> ErrorIterator<'i> {
         let mut ctx = ValidationContext::new();
         self.root
             .iter_errors(&instance, &LazyLocation::new(), None, &mut ctx)
@@ -396,14 +428,14 @@ impl Validator {
     /// This approach is much faster, than [`Validator::validate`].
     #[must_use]
     #[inline]
-    pub fn is_valid(&self, instance: &Value) -> bool {
+    pub fn is_valid(&self, instance: F::Node<'_>) -> bool {
         let mut ctx = ValidationContext::new();
         self.root.is_valid(&instance, &mut ctx)
     }
     /// Evaluate the schema and expose structured output formats.
     #[must_use]
     #[inline]
-    pub fn evaluate(&self, instance: &Value) -> Evaluation {
+    pub fn evaluate(&self, instance: F::Node<'_>) -> Evaluation {
         let mut ctx = ValidationContext::new();
         let root = self
             .root
@@ -424,15 +456,22 @@ impl Validator {
 ///
 /// Each key is a URI-fragment JSON pointer (e.g. `"#"`, `"#/$defs/User"`).
 /// The root schema is always present under the key `"#"`.
-#[derive(Debug)]
-pub struct ValidatorMap {
-    pub(crate) validators: AHashMap<String, Validator>,
+pub struct ValidatorMap<F: Json = SerdeJson> {
+    pub(crate) validators: AHashMap<String, Validator<F>>,
 }
 
-impl ValidatorMap {
+impl<F: Json> std::fmt::Debug for ValidatorMap<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ValidatorMap")
+            .field("validators", &self.validators)
+            .finish()
+    }
+}
+
+impl<F: Json> ValidatorMap<F> {
     /// Returns the validator for the given URI-fragment pointer, or `None` if not found.
     #[must_use]
-    pub fn get(&self, pointer: &str) -> Option<&Validator> {
+    pub fn get(&self, pointer: &str) -> Option<&Validator<F>> {
         self.validators.get(pointer)
     }
 
@@ -460,13 +499,13 @@ impl ValidatorMap {
     }
 }
 
-impl std::ops::Index<&str> for ValidatorMap {
-    type Output = Validator;
+impl<F: Json> std::ops::Index<&str> for ValidatorMap<F> {
+    type Output = Validator<F>;
 
     /// # Panics
     ///
     /// Panics if the pointer is not found in the map.
-    fn index(&self, pointer: &str) -> &Validator {
+    fn index(&self, pointer: &str) -> &Validator<F> {
         self.validators
             .get(pointer)
             .unwrap_or_else(|| panic!("JSON pointer '{pointer}' not found in ValidatorMap"))
@@ -547,8 +586,8 @@ mod tests {
         // NOTE: This could be done with `propertyNames` + `pattern` but will be slower due to
         // regex usage.
         struct CustomObjectValidator;
-        impl Keyword for CustomObjectValidator {
-            fn validate<'i>(&self, instance: &'i Value) -> Result<(), ValidationError<'i>> {
+        impl<'i> Keyword<'i> for CustomObjectValidator {
+            fn validate(&self, instance: &'i Value) -> Result<(), ValidationError<'i>> {
                 for key in instance.as_object().unwrap().keys() {
                     if !key.is_ascii() {
                         return Err(ValidationError::custom("Key is not ASCII"));
@@ -557,7 +596,7 @@ mod tests {
                 Ok(())
             }
 
-            fn is_valid(&self, instance: &Value) -> bool {
+            fn is_valid(&self, instance: &'i Value) -> bool {
                 for (key, _value) in instance.as_object().unwrap() {
                     if !key.is_ascii() {
                         return false;
@@ -571,7 +610,7 @@ mod tests {
             _: &'a Map<String, Value>,
             schema: &'a Value,
             _path: Location,
-        ) -> Result<Box<dyn Keyword>, ValidationError<'a>> {
+        ) -> Result<Box<dyn for<'i> Keyword<'i>>, ValidationError<'a>> {
             const EXPECTED: &str = "ascii-keys";
             if schema.as_str() == Some(EXPECTED) {
                 Ok(Box::new(CustomObjectValidator))
@@ -611,18 +650,18 @@ mod tests {
     fn custom_keyword_iter_errors() {
         // A custom keyword that reports every non-ASCII key at once via `iter_errors`.
         struct NonAsciiKeys;
-        impl Keyword for NonAsciiKeys {
-            fn validate<'i>(&self, instance: &'i Value) -> Result<(), ValidationError<'i>> {
+        impl<'i> Keyword<'i> for NonAsciiKeys {
+            fn validate(&self, instance: &'i Value) -> Result<(), ValidationError<'i>> {
                 self.iter_errors(instance).next().map_or(Ok(()), Err)
             }
 
-            fn is_valid(&self, instance: &Value) -> bool {
+            fn is_valid(&self, instance: &'i Value) -> bool {
                 instance
                     .as_object()
                     .is_none_or(|obj| obj.keys().all(|key| key.is_ascii()))
             }
 
-            fn iter_errors<'i>(
+            fn iter_errors(
                 &self,
                 instance: &'i Value,
             ) -> Box<dyn Iterator<Item = ValidationError<'i>> + 'i> {
@@ -641,7 +680,7 @@ mod tests {
             _: &'a Map<String, Value>,
             _: &'a Value,
             _: Location,
-        ) -> Result<Box<dyn Keyword>, ValidationError<'a>> {
+        ) -> Result<Box<dyn for<'i> Keyword<'i>>, ValidationError<'a>> {
             Ok(Box::new(NonAsciiKeys))
         }
 
@@ -674,8 +713,8 @@ mod tests {
         // A keyword that does NOT override `iter_errors`, exercising the default
         // that yields at most one error from `validate`.
         struct NonEmpty;
-        impl Keyword for NonEmpty {
-            fn validate<'i>(&self, instance: &'i Value) -> Result<(), ValidationError<'i>> {
+        impl<'i> Keyword<'i> for NonEmpty {
+            fn validate(&self, instance: &'i Value) -> Result<(), ValidationError<'i>> {
                 if self.is_valid(instance) {
                     Ok(())
                 } else {
@@ -683,7 +722,7 @@ mod tests {
                 }
             }
 
-            fn is_valid(&self, instance: &Value) -> bool {
+            fn is_valid(&self, instance: &'i Value) -> bool {
                 instance.as_object().is_none_or(|obj| !obj.is_empty())
             }
         }
@@ -692,7 +731,7 @@ mod tests {
             _: &'a Map<String, Value>,
             _: &'a Value,
             _: Location,
-        ) -> Result<Box<dyn Keyword>, ValidationError<'a>> {
+        ) -> Result<Box<dyn for<'i> Keyword<'i>>, ValidationError<'a>> {
             Ok(Box::new(NonEmpty))
         }
 
@@ -726,8 +765,8 @@ mod tests {
             with_currency_format: bool,
         }
 
-        impl Keyword for CustomMinimumValidator {
-            fn validate<'i>(&self, instance: &'i Value) -> Result<(), ValidationError<'i>> {
+        impl<'i> Keyword<'i> for CustomMinimumValidator {
+            fn validate(&self, instance: &'i Value) -> Result<(), ValidationError<'i>> {
                 if self.is_valid(instance) {
                     Ok(())
                 } else {
@@ -738,7 +777,7 @@ mod tests {
                 }
             }
 
-            fn is_valid(&self, instance: &Value) -> bool {
+            fn is_valid(&self, instance: &'i Value) -> bool {
                 match instance {
                     // Numeric comparison should happen just like original behavior
                     Value::Number(instance) => {
@@ -772,7 +811,7 @@ mod tests {
             parent: &'a Map<String, Value>,
             schema: &'a Value,
             _path: Location,
-        ) -> Result<Box<dyn Keyword>, ValidationError<'a>> {
+        ) -> Result<Box<dyn for<'i> Keyword<'i>>, ValidationError<'a>> {
             let limit = if let Value::Number(limit) = schema {
                 limit.as_f64().expect("Always valid")
             } else {
@@ -848,11 +887,11 @@ mod tests {
     #[test]
     fn custom_keyword_validation_error_paths() {
         struct AlwaysFailValidator;
-        impl Keyword for AlwaysFailValidator {
-            fn validate<'i>(&self, _instance: &'i Value) -> Result<(), ValidationError<'i>> {
+        impl<'i> Keyword<'i> for AlwaysFailValidator {
+            fn validate(&self, _instance: &'i Value) -> Result<(), ValidationError<'i>> {
                 Err(ValidationError::custom("always fails"))
             }
-            fn is_valid(&self, _instance: &Value) -> bool {
+            fn is_valid(&self, _instance: &'i Value) -> bool {
                 false
             }
         }
@@ -861,7 +900,7 @@ mod tests {
             _: &'a Map<String, Value>,
             _: &'a Value,
             _: Location,
-        ) -> Result<Box<dyn Keyword>, ValidationError<'a>> {
+        ) -> Result<Box<dyn for<'i> Keyword<'i>>, ValidationError<'a>> {
             Ok(Box::new(AlwaysFailValidator))
         }
 
@@ -892,7 +931,7 @@ mod tests {
             _: &'a Map<String, Value>,
             _: &'a Value,
             _: Location,
-        ) -> Result<Box<dyn Keyword>, ValidationError<'a>> {
+        ) -> Result<Box<dyn for<'i> Keyword<'i>>, ValidationError<'a>> {
             Err(ValidationError::schema("invalid schema value"))
         }
 

@@ -65,6 +65,7 @@ from plato._generated.models import (
     SessionStateResponse,
     VMManagementRequest,
 )
+from plato.utils.ssh import gateway_proxy_command
 from plato.utils.subprocess import ssh_user_for_provider
 from plato.v1.models.sandbox import PlatoConfig
 from plato.v2._wait_for_ready import is_terminal_status, poll_until_ready_sync
@@ -183,7 +184,7 @@ Host {ssh_host}
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
     LogLevel ERROR
-    ProxyCommand openssl s_client -quiet -connect {gateway_host}:443 -servername {sni} 2>/dev/null
+    ProxyCommand {gateway_proxy_command(gateway_host, sni)}
 """
 
     plato_dir = _get_plato_dir(working_dir)
@@ -420,7 +421,7 @@ Host sandbox
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
     LogLevel ERROR
-    ProxyCommand openssl s_client -quiet -connect {gateway_host}:443 -servername {sni} 2>/dev/null
+    ProxyCommand {gateway_proxy_command(gateway_host, sni)}
 """
     return config_content
 

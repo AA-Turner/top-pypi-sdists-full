@@ -138,8 +138,8 @@ pub(crate) use gam_linalg::faer_ndarray::{
 pub(crate) use gam_linalg::triangular::cholesky_solve_vector;
 
 pub(crate) use gam_solve::arrow_schur::{
-    ArrowFactorCache, ArrowRowGaugeDeflation, RowDeflationSpectrum, arrow_factor_max_pivot,
-    arrow_factor_min_pivot, probe_undamped_evidence_row_factors,
+    ArrowFactorCache, ArrowRowGaugeDeflation, RowDeflationSpectrum, RowSpectralConditioning,
+    arrow_factor_max_pivot, arrow_factor_min_pivot, probe_undamped_evidence_row_factors,
     solve_arrow_newton_step_with_options,
 };
 
@@ -179,6 +179,7 @@ pub use crate::frames::*;
 
 mod amortized_routing;
 mod arrow_solver;
+mod atlas_topology;
 mod atom;
 mod atom_build;
 mod basin_bundle;
@@ -245,6 +246,11 @@ mod support_seed;
 mod support_term;
 mod term;
 mod terracini;
+// Point clouds of known topology, shared by every test that needs a manifold
+// whose answer is decided in advance (#2280). A bare `mod` under `#[cfg(test)]`
+// with a `tests_` name: the ban scanner exempts exactly that shape, and the
+// module is reachable from every descendant test module without being public.
+pub(crate) mod tests_topology_fixtures;
 mod transport_law;
 mod wbic_audit;
 mod wbic_dynamics;
@@ -297,9 +303,9 @@ mod tests_collateral_e2_2234;
 mod tests_collateral_noncyclic_2234;
 
 #[cfg(test)]
-mod tests_schur_seed_refusal_1782;
-#[cfg(test)]
 mod tests_indefinite_a_refusal_2336;
+#[cfg(test)]
+mod tests_schur_seed_refusal_1782;
 #[cfg(test)]
 mod tests_smooth_clamp_2339;
 
@@ -405,6 +411,9 @@ mod tests_cocollapse_disjoint_2027;
 
 #[cfg(test)]
 mod tests_cocollapse_reseed_2089;
+
+#[cfg(test)]
+mod tests_inner_convergence_rate_2267;
 
 #[cfg(test)]
 #[cfg(test)]
@@ -519,6 +528,7 @@ pub fn rank_charge_dof(
 pub use construction::{SaeCriterionError, VanishedAtoms};
 
 pub use crate::inference::atlas_nerve::AtlasCoveringSide;
+pub use atlas_topology::*;
 pub use atom_build::*;
 pub use coordinate_fidelity::*;
 pub use cross_fit::*;

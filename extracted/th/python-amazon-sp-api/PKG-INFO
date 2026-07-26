@@ -1,11 +1,12 @@
 Metadata-Version: 2.4
 Name: python-amazon-sp-api
-Version: 2.1.13
+Version: 2.1.16
 Summary: Python wrapper for the Amazon Selling-Partner API
 Home-page: https://github.com/saleweaver/python-amazon-sp-api
 Author: Michael Primke
 Author-email: primke.michael@gmail.com
 License: MIT
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: httpx>=0.27.0
@@ -24,6 +25,7 @@ Dynamic: license
 Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
+Dynamic: requires-python
 Dynamic: summary
 
 [![CodeFactor](https://www.codefactor.io/repository/github/saleweaver/python-amazon-sp-api/badge)](https://www.codefactor.io/repository/github/saleweaver/python-amazon-sp-api)

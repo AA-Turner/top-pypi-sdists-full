@@ -18,7 +18,7 @@ import random
 import re
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import requests
 
@@ -39,10 +39,20 @@ except ImportError:
 from .exceptions import (
     GarminConnectAuthenticationError,
     GarminConnectConnectionError,
+    GarminConnectNotFoundError,
     GarminConnectTooManyRequestsError,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def token_file_path(path: str) -> Path:
+    """Return the token file represented by a directory or JSON path."""
+    token_path = Path(path).expanduser()
+    if token_path.is_dir() or token_path.suffix.casefold() != ".json":
+        return token_path / "garmin_tokens.json"
+    return token_path
+
 
 # -- iOS mobile app constants (Strategy 1 & 2) --
 IOS_SSO_CLIENT_ID = "GCM_IOS_DARK"
@@ -124,9 +134,30 @@ DI_CLIENT_IDS = (
 class _MFARequired(Exception):
     """Internal sentinel — raised by login strategies when MFA is needed.
 
-    Stops the strategy chain immediately (like a credential error).
+    Normally stops the strategy chain immediately (like a credential error).
     The caller (login()) handles it via prompt_mfa / return_on_mfa.
+
+    Exception: when the strategy that reached MFA can't be trusted to have
+    actually triggered OTP delivery (see ``_MFA_STATE_ATTRS`` /
+    ``_mfa_delivery_uncertain`` in ``login()``), the chain gives remaining
+    strategies a chance first and only falls back to this one if none of
+    them do better.
     """
+
+
+# Attributes a login strategy stashes on ``self`` when it hits MFA. Snapshotted
+# so a "delivery uncertain" MFA state (see login()) can be shelved while later
+# strategies are tried, then restored if nothing better turns up.
+_MFA_STATE_ATTRS = (
+    "_mfa_method",
+    "_mfa_session",
+    "_mfa_login_params",
+    "_mfa_post_headers",
+    "_mfa_flow",
+    "_mfa_service_url",
+    "_widget_last_resp",
+)
+_UNSET = object()
 
 
 def _build_basic_auth(client_id: str) -> str:
@@ -288,7 +319,10 @@ class Client:
         Tries each strategy in order.  Only credential errors (GarminConnectAuthenticationError)
         and MFA requirements stop the chain immediately — all other failures
         (429 rate limits, transport errors, HTML challenges) fall through to
-        the next strategy.
+        the next strategy. Exception: widget+cffi's email/SMS MFA can't be
+        confirmed to have actually triggered OTP delivery (scraped HTML, no
+        JS execution), so it's shelved instead — remaining strategies get a
+        chance first, and it's only used if none of them do better.
 
         Args:
             email: Garmin account email.
@@ -319,8 +353,27 @@ class Client:
 
         last_err: Exception | None = None
         rate_limited_count = 0
+        shelved_mfa: dict[str, Any] | None = None
+        shelved_mfa_name = ""
 
-        for name, run in strategies:
+        def resolve_mfa(name: str) -> tuple[str | None, Any]:
+            if return_on_mfa:
+                return "needs_mfa", None
+            if prompt_mfa:
+                mfa_code = prompt_mfa()
+                self._complete_mfa(mfa_code)
+                if self.verify_login and not self._verify_token():
+                    self._clear_auth_state()
+                    raise GarminConnectConnectionError(
+                        f"{name}: token rejected by API tier after MFA"
+                    )
+                return None, None
+            raise GarminConnectAuthenticationError(
+                "MFA Required but no prompt_mfa mechanism supplied"
+            )
+
+        for idx, (name, run) in enumerate(strategies):
+            self._mfa_delivery_uncertain = False
             try:
                 _LOGGER.debug("Trying login strategy: %s", name)
                 run()
@@ -341,27 +394,33 @@ class Client:
                 # Wrong credentials — stop immediately, no point trying further
                 raise
             except _MFARequired:
-                # MFA state is stored on self — handle and stop chain
-                if return_on_mfa:
-                    return "needs_mfa", None
-                if prompt_mfa:
-                    mfa_code = prompt_mfa()
-                    self._complete_mfa(mfa_code)
-                    if self.verify_login and not self._verify_token():
-                        _LOGGER.warning(
-                            "%s obtained a token the API rejected after MFA; "
-                            "trying next strategy",
-                            name,
-                        )
-                        self._clear_auth_state()
-                        last_err = GarminConnectConnectionError(
-                            f"{name}: token rejected by API tier"
-                        )
-                        continue
-                    return None, None
-                raise GarminConnectAuthenticationError(  # noqa: B904
-                    "MFA Required but no prompt_mfa mechanism supplied"
-                )
+                # A strategy whose MFA delivery can't be trusted (currently:
+                # widget+cffi's email/SMS OTP page — it's scraped HTML with
+                # no JS execution, so we can't confirm Garmin actually sent a
+                # code) doesn't get to stop the chain outright. Shelve its
+                # MFA state and let remaining strategies — which use real
+                # login APIs that are known to trigger delivery — try first.
+                more_strategies_left = idx < len(strategies) - 1
+                if (
+                    self._mfa_delivery_uncertain
+                    and more_strategies_left
+                    and shelved_mfa is None
+                ):
+                    _LOGGER.debug(
+                        "%s reached MFA but OTP delivery is unconfirmed; "
+                        "trying remaining strategies before prompting",
+                        name,
+                    )
+                    shelved_mfa = {
+                        attr: getattr(self, attr, _UNSET) for attr in _MFA_STATE_ATTRS
+                    }
+                    shelved_mfa_name = name
+                    continue
+                try:
+                    return resolve_mfa(name)
+                except GarminConnectConnectionError as e:
+                    last_err = e
+                    continue
             except GarminConnectTooManyRequestsError as e:
                 _LOGGER.warning("%s returned 429: %s", name, e)
                 rate_limited_count += 1
@@ -371,6 +430,17 @@ class Client:
                 _LOGGER.warning("%s failed: %s", name, e)
                 last_err = e
                 continue
+
+        if shelved_mfa is not None:
+            _LOGGER.debug(
+                "No later strategy reached MFA or succeeded; falling back to "
+                "%s's MFA state",
+                shelved_mfa_name,
+            )
+            for attr, value in shelved_mfa.items():
+                if value is not _UNSET:
+                    setattr(self, attr, value)
+            return resolve_mfa(shelved_mfa_name)
 
         if rate_limited_count == len(strategies):
             raise GarminConnectTooManyRequestsError(
@@ -397,7 +467,7 @@ class Client:
         for imp in MOBILE_IMPERSONATIONS:
             try:
                 _LOGGER.debug("mobile+cffi trying impersonation=%s", imp)
-                sess: Any = cffi_requests.Session(impersonate=imp)  # type: ignore[arg-type]
+                sess: Any = cffi_requests.Session(impersonate=cast("Any", imp))
                 self._do_mobile_login(sess, email, password)
                 return
             except (GarminConnectAuthenticationError, _MFARequired):
@@ -631,6 +701,13 @@ class Client:
             self._mfa_post_headers = {"Referer": r.url}
             self._mfa_flow = "widget"
             self._widget_last_resp = r
+            # This is scraped HTML with no JS execution, so unlike the
+            # mobile/portal JSON login APIs (whose MFA_REQUIRED response is a
+            # confirmed server-side trigger of OTP delivery), we can't confirm
+            # Garmin actually sent an email/SMS code for this session — see
+            # login()'s shelved_mfa handling.
+            if "authentication application" in title_lower:
+                self._mfa_delivery_uncertain = True
             raise _MFARequired()
 
         if title != "Success":
@@ -704,7 +781,7 @@ class Client:
         for imp in PORTAL_IMPERSONATIONS:
             try:
                 _LOGGER.debug("portal+cffi trying impersonation=%s", imp)
-                sess: Any = cffi_requests.Session(impersonate=imp)  # type: ignore[arg-type]
+                sess: Any = cffi_requests.Session(impersonate=cast("Any", imp))
                 self._do_portal_web_login(sess, email, password)
                 return
             except (GarminConnectAuthenticationError, _MFARequired):
@@ -1004,9 +1081,12 @@ class Client:
 
     def _http_post(self, url: str, **kwargs: Any) -> Any:
         """POST using curl_cffi if available, else plain requests."""
+        timeout = kwargs.pop("timeout", 30)
         if HAS_CFFI:
-            return cffi_requests.post(url, impersonate="chrome", **kwargs)
-        return requests.post(url, **kwargs)  # noqa: S113
+            return cffi_requests.post(
+                url, impersonate="chrome", timeout=timeout, **kwargs
+            )
+        return requests.post(url, timeout=timeout, **kwargs)
 
     def _exchange_service_ticket(
         self, ticket: str, service_url: str | None = None
@@ -1099,10 +1179,11 @@ class Client:
                 f"DI token refresh failed: {r.status_code} {r.text[:200]}"
             )
         data = r.json()
-        self.di_token = data["access_token"]
+        access_token = data["access_token"]
+        self.di_token = access_token
         self.di_refresh_token = data.get("refresh_token", self.di_refresh_token)
         self.di_client_id = (
-            self._extract_client_id_from_jwt(self.di_token) or self.di_client_id
+            self._extract_client_id_from_jwt(access_token) or self.di_client_id
         )
 
     def _extract_client_id_from_jwt(self, token: str) -> str | None:
@@ -1205,9 +1286,7 @@ class Client:
         permissive process umask can't leave it world-readable on a shared host
         (GHSA-wjhr-76vg-2hvc).
         """
-        p = Path(path).expanduser()
-        if p.is_dir() or not p.name.endswith(".json"):
-            p = p / "garmin_tokens.json"
+        p = token_file_path(path)
         p.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         # mkdir's mode is subject to umask and a no-op if the dir already
         # exists; chmod enforces 0o700 unconditionally.
@@ -1229,9 +1308,7 @@ class Client:
     def load(self, path: str) -> None:
         try:
             self._tokenstore_path = path
-            p = Path(path).expanduser()
-            if p.is_dir() or not p.name.endswith(".json"):
-                p = p / "garmin_tokens.json"
+            p = token_file_path(path)
             self.loads(p.read_text())
         except Exception as e:
             raise GarminConnectConnectionError(
@@ -1346,6 +1423,9 @@ class Client:
             except Exception:
                 if len(resp.text) < 500:
                     error_msg += f" - {resp.text}"
+            # A 404 is a missing resource, not a connectivity failure.
+            if resp.status_code == 404:
+                raise GarminConnectNotFoundError(error_msg)
             raise GarminConnectConnectionError(error_msg)
 
         return resp

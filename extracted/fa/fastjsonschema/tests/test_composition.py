@@ -112,3 +112,59 @@ def test_ref_in_conditional():
     assert exc.value.definition["oneOf"] == [
         {"properties": {"postal_code": {"pattern": "[0-9]{5}(-[0-9]{4})?"}}}
     ]
+
+
+def test_one_of_with_if_then_empty_if():
+    schema = {
+        "$schema": "http://json-schema.org/draft-07/schema",
+        "oneOf": [
+            {"if": {}, "then": {"type": "object"}},
+            {"if": {}, "then": {"type": "string"}},
+        ],
+    }
+    validator = fastjsonschema.compile(schema)
+    assert validator({"version": "2.0", "terminal": "t1"}) == {
+        "version": "2.0",
+        "terminal": "t1",
+    }
+
+
+def test_if_then_empty_if():
+    schema = {
+        "$schema": "http://json-schema.org/draft-07/schema",
+        "if": {},
+        "then": {"type": "object"},
+    }
+    validator = fastjsonschema.compile(schema)
+    assert validator({"version": "2.0", "terminal": "t1"}) == {
+        "version": "2.0",
+        "terminal": "t1",
+    }
+
+
+def test_if_then_else_annotation_only_then():
+    schema = {
+        "$schema": "http://json-schema.org/draft-07/schema",
+        "if": {"type": "string"},
+        "then": {"title": "x"},
+        "else": {"type": "integer"},
+    }
+    validator = fastjsonschema.compile(schema)
+    assert validator("abc") == "abc"
+    assert validator(42) == 42
+    with pytest.raises(JsonSchemaValueException):
+        validator(4.5)
+
+
+def test_if_then_else_annotation_only_else():
+    schema = {
+        "$schema": "http://json-schema.org/draft-07/schema",
+        "if": {"type": "string"},
+        "then": {"minLength": 2},
+        "else": {"title": "x"},
+    }
+    validator = fastjsonschema.compile(schema)
+    assert validator("abc") == "abc"
+    assert validator(42) == 42
+    with pytest.raises(JsonSchemaValueException):
+        validator("a")

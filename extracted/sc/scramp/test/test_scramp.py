@@ -149,6 +149,63 @@ def test_Gs2Header_eq(gs2_char, cb_name):
 
 
 @pytest.mark.parametrize(
+    "salt,error_msg,server_error",
+    [
+        [
+            "",  # Must be bytes
+            "The 'salt' must be of type bytes, but found type <class 'str'>: "
+            "other-error",
+            "other-error",
+        ],
+    ],
+)
+def test_Salt_init_error(salt, error_msg, server_error):
+    with pytest.raises(ScramException) as exc_info:
+        Salt(salt)
+
+    assert str(exc_info.value) == error_msg
+    assert str(exc_info.value.server_error) == server_error
+
+
+@pytest.mark.parametrize(
+    "salt_str,error_msg,server_error",
+    [
+        [
+            "!!!",
+            "Invalid salt encoding: Invalid base 64 encoding '!!!': "
+            "invalid-encoding: invalid-encoding",
+            "invalid-encoding",
+        ],
+    ],
+)
+def test_Salt_from_str_error(salt_str, error_msg, server_error):
+    with pytest.raises(ScramException) as exc_info:
+        Salt.from_str(salt_str)
+
+    assert str(exc_info.value) == error_msg
+    assert str(exc_info.value.server_error) == server_error
+
+
+@pytest.mark.parametrize(
+    "nonce,error_msg,server_error",
+    [
+        [
+            b"",  # Must be str
+            "The 'nonce' must be of type str, but found type <class 'bytes'>: "
+            "other-error",
+            "other-error",
+        ],
+    ],
+)
+def test_Nonce_init_error(nonce, error_msg, server_error):
+    with pytest.raises(ScramException) as exc_info:
+        Nonce(nonce)
+
+    assert str(exc_info.value) == error_msg
+    assert str(exc_info.value.server_error) == server_error
+
+
+@pytest.mark.parametrize(
     "password,iteration_count,salt,msg",
     [
         [
@@ -161,7 +218,8 @@ def test_Gs2Header_eq(gs2_char, cb_name):
             "pencil",
             20000,
             "",
-            "The 'salt' must be of type bytes, but found type <class 'str'>",
+            "The 'salt' must be of type bytes, but found type "
+            "<class 'str'>: other-error",
         ],
     ],
 )
@@ -184,8 +242,7 @@ def test_make_auth_info_fail(password, iteration_count, salt, msg):
                 "EtogaGggZioWX1pp471+gbmGOn31w5iTg=="
             ),
             b"n=user,r=fyko+d2lbbFgONRv9qkxdawL,",
-            "KOkd92LduC09A+RDxbTvgxH9Nn6efom/uAy6U5/fqpwLH1J+wQnZcKx5W1zd"
-            "YMPU8PrusBUK5RgRk4yHx+3Mg==",
+            "W22ZaJ0SNY7soEsUEjb6gQ==",
             "Can't create client key.: invalid-proof",
         ],
     ],
@@ -786,7 +843,8 @@ def test_set_client_first_error_auth_fn():
             "s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096",
             None,
             Gs2Header("n", None),
-            "The channel binding isn't correctly b64 encoded: invalid-encoding",
+            "The channel binding isn't correctly encoded: Invalid base 64 "
+            "encoding '!!!': invalid-encoding: invalid-encoding",
             "invalid-encoding",
         ],
         # Even if channel binding isn't used, check it's valid

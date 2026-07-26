@@ -1,3 +1,4 @@
+import pytest
 import torch
 from torch import tensor
 
@@ -24,7 +25,9 @@ from torch_einops_utils.torch_einops_utils import (
     tree_flatten_with_inverse,
     tree_map_tensor,
     pack_with_inverse,
+    masked_reduce,
     masked_mean,
+    masked_sum,
     exclusive_cumsum,
     slice_at_dim,
     slice_left_at_dim,
@@ -37,6 +40,10 @@ from torch_einops_utils.torch_einops_utils import (
     shift_left,
     reverse_cumsum,
     batched_index_select,
+    pad_right_ndim_to_and_expand_as,
+    repeat_interleave_to_match,
+    detach_tensor,
+    tree_map_detach
 )
 
 def test_exist():
@@ -205,6 +212,100 @@ def test_masked_mean():
     assert res_no_mask_keepdim.shape == (2, 1, 1)
     assert torch.allclose(res_no_mask_keepdim.squeeze(), t.mean(dim = (1, 2)))
 
+def test_masked_sum():
+    t = tensor([1., 2., 3., 4.])
+    assert torch.allclose(masked_sum(t), tensor(10.0))
+    assert torch.allclose(masked_sum(t, dim = 0), tensor(10.0))
+
+    mask = tensor([True, False, True, False])
+    assert torch.allclose(masked_sum(t, mask = mask), tensor(4.0))
+
+    mask = tensor([False, False, False, False])
+    assert torch.allclose(masked_sum(t, mask = mask), tensor(0.0))
+
+    t = tensor([[1., 2.], [3., 4.]])
+    mask = tensor([[True, False], [True, True]])
+
+    assert torch.allclose(masked_sum(t, mask = mask, dim = 0), tensor([4.0, 4.0]))
+    assert torch.allclose(masked_sum(t, mask = mask, dim = 1), tensor([1.0, 7.0]))
+
+    t = torch.randn(2, 3, 4)
+    mask = torch.ones(2, 3, 4).bool()
+    mask[0, :, :] = False
+
+    res = masked_sum(t, mask = mask, dim = (1, 2))
+    assert res.shape == (2,)
+    assert torch.allclose(res[0], tensor(0.0))
+    assert torch.allclose(res[1], t[1].sum())
+
+    t = torch.randn(2, 3, 4)
+    mask = tensor([True, False])
+    res = masked_sum(t, mask = mask, dim = (1, 2))
+    assert res.shape == (2,)
+    assert torch.allclose(res[0], t[0].sum())
+    assert torch.allclose(res[1], tensor(0.0))
+
+    res_keepdim = masked_sum(t, mask = mask, dim = (1, 2), keepdim = True)
+    assert res_keepdim.shape == (2, 1, 1)
+    assert torch.allclose(res_keepdim.squeeze(), res)
+
+    res_no_mask_keepdim = masked_sum(t, dim = (1, 2), keepdim = True)
+    assert res_no_mask_keepdim.shape == (2, 1, 1)
+    assert torch.allclose(res_no_mask_keepdim.squeeze(), t.sum(dim = (1, 2)))
+
+    # int tensor test
+    t_int = tensor([1, 2, 3, 4])
+    mask_int = tensor([True, False, True, False])
+    assert masked_sum(t_int, mask = mask_int) == 4
+    assert (masked_sum(tensor([[1, 2], [3, 4]]), mask = tensor([[True, False], [True, True]]), dim = -1) == tensor([1, 7])).all()
+
+def test_masked_reduce():
+    t = tensor([1., 2., 3., 4.])
+    mask = tensor([True, False, True, False])
+    assert torch.allclose(masked_reduce(t, mode = 'mean', mask = mask), tensor(2.0))
+    assert torch.allclose(masked_reduce(t, mode = 'sum', mask = mask), tensor(4.0))
+
+    with pytest.raises(AssertionError):
+        masked_reduce(t, mode = 'invalid', mask = mask)
+
+def test_z_score():
+    from torch_einops_utils.statistics import z_score
+
+    t = tensor([1., 2., 3., 4., 5.])
+    out = z_score(t)
+    assert torch.allclose(out.mean(), tensor(0.0), atol = 1e-6)
+    assert torch.allclose(out.std(correction = 0), tensor(1.0), atol = 1e-3)
+
+    mask = tensor([True, True, True, False, False])
+    out = z_score(t, mask = mask)
+    assert torch.allclose(out[3], tensor(0.0))
+    assert torch.allclose(out[4], tensor(0.0))
+    assert torch.allclose(out[:3].mean(), tensor(0.0), atol = 1e-6)
+
+    t = torch.randn(3, 4)
+    out = z_score(t, dim = 1)
+    assert out.shape == t.shape
+    assert torch.allclose(out.mean(dim = 1), torch.zeros(3), atol = 1e-5)
+    assert torch.allclose(out.std(dim = 1, correction = 0), torch.ones(3), atol = 1e-3)
+
+    out_all = z_score(t)
+    assert out_all.shape == t.shape
+
+    # unaligned mask dimension test (2D mask with 3D tensor)
+    t_3d = torch.randn(2, 3, 4)
+    mask_2d = torch.tensor([[True, False, True], [False, True, False]])
+    out_3d = z_score(t_3d, mask = mask_2d, dim = (1, 2))
+    assert out_3d.shape == (2, 3, 4)
+    assert (out_3d[0, 1] == 0.0).all()
+    assert (out_3d[1, 0] == 0.0).all()
+    assert (out_3d[1, 2] == 0.0).all()
+
+    # 1D mask with 3D tensor test
+    mask_1d = torch.tensor([True, False])
+    out_3d_1dmask = z_score(t_3d, mask = mask_1d, dim = (1, 2))
+    assert out_3d_1dmask.shape == (2, 3, 4)
+    assert (out_3d_1dmask[1] == 0.0).all()
+
 def test_exclusive_cumsum():
     t = tensor([1., 2., 3., 4.])
     assert torch.allclose(exclusive_cumsum(t), tensor([0., 1., 3., 6.]))
@@ -313,8 +414,6 @@ def test_reverse_cumsum():
     assert reverse_cumsum(t).tolist() == [6, 5, 3]
 
 def test_pad_right_ndim_to_and_expand_as():
-    from torch_einops_utils.torch_einops_utils import pad_right_ndim_to_and_expand_as
-
     target = torch.randn(2, 8, 64)
     source = torch.randint(0, 8, (2, 4))
     assert pad_right_ndim_to_and_expand_as(source, target).shape == (2, 4, 64)
@@ -328,7 +427,6 @@ def test_pad_right_ndim_to_and_expand_as():
     assert (scattered[:, 4:] == 0.).all()
 
 def test_repeat_interleave_to_match():
-    from torch_einops_utils.torch_einops_utils import repeat_interleave_to_match
     time_lens = torch.tensor([2, 3])
 
     out = repeat_interleave_to_match(time_lens, torch.randn(4, 512))
@@ -341,8 +439,6 @@ def test_repeat_interleave_to_match():
     assert out3.tolist() == [2, 2, 2, 3, 3, 3]
 
 def test_batched_index_select():
-    from torch_einops_utils.torch_einops_utils import batched_index_select
-
     values = torch.randn(2, 5, 4)
     indices = torch.tensor([1, 3])
 
@@ -365,8 +461,6 @@ def test_batched_index_select():
     assert torch.allclose(out3[1, 2, 1], v[1, 2, i[1, 2, 1]])
 
 def test_detach_tensor():
-    from torch_einops_utils import detach_tensor
-
     t = torch.randn(3, requires_grad=True)
     out = detach_tensor(t)
     assert not out.requires_grad
@@ -381,8 +475,6 @@ def test_detach_tensor():
     assert out_clone.data_ptr() != t.data_ptr()
 
 def test_tree_map_detach():
-    from torch_einops_utils import tree_map_detach
-
     t1 = torch.randn(3, requires_grad=True)
     t2 = torch.randn(4, requires_grad=True)
     tree = (t1, [t2, {'a': torch.randn(5)}])

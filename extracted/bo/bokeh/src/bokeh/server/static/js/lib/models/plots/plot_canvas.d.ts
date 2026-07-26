@@ -131,6 +131,7 @@ export declare class PlotView extends LayoutDOMView implements Paintable {
     build_renderer_views(): Promise<void>;
     build_tool_views(): Promise<void>;
     connect_signals(): void;
+    protected _constrain_range_interval(range: Range): void;
     protected _update_touch_action(): void;
     has_finished(): boolean;
     _after_layout(): void;

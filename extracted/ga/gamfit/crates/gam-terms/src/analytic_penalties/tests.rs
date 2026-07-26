@@ -302,7 +302,7 @@ fn ordered_beta_bernoulli_assignment_grad_target_matches_value_finite_difference
     let rho = Array1::<f64>::zeros(0);
     let g = pen.grad_target(t.view(), rho.view());
     let eps = 1.0e-6;
-    let fd = gam_test_support::fd_checker::numerical_gradient_central_diff(
+    let fd = gam_linalg::test_support::fd_checker::numerical_gradient_central_diff(
         |tv| pen.value(tv.view(), rho.view()),
         &t,
         eps,
@@ -1317,7 +1317,7 @@ fn block_orthogonality_grad_matches_finite_difference() {
     let rho = array![0.0_f64];
     let g = pen.grad_target(t.view(), rho.view());
     let eps = 1e-6;
-    let fd = gam_test_support::fd_checker::numerical_gradient_central_diff(
+    let fd = gam_linalg::test_support::fd_checker::numerical_gradient_central_diff(
         |tv| pen.value(tv.view(), rho.view()),
         &t,
         eps,
@@ -1461,7 +1461,7 @@ fn mechanism_sparsity_grad_matches_finite_difference() {
     let rho = array![0.0_f64];
     let g = pen.grad_target(t.view(), rho.view());
     let eps = 1e-6;
-    let fd = gam_test_support::fd_checker::numerical_gradient_central_diff(
+    let fd = gam_linalg::test_support::fd_checker::numerical_gradient_central_diff(
         |tv| pen.value(tv.view(), rho.view()),
         &t,
         eps,
@@ -1568,7 +1568,7 @@ fn nested_prefix_grad_matches_finite_difference() {
     let rho = array![0.0_f64, 0.0, 0.0];
     let g = pen.grad_target(t.view(), rho.view());
     let eps = 1e-6;
-    let fd = gam_test_support::fd_checker::numerical_gradient_central_diff(
+    let fd = gam_linalg::test_support::fd_checker::numerical_gradient_central_diff(
         |tv| pen.value(tv.view(), rho.view()),
         &t,
         eps,
@@ -1824,7 +1824,7 @@ fn nuclear_norm_wide_block_max_rank_above_true_rank_value_grad_hvp_are_finite() 
 }
 
 #[test]
-fn nuclear_norm_right_gram_divided_difference_uses_eigen_floor() {
+fn nuclear_norm_right_gram_divided_difference_uses_shared_eigen_shift() {
     let n_eff = 2usize;
     let p = 2usize;
     let target = PsiSlice {
@@ -1842,10 +1842,12 @@ fn nuclear_norm_right_gram_divided_difference_uses_eigen_floor() {
         .right_spectral_inverse_sqrt_derivative(t.view(), v.view())
         .expect("right-Gram derivative");
 
+    // The robustness floor is an additive shift, not a clamp, so the spectral
+    // value and its divided difference remain derivatives of the same function.
     let eps2 = smoothing_eps * smoothing_eps;
-    let eig_floor = eps2.max(1.0e-15);
-    let lambda0 = (a * a + eps2).max(eig_floor);
-    let lambda1 = (b * b + eps2).max(eig_floor);
+    let eigen_shift = eps2.max(1.0e-15);
+    let lambda0 = a * a + eigen_shift;
+    let lambda1 = b * b + eigen_shift;
     let f0 = lambda0.powf(-0.5);
     let f1 = lambda1.powf(-0.5);
     let expected = ((f0 - f1) / (lambda0 - lambda1)) * a;
@@ -2038,21 +2040,35 @@ fn decoder_incoherence_exact_hvp_matches_fd_of_grad() {
     let p = 3usize;
     let block_sizes = vec![2usize, 2usize];
     let total: usize = block_sizes.iter().map(|m| m * p).sum();
-    let target = PsiSlice { range: 0..total, latent_dim: Some(total / p) };
+    let target = PsiSlice {
+        range: 0..total,
+        latent_dim: Some(total / p),
+    };
     let mut coact = Array2::<f64>::zeros((2, 2));
     coact[[0, 1]] = 0.6;
     coact[[1, 0]] = 0.6;
     let pen = DecoderIncoherencePenalty::new(target, block_sizes, p, coact, 0.7, false).unwrap();
-    let t = array![0.5_f64, -0.3, 0.2, 0.8, -0.1, 0.4, -0.6, 0.7, 0.1, -0.2, 0.9, 0.3];
-    let v = array![0.2_f64, 0.5, -0.4, 0.3, 0.6, -0.1, 0.7, -0.2, -0.3, 0.15, -0.05, 0.25];
+    let t = array![
+        0.5_f64, -0.3, 0.2, 0.8, -0.1, 0.4, -0.6, 0.7, 0.1, -0.2, 0.9, 0.3
+    ];
+    let v = array![
+        0.2_f64, 0.5, -0.4, 0.3, 0.6, -0.1, 0.7, -0.2, -0.3, 0.15, -0.05, 0.25
+    ];
     let rho = Array1::<f64>::zeros(0);
     let analytic = pen.hvp(t.view(), rho.view(), v.view());
     let h = 1e-6_f64;
     let gp = pen.grad_target((&t + &(&v * h)).view(), rho.view());
     let gm = pen.grad_target((&t - &(&v * h)).view(), rho.view());
     let fd = (&gp - &gm) / (2.0 * h);
-    let worst = analytic.iter().zip(fd.iter()).map(|(a, b)| (a - b).abs()).fold(0.0_f64, f64::max);
-    assert!(worst <= 1.0e-5, "degree-0 exact hvp vs FD(grad) max abs error = {worst:.3e}");
+    let worst = analytic
+        .iter()
+        .zip(fd.iter())
+        .map(|(a, b)| (a - b).abs())
+        .fold(0.0_f64, f64::max);
+    assert!(
+        worst <= 1.0e-5,
+        "degree-0 exact hvp vs FD(grad) max abs error = {worst:.3e}"
+    );
 }
 
 #[test]
@@ -2065,20 +2081,31 @@ fn decoder_incoherence_repulsion_is_radially_free_euler() {
     let p = 3usize;
     let block_sizes = vec![2usize, 2usize];
     let total: usize = block_sizes.iter().map(|m| m * p).sum();
-    let target = PsiSlice { range: 0..total, latent_dim: Some(total / p) };
+    let target = PsiSlice {
+        range: 0..total,
+        latent_dim: Some(total / p),
+    };
     let mut coact = Array2::<f64>::zeros((2, 2));
     coact[[0, 1]] = 0.55;
     coact[[1, 0]] = 0.55;
     let pen = DecoderIncoherencePenalty::new(target, block_sizes, p, coact, 1.3, false).unwrap();
-    let t = array![0.5_f64, -0.3, 0.2, 0.8, -0.1, 0.4, -0.6, 0.7, 0.1, -0.2, 0.9, 0.3];
+    let t = array![
+        0.5_f64, -0.3, 0.2, 0.8, -0.1, 0.4, -0.6, 0.7, 0.1, -0.2, 0.9, 0.3
+    ];
     let rho = Array1::<f64>::zeros(0);
     let g = pen.grad_target(t.view(), rho.view());
     // Block 0 = indices 0..6, block 1 = 6..12.
     let radial0: f64 = (0..6).map(|i| t[i] * g[i]).sum();
     let radial1: f64 = (6..12).map(|i| t[i] * g[i]).sum();
     let scale = pen.value(t.view(), rho.view()).abs().max(1.0);
-    assert!(radial0.abs() <= 1.0e-12 * scale, "block-0 radial gradient = {radial0:.3e} (must be ~0 by Euler)");
-    assert!(radial1.abs() <= 1.0e-12 * scale, "block-1 radial gradient = {radial1:.3e} (must be ~0 by Euler)");
+    assert!(
+        radial0.abs() <= 1.0e-12 * scale,
+        "block-0 radial gradient = {radial0:.3e} (must be ~0 by Euler)"
+    );
+    assert!(
+        radial1.abs() <= 1.0e-12 * scale,
+        "block-1 radial gradient = {radial1:.3e} (must be ~0 by Euler)"
+    );
 }
 
 #[test]

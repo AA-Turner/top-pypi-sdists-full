@@ -471,7 +471,17 @@ pub fn xt_diag_x_symmetric(
             let row_ptr = sym.row_ptr();
             let col_idx = sym.col_idx();
             let vals = csr.val();
-            let acc_template = SparseHessianAccumulator::from_single_csr(&csr, p);
+            // Built once per design, not once per assembly: the comment above
+            // identified the repeated symbolic build as the dominant cost but
+            // the fix only routed the DENSE regime around it, leaving the
+            // genuinely-sparse arm here rebuilding the same pattern on every
+            // Newton iteration. The design owns the memo, so the pattern is
+            // shared by every later assembly against this same `X`.
+            // The memo is built for `self.ncols()`, which IS `p` here, so the
+            // template's dimension needs no separate check.
+            let acc_template = xs
+                .hessian_accumulator_template()
+                .ok_or_else(|| "xt_diag_x_symmetric: failed to obtain CSR view".to_string())?;
             let n_threads = rayon::current_num_threads().max(1);
             let target_chunks = (n_threads * 16).max(n_threads);
             let chunk_rows = (n / target_chunks).max(256).min(n.max(1));
@@ -694,4 +704,161 @@ mod tests {
         let err = xt_diag_x_symmetric(&design, &array![1.0, f64::NAN, f64::INFINITY]).unwrap_err();
         assert!(err.contains("row 1"), "unexpected diagnostic: {err}");
     }
+
+    /// The two `XᵀWX` routes inside `xt_diag_x_symmetric` must agree, because
+    /// which one runs is decided by a MEMORY RESERVATION, not by the problem.
+    ///
+    /// `xt_diag_x_symmetric`'s dense-regime arm picks between a densify-then-
+    /// BLAS crossprod and a streaming CSC accumulation on `try_to_dense_governed`
+    /// succeeding. That governor's budget derives from *available host memory*,
+    /// so on a busy machine the same fit can take either branch. Nothing about
+    /// the problem changed — only what else the machine was doing.
+    ///
+    /// That is only safe because the two branches agree, and nothing was
+    /// asserting it. They do agree today (measured bit-identical when this was
+    /// written), so this locks the property in rather than reporting a defect:
+    /// a future blocking change to either kernel that broke it would make
+    /// fitted answers depend on machine load, which is close to impossible to
+    /// diagnose from the outside.
+    #[test]
+    fn both_xtwx_routes_agree_so_the_memory_governor_cannot_change_the_answer() {
+        use crate::faer_ndarray::{CrossprodAccum, CrossprodStructure, stream_weighted_crossprod_into};
+        use faer::sparse::{SparseColMat, Triplet};
+
+        // Dense-regime shape (`4·avg_nnz_row ≥ p`), and wide enough that the
+        // two accumulation orders have room to disagree in the low bits.
+        let (n, p, per_row) = (900_usize, 24_usize, 9_usize);
+        let mut triplets = Vec::new();
+        let mut dense = Array2::<f64>::zeros((n, p));
+        for i in 0..n {
+            for k in 0..per_row {
+                let col = (i * 7 + k * 5) % p;
+                // Mixed magnitudes: a summation-order difference is invisible
+                // when every term is the same size.
+                let value = ((i % 13) as f64 - 6.0) * 0.5 + (k as f64) * 1.7 + 0.25;
+                triplets.push(Triplet::new(i, col, value));
+                dense[[i, col]] += value;
+            }
+        }
+        let sparse = SparseColMat::try_new_from_triplets(n, p, &triplets).expect("design");
+        // Signed weights, as the signed-weight route allows.
+        let w = Array1::from_shape_fn(n, |i| ((i % 11) as f64 - 5.0) * 0.37 + 0.05);
+
+        let mut via_dense = Array2::<f64>::zeros((p, p));
+        stream_weighted_crossprod_into(
+            &dense,
+            &w,
+            &mut via_dense,
+            CrossprodStructure::Full,
+            CrossprodAccum::Replace,
+            effective_global_parallelism(),
+        );
+
+        let (symbolic, values) = sparse.parts();
+        let mut via_sparse = Array2::<f64>::zeros((p, p));
+        streaming_sparse_csc_xt_diag_x(
+            symbolic.col_ptr(),
+            symbolic.row_idx(),
+            values,
+            n,
+            p,
+            w.view(),
+            &mut via_sparse,
+        );
+
+        let mut worst = 0.0_f64;
+        let mut worst_at = (0, 0);
+        for a in 0..p {
+            for b in 0..p {
+                let scale = via_dense[[a, b]].abs().max(via_sparse[[a, b]].abs()).max(1.0);
+                let rel = (via_dense[[a, b]] - via_sparse[[a, b]]).abs() / scale;
+                if rel > worst {
+                    worst = rel;
+                    worst_at = (a, b);
+                }
+            }
+        }
+        // Measured bit-identical (worst == 0.0) on this fixture when written;
+        // the bound is a tolerance rather than bit-equality so a legitimate
+        // blocking change in either kernel does not fail the build. What must
+        // never happen is a difference large enough to move a fit.
+        assert!(
+            worst <= 1e-13,
+            "the two XtWX routes disagree by {worst:.3e} (relative) at [{}, {}]; \
+             the memory governor picks between them, so the fitted answer would \
+             depend on host memory pressure (#2486)",
+            worst_at.0,
+            worst_at.1
+        );
+    }
+
+    /// Reusing one design's memoized Hessian pattern must not leak state
+    /// between assemblies.
+    ///
+    /// The symbolic pattern is now built once per design and shared by every
+    /// later `XᵀWX` against it. That is only sound if each assembly starts
+    /// from a zeroed values buffer: if the buffer were shared rather than the
+    /// pattern, the second call would return the SUM of both weightings and
+    /// the third would drift further — a wrong Hessian on every Newton
+    /// iteration after the first. Weights are varied and then repeated so a
+    /// stale-values bug shows up as a changed answer for identical input.
+    #[test]
+    fn repeated_assemblies_against_one_sparse_design_do_not_accumulate() {
+        use faer::sparse::{SparseColMat, Triplet};
+
+        // Banded, 3 nonzeros per row over 40 columns, so `4·avg_nnz ≥ p` is
+        // false and this takes the genuinely-sparse accumulator arm — the one
+        // that consults the memo.
+        let (n, p) = (200_usize, 40_usize);
+        let mut triplets = Vec::new();
+        let mut dense = Array2::<f64>::zeros((n, p));
+        for i in 0..n {
+            for k in 0..3 {
+                let col = (i + k) % p;
+                let value = 0.5 + ((i * 7 + k * 13) % 11) as f64 * 0.25;
+                triplets.push(Triplet::new(i, col, value));
+                dense[[i, col]] += value;
+            }
+        }
+        let sparse = SparseColMat::try_new_from_triplets(n, p, &triplets).expect("banded design");
+        let design = DesignMatrix::Sparse(SparseDesignMatrix::new(sparse));
+
+        let reference = |w: &Array1<f64>| -> Array2<f64> {
+            let mut out = Array2::<f64>::zeros((p, p));
+            for a in 0..p {
+                for b in 0..p {
+                    out[[a, b]] = (0..n).map(|i| w[i] * dense[[i, a]] * dense[[i, b]]).sum();
+                }
+            }
+            out
+        };
+        let w1 = Array1::from_shape_fn(n, |i| 0.25 + (i % 5) as f64 * 0.5);
+        let w2 = Array1::from_shape_fn(n, |i| 1.5 + (i % 3) as f64 * 0.75);
+
+        // w1, then a DIFFERENT w2, then w1 again: the third result must equal
+        // the first exactly, not merely be close to it.
+        let mut first: Option<Array2<f64>> = None;
+        for (label, w) in [("w1", &w1), ("w2", &w2), ("w1-again", &w1)] {
+            let got = xt_diag_x_symmetric(&design, w)
+                .unwrap_or_else(|e| panic!("{label}: {e}"))
+                .to_dense();
+            let want = reference(w);
+            for a in 0..p {
+                for b in 0..p {
+                    assert!(
+                        (got[[a, b]] - want[[a, b]]).abs() <= 1e-9 * want[[a, b]].abs().max(1.0),
+                        "{label}: XtWX[{a},{b}] = {} but direct sum gives {}",
+                        got[[a, b]],
+                        want[[a, b]]
+                    );
+                }
+            }
+            match (&first, label) {
+                (None, _) => first = Some(got),
+                (Some(f), "w1-again") => assert_eq!(*f, got, "repeat of w1 changed after w2"),
+                _ => {}
+            }
+        }
+    }
 }
+

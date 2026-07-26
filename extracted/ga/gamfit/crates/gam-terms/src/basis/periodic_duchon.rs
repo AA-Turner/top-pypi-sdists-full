@@ -1117,7 +1117,10 @@ pub(crate) fn build_periodic_duchon_basis_1d(
         // exact Fourier-series periodization of the spectral density, which is
         // PSD by construction. `kappa` is well defined here because this branch
         // runs iff `length_scale` is `Some`.
-        let kappa = 1.0 / len_scale.expect("hybrid branch requires length_scale").max(1e-300);
+        let kappa = 1.0
+            / len_scale
+                .expect("hybrid branch requires length_scale")
+                .max(1e-300);
         raw_kernel
             .axis_chunks_iter_mut(ndarray::Axis(0), 1024)
             .into_par_iter()
@@ -1162,9 +1165,15 @@ pub(crate) fn build_periodic_duchon_basis_1d(
         } else {
             // Same exact circular periodization the design uses, so
             // ``ω = z' K_centers z`` is the PSD Gram of the periodic smoother.
-            let kappa =
-                1.0 / spec.length_scale.expect("hybrid branch requires length_scale").max(1e-300);
-            Ok(periodic_hybrid_duchon_kernel_value(r, kappa, p_order, s_order, period)? * kernel_amp)
+            let kappa = 1.0
+                / spec
+                    .length_scale
+                    .expect("hybrid branch requires length_scale")
+                    .max(1e-300);
+            Ok(
+                periodic_hybrid_duchon_kernel_value(r, kappa, p_order, s_order, period)?
+                    * kernel_amp,
+            )
         }
     })?;
     let omega = fast_ab(&fast_atb(&z, &center_kernel), &z);
@@ -1172,10 +1181,8 @@ pub(crate) fn build_periodic_duchon_basis_1d(
     penalty
         .slice_mut(s![0..kernel_cols, 0..kernel_cols])
         .assign(&omega);
-    let raw_primary = ConstructiveQuadratic::try_from_dense_psd(
-        penalty,
-        "periodic Duchon raw primary penalty",
-    )?;
+    let raw_primary =
+        ConstructiveQuadratic::try_from_dense_psd(penalty, "periodic Duchon raw primary penalty")?;
     let base_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(basis));
     let identifiability_transform = spatial_identifiability_transform_from_design_matrix(
         data,
@@ -1186,10 +1193,8 @@ pub(crate) fn build_periodic_duchon_basis_1d(
     let (design, primary) = if let Some(transform) = identifiability_transform.as_ref() {
         let design = wrap_dense_design_with_transform(base_design, transform, "periodic Duchon")?;
         let gauge = gam_problem::Gauge::from_block_transforms(&[transform.clone()]);
-        let transformed = raw_primary.restricted(
-            &gauge,
-            "periodic Duchon identified primary penalty",
-        )?;
+        let transformed =
+            raw_primary.restricted(&gauge, "periodic Duchon identified primary penalty")?;
         (design, transformed)
     } else {
         (base_design, raw_primary)
@@ -1718,6 +1723,54 @@ fn reject_nonpsd_then_clamp_noise(matrix: &Array2<f64>) -> Result<Array2<f64>, B
     Ok(project_penalty_to_psd_cone(&sym))
 }
 
+/// The STRUCTURAL null frame of the Duchon curvature seminorm, in the chart
+/// the emitted penalties live in (#2445).
+///
+/// The seminorm annihilates every polynomial-block direction — a theorem of
+/// the RKHS construction, not a property of the shipped matrix, which
+/// deliberately carries a `√ε`-relative conditioning ridge on the affine
+/// slope columns (gam#880/#1816). In the raw `(kernel | poly)` frame the null
+/// space is therefore exactly the `poly_cols` trailing coordinate axes. Under
+/// an outer identifiability transform `T` it becomes
+/// `{γ : Tγ ∈ span(poly axes)} = null(T[..kernel_cols, :])` — the null space
+/// of the KERNEL-block rows of the chart, a rank decision on an orthonormal
+/// matrix whose gaps are principal-angle-sized, never the Gram's conditioning.
+///
+/// The full polynomial block (constant AND slopes) is what must be carried:
+/// intersecting the chart with the trend (slope-only) subspace is generically
+/// `{0}`, while the chart itself is what removes the constant when an
+/// intercept constraint is present.
+pub(crate) fn duchon_structural_trend_null_frame(
+    kernel_cols: usize,
+    total_cols: usize,
+    outer_identifiability: Option<&Array2<f64>>,
+) -> Result<Array2<f64>, BasisError> {
+    let poly_cols = total_cols.saturating_sub(kernel_cols);
+    match outer_identifiability {
+        None => {
+            let mut frame = Array2::<f64>::zeros((total_cols, poly_cols));
+            for column in 0..poly_cols {
+                frame[[kernel_cols + column, column]] = 1.0;
+            }
+            Ok(frame)
+        }
+        Some(transform) => {
+            if transform.nrows() != total_cols {
+                crate::bail_dim_basis!(
+                    "Duchon structural null frame: identifiability transform has {} rows \
+                     but the pre-identifiability frame has {total_cols} columns",
+                    transform.nrows()
+                );
+            }
+            let kernel_rows_t = transform.slice(s![..kernel_cols, ..]).t().to_owned();
+            let (frame, _rank) =
+                gam_linalg::faer_ndarray::rrqr_nullspace_basis(&kernel_rows_t, 1.0)
+                    .map_err(BasisError::LinalgError)?;
+            Ok(frame)
+        }
+    }
+}
+
 pub(crate) fn duchon_native_penalty_candidates(
     centers: ArrayView2<'_, f64>,
     length_scale: Option<f64>,
@@ -1815,54 +1868,96 @@ pub(crate) fn duchon_native_penalty_candidates(
             .slice_mut(s![.., n_kernel..])
             .assign(&center_poly);
 
-        let (center_design, trend_frame) = if let Some(transform) = outer_identifiability {
-            if transform.nrows() != n_pre {
-                crate::bail_dim_basis!(
-                    "Duchon identifiability transform has {} rows, expected {}",
-                    transform.nrows(),
-                    n_pre
-                );
-            }
-            // The outer chart removes the global intercept. Its surviving
-            // polynomial-function subspace is therefore exactly the preimage
-            // of zero kernel coordinates under the fixed transform.
-            let kernel_coordinate_map = transform.slice(s![0..n_kernel, ..]).to_owned();
-            let (frame, _) = rrqr_nullspace_basis(
-                &kernel_coordinate_map.t().to_owned(),
-                default_rrqr_rank_alpha(),
-            )
-            .map_err(BasisError::LinalgError)?;
-            (fast_ab(&center_design, transform), frame)
-        } else {
-            // Without an outer intercept constraint, leave the explicit
-            // constant free and target only nonconstant polynomial trends.
-            let mut frame = Array2::<f64>::zeros((n_pre, poly_cols - 1));
-            for column in 1..poly_cols {
-                frame[[n_kernel + column, column - 1]] = 1.0;
-            }
-            (center_design, frame)
-        };
+        // Construct the physical trend functional in the RAW coefficient
+        // chart first, then restrict it through the same outer gauge as the
+        // Primary. This order is essential. The collection builder receives
+        // the raw Primary/ridge pair, restricts both by its global coefficient
+        // gauge, and only then rebuilds the complementary ridge from the
+        // constrained Primary. Inventing a fresh trend frame after the gauge
+        // is a different functional and can preserve a fifth penalty that the
+        // authoritative collection correctly eliminated (#2433).
+        let mut trend_frame = Array2::<f64>::zeros((n_pre, poly_cols - 1));
+        for column in 1..poly_cols {
+            trend_frame[[n_kernel + column, column - 1]] = 1.0;
+        }
         let function_gram = symmetrize_penalty(&fast_ata(&center_design));
         // Complementary metric ridge `N(NᵀGN)Nᵀ` (range = span(trend frame)),
         // NOT the leaky metric projector `GN(NᵀGN)⁻¹NᵀG` (range = span(GN)),
         // so the constant stays in the joint null space (gam#2372).
-        Some(function_space_subspace_trend_ridge(
-            &trend_frame,
-            &function_gram,
-        )?)
+        let raw = function_space_subspace_trend_ridge(&trend_frame, &function_gram)?;
+        Some(project_penalty_matrix(&raw, outer_identifiability))
     } else {
         None
     };
     let mut out = Vec::new();
-    out.push(normalize_penalty_candidate(
-        primary,
-        PenaltySource::Primary,
-    )?);
+    let mut primary_candidate = normalize_penalty_candidate(primary, PenaltySource::Primary)?;
+    // Declare the seminorm's structural null frame on the shipped Primary
+    // (#2445): the polynomial block is null by theorem, and the `√ε` affine
+    // conditioning ridge deliberately present in the matrix must not be able
+    // to move that decision. The frame is what the metric-consistent
+    // double-penalty rebuild consumes instead of a rank test, both in the
+    // frozen-chart replay below and at the term-collection chokepoint.
+    let structural_frame =
+        duchon_structural_trend_null_frame(n_kernel, n_pre, outer_identifiability)?;
+    primary_candidate.matrix = primary_candidate.matrix.with_structural_null_frame(
+        structural_frame,
+        "Duchon primary structural null declaration",
+    )?;
+    out.push(primary_candidate);
     if let Some(shrink) = shrink {
         out.push(normalize_penalty_candidate(
             shrink,
             PenaltySource::DoublePenaltyNullspace,
         )?);
+    }
+    // A frozen outer-identifiability chart must reproduce the collection
+    // builder's FINAL penalty topology, not merely congruence-transform the
+    // raw trend ridge. The chart can remove the last structural null direction
+    // of the primary penalty; in that case a carried raw ridge no longer
+    // represents `null(S_primary)` and must disappear. The collection path
+    // performs this same metric-consistent rebuild after applying its global
+    // gauge. Repeating it here is what makes frozen single-term κ rebuilds and
+    // n-free penalty re-keys share that authoritative topology (#2433).
+    if outer_identifiability.is_some() {
+        let primary_candidate = out
+            .iter()
+            .find(|candidate| matches!(candidate.source, PenaltySource::Primary))
+            .ok_or_else(|| {
+                BasisError::InvalidInput(
+                    "Duchon trend ridge has no primary penalty in the final coefficient chart"
+                        .to_string(),
+                )
+            })?;
+        let primary_physical = primary_candidate.matrix.scaled(
+            primary_candidate.normalization_scale,
+            "physical frozen-chart Duchon primary",
+        )?;
+        let width = primary_physical.nrows();
+        for candidate in &mut out {
+            if !matches!(candidate.source, PenaltySource::DoublePenaltyNullspace) {
+                continue;
+            }
+            let ridge_physical = candidate.matrix.scaled(
+                candidate.normalization_scale,
+                "physical frozen-chart Duchon trend ridge",
+            )?;
+            match rebuild_metric_consistent_ridge(&primary_physical, &ridge_physical)? {
+                Some(rebuilt) => {
+                    let normalized = normalize_constructive_penalty_candidate(
+                        rebuilt,
+                        PenaltySource::DoublePenaltyNullspace,
+                    )?;
+                    candidate.matrix = normalized.matrix;
+                    candidate.normalization_scale = normalized.normalization_scale;
+                }
+                None => {
+                    candidate.matrix = ConstructiveQuadratic::zero(width);
+                    candidate.normalization_scale = 1.0;
+                }
+            }
+            candidate.kronecker_factors = None;
+            candidate.op = None;
+        }
     }
     Ok(out)
 }
@@ -2195,8 +2290,10 @@ mod mixed_periodicity_psd_tests {
         // (1) The shipped block is exactly the complementary metric ridge
         // `R = N(NᵀGN)Nᵀ`.
         let trend_metric = trend_frame.t().dot(&gram).dot(&trend_frame);
-        let reference =
-            symmetrize_penalty(&fast_abt(&fast_ab(&trend_frame, &trend_metric), &trend_frame));
+        let reference = symmetrize_penalty(&fast_abt(
+            &fast_ab(&trend_frame, &trend_metric),
+            &trend_frame,
+        ));
         let ridge_scale = reference
             .iter()
             .map(|value| value.abs())

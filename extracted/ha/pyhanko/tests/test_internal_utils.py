@@ -5,7 +5,6 @@ from datetime import timezone
 from fractions import Fraction
 from io import BytesIO
 from itertools import product
-from typing import Tuple
 
 import pyhanko.pdf_utils.extensions
 import pytest
@@ -864,7 +863,7 @@ class PathMockHandler(PdfHandler):
         raise NotImplementedError
 
     @property
-    def document_id(self) -> Tuple[bytes, bytes]:
+    def document_id(self) -> tuple[bytes, bytes]:
         raise NotImplementedError
 
     def get_object(self, ref, *_args, **_kwargs):
@@ -1323,7 +1322,7 @@ def test_multi_extension_registration(expected_lvls, new_ext):
     w.register_extension(new_ext)
 
     ext_val = w.root['/Extensions']['/MULT']
-    actual_lvls = set(ext_dict['/ExtensionLevel'] for ext_dict in ext_val)
+    actual_lvls = {ext_dict['/ExtensionLevel'] for ext_dict in ext_val}
     assert actual_lvls == set(expected_lvls)
 
 
@@ -2110,15 +2109,19 @@ def test_tolerate_startxref_on_same_line():
     ['minimal-startxref-hopeless2.pdf', 'minimal-startxref-hopeless3.pdf'],
 )
 def test_startxref_parse_failure(fname):
-    with open(f"{PDF_DATA_DIR}/{fname}", 'rb') as inf:
-        with pytest.raises(misc.PdfReadError, match="startxref not found"):
-            PdfFileReader(inf)
+    with (
+        open(f"{PDF_DATA_DIR}/{fname}", 'rb') as inf,
+        pytest.raises(misc.PdfReadError, match="startxref not found"),
+    ):
+        PdfFileReader(inf)
 
 
 def test_illegal_header():
-    with open(f"{PDF_DATA_DIR}/minimal-illegal-header.pdf", 'rb') as inf:
-        with pytest.raises(misc.PdfReadError, match="Illegal PDF header"):
-            PdfFileReader(inf)
+    with (
+        open(f"{PDF_DATA_DIR}/minimal-illegal-header.pdf", 'rb') as inf,
+        pytest.raises(misc.PdfReadError, match="Illegal PDF header"),
+    ):
+        PdfFileReader(inf)
 
 
 def test_ignore_illegal_version_in_catalog():

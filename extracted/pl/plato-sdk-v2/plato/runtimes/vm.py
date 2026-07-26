@@ -12,6 +12,7 @@ import tenacity
 
 from plato.runtimes.base import Runtime, RuntimeInfo, VMMetadata
 from plato.runtimes.settings import get_settings
+from plato.utils.ssh import gateway_proxy_command
 from plato.utils.subprocess import VM_PATH_EXPORT, run_ssh, run_ssh_streaming
 from plato.v2 import Env
 from plato.v2.types import SimConfigCompute
@@ -42,7 +43,7 @@ def _gateway_ssh_opts(job_id: str) -> list[tuple[str, str]]:
     """Build SSH ProxyCommand options to reach a VM through the Plato gateway."""
     gateway_host = get_settings().gateway_host
     sni = f"{job_id}--22.{gateway_host}"
-    proxy_cmd = f"openssl s_client -quiet -connect {gateway_host}:443 -servername {sni} 2>/dev/null"
+    proxy_cmd = gateway_proxy_command(gateway_host, sni)
     return [("ProxyCommand", proxy_cmd)]
 
 

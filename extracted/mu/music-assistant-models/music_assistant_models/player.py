@@ -419,6 +419,14 @@ class Player(DataClassDictMixin):
 
     # needs_setup: if True, the player needs to be set up before it can be used
     needs_setup: bool = False
+    # setup_reason: short (translatable) slug describing why the player needs setup
+    # (e.g. "pairing_required", "password_required"); None when no setup is needed
+    setup_reason: str | None = None
+
+    # has_setup_flow: if True, this player (or a protocol child it wraps) offers an
+    # interactive setup flow that can also be re-run on demand (reconfigure/re-pair),
+    # regardless of whether setup is currently needed
+    has_setup_flow: bool = False
 
     # sleep_timer_expires_at: unix (utc) timestamp at which the active sleep timer will
     # stop playback, or None if no sleep timer is currently set for this player

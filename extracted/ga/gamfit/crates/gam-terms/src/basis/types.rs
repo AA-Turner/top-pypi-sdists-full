@@ -311,7 +311,10 @@ impl BSplineBoundaryConditions {
     /// one endpoint) silently dropped both pins for the two-sided case (#2297).
     pub const fn has_anchor(&self) -> bool {
         matches!(self.left, BSplineEndpointBoundaryCondition::Anchored { .. })
-            || matches!(self.right, BSplineEndpointBoundaryCondition::Anchored { .. })
+            || matches!(
+                self.right,
+                BSplineEndpointBoundaryCondition::Anchored { .. }
+            )
     }
 
     /// Whether either endpoint carries an inhomogeneous value constraint.
@@ -865,9 +868,14 @@ pub enum SpatialIdentifiability {
     FrozenTransform { transform: Array2<f64> },
 }
 
+pub(crate) use sphere_half_angle::{
+    SphereTrig, ambient_half_angle_separation, half_angle_partials, half_angle_separation,
+    half_angle_separation_scalar,
+};
+
 pub(crate) use sphere_kernels::{
-    wahba_sphere_kernel_derivative_dcos_kind, wahba_sphere_kernel_from_cos_kind,
-    wahba_sphere_kernel_from_cos_simd_kind, wahba_sphere_kernel_sobolev_derivative_dcos,
+    wahba_sphere_kernel_derivative_dhav_kind, wahba_sphere_kernel_kind,
+    wahba_sphere_kernel_simd_kind, wahba_sphere_kernel_sobolev_derivative_dhav,
 };
 
 pub use sphere_spectral::{
@@ -1766,6 +1774,18 @@ pub struct ActivePenaltyInfo {
     /// When present, spectral decomposition can use per-factor eigendecomposition.
     #[serde(skip)]
     pub kronecker_factors: Option<Vec<Array2<f64>>>,
+    /// Structural null frame carried from the candidate's
+    /// [`ConstructiveQuadratic`] (see
+    /// [`ConstructiveQuadratic::with_structural_null_frame`]): the declared
+    /// null space of the seminorm this penalty represents, in the penalty's
+    /// own coefficient chart. Downstream rebuilds
+    /// (`rebuild_metric_consistent_ridge` at the term-collection chokepoint)
+    /// re-attach it so the double-penalty topology stays a carried theorem
+    /// through every chart instead of a per-chart rank measurement (#2445).
+    /// Runtime-only, like `kronecker_factors`: a frozen replay rebuilds it
+    /// from the basis factory, which is the single source.
+    #[serde(skip)]
+    pub structural_null_frame: Option<Array2<f64>>,
 }
 
 /// Diagnostic for one penalty candidate excluded from the optimizer layout.
@@ -1833,14 +1853,21 @@ pub struct FilteredPenalties {
 pub struct ConstructiveQuadratic {
     factor: Array2<f64>,
     matrix: Array2<f64>,
+    /// Orthonormal basis, in this quadratic's own coefficient chart, for the
+    /// null space of the seminorm this matrix REPRESENTS — as opposed to the
+    /// numerical null space of the matrix itself, which can differ by a
+    /// deliberate conditioning term (#2445: the Duchon affine native ridge is
+    /// `√ε`-relative and sits within a decade of the spectral rank cutoff, so
+    /// a rank test on the shipped matrix decides penalty TOPOLOGY by the
+    /// Gram's conditioning). `None` means "no structural declaration; a
+    /// consumer that needs the null space must measure it". `Some` with zero
+    /// columns is a declaration that the seminorm is structurally full rank.
+    structural_null_frame: Option<Array2<f64>>,
 }
 
 impl ConstructiveQuadratic {
     /// Construct directly from an energy factor `A`, representing `AᵀA`.
-    pub fn from_energy_factor(
-        factor: Array2<f64>,
-        context: &str,
-    ) -> Result<Self, BasisError> {
+    pub fn from_energy_factor(factor: Array2<f64>, context: &str) -> Result<Self, BasisError> {
         if factor.iter().any(|value| !value.is_finite()) {
             crate::bail_invalid_basis!(
                 "{context}: constructive penalty factor contains a non-finite value"
@@ -1848,11 +1875,81 @@ impl ConstructiveQuadratic {
         }
         let matrix = fast_ata(&factor);
         if matrix.iter().any(|value| !value.is_finite()) {
-            crate::bail_invalid_basis!(
-                "{context}: constructive penalty Gram is not representable"
+            crate::bail_invalid_basis!("{context}: constructive penalty Gram is not representable");
+        }
+        Ok(Self {
+            factor,
+            matrix,
+            structural_null_frame: None,
+        })
+    }
+
+    /// Declare the structural null frame of the represented seminorm (see the
+    /// field doc). The frame is a carried certificate (#2427): the factory
+    /// that BUILT the seminorm knows its null space as a theorem (Duchon's
+    /// polynomial block), and consumers that decide topology
+    /// ([`crate::basis::rebuild_metric_consistent_ridge`]) consume the
+    /// declaration instead of re-deriving it from a rank test on a matrix
+    /// that deliberately contains a conditioning term.
+    pub fn with_structural_null_frame(
+        mut self,
+        frame: Array2<f64>,
+        context: &str,
+    ) -> Result<Self, BasisError> {
+        if frame.nrows() != self.matrix.nrows() {
+            crate::bail_dim_basis!(
+                "{context}: structural null frame has {} rows but the quadratic chart has {}",
+                frame.nrows(),
+                self.matrix.nrows()
             );
         }
-        Ok(Self { factor, matrix })
+        if frame.iter().any(|value| !value.is_finite()) {
+            crate::bail_invalid_basis!("{context}: structural null frame is not finite");
+        }
+        // Orthonormality is what makes the congruence transport below exact.
+        let gram = fast_ata(&frame);
+        for row in 0..gram.nrows() {
+            for col in 0..gram.ncols() {
+                let expected = if row == col { 1.0 } else { 0.0 };
+                if (gram[[row, col]] - expected).abs() > 1e-8 {
+                    crate::bail_invalid_basis!(
+                        "{context}: structural null frame is not orthonormal \
+                         (FᵀF deviates by {:.3e} at [{row},{col}])",
+                        (gram[[row, col]] - expected).abs()
+                    );
+                }
+            }
+        }
+        self.structural_null_frame = Some(frame);
+        Ok(self)
+    }
+
+    /// The declared structural null frame, if any (see
+    /// [`Self::with_structural_null_frame`]).
+    pub fn structural_null_frame(&self) -> Option<&Array2<f64>> {
+        self.structural_null_frame.as_ref()
+    }
+
+    /// The declared frame restricted to the coefficient block `[lo, hi)`,
+    /// or `None` when no frame is declared or the frame has support outside
+    /// the block (in which case the block does not own the null space and a
+    /// consumer must fall back to measuring).
+    pub fn structural_null_frame_block(&self, lo: usize, hi: usize) -> Option<Array2<f64>> {
+        let frame = self.structural_null_frame.as_ref()?;
+        if lo >= hi || hi > frame.nrows() {
+            return None;
+        }
+        let outside = frame
+            .rows()
+            .into_iter()
+            .enumerate()
+            .filter(|(row, _)| *row < lo || *row >= hi)
+            .flat_map(|(_, row)| row.to_vec())
+            .fold(0.0_f64, |acc, value| acc.max(value.abs()));
+        if outside > 1e-12 {
+            return None;
+        }
+        Some(frame.slice(s![lo..hi, ..]).to_owned())
     }
 
     /// Checked bridge for legacy dense factories that already produce a PSD
@@ -1864,10 +1961,7 @@ impl ConstructiveQuadratic {
     /// [`PenaltyCandidate`]. New factories should use
     /// [`Self::from_energy_factor`] so PSD is true by construction rather than
     /// inferred after dense assembly.
-    pub fn try_from_dense_psd(
-        dense: Array2<f64>,
-        context: &str,
-    ) -> Result<Self, BasisError> {
+    pub fn try_from_dense_psd(dense: Array2<f64>, context: &str) -> Result<Self, BasisError> {
         if dense.nrows() != dense.ncols() {
             crate::bail_dim_basis!(
                 "{context}: dense penalty must be square, got {}x{}",
@@ -1882,8 +1976,7 @@ impl ConstructiveQuadratic {
             return Self::from_energy_factor(Array2::zeros((0, 0)), context);
         }
         let sym = symmetrize_penalty(&dense);
-        let (evals, evecs) = FaerEigh::eigh(&sym, Side::Lower)
-            .map_err(BasisError::LinalgError)?;
+        let (evals, evecs) = FaerEigh::eigh(&sym, Side::Lower).map_err(BasisError::LinalgError)?;
         let tolerance = spectral_tolerance(&sym, &evals);
         if let Some(&negative) = evals.iter().find(|&&value| value < -tolerance) {
             return Err(BasisError::IndefinitePenalty {
@@ -1925,12 +2018,29 @@ impl ConstructiveQuadratic {
 
     /// Apply a coefficient gauge to the factor, preserving PSD by
     /// construction instead of multiplying the rounded dense Gram twice.
+    ///
+    /// A declared structural null frame is transported through the same
+    /// congruence: for the (single-block) transform `T`, the structural null
+    /// space of `TᵀST` is `{γ : Tγ ∈ span(F)} = null((I − FFᵀ)T)`, which is a
+    /// well-conditioned computation on orthonormal inputs — the rank decision
+    /// has O(1) principal-angle gaps, never the conditioning of `S` (#2445).
     pub fn restricted(
         &self,
         gauge: &gam_problem::Gauge,
         context: &str,
     ) -> Result<Self, BasisError> {
-        Self::from_energy_factor(gauge.restrict_quadratic_factor(&self.factor), context)
+        let mut out =
+            Self::from_energy_factor(gauge.restrict_quadratic_factor(&self.factor), context)?;
+        if let Some(frame) = self.structural_null_frame.as_ref() {
+            if gauge.n_blocks() == 1 {
+                let transform = gauge.block_transform(0);
+                out.structural_null_frame = transport_structural_null_frame(frame, &transform);
+            }
+            // Multi-block gauges do not arise on the paths that declare
+            // frames; dropping the declaration is always safe (consumers
+            // fall back to measuring), inventing one is not.
+        }
+        Ok(out)
     }
 
     /// Multiply the represented quadratic by a finite non-negative scalar.
@@ -1941,15 +2051,18 @@ impl ConstructiveQuadratic {
             );
         }
         let root = scale.sqrt();
-        Self::from_energy_factor(self.factor.mapv(|value| value * root), context)
+        let mut out = Self::from_energy_factor(self.factor.mapv(|value| value * root), context)?;
+        // A positive rescale does not move the null space; scaling to exactly
+        // zero collapses the seminorm and voids the declaration.
+        if scale > 0.0 {
+            out.structural_null_frame = self.structural_null_frame.clone();
+        }
+        Ok(out)
     }
 
     /// Sum PSD quadratics by vertically concatenating their energy factors.
     pub fn sum(terms: &[Self], context: &str) -> Result<Self, BasisError> {
-        let coefficient_dim = terms
-            .first()
-            .map(|term| term.factor.ncols())
-            .unwrap_or(0);
+        let coefficient_dim = terms.first().map(|term| term.factor.ncols()).unwrap_or(0);
         if terms
             .iter()
             .any(|term| term.factor.ncols() != coefficient_dim)
@@ -1974,8 +2087,34 @@ impl ConstructiveQuadratic {
         Self {
             factor: Array2::zeros((0, dimension)),
             matrix: Array2::zeros((dimension, dimension)),
+            structural_null_frame: None,
         }
     }
+}
+
+/// Transport a structural null frame through an injective coefficient
+/// transform `T` (raw → reduced): the structural null space of `TᵀST` is
+/// `{γ : Tγ ∈ span(F)} = null((I − FFᵀ)T)`, computed with a rank-revealing QR
+/// on orthonormal inputs. Returns `Some` with possibly zero columns (a
+/// structural "no null space survives the chart" is a valid declaration);
+/// `None` only when the shapes cannot compose or the factorization fails, in
+/// which case the declaration is dropped rather than guessed.
+fn transport_structural_null_frame(
+    frame: &Array2<f64>,
+    transform: &Array2<f64>,
+) -> Option<Array2<f64>> {
+    if transform.nrows() != frame.nrows() {
+        return None;
+    }
+    let projected = transform - &frame.dot(&frame.t().dot(transform));
+    // `rrqr_nullspace_basis(a)` returns an orthonormal basis of `null(aᵀ)`,
+    // so pass `projectedᵀ` to obtain `null(projected)` over the reduced
+    // coordinates. Machine-precision cutoff: the singular values here are
+    // sines of principal angles between orthonormal frames, so the rank gap
+    // is O(1) unless the chart genuinely grazes the subspace.
+    gam_linalg::faer_ndarray::rrqr_nullspace_basis(&projected.t().to_owned(), 1.0)
+        .ok()
+        .map(|(null, _)| null)
 }
 
 impl std::fmt::Debug for ConstructiveQuadratic {
@@ -1988,6 +2127,13 @@ impl std::fmt::Debug for ConstructiveQuadratic {
             .field(
                 "matrix",
                 &format_args!("{}×{}", self.matrix.nrows(), self.matrix.ncols()),
+            )
+            .field(
+                "structural_null_frame",
+                &self
+                    .structural_null_frame
+                    .as_ref()
+                    .map(|frame| format!("{}×{}", frame.nrows(), frame.ncols())),
             )
             .finish()
     }

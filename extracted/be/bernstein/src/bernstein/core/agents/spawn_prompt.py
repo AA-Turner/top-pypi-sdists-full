@@ -1016,6 +1016,17 @@ def _render_prompt(
         logger.debug("Recommendation rendering failed: %s", exc)
     if project_context:
         named_sections.append(("project", deduplicate_section(f"\n## Project context\n{project_context}\n")))
+    # Mirrors spawner_core._render_prompt's output-style section (see the
+    # turn-budget note below for why both renderers carry the same blocks).
+    try:
+        from bernstein.core.config.output_styles import load_output_styles
+
+        _style_prompt = load_output_styles(workdir).get_prompt()
+    except Exception as exc:
+        logger.debug("Output style resolution failed: %s", exc)
+        _style_prompt = ""
+    if _style_prompt:
+        named_sections.append(("output style", deduplicate_section(f"\n## Output style\n{_style_prompt}\n")))
     named_sections.append(("instructions", deduplicate_section(f"\n## Instructions\n{instructions}\n")))
     if session_id:
         try:
@@ -1323,7 +1334,7 @@ _CACHEABLE_PROTOCOL_PREFIX = (
     "All agents follow the Bernstein agent protocol:\n"
     "- Work in an isolated git worktree on a branch named ``agent/<session_id>``.\n"
     "- Check signal files (WAKEUP, SHUTDOWN, COMMAND) every 60 seconds.\n"
-    "- Report progress via heartbeat and mark tasks complete with curl.\n"
+    "- Report progress via heartbeat and mark tasks complete with `bernstein task complete`.\n"
     "- Never push to main; always create a PR.\n"
 )
 

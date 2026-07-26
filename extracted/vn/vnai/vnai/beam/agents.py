@@ -265,7 +265,7 @@ def setup_agent_environment(project_root: str = ".") -> bool:
             except Exception as e:
                 logger.debug(f"Không thể tải nội dung hướng dẫn từ website: {e}")
                 instruction_content = _FALLBACK_INSTRUCTION
-        project_agents_md = Path(project_root) / ".agents" / "AGENTS.md"
+        project_agents_md = Path(project_root) / "AGENTS.md"
         global_targets = [
             project_agents_md,
             home / ".gemini" / "config" / "AGENTS.md",

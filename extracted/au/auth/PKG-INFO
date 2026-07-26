@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: auth
-Version: 2.0.0
+Version: 2.3.1
 Summary: Authorization for humans
 Author-email: Farshid Ashouri <farsheed.ashouri@gmail.com>
 License-Expression: MIT
@@ -23,21 +23,20 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.9
-Description-Content-Type: text/x-rst
+Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: flask>=2.0.0
-Requires-Dist: flask-cors>=3.0.0
-Requires-Dist: sqlalchemy>=2.0.0
-Requires-Dist: waitress>=2.0.0
-Requires-Dist: PyJWT>=2.0.0
-Requires-Dist: cryptography>=3.0.0
-Requires-Dist: APScheduler>=3.0.0
-Requires-Dist: psycopg[binary]>=3.0.0
-Requires-Dist: pydantic>=2.0.0
-Requires-Dist: pydantic-settings>=2.0.0
-Requires-Dist: requests>=2.25.0
-Requires-Dist: bleach>=5.0.0
-Requires-Dist: python-json-logger>=3.1.0
+Requires-Dist: flask<4,>=2.0.0
+Requires-Dist: flask-cors<7,>=3.0.0
+Requires-Dist: sqlalchemy<3,>=2.0.0
+Requires-Dist: waitress<4,>=2.0.0
+Requires-Dist: cryptography<48,>=3.0.0
+Requires-Dist: APScheduler<4,>=3.0.0
+Requires-Dist: psycopg[binary]<4,>=3.0.0
+Requires-Dist: pydantic<3,>=2.0.0
+Requires-Dist: pydantic-settings<3,>=2.0.0
+Requires-Dist: requests<3,>=2.25.0
+Requires-Dist: bleach<7,>=5.0.0
+Requires-Dist: python-json-logger<4,>=3.1.0
 Provides-Extra: ratelimit
 Requires-Dist: flask-limiter>=3.0.0; extra == "ratelimit"
 Provides-Extra: migrations
@@ -49,209 +48,96 @@ Requires-Dist: alembic>=1.13.0; extra == "dev"
 Requires-Dist: ruff>=0.0.260; extra == "dev"
 Requires-Dist: mypy>=1.0; extra == "dev"
 Requires-Dist: types-requests; extra == "dev"
+Requires-Dist: types-waitress; extra == "dev"
 Requires-Dist: black>=22.0; extra == "dev"
 Requires-Dist: isort>=5.0; extra == "dev"
 Requires-Dist: responses>=0.23; extra == "dev"
 Dynamic: license-file
 
-Auth | Enterprise Authorization System
-======================================
+# auth — RBAC authorization service
 
-A comprehensive, production-ready authorization system with role-based access control, audit logging, encryption, and high availability features.
+[![CI](https://github.com/ourway/auth/actions/workflows/ci.yml/badge.svg)](https://github.com/ourway/auth/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)]()
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**📚 For detailed documentation, see the project repository.**
+Role-based access control over HTTP. `auth` answers one question — **may user X
+do Y** — so your services don't reinvent roles and permissions.
 
-Features
---------
-**Core Features:**
+It is **authorization, not authentication**: it does not log anyone in, store
+passwords, or issue tokens. It trusts that the caller already knows *who* the
+user is, and decides *what they may do*. Model:
+`user → (member of) → role → (holds) → permission`.
 
-- Role-based access control (RBAC) with hierarchical permissions
-- Multiple storage backends (SQLite for development, PostgreSQL for production)
-- Dual interface: REST API and Python library
-- Optional deterministic field-level encryption for sensitive data
-- Comprehensive audit logging for security compliance
-- Workflow permission checking with APScheduler
+## Quickstart
 
-**Security Features:**
+Your **client key is any UUID4** — it is also your private, isolated namespace.
+Generate one, keep it secret, and reuse it for every call. A role must exist
+before you add members or permissions to it.
 
-- UUID4 client keys as isolated tenant namespaces
-- Deterministic field-level encryption (AES-256-CTR, PBKDF2-derived keys)
-- Input validation and sanitization
-- Configurable CORS settings
+```bash
+KEY=$(python3 -c "import uuid; print(uuid.uuid4())")
+BASE=https://auth.rodmena.app
 
-**Production Features:**
+curl -X POST -H "Authorization: Bearer $KEY" $BASE/api/role/engineers
+curl -X POST -H "Authorization: Bearer $KEY" $BASE/api/permission/engineers/deploy
+curl -X POST -H "Authorization: Bearer $KEY" $BASE/api/membership/alice/engineers
+curl        -H "Authorization: Bearer $KEY" $BASE/api/has_permission/alice/deploy
+# -> {"success": true, "data": {"has_permission": true}, ...}
+```
 
-- Connection pooling with retry logic
-- Circuit breaker pattern for fault tolerance
-- Health check endpoint
-- Consistent API response formats
-- Extensive test coverage
+With the Python client (`pip install auth`):
 
-Requirements
-------------
-- Python 3.9+
-- PostgreSQL (for production) or SQLite (for development/testing)
+```python
+from auth import Client
 
-Installation
-------------
-.. code:: bash
+with Client(api_key=KEY, service_url="https://auth.rodmena.app") as c:
+    c.create_role("engineers")
+    c.add_permission("engineers", "deploy")
+    c.add_membership("alice", "engineers")
+    c.user_has_permission("alice", "deploy")   # -> {... "has_permission": true}
+```
 
-    pip install auth
+## Things to know before you write code
 
-Security model
---------------
-The REST API identifies callers by a client key: any valid UUID4 presented
-as ``Authorization: Bearer <uuid4>`` acts as an isolated tenant namespace.
-The key is **not** verified against a secret — treat it like an API key you
-keep private, and deploy the service on a trusted network or behind an
-authenticating gateway. Do not expose the server directly to the public
-internet.
+- **Writes can return HTTP 200 with `{"result": false}`** (e.g. adding to a
+  missing role). Check the `result`/`data` field, not just the status code.
+- **Two response shapes** — bare `{"result": ...}` and wrapped
+  `{"success", "data", ...}`. The API reference says which per endpoint.
+- **Errors below 2xx are HTML**, not JSON. Branch on the status code first.
+- **Reuse one key.** A new key is a new empty namespace, not an error. Keep the
+  key out of source control, logs, and URLs — it is the only thing protecting
+  your data. Rotate it with `POST /api/keys/rotate` if it leaks.
 
-Quick Start
------------
-**Start the server** (default SQLite backend, port 4000):
+## Documentation
 
-.. code:: bash
+| Doc | What's in it |
+|---|---|
+| **Live API reference** — [`/docs`](https://auth.rodmena.app/docs) · [`/llms.txt`](https://auth.rodmena.app/llms.txt) | Every endpoint and exact response shape, served by the app (agent-friendly). |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Design, components, request lifecycle, data model, permission-check and key-rotation flows, diagrams. |
+| [SECURITY.md](SECURITY.md) | Security model (tenant isolation, encryption, audit, rotation), threat notes, reporting. |
+| [MIGRATIONS.md](MIGRATIONS.md) | Schema creation vs migrations, upgrade/rollback runbook. |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Local setup, tests (sqlite + postgres), lint/type-check, CI. |
+| [docs/](docs/) | Full Sphinx docs (concepts, configuration, encryption, deployment, REST & Python usage). |
 
-    auth-server
+## When to use — and not
 
-**Test the API:**
+**Use it** for RBAC: named roles, permissions, group membership, and boolean
+"can user X do Y" gates for a service, CLI, or workflow engine.
 
-.. code:: bash
+**Not** for authentication (login/passwords/sessions/OAuth/JWT), fine-grained /
+attribute-based rules (owner-of-*this*-record, time-of-day, row-level tenancy —
+reach for an ABAC/policy engine), or air-gapped hot loops where a network hop per
+check is too costly (cache, or use the library in-process).
 
-    curl http://localhost:4000/ping
+## Development
 
-Production Deployment
----------------------
-For production with PostgreSQL:
+```bash
+python3.11 -m venv .venv && . .venv/bin/activate
+pip install -e ".[dev,ratelimit,migrations]"
+make check   # ruff + mypy
+make test    # sqlite suite
+make test-postgres   # postgres integration (Docker), encryption on
+```
 
-.. code:: bash
-
-    export AUTH_DATABASE_TYPE=postgresql
-    export AUTH_POSTGRESQL_URL=postgresql://user:pass@localhost:5432/authdb
-    export AUTH_JWT_SECRET_KEY=your-secret-key
-    export AUTH_ENABLE_ENCRYPTION=true
-    export AUTH_ENCRYPTION_KEY=your-encryption-key
-
-    # Using Waitress (recommended)
-    pip install waitress
-    waitress-serve --host=0.0.0.0 --port=4000 --threads=10 auth.main:app
-
-    # Or using Gunicorn
-    pip install gunicorn
-    gunicorn -w 4 -b 0.0.0.0:4000 auth.main:app
-
-Python Library Usage
---------------------
-.. code:: python
-
-    import uuid
-    from auth import Authorization
-
-    # Create authorization instance
-    client_key = str(uuid.uuid4())
-    auth = Authorization(client_key)
-
-    # Create roles and permissions
-    auth.add_role('admin', 'Administrator role')
-    auth.add_permission('admin', 'manage_users')
-
-    # Add user to role
-    auth.add_membership('alice@example.com', 'admin')
-
-    # Check permission
-    if auth.user_has_permission('alice@example.com', 'manage_users'):
-        print("Alice can manage users")
-
-For detailed Python examples, see the project documentation.
-
-REST API Usage
---------------
-.. code:: bash
-
-    # Generate client key
-    CLIENT_KEY=$(uuidgen)
-
-    # Create role
-    curl -X POST \
-      -H "Authorization: Bearer $CLIENT_KEY" \
-      http://localhost:4000/api/role/admin
-
-    # Add permission
-    curl -X POST \
-      -H "Authorization: Bearer $CLIENT_KEY" \
-      http://localhost:4000/api/permission/admin/manage_users
-
-    # Check user permission
-    curl -X GET \
-      -H "Authorization: Bearer $CLIENT_KEY" \
-      http://localhost:4000/api/has_permission/alice@example.com/manage_users
-
-For complete API reference, see the project documentation.
-
-Key Endpoints
--------------
-- ``GET /ping`` - Health check
-- ``POST /api/role/{role}`` - Create role
-- ``POST /api/permission/{role}/{name}`` - Add permission to role
-- ``POST /api/membership/{user}/{role}`` - Add user to role
-- ``GET /api/has_permission/{user}/{name}`` - Check user permission
-- ``GET /api/user_permissions/{user}`` - Get all user permissions
-- ``GET /api/which_users_can/{name}`` - Find users with permission
-
-*See the project documentation for complete endpoint details*
-
-Configuration
--------------
-Environment variables (or use .env file):
-
-- ``AUTH_DATABASE_TYPE`` - Database type (sqlite or postgresql) [default: sqlite]
-- ``AUTH_DATABASE_URL`` - Full database connection URL (overrides other settings)
-- ``AUTH_POSTGRESQL_URL`` - PostgreSQL connection string
-- ``AUTH_SQLITE_PATH`` - SQLite database path [default: ~/.auth.sqlite3]
-- ``AUTH_JWT_SECRET_KEY`` - Secret key for JWT tokens
-- ``AUTH_JWT_ALGORITHM`` - JWT algorithm [default: HS256]
-- ``AUTH_JWT_ACCESS_TOKEN_EXPIRE_MINUTES`` - Token expiration [default: 1440]
-- ``AUTH_JWT_REFRESH_TOKEN_EXPIRE_DAYS`` - Refresh token expiration [default: 7]
-- ``AUTH_ENABLE_ENCRYPTION`` - Enable data encryption [default: false]
-- ``AUTH_ENCRYPTION_KEY`` - Encryption key [required if encryption enabled]
-- ``AUTH_SERVER_HOST`` - Server host [default: 127.0.0.1]
-- ``AUTH_SERVER_PORT`` - Server port [default: 8000]
-- ``AUTH_DEBUG_MODE`` - Debug mode [default: false]
-- ``AUTH_ALLOW_CORS`` - Enable CORS [default: true]
-- ``AUTH_CORS_ORIGINS`` - Allowed CORS origins [default: \*]
-- ``AUTH_ENABLE_AUDIT_LOGGING`` - Enable audit logging [default: true]
-
-Testing
--------
-Run the complete test suite (from a source checkout):
-
-.. code:: bash
-
-    # SQLite suite
-    python -m pytest tests/ -v
-
-    # PostgreSQL integration suite (Docker required)
-    make test-postgres
-
-    # With coverage
-    python -m pytest tests/ --cov=auth --cov-report=html
-
-Architecture
-------------
-The system follows a layered architecture:
-
-- **API Layer:** Flask-based REST endpoints with validation
-- **Service Layer:** Business logic with authorization rules
-- **Data Access Layer:** SQLAlchemy ORM with encryption support
-- **Database Layer:** PostgreSQL (production) or SQLite (development)
-
-Documentation
--------------
-Complete documentation including API reference and Python examples is available in the project repository.
-
-License
--------
-MIT License
-
-Copyright (c) Farshid Ashouri
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow. Licensed under the
+[MIT License](LICENSE).

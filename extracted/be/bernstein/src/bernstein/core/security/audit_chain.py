@@ -25,12 +25,13 @@ is treated as the stable surface. Helpers MUST:
 
 from __future__ import annotations
 
+import contextlib
 import threading
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterable, Iterator, Sequence
     from pathlib import Path
 
 from bernstein.core.security.audit import (
@@ -380,6 +381,22 @@ EVENT_TASK_MAILBOX_MESSAGE = "task.mailbox_message"
 #: scheduler decision.
 EVENT_TASK_CLAIM_RECEIPT = "task.claim_receipt"
 
+#: Issue #3037 -- the counterpart of :data:`EVENT_TASK_CLAIM_RECEIPT`, emitted
+#: whenever a held claim is surrendered: the task returns to the pool
+#: (force-claim, reopen, release, restart recovery, node departure) or dies
+#: terminally without delivering (fail, cancel, abandon, refuse, and the
+#: downstream leg of an abandon cascade). Delivery is not a surrender, so a
+#: task reaching ``DONE`` or ``CLOSED`` mints nothing; its claim ends only if
+#: it is later reopened, which does mint one. The event records the task id,
+#: its role lane, the holder that surrendered it, the post-transition task
+#: version, which path ended the claim, the status pair it moved across, and
+#: the reason. Without it the chain records every acquisition and no release,
+#: so a replay reports a node as still holding a task another node is already
+#: executing. With it, folding claim and release receipts in chain order
+#: reconstructs the last claimant of every task offline -- see
+#: :func:`reconstruct_claim_holders`.
+EVENT_TASK_RELEASE_RECEIPT = "task.release_receipt"
+
 #: Issue #2369 -- emitted once per packaged agent-skill / plugin install.
 #: When the bundled ``bernstein-run`` skill (or a plugin checkout a host
 #: performed) lands in an agent host's skill directory, the install writes a
@@ -413,6 +430,17 @@ EVENT_PLUGIN_CONFORMANCE_RECEIPT = "plugin.conformance_receipt"
 #: table row it attests) is reconstructable and tamper-evident offline
 #: rather than living only in a CI log.
 EVENT_ADAPTER_CANARY_RECEIPT = "adapter.canary_receipt"
+
+#: Issue #2610 -- emitted for every adapter admission decision, positive and
+#: negative alike. The event binds the adapter, the installed upstream version,
+#: the pinned contract's content hash, the deterministic golden-transcript
+#: replay fingerprint, the conformance run id, and the capabilities the
+#: decision grants or withholds. Recording refusals as first-class events is
+#: the point: a ``skip`` conformance verdict that leaves no record reads as
+#: silent permission, whereas a chain slice carrying refusal events proves
+#: offline both which adapters held spawn authority during a window and why
+#: every other one did not.
+EVENT_ADAPTER_ADMISSION_RECEIPT = "adapter.admission_receipt"
 
 #: Issue #2663 -- emitted when capability-aware routing selects an adapter for a
 #: task. The event binds the chosen adapter, the content-addressed capability
@@ -895,13 +923,50 @@ class AuditChainStore:
         # lock, keeping the on-disk chain order consistent with the
         # ``prev_chain_digest`` each event embedded.
         # (bot-ack: 3284182792 -- CodeRabbit major.)
-        self._append_lock = threading.Lock()
+        # Re-entrant so :meth:`chain_transaction` can hold it across a
+        # read-then-append section whose append re-takes it.
+        self._append_lock = threading.RLock()
 
     # -- public surface -----------------------------------------------------
 
+    @contextlib.contextmanager
+    def chain_transaction(self) -> Iterator[None]:
+        """Hold the chain against other writers for a read-then-append section.
+
+        A caller that embeds the chain head into a payload it signs cannot read
+        the head and append its record as two independent steps: the work in
+        between (an Ed25519 signature, say) is a window in which another thread
+        or another process appends, and the record then chains onto a different
+        predecessor than the one the signature names. Because the head is opaque
+        bytes inside the signature, no verifier can notice.
+
+        Inside this section :meth:`resync_head` reads the true head and the
+        append that follows lands on exactly it. The section is re-entrant for
+        the calling thread and exclusive against every other thread and process.
+        """
+        with self._append_lock, self._log.append_transaction():
+            yield
+
+    def resync_head(self) -> str:
+        """Return the chain head re-read from disk, not from this instance's cache.
+
+        Use inside :meth:`chain_transaction` when the head is about to be signed
+        into a payload; see :attr:`prev_chain_digest` for why the cached read is
+        not sufficient there.
+        """
+        return self._log.resync_head()
+
     @property
     def prev_chain_digest(self) -> str:
-        """Return the HMAC of the most recent event (the chain head)."""
+        """Return the HMAC of the most recent event (the chain head).
+
+        This is a per-instance cached value: it does not see another process's
+        appends, and it is read without holding the append lock. It is therefore
+        safe only for callers that just want to observe the head. A caller that
+        *signs* the head into a payload must instead open a
+        :meth:`chain_transaction` and read through :meth:`resync_head`, so the
+        value it signs is the one its own record ends up chained onto.
+        """
         # AuditLog tracks _prev_hmac internally; exposing it here gives
         # callers the value to embed inside the next event's payload
         # without breaking the chain (the embedded value is part of the
@@ -923,10 +988,18 @@ class AuditChainStore:
         two concurrent calls always see distinct ``prev_chain_digest``
         values and the underlying chain stays linear.
         (bot-ack: 3284182792 -- CodeRabbit major.)
+
+        The digest is re-read from disk inside the append section rather than
+        taken from this instance's cache. A cached read sees only our own
+        appends, while the append itself re-syncs, so another process's record
+        landing in between made the event's embedded ``prev_chain_digest``
+        disagree with the ``prev_hmac`` the record was actually written with --
+        an event asserting a chain position it does not occupy, in the one field
+        a reader consults to check that very linkage.
         """
-        with self._append_lock:
+        with self._append_lock, self._log.append_transaction():
             merged: dict[str, Any] = details.copy()
-            merged["prev_chain_digest"] = self.prev_chain_digest
+            merged["prev_chain_digest"] = self._log.resync_head()
             return self._log.log(
                 event_type=event_type,
                 actor=actor,
@@ -3905,6 +3978,120 @@ def record_task_claim_receipt(
     )
 
 
+def record_task_release_receipt(
+    *,
+    chain: AuditChainStore,
+    task_id: str,
+    role: str,
+    released_by: str,
+    task_version: int,
+    release_path: str,
+    reason: str,
+    from_status: str,
+    to_status: str,
+    actor: str = "task_store",
+) -> AuditEvent:
+    """Append a ``task.release_receipt`` event into *chain* (#3037).
+
+    The surrender half of the claim ledger. ``task.claim_receipt`` records
+    that a worker took a task; this records that the same worker no longer
+    holds it, because the task went back to the pool or died terminally
+    without delivering. Recording only acquisitions supports a strictly
+    weaker question than the claim receipt is for: a replay of an
+    acquisition-only ledger reports node A as holding a task node B has
+    already re-claimed. With both halves on one chain,
+    :func:`reconstruct_claim_holders` folds them in chain order and answers
+    "who last took this task, and has it gone back to the pool" offline, at
+    any point in the chain.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        task_id: The task whose claim ended.
+        role: The task's role lane.
+        released_by: The holder that surrendered the claim -- the session or
+            agent identifier recorded at claim time (may be empty when the
+            claim carried no session id).
+        task_version: The task version after the releasing transition.
+        release_path: Which path ended the claim (``force_claim`` /
+            ``reopen`` / ``release`` / ``cancel`` / ``cancel_cascade`` /
+            ``fail`` / ``fail_contract_violation`` /
+            ``fail_empty_completion`` / ``refuse`` / ``abandon`` /
+            ``abandon_cascade`` / ``restart_recovery`` / ``node_departure``).
+        reason: The transition's recorded reason.
+        from_status: Task status the claim was held in.
+        to_status: Task status the release moved it to.
+        actor: Recorded actor; defaults to ``"task_store"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded
+        in its details payload.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_TASK_RELEASE_RECEIPT,
+        actor=actor,
+        resource_type="task_claim",
+        resource_id=task_id,
+        details={
+            "task_id": task_id,
+            "role": role,
+            "released_by": released_by,
+            "task_version": task_version,
+            "release_path": release_path,
+            "reason": reason,
+            "from_status": from_status,
+            "to_status": to_status,
+        },
+    )
+
+
+def reconstruct_claim_holders(events: Iterable[AuditEvent]) -> dict[str, str]:
+    """Fold claim and release receipts into the last claimant per task (#3037).
+
+    Offline reconstruction from the chain alone: a ``task.claim_receipt``
+    records a task as taken by its claimer, the matching
+    ``task.release_receipt`` drops it. Pass a prefix of the chain to
+    reconstruct the same projection as of that point.
+
+    This is not "who is executing this task right now". Delivery mints no
+    release receipt, so a task that ran to completion stays mapped to the
+    worker that delivered it until something puts it back in the pool. What
+    the fold does guarantee is the property the acquisition-only ledger could
+    not support: every path that returns a task to the pool records a release
+    first, so a task is never mapped to one claimant while another holds it.
+    Cross-check the task's status when the caller needs liveness rather than
+    attribution.
+
+    A release for a task with no recorded claim is tolerated (the claim may
+    predate the range passed in, or have been granted through a store-level
+    path that mints no receipt) and simply leaves the task unclaimed.
+
+    Chains written before #3037 carry acquisitions only, so over that region
+    the fold reports every task ever claimed as still claimed; nothing in the
+    receipt marks where the release half starts, so a caller reading a chain
+    that spans the upgrade has to bound the range itself.
+
+    Args:
+        events: Audit events in chain order. Non-claim events are ignored, so
+            the full chain can be passed unfiltered.
+
+    Returns:
+        Mapping of task id to the identifier that last claimed it without a
+        recorded release. Tasks whose claim was released are absent. A claim
+        that carried no session id maps to the empty string, which is still
+        distinguishable from "released" by key membership.
+    """
+    holders: dict[str, str] = {}
+    for event in events:
+        if event.event_type == EVENT_TASK_CLAIM_RECEIPT:
+            task_id = str(event.details.get("task_id", "") or event.resource_id)
+            if task_id:
+                holders[task_id] = str(event.details.get("claimed_by", "") or "")
+        elif event.event_type == EVENT_TASK_RELEASE_RECEIPT:
+            task_id = str(event.details.get("task_id", "") or event.resource_id)
+            holders.pop(task_id, None)
+    return holders
+
+
 def record_claim_journal_receipt(
     *,
     chain: AuditChainStore,
@@ -4224,6 +4411,84 @@ def record_adapter_canary_receipt(
     )
 
 
+def record_adapter_admission_receipt(
+    *,
+    chain: AuditChainStore,
+    adapter: str,
+    binary: str,
+    installed_version: str | None,
+    contract_hash: str,
+    replay_fingerprint: str,
+    conformance_run_id: str,
+    verdict: str,
+    reason: str,
+    allowed_capabilities: list[str],
+    forbidden_capabilities: list[str],
+    receipt_sha256: str,
+    kind: str = EVENT_ADAPTER_ADMISSION_RECEIPT,
+    actor: str = "adapter_admission",
+) -> AuditEvent:
+    """Append an ``adapter.admission_receipt`` event into *chain* (#2610).
+
+    Mirrors one admission decision into the HMAC chain: the adapter, the
+    upstream version it was probed against, the pinned contract's content
+    hash, the deterministic replay fingerprint, the conformance run that
+    derived it, and the capability split the decision granted or withheld.
+
+    Refusals are recorded on exactly the same terms as admissions, which is
+    what makes the record load-bearing. A conformance verdict of ``skip``
+    that produced no event would leave an unverified adapter looking
+    indistinguishable from an unexamined one; with the event, a verifier
+    holding a contiguous chain slice can prove offline which adapters held
+    spawn authority during a window and, for each one that did not, the reason
+    and the capabilities it was denied.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        adapter: Adapter registry key.
+        binary: Binary name the admission probe resolved.
+        installed_version: Captured upstream version, or ``None``.
+        contract_hash: SHA-256 of the pinned contract bytes, ``""`` when the
+            adapter ships none.
+        replay_fingerprint: Deterministic projection of the contract bytes,
+            the binary version, and the golden-transcript replay output.
+        conformance_run_id: Deterministic id of the conformance run behind the
+            decision.
+        verdict: ``admit`` or ``refuse``.
+        reason: Refusal reason; empty on an admission.
+        allowed_capabilities: Capability axes the decision grants.
+        forbidden_capabilities: Capability axes the decision withholds.
+        receipt_sha256: Content hash of the canonical receipt bytes.
+        kind: The receipt ``kind`` discriminator (sealed admission receipt vs
+            gate decision), recorded so the two are never conflated.
+        actor: Recorded actor; defaults to ``"adapter_admission"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded in
+        its details payload.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_ADAPTER_ADMISSION_RECEIPT,
+        actor=actor,
+        resource_type="adapter_admission",
+        resource_id=adapter,
+        details={
+            "adapter": adapter,
+            "binary": binary,
+            "installed_version": installed_version,
+            "contract_hash": contract_hash,
+            "replay_fingerprint": replay_fingerprint,
+            "conformance_run_id": conformance_run_id,
+            "verdict": verdict,
+            "reason": reason,
+            "allowed_capabilities": allowed_capabilities.copy(),
+            "forbidden_capabilities": forbidden_capabilities.copy(),
+            "receipt_sha256": receipt_sha256,
+            "kind": kind,
+        },
+    )
+
+
 def record_capability_selection(
     *,
     chain: AuditChainStore,
@@ -4488,15 +4753,27 @@ def record_process_reap_receipt(
     grace_seconds: float,
     reason: str,
     actor: str = "spawner",
+    already_gone: bool = False,
+    confirmed_dead: bool = False,
 ) -> AuditEvent:
     """Append a ``process.reap_receipt`` event into *chain* (#2367).
 
     Mirrors a forced agent process-tree reap into the audit chain.  The
     receipt records which platform mechanism delivered the stop (POSIX
     process-group signalling or Windows process-tree termination), whether
-    the graceful stop was delivered, and whether escalation to a force-kill
-    was required.  A verifier reconstructing a failure window can prove
-    offline which reap path ran instead of inferring it from log lines.
+    the graceful stop was delivered, whether the tree had already exited on
+    its own, whether escalation to a force-kill was required, and whether
+    the tree is verified gone.  A verifier reconstructing a failure window
+    can prove offline which reap path ran instead of inferring it from log
+    lines.
+
+    ``delivered`` records what was handed to the OS; ``confirmed_dead``
+    records what was observed afterwards.  They differ whenever a tree
+    exits before the reap reaches it, which is a routine outcome and not a
+    failure, and also whenever the platform cannot observe the outcome at
+    all.  Both new fields are only ever True from an observation, so a
+    verifier reading the chain offline can rely on False meaning "not
+    established" rather than "assumed".
 
     Args:
         chain: The audit chain store accepting the entry.
@@ -4511,6 +4788,11 @@ def record_process_reap_receipt(
         reason: Why the reap ran (e.g. ``"kill_requested"``,
             ``"heartbeat_stale"``, ``"wall_clock_timeout"``).
         actor: Recorded actor; defaults to ``"spawner"``.
+        already_gone: Whether the tree was observed to have already exited
+            before any stop tier ran.
+        confirmed_dead: Whether the tree was observed to no longer be
+            running once the reap returned.  False means the reap could not
+            establish it, which is not the same as the tree still running.
 
     Returns:
         The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded
@@ -4530,6 +4812,8 @@ def record_process_reap_receipt(
             "escalated": escalated,
             "grace_seconds": grace_seconds,
             "reason": reason,
+            "already_gone": already_gone,
+            "confirmed_dead": confirmed_dead,
         },
     )
 
@@ -7410,10 +7694,141 @@ def record_pool_warm_quarantine(
     )
 
 
+# ---------------------------------------------------------------------------
+# Provenance-verified release update advisory (#2942)
+# ---------------------------------------------------------------------------
+
+#: Issue #2942 -- one update check, sealed. Binds the installed version, the
+#: provenance-verified candidate, that candidate's wheel hash, and the signed
+#: surface delta to a position in the chain, so "on date D we checked, found
+#: vV, verified its provenance, and deferred" is reconstructable rather than
+#: an ephemeral print. Only hashes, versions, and counts are recorded.
+EVENT_UPDATE_ADVISORY = "update.advisory"
+
+#: Issue #2942 -- one install or rollback of the orchestrator itself. Binds
+#: the from/to versions, the wheel hash that was verified before pip ran, and
+#: the signing identity the provenance chained to, so an upgrade is as
+#: reconstructable as any other chain event and its predecessor is known.
+EVENT_SELF_UPDATE = "self.update"
+
+
+def record_update_advisory(
+    *,
+    chain: AuditChainStore,
+    advisory_sha256: str,
+    installed_version: str,
+    candidate_version: str | None,
+    candidate_wheel_sha256: str | None,
+    provenance_verified: bool,
+    surface_delta: dict[str, Any],
+    feed_sha256: str,
+    trust_root_fingerprint: str,
+    actor: str = "update_advisory",
+) -> AuditEvent:
+    """Append an ``update.advisory`` event into *chain* (#2942).
+
+    Mirrors one provenance-verified update check into the HMAC chain: the
+    content hash of the sealed advisory, the version pair, the candidate's
+    wheel hash, whether provenance verified, and the signed surface delta. An
+    operator can prove offline which release they were told about, which
+    signing identity vouched for it, and where in the chain the check sat --
+    which is what separates the advisory from a version-string diff.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        advisory_sha256: Content hash of the canonical advisory bytes.
+        installed_version: Version installed when the check ran.
+        candidate_version: Verified candidate, or ``None`` when up to date.
+        candidate_wheel_sha256: Wheel hash the candidate would install.
+        provenance_verified: True iff the candidate's release manifest
+            verified against the configured trust root before being surfaced.
+        surface_delta: Signed surface classification of the gap.
+        feed_sha256: Content hash of the verified release feed body.
+        trust_root_fingerprint: Fingerprint of the trust root that vouched.
+        actor: Recorded actor; defaults to ``"update_advisory"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_UPDATE_ADVISORY,
+        actor=actor,
+        resource_type="update_advisory",
+        resource_id=advisory_sha256,
+        details={
+            "advisory_sha256": advisory_sha256,
+            "installed_version": installed_version,
+            "candidate_version": candidate_version,
+            "candidate_wheel_sha256": candidate_wheel_sha256,
+            "provenance_verified": provenance_verified,
+            "surface_delta": dict(surface_delta),
+            "feed_sha256": feed_sha256,
+            "trust_root_fingerprint": trust_root_fingerprint,
+        },
+    )
+
+
+def record_self_update_receipt(
+    *,
+    chain: AuditChainStore,
+    receipt_sha256: str,
+    direction: str,
+    from_version: str,
+    to_version: str,
+    wheel_sha256: str,
+    provenance_key_fingerprint: str,
+    advisory_sha256: str,
+    attestation_verified: bool | None,
+    actor: str = "self_update",
+) -> AuditEvent:
+    """Append a ``self.update`` install/rollback receipt into *chain* (#2942).
+
+    Recorded after the wheel hash has been checked against the
+    provenance-verified advisory and before the operator is told the upgrade
+    succeeded, so the chain names the exact artefact that was installed.
+    ``direction`` distinguishes a forward install from a rollback; because
+    both are receipted, the predecessor of any installed version is known
+    from the chain rather than from a plaintext breadcrumb file.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        receipt_sha256: Content hash of the canonical receipt bytes.
+        direction: ``"install"`` or ``"rollback"``.
+        from_version: Version in place before the change.
+        to_version: Version in place after the change.
+        wheel_sha256: Hash of the wheel that was verified and installed.
+        provenance_key_fingerprint: Trust root the provenance chained to.
+        advisory_sha256: The advisory this install was authorised by.
+        attestation_verified: Tri-state Sigstore result -- True verified,
+            False refused, None skipped (no verifier available).
+        actor: Recorded actor; defaults to ``"self_update"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_SELF_UPDATE,
+        actor=actor,
+        resource_type="self_update_receipt",
+        resource_id=receipt_sha256,
+        details={
+            "receipt_sha256": receipt_sha256,
+            "direction": direction,
+            "from_version": from_version,
+            "to_version": to_version,
+            "wheel_sha256": wheel_sha256,
+            "provenance_key_fingerprint": provenance_key_fingerprint,
+            "advisory_sha256": advisory_sha256,
+            "attestation_verified": attestation_verified,
+        },
+    )
+
+
 __all__ = [
     "AGENT_FRESH_RESTART_ON_RETRY",
     "EVENT_A2A_MESSAGE_RECEIPT",
     "EVENT_ACTIVITY_RESULT",
+    "EVENT_ADAPTER_ADMISSION_RECEIPT",
     "EVENT_ADAPTER_CANARY_RECEIPT",
     "EVENT_ADAPTER_CAPABILITY_REFUSAL",
     "EVENT_ADAPTER_CAPABILITY_SELECTION",
@@ -7505,6 +7920,7 @@ __all__ = [
     "EVENT_RUN_SSH_TASK",
     "EVENT_SCHEDULE_COLLISION",
     "EVENT_SCHEDULE_FIRE_PROJECTION",
+    "EVENT_SELF_UPDATE",
     "EVENT_SIGNAL_GATE_PROJECTION",
     "EVENT_SKILL_INSTALL_RECEIPT",
     "EVENT_SKILL_USAGE",
@@ -7518,6 +7934,7 @@ __all__ = [
     "EVENT_SUBAGENT_DELEGATION",
     "EVENT_TASK_CLAIM_RECEIPT",
     "EVENT_TASK_MAILBOX_MESSAGE",
+    "EVENT_TASK_RELEASE_RECEIPT",
     "EVENT_TASK_RESOURCE_RELEASE",
     "EVENT_TASK_RESUMED",
     "EVENT_TASK_SUSPENDED",
@@ -7525,6 +7942,7 @@ __all__ = [
     "EVENT_TEMPLATE_COMPRESSION_RESTORE",
     "EVENT_THREAD_APPROVAL",
     "EVENT_TOURNAMENT_SELECTION",
+    "EVENT_UPDATE_ADVISORY",
     "EVENT_WEBHOOK_NODE_RECEIPT",
     "EVENT_WEBHOOK_PAYLOAD_ANCHOR",
     "EVENT_WORK_LEDGER_ANCHOR",
@@ -7543,9 +7961,11 @@ __all__ = [
     "SkillInstallReceiptDetails",
     "SkillVerificationRefusalDetails",
     "ThreadApprovalDetails",
+    "reconstruct_claim_holders",
     "reconstruct_mcp_call_order",
     "record_a2a_message_receipt",
     "record_activity_result",
+    "record_adapter_admission_receipt",
     "record_adapter_canary_receipt",
     "record_adapter_floor_update_receipt",
     "record_adapter_spawn_preflight_receipt",
@@ -7630,6 +8050,7 @@ __all__ = [
     "record_run_ssh_task",
     "record_schedule_collision",
     "record_schedule_fire_projection",
+    "record_self_update_receipt",
     "record_sensitive_gate",
     "record_signal_gate_projection",
     "record_skill_install_receipt",
@@ -7645,11 +8066,13 @@ __all__ = [
     "record_taint_decision",
     "record_task_claim_receipt",
     "record_task_mailbox_message",
+    "record_task_release_receipt",
     "record_task_resource_release",
     "record_task_resume",
     "record_task_suspension",
     "record_thread_approval",
     "record_tournament_selection",
+    "record_update_advisory",
     "record_webhook_node_receipt",
     "record_webhook_payload_anchor",
     "record_work_ledger_anchor",

@@ -8,7 +8,11 @@
 
 use std::collections::VecDeque;
 use std::io::Read;
-use std::process::{Child, Command, Stdio};
+#[cfg(unix)]
+use std::os::fd::{AsRawFd, RawFd};
+#[cfg(unix)]
+use std::os::unix::net::UnixStream;
+use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
@@ -134,6 +138,11 @@ pub use types::{
 
 pub(crate) use helpers::{exit_code, feed_chunk, kill_drain_deadline, log_spawned_child_pid};
 #[cfg(unix)]
+pub(crate) use helpers::{
+    child_signal_disposition, child_try_wait_error_is_retryable, completed_reap_after_signal,
+    poll_mutex_until, with_child_lock_for_signal, ChildSignalDisposition,
+};
+#[cfg(unix)]
 pub use unix::{unix_set_priority, unix_signal_process, unix_signal_process_group, UnixSignal};
 #[cfg(windows)]
 pub(crate) use windows::{
@@ -192,6 +201,104 @@ struct ChildState {
     _job: WindowsJobHandle,
 }
 
+#[cfg(unix)]
+#[derive(Default)]
+struct UnixCaptureWakers {
+    stdout: Option<UnixStream>,
+    stderr: Option<UnixStream>,
+}
+
+#[cfg(unix)]
+struct UnixCancelableReader<R> {
+    reader: R,
+    wake_reader: UnixStream,
+}
+
+#[cfg(any(test, unix))]
+#[derive(Debug, Eq, PartialEq)]
+enum CapturePollAction {
+    Wait,
+    Read,
+    Cancel,
+}
+
+#[cfg(any(test, unix))]
+fn capture_poll_action(capture_revents: i16, wake_revents: i16) -> CapturePollAction {
+    if wake_revents != 0 {
+        CapturePollAction::Cancel
+    } else if capture_revents != 0 {
+        CapturePollAction::Read
+    } else {
+        CapturePollAction::Wait
+    }
+}
+
+#[cfg(unix)]
+impl<R: Read + AsRawFd> Read for UnixCancelableReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        if buf.is_empty() {
+            return Ok(0);
+        }
+        loop {
+            let mut poll_fds = [
+                libc::pollfd {
+                    fd: self.reader.as_raw_fd(),
+                    events: libc::POLLIN | libc::POLLHUP | libc::POLLERR,
+                    revents: 0,
+                },
+                libc::pollfd {
+                    fd: self.wake_reader.as_raw_fd(),
+                    events: libc::POLLIN | libc::POLLHUP | libc::POLLERR,
+                    revents: 0,
+                },
+            ];
+            let polled = unsafe { libc::poll(poll_fds.as_mut_ptr(), poll_fds.len() as _, -1) };
+            if polled < 0 {
+                let error = std::io::Error::last_os_error();
+                if error.kind() == std::io::ErrorKind::Interrupted {
+                    continue;
+                }
+                return Err(error);
+            }
+            match capture_poll_action(poll_fds[0].revents, poll_fds[1].revents) {
+                CapturePollAction::Cancel => {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::Interrupted,
+                        "capture reader cancelled",
+                    ));
+                }
+                CapturePollAction::Read => match self.reader.read(buf) {
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => continue,
+                    result => return result,
+                },
+                CapturePollAction::Wait => {}
+            }
+        }
+    }
+}
+
+#[cfg(unix)]
+fn set_nonblocking(fd: RawFd) -> std::io::Result<()> {
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    if flags < 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    if unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn cleanup_child_after_start_error(mut child: Child) {
+    let _ = child.kill();
+    // Keep start() bounded while retaining ownership until the child is
+    // eventually reaped, even if the OS takes time to deliver SIGKILL.
+    thread::spawn(move || {
+        let _ = child.wait();
+    });
+}
+
 impl SharedState {
     fn new(capture: bool) -> Self {
         Self::with_observer(capture, None)
@@ -237,9 +344,14 @@ impl SharedState {
 pub struct NativeProcess {
     config: ProcessConfig,
     child: Arc<Mutex<Option<ChildState>>>,
+    stdin: Mutex<Option<ChildStdin>>,
     shared: Arc<SharedState>,
+    #[cfg(test)]
+    stdin_write_active: AtomicBool,
     #[cfg(windows)]
     capture_pipe_handles: Arc<Mutex<CapturePipeHandles>>,
+    #[cfg(unix)]
+    capture_wakers: Arc<Mutex<UnixCaptureWakers>>,
 }
 
 impl NativeProcess {
@@ -282,9 +394,14 @@ impl NativeProcess {
         Self {
             shared: Arc::new(shared),
             child: Arc::new(Mutex::new(None)),
+            stdin: Mutex::new(None),
+            #[cfg(test)]
+            stdin_write_active: AtomicBool::new(false),
             config,
             #[cfg(windows)]
             capture_pipe_handles: Arc::new(Mutex::new(CapturePipeHandles::default())),
+            #[cfg(unix)]
+            capture_wakers: Arc::new(Mutex::new(UnixCaptureWakers::default())),
         }
     }
 
@@ -352,9 +469,9 @@ impl NativeProcess {
         #[cfg(target_os = "linux")]
         {
             if let Some(emitter) = self.shared.observer.as_ref() {
-                if let Some(sink) = emitter.descendant_sink() {
+                if let Some((sink, stop)) = emitter.descendant_pump() {
                     crate::observer::descendants_linux::enable_subreaper();
-                    crate::observer::descendants_linux::spawn_pump(child.id(), sink);
+                    crate::observer::descendants_linux::spawn_pump(child.id(), sink, stop);
                 }
             }
         }
@@ -364,8 +481,8 @@ impl NativeProcess {
         #[cfg(target_os = "macos")]
         {
             if let Some(emitter) = self.shared.observer.as_ref() {
-                if let Some(sink) = emitter.descendant_sink() {
-                    crate::observer::descendants_macos::spawn_pump(child.id(), sink);
+                if let Some((sink, stop)) = emitter.descendant_pump() {
+                    crate::observer::descendants_macos::spawn_pump(child.id(), sink, stop);
                 }
             }
         }
@@ -381,6 +498,26 @@ impl NativeProcess {
                     .expect("capture pipe handles mutex poisoned");
                 handles.stdout = Some(stdout.as_raw_handle() as usize);
                 handles.stderr = Some(stderr.as_raw_handle() as usize);
+            }
+            #[cfg(unix)]
+            let ((stdout, stdout_waker), (stderr, stderr_waker)) =
+                match Self::prepare_unix_capture_reader(stdout).and_then(|stdout| {
+                    Self::prepare_unix_capture_reader(stderr).map(|stderr| (stdout, stderr))
+                }) {
+                    Ok(readers) => readers,
+                    Err(error) => {
+                        cleanup_child_after_start_error(child);
+                        return Err(ProcessError::Spawn(error));
+                    }
+                };
+            #[cfg(unix)]
+            {
+                let mut wakers = self
+                    .capture_wakers
+                    .lock()
+                    .expect("capture wakers mutex poisoned");
+                wakers.stdout = Some(stdout_waker);
+                wakers.stderr = Some(stderr_waker);
             }
             self.spawn_reader(
                 stdout,
@@ -398,6 +535,7 @@ impl NativeProcess {
                 self.pipe_done_callback(StreamKind::Stderr),
             );
         }
+        *self.stdin.lock().expect("stdin mutex poisoned") = child.stdin.take();
         *guard = Some(ChildState {
             child,
             #[cfg(windows)]
@@ -416,6 +554,8 @@ impl NativeProcess {
         let capture = self.config.capture;
         #[cfg(windows)]
         let capture_pipe_handles = Arc::clone(&self.capture_pipe_handles);
+        #[cfg(unix)]
+        let capture_wakers = Arc::clone(&self.capture_wakers);
         thread::spawn(move || {
             loop {
                 if shared.returncode.load(Ordering::Acquire) != RETURNCODE_NOT_SET {
@@ -437,7 +577,16 @@ impl NativeProcess {
                                 true
                             }
                             Ok(None) => false,
-                            Err(_) => return,
+                            Err(_error) => {
+                                #[cfg(unix)]
+                                if child_try_wait_error_is_retryable(&_error) {
+                                    false
+                                } else {
+                                    return;
+                                }
+                                #[cfg(windows)]
+                                return;
+                            }
                         }
                     } else {
                         return;
@@ -454,7 +603,8 @@ impl NativeProcess {
                     // naturally within the grace window. Only if the window
                     // elapses with the pipe still held open do we cancel, to
                     // release the otherwise-leaked reader thread (Windows:
-                    // CancelIoEx). The child lock is released before this
+                    // CancelIoEx; Unix: a per-reader wake socket). The child
+                    // lock is released before this
                     // potentially-blocking finalize so poll()/kill() are never
                     // held off.
                     if capture {
@@ -463,10 +613,12 @@ impl NativeProcess {
                         if !drained {
                             cancel_capture_pipe_io(&capture_pipe_handles);
                         }
-                        #[cfg(not(windows))]
-                        {
-                            let _ = drained;
+                        #[cfg(unix)]
+                        if !drained {
+                            cancel_capture_pipe_io(&capture_wakers);
                         }
+                        #[cfg(not(any(windows, unix)))]
+                        let _ = drained;
                     }
                     return;
                 }
@@ -482,13 +634,20 @@ impl NativeProcess {
 
     /// Write bytes to the child's stdin and then close stdin.
     pub fn write_stdin(&self, data: &[u8]) -> Result<(), ProcessError> {
-        let mut guard = self.child.lock().expect("child mutex poisoned");
-        let child = &mut guard.as_mut().ok_or(ProcessError::NotRunning)?.child;
-        let stdin = child.stdin.as_mut().ok_or(ProcessError::StdinUnavailable)?;
+        if self.child.lock().expect("child mutex poisoned").is_none() {
+            return Err(ProcessError::NotRunning);
+        }
+        let mut guard = self.stdin.lock().expect("stdin mutex poisoned");
+        let stdin = guard.as_mut().ok_or(ProcessError::StdinUnavailable)?;
         use std::io::Write;
-        stdin.write_all(data).map_err(ProcessError::Io)?;
+        #[cfg(test)]
+        self.stdin_write_active.store(true, Ordering::Release);
+        let write_result = stdin.write_all(data);
+        #[cfg(test)]
+        self.stdin_write_active.store(false, Ordering::Release);
+        write_result.map_err(ProcessError::Io)?;
         stdin.flush().map_err(ProcessError::Io)?;
-        drop(child.stdin.take());
+        drop(guard.take());
         Ok(())
     }
 
@@ -497,11 +656,18 @@ impl NativeProcess {
     /// pipe-backed sessions (#130 milestone 3) where the daemon keeps
     /// stdin open across multiple client input frames.
     pub fn write_stdin_streaming(&self, data: &[u8]) -> Result<(), ProcessError> {
-        let mut guard = self.child.lock().expect("child mutex poisoned");
-        let child = &mut guard.as_mut().ok_or(ProcessError::NotRunning)?.child;
-        let stdin = child.stdin.as_mut().ok_or(ProcessError::StdinUnavailable)?;
+        if self.child.lock().expect("child mutex poisoned").is_none() {
+            return Err(ProcessError::NotRunning);
+        }
+        let mut guard = self.stdin.lock().expect("stdin mutex poisoned");
+        let stdin = guard.as_mut().ok_or(ProcessError::StdinUnavailable)?;
         use std::io::Write;
-        stdin.write_all(data).map_err(ProcessError::Io)?;
+        #[cfg(test)]
+        self.stdin_write_active.store(true, Ordering::Release);
+        let write_result = stdin.write_all(data);
+        #[cfg(test)]
+        self.stdin_write_active.store(false, Ordering::Release);
+        write_result.map_err(ProcessError::Io)?;
         stdin.flush().map_err(ProcessError::Io)?;
         Ok(())
     }
@@ -509,9 +675,10 @@ impl NativeProcess {
     /// Explicitly close the child's stdin (signals EOF to the child).
     /// Idempotent: returns Ok if stdin was already closed.
     pub fn close_stdin(&self) -> Result<(), ProcessError> {
-        let mut guard = self.child.lock().expect("child mutex poisoned");
-        let child = &mut guard.as_mut().ok_or(ProcessError::NotRunning)?.child;
-        drop(child.stdin.take());
+        if self.child.lock().expect("child mutex poisoned").is_none() {
+            return Err(ProcessError::NotRunning);
+        }
+        drop(self.stdin.lock().expect("stdin mutex poisoned").take());
         Ok(())
     }
 
@@ -605,6 +772,7 @@ impl NativeProcess {
 
     fn kill_impl(&self) -> Result<(), ProcessError> {
         crate::rp_rust_debug_scope!("running_process::NativeProcess::kill");
+        #[cfg(windows)]
         {
             let mut guard = self.child.lock().expect("child mutex poisoned");
             let child = &mut guard.as_mut().ok_or(ProcessError::NotRunning)?.child;
@@ -617,32 +785,76 @@ impl NativeProcess {
             // `exited` event (guarded against double-emit by the waiter).
             self.shared.emit_exited(pid, code);
         }
-        // On Windows, interrupt any pending blocking `read()` in the
-        // per-stream reader threads so they fall out of their loops
-        // immediately. This is what makes the grandchild-pipe-orphan
-        // case (FastLED Bug B: uv.exe spawns a python.exe grandchild
-        // that inherits the pipe and outlives uv) wake up in
-        // microseconds instead of waiting for the bounded-drain
-        // safety-net deadline below.
+        #[cfg(unix)]
+        {
+            let deadline = kill_drain_deadline();
+            let (pid, already_reaped) = with_child_lock_for_signal(&self.child, |state| {
+                let child = &mut state.as_mut().ok_or(ProcessError::NotRunning)?.child;
+                let pid = child.id();
+                match child_signal_disposition(child.try_wait()).map_err(ProcessError::Io)? {
+                    ChildSignalDisposition::AlreadyExited(status) => Ok((pid, Some(status))),
+                    ChildSignalDisposition::Signal => {
+                        let group_signaled = self.config.create_process_group
+                            && unix_signal_process_group(pid as i32, UnixSignal::Kill).is_ok();
+                        if !group_signaled {
+                            child.kill().map_err(ProcessError::Io)?;
+                        }
+                        Ok((pid, None))
+                    }
+                }
+            })?;
+
+            // Wake capture readers immediately after signal delivery. In
+            // particular, this prevents a surviving pipe-owning descendant
+            // from extending the bounded reap window.
+            self.cancel_capture_io();
+            let reaped = already_reaped.or_else(|| {
+                let reap_result =
+                    poll_mutex_until(&self.child, deadline, Duration::from_millis(10), |state| {
+                        match state.as_mut() {
+                            Some(child) => child.child.try_wait(),
+                            None => Ok(None),
+                        }
+                    });
+                completed_reap_after_signal(reap_result)
+            });
+            if let Some(status) = reaped {
+                let code = exit_code(status);
+                self.set_returncode(code);
+                self.shared.emit_exited(pid, code);
+            }
+            public_symbols::rp_native_process_wait_for_capture_completion_with_deadline_public(
+                self, deadline,
+            );
+            Ok(())
+        }
         #[cfg(windows)]
-        self.cancel_capture_io();
-        // Synchronize with the per-stream reader threads so that by the
-        // time kill() returns, the capture queues have flipped from
-        // "blocked on read" to "closed" and downstream pollers (e.g.
-        // take_combined_line) observe EOS instead of timeout. Without
-        // this, callers that hit a wait()-timeout path see Python code
-        // raise TimeoutError, kill the child, then race the reader
-        // threads — a 10ms poll loop can miss the EOS flip entirely.
-        //
-        // The deadline is the safety-net: on Windows `CancelIoEx`
-        // above almost always wakes the readers first; on POSIX, and
-        // in any pathological Windows case where `CancelIoEx` doesn't
-        // fire, the deadline guarantees `kill()` still returns.
-        public_symbols::rp_native_process_wait_for_capture_completion_with_deadline_public(
-            self,
-            kill_drain_deadline(),
-        );
-        Ok(())
+        {
+            // Interrupt any pending capture `read()` in the per-stream reader
+            // threads so they fall out of their loops immediately. This is what
+            // makes the grandchild-pipe-orphan
+            // case (FastLED Bug B: uv.exe spawns a python.exe grandchild
+            // that inherits the pipe and outlives uv) wake up in
+            // microseconds instead of waiting for the bounded-drain
+            // safety-net deadline below.
+            #[cfg(any(windows, unix))]
+            self.cancel_capture_io();
+            // Synchronize with the per-stream reader threads so that by the
+            // time kill() returns, the capture queues have flipped from
+            // "blocked on read" to "closed" and downstream pollers (e.g.
+            // take_combined_line) observe EOS instead of timeout. Without
+            // this, callers that hit a wait()-timeout path see Python code
+            // raise TimeoutError, kill the child, then race the reader
+            // threads — a 10ms poll loop can miss the EOS flip entirely.
+            //
+            // The deadline remains a safety-net if the platform wake mechanism
+            // does not fire.
+            public_symbols::rp_native_process_wait_for_capture_completion_with_deadline_public(
+                self,
+                kill_drain_deadline(),
+            );
+            Ok(())
+        }
     }
 
     /// Terminate the child process.
@@ -1140,6 +1352,22 @@ impl NativeProcess {
         });
     }
 
+    #[cfg(unix)]
+    fn prepare_unix_capture_reader<R: Read + AsRawFd>(
+        reader: R,
+    ) -> std::io::Result<(UnixCancelableReader<R>, UnixStream)> {
+        set_nonblocking(reader.as_raw_fd())?;
+        let (wake_reader, wake_writer) = UnixStream::pair()?;
+        wake_writer.set_nonblocking(true)?;
+        Ok((
+            UnixCancelableReader {
+                reader,
+                wake_reader,
+            },
+            wake_writer,
+        ))
+    }
+
     #[cfg(windows)]
     fn pipe_done_callback(&self, stream: StreamKind) -> Box<dyn FnOnce() + Send> {
         let handles = Arc::clone(&self.capture_pipe_handles);
@@ -1152,20 +1380,36 @@ impl NativeProcess {
         })
     }
 
-    #[cfg(not(windows))]
+    #[cfg(unix)]
+    fn pipe_done_callback(&self, stream: StreamKind) -> Box<dyn FnOnce() + Send> {
+        let wakers = Arc::clone(&self.capture_wakers);
+        Box::new(move || {
+            let mut guard = wakers.lock().expect("capture wakers mutex poisoned");
+            match stream {
+                StreamKind::Stdout => guard.stdout = None,
+                StreamKind::Stderr => guard.stderr = None,
+            }
+        })
+    }
+
+    #[cfg(not(any(windows, unix)))]
     fn pipe_done_callback(&self, _stream: StreamKind) -> Box<dyn FnOnce() + Send> {
         Box::new(|| {})
     }
 
-    /// Cancel any pending blocking `read()` on the parent-side capture
-    /// pipes so the reader threads' `read()` calls return
-    /// `ERROR_OPERATION_ABORTED` immediately. Used by `kill_impl` to
-    /// break the grandchild-orphan deadlock without waiting on
-    /// `wait_for_capture_completion_with_deadline`'s safety-net.
+    /// Cancel pending capture reads so reader threads return immediately.
+    /// Used by `kill_impl` to break the grandchild-orphan deadlock without
+    /// waiting on `wait_for_capture_completion_with_deadline`'s safety-net.
     #[cfg(windows)]
     fn cancel_capture_io(&self) {
         crate::rp_rust_debug_scope!("running_process::NativeProcess::cancel_capture_io");
         cancel_capture_pipe_io(&self.capture_pipe_handles);
+    }
+
+    #[cfg(unix)]
+    fn cancel_capture_io(&self) {
+        crate::rp_rust_debug_scope!("running_process::NativeProcess::cancel_capture_io");
+        cancel_capture_pipe_io(&self.capture_wakers);
     }
 
     fn set_returncode(&self, code: i32) {
@@ -1181,42 +1425,23 @@ impl NativeProcess {
     /// Unlike `kill_impl` the reader is not cancelled up front — a
     /// short-lived grandchild's output is allowed to drain within the
     /// grace window — but if the window elapses with the pipe still held
-    /// open the reader is cancelled to release the leaked thread (Windows).
+    /// open the reader is cancelled to release the leaked thread.
     fn finish_capture_drain(&self) {
-        let drained = self.wait_for_capture_completion_with_deadline_impl(kill_drain_deadline());
-        #[cfg(windows)]
+        self.finish_capture_drain_with_deadline(kill_drain_deadline());
+    }
+
+    fn finish_capture_drain_with_deadline(&self, deadline: Instant) {
+        let drained = self.wait_for_capture_completion_with_deadline_impl(deadline);
+        #[cfg(any(windows, unix))]
         if !drained {
             self.cancel_capture_io();
         }
-        #[cfg(not(windows))]
-        {
-            let _ = drained;
-        }
+        #[cfg(not(any(windows, unix)))]
+        let _ = drained;
     }
 
-    fn wait_for_capture_completion_impl(&self) {
-        crate::rp_rust_debug_scope!("running_process::NativeProcess::wait_for_capture_completion");
-        if !self.config.capture {
-            return;
-        }
-
-        let mut guard = self.shared.queues.lock().expect("queue mutex poisoned");
-        while !(guard.stdout_closed && guard.stderr_closed) {
-            guard = self
-                .shared
-                .condvar
-                .wait(guard)
-                .expect("queue mutex poisoned");
-        }
-    }
-
-    /// Like `wait_for_capture_completion_impl` but bounded by `deadline`.
-    /// Returns `true` if the reader threads flipped both closed flags on
-    /// their own, `false` if the deadline elapsed first. On timeout the
-    /// closed flags are force-set (and waiters notified) so downstream
-    /// pollers stop seeing `Timeout` and start seeing `Eof`. A reader
-    /// thread that eventually unblocks after the OS releases the pipe
-    /// will assign `closed = true` again, which is a harmless no-op.
+    /// Returns `true` if the reader threads flipped both closed flags on their
+    /// own before `deadline`, `false` if the deadline forced completion.
     fn wait_for_capture_completion_with_deadline_impl(&self, deadline: Instant) -> bool {
         crate::rp_rust_debug_scope!(
             "running_process::NativeProcess::wait_for_capture_completion_with_deadline"
@@ -1252,6 +1477,20 @@ fn cancel_capture_pipe_io(handles: &Mutex<CapturePipeHandles>) {
         unsafe {
             CancelIoEx(h as HANDLE, std::ptr::null_mut());
         }
+    }
+}
+
+#[cfg(unix)]
+fn cancel_capture_pipe_io(wakers: &Mutex<UnixCaptureWakers>) {
+    use std::os::fd::AsRawFd;
+
+    let guard = wakers.lock().expect("capture wakers mutex poisoned");
+    let byte = [1_u8; 1];
+    for writer in [&guard.stdout, &guard.stderr].into_iter().flatten() {
+        // The wake writers are nonblocking and receive at most one byte per
+        // cancellation path. EAGAIN means a previous wake byte is already
+        // pending, which is equally sufficient to release poll().
+        let _ = unsafe { libc::write(writer.as_raw_fd(), byte.as_ptr().cast(), byte.len()) };
     }
 }
 

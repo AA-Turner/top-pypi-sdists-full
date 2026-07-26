@@ -28,6 +28,9 @@ struct JointFitOutcome {
     loss: SaeManifoldLoss,
     termination: JointFitTermination,
     state_moved: bool,
+    /// The FIRST site that moved state, for the evidence lane's refusal
+    /// to name (see [`StateMoveSite`]).
+    moved_at: Option<StateMoveSite>,
 }
 
 pub(crate) struct EvidenceJointFitOutcome {
@@ -35,6 +38,134 @@ pub(crate) struct EvidenceJointFitOutcome {
     /// A whole evidence-only re-entry started at the current state and found no
     /// strict objective decrease, with no temperature/polish state transition.
     pub(crate) fixed_point: bool,
+    /// Which clause of that conjunction was false, for the re-entry loop's
+    /// refusal to name (see [`EvidenceFixedPointGap`]).
+    pub(crate) gap: EvidenceFixedPointGap,
+}
+
+/// Which clause of the idempotent-re-entry certificate a pass failed.
+///
+/// `fixed_point` is a four-way conjunction, and the four clauses have four
+/// different causes and four different remedies — a settled-but-annealing
+/// schedule is not the same defect as a Newton walk that is still descending,
+/// which is not the same as a pass that ran a full sweep and wrote back a state
+/// differing in its last bits. A caller that exhausts its re-entry budget can
+/// only report "did not reach an idempotent fixed point", which names none of
+/// them; and `gam-sae` test binaries install no logger backend, so a `log::`
+/// line would not surface it either. Carrying the clause makes the refusal
+/// actionable at the point it is raised.
+/// WHERE a pass moved model state.
+///
+/// `state_moved` is an OR over the whole call, but `termination` is assigned only
+/// inside the Newton loop — four of the eight move sites are OUTSIDE it (one
+/// before, three after). So "settled-root termination AND state_moved" is not a
+/// contradiction and neither signal is lying: they quantify over different spans
+/// of the pass, and without the site the pair cannot be read at all.
+///
+/// Two of the out-of-loop sites are RESTORES, which put the model back to a
+/// banked state — they set `state_moved` while potentially leaving the state
+/// bit-identical to entry, which `entry_state_recurred` already tests exactly.
+/// Distinguishing a restore from the exit block sweep is therefore the whole
+/// diagnosis: a restore means the certificate is refusing an idempotent pass,
+/// the exit sweep means the state genuinely was not a fixed point of the map.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum StateMoveSite {
+    /// The block sweep that runs BEFORE the Newton loop.
+    EntryBlockSweep,
+    /// The annealing schedule emitted a new temperature.
+    TemperatureSchedule,
+    /// The line search accepted a Newton step.
+    AcceptedNewtonStep,
+    /// The proximal-correction fallback accepted a step, inside the loop. This
+    /// path runs when the ordinary Armijo line search could not find a
+    /// sufficient directional decrease, and it commits only a decrease that
+    /// clears the evidence lane's MATERIAL floor
+    /// (`SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL * (1 + |objective|)`).
+    ProximalCorrectionStep,
+    /// Active frames were refreshed from data inside the loop.
+    FrameRefresh,
+    /// AFTER the loop: the banked inner incumbent was restored (#1026).
+    InnerIncumbentRestore,
+    /// AFTER the loop: the exit block sweep committed a material decrease.
+    ExitBlockSweep,
+    /// AFTER the loop: the exit objective warranty restored a banked state (#2228).
+    ExitWarrantyRestore,
+}
+
+impl StateMoveSite {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::EntryBlockSweep => {
+                "the pass moved state at the ENTRY block sweep, which runs BEFORE the Newton \
+                 loop (so the loop's own termination says nothing about it)"
+            }
+            Self::TemperatureSchedule => {
+                "the pass moved state at the annealing schedule, inside the loop"
+            }
+            Self::AcceptedNewtonStep => {
+                "the pass moved state at an accepted Newton step, inside the loop"
+            }
+            Self::ProximalCorrectionStep => {
+                "the pass moved state at the PROXIMAL-CORRECTION fallback, inside the loop - it \
+                 committed a decrease clearing the evidence MATERIAL floor, so a real objective \
+                 improvement was still available at the state being certified"
+            }
+            Self::FrameRefresh => {
+                "the pass moved state at an active-frame refresh, inside the loop"
+            }
+            Self::InnerIncumbentRestore => {
+                "the pass moved state at the inner-incumbent RESTORE, AFTER the loop - a \
+                 restore, so the state may be bit-identical to entry and the refusal may be \
+                 rejecting an idempotent pass"
+            }
+            Self::ExitBlockSweep => {
+                "the pass moved state at the EXIT block sweep, AFTER the loop - a committed \
+                 material decrease, so the state genuinely was not a fixed point of the map"
+            }
+            Self::ExitWarrantyRestore => {
+                "the pass moved state at the exit-warranty RESTORE, AFTER the loop - a \
+                 restore, so the state may be bit-identical to entry and the refusal may be \
+                 rejecting an idempotent pass"
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum EvidenceFixedPointGap {
+    /// No clause failed: the pass recurred its entry state exactly.
+    None,
+    /// The pass left through a route that is not a settled root (it exhausted
+    /// its iteration budget, or took a descent step it accepted).
+    NotASettledRoot,
+    /// The pass reported that it moved model state, at the named site.
+    StateMoved(StateMoveSite),
+    /// The pass reported no move, yet the model state is not bit-identical to
+    /// the entry snapshot — the re-entry wrote back a perturbed state.
+    StateNotRecurred,
+    /// The annealing schedule will emit a different temperature on the next
+    /// re-entry, so the objective this pass settled on is not the objective the
+    /// next one would see.
+    TemperatureStillAnnealing,
+}
+
+impl EvidenceFixedPointGap {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none (the pass recurred its entry state)",
+            Self::NotASettledRoot => {
+                "the pass did not terminate on a settled root (budget exhausted, or a step \
+                 was accepted)"
+            }
+            Self::StateMoved(site) => site.as_str(),
+            Self::StateNotRecurred => {
+                "the pass reported no move but the model state is not bit-identical to entry"
+            }
+            Self::TemperatureStillAnnealing => {
+                "the annealing schedule will emit a different temperature next re-entry"
+            }
+        }
+    }
 }
 
 /// Put one softmax-logit row in the reference-logit chart used by the joint
@@ -156,7 +287,142 @@ impl TargetCenteredColStats {
     }
 }
 
+/// The ABSOLUTE co-collapse verdict and every measurement it rests on.
+///
+/// Two sites decide "this dictionary co-collapsed": the reseed arm in
+/// [`SaeManifoldTerm::enforce_decoder_norm_guard`], which spends the multi-start
+/// budget, and the #2089 budget-exhaustion refusal in the joint fit, which turns
+/// a spent budget into a typed error. They must ask the same question — the
+/// refusal's whole meaning is "the reseeds did not escape the state that armed
+/// them" — and they did not. The refusal tested `ev <= ev_floor` ALONE, which is
+/// precisely the "merely-uncompetitive fit" the S1 surgery excludes on purpose:
+/// a fit whose decoders are present keeps its output energy and is left to the
+/// optimizer. So a live dictionary that merely reconstructed poorly could be
+/// refused by a message asserting "every atom's decoder co-vanished" while that
+/// same message printed the non-zero norms refuting it.
+///
+/// Carrying the components rather than a bare bool is what lets the refusal
+/// state which arm fired and on what numbers.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct AbsoluteCoCollapseVerdict {
+    pub(crate) explained_variance: f64,
+    pub(crate) output_energy_ratio: f64,
+    pub(crate) ev_floor: f64,
+    pub(crate) dictionary_rank: usize,
+    /// The decoders vanished TOGETHER: EV at or below the signal-free null floor
+    /// AND the reconstruction output at or below the same null level.
+    pub(crate) co_vanished: bool,
+    /// The decoders piled onto a shared output subspace whose best achievable,
+    /// amplitude-free capture is no better than a random subspace of that rank.
+    pub(crate) structurally_collapsed: bool,
+}
+
+impl AbsoluteCoCollapseVerdict {
+    pub(crate) fn degenerate(&self) -> bool {
+        self.co_vanished || self.structurally_collapsed
+    }
+}
+
 impl SaeManifoldTerm {
+    /// Compute [`AbsoluteCoCollapseVerdict`] from one reconstruction.
+    ///
+    /// `fitted` is the current `(n × p)` reconstruction; both degeneracy tests
+    /// read it, so callers assemble it once.
+    pub(crate) fn absolute_co_collapse_verdict(
+        &self,
+        fitted: &Array2<f64>,
+        target: ArrayView2<'_, f64>,
+        target_col_stats: Option<&TargetCenteredColStats>,
+    ) -> Result<AbsoluteCoCollapseVerdict, String> {
+        let explained_variance =
+            self.dictionary_reconstruction_ev_from_fitted(fitted, target, target_col_stats)?;
+        let output_energy_ratio = self.dictionary_reconstruction_output_energy_ratio_from_fitted(
+            fitted,
+            target,
+            target_col_stats,
+        )?;
+        let n = self.n_obs();
+        let p = target.ncols();
+        let k = self.k_atoms();
+        // Reachable rank `q = rank([Φ_1 … Φ_K])`, the CONCATENATED chart-design
+        // rank (#C5), NOT the sum `Σ_k rank(Φ_k)` — shared atom column spaces
+        // are counted once (chart geometry alone, so a co-collapsed decoder
+        // still reports full reach). Sets the null floor.
+        let dictionary_rank =
+            crate::manifold::outer_objective::reachable_dictionary_rank(&self.atoms, n, p);
+        let ev_floor =
+            crate::manifold::outer_objective::absolute_degeneracy_ev_floor(target, dictionary_rank);
+        let co_vanished = explained_variance.is_finite()
+            && explained_variance <= ev_floor
+            && output_energy_ratio <= ev_floor;
+        // #2362 Face B — STRUCTURAL co-collapse the achieved-EV / output-energy
+        // pair is blind to. The inner solve AMPLITUDE-COMPENSATES tiny decoders
+        // (a_i grows as the decoder norm shrinks), so the reconstruction keeps
+        // O(1) output energy even when every decoder has collapsed onto a shared
+        // low-dimensional OUTPUT subspace: `out_energy_ratio` never reaches the
+        // null floor, so the co-vanished test misses it (the k3 fixture in
+        // `decoder_norm_guard_reseeds_all_atoms_on_total_co_collapse_k3`: rank-1
+        // constant decoders, `events: []`). Detect it from the DECODERS. With `Q`
+        // an orthonormal basis of the union decoder output span (rank `R_dec`),
+        // the BEST reconstruction achievable WITHIN that span — amplitude-free —
+        // captures `reach = ||Q^T T_c||_F^2 / ss_tot` of the centered target
+        // variance. When the atoms have piled onto a shared subspace
+        // (`R_dec < K`) whose capture is no better than a RANDOM output subspace
+        // of the same dimension (`reach <= R_dec / p`), the dictionary is
+        // structurally co-collapsed however much output energy amplitude
+        // compensation manufactures. Scale-free (relative SVD cutoff),
+        // amplitude-free (subspace projection), and pairing-free (a UNION rank,
+        // not the pairwise coherence that false-fired on healthy correlated K>=2
+        // fits): a healthy overcomplete fit whose union span is RICH keeps
+        // `reach` well above `R_dec / p` and never trips it
+        // (`manifold_beats_linear_joint_streaming_1026`: 8 atoms on a 2-D ring,
+        // `R_dec` ~ 2, reach ~ 0.9, null 0.2).
+        let frames_sc = (0..k)
+            .map(|atom| crate::manifold::certificate::certificate_output_frame(self, atom))
+            .collect::<Result<Vec<_>, String>>()?;
+        let r_dec_sc = union_output_frame_rank(&frames_sc, p);
+        let structurally_collapsed = if r_dec_sc == 0 || r_dec_sc >= k || p == 0 {
+            false
+        } else {
+            let owned_stats;
+            let stats = match target_col_stats {
+                Some(stats) => stats,
+                None => {
+                    owned_stats = TargetCenteredColStats::compute(target);
+                    &owned_stats
+                }
+            };
+            if !(stats.ss_tot > 0.0) {
+                false
+            } else {
+                let q = union_output_frame_basis(&frames_sc, p);
+                let qc = q.ncols();
+                let n_rows = target.nrows();
+                let mut in_span = 0.0_f64;
+                for row in 0..n_rows {
+                    for c in 0..qc {
+                        let mut proj = 0.0_f64;
+                        for out in 0..p {
+                            proj += q[[out, c]] * (target[[row, out]] - stats.col_means[out]);
+                        }
+                        in_span += proj * proj;
+                    }
+                }
+                let ceiling = in_span / stats.ss_tot;
+                let random_subspace_null = r_dec_sc as f64 / p as f64;
+                ceiling <= random_subspace_null
+            }
+        };
+        Ok(AbsoluteCoCollapseVerdict {
+            explained_variance,
+            output_energy_ratio,
+            ev_floor,
+            dictionary_rank,
+            co_vanished,
+            structurally_collapsed,
+        })
+    }
+
     pub fn solve_newton_step(
         &mut self,
         target: ArrayView2<'_, f64>,
@@ -230,7 +496,7 @@ impl SaeManifoldTerm {
     /// of the coordinate blocks, evaluator handles, and homotopy dial. Comparing
     /// those driving fields plus the decoder/logits is therefore an exact model-
     /// state identity test without copying the large `(N × M)` basis arrays.
-    fn matches_mutable_state(&self, snapshot: &SaeManifoldMutableState) -> bool {
+    pub(crate) fn matches_mutable_state(&self, snapshot: &SaeManifoldMutableState) -> bool {
         let atoms_match = self.atoms.len() == snapshot.atoms.len()
             && self
                 .atoms
@@ -2208,6 +2474,42 @@ impl SaeManifoldTerm {
         }
         let coord_len = self.n_obs() * self.assignment.row_block_dim();
         let mut out = Vec::new();
+        // Independence probe for the emitted set. `ArrowBetaGaugeQuotient::new`
+        // treats a linearly dependent direction as a MALFORMED DECLARATION and
+        // refuses the whole solve — the right contract, since a caller that
+        // declares a redundant generator has mis-specified its gauge. Honoring
+        // it is the producer's job: the closed-form chart menu below is a
+        // GENERATING SET, and a generating set can become dependent once
+        // decoder frames compress the border. Two chart symmetries whose
+        // decoder compensations are distinct in the full-`B` border can have
+        // the SAME image in the factored `M_k × r_k` border (an atom whose
+        // decoder is rank-deficient inside its own frame collapses its
+        // per-axis translation/scale compensations onto each other), and the
+        // fit then dies on `direction j is zero or linearly dependent` rather
+        // than solving.
+        //
+        // Emit a maximal independent subset. This is exactly equivalent, not a
+        // relaxation: the Faddeev–Popov pin `P S_β P + Q Qᵀ` with
+        // `P = I − Q Qᵀ` is a function of the gauge SPAN alone, so dropping a
+        // generator that adds nothing to the span leaves `P`, the pin, and the
+        // projected step unchanged. The surviving vectors are pushed in their
+        // ORIGINAL form (the probe basis is internal), so a set that was
+        // already independent — every full-`B` fit — reaches the constructor
+        // byte-for-byte as before and its quotient is bit-identical.
+        //
+        // Drop predicate: EXACTLY the constructor's own, `‖residual‖² > 0`
+        // after modified Gram–Schmidt in the same order. Not a tolerance of
+        // ours — deliberately not, because any stricter floor would be an
+        // invented threshold that silently re-shapes the quotient on fits that
+        // were solving perfectly well.
+        //
+        // Matching the predicate makes the change provably behavior-preserving
+        // wherever it was not fatal. A dropped candidate contributed no vector
+        // to the probe basis (its residual was zero), so the probe basis
+        // evolves identically with or without it, and the constructor re-running
+        // MGS over the survivors reproduces its previous arithmetic step for
+        // step. The ONLY fits that move are the ones that previously died.
+        let mut probe: Vec<Array1<f64>> = Vec::new();
         for gauge in self.dense_step_gauge_vectors()? {
             if gauge.len() != coord_len + border {
                 continue;
@@ -2218,9 +2520,21 @@ impl SaeManifoldTerm {
             // coordinate block (no decoder compensation) contributes no β-Schur
             // null direction; skip it so the quotient stays exactly the reduced
             // border nullspace.
-            if norm_sq.is_finite() && norm_sq > 1.0e-24 {
-                out.push(beta_part);
+            if !(norm_sq.is_finite() && norm_sq > 1.0e-24) {
+                continue;
             }
+            let mut residual = beta_part.clone();
+            for basis in &probe {
+                let coefficient = residual.dot(basis);
+                residual.scaled_add(-coefficient, basis);
+            }
+            let residual_norm_sq = residual.dot(&residual);
+            if !(residual_norm_sq.is_finite() && residual_norm_sq > 0.0) {
+                continue;
+            }
+            residual *= residual_norm_sq.sqrt().recip();
+            probe.push(residual);
+            out.push(beta_part);
         }
         Ok(out)
     }
@@ -3264,26 +3578,12 @@ impl SaeManifoldTerm {
             // derive both from it (identical values, one `try_fitted_for_rho`
             // instead of two) — this guard runs once per accepted outer iterate.
             let fitted = self.try_fitted_for_rho(rho)?;
-            let ev =
-                self.dictionary_reconstruction_ev_from_fitted(&fitted, target, target_col_stats)?;
-            let out_energy_ratio = self.dictionary_reconstruction_output_energy_ratio_from_fitted(
-                &fitted,
-                target,
-                target_col_stats,
-            )?;
-            let n = self.n_obs();
-            let p = target.ncols();
-            // Reachable rank `q = rank([Φ_1 … Φ_K])`, the CONCATENATED chart-design
-            // rank (#C5), NOT the sum `Σ_k rank(Φ_k)` — shared atom column spaces
-            // are counted once (chart geometry alone, so a co-collapsed decoder
-            // still reports full reach). Sets the null floor, shared with the
-            // fitted-data collapse verdict so both key on one bar.
-            let dictionary_rank =
-                crate::manifold::outer_objective::reachable_dictionary_rank(&self.atoms, n, p);
-            let ev_floor = crate::manifold::outer_objective::absolute_degeneracy_ev_floor(
-                target,
-                dictionary_rank,
-            );
+            // ONE predicate, shared with the #2089 budget-exhaustion refusal so
+            // the arm that spends the multi-start budget and the refusal that
+            // reports it spent cannot disagree about what co-collapse is
+            // (see [`AbsoluteCoCollapseVerdict`]).
+            let verdict = self.absolute_co_collapse_verdict(&fitted, target, target_col_stats)?;
+            let ev = verdict.explained_variance;
             // The reseed fires when the decoders have VANISHED together (EV at the
             // signal-free null floor AND the output co-vanished). #2082 note: an
             // additional STRUCTURAL trigger (`structural_coherence_collapse_detected`,
@@ -3304,66 +3604,9 @@ impl SaeManifoldTerm {
             // is diagnostic ONLY (no state change), so healthy fits are byte-unchanged;
             // it lets the structure search / operator see the mode the two-width test
             // catches without the false-positive reseed that regressed live fits.
-            let base_degenerate = ev.is_finite() && ev <= ev_floor && out_energy_ratio <= ev_floor;
             // #2362 Face B — STRUCTURAL co-collapse the achieved-EV / output-energy
-            // pair is blind to. The inner solve AMPLITUDE-COMPENSATES tiny decoders
-            // (a_i grows as the decoder norm shrinks), so the reconstruction keeps
-            // O(1) output energy even when every decoder has collapsed onto a shared
-            // low-dimensional OUTPUT subspace: `out_energy_ratio` never reaches the
-            // null floor, so the co-vanished test misses it (the k3 fixture in
-            // `decoder_norm_guard_reseeds_all_atoms_on_total_co_collapse_k3`: rank-1
-            // constant decoders, `events: []`). Detect it from the DECODERS. With `Q`
-            // an orthonormal basis of the union decoder output span (rank `R_dec`),
-            // the BEST reconstruction achievable WITHIN that span — amplitude-free —
-            // captures `reach = ||Q^T T_c||_F^2 / ss_tot` of the centered target
-            // variance. When the atoms have piled onto a shared subspace
-            // (`R_dec < K`) whose capture is no better than a RANDOM output subspace
-            // of the same dimension (`reach <= R_dec / p`), the dictionary is
-            // structurally co-collapsed however much output energy amplitude
-            // compensation manufactures. Scale-free (relative SVD cutoff),
-            // amplitude-free (subspace projection), and pairing-free (a UNION rank,
-            // not the pairwise coherence that false-fired on healthy correlated K>=2
-            // fits): a healthy overcomplete fit whose union span is RICH keeps
-            // `reach` well above `R_dec / p` and never trips it
-            // (`manifold_beats_linear_joint_streaming_1026`: 8 atoms on a 2-D ring,
-            // `R_dec` ~ 2, reach ~ 0.9, null 0.2).
-            let frames_sc = (0..k)
-                .map(|atom| crate::manifold::certificate::certificate_output_frame(self, atom))
-                .collect::<Result<Vec<_>, String>>()?;
-            let r_dec_sc = union_output_frame_rank(&frames_sc, p);
-            let structural_degenerate = if r_dec_sc == 0 || r_dec_sc >= k || p == 0 {
-                false
-            } else {
-                let owned_stats;
-                let stats = match target_col_stats {
-                    Some(stats) => stats,
-                    None => {
-                        owned_stats = TargetCenteredColStats::compute(target);
-                        &owned_stats
-                    }
-                };
-                if !(stats.ss_tot > 0.0) {
-                    false
-                } else {
-                    let q = union_output_frame_basis(&frames_sc, p);
-                    let qc = q.ncols();
-                    let n_rows = target.nrows();
-                    let mut in_span = 0.0_f64;
-                    for row in 0..n_rows {
-                        for c in 0..qc {
-                            let mut proj = 0.0_f64;
-                            for out in 0..p {
-                                proj += q[[out, c]] * (target[[row, out]] - stats.col_means[out]);
-                            }
-                            in_span += proj * proj;
-                        }
-                    }
-                    let ceiling = in_span / stats.ss_tot;
-                    let random_subspace_null = r_dec_sc as f64 / p as f64;
-                    ceiling <= random_subspace_null
-                }
-            };
-            let ev_degenerate = base_degenerate || structural_degenerate;
+            // pair is blind to, now computed inside the shared verdict.
+            let ev_degenerate = verdict.degenerate();
             if !ev_degenerate
                 && let Some((j, kk, coherence)) = self.structural_coherence_collapse_detected()?
             {
@@ -5298,6 +5541,14 @@ impl SaeManifoldTerm {
                 "SaeManifoldTerm::run_fixed_decoder_arrow_schur: step_size must be finite and positive; got {step_size}"
             ));
         }
+        // #2267 — the backtracking search only ever CONTRACTS from its first
+        // trial, so pinning that trial to the caller's `step_size` caps the
+        // per-iteration contraction at `1 - step_size` regardless of how good
+        // the direction is. Clean acceptances ratchet the trial toward the unit
+        // Newton step instead; the Armijo bound is unchanged.
+        let warm_growth = 1.0 / BacktrackConfig::default().contraction;
+        let unit_step_ceiling = step_size.max(1.0);
+        let mut warm_step = step_size;
         if max_iter < 1 {
             return Err(
                 "SaeManifoldTerm::run_fixed_decoder_arrow_schur: max_iter must be positive".into(),
@@ -5354,7 +5605,7 @@ impl SaeManifoldTerm {
             let mut first_trial = true;
             let accepted = backtracking_line_search::<_, String>(
                 BacktrackConfig {
-                    initial_step: step_size,
+                    initial_step: warm_step,
                     max_steps: SAE_MANIFOLD_MAX_LINESEARCH_HALVINGS + 1,
                     ..BacktrackConfig::default()
                 },
@@ -5381,7 +5632,19 @@ impl SaeManifoldTerm {
                 },
             )?;
             match accepted {
-                Some(_) => last_loss = self.loss(target, rho)?,
+                Some(step) => {
+                    // Same ratchet as the joint driver (#2267): this is a Newton
+                    // step too, so its natural length is one, and the caller's
+                    // `step_size` is the conservative first trial, not a ceiling
+                    // the accepted step may never exceed.
+                    warm_step = (if step.step >= warm_step {
+                        warm_step * warm_growth
+                    } else {
+                        step.step * warm_growth
+                    })
+                    .min(unit_step_ceiling);
+                    last_loss = self.loss(target, rho)?;
+                }
                 None => {
                     self.restore_mutable_state(&snapshot)?;
                     last_loss = pre_step_loss;
@@ -5658,14 +5921,34 @@ impl SaeManifoldTerm {
                 schedule.current_tau(schedule.iter_count).to_bits()
                     == self.assignment.mode.temperature().to_bits()
             });
+        // Evaluate the conjunction clause by clause so the first false one can be
+        // named. The order is the causal one: a pass that never reached a settled
+        // root explains a state move, which explains a non-recurrence.
+        let settled_root = matches!(
+            outcome.termination,
+            JointFitTermination::Frozen | JointFitTermination::NoStrictDecrease
+        );
+        let gap = if !settled_root {
+            EvidenceFixedPointGap::NotASettledRoot
+        } else if outcome.state_moved {
+            // Name the site: `termination` is a fact about the Newton loop while
+            // `state_moved` is an OR over the whole call, so a settled-root
+            // termination paired with a move is only readable once you know
+            // WHICH of the four out-of-loop sites fired.
+            EvidenceFixedPointGap::StateMoved(
+                outcome.moved_at.unwrap_or(StateMoveSite::AcceptedNewtonStep),
+            )
+        } else if !entry_state_recurred {
+            EvidenceFixedPointGap::StateNotRecurred
+        } else if !temperature_stable_on_reentry {
+            EvidenceFixedPointGap::TemperatureStillAnnealing
+        } else {
+            EvidenceFixedPointGap::None
+        };
         Ok(EvidenceJointFitOutcome {
             loss: outcome.loss,
-            fixed_point: matches!(
-                outcome.termination,
-                JointFitTermination::Frozen | JointFitTermination::NoStrictDecrease
-            ) && !outcome.state_moved
-                && entry_state_recurred
-                && temperature_stable_on_reentry,
+            fixed_point: gap == EvidenceFixedPointGap::None,
+            gap,
         })
     }
 
@@ -5743,6 +6026,7 @@ impl SaeManifoldTerm {
                 loss,
                 termination: JointFitTermination::Frozen,
                 state_moved: false,
+                moved_at: None,
             });
         }
         // #1117 root-cause fix — rank-revealing adaptive basis depth, applied
@@ -5991,7 +6275,12 @@ impl SaeManifoldTerm {
         // globalization — KKT convergence and typed exhaustion (#2235/#2241)
         // unchanged.
         let warm_growth = 1.0 / BacktrackConfig::default().contraction;
-        let mut warm_step = step_size;
+        // #2267 — resume the globalization ladder the previous re-entry
+        // established (see `inner_line_search_warm_step`), floored at the
+        // caller's conservative `step_size` so a cold term still starts damped.
+        let mut warm_step = self
+            .inner_line_search_warm_step
+            .map_or(step_size, |carried| carried.max(step_size));
         // #2015 Levenberg–Marquardt ridge, adapted across iterates. The primary
         // solve (`solve_with_lm_escalation_inner`) escalates the ridge only when
         // the factorization FAILS, so on a well-conditioned-but-nonlinear system
@@ -6016,6 +6305,9 @@ impl SaeManifoldTerm {
         let mut lm_ridge_b = ridge_beta;
         let mut termination = JointFitTermination::IterationGrantExhausted;
         let mut state_moved = false;
+        // FIRST site to move state — `termination` is set only inside the Newton
+        // loop, so without this the out-of-loop sites are unattributable.
+        let mut moved_at: Option<StateMoveSite> = None;
         // FIRST-PRINCIPLES ENGINE ORDER (#2228 stage 4, increment 1) — run the
         // deterministic alternating block sweeps BEFORE the joint Newton walk,
         // not only as a post-loop rescue. At fixed gates the problem is
@@ -6048,6 +6340,7 @@ impl SaeManifoldTerm {
             allow_heuristic_termination,
         )? {
             state_moved = true;
+            moved_at.get_or_insert(StateMoveSite::EntryBlockSweep);
         }
         for outer_iteration in 0..max_iter {
             let temperature_before = self.assignment.mode.temperature();
@@ -6056,6 +6349,7 @@ impl SaeManifoldTerm {
                 .is_some_and(|temperature| temperature.to_bits() != temperature_before.to_bits())
             {
                 state_moved = true;
+                moved_at.get_or_insert(StateMoveSite::TemperatureSchedule);
             }
             // ρ (including the ARD precisions) is owned by the outer engine
             // (`SaeManifoldOuterObjective`) and held FIXED across this inner
@@ -6338,7 +6632,28 @@ impl SaeManifoldTerm {
                     &lambda_smooth,
                 )?;
                 quotient_step_norm = quotient_step_norm_sq.sqrt();
-                let trust_radius = solve_options.trust_region.radius;
+                // #2267 — the trust region the unit step needs.
+                //
+                // Lifting the step ceiling lets the line search reach `α = 1`, which
+                // is what buys the superlinear tail — but a Newton step is only
+                // credible over the region where its LOCAL MODEL is, and Armijo
+                // alone does not bound that: a monotone objective decrease is
+                // compatible with a single long step crossing into a different
+                // basin (measured: a K=2 fixture whose decoders walk to
+                // ‖B‖ ≈ 0.2 and trip the co-collapse guard). Step length and
+                // model credibility are two different controls and the code had
+                // only been using one of them, with `step_size` accidentally
+                // standing in for both.
+                //
+                // The scale-free statement of "where the model is credible" is the
+                // state's own magnitude: one iterate may not move the iterate
+                // further than the iterate itself. That is `inner_iterate_scale`,
+                // already the scale the KKT tolerance is measured against, so no
+                // new constant enters. Near convergence the Newton step is far
+                // inside this region and `α = 1` is untouched — exactly where it
+                // matters — while a wild early step is clipped instead of taken.
+                // Any caller-supplied radius still applies on top.
+                let trust_radius = solve_options.trust_region.radius.min(iterate_scale);
                 if quotient_step_norm > trust_radius
                     && trust_radius.is_finite()
                     && trust_radius > 0.0
@@ -6520,21 +6835,66 @@ impl SaeManifoldTerm {
                 None
             };
             let accepted = accepted_step.is_some();
+            // #2267 — per-iteration STEP ACCEPTANCE trace. A crawling inner solve
+            // has exactly three distinguishable causes and they are told apart
+            // here, not by inference: an accepted step far below the warm start
+            // (`alpha ≪ warm`) is curvature overshoot the line search is
+            // absorbing; a growing `lm_ridge` is the damping ladder bending the
+            // step toward steepest descent; and a rejected step routes to the
+            // proximal correction. Together with `‖g‖`/`‖Δ‖`/`gᵀΔ` this is the
+            // whole per-iterate state of the globalization.
+            log::debug!(
+                "[SAE/inner] it={outer_iteration} ‖g‖={grad_norm:.6e} \
+                 ‖Π⊥g‖={quotient_grad_norm:.6e} ‖Δ‖={:.6e} gᵀΔ={directional_decrease:.6e} \
+                 alpha={} warm={warm_step:.4e} ridge_t={lm_ridge_t:.3e} ridge_b={lm_ridge_b:.3e} \
+                 obj={pre_step_total:.9e}",
+                step_norm_sq.sqrt(),
+                match accepted_step.as_ref() {
+                    Some(step) => format!("{:.4e}", step.step),
+                    None => "rejected".to_string(),
+                },
+            );
             if let Some(step) = accepted_step {
                 state_moved = true;
-                // A CLEAN acceptance (the trial at the warm start itself passed
-                // Armijo, no backtracking) means the overshoot evidence is gone —
-                // reset to the caller's full `step_size` so one hard early
-                // iterate cannot throttle the whole budget (the multiblock EV
-                // regression). Only a BACKTRACKED acceptance carries overshoot
-                // evidence forward, warmed one contraction-step above the
-                // accepted length.
+                moved_at.get_or_insert(StateMoveSite::AcceptedNewtonStep);
+                // #2267 — A NEWTON STEP'S NATURAL LENGTH IS ONE.
+                //
+                // `backtracking_line_search` only ever CONTRACTS from its initial
+                // step, so whatever `warm_step` holds is a hard ceiling on the
+                // accepted `α`. Capping it at the caller's `step_size` — a
+                // "learning rate", 0.04–0.1 on every production path — therefore
+                // caps the per-iteration KKT contraction at `1 − step_size ≥ 0.90`
+                // no matter how good the direction is: the superlinear tail of a
+                // Newton method is UNREACHABLE by construction, and the solve is
+                // pinned to a first-order rate. That is the measured ~0.997 crawl
+                // and the 10³-iteration criterion evaluations behind #2267/#2080;
+                // a rate that close to 1 is not a hard problem, it is an
+                // arithmetic consequence of the ceiling.
+                //
+                // `step_size` is the caller's CONSERVATIVE STARTING damping for a
+                // cold, strongly nonlinear seed, and it stays exactly that: the
+                // first trial of a fresh solve, and the reset after any rejection
+                // below. What changes is that a run of clean acceptances now
+                // RATCHETS the trial length geometrically toward the unit step,
+                // which is what buys quadratic convergence once the iterate is in
+                // its local basin. Nothing is loosened: every trial still has to
+                // clear the same Armijo bound against the same objective, and a
+                // trial that fails simply backtracks — a longer first trial can
+                // only cost extra halvings, never accept a step the old ceiling
+                // would have refused.
+                //
+                // This is the complement of the exact-curvature solve metric
+                // installed above: getting the curvature right is what makes the
+                // unit step SAFE to try, and lifting the ceiling is what lets the
+                // solve actually take it.
+                let unit_step_ceiling = step_size.max(1.0);
                 let clean_acceptance = step.step >= warm_step;
                 warm_step = if clean_acceptance {
-                    step_size
+                    (warm_step * warm_growth).min(unit_step_ceiling)
                 } else {
-                    (step.step * warm_growth).min(step_size)
+                    (step.step * warm_growth).min(unit_step_ceiling)
                 };
+                self.inner_line_search_warm_step = Some(warm_step);
                 // True Levenberg–Marquardt gain-ratio ridge adaptation (a
                 // trust-region on the RIDGE, not the step length). The gain ratio
                 //   ρ = actual decrease / model-predicted decrease
@@ -6579,8 +6939,11 @@ impl SaeManifoldTerm {
                 lm_ridge_b = ridge_beta;
                 // The proximal LM correction below re-solves with its own ridge
                 // escalation; the next line-search regime is unrelated to this
-                // iterate's accepted length, so reset the warm start.
+                // iterate's accepted length, so reset the warm start — and carry
+                // the reset, so a struggling fit does not resume a re-entry at a
+                // trial length its own line search just refused (#2267).
                 warm_step = step_size;
+                self.inner_line_search_warm_step = Some(warm_step);
                 self.restore_mutable_state(&snapshot)?;
                 let correction = ArrowProximalCorrectionOptions {
                     initial_ridge: ridge_ext_coord
@@ -6658,6 +7021,7 @@ impl SaeManifoldTerm {
                     break;
                 }
                 state_moved = true;
+                moved_at.get_or_insert(StateMoveSite::ProximalCorrectionStep);
             }
             // Affine gauge canonicalization is a representation change, but the
             // decoder smoothness term is part of the optimized objective — a
@@ -6729,27 +7093,34 @@ impl SaeManifoldTerm {
             if self.dictionary_cocollapse_reseeds
                 >= crate::assignment::SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET
             {
-                let ev_now = self.dictionary_reconstruction_ev(target, rho)?;
-                let dictionary_rank = crate::manifold::outer_objective::reachable_dictionary_rank(
-                    &self.atoms,
-                    self.n_obs(),
-                    target.ncols(),
-                );
-                let ev_floor = crate::manifold::outer_objective::absolute_degeneracy_ev_floor(
-                    target,
-                    dictionary_rank,
-                );
-                // The signal-free floor renders NO verdict when the dictionary is
-                // rank-saturated (reachable rank >= n): colspan(Φ) is all of Rⁿ, so
-                // every fit reconstructs the target and EV carries zero evidence
-                // about degeneracy — `absolute_degeneracy_ev_floor` returns NaN by
-                // that convention. The per-iteration detector already stands down on
-                // a NaN floor (its `ev <= ev_floor` guard is false on NaN); the
-                // exhaustion guard MUST too, or a high-EV fit on a small saturated
-                // fixture is falsely rejected as co-collapsed — `ev_now > NaN` is
-                // always false, so the bare `!(ev_now > ev_floor)` always fired.
-                // Only raise on a FINITE verdict that EV genuinely fails to clear.
-                if ev_floor.is_finite() && !(ev_now.is_finite() && ev_now > ev_floor) {
+                // Ask the SAME question the reseed arm asked. This refusal means
+                // "the reseeds did not escape the state that armed them", so the
+                // state must be re-tested against the predicate that armed them:
+                // `AbsoluteCoCollapseVerdict::degenerate` — decoders co-vanished
+                // (EV at the signal-free null floor AND the output at that same
+                // null level) or piled onto a shared output subspace no richer
+                // than a random one of its rank.
+                //
+                // It previously tested `ev <= ev_floor` ALONE. That is strictly
+                // weaker, and weaker in exactly the direction the arming site
+                // rules out on purpose: a present-decoder fit that merely
+                // reconstructs poorly keeps its output energy and is left to the
+                // optimizer (S1 (2)). So a live dictionary could be refused by a
+                // message asserting "every atom's decoder co-vanished" while the
+                // `decoder_norms` it printed were O(0.1) and the coherence probe
+                // reported nothing — the refusal contradicted its own payload.
+                //
+                // The signal-free floor still renders NO verdict when the
+                // dictionary is rank-saturated (reachable rank >= n): colspan(Φ)
+                // is all of Rⁿ, so EV carries zero evidence about degeneracy and
+                // `absolute_degeneracy_ev_floor` returns NaN. `co_vanished` is
+                // false on a NaN floor, so that convention is preserved without a
+                // separate guard.
+                let fitted = self.try_fitted_for_rho(rho)?;
+                let verdict = self.absolute_co_collapse_verdict(&fitted, target, None)?;
+                let ev_now = verdict.explained_variance;
+                let ev_floor = verdict.ev_floor;
+                if verdict.degenerate() {
                     // Carry the collapse MEASUREMENTS in the message so a caller that
                     // deliberately drives co-collapse as a control (red-tree scaling
                     // experiments) can read the numbers off the exception instead of
@@ -6773,17 +7144,31 @@ impl SaeManifoldTerm {
                                 .sqrt()
                         })
                         .collect();
+                    // Name the arm that fired. "Co-vanished" and "structurally
+                    // collapsed" are different states with different remedies, and
+                    // a refusal that asserts both while only one holds is what made
+                    // the old message contradict its own decoder norms.
+                    let arm = if verdict.co_vanished {
+                        "every atom's decoder co-vanished (reconstruction output energy \
+                         at the same null level)"
+                    } else {
+                        "every atom's decoder piled onto one shared output subspace whose \
+                         best achievable capture is no better than a random subspace of \
+                         its rank"
+                    };
                     return Err(format!(
                         "SaeManifoldTerm::run_joint_fit_arrow_schur: dictionary did not escape \
-                         total co-collapse after {} reseed multi-starts (reconstruction \
-                         EV={ev_now:.4} at or below the signal-free null floor {ev_floor:.4}); \
-                         every atom's decoder co-vanished and no residual structure could anchor \
-                         K={} distinct charts for this input [mu_hat_max={mu_hat}, \
+                         total co-collapse after {} reseed multi-starts: {arm}, so no residual \
+                         structure could anchor K={} distinct charts for this input \
+                         [EV={ev_now:.4}, output_energy_ratio={:.4}, signal-free null floor \
+                         {ev_floor:.4} at reachable rank q={}, mu_hat_max={mu_hat}, \
                          decoder_norms={decoder_norms:.4?}]. Refusing to continue the degenerate \
                          fit. Try fewer atoms (a smaller K), a different atom_topology/assignment, \
                          more observations, or a different random_state.",
                         crate::assignment::SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET,
-                        self.k_atoms()
+                        self.k_atoms(),
+                        verdict.output_energy_ratio,
+                        verdict.dictionary_rank,
                     ));
                 }
             }
@@ -6830,6 +7215,7 @@ impl SaeManifoldTerm {
                 Ok(())
             })? {
                 state_moved = true;
+                moved_at.get_or_insert(StateMoveSite::FrameRefresh);
             }
             // Unconditional warranty-bank update (see the bank's declaration):
             // strictly-better penalized objective ⇒ this accepted boundary is
@@ -6907,6 +7293,7 @@ impl SaeManifoldTerm {
                 self.restore_mutable_state(best_state)?;
                 inner_incumbent_restored = true;
                 state_moved = true;
+                moved_at.get_or_insert(StateMoveSite::InnerIncumbentRestore);
                 if self.frames_active() {
                     // #2230 — the post-restore frame re-polar is a class-(c)
                     // transaction like the in-loop triple; unguarded it
@@ -7000,6 +7387,7 @@ impl SaeManifoldTerm {
             )?
         {
             state_moved = true;
+            moved_at.get_or_insert(StateMoveSite::ExitBlockSweep);
         }
         // EXIT-BOUNDARY OBJECTIVE WARRANTY enforcement (#2228): the LAST gate
         // before the loss is priced. Whatever combination of non-monotone
@@ -7025,6 +7413,7 @@ impl SaeManifoldTerm {
                 );
                 self.restore_mutable_state(bank)?;
                 state_moved = true;
+                moved_at.get_or_insert(StateMoveSite::ExitWarrantyRestore);
                 // A warranty restore means the walk was NOT settled; any
                 // cross-call incumbent streak is void.
                 self.best_fit_incumbent = None;
@@ -7064,6 +7453,7 @@ impl SaeManifoldTerm {
             loss,
             termination,
             state_moved,
+            moved_at,
         })
     }
 
@@ -7773,6 +8163,12 @@ impl SaeManifoldTerm {
                 "SaeManifoldTerm::run_joint_fit_arrow_schur_streaming: step_size must be finite and positive; got {step_size}"
             ));
         }
+        // #2267 — same ceiling, same fix as the joint driver: the reduced-beta
+        // Newton step's natural length is one, and `step_size` is the
+        // conservative first trial, not a cap the search may never exceed.
+        let warm_growth = 1.0 / BacktrackConfig::default().contraction;
+        let unit_step_ceiling = step_size.max(1.0);
+        let mut warm_step = step_size;
         if chunk_size == 0 {
             return Err(
                 "SaeManifoldTerm::run_joint_fit_arrow_schur_streaming: chunk_size must be positive"
@@ -7966,7 +8362,7 @@ impl SaeManifoldTerm {
             // trial β. Evaluation errors propagate (`?`), as before.
             let accepted_loss = backtracking_line_search::<_, String>(
                 BacktrackConfig {
-                    initial_step: step_size,
+                    initial_step: warm_step,
                     max_steps: SAE_MANIFOLD_MAX_LINESEARCH_HALVINGS + 1,
                     ..BacktrackConfig::default()
                 },
@@ -7991,8 +8387,19 @@ impl SaeManifoldTerm {
                         pre_step_total - SAE_MANIFOLD_ARMIJO_C1 * trial_step * directional_decrease;
                     trial_total.is_finite() && trial_total <= armijo_bound
                 },
-            )?
-            .map(|step| step.payload);
+            )?;
+            let accepted_length = accepted_loss.as_ref().map(|step| step.step);
+            let accepted_loss = accepted_loss.map(|step| step.payload);
+            if let Some(length) = accepted_length {
+                // Same ratchet as the joint driver (#2267): the reduced-β solve
+                // is a Newton step in β, so the unit step is its natural length.
+                warm_step = (if length >= warm_step {
+                    warm_step * warm_growth
+                } else {
+                    length * warm_growth
+                })
+                .min(unit_step_ceiling);
+            }
             match accepted_loss {
                 Some(loss) => {
                     last_loss = loss;
@@ -8343,7 +8750,12 @@ fn union_output_frame_basis(frames: &[Array2<f64>], p: usize) -> Array2<f64> {
         return Array2::<f64>::zeros((p, 0));
     }
     let tol = crate::frames::SAE_FRAME_RANK_CUTOFF * max_sv;
-    let rank = sv.iter().filter(|&&v| v > tol).count().min(p).min(u.ncols());
+    let rank = sv
+        .iter()
+        .filter(|&&v| v > tol)
+        .count()
+        .min(p)
+        .min(u.ncols());
     let mut basis = Array2::<f64>::zeros((p, rank));
     for c in 0..rank {
         for row in 0..p {

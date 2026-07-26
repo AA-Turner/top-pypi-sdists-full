@@ -1,11 +1,31 @@
 //! JSON value representations and semantics shared by the validator and its bindings.
 
-pub mod ext;
+pub mod cmp;
+#[cfg(feature = "conformance")]
+pub mod conformance;
+pub mod numeric;
+// The bound checks take a `serde_json::Number`, which only that feature makes a `JsonNumber`.
+#[cfg(feature = "serde_json")]
+pub mod numeric_check;
 pub mod types;
+pub mod unique;
 
+#[cfg(feature = "magnus")]
+mod magnus;
+#[cfg(feature = "pyo3")]
+mod pyo3;
 #[cfg(feature = "serde_json")]
 mod serde_json;
 
+#[cfg(feature = "magnus")]
+pub use magnus::{
+    child as magnus_child, invalidate_members_cache as magnus_invalidate_members_cache,
+    is_object as magnus_is_object, probe_root as magnus_probe_root,
+    take_pending_error as magnus_take_pending_error, Magnus, PendingError,
+    PendingErrorScope as MagnusPendingErrorScope, RbNode,
+};
+#[cfg(feature = "pyo3")]
+pub use pyo3::{probe_root, take_pending_error, PendingErrorScope, Pyo3};
 #[cfg(feature = "serde_json")]
 pub use serde_json::SerdeJson;
 
@@ -15,73 +35,131 @@ use ::serde_json::Value;
 
 use crate::types::JsonType;
 
-/// Ties together the concrete node types for one JSON representation.
+/// One JSON representation.
 pub trait Json: Sized + Send + Sync + 'static {
-    type Node<'a>: JsonNode<'a, Self>;
+    type Node<'a>: Node<'a, Self>;
 
-    /// A property-name key prepared once at schema compile time for repeated object lookups.
+    /// Property name prepared once at compile time, for repeated object lookups.
     type PreparedKey: Send + Sync;
 
+    /// Scratch storage for [`Json::with_string_node`], reusable across calls.
+    type StringBuffer: Default;
+
     fn prepare_key(key: &str) -> Self::PreparedKey;
+
+    /// Call `f` with a node holding `string`, backed by `buffer`.
+    ///
+    /// `propertyNames` validates each property name through this, so names run through the
+    /// same subschema machinery as any other node of the representation.
+    ///
+    /// Representations whose nodes point into an encoded document have two options: a plain
+    /// string variant on the node type, or encoding a single-string document into `buffer`.
+    fn with_string_node<T>(
+        buffer: &mut Self::StringBuffer,
+        string: &str,
+        f: impl FnOnce(Self::Node<'_>) -> T,
+    ) -> T;
 }
 
-/// One JSON value in some concrete representation; `Clone` must be cheap (borrow, refcount bump, or machine
-/// word copy).
-pub trait JsonNode<'a, F: Json>: Clone {
-    type Object: JsonObjectAccess<'a, F, Node = Self>;
-    type Array: JsonArrayAccess<'a, F, Node = Self>;
+/// What tells one node from another within a validation call.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct NodeIdentity {
+    address: usize,
+    tag: u32,
+}
+
+impl NodeIdentity {
+    /// For representations where a live node's address is its own.
+    #[must_use]
+    pub fn new(address: usize) -> Self {
+        Self { address, tag: 0 }
+    }
+
+    /// For representations where nodes share an address, such as an arena addressed by index.
+    #[must_use]
+    pub fn tagged(address: usize, tag: u32) -> Self {
+        Self { address, tag }
+    }
+}
+
+/// A JSON number, readable without constructing a [`::serde_json::Number`].
+pub trait JsonNumber {
+    fn as_u64(&self) -> Option<u64>;
+    fn as_i64(&self) -> Option<i64>;
+    fn as_f64(&self) -> Option<f64>;
+
+    /// Decimal digits; the only form that holds values outside the primitives.
+    fn as_str(&self) -> Cow<'_, str>;
+
+    /// For cold paths: error construction and annotations.
+    fn to_number(&self) -> Cow<'_, ::serde_json::Number>;
+
+    /// `type: integer` checks call this per number: override it where the default's
+    /// [`JsonNumber::to_number`] round-trip is not free (e.g. decimal representations).
+    fn is_integer(&self) -> bool {
+        crate::types::number_is_integer(&self.to_number())
+    }
+}
+
+/// One JSON value; `Clone` must be cheap.
+pub trait Node<'a, F: Json>: Clone {
+    type Object: Object<'a, F, Node = Self>;
+    type Array: Array<'a, F, Node = Self>;
+    type Number: JsonNumber;
 
     fn as_object(&self) -> Option<Self::Object>;
     fn as_array(&self) -> Option<Self::Array>;
     fn as_string(&self) -> Option<Cow<'a, str>>;
-    /// Borrowed for `serde_json`, cheaply owned elsewhere; `Number` keeps the existing numeric machinery
-    /// applicable to every representation.
-    fn as_number(&self) -> Option<Cow<'a, ::serde_json::Number>>;
+
+    fn as_number(&self) -> Option<Self::Number>;
     fn as_boolean(&self) -> Option<bool>;
     fn is_null(&self) -> bool;
 
-    /// Whether this node is a JSON number, answered without materializing the numeric value.
-    /// Representations where `as_number` must construct or format (e.g. Python floats under
-    /// arbitrary precision) override this to skip that cost. Must agree with `as_number().is_some()`.
+    /// Must agree with `as_number().is_some()`; override where `as_number` has to construct.
     fn is_number(&self) -> bool {
         self.as_number().is_some()
     }
 
-    /// Sugar over [`JsonNode::json_type`], the single source of type classification.
     fn is_string(&self) -> bool {
         self.json_type() == JsonType::String
     }
 
-    /// The JSON type of this node; numbers always report [`JsonType::Number`] (integer distinction is a
-    /// numeric property, not a type tag).
+    /// Numbers always report [`JsonType::Number`]; integer-ness is a numeric property, not a type.
     fn json_type(&self) -> JsonType;
 
-    /// String length in Unicode code points, without extracting the bytes where the representation allows.
-    fn string_length(&self) -> Option<u64>;
+    /// Length in Unicode code points.
+    fn string_length(&self) -> Option<u64> {
+        self.as_string().map(|string| string.chars().count() as u64)
+    }
 
-    /// Deep equality against a schema constant (`const`/`enum`); numbers compare mathematically.
-    fn equals_value(&self, expected: &Value) -> bool;
+    /// Equality against a `const`/`enum` value; numbers compare mathematically.
+    fn equals_value(&self, expected: &Value) -> bool {
+        crate::cmp::equal(&self.to_value(), expected)
+    }
 
-    /// The node as a `serde_json::Value`; borrowed for `serde_json`, materialized elsewhere. Intended for
-    /// cold paths (error construction, annotations).
+    /// For cold paths only: error construction, annotations, the `equals_value` and
+    /// `is_unique` defaults (`const`/`enum`/`uniqueItems`), and serde-only custom keywords.
     fn to_value(&self) -> Cow<'a, Value>;
 
-    /// Identity for the `is_valid` result cache; `None` disables caching for this node.
-    fn cache_key(&self) -> Option<usize>;
+    /// Identity for `$ref` cycle detection and `is_valid` memoization.
+    ///
+    /// Nodes alive at once must never share one, and two handles on a node must report the same
+    /// one, or a collision reports a cycle that is not there. A container's must never pass to a
+    /// later node: [`Node::container_identity`] keys a cache outliving it. `None` opts out,
+    /// leaving recursion bounded only by the stack.
+    fn identity(&self) -> Option<NodeIdentity>;
 
-    /// Cache identity restricted to containers, where identities are stable for the whole validation call.
-    fn container_cache_key(&self) -> Option<usize> {
+    fn container_identity(&self) -> Option<NodeIdentity> {
         if matches!(self.json_type(), JsonType::Object | JsonType::Array) {
-            self.cache_key()
+            self.identity()
         } else {
             None
         }
     }
 }
 
-pub trait JsonObjectAccess<'a, F: Json> {
-    type Node: JsonNode<'a, F>;
-    /// Member name handle; a plain `&str` where the representation can borrow, owned elsewhere.
+pub trait Object<'a, F: Json> {
+    type Node: Node<'a, F>;
     type MemberName: AsRef<str> + Into<Cow<'a, str>>;
     type MembersIter: Iterator<Item = (Self::MemberName, Self::Node)>;
 
@@ -93,16 +171,19 @@ pub trait JsonObjectAccess<'a, F: Json> {
     fn members(&self) -> Self::MembersIter;
 }
 
-// `len` is an element count used for validation bounds, not a container emptiness probe; no caller
-// needs `is_empty`.
+// `len` bounds validation; no caller probes emptiness.
 #[allow(clippy::len_without_is_empty)]
-pub trait JsonArrayAccess<'a, F: Json> {
-    type Node: JsonNode<'a, F>;
+pub trait Array<'a, F: Json> {
+    type Node: Node<'a, F>;
     type ElementsIter: Iterator<Item = Self::Node>;
 
     fn len(&self) -> usize;
     fn elements(&self) -> Self::ElementsIter;
 
-    /// Whether every element is distinct under JSON equality (`uniqueItems`).
-    fn is_unique(&self) -> bool;
+    /// `uniqueItems`: every element distinct under JSON equality.
+    fn is_unique(&self) -> bool {
+        let values: Vec<Cow<'a, Value>> =
+            self.elements().map(|element| element.to_value()).collect();
+        crate::unique::is_unique(&values)
+    }
 }

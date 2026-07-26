@@ -249,7 +249,23 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
         # what it offers to Home Assistant conversation agents on it.
         from .llm_exposure import LlmExposureMiddleware
 
-        self.mcp.add_middleware(LlmExposureMiddleware())
+        # policy_live: whether the gating middleware/queue actually wired at
+        # startup — stamped so a client can distinguish "configured" from
+        # "enforcing" on the very connection it is using (#1990).
+        self.mcp.add_middleware(
+            LlmExposureMiddleware(
+                policy_live=lambda: getattr(self, "approval_queue", None) is not None
+            )
+        )
+
+        # Entity visibility enforce mode, INBOUND half (#2015) — always
+        # installed, consults the live config per request (no-op unless
+        # enforce is on with an active hide dimension). Must precede the
+        # read-only guard and PolicyMiddleware: a call naming a hidden
+        # entity is concealed as not-found BEFORE it can be stored verbatim
+        # in the approval queue (rendered in the settings UI) or answered
+        # with a read-only/approval response that would confirm existence.
+        self._apply_visibility_inbound_middleware()
 
         # Read Only Mode write blocker (discussion #1569) — always
         # installed, consults the live flag per call. Before
@@ -268,6 +284,11 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
         # ENABLE_TOOL_SECURITY_POLICIES. Must come last so the middleware
         # wraps the final tool surface (including the search proxies).
         self._apply_tool_security_policies()
+
+        # Entity visibility enforce mode, OUTBOUND half (#2015) — added LAST
+        # so it is innermost: its result scan sees the raw tool output before
+        # any other middleware transforms it.
+        self._apply_visibility_outbound_middleware()
 
     def _get_skills_dir(self) -> Path | None:
         """Return the bundled skills directory if it exists.
@@ -1008,6 +1029,25 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
         UI take effect immediately without restart and without a stale
         in-memory cache.
         """
+        # One-time ANY-match schema migration (PR #1993) runs even when
+        # policies are disabled, so the file already matches the editor's
+        # ANY semantics whenever the user turns the feature on. Never
+        # blocks startup.
+        try:
+            from .policy.persistence import migrate_policy_any_semantics
+            from .utils.data_paths import get_data_dir as _get_data_dir
+
+            migrate_policy_any_semantics(_get_data_dir())
+        except Exception:
+            logger.error(
+                "tool_policy.json ANY-match migration failed; continuing. The "
+                "file may still carry pre-ANY semantics: multi-condition rules "
+                "will gate only when ALL conditions match, while the policy "
+                "editor presents them as ANY-match. Fix the file (or re-save "
+                "the policy in the settings UI) and restart.",
+                exc_info=True,
+            )
+
         if not self.settings.enable_tool_security_policies:
             return
 
@@ -1124,6 +1164,35 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
             return await self.mcp.local_provider._list_tools()
 
         self.mcp.add_middleware(StrictBpsMiddleware(list_tools=_list_all_tools))
+
+    def _apply_visibility_inbound_middleware(self) -> None:
+        """Install the enforce-mode INBOUND (conceal/refuse) middleware (#2015).
+
+        Always installed — self-no-ops at call time (loads the visibility
+        config per request and passes through unless enforce is on with an
+        active hide dimension), so a settings-UI toggle applies live in
+        standalone-HTTP/embedded mode like ``read_only_mode``. It needs the HA
+        client to fetch the registry/states for the hidden-set computation;
+        inject the lazy client accessor so no eager connection is made at
+        startup. Ordering (before read-only/policy) is owned by the caller.
+        """
+        from .visibility.enforcement import VisibilityInboundEnforcement
+
+        self.mcp.add_middleware(
+            VisibilityInboundEnforcement(get_client=lambda: self.client)
+        )
+
+    def _apply_visibility_outbound_middleware(self) -> None:
+        """Install the enforce-mode OUTBOUND (result-scan) middleware (#2015).
+
+        Same always-installed/self-no-op contract as the inbound half; the
+        caller registers it last so it is innermost and scans raw tool output.
+        """
+        from .visibility.enforcement import VisibilityOutboundEnforcement
+
+        self.mcp.add_middleware(
+            VisibilityOutboundEnforcement(get_client=lambda: self.client)
+        )
 
     # Shared action-phrased keyword block for retrieval. Some MCP clients
     # (Claude Code, others) rank candidate tools by token-overlap between

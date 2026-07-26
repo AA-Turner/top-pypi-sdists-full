@@ -37,6 +37,7 @@ class AuditAction(Enum):
     LIST_PERMISSIONS = "LIST_PERMISSIONS"
     LIST_MEMBERSHIPS = "LIST_MEMBERSHIPS"
     USER_PERMISSIONS = "USER_PERMISSIONS"
+    ROTATE_KEY = "ROTATE_KEY"
 
 
 class AuditLog(Base):
@@ -111,6 +112,90 @@ def client_fingerprint(token: Optional[str]) -> str:
     return "fpr_" + digest[:32]
 
 
+def _build_audit_entry(
+    client_id: str,
+    user: Optional[str],
+    action: AuditAction,
+    resource: Optional[str],
+    details: Optional[Dict[str, Any]],
+    ip_address: Optional[str],
+    user_agent: Optional[str],
+    success: bool,
+) -> "AuditLog":
+    # The managed user is a human identifier (often an email) — store a
+    # non-reversible fingerprint, never plaintext, matching how the client key is
+    # handled. Auditors correlate by fingerprint and can confirm a known user by
+    # computing its fingerprint. Role/permission/workflow names (the `resource`)
+    # are application identifiers, not PII, and stay readable — except the caller
+    # is responsible for fingerprinting any user embedded in `resource`.
+    user_fp = client_fingerprint(user) if user else None
+    return AuditLog(
+        client_id=_fit(client_id, "client_id"),
+        user=_fit(user_fp, "user"),
+        action=_fit(action.value, "action"),
+        resource=_fit(resource, "resource"),
+        details=json.dumps(details) if details else None,
+        ip_address=_fit(ip_address, "ip_address"),
+        user_agent=_fit(user_agent, "user_agent"),
+        success=1 if success else 0,
+    )
+
+
+def _emit_structured_log(
+    client_id: str,
+    user: Optional[str],
+    action: AuditAction,
+    resource: Optional[str],
+    details: Optional[Dict[str, Any]],
+    ip_address: Optional[str],
+    success: bool,
+) -> None:
+    # The DB row is the system of record. The log STREAM (journald / SIEM /
+    # shipping) is more widely exposed, so it carries no PII: no raw user and no
+    # resource string (which may embed a user). Only the non-reversible client
+    # fingerprint, the action, and the outcome.
+    log_msg: Dict[str, Any] = {
+        "type": "audit",
+        "client_id": client_id,
+        "action": action.value,
+        "success": success,
+        "timestamp": _utcnow().isoformat(),
+    }
+    if details:
+        log_msg["details"] = details
+    if ip_address:
+        log_msg["ip"] = ip_address
+    audit_logger.info(json.dumps(log_msg))
+
+
+def record_audit(
+    session,
+    *,
+    client_id: str,
+    user: Optional[str],
+    action: AuditAction,
+    resource: Optional[str] = None,
+    details: Optional[Dict[str, Any]] = None,
+    ip_address: Optional[str] = None,
+    user_agent: Optional[str] = None,
+    success: bool = True,
+) -> None:
+    """Add an audit row to an EXISTING session so it commits atomically with the
+    caller's transaction (the mutation and its audit land together, or not at
+    all). The caller is responsible for committing.
+
+    This does NOT swallow errors: a failure to stage the audit row must fail the
+    surrounding request (fail-closed), never leave a committed mutation
+    unaudited.
+    """
+    session.add(
+        _build_audit_entry(
+            client_id, user, action, resource, details, ip_address, user_agent, success
+        )
+    )
+    _emit_structured_log(client_id, user, action, resource, details, ip_address, success)
+
+
 def log_audit_event(
     client_id: str,
     user: Optional[str],
@@ -121,45 +206,26 @@ def log_audit_event(
     user_agent: Optional[str] = None,
     success: bool = True,
 ) -> None:
-    """
-    Log an audit event to the database and to structured logs
+    """Write an audit event on its OWN committed session.
+
+    For contexts with no request transaction to join: in-process/library
+    callers, and the *failure* path of the request decorator (where the request
+    transaction is being rolled back and must not carry the audit row). This one
+    is best-effort — a failure is logged, not raised, so it cannot mask the
+    original error it is recording.
     """
     session = SessionLocal()
     try:
-        # Create audit log entry
-        audit_entry = AuditLog(
-            client_id=_fit(client_id, "client_id"),
-            user=_fit(user, "user"),
-            action=_fit(action.value, "action"),
-            resource=_fit(resource, "resource"),
-            details=json.dumps(details) if details else None,
-            ip_address=_fit(ip_address, "ip_address"),
-            user_agent=_fit(user_agent, "user_agent"),
-            success=1 if success else 0,
+        session.add(
+            _build_audit_entry(
+                client_id, user, action, resource, details, ip_address, user_agent, success
+            )
         )
-
-        session.add(audit_entry)
         session.commit()
-
-        # Also log to structured logger
-        log_msg: Dict[str, Any] = {
-            "type": "audit",
-            "client_id": client_id,
-            "user": user,
-            "action": action.value,
-            "resource": resource,
-            "success": success,
-            "timestamp": _utcnow().isoformat(),
-        }
-        if details:
-            log_msg["details"] = details
-        if ip_address:
-            log_msg["ip"] = ip_address
-
-        audit_logger.info(json.dumps(log_msg))
+        _emit_structured_log(
+            client_id, user, action, resource, details, ip_address, success
+        )
     except Exception:
-        # If audit logging fails, we don't want to break the main operation
-        # But log the failure for monitoring
         audit_logger.error(
             f"Failed to log audit event: client_id={client_id}, action={action.value}"
         )

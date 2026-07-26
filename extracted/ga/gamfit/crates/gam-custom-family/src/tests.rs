@@ -107,6 +107,7 @@ pub(crate) fn blockwise_fit_from_parts_accepts_stacked_solver_eta_with_canonical
             geometry: Some(FitGeometry {
                 coefficient_gauge: gam_problem::gauge::Gauge::identity(&[1]),
                 penalized_hessian: Array2::eye(1).into(),
+                constrained_posterior: None,
                 working: Some(WorkingGeometry {
                     weights: Array1::ones(2),
                     response: Array1::zeros(2),
@@ -146,6 +147,7 @@ pub(crate) fn custom_family_geometry_keeps_active_precision_under_rectangular_ra
     let geometry = FitGeometry {
         coefficient_gauge: Gauge::identity(&[2]),
         penalized_hessian: active_hessian.clone().into(),
+        constrained_posterior: None,
         working: Some(WorkingGeometry {
             weights: array![1.0],
             response: array![0.0],
@@ -244,8 +246,6 @@ pub(crate) fn batched_outer_gradient_override_rejected_when_jeffreys_curvature_i
 use approx::assert_relative_eq;
 use faer::sparse::{SparseColMat, Triplet};
 use gam_linalg::matrix::DesignMatrix;
-use gam_models::gamlss::{BinomialLocationScaleFamily, BinomialLocationScaleWiggleFamily};
-use gam_test_support::binomial_location_scale_base_fixture;
 use ndarray::{Array1, Array2, array};
 
 #[test]
@@ -1261,7 +1261,7 @@ pub(crate) fn large_scale_multiblock_outer_gradient_with_realistic_drift_is_boun
 }
 
 #[test]
-pub(crate) fn direct_joint_hyper_inner_tolerance_follows_outer_target() {
+pub(crate) fn direct_joint_hyper_never_loosens_caller_inner_tolerance() {
     let options = BlockwiseFitOptions {
         inner_tol: 1e-6,
         outer_tol: 1e-5,
@@ -1272,59 +1272,48 @@ pub(crate) fn direct_joint_hyper_inner_tolerance_follows_outer_target() {
         derivative_quality_options_and_warm_start(&options, None, true);
 
     assert_eq!(
-        eval_options.inner_tol, options.outer_tol,
-        "default exact joint-hyper eval should use the outer optimizer scale"
+        eval_options.inner_tol, options.inner_tol,
+        "a looser outer target cannot weaken the coefficient-stationarity contract"
     );
     assert_eq!(eval_options.inner_max_cycles, options.inner_max_cycles);
-    assert!(
-        strict_warm_start.is_none(),
-        "loosening to the outer scale should not discard cached inner state"
-    );
-    let large_scale_objective = 3.689e5;
-    let posted_residual = 6.788e-1;
-    let posted_objective_change = 4.209e-2;
-    let eval_tol = eval_options.inner_tol * (1.0 + large_scale_objective);
-    assert!(
-        posted_residual <= 2.0 * eval_tol && posted_objective_change <= eval_tol,
-        "the exact outer startup validation should accept numerically flat inner solves at outer scale"
-    );
+    assert!(strict_warm_start.is_none());
+
     let (rho_default, _) = derivative_quality_options_and_warm_start(&options, None, false);
     assert_eq!(
         rho_default.inner_tol, options.inner_tol,
-        "rho-only exact joint-hyper eval must preserve the rho-only outer surface"
+        "rho-only exact joint-hyper evaluation must preserve its inner surface"
     );
 
-    let tighter_options = BlockwiseFitOptions {
+    let outer_is_stricter = BlockwiseFitOptions {
         inner_tol: 1e-3,
         outer_tol: 1e-5,
         inner_max_cycles: 100,
         ..BlockwiseFitOptions::default()
     };
-    let (tightened, _) = derivative_quality_options_and_warm_start(&tighter_options, None, true);
-    assert_eq!(tightened.inner_tol, tighter_options.outer_tol);
+    let (tightened, _) =
+        derivative_quality_options_and_warm_start(&outer_is_stricter, None, true);
+    assert_eq!(tightened.inner_tol, outer_is_stricter.outer_tol);
     assert_eq!(tightened.inner_max_cycles, 200);
 
-    let (rho_only, _) = derivative_quality_options_and_warm_start(&tighter_options, None, false);
-    assert_eq!(rho_only.inner_tol, tighter_options.inner_tol);
-    assert_eq!(rho_only.inner_max_cycles, tighter_options.inner_max_cycles);
+    let (rho_only, _) =
+        derivative_quality_options_and_warm_start(&outer_is_stricter, None, false);
+    assert_eq!(rho_only.inner_tol, outer_is_stricter.inner_tol);
+    assert_eq!(rho_only.inner_max_cycles, outer_is_stricter.inner_max_cycles);
 
-    let explicitly_tight_options = BlockwiseFitOptions {
+    let explicitly_tight = BlockwiseFitOptions {
         inner_tol: 1e-12,
         outer_tol: 1e-10,
         inner_max_cycles: 100,
         ..BlockwiseFitOptions::default()
     };
-    let (explicitly_tight, _) =
-        derivative_quality_options_and_warm_start(&explicitly_tight_options, None, true);
-    assert_eq!(
-        explicitly_tight.inner_tol, 1e-12,
-        "an explicitly sub-default inner tolerance should be honored down to the explicit direct joint-hyper floor instead of being loosened to outer_tol"
-    );
-    assert_eq!(explicitly_tight.inner_max_cycles, 100);
+    let (preserved, _) =
+        derivative_quality_options_and_warm_start(&explicitly_tight, None, true);
+    assert_eq!(preserved.inner_tol, explicitly_tight.inner_tol);
+    assert_eq!(preserved.inner_max_cycles, explicitly_tight.inner_max_cycles);
 }
 
 #[test]
-pub(crate) fn exact_spatial_joint_hyper_inner_tolerance_follows_spatial_outer_target() {
+pub(crate) fn exact_spatial_joint_hyper_never_loosens_inner_tolerance() {
     let options = BlockwiseFitOptions {
         inner_tol: 1e-6,
         outer_tol: 1e-10,
@@ -1338,22 +1327,11 @@ pub(crate) fn exact_spatial_joint_hyper_inner_tolerance_follows_spatial_outer_ta
 
     assert_eq!(eval_options.outer_tol, spatial_outer_tol);
     assert_eq!(
-        eval_options.inner_tol, spatial_outer_tol,
-        "exact spatial [rho, psi] evaluations should certify beta only to the tolerance of the outer optimizer consuming the derivative"
+        eval_options.inner_tol, options.inner_tol,
+        "spatial optimization may set its own outer target but may not degrade coefficient stationarity"
     );
-    assert!(
-        strict_warm_start.is_none(),
-        "loosening an over-tight caller tolerance should preserve the cached inner state"
-    );
-
-    let large_scale_objective = 3.689e5;
-    let posted_residual_plateau = 6.788e-1;
-    let posted_objective_change = 4.209e-2;
-    let eval_tol = eval_options.inner_tol * (1.0 + large_scale_objective);
-    assert!(
-        posted_residual_plateau <= eval_tol && posted_objective_change <= eval_tol,
-        "the posted saturated Newton plateau is below the spatial outer derivative accuracy target"
-    );
+    assert_eq!(eval_options.inner_max_cycles, options.inner_max_cycles);
+    assert!(strict_warm_start.is_none());
 }
 
 pub(crate) fn outerobjective_andgradient<F: CustomFamily + Clone + Send + Sync + 'static>(
@@ -1364,7 +1342,7 @@ pub(crate) fn outerobjective_andgradient<F: CustomFamily + Clone + Send + Sync +
     rho: &Array1<f64>,
     warm_start: Option<&ConstrainedWarmStart>,
 ) -> Result<(f64, Array1<f64>, ConstrainedWarmStart), String> {
-    let (obj, grad, _, warm) = super::test_support::outerobjectivegradienthessian(
+    let (objective, gradient, _, warm_start) = super::test_support::outerobjectivegradienthessian(
         family,
         specs,
         options,
@@ -1373,77 +1351,7 @@ pub(crate) fn outerobjective_andgradient<F: CustomFamily + Clone + Send + Sync +
         warm_start,
         EvalMode::ValueAndGradient,
     )?;
-    Ok((obj, grad, warm))
-}
-
-pub(crate) struct BinomialLocationScaleWiggleOuterFixture {
-    pub(crate) family: BinomialLocationScaleWiggleFamily,
-    pub(crate) specs: Vec<ParameterBlockSpec>,
-    pub(crate) penalty_counts: Vec<usize>,
-    pub(crate) rho: Array1<f64>,
-    pub(crate) options: BlockwiseFitOptions,
-}
-
-pub(crate) fn binomial_location_scale_wiggle_outer_fixture()
--> BinomialLocationScaleWiggleOuterFixture {
-    let base = binomial_location_scale_base_fixture();
-    let q_seed = Array1::linspace(-1.4, 1.4, base.n);
-    let knots =
-        gam_terms::basis::initializewiggle_knots_from_seed(q_seed.view(), 3, 4).expect("knots");
-    let wiggle_block =
-        gam_models::wiggle::buildwiggle_block_input_from_knots(q_seed.view(), &knots, 3, 2, false)
-            .expect("wiggle block");
-    let wigglespec = ParameterBlockSpec {
-        name: "wiggle".to_string(),
-        design: wiggle_block.design.clone(),
-        offset: wiggle_block.offset.clone(),
-        penalties: wiggle_block
-            .penalties
-            .iter()
-            .map(|ps| match ps {
-                gam_solve::model_types::PenaltySpec::Block {
-                    local, col_range, ..
-                } => PenaltyMatrix::Blockwise {
-                    local: local.clone(),
-                    col_range: col_range.clone(),
-                    total_dim: wiggle_block.design.ncols(),
-                },
-                gam_solve::model_types::PenaltySpec::Dense(m)
-                | gam_solve::model_types::PenaltySpec::DenseWithMean { matrix: m, .. } => {
-                    PenaltyMatrix::Dense(m.clone())
-                }
-            })
-            .collect(),
-        nullspace_dims: wiggle_block.nullspace_dims.clone(),
-        initial_log_lambdas: array![0.1],
-        initial_beta: Some(Array1::from_elem(wiggle_block.design.ncols(), 0.03)),
-        gauge_priority: 100,
-        jacobian_callback: None,
-        stacked_design: None,
-        stacked_offset: None,
-    };
-    let family = BinomialLocationScaleWiggleFamily {
-        y: base.y,
-        weights: base.weights,
-        link_kind: gam_problem::InverseLink::Standard(gam_problem::StandardLink::Probit),
-        threshold_design: Some(base.threshold_design),
-        log_sigma_design: Some(base.log_sigma_design),
-        wiggle_knots: knots,
-        wiggle_degree: 3,
-        policy: gam_runtime::resource::ResourcePolicy::default_library(),
-    };
-    BinomialLocationScaleWiggleOuterFixture {
-        family,
-        specs: vec![base.threshold_spec, base.log_sigma_spec, wigglespec],
-        penalty_counts: vec![1usize, 1usize, 1usize],
-        rho: array![0.05, -0.15, 0.1],
-        options: BlockwiseFitOptions {
-            use_remlobjective: true,
-            ridge_floor: 1e-10,
-            outer_max_iter: 1,
-            ..BlockwiseFitOptions::default()
-        },
-    }
+    Ok((objective, gradient, warm_start))
 }
 
 #[derive(Clone)]
@@ -3452,7 +3360,7 @@ impl CustomFamily for OuterJeffreysModeCountingFamily {
 }
 
 #[test]
-fn value_only_outer_jeffreys_skips_completion_and_drift_construction() {
+fn outer_jeffreys_geometry_is_derivative_order_invariant() {
     let information_calls = Arc::new(AtomicUsize::new(0));
     let axis_batch_calls = Arc::new(AtomicUsize::new(0));
     let completion_calls = Arc::new(AtomicUsize::new(0));
@@ -3465,57 +3373,30 @@ fn value_only_outer_jeffreys_skips_completion_and_drift_construction() {
     let states = vec![jeffreys_seam_state(array![0.0])];
     let ranges = block_param_ranges(&specs);
 
-    let (_, _, value_only_completion) =
-        custom_family_outer_jeffreys_hphi(&family, &states, &specs, &ranges, EvalMode::ValueOnly)
-            .expect("value-only Jeffreys term")
-            .expect("active value-only Jeffreys term");
-    assert!(value_only_completion.is_none());
-    assert_eq!(information_calls.load(Ordering::Relaxed), 1);
+    let (_, _, completion) =
+        custom_family_outer_jeffreys_hphi(&family, &states, &specs, &ranges)
+            .expect("Jeffreys term")
+            .expect("active Jeffreys term");
+    assert!(completion.is_some());
+    assert_eq!(information_calls.load(Ordering::Relaxed), 2);
     assert_eq!(axis_batch_calls.load(Ordering::Relaxed), 1);
-    assert_eq!(completion_calls.load(Ordering::Relaxed), 0);
-
-    let value_only_drift = custom_family_outer_jeffreys_hphi_drift_batched(
-        &family,
-        &states,
-        &specs,
-        &ranges,
-        EvalMode::ValueOnly,
-    )
-    .expect("value-only drift gate");
-    assert!(value_only_drift.is_none());
-    assert_eq!(
-        information_calls.load(Ordering::Relaxed),
-        1,
-        "value-only drift gating must happen before information construction",
-    );
-
-    let (_, _, derivative_completion) = custom_family_outer_jeffreys_hphi(
-        &family,
-        &states,
-        &specs,
-        &ranges,
-        EvalMode::ValueAndGradient,
-    )
-    .expect("derivative-bearing Jeffreys term")
-    .expect("active derivative-bearing Jeffreys term");
-    assert!(derivative_completion.is_some());
-    assert_eq!(information_calls.load(Ordering::Relaxed), 3);
-    assert_eq!(axis_batch_calls.load(Ordering::Relaxed), 2);
     assert_eq!(completion_calls.load(Ordering::Relaxed), 1);
 
-    let derivative_drift = custom_family_outer_jeffreys_hphi_drift_batched(
-        &family,
-        &states,
-        &specs,
-        &ranges,
-        EvalMode::ValueAndGradient,
-    )
-    .expect("derivative-bearing drift construction");
-    assert!(derivative_drift.is_some());
-    assert_eq!(information_calls.load(Ordering::Relaxed), 4);
+    let drift =
+        custom_family_outer_jeffreys_hphi_drift_batched(&family, &states, &specs, &ranges)
+            .expect("Jeffreys drift construction");
+    assert!(
+        drift.is_some(),
+        "active Jeffreys geometry must expose one lazy drift independent of derivative order",
+    );
+    assert_eq!(
+        information_calls.load(Ordering::Relaxed),
+        3,
+        "lazy drift construction must materialize the information matrix exactly once",
+    );
     assert_eq!(
         axis_batch_calls.load(Ordering::Relaxed),
-        2,
+        1,
         "drift axes stay lazy until the derivative provider consumes the closure",
     );
 }
@@ -4041,6 +3922,64 @@ impl CustomFamily for OneBlockConstrainedExactFamily {
             b: array![self.lower],
         })))
     }
+}
+
+#[test]
+pub(crate) fn fixed_constrained_fit_reports_truncated_mean_and_retains_boundary_mode() {
+    let family = OneBlockConstrainedExactFamily {
+        target: -1.0,
+        lower: 0.0,
+    };
+    let specs = vec![ParameterBlockSpec {
+        name: "lower_bounded_quadratic".to_string(),
+        design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(array![[1.0]])),
+        offset: array![0.0],
+        penalties: Vec::new(),
+        nullspace_dims: Vec::new(),
+        initial_log_lambdas: Array1::zeros(0),
+        initial_beta: Some(array![0.0]),
+        gauge_priority: 100,
+        jacobian_callback: None,
+        stacked_design: None,
+        stacked_offset: None,
+    }];
+    let fit = fit_custom_family_fixed_log_lambdas(
+        &family,
+        &specs,
+        &BlockwiseFitOptions {
+            use_remlobjective: false,
+            compute_covariance: true,
+            ..BlockwiseFitOptions::default()
+        },
+        None,
+    )
+    .expect("certified lower-truncated quadratic fit");
+    let constrained = fit
+        .geometry
+        .as_ref()
+        .and_then(|geometry| geometry.constrained_posterior.as_ref())
+        .expect("saved exact constrained-posterior geometry");
+    assert_eq!(constrained.mode, array![0.0]);
+    assert_eq!(constrained.unconstrained_center, array![-1.0]);
+    assert!(
+        fit.blocks[0].beta[0] > 0.0,
+        "reported coefficient must be the interior posterior mean, got {}",
+        fit.blocks[0].beta[0],
+    );
+    assert_eq!(
+        fit.blocks[0].beta,
+        constrained.posterior_mean(),
+        "the saved coefficient and persisted posterior identity must agree",
+    );
+    let variance = fit
+        .covariance_conditional
+        .as_ref()
+        .expect("requested truncated covariance")[[0, 0]];
+    assert!(
+        variance > 0.0 && variance < 1.0,
+        "an inequality cannot become either a zero-variance equality or an ignored ambient \
+         direction, got {variance}",
+    );
 }
 
 /// #2366 fixture: two coefficients, quadratic likelihood `−½‖β − target‖²`,
@@ -4912,6 +4851,42 @@ pub(crate) fn owned_joint_penalty_geometry_uses_terminal_workspace_without_famil
         evaluations: Arc<AtomicUsize>,
     }
 
+    struct FixedJointQuadraticWorkspace;
+
+    impl ExactNewtonJointHessianWorkspace for FixedJointQuadraticWorkspace {
+        fn warm_up_outer_caches_for_mode(&self, _: EvalMode) -> Result<(), String> {
+            Ok(())
+        }
+
+        fn hessian_dense(&self) -> Result<Option<Array2<f64>>, String> {
+            Ok(Some(Array2::eye(2)))
+        }
+
+        fn hessian_matvec_available(&self) -> bool {
+            true
+        }
+
+        fn hessian_matvec(
+            &self,
+            direction: &Array1<f64>,
+        ) -> Result<Option<Array1<f64>>, String> {
+            assert_eq!(direction.len(), 2);
+            Ok(Some(direction.clone()))
+        }
+
+        fn hessian_diagonal(&self) -> Result<Option<Array1<f64>>, String> {
+            Ok(Some(Array1::ones(2)))
+        }
+
+        fn directional_derivative(
+            &self,
+            direction: &Array1<f64>,
+        ) -> Result<Option<Array2<f64>>, String> {
+            assert_eq!(direction.len(), 2);
+            Ok(Some(Array2::zeros((2, 2))))
+        }
+    }
+
     impl CustomFamily for CountingJointQuadratic {
         fn evaluate(
             &self,
@@ -4928,22 +4903,15 @@ pub(crate) fn owned_joint_penalty_geometry_uses_terminal_workspace_without_famil
             })
         }
 
-        fn exact_newton_joint_hessian(
+        fn exact_newton_joint_hessian_workspace(
             &self,
             _: &[ParameterBlockState],
-        ) -> Result<Option<Array2<f64>>, String> {
-            Ok(Some(Array2::eye(2)))
+            _: &[ParameterBlockSpec],
+        ) -> Result<Option<Arc<dyn ExactNewtonJointHessianWorkspace>>, String> {
+            Ok(Some(Arc::new(FixedJointQuadraticWorkspace)))
         }
 
-        fn exact_newton_joint_hessian_directional_derivative(
-            &self,
-            _: &[ParameterBlockState],
-            _: &Array1<f64>,
-        ) -> Result<Option<Array2<f64>>, String> {
-            Ok(Some(Array2::zeros((2, 2))))
-        }
-
-        fn has_explicit_joint_hessian(&self) -> bool {
+        fn inner_coefficient_hessian_hvp_available(&self, _: &[ParameterBlockSpec]) -> bool {
             true
         }
     }
@@ -5020,17 +4988,7 @@ pub(crate) fn owned_joint_penalty_geometry_uses_terminal_workspace_without_famil
         ..options.clone()
     };
     let per_block = split_labeled_log_lambdas(&theta, &layout).expect("empty block rho layout");
-    let covariance = compute_joint_covariance_required(
-        &family,
-        &specs,
-        &evaluated.inner.block_states,
-        &per_block,
-        &assembly_options,
-        Some(&hessian),
-    )
-    .expect("joint terminal covariance")
-    .expect("covariance requested");
-    let geometry = compute_joint_geometry(
+    let posterior = compute_joint_posterior(
         &family,
         &specs,
         &evaluated.inner.block_states,
@@ -5038,8 +4996,13 @@ pub(crate) fn owned_joint_penalty_geometry_uses_terminal_workspace_without_famil
         &assembly_options,
         Some(&hessian),
         evaluated.inner.terminal_working_sets.as_deref(),
+        evaluated.inner.joint_workspace.as_ref(),
     )
-    .expect("joint terminal geometry");
+    .expect("joint terminal posterior");
+    let covariance = posterior
+        .covariance_conditional
+        .expect("covariance requested");
+    let geometry = posterior.geometry;
     assert_eq!(
         family.evaluations.load(Ordering::Relaxed),
         evaluations_before_assembly,
@@ -5180,7 +5143,6 @@ pub(crate) fn owned_mode_finalizer_preserves_prior_and_active_jeffreys_without_r
         &states,
         &specs,
         &block_param_ranges(&specs),
-        EvalMode::ValueOnly,
     )
     .expect("Jeffreys profile probe")
     .expect("absolute curvature below one must arm the Jeffreys profile");
@@ -5446,3 +5408,5 @@ pub(crate) fn returned_mode_finalizer_rejects_different_certified_objective() {
 mod inner_solver_numerics;
 
 mod effective_df_floor_box_2370;
+
+mod anchored_continuation_2366;

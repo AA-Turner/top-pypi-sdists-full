@@ -27,7 +27,9 @@ export declare class RangeManager {
     reset(): void;
     protected _update_dataranges(frame: CartesianFrameView | CoordinateMapping): void;
     update_dataranges(): void;
+    constrain_interval(rng: Range): RangeInfo | null;
     compute_initial(): RangeInfo | null;
+    protected _constrain_interval(rng: Range): Interval | null;
     protected _update_ranges_together(range_state: RangeState): void;
     protected _update_ranges_individually(range_state: RangeState, options: RangeOptions): void;
     protected _get_weight_to_constrain_interval(rng: Range, range_info: Interval): number;

@@ -306,6 +306,7 @@ pub fn build_term_collection_design_inner_with_policy(
                 effective_rank: 1,
                 normalization_scale: 1.0,
                 kronecker_factors: None,
+                structural_null_frame: None,
             },
         });
     }
@@ -327,6 +328,7 @@ pub fn build_term_collection_design_inner_with_policy(
                 effective_rank: block_size,
                 normalization_scale: 1.0,
                 kronecker_factors: None,
+                structural_null_frame: None,
             },
         });
     }
@@ -496,12 +498,11 @@ fn smooth_basis_has_anchored_bspline(basis: &SmoothBasisSpec) -> bool {
         SmoothBasisSpec::BSpline1D { spec, .. } => {
             bspline_conditions_have_anchor(&spec.boundary_conditions)
         }
-        SmoothBasisSpec::BySmooth { smooth, .. } => {
-            smooth_basis_has_anchored_bspline(smooth)
-        }
-        SmoothBasisSpec::TensorBSpline { spec, .. } => spec.marginalspecs.iter().any(|marginal| {
-            bspline_conditions_have_anchor(&marginal.boundary_conditions)
-        }),
+        SmoothBasisSpec::BySmooth { smooth, .. } => smooth_basis_has_anchored_bspline(smooth),
+        SmoothBasisSpec::TensorBSpline { spec, .. } => spec
+            .marginalspecs
+            .iter()
+            .any(|marginal| bspline_conditions_have_anchor(&marginal.boundary_conditions)),
         SmoothBasisSpec::FactorSmooth { .. }
         | SmoothBasisSpec::ThinPlate { .. }
         | SmoothBasisSpec::Sphere { .. }
@@ -513,9 +514,7 @@ fn smooth_basis_has_anchored_bspline(basis: &SmoothBasisSpec) -> bool {
     }
 }
 
-fn bspline_conditions_have_anchor(
-    conditions: &crate::basis::BSplineBoundaryConditions,
-) -> bool {
+fn bspline_conditions_have_anchor(conditions: &crate::basis::BSplineBoundaryConditions) -> bool {
     conditions.has_anchor()
 }
 
@@ -1242,17 +1241,27 @@ fn apply_global_smooth_identifiability(
                     penalty.matrix.clone(),
                     "global smooth source penalty",
                 )?;
+                // Re-attach the structural null frame the basis factory
+                // declared (#2445): `try_from_dense_psd` sees only the dense
+                // matrix, and the declaration must survive this chokepoint so
+                // the double-penalty rebuild below decides topology from the
+                // carried theorem, not from a rank test on a matrix carrying
+                // the Duchon conditioning ridge. `.restricted` transports it
+                // through the global gauge.
+                let raw = match penalty.info.structural_null_frame.as_ref() {
+                    Some(frame) => raw.with_structural_null_frame(
+                        frame.clone(),
+                        "global smooth source penalty structural frame",
+                    )?,
+                    None => raw,
+                };
                 let restricted = if let Some(gauge) = coefficient_gauge.as_ref() {
                     raw.restricted(gauge, "global smooth identifiability restriction")?
                 } else {
                     raw
                 };
-                let (_, c_new) =
-                    normalize_penalty_in_constrained_space(restricted.dense());
-                let matrix = restricted.scaled(
-                    1.0 / c_new,
-                    "normalized global smooth penalty",
-                )?;
+                let (_, c_new) = normalize_penalty_in_constrained_space(restricted.dense());
+                let matrix = restricted.scaled(1.0 / c_new, "normalized global smooth penalty")?;
                 Ok(PenaltyCandidate {
                     matrix,
                     source: penalty.info.source.clone(),
@@ -1317,10 +1326,8 @@ fn apply_global_smooth_identifiability(
                 .map(|c| -> Result<_, BasisError> {
                     Ok((
                         support_rows(&c.matrix),
-                        c.matrix.scaled(
-                            c.normalization_scale,
-                            "physical global smooth primary",
-                        )?,
+                        c.matrix
+                            .scaled(c.normalization_scale, "physical global smooth primary")?,
                     ))
                 })
                 .collect::<Result<Vec<_>, _>>()?;
@@ -1353,25 +1360,32 @@ fn apply_global_smooth_identifiability(
                     s_full.factor().slice(s![.., *plo..*phi]).to_owned(),
                     "owned global smooth primary block",
                 )?;
+                // The support-block extraction rebuilds the quadratic from a
+                // sliced factor, so re-attach the declared structural frame
+                // restricted to the same block (it is `None` when the frame
+                // has support outside the block, and the rebuild then falls
+                // back to measuring — never guesses).
+                let block = match s_full.structural_null_frame_block(*plo, *phi) {
+                    Some(frame) => block.with_structural_null_frame(
+                        frame,
+                        "owned global smooth primary block structural frame",
+                    )?,
+                    None => block,
+                };
                 let ridge_full = candidate.matrix.scaled(
                     candidate.normalization_scale,
                     "physical global smooth null ridge",
                 )?;
                 let ridge_block = ConstructiveQuadratic::from_energy_factor(
-                    ridge_full
-                        .factor()
-                        .slice(s![.., *plo..*phi])
-                        .to_owned(),
+                    ridge_full.factor().slice(s![.., *plo..*phi]).to_owned(),
                     "owned global smooth null-ridge block",
                 )?;
                 let rebuilt_block =
                     crate::basis::rebuild_metric_consistent_ridge(&block, &ridge_block)?;
                 match rebuilt_block {
                     Some(ridge_block) => {
-                        let mut full_factor = Array2::<f64>::zeros((
-                            ridge_block.factor().nrows(),
-                            q,
-                        ));
+                        let mut full_factor =
+                            Array2::<f64>::zeros((ridge_block.factor().nrows(), q));
                         full_factor
                             .slice_mut(s![.., *plo..*phi])
                             .assign(ridge_block.factor());
@@ -1379,12 +1393,9 @@ fn apply_global_smooth_identifiability(
                             full_factor,
                             "embedded global smooth null ridge",
                         )?;
-                        let (_, scale) =
-                            normalize_penalty_in_constrained_space(full.dense());
-                        candidate.matrix = full.scaled(
-                            1.0 / scale,
-                            "normalized embedded global smooth null ridge",
-                        )?;
+                        let (_, scale) = normalize_penalty_in_constrained_space(full.dense());
+                        candidate.matrix = full
+                            .scaled(1.0 / scale, "normalized embedded global smooth null ridge")?;
                         candidate.normalization_scale = scale;
                         candidate.kronecker_factors = None;
                         candidate.op = None;
@@ -2333,7 +2344,11 @@ mod frozen_linear_term_mass_rebuild_tests {
                  succeed — the training-time mass is reused, never recomputed from these rows",
             );
         assert_eq!(
-            rebuilt_design.linear_function_masses.first().copied().flatten(),
+            rebuilt_design
+                .linear_function_masses
+                .first()
+                .copied()
+                .flatten(),
             Some(training_mass),
             "the rebuilt design must carry the REUSED training-time mass, not a value \
              recomputed from the (all-zero) evaluation rows"

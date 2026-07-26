@@ -86,7 +86,7 @@ __all__ = [
     "to_hex_sha",
 ]
 
-__version__ = '3.1.55'
+__version__ = '3.1.56'
 
 from typing import Any, List, Optional, Sequence, TYPE_CHECKING, Tuple, Union
 

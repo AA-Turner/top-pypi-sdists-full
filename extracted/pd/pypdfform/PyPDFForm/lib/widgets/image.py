@@ -10,13 +10,14 @@ action.
 """
 
 from dataclasses import dataclass
-from typing import Any, List, Type
+from typing import Type
 
 from pypdf import PdfWriter
 from pypdf.generic import (
     ArrayObject,
     DictionaryObject,
     FloatObject,
+    IndirectObject,
     NameObject,
     NumberObject,
     TextStringObject,
@@ -65,7 +66,7 @@ class ImageWidget(SignatureWidget):
     """
 
     @staticmethod
-    def _build_annotation(out: PdfWriter, widget: SignatureWidget) -> Any:
+    def _build_annotation(out: PdfWriter, widget: SignatureWidget) -> IndirectObject:
         """
         Constructs an image-import widget annotation owned by a PDF writer.
 
@@ -82,7 +83,8 @@ class ImageWidget(SignatureWidget):
                 convert into a PDF annotation.
 
         Returns:
-            Any: The writer-owned indirect reference to the widget annotation.
+            IndirectObject: The writer-owned indirect reference to the widget
+                annotation.
         """
         width = float(widget.optional_parameters["width"])
         height = float(widget.optional_parameters["height"])
@@ -150,30 +152,6 @@ class ImageWidget(SignatureWidget):
         )
         return out._add_object(  # type: ignore # noqa: SLF001 # pylint: disable=W0212
             annotation
-        )
-
-    @staticmethod
-    def bulk_watermarks(widgets: List[SignatureWidget], stream: bytes) -> List[bytes]:
-        """
-        Constructs image widgets in page-aligned carrier PDFs.
-
-        Each image field is built as a push-button annotation whose JavaScript
-        action invokes `buttonImportIcon()` in viewers that support Acrobat
-        JavaScript. A single border-only appearance stream is reused for the
-        normal, rollover, and pressed states. It has a transparent interior and
-        the same dark-gray, one-point solid border as the signature widget.
-        ``build_widget_watermarks`` packages the annotations by source page.
-
-        Args:
-            widgets (List[SignatureWidget]): Image widgets to construct.
-            stream (bytes): Source PDF used to determine page count and page size.
-
-        Returns:
-            List[bytes]: Page-aligned PDF streams containing the constructed
-            image annotations.
-        """
-        return ImageWidget.build_widget_watermarks(
-            widgets, stream, ImageWidget._build_annotation
         )
 
 

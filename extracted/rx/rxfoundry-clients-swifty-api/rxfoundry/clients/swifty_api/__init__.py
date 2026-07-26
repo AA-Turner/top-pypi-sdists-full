@@ -82,6 +82,7 @@ from rxfoundry.clients.swifty_api.models.patient_name import PatientName
 from rxfoundry.clients.swifty_api.models.patient_phone_number import PatientPhoneNumber
 from rxfoundry.clients.swifty_api.models.patient_possible_match import PatientPossibleMatch
 from rxfoundry.clients.swifty_api.models.patient_relationship_data import PatientRelationshipData
+from rxfoundry.clients.swifty_api.models.patient_with_possible_matches import PatientWithPossibleMatches
 from rxfoundry.clients.swifty_api.models.pharmacist import Pharmacist
 from rxfoundry.clients.swifty_api.models.pharmacy import Pharmacy
 from rxfoundry.clients.swifty_api.models.pharmacy_and_medication_program_pricing import PharmacyAndMedicationProgramPricing

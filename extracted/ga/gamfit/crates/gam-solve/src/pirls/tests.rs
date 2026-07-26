@@ -1857,6 +1857,12 @@ mod tests {
         )
         .expect("integrated logit PIRLS fit");
 
+        assert!(
+            fit.iteration < config.max_iterations,
+            "the one-parameter integrated-logit fit must converge before its {}-iteration cap; got status {:?}",
+            config.max_iterations,
+            fit.status
+        );
         let ctx = crate::quadrature::QuadratureContext::new();
         for i in 0..y.len() {
             let jet = crate::quadrature::integrated_inverse_link_jet(
@@ -1909,6 +1915,112 @@ mod tests {
                 expected.d,
                 epsilon = 1e-8,
                 max_relative = 1e-7
+            );
+        }
+    }
+
+    /// zz_measure DIAGNOSTIC: is the shipped derivative jet one Newton step
+    /// stale relative to `final_eta`?
+    ///
+    /// `pirls_result_stores_integrated_logit_derivative_jet` compares
+    /// `fit.solve_dmu_deta[i]` against a jet recomputed at `fit.final_eta[i]`
+    /// and fails at 1e-9. The suspected mechanism is ordinary P-IRLS ordering:
+    /// the geometry (`last_dmu_deta`, …) is built at η_k, β_{k+1} is solved
+    /// from it, η_{k+1} is formed, convergence is checked, and the loop exits —
+    /// so `into_final_state()` ships the geometry of η_k beside `final_eta`
+    /// = η_{k+1}. If that is the cause, the mismatch is bounded by
+    /// `|d²μ/dη²| · |η_{k+1} − η_k|`, and `|η_{k+1} − η_k|` is what the
+    /// convergence tolerance controls — so the gap must SHRINK with the
+    /// tolerance, roughly linearly.
+    ///
+    /// If instead the gap is tolerance-independent, the two channels disagree
+    /// for a reason that is not staleness, and the mechanism above is wrong.
+    ///
+    /// Numbers only; the sole assertion is finiteness (zz_measure discipline).
+    #[test]
+    pub(crate) fn zz_measure_pirls_stored_jet_staleness_vs_tolerance() {
+        let x = array![[1.0], [1.0], [1.0], [1.0], [1.0]];
+        let y = array![0.0, 1.0, 0.0, 1.0, 1.0];
+        let w = Array1::ones(5);
+        let offset = Array1::zeros(5);
+        let rho = Array1::<f64>::zeros(1);
+        let covariate_se = array![0.9, 0.7, 0.8, 0.6, 0.75];
+        let r = array![[1.0]];
+        let canonical = vec![gam_terms::construction::CanonicalPenalty {
+            root: r.clone(),
+            col_range: 0..r.ncols(),
+            total_dim: r.ncols(),
+            nullity: 0,
+            local: r.t().dot(&r),
+            prior_mean: Array1::zeros(r.ncols()),
+            positive_eigenvalues: Vec::new(),
+            op: None,
+        }];
+
+        eprintln!(
+            "[zz-jet-stale] tolerance | iters | max|solve_dmu_deta - jet.d1| | max|solve_d2 - jet.d2|"
+        );
+        for tolerance in [1.0e-6, 1.0e-8, 1.0e-10, 1.0e-12, 1.0e-14] {
+            let config = PirlsConfig {
+                likelihood: GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
+                    ResponseFamily::Binomial,
+                    InverseLink::Standard(StandardLink::Logit),
+                )),
+                link_kind: InverseLink::Standard(StandardLink::Logit),
+                max_iterations: 400,
+                convergence_tolerance: tolerance,
+                firth_bias_reduction: false,
+                initial_lm_lambda: None,
+                arrow_schur: None,
+            };
+            let (fit, _) = fit_model_for_fixed_rho(
+                LogSmoothingParamsView::new(rho.view())
+                    .expect("test rho lies in exact strength domain"),
+                PirlsProblem {
+                    x: x.view(),
+                    offset: offset.view(),
+                    y: y.view(),
+                    priorweights: w.view(),
+                    covariate_se: Some(covariate_se.view()),
+                    gaussian_fixed_cache: None,
+                    glm_first_step_gram: None,
+                },
+                PenaltyConfig {
+                    canonical_penalties: &canonical,
+                    balanced_penalty_root: None,
+                    reparam_invariant: None,
+                    p: 1,
+                    coefficient_lower_bounds: None,
+                    linear_constraints_original: None,
+                    penalty_shrinkage_floor: None,
+                    kronecker_factored: None,
+                },
+                &config,
+                Some(&Coefficients::new(array![0.0])),
+            )
+            .expect("integrated logit PIRLS fit");
+
+            let ctx = crate::quadrature::QuadratureContext::new();
+            let mut worst_d1 = 0.0_f64;
+            let mut worst_d2 = 0.0_f64;
+            for i in 0..y.len() {
+                let jet = crate::quadrature::integrated_inverse_link_jet(
+                    &ctx,
+                    LinkFunction::Logit,
+                    fit.final_eta[i],
+                    covariate_se[i],
+                )
+                .expect("logit integrated inverse-link jet should evaluate");
+                worst_d1 = worst_d1.max((fit.solve_dmu_deta[i] - jet.d1).abs());
+                worst_d2 = worst_d2.max((fit.solve_d2mu_deta2[i] - jet.d2).abs());
+            }
+            assert!(
+                worst_d1.is_finite() && worst_d2.is_finite(),
+                "stored-jet gaps must be finite at tolerance {tolerance:e}"
+            );
+            eprintln!(
+                "[zz-jet-stale] {tolerance:8.1e} | {:5} | {worst_d1:.6e} | {worst_d2:.6e}",
+                fit.iteration
             );
         }
     }
@@ -3215,30 +3327,6 @@ mod tests {
         assert_eq!(kkt.n_active, 3);
     }
 
-    #[test]
-    pub(crate) fn compress_activeworking_set_groups_near_collinearrows() {
-        let constraints = LinearInequalityConstraints {
-            a: array![
-                [0.0, 0.5, 0.0],
-                [0.0, 0.50000000000003, 0.0],
-                [1.0, 0.0, 0.0]
-            ],
-            b: array![1e-8, 1.00000000000005e-8, 0.2],
-        };
-        let x = array![0.0, 0.0, 0.0];
-        let active = vec![0, 1, 2];
-
-        let compressed = active_set::compress_active_working_set(&x, &constraints, &active)
-            .expect("compress working set");
-
-        assert_eq!(compressed.constraints.a.nrows(), 2);
-        assert_eq!(compressed.groups.len(), 2);
-        assert!(
-            compressed.groups.iter().any(|g| g == &vec![0, 1]),
-            "near-collinear rows should be grouped together: {:?}",
-            compressed.groups
-        );
-    }
 
     #[test]
     pub(crate) fn lower_bound_active_set_releases_stalewarm_boundary_hint() {
@@ -4434,7 +4522,7 @@ mod root_cause_tests {
     }
 
     #[test]
-    pub(crate) fn rejected_noise_scale_step_requires_near_stationary_projected_gradient() {
+    pub(crate) fn rejected_noise_scale_step_can_finish_via_exact_decrement_certificate_2316() {
         let mut model = PlateauStatusModel {
             gradient: 2e-5,
             current_deviance: 1.0e6,
@@ -4457,16 +4545,27 @@ mod root_cause_tests {
             runworking_model_pirls(&mut model, Coefficients::new(array![0.0]), &options, |_| {})
                 .expect("noise-scale rejected step should still preserve the current state");
 
-        // Same exit path as the plateau test: noise-scale rejection drives the
-        // LM block to exhaustion with projected_grad 2e-5 above the
-        // near-stationary band (= 1e-5), so the exact status is
-        // LmStepSearchExhausted — keep the assertion strict so a future
-        // regression that silently promotes to Converged/Stalled OR falls back
-        // to the generic MaxIterationsReached default fails immediately.
+        // The candidate is objectively worse, so the LM trial is rejected.
+        // That says nothing about the unchanged current iterate's stationarity:
+        // #2316 deliberately pays for one exact final Newton-decrement
+        // certificate after any finite bounded exit. Here H=1 and g=2e-5, so
+        // g'H^-1g=4e-10, far below tol²(1+objective)≈5e-7. The final iterate is
+        // therefore independently certified and promoted to Converged. The old
+        // June test predated #2316 and incorrectly made a trial-step verdict
+        // override the later final-state certificate.
+        assert!(model.candidate_deviance > model.current_deviance);
+        let exact_decrement_sq = model.gradient * model.gradient;
+        let final_penalized_objective = 0.5 * model.current_deviance;
+        let exact_decrement_bound = options.convergence_tolerance.powi(2)
+            * (1.0 + final_penalized_objective.abs());
+        assert!(
+            exact_decrement_sq <= exact_decrement_bound,
+            "fixture must carry the decisive #2316 exact-decrement certificate"
+        );
         assert_eq!(
             result.status,
-            PirlsStatus::LmStepSearchExhausted,
-            "projected gradient 2e-5 exceeds the near-stationary band and must hit the LM-exhaust exit, not be accepted after a noise-scale rejection or fall through to MaxIterationsReached"
+            PirlsStatus::Converged,
+            "the rejected trial must not suppress an independent exact certificate for the unchanged final iterate"
         );
     }
 

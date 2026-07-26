@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 import logging
 from importlib.metadata import entry_points
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -22,7 +22,6 @@ from bernstein.adapters.charm import CharmAdapter
 from bernstein.adapters.claude import ClaudeCodeAdapter
 from bernstein.adapters.cline import ClineAdapter
 from bernstein.adapters.clm import ClmAdapter
-from bernstein.adapters.cloudflare_agents import CloudflareAgentsAdapter
 from bernstein.adapters.codebuff import CodebuffAdapter
 from bernstein.adapters.codex import CodexAdapter
 from bernstein.adapters.cody import CodyAdapter
@@ -61,6 +60,23 @@ from bernstein.adapters.rovo import RovoAdapter
 
 logger = logging.getLogger(__name__)
 
+
+@runtime_checkable
+class AdmissionGateLike(Protocol):
+    """Structural type of the receipt-gated admission check (issue #2610).
+
+    Declared structurally rather than imported so the registry keeps no
+    dependency on :mod:`bernstein.adapters.admission`: the registry is what
+    every adapter module resolves through, and a concrete import here would
+    put the admission machinery on the import path of the whole catalogue.
+    The concrete gate is :class:`bernstein.adapters.admission.AdmissionGate`.
+    """
+
+    def admit(self, adapter: str) -> object | None:
+        """Raise when *adapter* cannot prove admission; return the decision."""
+        ...
+
+
 _ADAPTERS: dict[str, type[CLIAdapter] | CLIAdapter] = {
     # Successor CLI for the discontinued non-enterprise hosted gemini
     # backend. Separate registry entry from "gemini"/"antigravity" (which
@@ -76,7 +92,6 @@ _ADAPTERS: dict[str, type[CLIAdapter] | CLIAdapter] = {
     "claude": ClaudeCodeAdapter,
     "cline": ClineAdapter,
     "clm": ClmAdapter,
-    "cloudflare": CloudflareAgentsAdapter,
     "codebuff": CodebuffAdapter,
     "codex": CodexAdapter,
     "cody": CodyAdapter,
@@ -132,6 +147,29 @@ _ADAPTERS: dict[str, type[CLIAdapter] | CLIAdapter] = {
 # hand-written module keeps owning the spawn path.
 _ADAPTERS.update(profile_built_adapter_classes())
 
+#: Registry names that no longer resolve to an adapter, mapped to the guidance
+#: an operator needs to move off them. A removed name stays listed here so a
+#: config that still pins it fails with a pointer to the supported path rather
+#: than a bare "Unknown adapter" listing or an ``ImportError`` from a module
+#: that is gone. Selection surfaces (``--cli`` choices, the seed ``cli:``
+#: allowlist) derive from :data:`_ADAPTERS`, so a removed name is not offered
+#: anywhere; this table only shapes the error when someone supplies it anyway.
+#: An entry is dropped once a stale config pinning it is no longer plausible.
+_REMOVED_ADAPTERS: dict[str, str] = {
+    "cloudflare": (
+        "Adapter 'cloudflare' (Cloudflare Agents SDK) has been removed. It "
+        "refused every spawn and had no path to a working one: the Agents SDK "
+        "dispatches to a Worker the operator writes rather than exposing an "
+        "invocation contract to implement against, and it does not execute "
+        "shell, so running a CLI agent under it means calling the Sandbox SDK "
+        "anyway. To run an agent on Cloudflare, use the Codex-on-Cloudflare "
+        "sandbox adapter (bernstein.adapters.codex_cloudflare, issue #2969). "
+        "To drive a Worker you deployed yourself, use "
+        "bernstein.bridges.cloudflare.CloudflareBridge. To run locally, pick a "
+        "local adapter such as 'claude', 'codex', or 'aider'."
+    ),
+}
+
 _entrypoints_loaded = False
 
 #: provider-alias (lower-cased) -> adapter registry name. Built lazily from
@@ -179,35 +217,85 @@ def _load_entrypoint_adapters() -> None:
             logger.warning("Failed to load entry-point adapter %r: %s", ep.name, exc)
 
 
-def get_adapter(cli_name: str) -> CLIAdapter:
+def get_adapter(cli_name: str, *, admission_gate: AdmissionGateLike | None = None) -> CLIAdapter:
     """Get adapter by name, e.g. 'aider', 'claude', 'cody', 'codex', 'continue', 'gemini', or 'generic'.
 
     For 'generic', returns a GenericAdapter with default settings.
     For known adapters, instantiates the corresponding class.
     Third-party adapters are discovered from the ``bernstein.adapters`` entry-point group.
 
+    Resolution is name-based by default, which is what the enumeration
+    surfaces need: ``bernstein adapters list``, the conformance report and
+    ``bernstein doctor`` all have to inspect adapters they would never be
+    allowed to spawn. Passing ``admission_gate`` makes resolution proof-based
+    instead (issue #2610): the adapter is handed back only when it can present
+    a fresh admission receipt whose replay fingerprint still matches the
+    installed binary and the pinned contract. The spawn path supplies a gate;
+    nothing else does.
+
     Args:
         cli_name: Adapter name to look up.
+        admission_gate: Optional :class:`~bernstein.adapters.admission.
+            AdmissionGate` (structurally, an :class:`AdmissionGateLike`).
+            When supplied, the adapter must clear receipt-gated admission
+            before it is returned.
 
     Returns:
         An instantiated CLIAdapter.
 
     Raises:
-        ValueError: If the adapter name is not recognized.
+        ValueError: If the adapter name is not recognized, or if it names an
+            adapter that has been removed (the message then carries the
+            replacement guidance from :data:`_REMOVED_ADAPTERS`).
+        bernstein.adapters.admission.AdapterAdmissionRefusal: When a gate is
+            supplied under the enforce policy and the adapter cannot prove
+            admission.
     """
     if cli_name == "generic":
+        if admission_gate is not None:
+            admission_gate.admit(cli_name)
         return GenericAdapter(cli_command="generic-cli", display_name="Generic CLI")
 
     _load_entrypoint_adapters()
 
     adapter_cls = _ADAPTERS.get(cli_name)
     if adapter_cls is None:
+        # A removed name resolves to its replacement guidance. Checked after
+        # entry-point discovery so a third-party plugin that registers the
+        # name for itself keeps working.
+        removed = removed_adapter_message(cli_name)
+        if removed is not None:
+            raise ValueError(removed)
         available = ", ".join(sorted([*_ADAPTERS.keys(), "generic"]))
         raise ValueError(f"Unknown adapter '{cli_name}'. Available: {available}")
+
+    # The gate runs after the name resolves so an unknown adapter still gets
+    # the plain "unknown adapter" message rather than a refusal receipt for a
+    # name that was never registered.
+    if admission_gate is not None:
+        admission_gate.admit(cli_name)
 
     if isinstance(adapter_cls, CLIAdapter):
         return adapter_cls
     return adapter_cls()
+
+
+def removed_adapter_message(cli_name: str) -> str | None:
+    """Return replacement guidance for a removed adapter name.
+
+    Selection surfaces call this before reporting a name as unknown so an
+    operator whose config still pins a removed adapter is told what to use
+    instead. Names that were never registered return ``None``; those are
+    plain typos and get the generic "unknown adapter" treatment.
+
+    Args:
+        cli_name: The adapter name supplied by config or the CLI.
+
+    Returns:
+        The guidance string for a removed adapter, or ``None`` when the name
+        is not a removed adapter.
+    """
+    return _REMOVED_ADAPTERS.get(cli_name)
 
 
 def registry_name_for(adapter: CLIAdapter) -> str | None:

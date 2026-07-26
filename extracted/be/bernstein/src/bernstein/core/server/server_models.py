@@ -336,6 +336,17 @@ class TaskReopenRequest(BaseModel):
         return _sanitize_reason(value, info.field_name or "reason")
 
 
+class TaskReleaseRequest(BaseModel):
+    """Body for POST /tasks/{task_id}/release."""
+
+    reason: str = ""
+
+    @field_validator("reason")
+    @classmethod
+    def _sanitize_reason(cls, value: str, info: ValidationInfo) -> str:
+        return _sanitize_reason(value, info.field_name or "reason")
+
+
 class TaskCancelRequest(BaseModel):
     """Body for POST /tasks/{task_id}/cancel."""
 
@@ -742,6 +753,41 @@ class ClusterStatusResponse(BaseModel):
     available_slots: int
     active_agents: int
     nodes: list[NodeResponse]
+
+
+class ClaimGossipRequest(BaseModel):
+    """Body for POST /cluster/claims/gossip - push signed claim receipts to a peer.
+
+    ``receipts`` are the raw :class:`ClaimReceipt` wire dicts in journal order.
+    ``head`` is the sender's journal head, echoed back so the sender can tell
+    convergence from divergence without a second round trip.
+    """
+
+    receipts: list[dict[str, Any]]
+    head: str | None = None
+    node_id: str | None = None
+
+
+class ClaimGossipResult(BaseModel):
+    """Per-receipt outcome of a gossip push."""
+
+    entry_hash: str
+    status: str
+    reason: str | None = None
+    divergence_index: int | None = None
+
+
+class ClaimGossipResponse(BaseModel):
+    """Response for POST /cluster/claims/gossip.
+
+    ``forked`` is surfaced at the top level because a fork is the one outcome
+    that must not be lost in a per-receipt list an integrator might ignore.
+    """
+
+    head: str
+    accepted: int
+    results: list[ClaimGossipResult]
+    forked: bool = False
 
 
 class TaskStealRequest(BaseModel):

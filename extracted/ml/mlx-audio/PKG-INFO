@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlx-audio
-Version: 0.4.5
+Version: 0.4.6
 Summary: MLX-Audio is a package for inference of text-to-speech (TTS) and speech-to-speech (STS) models locally on your Mac using MLX
 Author-email: Prince Canuma <prince.gdt@gmail.com>
 License-Expression: MIT

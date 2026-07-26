@@ -24,6 +24,21 @@ pub fn build_spherical_spline_basis(
             spec.penalty_order
         );
     }
+    if matches!(spec.wahba_kernel, SphereWahbaKernel::Sobolev) && spec.penalty_order == 1 {
+        // The m = 1 Sobolev kernel is K = (-ln u - 1)/4pi with u = (1 - cos g)/2:
+        // log-singular, so its Gram diagonal does not exist. Evaluating it at a
+        // coincident pair only returns a number because the closed form floors
+        // `u`, and that floor SELECTS the diagonal rather than approximating a
+        // limit -- it silently asserts a spectral resolution of ~3.8e9 (#2475).
+        // Refuse here instead, and name the kernel that asks for the resolution.
+        crate::bail_invalid_basis!(
+            "the m = 1 Sobolev sphere kernel is log-singular at coincident points, so its Gram \
+             diagonal does not exist and any finite value is a choice of resolution rather than a \
+             limit; use SobolevTruncated {{ lmax }} (the same kernel with the resolution stated, \
+             diagonal ~ ln(lmax)/2pi) or penalty_order >= 2, whose diagonals are finite closed \
+             forms (1/(4pi) at m = 2, (2*zeta3 - 2)/(4pi) at m = 3)"
+        );
+    }
     let centers = match realized_center_strategy(&spec.center_strategy) {
         CenterStrategy::FarthestPoint { num_centers } => {
             select_spherical_farthest_point_centers(data, *num_centers, spec.radians)?
@@ -104,8 +119,11 @@ pub fn build_spherical_spline_basis(
     );
     let center_design = gauge.restrict_design(&raw_center_design);
     let function_gram = symmetrize_penalty(&fast_ata(&center_design));
+    // `raw_design` is dead after this point, and the `CenterSumToZero` chart
+    // makes the section the identity, so hand the buffer over rather than paying
+    // an `n × w` copy to be told it is already the answer (#2420).
     let design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-        gauge.restrict_design(&raw_design),
+        gauge.restrict_design_owned(raw_design),
     ));
     let (_, c_primary) = normalize_penalty(penalty.dense());
     let penalty_norm = penalty.scaled(1.0 / c_primary, "normalized Wahba roughness")?;
@@ -117,9 +135,7 @@ pub fn build_spherical_spline_basis(
         op: None,
     }];
     if spec.double_penalty {
-        if let Some(ridge) =
-            function_space_nullspace_shrinkage(penalty.dense(), &function_gram)?
-        {
+        if let Some(ridge) = function_space_nullspace_shrinkage(penalty.dense(), &function_gram)? {
             let (ridge_norm, c_ridge) = normalize_penalty(&ridge);
             candidates.push(PenaltyCandidate {
                 matrix: ConstructiveQuadratic::try_from_dense_psd(
@@ -709,10 +725,7 @@ pub(crate) fn build_spherical_harmonic_basis(
     }];
     if spec.double_penalty {
         let (_, c_ridge) = normalize_penalty(ridge.dense());
-        let ridge_norm = ridge.scaled(
-            1.0 / c_ridge,
-            "normalized spherical-harmonic null ridge",
-        )?;
+        let ridge_norm = ridge.scaled(1.0 / c_ridge, "normalized spherical-harmonic null ridge")?;
         candidates.push(PenaltyCandidate {
             matrix: ridge_norm,
             source: PenaltySource::DoublePenaltyNullspace,
@@ -2238,7 +2251,8 @@ pub fn build_duchon_native_penalty_psi_derivatives(
     // is already in scope from the design assembly above.
     let embed = |block: &Array2<f64>, ridge: f64| {
         let mut out = Array2::<f64>::zeros((total_cols, total_cols));
-        out.slice_mut(s![..kernel_cols, ..kernel_cols]).assign(block);
+        out.slice_mut(s![..kernel_cols, ..kernel_cols])
+            .assign(block);
         if poly_cols > 1 {
             for col in (kernel_cols + 1)..total_cols {
                 out[[col, col]] = ridge;
@@ -2318,39 +2332,14 @@ pub fn build_duchon_native_penalty_psi_derivatives(
     center_design_psi_psi
         .slice_mut(s![.., 0..kernel_cols])
         .assign(&kernel_center_design_psi_psi);
-    let (center_design, center_design_psi, center_design_psi_psi, trend_frame) =
-        if let Some(transform) = identifiability_transform {
-            if transform.nrows() != total_cols {
-                crate::bail_dim_basis!(
-                    "Duchon identifiability transform has {} rows, expected {}",
-                    transform.nrows(),
-                    total_cols
-                );
-            }
-            let kernel_coordinate_map = transform.slice(s![0..kernel_cols, ..]).to_owned();
-            let (frame, _) = rrqr_nullspace_basis(
-                &kernel_coordinate_map.t().to_owned(),
-                default_rrqr_rank_alpha(),
-            )
-            .map_err(BasisError::LinalgError)?;
-            (
-                fast_ab(&center_design, transform),
-                fast_ab(&center_design_psi, transform),
-                fast_ab(&center_design_psi_psi, transform),
-                frame,
-            )
-        } else {
-            let mut frame = Array2::<f64>::zeros((total_cols, poly_cols.saturating_sub(1)));
-            for column in 1..poly_cols {
-                frame[[kernel_cols + column, column - 1]] = 1.0;
-            }
-            (
-                center_design,
-                center_design_psi,
-                center_design_psi_psi,
-                frame,
-            )
-        };
+    // Differentiate the same RAW-chart trend functional used by the value
+    // builder. The outer gauge is a fixed chart, so its congruence is applied
+    // to the value and every derivative only after the raw jet is assembled.
+    // This matches the collection's restrict-then-rebuild order (#2433).
+    let mut trend_frame = Array2::<f64>::zeros((total_cols, poly_cols.saturating_sub(1)));
+    for column in 1..poly_cols {
+        trend_frame[[kernel_cols + column, column - 1]] = 1.0;
+    }
     let gram = symmetrize_penalty(&fast_ata(&center_design));
     let gram_psi = symmetrize_penalty(
         &(fast_atb(&center_design_psi, &center_design)
@@ -2370,11 +2359,65 @@ pub fn build_duchon_native_penalty_psi_derivatives(
         &gram_psi,
         &gram_psi_psi,
     )?;
-    let (_, trend_psi_norm, trend_psi_psi_norm, _) = normalize_penaltywith_psi_derivatives(
-        &trend_jet.value,
+    // Mirror the value path's STRUCTURAL metric-consistent rebuild (#2445):
+    // the shipped trend block is `F (Fᵀ R_c F) Fᵀ` with `F` the structural
+    // null frame carried by the Primary — a ψ-INVARIANT frame, so the jet of
+    // the shipped block is the same sandwich applied to the jet of `R_c`,
+    // with no frame-motion terms. (Before #2445 the value path rebuilt onto
+    // `null(S_c)` from a rank test; that frame rotates with ψ at the scale of
+    // the affine conditioning ridge, and the un-mirrored rotation was the
+    // whole 2.3e-6 FD residue of #2444.) With no outer chart the projected
+    // jet already lives in `span(F)`, so the sandwich is exactly the
+    // identity there and only the charted path moves.
+    let structural_frame = duchon_structural_trend_null_frame(
+        kernel_cols,
+        total_cols,
+        identifiability_transform,
+    )?;
+    let structural_sandwich = |x: &Array2<f64>| -> Array2<f64> {
+        if structural_frame.ncols() == 0 {
+            return Array2::<f64>::zeros(x.raw_dim());
+        }
+        let middle = structural_frame.t().dot(x).dot(&structural_frame);
+        symmetrize(&structural_frame.dot(&middle).dot(&structural_frame.t()))
+    };
+    let mut trend_value =
+        structural_sandwich(&project_penalty_matrix(&trend_jet.value, identifiability_transform));
+    let mut trend_first = structural_sandwich(&project_penalty_matrix(
         &trend_jet.first_a,
+        identifiability_transform,
+    ));
+    let mut trend_second = structural_sandwich(&project_penalty_matrix(
         &trend_jet.mixed,
-    );
+        identifiability_transform,
+    ));
+    // Put the jet on a unit working scale before normalizing it.
+    //
+    // The value path decides "is there a penalty here?" from the block's RANK
+    // (`filter_penalty_candidates`), which is scale-free, and then normalizes
+    // to unit Frobenius norm. `normalize_penaltywith_psi_derivatives` instead
+    // treats an ABSOLUTE norm below 1e-12 as "no penalty" and returns ZERO
+    // derivatives. A trend ridge whose physical magnitude is small — the center
+    // function metric restricted to the trend frame carries no normalization of
+    // its own — therefore shipped a full-rank normalized block with an
+    // identically zero analytic ψ-derivative, i.e. an objective the outer REML
+    // gradient does not see moving.
+    //
+    // That was latent while the constrained chart dropped the block outright;
+    // it became reachable as soon as the block survived (#2433). Rescaling is
+    // exact rather than a tolerance nudge: the normalization is homogeneous of
+    // degree zero in a common factor — `S/c` and `S'/c − (c'/c²)S` are both
+    // invariant under `S ↦ αS` — so the returned normalized jet is unchanged
+    // wherever the guard was not going to fire.
+    let trend_scale = trend_value.iter().map(|v| v * v).sum::<f64>().sqrt();
+    if trend_scale.is_finite() && trend_scale > 0.0 {
+        let inverse = 1.0 / trend_scale;
+        trend_value.mapv_inplace(|value| value * inverse);
+        trend_first.mapv_inplace(|value| value * inverse);
+        trend_second.mapv_inplace(|value| value * inverse);
+    }
+    let (_, trend_psi_norm, trend_psi_psi_norm, _) =
+        normalize_penaltywith_psi_derivatives(&trend_value, &trend_first, &trend_second);
     let candidates = duchon_native_penalty_candidates(
         centers,
         spec.length_scale,
@@ -3540,6 +3583,48 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
 mod wahba_penalty_invariants_tests {
     use super::*;
     use ndarray::array;
+
+    #[test]
+    fn sobolev_m1_sphere_kernel_is_refused_rather_than_given_a_fabricated_diagonal() {
+        // `K = (-ln u - 1)/4pi` is log-singular, so the Gram diagonal does not
+        // exist. The builder must say so rather than return whichever value the
+        // epsilon floor happened to select (#2475).
+        let data = array![
+            [-1.1, 0.1],
+            [-0.7, 1.0],
+            [-0.2, 2.0],
+            [0.3, 2.8],
+            [0.8, -2.5],
+            [1.1, -1.4],
+            [0.5, -0.4],
+            [-0.4, -1.8],
+        ];
+        let spec = SphericalSplineBasisSpec {
+            center_strategy: CenterStrategy::FarthestPoint { num_centers: 8 },
+            penalty_order: 1,
+            double_penalty: false,
+            radians: true,
+            method: SphereMethod::Wahba,
+            max_degree: None,
+            wahba_kernel: SphereWahbaKernel::Sobolev,
+            identifiability: SphericalSplineIdentifiability::CenterSumToZero,
+        };
+        let error = build_spherical_spline_basis(data.view(), &spec)
+            .expect_err("m = 1 Sobolev has no Gram diagonal and must be refused");
+        let text = error.to_string();
+        assert!(
+            text.contains("log-singular") && text.contains("SobolevTruncated"),
+            "the refusal must name both the defect and the remedy; got: {text}"
+        );
+
+        // Positive control: the SAME data at m = 2 still builds. The refusal is
+        // specific to the order whose diagonal diverges, not to the kernel, so
+        // this test cannot pass by refusing everything.
+        let mut buildable = spec.clone();
+        buildable.penalty_order = 2;
+        build_spherical_spline_basis(data.view(), &buildable)
+            .expect("m = 2 Sobolev has a finite closed-form diagonal and must still build");
+    }
 
     #[test]
     fn wahba_primary_is_exact_function_seminorm_without_coefficient_ridge() {

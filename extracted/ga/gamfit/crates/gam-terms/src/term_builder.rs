@@ -15,11 +15,10 @@ use crate::basis::{
     ConstantCurvatureBasisSpec, ConstantCurvatureIdentifiability, DuchonBasisSpec,
     DuchonNullspaceOrder, DuchonOperatorPenaltySpec, MaternBasisSpec, MaternIdentifiability,
     MaternLengthScale, MaternNu, MeasureJetBasisSpec, MeasureJetIdentifiability,
-    OneDimensionalBoundary,
-    SpatialIdentifiability, SphereMethod, SphereWahbaKernel, SphericalSplineBasisSpec,
-    SphericalSplineIdentifiability, ThinPlateBasisSpec, auto_spatial_center_strategy,
-    default_num_centers, default_spatial_center_strategy, default_spherical_harmonic_degree,
-    plan_spatial_basis, thin_plate_penalty_order,
+    OneDimensionalBoundary, SpatialIdentifiability, SphereMethod, SphereWahbaKernel,
+    SphericalSplineBasisSpec, SphericalSplineIdentifiability, ThinPlateBasisSpec,
+    auto_spatial_center_strategy, default_num_centers, default_spatial_center_strategy,
+    default_spherical_harmonic_degree, plan_spatial_basis, thin_plate_penalty_order,
 };
 use crate::inference::formula_dsl::{
     ParsedTerm, SmoothKind, option_bool, option_f64, option_f64_strict, option_usize,
@@ -392,8 +391,9 @@ pub fn build_termspec(
                         feature_col: col,
                         feature_cols: vec![col],
                         categorical_levels: vec![],
-                        // Only the intercept is structurally unpenalized by
-                        // default; REML may shrink an unsupported slope to zero.
+                        // Parametric terms are unpenalized/MLE by default.
+                        // `double_penalty=true` is an explicit shrinkage choice
+                        // carried by the parsed term.
                         double_penalty: *double_penalty,
                         coefficient_geometry: LinearCoefficientGeometry::Unconstrained,
                         coefficient_min: *coefficient_min,
@@ -408,6 +408,8 @@ pub fn build_termspec(
                                 feature_col: col,
                                 feature_cols: vec![col],
                                 categorical_levels: vec![],
+                                // Preserve the parser's explicit opt-in. Bare
+                                // numeric terms arrive as `false`.
                                 double_penalty: *double_penalty,
                                 coefficient_geometry: LinearCoefficientGeometry::Unconstrained,
                                 coefficient_min: *coefficient_min,
@@ -5179,7 +5181,9 @@ mod tests {
             .expect_err("a constant-longitude sphere smooth must be rejected as degenerate");
         let lower = err.to_lowercase();
         assert!(
-            (lower.contains("constant") || lower.contains("degenerate") || lower.contains("unique"))
+            (lower.contains("constant")
+                || lower.contains("degenerate")
+                || lower.contains("unique"))
                 && lower.contains("lon"),
             "rejection must flag degeneracy and name the constant longitude coordinate: {err}"
         );
@@ -5489,10 +5493,7 @@ mod tests {
             !crate::smooth::all_spatial_terms_kappa_fixed(&auto),
             "BMS pre-design query must enroll omitted Matérn κ"
         );
-        crate::smooth::auto_init_length_scale_in_place(
-            ds.values.view(),
-            &mut auto.smooth_terms[0],
-        );
+        crate::smooth::auto_init_length_scale_in_place(ds.values.view(), &mut auto.smooth_terms[0]);
         assert!(matches!(
             &auto.smooth_terms[0].basis,
             SmoothBasisSpec::Matern {
@@ -6029,7 +6030,7 @@ mod tests {
     }
 
     #[test]
-    fn non_intercept_linear_effects_default_to_null_recovery() {
+    fn non_intercept_linear_effects_default_to_mle_with_explicit_null_recovery() {
         let ds = continuous_dataset(
             &["y", "x", "z"],
             (0..24)
@@ -6052,8 +6053,8 @@ mod tests {
         .expect("build linear defaults");
         assert!(!terms.linear_terms.is_empty());
         assert!(
-            terms.linear_terms.iter().all(|term| term.double_penalty),
-            "every non-intercept linear effect must be shrinkable by default: {:?}",
+            terms.linear_terms.iter().all(|term| !term.double_penalty),
+            "ordinary parametric effects must be unpenalized by default: {:?}",
             terms
                 .linear_terms
                 .iter()
@@ -6061,10 +6062,9 @@ mod tests {
                 .collect::<Vec<_>>()
         );
 
-        // `bounded()` is a distinct coefficient geometry (an exact interval
-        // transform, not a penalized linear slope): it structurally rejects
-        // `double_penalty` (see `design_construction.rs`), so — unlike the
-        // plain linear terms above — it must default to `false`.
+        // `bounded()` is an exact interval transform and likewise defaults to
+        // no shrinkage ridge. It also structurally rejects combining the
+        // interval geometry with `double_penalty`.
         let bounded_parsed =
             parse_formula("y ~ bounded(z, min=-2, max=2)").expect("parse bounded defaults");
         let mut bounded_notes = Vec::new();
@@ -6083,11 +6083,10 @@ mod tests {
         );
 
         for formula in [
-            "y ~ linear(x, double_penalty=false)",
-            "y ~ bounded(z, min=-2, max=2, double_penalty=false)",
-            "y ~ linear(x:z, double_penalty=false)",
+            "y ~ linear(x, double_penalty=true)",
+            "y ~ linear(x:z, double_penalty=true)",
         ] {
-            let parsed = parse_formula(formula).expect("parse explicit linear opt-out");
+            let parsed = parse_formula(formula).expect("parse explicit linear shrinkage");
             let mut notes = Vec::new();
             let terms = build_termspec(
                 &parsed.terms,
@@ -6099,14 +6098,14 @@ mod tests {
             .unwrap_or_else(|error| panic!("{formula} must build: {error}"));
             assert_eq!(terms.linear_terms.len(), 1, "{formula}");
             assert!(
-                !terms.linear_terms[0].double_penalty,
-                "{formula} must preserve the explicit MLE opt-out"
+                terms.linear_terms[0].double_penalty,
+                "{formula} must preserve the explicit shrinkage opt-in"
             );
         }
 
         assert!(
             parse_formula("y ~ linear(x, double_penalty=ture)").is_err(),
-            "a misspelled opt-out must be rejected instead of silently using the default"
+            "a misspelled opt-in must be rejected instead of silently using the default"
         );
     }
 

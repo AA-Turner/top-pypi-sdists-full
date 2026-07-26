@@ -69,9 +69,11 @@ def test_mildly_malformed_xref_read(fname):
 
 def test_hopelessly_malformed_xref_read():
     fname = 'minimal-startxref-hopeless.pdf'
-    with open(os.path.join(PDF_DATA_DIR, fname), 'rb') as inf:
-        with pytest.raises(misc.PdfReadError, match='Could not find xref'):
-            PdfFileReader(inf, strict=False)
+    with (
+        open(os.path.join(PDF_DATA_DIR, fname), 'rb') as inf,
+        pytest.raises(misc.PdfReadError, match='Could not find xref'),
+    ):
+        PdfFileReader(inf, strict=False)
 
 
 @pytest.mark.parametrize(
@@ -92,9 +94,11 @@ def test_hopelessly_malformed_xref_read():
     ],
 )
 def test_xref_locate_fail_strict(fname):
-    with open(os.path.join(PDF_DATA_DIR, fname), 'rb') as inf:
-        with pytest.raises(misc.PdfReadError, match='Failed to locate xref'):
-            PdfFileReader(inf, strict=True)
+    with (
+        open(os.path.join(PDF_DATA_DIR, fname), 'rb') as inf,
+        pytest.raises(misc.PdfReadError, match='Failed to locate xref'),
+    ):
+        PdfFileReader(inf, strict=True)
 
 
 @pytest.mark.parametrize(
@@ -116,10 +120,12 @@ def test_xref_locate_fail_strict(fname):
     ],
 )
 def test_broken_objstream(fname, err, obj_to_get):
-    with open(os.path.join(PDF_DATA_DIR, fname), 'rb') as inf:
-        with pytest.raises(misc.PdfReadError, match=err):
-            r = PdfFileReader(inf, strict=True)
-            r.get_object(generic.Reference(idnum=obj_to_get))
+    with (
+        open(os.path.join(PDF_DATA_DIR, fname), 'rb') as inf,
+        pytest.raises(misc.PdfReadError, match=err),
+    ):
+        r = PdfFileReader(inf, strict=True)
+        r.get_object(generic.Reference(idnum=obj_to_get))
 
 
 @pytest.mark.parametrize(
@@ -208,6 +214,51 @@ def test_illegal_generation():
 def test_illegal_generation_nonstrict():
     xrefs = [
         [b'0 2', b'0000000000 65535 f', b'0000000100 99999 n'],
+    ]
+
+    r = PdfFileReader(BytesIO(fmt_dummy_xrefs(xrefs)), strict=False)
+    assert not r.xrefs.get_xref_data(0).explicit_refs_in_revision
+
+
+def test_unparseable_idnum():
+    xrefs = [
+        [b'0 2', b'0000000000 65535 f', b'000000010a 00000 n'],
+    ]
+
+    with pytest.raises(misc.PdfReadError, match='location.*decimal string'):
+        PdfFileReader(BytesIO(fmt_dummy_xrefs(xrefs)))
+
+
+def test_unparseable_generation():
+    xrefs = [
+        [b'0 2', b'0000000000 65535 f', b'0000000100 aaaaa n'],
+    ]
+
+    with pytest.raises(misc.PdfReadError, match='generation.*decimal string'):
+        PdfFileReader(BytesIO(fmt_dummy_xrefs(xrefs)))
+
+
+def test_unparseable_generation_free():
+    xrefs = [
+        [b'0 2', b'0000000000 65535 f', b'0000000100 aaaaa f'],
+    ]
+
+    with pytest.raises(misc.PdfReadError, match='to free.*decimal string'):
+        PdfFileReader(BytesIO(fmt_dummy_xrefs(xrefs)))
+
+
+def test_unparseable_marker():
+    xrefs = [
+        [b'0 2', b'0000000000 65535 f', b'0000000100 00000 z'],
+    ]
+
+    with pytest.raises(misc.PdfReadError, match='Unknown marker'):
+        PdfFileReader(BytesIO(fmt_dummy_xrefs(xrefs)))
+
+
+def test_unparseable_marker_nonstrict():
+    xrefs = [
+        [b'0 2', b'0000000000 65535 f', b'0000000100 00000 z'],
     ]
 
     r = PdfFileReader(BytesIO(fmt_dummy_xrefs(xrefs)), strict=False)
@@ -588,11 +639,13 @@ def test_xref_orphaned_strict():
     # higher-generation xref without matching free
     # should not work in strict mode
     fpath = os.path.join(PDF_DATA_DIR, 'minimal-with-orphaned-xrefs.pdf')
-    with open(fpath, 'rb') as inf:
-        with pytest.raises(
+    with (
+        open(fpath, 'rb') as inf,
+        pytest.raises(
             misc.PdfReadError, match="Object with id 1.*orphaned.*generation 9"
-        ):
-            PdfFileReader(inf, strict=True)
+        ),
+    ):
+        PdfFileReader(inf, strict=True)
 
 
 def test_xref_stream_parse_entry_types():
@@ -790,9 +843,11 @@ def test_hybrid_xref(fname):
 
 def test_xref_size_nondecreasing():
     fname = 'minimal-broken-xref-size.pdf'
-    with open(os.path.join(PDF_DATA_DIR, fname), 'rb') as inf:
-        with pytest.raises(misc.PdfReadError, match='nondecreasing'):
-            PdfFileReader(inf, strict=True)
+    with (
+        open(os.path.join(PDF_DATA_DIR, fname), 'rb') as inf,
+        pytest.raises(misc.PdfReadError, match='nondecreasing'),
+    ):
+        PdfFileReader(inf, strict=True)
 
 
 @pytest.mark.parametrize(
@@ -867,3 +922,20 @@ def test_update_hybrid_twice(fname):
     assert container_info.xref_section_type == XRefSectionType.STANDARD
     container_info = r.xrefs.get_xref_container_info(3)
     assert container_info.xref_section_type == XRefSectionType.STANDARD
+
+
+def test_xref_space_padded_offsets():
+    fname = "malformed-xref-space-padded.pdf"
+    with open(os.path.join(PDF_DATA_DIR, fname), 'rb') as inf:
+        r = PdfFileReader(inf, strict=False)
+
+    assert r.xrefs[generic.Reference(5, 0)] == 361
+
+
+def test_xref_space_padded_offsets_strict():
+    fname = "malformed-xref-space-padded.pdf"
+    with (
+        open(os.path.join(PDF_DATA_DIR, fname), 'rb') as inf,
+        pytest.raises(misc.PdfStrictReadError, match="Unknown marker"),
+    ):
+        PdfFileReader(inf)

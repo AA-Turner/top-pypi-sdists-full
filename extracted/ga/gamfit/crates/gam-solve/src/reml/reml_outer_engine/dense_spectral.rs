@@ -75,10 +75,10 @@ impl DenseSpectralOperator {
     /// log-determinant convention.
     ///
     /// See [`PseudoLogdetMode`] for the derivation and the exact set of
-    /// kernels that differ between the two modes.  At a high level:
-    /// `Smooth` keeps every eigenpair in play with a soft floor, whereas
-    /// `HardPseudo` masks out `σ_j ≤ ε` consistently across logdet,
-    /// gradient traces, cross-traces, and the H⁻¹ kernels.
+    /// kernels that differ between the modes. At a high level: `Smooth` keeps
+    /// every eigenpair in play with a soft floor; `HardPseudo` masks a
+    /// numerical null space; and `PositiveDefinite` rejects any non-positive
+    /// eigenvalue and uses the exact, unregularized positive spectrum.
     pub fn from_symmetric_with_mode(
         h: &Array2<f64>,
         mode: PseudoLogdetMode,
@@ -101,7 +101,29 @@ impl DenseSpectralOperator {
             .eigh(Side::Lower)
             .map_err(|e| format!("Eigendecomposition failed: {e}"))?;
 
-        let epsilon = spectral_epsilon(eigenvalues.as_slice().unwrap());
+        // A Laplace approximation is defined at a local mode, whose observed
+        // penalized Hessian is positive definite on the fitted coefficient
+        // space. Do not turn a saddle into a different objective by discarding
+        // its negative directions, and do not floor an identifiable positive
+        // direction out of the implicit mode response.
+        if mode == PseudoLogdetMode::PositiveDefinite {
+            for (index, &sigma) in eigenvalues.iter().enumerate() {
+                if !sigma.is_finite() || sigma <= 0.0 {
+                    return Err(format!(
+                        "positive-definite Hessian required for Laplace evaluation: \
+                         eigenvalue {index} is {sigma:.6e}"
+                    ));
+                }
+            }
+        }
+        // epsilon=0 makes every existing spectral formula exact on a strictly
+        // positive spectrum: r_0(sigma)=sigma, phi'(sigma)=1/sigma, and the
+        // divided-difference kernel is -1/(sigma_a sigma_b).
+        let epsilon = if mode == PseudoLogdetMode::PositiveDefinite {
+            0.0
+        } else {
+            spectral_epsilon(eigenvalues.as_slice().unwrap())
+        };
 
         // `active[j]` selects which eigenpairs participate in every trace
         // and in the cached logdet.
@@ -134,7 +156,9 @@ impl DenseSpectralOperator {
         // few orders of `σ_max` (≫ the relative floor), so every eigenpair stays
         // active and the mask is byte-identical to the pre-#2358 absolute-ε mask.
         let active: Vec<bool> = match mode {
-            PseudoLogdetMode::Smooth => vec![true; n],
+            PseudoLogdetMode::Smooth | PseudoLogdetMode::PositiveDefinite => {
+                vec![true; n]
+            }
             PseudoLogdetMode::HardPseudo => {
                 let sigma_max = eigenvalues
                     .iter()
@@ -360,31 +384,32 @@ impl DenseSpectralOperator {
     /// integer rank, matching the masked naive pairing and cancellation-free.
     /// Callers gate only on the det derivative being the integer rank
     /// (proportional singleton, so `−rank` is the exact det pairing).
-    pub(crate) fn fused_logdet_gradient_minus_rank_deficient_block(
+    pub(crate) fn fused_logdet_gradient_minus_rank_from_root_chart(
         &self,
         s_block: &Array2<f64>,
+        range_root: &Array2<f64>,
         start: usize,
         end: usize,
         scale: f64,
     ) -> f64 {
-        use faer::Side;
+        use gam_linalg::faer_ndarray::FaerQr;
         let width = end - start;
-        // Orthonormal basis `Q` (width × r) of `range(S_k)` from the block
-        // eigenspectrum. The rank tolerance mirrors `penalty_matrix_root` so
-        // `r` matches the coordinate's own `rank()` (the det derivative the
-        // caller certified as the integer `−rank`).
-        let (evals, evecs) = s_block
-            .eigh(Side::Lower)
-            .expect("rank-deficient penalty block eigendecomposition");
-        let max_ev = evals.iter().copied().fold(0.0_f64, f64::max);
-        let tol = (width.max(1) as f64) * f64::EPSILON * max_ev.max(1e-12);
-        let active: Vec<usize> = evals
-            .iter()
-            .enumerate()
-            .filter(|(_, v)| **v > tol)
-            .map(|(i, _)| i)
-            .collect();
-        let r = active.len();
+        assert_eq!(
+            range_root.ncols(),
+            width,
+            "penalty range root width must match its block chart"
+        );
+        let structural_rank = range_root.nrows();
+        let (range_q, _) = range_root
+            .t()
+            .to_owned()
+            .qr()
+            .expect("canonical penalty root QR");
+        assert_eq!(
+            range_q.ncols(),
+            structural_rank,
+            "canonical penalty root rows must be structurally independent"
+        );
 
         let g_block = self.g_factor.slice(ndarray::s![start..end, ..]);
         let u_block = self.eigenvectors.slice(ndarray::s![start..end, ..]);
@@ -393,12 +418,12 @@ impl DenseSpectralOperator {
         // Range coordinates of every eigenvector's block restriction:
         // `qt_u[:, j] = Qᵀ u_j^{blk}` (r × n), so `‖qt_u[:, j]‖²` is the mass of
         // `u_j^{blk}` inside `range(S_k)` — the per-eigenpair `−rank` share.
-        let mut qt_u = Array2::<f64>::zeros((r, self.n_dim));
-        for (out_row, &idx) in active.iter().enumerate() {
+        let mut qt_u = Array2::<f64>::zeros((structural_rank, self.n_dim));
+        for out_row in 0..structural_rank {
             for j in 0..self.n_dim {
                 let mut acc = 0.0;
                 for local in 0..width {
-                    acc += evecs[[local, idx]] * u_block[[local, j]];
+                    acc += range_q[[local, out_row]] * u_block[[local, j]];
                 }
                 qt_u[[out_row, j]] = acc;
             }
@@ -424,7 +449,7 @@ impl DenseSpectralOperator {
     /// blocks overlap (a full-span stabilization ridge, coalesced same-span pairs,
     /// or any post-reparam coupling). Neither the block-indicator fusion
     /// ([`fused_logdet_gradient_minus_rank_full_block`]) nor the range-projector
-    /// fusion ([`fused_logdet_gradient_minus_rank_deficient_block`]) applies there,
+    /// fusion ([`fused_logdet_gradient_minus_rank_from_root_chart`]) applies there,
     /// because both distribute an INTEGER `−rank`, whereas the joint det derivative
     /// is not the integer rank of `S_k`.
     ///

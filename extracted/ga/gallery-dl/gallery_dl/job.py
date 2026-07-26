@@ -214,7 +214,7 @@ class Job():
         metadata_url = self.metadata_url
 
         if follow := self.extractor.config("follow"):
-            follow = formatter.parse(follow, None, util.identity).format_map
+            follow = self._follow_parse(follow)
             follow_urls = follow_kwdict = None
         else:
             follow = follow_urls = None
@@ -235,7 +235,7 @@ class Job():
                     process = True
                     self.handle_directory(kwdict)
                     if follow is not None:
-                        follow_urls = self._collect_urls(follow(kwdict))
+                        follow_urls = self._follow_collect(follow(kwdict))
                         if follow_urls is not None:
                             follow_kwdict = kwdict.copy()
                 else:
@@ -327,7 +327,16 @@ class Job():
         if init and init != "lazy":
             self.initialize()
 
-    def _collect_urls(self, source):
+    def _follow_parse(self, follow):
+        if isinstance(follow, str):
+            return formatter.parse(follow, None, util.identity).format_map
+
+        follow = [formatter.parse(f, None, util.identity).format_map
+                  for f in follow]
+        self._follow_collect = self._follow_collect_many
+        return lambda kwdict: [f(kwdict) for f in follow]
+
+    def _follow_collect(self, source):
         if not source:
             return None
         if isinstance(source, list):
@@ -335,6 +344,17 @@ class Job():
         if isinstance(source, str):
             if urls := text.extract_urls(source):
                 return urls
+
+    def _follow_collect_many(self, sources):
+        urls = []
+        for source in sources:
+            if not source:
+                continue
+            elif isinstance(source, list):
+                urls.extend(source)
+            elif isinstance(source, str):
+                urls.extend(text.extract_urls(source))
+        return urls or None
 
     def _prepare_predicates(self, target, alt=None, skip=None):
         predicates = []
@@ -701,8 +721,10 @@ class DownloadJob(Job):
         if kwdict is not None:
             pathfmt.set_directory(kwdict)
 
-        self.sleep = util.build_duration_func(cfg("sleep"))
-        self.sleep_skip = util.build_duration_func(cfg("sleep-skip"))
+        self.sleep = util.build_duration_func(
+            cfg("sleep", extr.download_interval))
+        self.sleep_skip = util.build_duration_func(
+            cfg("sleep-skip"))
         self.fallback = cfg("fallback", True)
         if not cfg("download", True):
             # monkey-patch method to do nothing and always return True

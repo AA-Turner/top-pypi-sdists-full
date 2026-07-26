@@ -23,11 +23,56 @@ pub fn beta_quantile(p: f64, a: f64, b: f64) -> f64 {
     inv_beta_reg(a, b, p)
 }
 
+/// The part of `x·x` that `f64` cannot hold: `x² = x*x + square_residual(x)`,
+/// exactly, for every `x` whose square neither overflows nor goes subnormal.
+///
+/// This exists because of what `exp` does to a squared argument. Rounding
+/// `x*x` perturbs it by at most `ulp(x²)/2` — a RELATIVE perturbation of
+/// `ε/2`, which is unremarkable on its own. But `exp` converts a relative
+/// perturbation `δ` of its ARGUMENT into a relative perturbation `x²·δ` of
+/// its RESULT, so `exp(x*x)` carries `x²·ε/2` relative error: `3.7e-14` at
+/// `x = 26`, and `7.7e-14` at the `x ≈ 37` where `φ(x)` finally underflows.
+/// That is two orders worse than the `exp` evaluation's own rounding, and it
+/// is the error `erfcx` and `normal_pdf` were both actually delivering.
+///
+/// The residual is the whole of that discarded term and is itself exactly
+/// representable (Dekker's two-product theorem, in its one-FMA form), so
+/// `exp(x²) = exp(x*x)·exp(residual)` and `exp(residual) = 1 + residual` to
+/// `O(residual²)` — below `1e-27` over the entire domain either caller uses.
+/// One multiply by `1 + residual` therefore buys back every digit, and the
+/// callers below apply it fused so the correction itself costs one more
+/// rounding and nothing else.
+///
+/// `mul_add` is a single instruction wherever FMA is in the baseline ISA
+/// (aarch64, and x86-64 built with `+fma`); on a baseline x86-64 build it is
+/// a `glibc` call, measured at ~2.5 ns. Against `erfcx`'s 38 ns that is 9%;
+/// against `normal_pdf`'s 6.2 ns it is 40% of a function that is nowhere the
+/// bottleneck of a row loop that also assembles a design row and a Hessian
+/// block. Both callers guard the pathological arguments BEFORE calling this,
+/// so it never has to defend `±∞` (whose residual would be `NaN`).
+#[inline]
+fn square_residual(x: f64, rounded_square: f64) -> f64 {
+    x.mul_add(x, -rounded_square)
+}
+
 /// Standard normal PDF phi(x).
+///
+/// The squared argument is carried exactly (see [`square_residual`]); without
+/// that, `exp(-½·fl(x*x))` degrades like `x²·ε/2` and reaches `5.7e-14`
+/// relative before `φ` underflows, against the `3.3e-16` it holds with.
 #[inline]
 pub fn normal_pdf(x: f64) -> f64 {
     const INV_SQRT_2PI: f64 = 0.398_942_280_401_432_7;
-    INV_SQRT_2PI * (-0.5 * x * x).exp()
+    let rounded_square = x * x;
+    let head = INV_SQRT_2PI * (-0.5 * rounded_square).exp();
+    if head == 0.0 || head.is_nan() {
+        // The pdf underflowed or `x` was `±∞` (head `0`), or `x` was `NaN`.
+        // Neither admits a relative correction, and `±∞` would feed the
+        // residual an `∞ − ∞`; return the limit the plain form gives.
+        return head;
+    }
+    let residual = square_residual(x, rounded_square);
+    head.mul_add(-0.5 * residual, head)
 }
 
 /// Standard normal CDF Phi(x) evaluated via the exact special-function identity
@@ -52,6 +97,15 @@ pub fn normal_cdf(x: f64) -> f64 {
 /// a six-correction asymptotic expansion avoids overflow while retaining the
 /// representable subnormal tail. At the switch, the first omitted term is
 /// below `2e-17` relative to the leading term.
+///
+/// The direct branch carries `x²` exactly (see [`square_residual`]). Without
+/// that correction the branch degraded like `x²·ε/2` — `1.4e-14` at `x = 10`,
+/// `5.7e-14` by the top of its range — while the asymptotic branch that takes
+/// over at `26` was already delivering `3e-16`. The seam was therefore a
+/// 190-fold step DOWN in error at the point where the code switches to what
+/// reads like the fallback, and the whole `[0, 26)` interval, where every
+/// probit / Mills / log-CDF consumer actually lives, was the inaccurate side.
+/// Both branches now hold `< 5e-16`, so the crossover is invisible.
 #[inline]
 pub fn erfcx_nonnegative(x: f64) -> f64 {
     if x.is_nan() || x < 0.0 {
@@ -61,7 +115,11 @@ pub fn erfcx_nonnegative(x: f64) -> f64 {
         return 0.0;
     }
     if x < 26.0 {
-        (x * x).exp() * erfc(x)
+        // `x` is finite and in `[0, 26)`, so the square is exact-splittable and
+        // `head` is finite and strictly positive (`erfc(26⁻) ≈ 1e-295`).
+        let rounded_square = x * x;
+        let head = rounded_square.exp() * erfc(x);
+        head.mul_add(square_residual(x, rounded_square), head)
     } else {
         let inv = 1.0 / x;
         let inv2 = inv * inv;
@@ -273,8 +331,10 @@ fn negative_normal_logcdf_from_scaled_tail(u: f64, scaled_tail: f64) -> f64 {
 
 /// Stable value and first four derivatives of `ln Φ(x)`.
 ///
-/// The moderate regime uses the exact Mills-ratio recurrence. In the deep
-/// left tail, differentiating the Laplace continued fraction
+/// The moderate regime uses the exact Mills-ratio recurrence, with the brackets
+/// collected in `q = λ + x` once `x < 0` so that they do not cancel as `λ`
+/// closes on `−x`. In the deep left tail, differentiating the Laplace continued
+/// fraction
 ///
 /// `φ(t)/Φ(-t) = t + 1/(t + 2/(t + 3/(...)))`, `t = -x`,
 ///
@@ -294,7 +354,6 @@ pub fn normal_logcdf_derivatives(x: f64) -> [f64; 5] {
         return [f64::NEG_INFINITY, f64::INFINITY, -1.0, 0.0, 0.0];
     }
 
-    const LEFT_CONTINUED_FRACTION_SWITCH: f64 = -4.0;
     const RIGHT_LOG_MAGNITUDE_SWITCH: f64 = 8.0;
     if x <= LEFT_CONTINUED_FRACTION_SWITCH {
         return normal_logcdf_derivatives_left_tail(x);
@@ -304,9 +363,42 @@ pub fn normal_logcdf_derivatives(x: f64) -> [f64; 5] {
     }
 
     let (log_cdf, lambda) = signed_probit_logcdf_and_mills_ratio(x);
+    let x2 = x * x;
+    if x < 0.0 {
+        // Left of the origin the brackets below are collected in the SAME Mills
+        // correction `q = λ + x` the continued-fraction branch carries, because
+        // written in `λ` they cancel catastrophically long before the branch
+        // ends. `λ(x) → −x` as `x → −∞`, so every term of, say,
+        // `(x³−3x) + (7x²−4)λ + 12xλ² + 6λ³` grows like `|x|³` while their sum
+        // decays: at `x = −4` they are `−52`, `456`, `−857`, `453` and add to
+        // `−0.0023`, a cancellation of 380000 that costs eleven digits. In `q`
+        // the same bracket is `−6q³ + 6xq² + (4−x²)q − x`, whose terms are
+        // `−0.069`, `−1.22`, `−2.71`, `4` — a cancellation of 1847, three
+        // orders milder. The reformulation is exact (`λ = q − x` substituted and
+        // re-collected), costs the same flops, and buys 16–34x across the whole
+        // branch: worst over `x ∈ [−4, 0]` falls from `4.5e−11` to `2.8e−12`.
+        //
+        // `q` itself is safe to form here: `λ/2 ≤ |x| ≤ 2λ` holds over most of
+        // the range, so `λ + x` is EXACT by Sterbenz, and where it is not (`x`
+        // near 0) `q` is the same size as `λ` and nothing cancels. That is the
+        // whole reason the rewrite works — it moves the cancellation out of the
+        // brackets and into a subtraction that has none.
+        //
+        // Past the origin `q → x` is no longer small, the `λ` form has nothing
+        // to cancel (`λ → 0` and `x² − 1` dominates), and it is the more
+        // accurate of the two — hence the sign test rather than a blanket swap.
+        let q = lambda + x;
+        let q2 = q * q;
+        return [
+            log_cdf,
+            lambda,
+            -lambda * q,
+            lambda * (2.0 * q2 - x * q - 1.0),
+            lambda * (-6.0 * q2 * q + 6.0 * x * q2 + (4.0 - x2) * q - x),
+        ];
+    }
     let lambda2 = lambda * lambda;
     let lambda3 = lambda2 * lambda;
-    let x2 = x * x;
     [
         log_cdf,
         lambda,
@@ -325,10 +417,37 @@ struct MillsCorrectionDerivatives {
     third: f64,
 }
 
+/// `x` at or below which the left-tail Mills ratio is taken from the Laplace
+/// continued fraction rather than from `erfcx`. Equivalently `t = −x ≥ 4`.
+const LEFT_CONTINUED_FRACTION_SWITCH: f64 = -4.0;
+
+/// The Laplace continued-fraction **correction** to the left-tail Mills ratio,
+///
+/// `q(t) = λ(−t) − t = 1/(t + 2/(t + 3/(...)))`,   `λ(x) = φ(x)/Φ(x)`,
+///
+/// together with its first three derivatives in `t`. Requires `t ≥ 4`.
+///
+/// `q` is the whole content of the left tail that is NOT the leading `t`: it
+/// decays like `1/t − 2/t³ + 10/t⁵ − ...`, and every operation building it is
+/// a division or an addition of positive quantities, so it carries full
+/// relative precision no matter how small it gets. That is the property its
+/// two consumers need, and it is why the correction is returned separately
+/// instead of pre-added to `t`:
+///
+/// * [`normal_logcdf_derivatives_left_tail`] needs `f'' = −(1 + q')` and the
+///   higher derivatives, which tend to `−1` and `0` and would be destroyed by
+///   differencing nearly equal `f64`s.
+/// * [`cone_boundary_log_factor_and_derivatives`] needs `∂corr/∂a = b − q(t)`,
+///   which is the same statement one substitution away (#2306 §4).
+///
+/// Recovering `q` from a separately computed `λ` — `q = λ − t` — is exactly the
+/// cancellation this exists to avoid, and it is not a small effect: at `t = 1e8`
+/// it costs every significant digit, and past `t ≈ 2e8` it returns the wrong
+/// SIGN. The reference itself has to be carried at ~120 decimal digits before it
+/// reproduces what this recursion gives in binary64.
 #[inline]
-fn normal_logcdf_derivatives_left_tail(x: f64) -> [f64; 5] {
-    assert!(x.is_finite() && x <= -4.0);
-    let t = -x;
+fn mills_correction_continued_fraction(t: f64) -> MillsCorrectionDerivatives {
+    assert!(t.is_finite() && t >= 4.0);
     let mut q = MillsCorrectionDerivatives {
         value: 0.0,
         first: 0.0,
@@ -336,9 +455,28 @@ fn normal_logcdf_derivatives_left_tail(x: f64) -> [f64; 5] {
         third: 0.0,
     };
     // The truncation error is damped by a product of the continued-fraction
-    // sensitivities `n/(t + q)^2`. At t >= 4, 32 levels put that product below
-    // binary64 roundoff while keeping this uncommon derivative path compact.
-    for n in (1..=32).rev() {
+    // sensitivities `n/(t + q)^2`, so the depth must be sized at `t = 4` — the
+    // LEAST converged point of the domain, and the one the log-CDF branch sits
+    // exactly on. Each successive derivative converges roughly 15x slower than
+    // the last, because differentiating the recursion multiplies each level's
+    // contribution by another factor of that same sensitivity. Measured against
+    // a 60-digit reference at `t = 4`:
+    //
+    // ```text
+    //            q         q'        q''       q'''
+    //   32   1.9e-15    7.0e-14    1.4e-12    2.1e-11
+    //   64   2.3e-23    1.4e-21    4.4e-20    1.0e-18
+    // ```
+    //
+    // 32 levels is enough for the VALUE and nothing else: it leaves `q'''` — the
+    // fourth log-CDF derivative — wrong in its eleventh digit. The depths that
+    // first reach `1e-17` at `t = 4` are 41, 47, 53 and 60 for the four
+    // channels, so 64 covers the worst of them with ~200x of margin, and the
+    // requirement falls off fast enough (33 levels at `t = 6`, 24 at `t = 8`,
+    // 12 at `t = 20`) that one constant sized for the edge is safe everywhere
+    // above it. The extra levels are pure convergence — every step divides
+    // positive quantities — so they cannot destabilise a large `t`.
+    for n in (1..=64).rev() {
         let denominator = t + q.value;
         let inv_denominator = denominator.recip();
         let value = f64::from(n) / denominator;
@@ -353,6 +491,14 @@ fn normal_logcdf_derivatives_left_tail(x: f64) -> [f64; 5] {
             third: value * (-6.0 * a * a * a + 6.0 * a * b - c),
         };
     }
+    q
+}
+
+#[inline]
+fn normal_logcdf_derivatives_left_tail(x: f64) -> [f64; 5] {
+    assert!(x.is_finite() && x <= LEFT_CONTINUED_FRACTION_SWITCH);
+    let t = -x;
+    let q = mills_correction_continued_fraction(t);
     [
         normal_logcdf(x),
         t + q.value,
@@ -404,6 +550,27 @@ fn signed_exp_sum(log_magnitudes: &[f64], signs: &[f64]) -> f64 {
     }
 }
 
+#[inline]
+fn acklam_lower_tail_quantile_from_log_probability(log_p: f64) -> f64 {
+    const C: [f64; 6] = [
+        -7.784_894_002_430_293e-3,
+        -3.223_964_580_411_365e-1,
+        -2.400_758_277_161_838,
+        -2.549_732_539_343_734,
+        4.374_664_141_464_968,
+        2.938_163_982_698_783,
+    ];
+    const D: [f64; 4] = [
+        7.784_695_709_041_462e-3,
+        3.224_671_290_700_398e-1,
+        2.445_134_137_142_996,
+        3.754_408_661_907_416,
+    ];
+    let q = (-2.0 * log_p).sqrt();
+    (((((C[0] * q + C[1]) * q + C[2]) * q + C[3]) * q + C[4]) * q + C[5])
+        / ((((D[0] * q + D[1]) * q + D[2]) * q + D[3]) * q + 1.0)
+}
+
 /// Standard normal quantile Φ⁻¹(p) using Acklam's rational approximation.
 #[inline]
 pub fn standard_normal_quantile(p: f64) -> Result<f64, String> {
@@ -426,36 +593,18 @@ pub fn standard_normal_quantile(p: f64) -> Result<f64, String> {
         6.680_131_188_771_972e1,
         -1.328_068_155_288_572e1,
     ];
-    const C: [f64; 6] = [
-        -7.784_894_002_430_293e-3,
-        -3.223_964_580_411_365e-1,
-        -2.400_758_277_161_838,
-        -2.549_732_539_343_734,
-        4.374_664_141_464_968,
-        2.938_163_982_698_783,
-    ];
-    const D: [f64; 4] = [
-        7.784_695_709_041_462e-3,
-        3.224_671_290_700_398e-1,
-        2.445_134_137_142_996,
-        3.754_408_661_907_416,
-    ];
     const P_LOW: f64 = 0.02425;
     const P_HIGH: f64 = 1.0 - P_LOW;
 
     let mut x = if p < P_LOW {
-        let q = (-2.0 * p.ln()).sqrt();
-        (((((C[0] * q + C[1]) * q + C[2]) * q + C[3]) * q + C[4]) * q + C[5])
-            / ((((D[0] * q + D[1]) * q + D[2]) * q + D[3]) * q + 1.0)
+        acklam_lower_tail_quantile_from_log_probability(p.ln())
     } else if p <= P_HIGH {
         let q = p - 0.5;
         let r = q * q;
         (((((A[0] * r + A[1]) * r + A[2]) * r + A[3]) * r + A[4]) * r + A[5]) * q
             / (((((B[0] * r + B[1]) * r + B[2]) * r + B[3]) * r + B[4]) * r + 1.0)
     } else {
-        let q = (-2.0 * (1.0 - p).ln()).sqrt();
-        -(((((C[0] * q + C[1]) * q + C[2]) * q + C[3]) * q + C[4]) * q + C[5])
-            / ((((D[0] * q + D[1]) * q + D[2]) * q + D[3]) * q + 1.0)
+        -acklam_lower_tail_quantile_from_log_probability((1.0 - p).ln())
     };
     for _ in 0..2 {
         let density = normal_pdf(x);
@@ -482,6 +631,51 @@ pub fn standard_normal_quantile(p: f64) -> Result<f64, String> {
             break;
         }
         let step = correction / denominator;
+        if !step.is_finite() {
+            break;
+        }
+        x -= step;
+        if step.abs() <= 2.0 * f64::EPSILON * x.abs().max(1.0) {
+            break;
+        }
+    }
+    Ok(x)
+}
+
+/// Standard normal quantile from `log_p = ln Φ(x)`.
+///
+/// Unlike [`standard_normal_quantile`], this remains defined when `Φ(x)` is
+/// smaller than the least positive `f64`, and when `Φ(x)` is so close to one
+/// that exponentiating `log_p` rounds to exactly one. Acklam's lower-tail
+/// approximation supplies the initial point; Newton polishing solves
+/// `ln Φ(x) = log_p` with the stable log-CDF and Mills ratio, so neither tail
+/// forms a probability-space subtraction.
+#[inline]
+pub fn standard_normal_quantile_from_log_cdf(log_p: f64) -> Result<f64, String> {
+    if !(log_p.is_finite() && log_p < 0.0) {
+        return Err(format!(
+            "normal log-quantile requires finite log_p < 0, got {log_p}"
+        ));
+    }
+
+    if log_p > -std::f64::consts::LN_2 {
+        // Reflect through the upper tail without forming `1 - exp(log_p)`.
+        let log_q = (-log_p.exp_m1()).ln();
+        return standard_normal_quantile_from_log_cdf(log_q).map(|x| -x);
+    }
+
+    let p = log_p.exp();
+    let mut x = if p > 0.0 {
+        standard_normal_quantile(p)?
+    } else {
+        acklam_lower_tail_quantile_from_log_probability(log_p)
+    };
+    for _ in 0..4 {
+        let (current_log_p, mills_ratio) = signed_probit_logcdf_and_mills_ratio(x);
+        if !(current_log_p.is_finite() && mills_ratio.is_finite() && mills_ratio > 0.0) {
+            break;
+        }
+        let step = (current_log_p - log_p) / mills_ratio;
         if !step.is_finite() {
             break;
         }
@@ -553,17 +747,64 @@ pub fn cone_boundary_log_factor(mu_over_sqrt_h: f64, slack_times_sqrt_h: f64) ->
 ///   ∂corr/∂a = a − λ(ξ),      ∂corr/∂b = λ(ξ).
 /// ```
 ///
-/// Both are cancellation-free: `λ` comes from the shared `erfcx` evaluation,
-/// and at the linear-decay limit `a − λ(−a) → −1/a` exactly.
+/// `∂corr/∂b = λ(ξ)` is a single `erfcx` evaluation and needs nothing further.
+///
+/// `∂corr/∂a` does. Written literally as `a − λ(ξ)` it is a subtraction of two
+/// quantities that both grow like `a`, because `λ(−t) = t + q(t)` with
+/// `q(t) ~ 1/t`: the answer is the SMALL correction `q`, and forming it by
+/// subtraction destroys `log₁₀(a²·ε)` digits of it. The value
+/// [`cone_boundary_log_factor`] is fused precisely to dodge the twin of this
+/// cancellation, and the gradient has to be fused the same way rather than
+/// re-derived from a `λ` that has already lost the digits.
+///
+/// So on the active branch the correction is taken directly from the Laplace
+/// continued fraction ([`mills_correction_continued_fraction`]), the same one
+/// the left-tail log-CDF derivatives use, under the substitution
+///
+/// ```text
+///   ξ = b − a,  t = −ξ = a − b  ⇒  ∂corr/∂a = a − λ(ξ) = a − (t + q(t)) = b − q(t),
+/// ```
+///
+/// which is cancellation-free for every `a`: `b ≥ 0` and `q(t) ∈ (0, ¼]`. The
+/// deep-active limit `∂corr/∂a → −1/a` then holds to full relative precision
+/// instead of to none, and the sign is right (the factor is strictly decreasing
+/// in `a`, so `∂corr/∂a < 0` whenever `b = 0`).
+///
+/// Measured on `a ∈ [10⁻², 10¹⁴] × b ∈ {0, …, 10³}` against a 250-digit
+/// reference: the subtractive form reaches `6.1e6` relative error and turns
+/// positive past `a ≈ 2e8`; this form is within `7.5e-16` — about 3 ulp — of
+/// the truth, measured against the magnitudes entering the subtraction rather
+/// than against the result. That is the right denominator because `∂corr/∂a`
+/// genuinely passes through ZERO along the curve `b = q(a − b)` (the factor is
+/// increasing in `a` for slack rows and decreasing for active ones), and no
+/// representation carries relative precision across its own root; near it the
+/// error is bounded in absolute terms by `ε·b`, which is what a gradient
+/// consumer needs.
 #[must_use]
 pub fn cone_boundary_log_factor_and_derivatives(
     mu_over_sqrt_h: f64,
     slack_times_sqrt_h: f64,
 ) -> (f64, f64, f64) {
-    let value = cone_boundary_log_factor(mu_over_sqrt_h, slack_times_sqrt_h);
-    let xi = slack_times_sqrt_h - mu_over_sqrt_h;
+    let a = mu_over_sqrt_h;
+    let b = slack_times_sqrt_h;
+    let value = cone_boundary_log_factor(a, b);
+    if value.is_nan() {
+        // The value's domain guard (finite, non-negative `a` and `b`) is the
+        // function's domain; a gradient off it is not defined either, and
+        // returning a finite one next to a NaN value would read as usable.
+        return (value, f64::NAN, f64::NAN);
+    }
+    let xi = b - a;
     let (_, mills) = signed_probit_logcdf_and_mills_ratio(xi);
-    (value, mu_over_sqrt_h - mills, mills)
+    let d_a = if xi <= LEFT_CONTINUED_FRACTION_SWITCH {
+        b - mills_correction_continued_fraction(-xi).value
+    } else {
+        // `|ξ| < 4`, so `λ(ξ) < λ(−4) ≈ 4.26` and `a = b − ξ` is bounded by it:
+        // the subtraction is between two `O(1)` quantities and loses nothing
+        // that matters.
+        a - mills
+    };
+    (value, d_a, mills)
 }
 
 #[cfg(test)]
@@ -636,6 +877,115 @@ mod cone_boundary_factor_tests {
             interior.abs() < 1e-300 || interior > -1e-12,
             "deep-interior must vanish; got {interior}"
         );
+    }
+
+    /// The deep-active GRADIENT has to survive as far as the deep-active VALUE
+    /// does. `∂corr/∂a = a − λ(−a)` is the small residual left by two terms
+    /// that both grow like `a`, so writing it as that subtraction loses
+    /// `log₁₀(a²·ε)` digits: at `a = 1e6` it was already 4 digits down, at
+    /// `a = 2e8` it came back POSITIVE, and past `a = 5e8` it was flat zero
+    /// while the true value is `−2e-9`. The value alongside it was correct to
+    /// 15 digits the whole way, which is what made the defect quiet.
+    ///
+    /// The reference here is the asymptotic series of the Mills correction,
+    /// `λ(−a) = a + 1/a − 2/a³ + 10/a⁵ − 74/a⁷ + …` (so `∂corr/∂a = −1/a +
+    /// 2/a³ − …`), which is the cheapest exact statement of the limit and is
+    /// good to well past f64 from `a = 100` up. Finite differences cannot gate
+    /// this: the quantity under test is smaller than any usable FD step's own
+    /// truncation error.
+    #[test]
+    fn boundary_factor_active_gradient_holds_to_the_representable_limit() {
+        let mut a = 100.0_f64;
+        while a <= 1.0e14 {
+            let (_, d_a, _) = cone_boundary_log_factor_and_derivatives(a, 0.0);
+            let inv = 1.0 / a;
+            let expected = -inv + 2.0 * inv.powi(3) - 10.0 * inv.powi(5) + 74.0 * inv.powi(7);
+            assert!(
+                d_a < 0.0,
+                "corr is strictly decreasing in a at b=0, so ∂a must stay negative; \
+                 got {d_a} at a={a}"
+            );
+            assert!(
+                (d_a - expected).abs() <= 1.0e-13 * expected.abs(),
+                "deep-active ∂a at a={a}: got {d_a}, expected {expected} \
+                 (rel {:.3e})",
+                (d_a - expected).abs() / expected.abs()
+            );
+            a *= 10.0;
+        }
+    }
+
+    /// `∂corr/∂a + ∂corr/∂b = a` identically, since the two partials are
+    /// `a − λ(ξ)` and `λ(ξ)` for the same `ξ`. The two are now computed by
+    /// different routes in the active branch — a continued fraction and an
+    /// `erfcx` — so this is the gate that they still describe one function.
+    #[test]
+    fn boundary_factor_partials_sum_to_a() {
+        for &a in &[0.0_f64, 0.5, 3.0, 4.0, 12.0, 1.0e3, 1.0e7, 1.0e12] {
+            for &b in &[0.0_f64, 1.0e-3, 0.9, 5.0, 1.0e3] {
+                let (_, d_a, d_b) = cone_boundary_log_factor_and_derivatives(a, b);
+                assert!(
+                    (d_a + d_b - a).abs() <= 1.0e-14 * a.max(d_b).max(1.0),
+                    "(a={a}, b={b}): ∂a {d_a} + ∂b {d_b} = {} ≠ a",
+                    d_a + d_b
+                );
+            }
+        }
+    }
+
+    /// The continued-fraction branch and the direct `a − λ` form must agree
+    /// just inside the `ξ ≤ −4` switch, where the subtraction still has most of
+    /// its digits. Without this, the branch could be precise and WRONG — the
+    /// accuracy gate above pins a limit the continued fraction could hit while
+    /// disagreeing with the function it is supposed to be differentiating.
+    ///
+    /// The band is set by the instrument being compared against, not by taste.
+    /// `direct` is `a − λ` with `λ` from the `erfcx` route, whose measured
+    /// relative accuracy is `~5e-14` (libm `erfc` plus the `exp(x²)` multiply);
+    /// its absolute error is therefore `~5e-14·λ`, and the subtraction cannot
+    /// remove it. Note how little room that leaves already: the amplification
+    /// `λ/|a−λ|` is 18x at `a = 4` and 403x at `a = 20`, so at the top of this
+    /// range the direct form is down to ~11 correct digits — five short — while
+    /// the continued fraction still matches a 250-digit reference to 16. This
+    /// test is deliberately capped at `a = 20` for that reason; it is the last
+    /// place the two CAN be compared.
+    #[test]
+    fn boundary_factor_active_branch_agrees_with_the_direct_form_where_both_are_valid() {
+        const LAMBDA_REL_ACCURACY: f64 = 5.0e-14;
+        for &a in &[4.0_f64, 4.5, 6.0, 9.0, 20.0] {
+            for &b in &[0.0_f64, 0.25, 1.5] {
+                if b - a > LEFT_CONTINUED_FRACTION_SWITCH {
+                    continue; // not on the continued-fraction branch
+                }
+                let (_, d_a, _) = cone_boundary_log_factor_and_derivatives(a, b);
+                let (_, mills) = signed_probit_logcdf_and_mills_ratio(b - a);
+                let direct = a - mills;
+                assert!(
+                    (d_a - direct).abs() <= LAMBDA_REL_ACCURACY * mills,
+                    "(a={a}, b={b}): continued fraction {d_a} vs direct {direct} \
+                     (gap {:.3e}, budget {:.3e})",
+                    (d_a - direct).abs(),
+                    LAMBDA_REL_ACCURACY * mills
+                );
+            }
+        }
+    }
+
+    /// A gradient off the domain must not read as usable next to a NaN value.
+    #[test]
+    fn boundary_factor_derivatives_are_nan_off_the_domain() {
+        for &(a, b) in &[
+            (-1.0_f64, 0.0_f64),
+            (1.0, -1.0),
+            (f64::NAN, 1.0),
+            (f64::INFINITY, 0.0),
+        ] {
+            let (v, d_a, d_b) = cone_boundary_log_factor_and_derivatives(a, b);
+            assert!(
+                v.is_nan() && d_a.is_nan() && d_b.is_nan(),
+                "(a={a}, b={b}) is off-domain: got value {v}, ∂a {d_a}, ∂b {d_b}"
+            );
+        }
     }
 
     /// Closed-form partials against finite differences of the value
@@ -747,6 +1097,110 @@ mod tests {
         }
     }
 
+    /// `x*x` is exact-splittable and the split is what `exp` needs.
+    ///
+    /// Two independent statements, because the correction is only worth what
+    /// its residual is worth. First, `x*x + residual` is `x²` EXACTLY: checked
+    /// against a Veltkamp/Dekker split, which reaches the same residual through
+    /// pure multiplies and adds and shares no code path with the `mul_add`
+    /// route. Second, the residual is not decorative — for these arguments it
+    /// is a relative perturbation of `x²` big enough that `exp` amplifies it
+    /// past a single ulp of the result.
+    #[test]
+    fn square_residual_completes_the_rounded_square_exactly() {
+        // 2^27 + 1: Veltkamp's splitting factor, exact for any `x` whose
+        // scaled form does not overflow.
+        const SPLIT: f64 = 134_217_729.0;
+        let mut saw_amplified = false;
+        for &x in &[
+            0.1, 0.7, 1.3, 2.9, 6.1, 10.5, 14.3, 19.7, 23.9, 25.9999, 34.7,
+        ] {
+            let rounded = x * x;
+            let residual = square_residual(x, rounded);
+
+            let c = x * SPLIT;
+            let head = c - (c - x);
+            let tail = x - head;
+            let dekker = ((head * head - rounded) + 2.0 * head * tail) + tail * tail;
+            assert_eq!(
+                residual, dekker,
+                "x={x}: mul_add residual {residual:e} != Dekker residual {dekker:e}"
+            );
+
+            // `exp` multiplies a relative argument perturbation by the argument.
+            let amplified = (residual / rounded).abs() * rounded;
+            if amplified > f64::EPSILON {
+                saw_amplified = true;
+            }
+        }
+        assert!(
+            saw_amplified,
+            "no test argument had a residual `exp` could amplify past one ulp; \
+             the correction under test would be untested"
+        );
+    }
+
+    /// `φ(x)` against an EXTERNAL high-precision reference (mpmath, dps=60).
+    ///
+    /// Every argument here has an INEXACT square, which is the whole point.
+    /// `exp(−½·fl(x*x))` misplaces the argument by `x²·ε/2` RELATIVE, and `exp`
+    /// hands that straight back as relative error in the result: `1.4e-14` at
+    /// `x ≈ 17`, `5.7e-14` by `x ≈ 35`, where `φ` is still a normal `f64`. Only
+    /// the top of the range makes that visible, so the table has to reach it —
+    /// a `φ` table that stops at `x = 5` cannot tell the two forms apart.
+    ///
+    /// `1.5e-15` (≈7 ulp) is the portability allowance: `f64::exp` is the
+    /// platform libm and the only part of this that is not fixed by the crate
+    /// graph, and it is worth ~1 ulp on the implementations in use. That still
+    /// leaves 38x of margin against the defect at the top of the table.
+    #[test]
+    fn normal_pdf_matches_high_precision_reference() {
+        const TOLERANCE: f64 = 1.5e-15;
+        let refs: &[(f64, f64)] = &[
+            (0.5, 0.35206532676429947),
+            (1.0, 0.24197072451914334),
+            (2.5, 0.017528300493568537),
+            (4.0, 0.00013383022576488534),
+            (7.3, 1.0693837871541648e-12),
+            (11.9, 7.090702668428078e-32),
+            (17.4, 7.201308152719057e-67),
+            (23.6, 4.555989824112156e-122),
+            (29.1, 5.229437243665329e-185),
+            (34.7, 1.368008224488383e-262),
+        ];
+        for &(x, reference) in refs {
+            // The small arguments anchor the ordinary range; the large ones are
+            // where the defect lives, and every one of THOSE has to have a
+            // square `f64` cannot hold or it exercises nothing.
+            assert!(
+                x <= 5.0 || square_residual(x, x * x) != 0.0,
+                "x={x} squares exactly, so it cannot exercise the correction"
+            );
+            let rel = rel_err(normal_pdf(x), reference);
+            assert!(
+                rel < TOLERANCE,
+                "normal_pdf({x}) = {:.17e}, reference {reference:.17e}, rel {rel:.3e}",
+                normal_pdf(x)
+            );
+        }
+    }
+
+    /// `φ` off the ordinary domain, where the square has no usable residual:
+    /// `±∞` squares to `∞` and would hand the correction an `∞ − ∞`.
+    #[test]
+    fn normal_pdf_nonfinite_and_underflowed_arguments() {
+        assert_eq!(normal_pdf(f64::INFINITY), 0.0);
+        assert_eq!(normal_pdf(f64::NEG_INFINITY), 0.0);
+        assert!(normal_pdf(f64::NAN).is_nan());
+        // Past ~38.6 the pdf underflows; it must reach zero, not NaN.
+        assert_eq!(normal_pdf(40.0), 0.0);
+        assert_eq!(normal_pdf(-40.0), 0.0);
+        assert_eq!(normal_pdf(f64::MAX), 0.0);
+        // Just inside the underflow edge the result is subnormal but positive.
+        let edge = normal_pdf(38.0);
+        assert!(edge > 0.0 && edge.is_subnormal(), "phi(38) = {edge:e}");
+    }
+
     #[test]
     fn normal_pdf_positive() {
         for &x in &[-5.0, -1.0, 0.0, 1.0, 5.0] {
@@ -834,21 +1288,44 @@ mod tests {
         );
     }
 
+    /// The two branches must describe one function across `x = 26`.
+    ///
+    /// Note WHY the plain `exp(x*x)·erfc(x)` below is a legitimate oracle at
+    /// this particular argument and nowhere else: `26² = 676` is exactly
+    /// representable, so the rounded square carries no residual and the direct
+    /// form is momentarily as good as the corrected one. That is also exactly
+    /// why this check was blind to the `x²·ε/2` defect it looks like it should
+    /// have caught — at `25.9` the same comparison would have failed by
+    /// `5.7e-14`, but the seam was only ever probed at the one point in the
+    /// neighbourhood where the defect vanishes. The bit-adjacent step below
+    /// cannot substitute for it either: `d(ln erfcx)/dx ≈ −2x` at the switch,
+    /// so one ulp of `x` moves the true value by `1.8e-13`, three times the
+    /// defect. It takes a reference at a DISTANCE from the seam — the table in
+    /// `erfcx_matches_high_precision_reference` — to see the defect at all.
     #[test]
     fn erfcx_asymptotic_switch_matches_finite_direct_identity() {
         let switch = 26.0_f64;
+        assert_eq!(
+            square_residual(switch, switch * switch),
+            0.0,
+            "676 must be exact for the direct form below to be an oracle"
+        );
         let direct = (switch * switch).exp() * erfc(switch);
         let asymptotic = erfcx_nonnegative(switch);
         assert!(
-            rel_err(asymptotic, direct) < 5.0e-14,
+            rel_err(asymptotic, direct) < 1.0e-15,
             "switch mismatch: asymptotic={asymptotic:.17e}, direct={direct:.17e}"
         );
 
+        // Continuity across the branch cut, up to how fast the function itself
+        // moves over one ulp of `x` (`|d ln erfcx/dx| ≈ 2x` ⇒ ~1.9e-13 here).
         let immediately_below = f64::from_bits(switch.to_bits() - 1);
         let below = erfcx_nonnegative(immediately_below);
+        let step = 2.0 * switch * (switch - immediately_below);
         assert!(
-            rel_err(asymptotic, below) < 5.0e-14,
-            "discontinuous switch: below={below:.17e}, at={asymptotic:.17e}"
+            rel_err(asymptotic, below) < 2.0 * step,
+            "discontinuous switch: below={below:.17e}, at={asymptotic:.17e}, \
+             one-ulp travel {step:.3e}"
         );
     }
 
@@ -862,35 +1339,70 @@ mod tests {
     /// (mpmath, dps=60) spanning the direct branch `[0.1, 26)`. This is the
     /// root-cause guard: the previous `exp(x²)·erfc(x)` direct form was built on
     /// `statrs::erfc`, whose ~1e-10 relative accuracy silently poisoned every
-    /// downstream probit / Mills / log-CDF derivative. The `1e-13` tolerance is
-    /// far below what any ~1e-10 `erfc` can meet, so a regression to a
-    /// low-accuracy complementary error function fails here immediately —
-    /// independent of the seam-continuity check above.
+    /// downstream probit / Mills / log-CDF derivative.
+    ///
+    /// The table had a SECOND job it was not doing. Of its twelve arguments,
+    /// eleven — `0.5`, `2`, `3.5`, `6`, `9`, `13`, `18`, `22`, `25.5`, and the
+    /// two whose squares are far too small to matter — square EXACTLY in `f64`,
+    /// so `fl(x*x) = x²` and the `x²·ε/2` error the rounded square feeds `exp`
+    /// was identically zero at every one of them. The twelfth, `25.9999`, does
+    /// not square exactly; it was the one point in the table where the defect
+    /// was live, and its literal had been recorded WITH the defect in it —
+    /// `0.021683668126370212` against a true `0.021683668126369115`, off by
+    /// `5.1e-14`. Three independent high-precision routes (`exp(x²)·erfc(x)`,
+    /// the 12-term asymptotic series, and a 400-level Laplace continued
+    /// fraction) and `scipy.special.erfcx` all agree on the corrected value.
+    /// A `1e-13` tolerance then accepted a reference that was itself wrong by
+    /// half the tolerance, which is how a 190x accuracy defect sat under a
+    /// test named for high precision.
+    ///
+    /// So the table now RUNS ON arguments with inexact squares (`10.5`,
+    /// `14.3`, `19.7`, `23.9` alongside the original grid) and the tolerance is
+    /// `1.5e-15` — 38x below the defect at the top of the range, and still ~7
+    /// ulp of headroom for the platform `f64::exp` (the only part of this path
+    /// not pinned by the crate graph; `erfc` comes from the `libm` crate and is
+    /// identical everywhere).
     #[test]
     fn erfcx_matches_high_precision_reference() {
+        const TOLERANCE: f64 = 1.5e-15;
         // (x, mpmath exp(x²)·erfc(x) at dps=60, rounded to f64).
         let refs: &[(f64, f64)] = &[
-            (0.1, 0.89645697996912664),
-            (0.5, 0.61569034419292587),
+            (0.1, 0.8964569799691267),
+            (0.5, 0.6156903441929259),
             (1.0, 0.427583576155807),
-            (2.0, 0.25539567631050574),
+            (2.0, 0.25539567631050575),
             (3.5, 0.1552936556088943),
-            (6.0, 0.092776567800538354),
-            (9.0, 0.062307724037774684),
-            (13.0, 0.043271921864609693),
+            (6.0, 0.09277656780053835),
+            (9.0, 0.06230772403777468),
+            (10.5, 0.05349189974656412),
+            (13.0, 0.043271921864609694),
+            (14.3, 0.0393580473372741),
             (18.0, 0.03129571781590521),
+            (19.7, 0.028602309402825203),
             (22.0, 0.025618570005879453),
+            (23.9, 0.023585649371803793),
             (25.5, 0.022108108052519827),
-            (25.9999, 0.021683668126370212),
+            (25.9999, 0.021683668126369115),
         ];
         for &(x, reference) in refs {
             let got = erfcx_nonnegative(x);
-            let rel = (got - reference).abs() / reference.abs();
+            let rel = rel_err(got, reference);
             assert!(
-                rel < 1.0e-13,
-                "erfcx({x}) = {got:.17e}, reference {reference:.17e}, rel {rel:.3e} >= 1e-13"
+                rel < TOLERANCE,
+                "erfcx({x}) = {got:.17e}, reference {reference:.17e}, rel {rel:.3e}"
             );
         }
+        // The point of the added arguments: at least four of them must have a
+        // square `f64` cannot hold, or the table is back to testing nothing.
+        let inexact = refs
+            .iter()
+            .filter(|&&(x, _)| square_residual(x, x * x) != 0.0)
+            .count();
+        assert!(
+            inexact >= 4,
+            "only {inexact} of {} reference arguments have an inexact square",
+            refs.len()
+        );
     }
 
     // ── log1mexp_positive ─────────────────────────────────────────────────────
@@ -1054,6 +1566,19 @@ mod tests {
             "logcdf(10) must retain its negative tail: {got:e}"
         );
         assert_eq!(got.to_bits(), expected.to_bits());
+    }
+
+    #[test]
+    fn log_cdf_quantile_round_trips_both_unrepresentable_tails() {
+        for x in [-1.0e6, -40.0, -10.0, -2.0, 0.0, 2.0, 10.0] {
+            let log_p = normal_logcdf(x);
+            let recovered = standard_normal_quantile_from_log_cdf(log_p)
+                .expect("finite strict log-CDF has a quantile");
+            assert!(
+                (recovered - x).abs() <= 2.0e-12 * x.abs().max(1.0),
+                "log-quantile round trip at x={x}: log_p={log_p}, recovered={recovered}"
+            );
+        }
     }
 
     // ── normal_logsf ─────────────────────────────────────────────────────────
@@ -1231,6 +1756,29 @@ mod tests {
                     0.0095065764315958691,
                 ],
             ),
+            // Two points well inside the continued-fraction branch, where the
+            // truncation the depth controls is the ONLY error source: at -4 the
+            // branch is at its least converged, and these confirm it stays put.
+            (
+                -10.0,
+                [
+                    -53.231285150512471,
+                    10.098093233962512,
+                    -0.99055462217434374,
+                    0.0017864003921165069,
+                    0.00049785382237944016,
+                ],
+            ),
+            (
+                -6.0,
+                [
+                    -20.736768949974706,
+                    6.1584826045445989,
+                    -0.97601236321083323,
+                    0.0069535374991643118,
+                    0.0028992056785575027,
+                ],
+            ),
             (
                 -2.0,
                 [
@@ -1282,18 +1830,23 @@ mod tests {
                 ],
             ),
         ];
-        // The moderate-branch statrs regression produced ~1e-9 errors in f'';
-        // 1e-10 catches that head-on while respecting the deep-left-tail
-        // continued-fraction branch's inherent ~2e-11 accuracy in f'''' (its
-        // 32-level derivative propagation, not the `erfc` path this pins).
+        // The moderate-branch statrs regression produced ~1e-9 errors in f''.
+        // The bound used to sit at 1e-10 to respect what was called the
+        // continued-fraction branch's "inherent" ~2e-11 in f''''; that was not
+        // inherent but a depth, and at 64 levels the branch reproduces this
+        // 60-digit reference EXACTLY at x = -4, -6 and -10. What remains is the
+        // moderate branch, where the brackets are already collected in `q` and
+        // the floor is `λ`'s own relative error amplified by `λ/q` (18.7 at the
+        // switch): 1.8e-13 at x = -2, the worst point here. 1e-11 keeps 55x of
+        // headroom over that while still failing the 32-level truncation head-on.
         for &(x, reference) in refs {
             let got = normal_logcdf_derivatives(x);
             for (order, (&g, &r)) in got.iter().zip(reference.iter()).enumerate() {
                 let rel = (g - r).abs() / r.abs().max(1.0e-3);
                 assert!(
-                    rel < 1.0e-10,
+                    rel < 1.0e-11,
                     "normal_logcdf_derivatives({x})[{order}] = {g:.17e}, reference {r:.17e}, \
-                     rel {rel:.3e} >= 1e-10"
+                     rel {rel:.3e} >= 1e-11"
                 );
             }
         }
@@ -1319,7 +1872,93 @@ mod tests {
     #[test]
     fn quantile_at_0975_is_near_196() {
         let q = standard_normal_quantile(0.975).unwrap();
-        assert!((q - 1.959_963_985).abs() < 1e-7, "q={q}");
+        assert!((q - 1.959_963_984_540_054).abs() < 1e-14, "q={q}");
+    }
+
+    /// `standard_normal_quantile` and its log-CDF sibling, against a 120-digit
+    /// root of `Φ(x) = p` (respectively `ln Φ(x) = log_p`).
+    ///
+    /// The seed is Acklam's rational approximation, whose accuracy is `1.15e-9`
+    /// relative; the two Halley steps after it are what make the result
+    /// ulp-accurate. Deleting the polish loop entirely leaves EVERY other
+    /// quantile test in this module green except `quantile_roundtrip_cdf`, and
+    /// that one only by a factor of 1.9 — so the polish had no real gate. This
+    /// table is that gate: it fails by six orders if the seed ships unpolished.
+    ///
+    /// The grid straddles Acklam's own `P_LOW = 0.02425` branch on both sides,
+    /// runs out to `p = 1e-300` where the seed is far from the root, and covers
+    /// the reflected upper tail where the residual must be formed from
+    /// `(1 − p) − ½erfc(x/√2)` rather than `Φ(x) − p`.
+    #[test]
+    fn normal_quantiles_match_independent_high_precision_reference() {
+        const QUANTILE_REFERENCE: [[f64; 2]; 22] = [
+            [1e-300, -37.0470962993612],
+            [1e-100, -21.273453560965326],
+            [1e-20, -9.262340089798407],
+            [1e-08, -5.612001244174789],
+            [0.001, -3.0902323061678136],
+            [0.02424, -1.9731366119445441],
+            [0.02425, -1.972961051311885],
+            [0.02426, -1.9727855514678605],
+            [0.05, -1.6448536269514726],
+            [0.1, -1.2815515655446004],
+            [0.25, -0.6744897501960817],
+            [0.4, -0.2533471031357997],
+            [0.5, 0.0],
+            [0.6, 0.2533471031357997],
+            [0.75, 0.6744897501960817],
+            [0.9, 1.2815515655446006],
+            [0.95, 1.6448536269514722],
+            [0.975, 1.9599639845400538],
+            [0.99, 2.3263478740408408],
+            [0.999, 3.090232306167813],
+            [0.99999999, 5.612001243305505],
+            [0.9999999999999999, 8.209536151601387],
+        ];
+        for [p, want] in QUANTILE_REFERENCE {
+            let got = standard_normal_quantile(p).expect("p in (0,1) has a quantile");
+            let error = (got - want).abs();
+            // `Φ⁻¹(½) = 0` exactly, so it is the one absolute comparison.
+            let budget = if want == 0.0 {
+                1e-16
+            } else {
+                4e-15 * want.abs()
+            };
+            assert!(
+                error <= budget,
+                "Φ⁻¹({p}): got {got:.17e}, want {want:.17e} (error {error:.3e} > {budget:.3e})"
+            );
+        }
+
+        const LOG_CDF_QUANTILE_REFERENCE: [[f64; 2]; 9] = [
+            [-0.7, -0.008559478582480282],
+            [-2.0, -1.1015196284987503],
+            [-10.0, -3.913946240531893],
+            [-50.0, -9.674825283612357],
+            [-200.0, -19.803669380301212],
+            [-1000.0, -44.6157477319694],
+            [-10000.0, -141.37983987312717],
+            [-100000.0, -447.1978936785251],
+            [-1000000.0, -1414.2077829910174],
+        ];
+        for [log_p, want] in LOG_CDF_QUANTILE_REFERENCE {
+            let got =
+                standard_normal_quantile_from_log_cdf(log_p).expect("finite log_p < 0 has a root");
+            let error = (got - want).abs();
+            // Rounding `log_p` itself to `f64` already moves the root by
+            // `ulp(log_p)·dx/d(log_p)`, and `dx/d(log_p) = Φ/φ = 1/λ` — about
+            // `1.25` near `p = ½` and `≈ 1/|x|` in the deep tail. That input
+            // conditioning, not the solver, is what limits `log_p = −0.7`,
+            // where the root sits at `−0.00856` and one ulp of `0.7` is already
+            // `1.4e-16` of it.
+            let conditioning = 8.0 * f64::EPSILON * log_p.abs() / want.abs().max(0.8);
+            let budget = 4e-15 * want.abs() + conditioning;
+            assert!(
+                error <= budget,
+                "Φ⁻¹(exp({log_p})): got {got:.17e}, want {want:.17e} \
+                 (error {error:.3e} > {budget:.3e})"
+            );
+        }
     }
 
     #[test]
@@ -1336,8 +1975,12 @@ mod tests {
         ] {
             let q = standard_normal_quantile(p).unwrap();
             let p_back = normal_cdf(q);
+            // RELATIVE, and sized by what the round trip can cost: a few ulp of
+            // `q` propagated through `φ(q)`, plus a couple of ulp from `erfc`
+            // itself. The former absolute `1e-10` bar was two orders looser than
+            // an unpolished Acklam seed at its worst point.
             assert!(
-                (p_back - p).abs() < 1e-10,
+                (p_back - p).abs() <= 1e-14 * p,
                 "roundtrip failed at p={p}: q={q} p_back={p_back}"
             );
         }

@@ -81,6 +81,13 @@ REQUEST_HEADERS = {
     ),
     "x-same-domain": "1",
 }
+# Gemini responses occasionally include very large header values (e.g. Set-Cookie
+# chains or x-goog-* metadata) that exceed aiohttp's default 8190-byte limit.
+# Raise both the per-line and per-field limits so these responses parse cleanly.
+RESPONSE_HEADER_LIMITS = {
+    "max_line_size": 64 * 1024,
+    "max_field_size": 64 * 1024,
+}
 REQUEST_BL_PARAM = "boq_assistant-bard-web-server_20260525.09_p0"
 REQUEST_PATH = "/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate"
 UPLOAD_IMAGE_URL = "https://content-push.googleapis.com/upload/"
@@ -229,8 +236,58 @@ def _resolve_model(model: str, think_override: int = None) -> tuple[str, int]:
             raise ValueError("Thinking mode must be an integer between 0 and 4")
     model = MODEL_ALIASES.get(model, model)
     if model not in models:
-        raise ValueError(f"Unknown Gemini model: {model}")
+        raise ValueError(
+            f"Unknown Gemini model: {model}. "
+            f"Supported models: {', '.join(models)}"
+        )
     return model, models[model]["think"] if think_mode is None else think_mode
+
+
+def _normalize_messages(messages: Messages | None) -> Messages:
+    if messages is None:
+        return []
+    if not isinstance(messages, list):
+        raise TypeError("messages must be a list")
+    return messages
+
+
+def _resolve_gemini_prompt(
+    messages: Messages,
+    prompt: str | None,
+    conversation,
+) -> str:
+    if prompt is not None:
+        return prompt
+    if not messages:
+        return ""
+    if conversation is None:
+        return format_prompt(messages)
+    return get_last_user_message(messages)
+
+
+def _has_authenticated_session(cookies: Cookies) -> bool:
+    return bool(cookies.get(GOOGLE_SID_COOKIE))
+
+
+def _resolve_gemini_conversation(
+    conversation,
+    model: str,
+    cookies: Cookies,
+):
+    if conversation is None:
+        return None
+    if getattr(conversation, "model", None) != model:
+        return None
+    # Gemini currently returns conversation identifiers to anonymous sessions,
+    # but rejects those identifiers with BardErrorInfo 1096 when they are used
+    # on the next turn. Keep the full message history for anonymous requests.
+    if not _has_authenticated_session(cookies):
+        return None
+    return conversation
+
+
+def _is_xsrf_error(error: Exception, status: int | None) -> bool:
+    return status == 400 and "xsrf" in str(error).lower()
 
 
 class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
@@ -292,15 +349,30 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
         return {"success": True, "message": "Login successful"}
 
     @classmethod
-    async def start_auto_refresh(cls, proxy: str = None) -> None:
+    async def start_auto_refresh(
+        cls,
+        proxy: str = None,
+        cookies: Cookies = None,
+    ) -> None:
         """
         Start the background task to automatically refresh cookies.
         """
+        refresh_cookies = dict(cookies or {})
+        secure_1psid = refresh_cookies.get(GOOGLE_SID_COOKIE)
+        if not secure_1psid:
+            return
 
         while True:
+            # Rotating immediately invalidates the XSRF token fetched for the
+            # request that started this task. Refresh only between intervals.
+            await asyncio.sleep(cls.refresh_interval)
             new_1psidts = None
             try:
-                new_1psidts = await rotate_1psidts(cls.url, cls._cookies, proxy)
+                new_1psidts = await rotate_1psidts(
+                    cls.url,
+                    refresh_cookies,
+                    proxy,
+                )
             except Exception as e:
                 debug.error(f"Failed to refresh cookies: {e}")
                 debug.error(
@@ -310,10 +382,15 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
 
             debug.log("Gemini: Cookies refreshed successfully")
             if new_1psidts:
-                cls._cookies["__Secure-1PSIDTS"] = new_1psidts
-                cls._metadata_fetched_at = 0
-                cls._account_models_fetched_at = 0
-            await asyncio.sleep(cls.refresh_interval)
+                refresh_cookies[GOOGLE_SIDTS_COOKIE] = new_1psidts
+                current_cookies = cls._cookies
+                if (
+                    current_cookies
+                    and current_cookies.get(GOOGLE_SID_COOKIE) == secure_1psid
+                ):
+                    current_cookies.update(refresh_cookies)
+                    cls._metadata_fetched_at = 0
+                    cls._account_models_fetched_at = 0
 
     @classmethod
     async def fetch_account_models(
@@ -409,7 +486,8 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
         if not cls._cookies:
             raise MissingAuthError('Missing or invalid "__Secure-1PSID" cookie')
         async with ClientSession(
-            headers=REQUEST_HEADERS
+            headers=REQUEST_HEADERS,
+            **RESPONSE_HEADER_LIMITS,
         ) as session:
             await cls.fetch_snlm0e(session, cls._cookies)
         return cls._snlm0e
@@ -432,6 +510,7 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
         think_override: int = None,
         **kwargs
     ) -> AsyncResult:
+        messages = _normalize_messages(messages)
         model = model or cls.default_model
         if cls.model_aliases and model in cls.model_aliases:
             model = cls.model_aliases[model]
@@ -459,9 +538,14 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
             cls._cookies = cookies
         elif cls._cookies is None:
             cls._cookies = get_cookies(GOOGLE_COOKIE_DOMAIN, False, True)
-        if conversation is not None and getattr(conversation, "model", None) != model:
-            conversation = None
-        prompt = format_prompt(messages) if conversation is None else get_last_user_message(messages)
+        request_cookies = dict(cls._cookies or {})
+        authenticated_session = _has_authenticated_session(request_cookies)
+        conversation = _resolve_gemini_conversation(
+            conversation,
+            model,
+            request_cookies,
+        )
+        prompt = _resolve_gemini_prompt(messages, prompt, conversation)
         if not isinstance(prompt, str) or not prompt.strip():
             raise ValueError("Prompt cannot be empty")
         if len(prompt) > MAX_PROMPT_CHARACTERS:
@@ -472,11 +556,12 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
 
         async with ClientSession(
             headers=REQUEST_HEADERS,
-            connector=base_connector
+            connector=base_connector,
+            **RESPONSE_HEADER_LIMITS,
         ) as session:
             cookie_key = (
-                (cls._cookies or {}).get(GOOGLE_SID_COOKIE),
-                (cls._cookies or {}).get(GOOGLE_SIDTS_COOKIE),
+                request_cookies.get(GOOGLE_SID_COOKIE),
+                request_cookies.get(GOOGLE_SIDTS_COOKIE),
             )
             if (
                 cookie_key != cls._metadata_cookie_key
@@ -495,7 +580,7 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
             )
             if not cls._metadata_fetched_at or metadata_expired:
                 try:
-                    await cls.fetch_snlm0e(session, cls._cookies or {}, auth_user)
+                    await cls.fetch_snlm0e(session, request_cookies, auth_user)
                 except (ClientError, MissingAuthError, ResponseError) as error:
                     cls._metadata_fetched_at = time.time()
                     debug.log(f"Gemini metadata discovery failed: {error}")
@@ -505,7 +590,7 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
             if not cls._account_models_fetched_at or models_expired:
                 try:
                     await cls.fetch_account_models(
-                        session, cls._cookies or {}, auth_user
+                        session, request_cookies, auth_user
                     )
                 except (ClientError, ResponseError, ValueError) as error:
                     cls._account_models_fetched_at = time.time()
@@ -514,14 +599,25 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
                 model,
                 allow_model_fallback=bool(kwargs.get("allow_model_fallback", False)),
             )
-            if cls.auto_refresh and cls._cookies and GOOGLE_SID_COOKIE in cls._cookies:
-                task = cls.rotate_tasks.get(cls._cookies[GOOGLE_SID_COOKIE])
+            if (
+                cls.auto_refresh
+                and GOOGLE_SID_COOKIE in request_cookies
+            ):
+                secure_1psid = request_cookies[GOOGLE_SID_COOKIE]
+                task = cls.rotate_tasks.get(secure_1psid)
                 if task is None or task.done():
-                    cls.rotate_tasks[cls._cookies[GOOGLE_SID_COOKIE]] = asyncio.create_task(
-                        cls.start_auto_refresh(proxy)
+                    cls.rotate_tasks[secure_1psid] = asyncio.create_task(
+                        cls.start_auto_refresh(
+                            proxy=proxy,
+                            cookies=request_cookies,
+                        )
                     )
 
-            uploads = await cls.upload_images(session, merge_media(media, messages))
+            uploads = await cls.upload_images(
+                session,
+                merge_media(media, messages),
+                request_cookies,
+            )
             params = {
                 'bl': cls._bl,
                 'hl': language,
@@ -550,7 +646,7 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
             request_headers["Referer"] = f"{cls.url}{prefix}/app"
             if prefix:
                 request_headers["X-Goog-AuthUser"] = str(auth_user)
-            authorization = _make_sapisid_hash(cls._cookies or {})
+            authorization = _make_sapisid_hash(request_cookies)
             if authorization:
                 request_headers["Authorization"] = authorization
             model_headers = cls.get_model_headers(model)
@@ -576,17 +672,42 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
                         data=data,
                         params=params,
                         headers=request_headers or None,
-                        cookies=cls._cookies,
+                        cookies=request_cookies,
                     )
                     await raise_for_status(response)
                     break
                 except (ClientError, RateLimitError, ResponseStatusError) as error:
                     status = response.status if response is not None else None
-                    retryable = isinstance(error, ClientError) or status in RETRYABLE_STATUS_CODES
+                    xsrf_error = _is_xsrf_error(error, status)
+                    retryable = (
+                        isinstance(error, ClientError)
+                        or status in RETRYABLE_STATUS_CODES
+                        or xsrf_error
+                    )
                     if response is not None:
                         response.release()
                     if not retryable or attempt >= max_retries:
                         raise
+                    if xsrf_error:
+                        cls._snlm0e = None
+                        cls._sid = None
+                        cls._metadata_fetched_at = 0
+                        await cls.fetch_snlm0e(
+                            session,
+                            request_cookies,
+                            auth_user,
+                        )
+                        params["bl"] = cls._bl
+                        if cls._sid:
+                            params["f.sid"] = cls._sid
+                        else:
+                            params.pop("f.sid", None)
+                        if cls._snlm0e:
+                            data["at"] = cls._snlm0e
+                        else:
+                            data.pop("at", None)
+                        response = None
+                        continue
                     retry_after = None
                     if response is not None:
                         try:
@@ -632,7 +753,7 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
                             yield TitleGeneration(response_part[2].get("11"))
                         if len(response_part) < 5:
                             continue
-                        if return_conversation:
+                        if return_conversation and authenticated_session:
                             try:
                                 yield Conversation(
                                     response_part[1][0],
@@ -725,7 +846,7 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
                                     images.append(img_data + "=s2048")
                             if images:
                                 prompt = image_prompt.replace("a fake image", "") if image_prompt else "Generated Image"
-                                yield ImageResponse(images, prompt, {"cookies": cls._cookies})
+                                yield ImageResponse(images, prompt, {"cookies": request_cookies})
                                 image_prompt = None
                                 images_yielded = True
                         except (TypeError, IndexError, KeyError):
@@ -745,6 +866,7 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
             cookies=cls._cookies,
             headers=REQUEST_HEADERS,
             connector=get_connector(proxy=proxy),
+            **RESPONSE_HEADER_LIMITS,
         ) as session:
             if not cls._snlm0e:
                 await cls.fetch_snlm0e(session, cls._cookies) if cls._cookies else None
@@ -814,7 +936,13 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
         return request
 
     @classmethod
-    async def upload_images(cls, session: ClientSession, media: MediaListType) -> list:
+    async def upload_images(
+        cls,
+        session: ClientSession,
+        media: MediaListType,
+        cookies: Cookies = None,
+    ) -> list:
+        request_cookies = cookies if cookies is not None else cls._cookies
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_UPLOADS)
 
         async def upload_image(image: bytes, image_name: str = None):
@@ -829,7 +957,7 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
                 async with session.options(
                     UPLOAD_IMAGE_URL,
                     headers=upload_headers,
-                    cookies=cls._cookies,
+                    cookies=request_cookies,
                 ) as response:
                     await raise_for_status(response)
 
@@ -843,7 +971,7 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
                     UPLOAD_IMAGE_URL,
                     headers=headers,
                     data=data,
-                    cookies=cls._cookies,
+                    cookies=request_cookies,
                 ) as response:
                     await raise_for_status(response)
                     upload_url = response.headers.get("X-Goog-Upload-Url")
@@ -853,7 +981,7 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
                 async with session.options(
                     upload_url,
                     headers=headers,
-                    cookies=cls._cookies,
+                    cookies=request_cookies,
                 ) as response:
                     await raise_for_status(response)
 
@@ -863,7 +991,7 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
                     upload_url,
                     headers=headers,
                     data=image,
-                    cookies=cls._cookies,
+                    cookies=request_cookies,
                 ) as response:
                     await raise_for_status(response)
                     identifier = (await response.text()).strip()
@@ -968,7 +1096,7 @@ async def rotate_1psidts(url, cookies: dict, proxy: str | None = None) -> str:
 
     # Check if the cache file was modified in the last minute to avoid 429 Too Many Requests
     if not (path.is_file() and time.time() - os.path.getmtime(path) <= 60):
-        async with ClientSession(proxy=proxy) as client:
+        async with ClientSession(proxy=proxy, **RESPONSE_HEADER_LIMITS) as client:
             async with client.post(
                 url=ROTATE_COOKIES_URL,
                 headers={

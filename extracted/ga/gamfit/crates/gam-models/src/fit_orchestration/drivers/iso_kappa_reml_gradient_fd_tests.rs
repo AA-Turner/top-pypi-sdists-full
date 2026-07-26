@@ -40,12 +40,13 @@ mod iso_kappa_reml_gradient_fd_tests {
 
 #[test]
 fn iso_kappa_duchon_binomial_probit_joint_gradient_matches_finite_difference() {
-    let (pass, worst, violations) = iso_kappa_fd_variant_driver(
+    let (pass, worst, violations, _) = iso_kappa_fd_variant_driver(
         "duchon_probit_n80",
         80,
         LikelihoodSpec::binomial_probit(),
         false,
         false,
+        &[],
     );
     assert!(
         pass,
@@ -75,13 +76,21 @@ fn iso_kappa_duchon_binomial_probit_joint_gradient_matches_finite_difference() {
 /// verifies the *gradient formula* rather than the *conditioning floor*. Proof:
 /// the same n=20 Duchon-probit config matches FD to 6e-7 under balanced labels
 /// vs 8e-3 under the separated labels (and ρ matches to 1e-5 in both).
+///
+/// `extra_rho_probes` appends probes at large ρ in addition to the historical
+/// near-origin probes. Every historical probe sits at ‖ρ‖ ≤ 1, but the
+/// asymptote-rail certificate (#2348) that decides whether a railed joint fit
+/// may be minted reads the gradient AT the rail — so the analytic gradient in
+/// the only region the certificate consults had never been FD-checked by any
+/// gate. Pass `&[]` for the historical probe set. `#2425`.
 fn iso_kappa_fd_variant_driver(
     label: &str,
     n: usize,
     family: LikelihoodSpec,
     skip_psi: bool,
     well_conditioned: bool,
-) -> (bool, f64, Vec<String>) {
+    extra_rho_probes: &[f64],
+) -> (bool, f64, Vec<String>, Vec<(String, Array1<f64>)>) {
     // A `"*_2d"` label builds an ordinary 2-D feature cloud (the production
     // `matern(x1, x2)` regime: operator triplet {mass, tension, stiffness}, with
     // the per-axis tension and mixed-curvature stiffness blocks that only carry
@@ -298,18 +307,74 @@ fn iso_kappa_fd_variant_driver(
         theta_alt[rho_dim + k] = 0.4;
     }
 
-    let h = 1e-5_f64;
+    // Rail / ladder probes (#2425). For each requested ρ value the driver emits
+    // one probe per ρ coordinate holding that coordinate at the value, plus an
+    // all-ρ probe. `&[11.5]` sits a half e-fold inside `JOINT_RHO_BOUND = 12` so
+    // the centered stencil stays in the box; a longer ladder deliberately walks
+    // PAST the box, because the evaluator is defined on all of θ and the question
+    // "does V saturate at a λ=∞ face" is only answerable outside 12.
+    let mut rail_probes: Vec<(String, Array1<f64>)> = Vec::new();
+    for &value in extra_rho_probes {
+        for j in 0..rho_dim {
+            let mut theta_rail = theta_base.clone();
+            theta_rail[j] = value;
+            rail_probes.push((format!("rho{j}@{value}"), theta_rail));
+        }
+        let mut theta_all_rail = theta_base.clone();
+        for j in 0..rho_dim {
+            theta_all_rail[j] = value;
+        }
+        rail_probes.push((format!("rhoALL@{value}"), theta_all_rail));
+    }
+
+    // Central-difference step, DERIVED rather than picked (#2425).
+    //
+    // The historical `1e-5` assumed an exact evaluator, for which the optimal
+    // central step is `h ≈ eps^(1/3) ≈ 6e-6`. This evaluator is not exact: each
+    // cost runs an inner PIRLS solve, so its value carries an absolute noise
+    // floor `ν`, and the total central-difference error is
+    //
+    //     ν/h  +  h²·S'''/6            (round-off/noise)  +  (truncation)
+    //
+    // minimized at `h* = (3ν/S''')^(1/3)`. `zz_measure_psi_only_rho1_fd_step_law_2425`
+    // measures `ν` on the production objective by sweeping `h` over 1e-3…1e-7 and
+    // reading which law the analytic-vs-FD gap follows. It is unambiguously the
+    // NOISE law, not truncation — `gap·h` is flat at ~1.5e-11 across four decades
+    // while `gap/h²` sweeps from 1e-2 to 1e10:
+    //
+    //     h        1e-3     1e-4     1e-5     1e-6     1e-7
+    //     gap·h    9.6e-12  2.2e-12  1.0e-11  2.1e-11  1.7e-11
+    //     gap/h²   9.6e-3   2.2e0    1.0e4    2.1e7    1.7e10
+    //
+    // So `ν ≈ 1.5e-11` and, with `S''' = O(1)`, `h* = (3·1.5e-11)^(1/3) ≈ 3.6e-4`.
+    // At the old `1e-5` the oracle's OWN error is `ν/h ≈ 1.5e-6`, which is ~10%
+    // of a near-zero component like the `psi_only` ρ₁ row (~1.5e-5) — that is
+    // what made `iso_kappa_duchon_n_smaller_fd` fail at `rel=5.077e-3` against a
+    // `5e-3` gate, with the analytic gradient correct all along. The measurement
+    // confirms the tail of the argument too: at `h=1e-3`, where noise is
+    // negligible, FD agrees with the analytic value to 0.6%.
+    //
+    // Raising `h` costs truncation on the WELL-scaled components, and that is
+    // affordable: `h²·S'''/6 ≈ 9e-8·S'''/6`, four orders inside `rel_tol`.
+    let h = 3e-4_f64;
     let rel_tol = 5e-3_f64;
     let mut violations: Vec<String> = Vec::new();
+    let mut analytic_by_probe: Vec<(String, Array1<f64>)> = Vec::new();
     let mut worst_psi_rel = 0.0_f64;
-    for (probe, theta) in [
+    let base_probes: [(&str, &Array1<f64>); 4] = [
         ("zero", &theta_zero),
         ("psi_only", &theta_psi_only),
         ("base", &theta_base),
         ("alt", &theta_alt),
-    ] {
+    ];
+    let all_probes: Vec<(&str, &Array1<f64>)> = base_probes
+        .into_iter()
+        .chain(rail_probes.iter().map(|(n, t)| (n.as_str(), t)))
+        .collect();
+    for (probe, theta) in all_probes {
         let (cost_an, grad_an) = analytic_at(theta, &mut cache, &mut evaluator);
         assert!(cost_an.is_finite(), "{label} {probe}: cost not finite");
+        analytic_by_probe.push((probe.to_string(), grad_an.clone()));
         // Objective↔gradient desync probe: the analytic gradient path
         // (evaluate_joint_reml_outer_eval_at_theta) and the cost-only FD
         // path (evaluate_cost_only) must agree on the COST itself at the
@@ -359,17 +424,18 @@ fn iso_kappa_fd_variant_driver(
              violations={}",
         violations.len()
     );
-    (pass, worst_psi_rel, violations)
+    (pass, worst_psi_rel, violations, analytic_by_probe)
 }
 
 #[test]
 fn iso_kappa_duchon_gaussian_identity_fd() {
-    let (pass, worst, violations) = iso_kappa_fd_variant_driver(
+    let (pass, worst, violations, _) = iso_kappa_fd_variant_driver(
         "duchon_gaussian",
         80,
         LikelihoodSpec::gaussian_identity(),
         false,
         false,
+        &[],
     );
     assert!(
         pass,
@@ -390,12 +456,13 @@ fn iso_kappa_duchon_gaussian_identity_fd() {
 /// wrong, the optimizer's stall is explained and this fails loudly.
 #[test]
 fn iso_kappa_matern_gaussian_identity_fd() {
-    let (pass, worst, violations) = iso_kappa_fd_variant_driver(
+    let (pass, worst, violations, _) = iso_kappa_fd_variant_driver(
         "matern_gaussian",
         80,
         LikelihoodSpec::gaussian_identity(),
         false,
         false,
+        &[],
     );
     assert!(
         pass,
@@ -414,12 +481,13 @@ fn iso_kappa_matern_gaussian_identity_fd() {
 /// off-diagonal structure when d ≥ 2.
 #[test]
 fn iso_kappa_matern_2d_gaussian_identity_fd() {
-    let (pass, worst, violations) = iso_kappa_fd_variant_driver(
+    let (pass, worst, violations, _) = iso_kappa_fd_variant_driver(
         "matern_gaussian_2d",
         120,
         LikelihoodSpec::gaussian_identity(),
         false,
         false,
+        &[],
     );
     assert!(
         pass,
@@ -802,12 +870,13 @@ fn iso_kappa_matern_2d_psi_fd_step_sweep_diagnostic() {
 /// #1122 stall is driven by the double-penalty value-path / re-key topology.
 #[test]
 fn iso_kappa_matern_2d_dp_gaussian_identity_fd() {
-    let (pass, worst, violations) = iso_kappa_fd_variant_driver(
+    let (pass, worst, violations, _) = iso_kappa_fd_variant_driver(
         "matern_gaussian_2d_dp",
         120,
         LikelihoodSpec::gaussian_identity(),
         false,
         false,
+        &[],
     );
     assert!(
         pass,
@@ -819,8 +888,8 @@ fn iso_kappa_matern_2d_dp_gaussian_identity_fd() {
 
 #[test]
 fn iso_kappa_duchon_binomial_logit_fd() {
-    let (pass, worst, violations) =
-        iso_kappa_fd_variant_driver("duchon_logit", 80, LikelihoodSpec::binomial_logit(), false, false);
+    let (pass, worst, violations, _) =
+        iso_kappa_fd_variant_driver("duchon_logit", 80, LikelihoodSpec::binomial_logit(), false, false, &[]);
     assert!(
         pass,
         "BinomialLogit FD failed; worst_psi_rel={worst:.3e}\n  {}",
@@ -836,7 +905,7 @@ fn iso_kappa_duchon_binomial_logit_fd() {
 
 #[test]
 fn iso_kappa_duchon_n_smaller_fd() {
-    let (pass, worst, violations) = iso_kappa_fd_variant_driver(
+    let (pass, worst, violations, _) = iso_kappa_fd_variant_driver(
         "duchon_probit_n20",
         20,
         LikelihoodSpec::binomial_probit(),
@@ -847,6 +916,7 @@ fn iso_kappa_duchon_n_smaller_fd() {
         // analytic-vs-FD gap that is a conditioning artifact of BOTH sides, not
         // a gradient error (#901 kernel is exact: balanced labels match to 6e-7).
         true,
+        &[],
     );
     assert!(
         pass,
@@ -857,18 +927,274 @@ fn iso_kappa_duchon_n_smaller_fd() {
 
 #[test]
 fn iso_kappa_duchon_no_psi_fd() {
-    let (pass, _worst, violations) = iso_kappa_fd_variant_driver(
+    let (pass, _worst, violations, _) = iso_kappa_fd_variant_driver(
         "duchon_probit_rho_only",
         80,
         LikelihoodSpec::binomial_probit(),
         true,
         false,
+        &[],
     );
     assert!(
         pass,
         "Duchon Probit ρ-only FD failed:\n  {}",
         violations.join("\n  ")
     );
+}
+
+/// #2425 MEASUREMENT (reports, never fails): is the analytic iso-κ outer
+/// gradient still FD-correct NEAR THE RAIL?
+///
+/// Motivation. `spatial_length_scale_optimization_monotone_*` never reaches its
+/// monotonicity assertion — the joint fit refuses to mint because the outer
+/// certificate finds the railed coordinates non-stationary. The declining
+/// certificate printed an 18-e-fold probe ladder in which
+/// `ĉ = −e^ρ·∂V/∂ρ` — the quantity that is CONSTANT on a genuine λ→∞ tail —
+/// instead tracks `e^ρ` across the whole box, i.e. `∂V/∂ρ ≈ const ≈ −0.3`, and
+/// then GROWS to −1.9 at the ρ=11.5 rail rather than decaying to zero.
+///
+/// Two readings are possible and they demand opposite fixes:
+///   1. the analytic gradient is right, the joint box `JOINT_RHO_BOUND = 12`
+///      simply stops 18 e-folds short of the `RHO_BOUND = 30` rail the
+///      asymptote certificate (#2348) was calibrated against, so the tail has
+///      not begun and the certificate correctly declines; or
+///   2. the analytic gradient is WRONG out there, and every railed joint fit
+///      has been judged against a gradient no gate has ever checked.
+///
+/// Every historical FD probe in this file sits at ‖ρ‖ ≤ 1. The rail is the only
+/// region the certificate consults and the only region never measured. This
+/// test measures it on both bases and both link classes.
+#[test]
+fn zz_measure_iso_kappa_rail_gradient_fd_2425() {
+    for (label, n, family) in [
+        ("duchon_gaussian", 80usize, LikelihoodSpec::gaussian_identity()),
+        ("matern_gaussian", 80, LikelihoodSpec::gaussian_identity()),
+        ("duchon_logit", 80, LikelihoodSpec::binomial_logit()),
+    ] {
+        let (pass, worst, violations, _) =
+            // #2444: probe BOTH faces. `+11.5` is the upper rail this gate was
+            // written for; `-11.5` is its mirror a half e-fold inside the LOWER
+            // bound, which is where every failing checkpoint in the kappa cluster
+            // actually rails. A derivative wrong at one bound is not automatically
+            // wrong at the other, and the rationale for measuring the rail at all
+            // -- "the one region the certificate consults is the one region no gate
+            // has ever measured" -- applied verbatim to the lower face until now.
+            iso_kappa_fd_variant_driver(label, n, family, false, false, &[11.5, -11.5]);
+        eprintln!(
+            "[zz-rail-2425] {label}: pass={pass} worst_psi_rel={worst:.3e} \
+             violations={}",
+            violations.len()
+        );
+        for v in &violations {
+            eprintln!("[zz-rail-2425] {label}: {v}");
+        }
+    }
+}
+
+/// #2444: the executable form of what the probe above measures.
+///
+/// The analytic outer gradient must match a central finite difference **at the
+/// rails**, on both faces of the box. `zz_measure_iso_kappa_rail_gradient_fd_2425`
+/// has computed exactly this since #2425 and printed `pass=false` into a run the
+/// harness records as `ok`, so the violation has been visible and unenforced —
+/// the same shape as every other false green in #2422. A measurement nobody is
+/// obliged to read does not constrain anything.
+///
+/// Currently RED for Duchon and green for Matérn, which is the point: the
+/// separation is 64x through the same optimizer at the lower face, and
+/// `fd - analytic` is positive in every violation across both faces and both
+/// links. Matern is the control — its worst also rose ~20x when the lower probes
+/// were added and it still passes, so the lower face is harder for both families
+/// and only Duchon exceeds.
+#[test]
+fn iso_kappa_rail_gradient_matches_fd_at_both_faces_2444() {
+    let mut summary: Vec<String> = Vec::new();
+    let mut failing: Vec<String> = Vec::new();
+    for (label, n, family) in [
+        ("duchon_gaussian", 80usize, LikelihoodSpec::gaussian_identity()),
+        ("matern_gaussian", 80, LikelihoodSpec::gaussian_identity()),
+        ("duchon_logit", 80, LikelihoodSpec::binomial_logit()),
+    ] {
+        let (pass, worst, violations, _) =
+            iso_kappa_fd_variant_driver(label, n, family, false, false, &[11.5, -11.5]);
+        summary.push(format!(
+            "{label}: pass={pass} worst_psi_rel={worst:.3e} violations={}",
+            violations.len()
+        ));
+        for violation in &violations {
+            failing.push(format!("{label}: {violation}"));
+        }
+    }
+    assert!(
+        failing.is_empty(),
+        "analytic outer gradient must match FD at both rails; {} violation(s)\n  {}\n  {}",
+        failing.len(),
+        summary.join("\n  "),
+        failing.join("\n  ")
+    );
+}
+
+/// #2425 MEASUREMENT (reports, never fails): does the iso-κ REML criterion
+/// SATURATE at a λ=∞ face, or is it asymptotically linear in ρ?
+///
+/// `zz_measure_iso_kappa_rail_gradient_fd_2425` establishes that the analytic
+/// gradient is FD-correct at ρ=11.5, so the monotone fixtures' refusal is not a
+/// derivative defect: the criterion really is descending at the rail with
+/// `∂V/∂ρ ≈ −0.3` and `ĉ = −e^ρ ∂V/∂ρ` growing like `e^ρ` instead of settling.
+/// Two explanations survive and they demand opposite fixes.
+///
+///   1. The λ=∞ tail exists but begins OUTSIDE `JOINT_RHO_BOUND = 12`. The
+///      asymptote certificate's own `ASYMPTOTE_PROBE_COUNT` comment says its
+///      window was sized against rails at `RHO_BOUND = 30`, so a box that stops
+///      at 12 can be 18 e-folds short of the region the certificate needs. Then
+///      `V` saturates somewhere past 12 and the box is the bug.
+///   2. There is no λ=∞ face at all, because the `½log|H| − ½log|S|₊`
+///      cancellation leaves a residual linear term `(r_H − r_S)/2 · ρ`. Then `V`
+///      keeps falling linearly forever and no box width can help; the rank
+///      bookkeeping is the bug.
+///
+/// The discriminator is simply `V` far outside the box, which nothing forbids —
+/// the evaluator is a function of θ and the ±12 clamp lives in the optimizer's
+/// bound vectors, not in the criterion. Walking ρ out to 30 separates the two:
+/// saturating `V` with `ĉ → const` is (1); `V` linear in ρ with `∂V/∂ρ → const`
+/// is (2). Reported per ρ coordinate, so a per-block rank defect is visible as
+/// a per-block slope.
+#[test]
+fn zz_measure_iso_kappa_face_saturation_ladder_2425() {
+    // Out to `RHO_BOUND = 30` — the bound the asymptote certificate was
+    // calibrated against — well past `JOINT_RHO_BOUND = 12`.
+    const LADDER: [f64; 9] = [6.0, 9.0, 12.0, 15.0, 18.0, 21.0, 24.0, 27.0, 30.0];
+    // `matern_gaussian_2d` vs `matern_gaussian_2d_dp` differ ONLY in
+    // `double_penalty` (the driver reads `label.contains("_dp")`), so the pair
+    // is a one-variable test of whether the double-penalty assembly is what
+    // carries the spurious λ-linear term measured in #2454
+    // (`∂V/∂ρ = −c·λ`, c = 2.87e-9, on the double-penalty monotone fixture).
+    for (label, n, family) in [
+        ("matern_gaussian", 80usize, LikelihoodSpec::gaussian_identity()),
+        ("duchon_gaussian", 80, LikelihoodSpec::gaussian_identity()),
+        ("matern_gaussian_2d", 120, LikelihoodSpec::gaussian_identity()),
+        ("matern_gaussian_2d_dp", 120, LikelihoodSpec::gaussian_identity()),
+    ] {
+        let (pass, worst, violations, _) =
+            iso_kappa_fd_variant_driver(label, n, family, false, false, &LADDER);
+        eprintln!(
+            "[zz-ladder-2425] {label}: fd_pass={pass} worst_psi_rel={worst:.3e} \
+             violations={}",
+            violations.len()
+        );
+        for v in &violations {
+            eprintln!("[zz-ladder-2425] {label}: {v}");
+        }
+    }
+}
+
+/// #2450 — the λ=∞ face EXISTS: at large ρ the outer gradient has decayed to
+/// the criterion's own residual, seven orders below what a ρ-prior would leave.
+///
+/// This gate was landed inverted, as `outer_gradient_at_large_rho_is_exactly_
+/// the_rho_prior_2450`, to make the #2450 derivation executable while the
+/// defect was live: with `RhoPrior::default() = Normal { mean: 0, sd: 3 }` the
+/// shipped criterion was `REML + Σρ²/18`, so once the REML part's own λ→∞ face
+/// was reached the ENTIRE surviving gradient was the prior's `ρ/sd² = ρ/9`
+/// (measured 2.3333 / 2.6667 / 3.0000 / 3.3333 at ρ = 21/24/27/30, FD agreeing
+/// to 1e-10). Its doc said what to do if it ever failed: *"the default ρ-prior
+/// or its scale changed, or the criterion stopped including it"*. The criterion
+/// stopped including it — `RhoPrior::default()` is now `Flat` — so the gate is
+/// turned around to pin the property that replaced it, rather than deleted.
+///
+/// Why this direction is the one worth pinning. Every rail path in
+/// `rho_optimizer::run` decides by asking whether `ĉ = −e^ρ·∂V/∂ρ` is CONSTANT
+/// over a probe run (`try_certify_asymptote_rail` #2348 Inc 1,
+/// `try_tail_snap_to_rail`, `detect_wrong_rail_pullback` #2392). That law is a
+/// statement about a REML/LAML criterion, whose λ=∞ face gives
+/// `∂V/∂ρ = O(e^{−ρ})`. A ρ-prior whose gradient survives into the tail makes
+/// `ĉ` divergent and no coordinate can ever be certified at an asymptote — one
+/// `Default` disabled the face certificate, the tail snap, AND the pullback
+/// that repairs a coordinate stuck on the wrong bound.
+///
+/// Measured under the fixed default (same fixture, same ladder, A10):
+///
+/// ```text
+///   rhoALL@21  rho j=0/1/2  1.9959e-7  1.4371e-7  1.3320e-7   psi 2.9394e-7
+///   rhoALL@24               1.3624e-7  1.3346e-7  1.3293e-7   psi 1.4634e-8
+///   rhoALL@27               1.3330e-7  1.3316e-7  1.3314e-7   psi 7.2857e-10
+///   rhoALL@30               1.3324e-7  1.3324e-7  1.3324e-7   psi 3.6220e-11
+/// ```
+///
+/// analytic against central FD to 6.5e-9 relative at ρ=30, so this is the
+/// criterion itself and not a gradient artifact. Two things are worth reading
+/// off it rather than leaving implicit:
+///
+/// * the ρ-gradient is **seven orders** below the `ρ/9` the prior used to
+///   leave, which is what the assertion below is stated against — a relative
+///   statement, so it cannot be satisfied by the fixture merely getting smaller;
+/// * it settles on a FLOOR (1.3324e-7 identically at 24, 27 and 30) rather than
+///   continuing to decay like `e^{−ρ}`. That floor is not the smoothing prior —
+///   it is the same order on every coordinate and independent of ρ — and the
+///   remaining suspect is the soft ρ-guard atom the objective adds alongside
+///   the configured prior (`reml::objective`'s `soft_rho_guard_prior_atom`).
+///   Naming it here because a future reader will otherwise re-derive it: the
+///   floor is 1.1e-9 relative to `|V| ≈ 125`, far below any rail tolerance, but
+///   it is not zero and it is not the thing this gate is about.
+#[test]
+fn outer_gradient_at_large_rho_has_a_lambda_infinity_face_2450() {
+    /// The standard deviation the shipped default USED to carry. Kept as a
+    /// literal, deliberately: the assertion is "at least four orders below what
+    /// `Normal { 0, 3 }` would have contributed here", and that reference has
+    /// to stay fixed even if some other prior is configured elsewhere.
+    const RETIRED_PRIOR_SD: f64 = 3.0;
+    /// How far below the retired prior's contribution the gradient must sit.
+    /// The measurement is 5e-8 of it, so this is three orders of headroom — it
+    /// discriminates "no prior in the criterion" from "a prior with a wider sd",
+    /// which a purely absolute bound could not.
+    const MAX_FRACTION_OF_RETIRED_PRIOR: f64 = 1.0e-4;
+    /// ρ ≥ 21 is where the ladder measured the REML part's own ρ-derivative
+    /// below 1e-10, so anything left is not the REML tail.
+    const SATURATED: [f64; 4] = [21.0, 24.0, 27.0, 30.0];
+
+    for (label, family) in [("matern_gaussian", LikelihoodSpec::gaussian_identity())] {
+        let (_pass, _worst, _violations, grads) =
+            iso_kappa_fd_variant_driver(label, 80, family, false, false, &SATURATED);
+        let mut checked = 0usize;
+        let mut worst_fraction = 0.0f64;
+        for value in SATURATED {
+            let probe = format!("rhoALL@{value}");
+            let grad = &grads
+                .iter()
+                .find(|(name, _)| *name == probe)
+                .unwrap_or_else(|| panic!("{label}: probe {probe} missing"))
+                .1;
+            let retired = value / (RETIRED_PRIOR_SD * RETIRED_PRIOR_SD);
+            for (j, &observed) in grad.iter().enumerate() {
+                if j + 1 == grad.len() {
+                    assert!(
+                        observed.abs() <= 1.0e-6,
+                        "{label} {probe}: psi gradient should have decayed at a \
+                         saturated rho, got {observed:+.6e}"
+                    );
+                    continue;
+                }
+                let fraction = observed.abs() / retired;
+                worst_fraction = worst_fraction.max(fraction);
+                assert!(
+                    fraction <= MAX_FRACTION_OF_RETIRED_PRIOR,
+                    "{label} {probe} rho j={j}: the criterion must have a \
+                     lambda=infinity face, i.e. its rho-gradient at a saturated \
+                     rho must be far below the {retired:.10e} (= rho/sd^2) that a \
+                     Normal(0, sd={RETIRED_PRIOR_SD}) rho-prior would leave. Got \
+                     {observed:.10e}, a fraction {fraction:.3e} of it. A prior in \
+                     the deterministic criterion makes c-hat = -e^rho dV/drho \
+                     divergent and NO rail can ever be certified. See #2450."
+                );
+                checked += 1;
+            }
+        }
+        assert!(checked >= SATURATED.len(), "{label}: nothing was checked");
+        eprintln!(
+            "[#2450-gate] {label}: {checked} rho components, worst \
+             {worst_fraction:.3e} of the retired Normal(0,3) contribution"
+        );
+    }
 }
 
 /// Owned 1-D Duchon BinomialProbit setup shared verbatim across the
@@ -949,6 +1275,161 @@ fn build_duchon_probit_setup() -> DuchonProbitSetup {
         dims_per_term,
         rho_dim,
         psi_dim,
+    }
+}
+
+/// #2425 MEASUREMENT (reports, never fails): is the marginal `psi_only` ρ₁
+/// analytic-vs-FD gap central-difference TRUNCATION or a noise floor?
+#[test]
+fn zz_measure_psi_only_rho1_fd_step_law_2425() {
+    // The one component that fails `iso_kappa_duchon_n_smaller_fd`, and it is
+    // near-zero and marginal in EVERY config, not just at n=20:
+    //
+    //   duchon_probit_n20      an=-1.9454e-5 fd=-1.4377e-5  rel=5.077e-3  FAIL
+    //   duchon_probit_rho_only an=-1.9108e-5 fd=-1.5746e-5  rel=3.362e-3  pass
+    //   duchon_logit           an=+9.1413e-6 fd=+6.5455e-6  rel=2.596e-3  pass
+    //   duchon_gaussian        an=+1.7330e-5 fd=+1.6750e-5  rel=5.799e-4  pass
+    //
+    // The driver's `denom = max(|fd|, |an|, 1e-3)` floors the denominator at
+    // 1e-3, so on a component of size ~1.5e-5 the 5e-3 relative gate is really
+    // an ABSOLUTE 5e-6 gate, and every config sits within a factor of two of it.
+    // Before anyone moves that number, the h-law decides which side is wrong:
+    //
+    //   gap ∝ h²   → central-difference TRUNCATION. The analytic gradient is
+    //                right and the ORACLE's fixed h=1e-5 is too coarse for a
+    //                component with large third derivative; Richardson (or a
+    //                smaller h) fixes it and no tolerance needs to move.
+    //   gap flat, or growing as h shrinks → a noise floor (the inner PIRLS
+    //                stationarity residual propagating into both sides). Then
+    //                the absolute floor must be DERIVED from that residual
+    //                rather than left at a magic 1e-3 denominator.
+    //
+    // Reports only. `ratio` is gap/h²: constant ⇒ truncation.
+    let DuchonProbitSetup {
+        data,
+        y,
+        weights,
+        offset,
+        frozen,
+        frozen_design,
+        spatial_terms,
+        dims_per_term,
+        rho_dim,
+        psi_dim,
+    } = build_duchon_probit_setup();
+    let fit_opts = FitOptions {
+        compute_inference: false,
+        max_iter: 200,
+        tol: 1e-12,
+        penalty_shrinkage_floor: None,
+        ..FitOptions::default()
+    };
+    let external_opts = external_opts_for_design(
+        &LikelihoodSpec::binomial_probit(),
+        &frozen_design,
+        &fit_opts,
+    );
+    let mut cache = SingleBlockExactJointDesignCache::new(
+        data.view(),
+        frozen.clone(),
+        frozen_design.clone(),
+        spatial_terms.clone(),
+        rho_dim,
+        dims_per_term.clone(),
+    )
+    .unwrap_or_else(|e| panic!("{} failed: {:?}", "cache", e));
+    let mut evaluator = gam_solve::estimate::ExternalJointHyperEvaluator::new(
+        y.view(),
+        weights.view(),
+        &frozen_design.design,
+        offset.view(),
+        &frozen_design.penalties,
+        &external_opts,
+        "psi_only rho1 FD step law",
+    )
+    .unwrap_or_else(|e| panic!("{} failed: {:?}", "evaluator", e));
+
+    // The driver's `psi_only` probe: every ρ at 0, ψ at 0.4.
+    let theta_dim = rho_dim + psi_dim;
+    let mut theta = Array1::<f64>::zeros(theta_dim);
+    for k in 0..psi_dim {
+        theta[rho_dim + k] = 0.4;
+    }
+    const COORD: usize = 1;
+
+    let eval_at = |theta: &Array1<f64>,
+                   order: gam_solve::rho_optimizer::OuterEvalOrder,
+                   cache: &mut SingleBlockExactJointDesignCache<'_>,
+                   evaluator: &mut gam_solve::estimate::ExternalJointHyperEvaluator<'_>| {
+        cache.ensure_theta(theta).unwrap_or_else(|e| panic!("{} failed: {:?}", "ensure_theta", e));
+        let hyper_dirs = try_build_spatial_log_kappa_hyper_dirs(
+            data.view(),
+            cache.spec(),
+            cache.design(),
+            &cache.spatial_terms,
+        )
+        .unwrap_or_else(|e| panic!("{} failed: {:?}", "hyper dirs build", e))
+        .expect("hyper dirs present");
+        evaluate_joint_reml_outer_eval_at_theta(
+            evaluator,
+            cache.design(),
+            theta,
+            rho_dim,
+            hyper_dirs,
+            None,
+            order,
+            None,
+        )
+        .unwrap_or_else(|e| panic!("{} failed: {:?}", "outer eval", e))
+    };
+
+    let (cost, grad, _h) = eval_at(
+        &theta,
+        gam_solve::rho_optimizer::OuterEvalOrder::ValueAndGradient,
+        &mut cache,
+        &mut evaluator,
+    );
+    let analytic = grad[COORD];
+    eprintln!(
+        "[zz-steplaw-2425] cost={cost:.12e} analytic_rho{COORD}={analytic:+.10e}"
+    );
+    let mut previous: Option<(f64, f64)> = None;
+    for h in [
+        1.0e-3, 3.0e-4, 1.0e-4, 3.0e-5, 1.0e-5, 3.0e-6, 1.0e-6, 3.0e-7, 1.0e-7,
+    ] {
+        let mut plus = theta.clone();
+        plus[COORD] += h;
+        let mut minus = theta.clone();
+        minus[COORD] -= h;
+        let (cp, _, _) = eval_at(
+            &plus,
+            gam_solve::rho_optimizer::OuterEvalOrder::Value,
+            &mut cache,
+            &mut evaluator,
+        );
+        let (cm, _, _) = eval_at(
+            &minus,
+            gam_solve::rho_optimizer::OuterEvalOrder::Value,
+            &mut cache,
+            &mut evaluator,
+        );
+        let fd = (cp - cm) / (2.0 * h);
+        let gap = analytic - fd;
+        // Richardson against the previous (3x coarser) rung: for a clean
+        // O(h²) stencil this cancels the leading truncation term.
+        let richardson = previous.map(|(hc, fdc)| {
+            let ratio = (hc / h).powi(2);
+            (ratio * fd - fdc) / (ratio - 1.0)
+        });
+        eprintln!(
+            "[zz-steplaw-2425] h={h:.1e} fd={fd:+.10e} gap={gap:+.4e} \
+             gap/h2={:.4e} richardson={}",
+            gap / (h * h),
+            richardson
+                .map(|r| format!("{r:+.10e} (gap {:+.4e})", analytic - r))
+                .unwrap_or_else(|| "-".to_string())
+        );
+        previous = Some((h, fd));
     }
 }
 
@@ -1235,4 +1716,210 @@ fn iso_kappa_duchon_dx_dpsi_matches_fd() {
     );
     assert!(max_diff < 5e-3 * max_abs.max(1e-3), "dX/dψ mismatch");
 }
+
+/// #2454 MEASUREMENT (reports, never fails): put the MONOTONE fixture's own spec
+/// through an evaluator whose gradient can be finite-difference-checked.
+///
+/// Everything claiming `∂V/∂ρ = −c·λ` on #2454 came from the standard-REML
+/// certificate's printed probe gradients, which have never been FD-verified.
+/// Every ladder that HAS been FD-verified runs the joint iso-κ evaluator and
+/// saturates correctly. The two disagree, so the discriminator is to run the
+/// SAME fixture — `length_scale = 12.0`, 12 centers, n=60, d=2,
+/// `double_penalty: true`, `CenterSumToZero` — through the checkable evaluator.
+///
+///   `|g|` decaying, FD agreeing ⇒ the criterion is bounded for this fixture and
+///        the standard-REML path's printed gradient is the defect;
+///   `|g| ∝ e^ρ` reproduced AND FD-confirmed ⇒ the criterion really is unbounded
+///        and both of my mechanism hypotheses were wrong.
+///
+/// `ĉ = −e^ρ·∂V/∂ρ` is reported alongside so the tail law is directly readable.
+#[test]
+fn zz_measure_monotone_fixture_through_checkable_evaluator_2454() {
+    let n = 60usize;
+    let d = 2usize;
+    let mut data = Array2::<f64>::zeros((n, d));
+    let mut y = Array1::<f64>::zeros(n);
+    for i in 0..n {
+        let x0 = i as f64 / (n as f64 - 1.0);
+        let x1 = (i as f64 * 0.17).sin();
+        data[[i, 0]] = x0;
+        data[[i, 1]] = x1;
+        y[i] = (3.0 * x0).cos() + 0.35 * x1;
+    }
+    let weights = Array1::ones(n);
+    let offset = Array1::zeros(n);
+    let spec = TermCollectionSpec {
+        linear_terms: vec![],
+        random_effect_terms: vec![],
+        smooth_terms: vec![SmoothTermSpec {
+            name: "matern".to_string(),
+            basis: SmoothBasisSpec::Matern {
+                feature_cols: vec![0, 1],
+                spec: MaternBasisSpec {
+                    periodic: None,
+                    center_strategy: CenterStrategy::FarthestPoint { num_centers: 12 },
+                    length_scale: gam_terms::basis::MaternLengthScale::fixed(12.0),
+                    nu: MaternNu::FiveHalves,
+                    include_intercept: false,
+                    double_penalty: true,
+                    identifiability: MaternIdentifiability::CenterSumToZero,
+                    aniso_log_scales: None,
+                },
+                input_scale: None,
+            },
+            shape: ShapeConstraint::None,
+            joint_null_rotation: None,
+        }],
+    };
+    let fit_opts = FitOptions {
+        compute_inference: false,
+        max_iter: 200,
+        tol: 1e-12,
+        penalty_shrinkage_floor: None,
+        ..FitOptions::default()
+    };
+    let family = LikelihoodSpec::gaussian_identity();
+
+    let design = build_term_collection_design(data.view(), &spec)
+        .unwrap_or_else(|e| panic!("design failed: {e:?}"));
+    let frozen = freeze_term_collection_from_design(&spec, &design)
+        .unwrap_or_else(|e| panic!("freeze failed: {e:?}"));
+    let frozen_design = build_term_collection_design(data.view(), &frozen)
+        .unwrap_or_else(|e| panic!("frozen design failed: {e:?}"));
+    let spatial_terms = spatial_length_scale_term_indices(&frozen);
+    let dims_per_term = spatial_dims_per_term(&frozen, &spatial_terms);
+    let rho_dim = frozen_design.penalties.len();
+    let psi_dim: usize = dims_per_term.iter().sum();
+    eprintln!("[zz-mono-2454] rho_dim={rho_dim} psi_dim={psi_dim} p={}", frozen_design.design.ncols());
+
+    let external_opts = external_opts_for_design(&family, &frozen_design, &fit_opts);
+    let mut cache = SingleBlockExactJointDesignCache::new(
+        data.view(),
+        frozen.clone(),
+        frozen_design.clone(),
+        spatial_terms.clone(),
+        rho_dim,
+        dims_per_term.clone(),
+    )
+    .unwrap_or_else(|e| panic!("cache failed: {e:?}"));
+    let mut evaluator = gam_solve::estimate::ExternalJointHyperEvaluator::new(
+        y.view(),
+        weights.view(),
+        &frozen_design.design,
+        offset.view(),
+        &frozen_design.penalties,
+        &external_opts,
+        "#2454 monotone fixture evaluator",
+    )
+    .unwrap_or_else(|e| panic!("evaluator failed: {e:?}"));
+
+    let cost_at = |theta: &Array1<f64>,
+                   cache: &mut SingleBlockExactJointDesignCache<'_>,
+                   evaluator: &mut gam_solve::estimate::ExternalJointHyperEvaluator<'_>|
+     -> f64 {
+        cache.ensure_theta(theta).unwrap_or_else(|e| panic!("ensure_theta: {e:?}"));
+        let design = cache.design();
+        evaluator
+            .evaluate_cost_only(
+                &design.design,
+                &design.penalties,
+                &design.nullspace_dims,
+                design.linear_constraints.clone(),
+                theta,
+                rho_dim,
+                None,
+                "#2454 cost-only",
+                None,
+            )
+            .unwrap_or_else(|e| panic!("cost-only: {e:?}"))
+    };
+    let analytic_at = |theta: &Array1<f64>,
+                       cache: &mut SingleBlockExactJointDesignCache<'_>,
+                       evaluator: &mut gam_solve::estimate::ExternalJointHyperEvaluator<'_>|
+     -> (f64, Array1<f64>) {
+        cache.ensure_theta(theta).expect("ensure_theta");
+        let hyper_dirs = try_build_spatial_log_kappa_hyper_dirs(
+            data.view(),
+            cache.spec(),
+            cache.design(),
+            &cache.spatial_terms,
+        )
+        .unwrap_or_else(|e| panic!("hyper dirs: {e:?}"))
+        .expect("hyper dirs present");
+        let (cost, grad, _h) = evaluate_joint_reml_outer_eval_at_theta(
+            evaluator,
+            cache.design(),
+            theta,
+            rho_dim,
+            hyper_dirs,
+            None,
+            gam_solve::rho_optimizer::OuterEvalOrder::ValueAndGradient,
+            None,
+        )
+        .unwrap_or_else(|e| panic!("outer eval: {e:?}"));
+        (cost, grad)
+    };
+
+    // #2454 STEP-LAW at the sign-disagreement point. At rho=15 the analytic and
+    // FD gradients disagree by 166% AND on the SIGN (an=+6.499e-2, fd=-9.835e-2,
+    // gap 0.163). A cost-noise floor of nu~1e-11 gives nu/h ~ 3e-8 at h=3e-4,
+    // seven orders too small, so either the inner solve's noise explodes here or
+    // truncation needs a third derivative of order 1e7. Sweeping h separates
+    // them WITHOUT needing a higher-precision reference:
+    //     gap proportional to 1/h  => NOISE (inner PIRLS not resolving at rho=15)
+    //     gap proportional to h^2  => TRUNCATION (FD wrong; analytic stands)
+    //     gap flat in h            => the ANALYTIC gradient is wrong
+    {
+        let value = 15.0_f64;
+        let mut theta = Array1::<f64>::zeros(rho_dim + psi_dim);
+        for j in 0..rho_dim {
+            theta[j] = value;
+        }
+        let (cost, grad) = analytic_at(&theta, &mut cache, &mut evaluator);
+        let an = grad[0];
+        eprintln!("[zz-steplaw15-2454] rho=15 COST={cost:+.12e} analytic_rho0={an:+.8e}");
+        for hh in [1e-2_f64, 3e-3, 1e-3, 3e-4, 1e-4, 3e-5, 1e-5, 3e-6, 1e-6] {
+            let mut plus = theta.clone();
+            plus[0] += hh;
+            let mut minus = theta.clone();
+            minus[0] -= hh;
+            let cp = cost_at(&plus, &mut cache, &mut evaluator);
+            let cm = cost_at(&minus, &mut cache, &mut evaluator);
+            let fd = (cp - cm) / (2.0 * hh);
+            let gap = an - fd;
+            eprintln!(
+                "[zz-steplaw15-2454] h={hh:.1e} fd={fd:+.8e} gap={gap:+.4e} \
+                 gap_times_h={:.4e} gap_over_h2={:.4e}",
+                gap * hh,
+                gap / (hh * hh)
+            );
+        }
+    }
+    let h = 3e-4_f64;
+    for value in [6.0_f64, 9.0, 12.0, 15.0, 18.0, 21.0] {
+        let mut theta = Array1::<f64>::zeros(rho_dim + psi_dim);
+        for j in 0..rho_dim {
+            theta[j] = value;
+        }
+        let (cost, grad) = analytic_at(&theta, &mut cache, &mut evaluator);
+        for j in 0..rho_dim {
+            let mut plus = theta.clone();
+            plus[j] += h;
+            let mut minus = theta.clone();
+            minus[j] -= h;
+            let cp = cost_at(&plus, &mut cache, &mut evaluator);
+            let cm = cost_at(&minus, &mut cache, &mut evaluator);
+            let fd = (cp - cm) / (2.0 * h);
+            let an = grad[j];
+            let denom = fd.abs().max(an.abs()).max(1e-12);
+            eprintln!(
+                "[zz-mono-2454] rho={value:5.1} j={j} COST={cost:+.10e} an={an:+.6e} \
+                 fd={fd:+.6e} rel={:.3e} chat_an={:+.6e}",
+                (an - fd).abs() / denom,
+                -value.exp() * an
+            );
+        }
+    }
+}
+
 }

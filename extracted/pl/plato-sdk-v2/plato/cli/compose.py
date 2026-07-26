@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field
 from rich.console import Console
 from rich.table import Table
 
+from plato.utils.ssh import gateway_proxy_command
 from plato.v2 import AsyncPlato, Env
 from plato.v2.async_.environment import Environment
 from plato.v2.types import SimConfigCompute
@@ -567,7 +568,7 @@ class FsWatchSync:
     ) -> list[str]:
         """Build rsync command for a sync."""
         sni = f"{job_id}--22.{GATEWAY_HOST}"
-        proxy_cmd = f"openssl s_client -quiet -connect {GATEWAY_HOST}:443 -servername {sni} 2>/dev/null"
+        proxy_cmd = gateway_proxy_command(GATEWAY_HOST, sni)
         ssh_cmd = f"ssh -i {private_key_path} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o 'ProxyCommand={proxy_cmd}'"
 
         cmd = [

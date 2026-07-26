@@ -18,7 +18,7 @@ from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.applications import Starlette
 from starlette.routing import Mount
-from .config import Settings
+from .config import Settings, close_arxiv_client
 from .tools import (
     handle_search,
     handle_download,
@@ -34,13 +34,22 @@ from .tools import (
     reindex_tool,
     handle_citation_graph,
     citation_graph_tool,
+    handle_export_citations,
+    export_citations_tool,
     handle_watch_topic,
     watch_topic_tool,
     handle_check_alerts,
     check_alerts_tool,
+    get_paper_latex_tool,
+    handle_get_paper_latex,
+    list_paper_latex_sections_tool,
+    handle_list_paper_latex_sections,
+    get_paper_latex_section_tool,
+    handle_get_paper_latex_section,
 )
 from .prompts.handlers import list_prompts as handler_list_prompts
 from .prompts.handlers import get_prompt as handler_get_prompt
+from .tools.download import shutdown_background_tasks
 
 settings = Settings()
 logger = logging.getLogger("arxiv-mcp-server")
@@ -74,8 +83,12 @@ async def list_tools() -> List[types.Tool]:
         semantic_search_tool,
         reindex_tool,
         citation_graph_tool,
+        export_citations_tool,
         watch_topic_tool,
         check_alerts_tool,
+        get_paper_latex_tool,
+        list_paper_latex_sections_tool,
+        get_paper_latex_section_tool,
     ]
 
 
@@ -116,10 +129,18 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> List[types.TextCont
             result = await handle_reindex(arguments)
         elif name == "citation_graph":
             result = await handle_citation_graph(arguments)
+        elif name == "export_citations":
+            result = await handle_export_citations(arguments)
         elif name == "watch_topic":
             result = await handle_watch_topic(arguments)
         elif name == "check_alerts":
             result = await handle_check_alerts(arguments)
+        elif name == "get_paper_latex":
+            result = await handle_get_paper_latex(arguments)
+        elif name == "list_paper_latex_sections":
+            result = await handle_list_paper_latex_sections(arguments)
+        elif name == "get_paper_latex_section":
+            result = await handle_get_paper_latex_section(arguments)
         else:
             result = [
                 types.TextContent(type="text", text=f"Error: Unknown tool {name}")
@@ -158,7 +179,7 @@ def _transport_security_settings() -> TransportSecuritySettings:
     allowed_hosts = {
         host,
         f"{host}:{port}",
-        *(f"{h}:{port}" for h in loopback_hosts),
+        *(f"{h}:*" for h in loopback_hosts),
         *loopback_hosts,
     }
     allowed_hosts.update(_csv_settings(settings.ALLOWED_HOSTS))
@@ -167,6 +188,11 @@ def _transport_security_settings() -> TransportSecuritySettings:
     allowed_origins = {
         f"http://{origin_host}:{port}" for origin_host in origin_hosts
     } | {f"https://{origin_host}:{port}" for origin_host in origin_hosts}
+    allowed_origins.update(
+        f"{scheme}://{loopback}:*"
+        for scheme in ("http", "https")
+        for loopback in loopback_hosts
+    )
     allowed_origins.update(_csv_settings(settings.ALLOWED_ORIGINS))
 
     return TransportSecuritySettings(
@@ -208,13 +234,17 @@ async def _run_streamable_http() -> None:
 
 
 async def main():
-    """Run the server async context."""
-    transport = settings.TRANSPORT.lower().replace("-", "_")
-    if transport in {"stdio", ""}:
-        await _run_stdio()
-    elif transport in {"http", "streamable_http"}:
-        await _run_streamable_http()
-    else:
-        raise ValueError(
-            f"Unsupported transport {settings.TRANSPORT!r}; expected 'stdio' or 'http'"
-        )
+    """Run the server async context and release process-wide resources."""
+    try:
+        transport = settings.TRANSPORT.lower().replace("-", "_")
+        if transport in {"stdio", ""}:
+            await _run_stdio()
+        elif transport in {"http", "streamable_http"}:
+            await _run_streamable_http()
+        else:
+            raise ValueError(
+                f"Unsupported transport {settings.TRANSPORT!r}; expected 'stdio' or 'http'"
+            )
+    finally:
+        await shutdown_background_tasks()
+        close_arxiv_client()

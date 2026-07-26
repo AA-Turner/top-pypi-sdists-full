@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonschema_rs
-Version: 0.48.5
+Version: 0.49.1
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -741,11 +741,11 @@ try:
         "api_key": "secret_key_123"
     })
 except jsonschema_rs.ValidationError as exc:
-    assert str(exc) == '''[REDACTED] does not match "^[A-Z0-9]{32}$"
+    assert str(exc) == '''[REDACTED] is shorter than 8 characters
 
-Failed validating "pattern" in schema["properties"]["api_key"]
+Failed validating "minLength" in schema["properties"]["password"]
 
-On instance["api_key"]:
+On instance["password"]:
     [REDACTED]'''
 ```
 
@@ -753,8 +753,8 @@ On instance["api_key"]:
 
 `jsonschema-rs` is designed for high performance, outperforming other Python JSON Schema validators in most scenarios:
 
-- **43-240x** faster than `jsonschema` for complex schemas and large instances
-- **1.8-440x** faster than `fastjsonschema` on CPython
+- **84-2,270x** faster than `jsonschema` for complex schemas and large instances
+- **5-480x** faster than `fastjsonschema` on CPython
 
 For detailed benchmarks, see our [full performance comparison](https://github.com/Stranger6667/jsonschema/blob/master/crates/jsonschema-py/BENCHMARKS.md).
 

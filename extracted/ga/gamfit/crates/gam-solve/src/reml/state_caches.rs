@@ -146,49 +146,6 @@ impl EvalShared {
     }
 }
 
-pub(crate) static OUTER_IFT_RESIDUAL_ENERGY: OnceLock<Mutex<HashMap<Vec<u64>, (f64, u64)>>> =
-    OnceLock::new();
-
-pub(crate) static OUTER_IFT_RESIDUAL_ENERGY_ITER: AtomicU64 = AtomicU64::new(0);
-
-pub(crate) fn outer_ift_residual_energy_cache() -> &'static Mutex<HashMap<Vec<u64>, (f64, u64)>> {
-    OUTER_IFT_RESIDUAL_ENERGY.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
-// `pub` (paired with `current_outer_iter` below) so the IFT design-cache
-// memo-invalidation regression guard re-homed into gam-models by #1601 can drive
-// the outer-iteration counter through the canonical `outer_eval` module path.
-// Test-harness-only writer; the production caller is the in-crate outer loop.
-pub fn record_current_outer_iter_for_ift(iter: u64) {
-    OUTER_IFT_RESIDUAL_ENERGY_ITER.store(iter, Ordering::Relaxed);
-}
-
-pub fn current_outer_iter() -> u64 {
-    OUTER_IFT_RESIDUAL_ENERGY_ITER.load(Ordering::Relaxed)
-}
-
-pub(crate) fn clear_outer_ift_residual_energy_for_fit() {
-    if let Some(cache) = OUTER_IFT_RESIDUAL_ENERGY.get()
-        && let Ok(mut cache) = cache.lock()
-    {
-        cache.clear();
-    }
-    OUTER_IFT_RESIDUAL_ENERGY_ITER.store(0, Ordering::Relaxed);
-}
-
-pub(crate) fn store_ift_residual_energy_for_outer_theta(theta: &Array1<f64>, energy: Option<f64>) {
-    let Some(key) = super::rho_key::sanitized_rhokey(theta) else {
-        return;
-    };
-    if let Ok(mut cache) = outer_ift_residual_energy_cache().lock() {
-        if let Some(energy) = energy.filter(|energy| energy.is_finite() && *energy >= 0.0) {
-            cache.insert(key, (energy, current_outer_iter()));
-        } else {
-            cache.remove(&key);
-        }
-    }
-}
-
 pub(crate) struct PenaltySubspace {
     pub(crate) evals: Array1<f64>,
     pub(crate) rank: usize,
@@ -541,26 +498,11 @@ impl HyperGradientRuntimeState {
     }
 }
 
-pub(crate) static HYPERGRADIENT_BUDGETS: OnceLock<
-    Mutex<HashMap<usize, HyperGradientRuntimeState>>,
-> = OnceLock::new();
-
-pub(crate) fn hypergradient_budgets() -> &'static Mutex<HashMap<usize, HyperGradientRuntimeState>> {
-    HYPERGRADIENT_BUDGETS.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
 #[derive(Default)]
 pub(crate) struct IftQualityRuntimeState {
     pub(crate) quality_history: Vec<f64>,
     pub(crate) next_step_cap: Option<f64>,
     pub(crate) fallback_next_flat: bool,
-}
-
-pub(crate) static IFT_QUALITY_STATES: OnceLock<Mutex<HashMap<usize, IftQualityRuntimeState>>> =
-    OnceLock::new();
-
-pub(crate) fn ift_quality_states() -> &'static Mutex<HashMap<usize, IftQualityRuntimeState>> {
-    IFT_QUALITY_STATES.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 #[derive(Clone)]
@@ -570,15 +512,6 @@ pub(crate) struct IftModeResponseRuntimeCache {
     pub(crate) ext_mode_response_cols: Option<Array2<f64>>,
 }
 
-pub(crate) static IFT_MODE_RESPONSE_CACHES: OnceLock<
-    Mutex<HashMap<usize, IftModeResponseRuntimeCache>>,
-> = OnceLock::new();
-
-pub(crate) fn ift_mode_response_caches()
--> &'static Mutex<HashMap<usize, IftModeResponseRuntimeCache>> {
-    IFT_MODE_RESPONSE_CACHES.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
 #[derive(Clone)]
 pub(crate) struct IftJointModeResponseRuntimeCache {
     pub(crate) theta: Array1<f64>,
@@ -586,15 +519,6 @@ pub(crate) struct IftJointModeResponseRuntimeCache {
     pub(crate) beta_original: Array1<f64>,
     pub(crate) mode_response_cols: Array2<f64>,
     pub(crate) active_constraints: bool,
-}
-
-pub(crate) static IFT_JOINT_MODE_RESPONSE_CACHES: OnceLock<
-    Mutex<HashMap<usize, IftJointModeResponseRuntimeCache>>,
-> = OnceLock::new();
-
-pub(crate) fn ift_joint_mode_response_caches()
--> &'static Mutex<HashMap<usize, IftJointModeResponseRuntimeCache>> {
-    IFT_JOINT_MODE_RESPONSE_CACHES.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 pub(crate) fn joint_ift_cache_matches_theta(

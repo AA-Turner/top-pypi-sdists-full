@@ -88,13 +88,41 @@ impl PyCanonicalSchema {
                 StringView {
                     min_length: view
                         .min_length
-                        .as_ref()
-                        .and_then(serde_json::Number::as_u64),
+                        .map(|number| {
+                            crate::value_to_python(py, &serde_json::Value::Number(number))
+                        })
+                        .transpose()?,
                     max_length: view
                         .max_length
-                        .as_ref()
-                        .and_then(serde_json::Number::as_u64),
+                        .map(|number| {
+                            crate::value_to_python(py, &serde_json::Value::Number(number))
+                        })
+                        .transpose()?,
                     patterns: view.patterns,
+                    formats: view.formats,
+                    content_media_types: view.content_media_types,
+                    content_encodings: view.content_encodings,
+                },
+            )?
+            .into_any(),
+            CanonicalView::Number(view) => Py::new(
+                py,
+                NumberView {
+                    minimum: view
+                        .minimum
+                        .map(|number| {
+                            crate::value_to_python(py, &serde_json::Value::Number(number))
+                        })
+                        .transpose()?,
+                    exclusive_minimum: view.exclusive_minimum,
+                    maximum: view
+                        .maximum
+                        .map(|number| {
+                            crate::value_to_python(py, &serde_json::Value::Number(number))
+                        })
+                        .transpose()?,
+                    exclusive_maximum: view.exclusive_maximum,
+                    multiple_of: divisors_to_python(py, view.multiple_of)?,
                 },
             )?
             .into_any(),
@@ -113,6 +141,111 @@ impl PyCanonicalSchema {
                             crate::value_to_python(py, &serde_json::Value::Number(number))
                         })
                         .transpose()?,
+                    multiple_of: divisors_to_python(py, view.multiple_of)?,
+                },
+            )?
+            .into_any(),
+            CanonicalView::Array(view) => Py::new(
+                py,
+                ArrayView {
+                    min_items: view
+                        .min_items
+                        .map(|number| {
+                            crate::value_to_python(py, &serde_json::Value::Number(number))
+                        })
+                        .transpose()?,
+                    max_items: view
+                        .max_items
+                        .map(|number| {
+                            crate::value_to_python(py, &serde_json::Value::Number(number))
+                        })
+                        .transpose()?,
+                    unique_items: view.unique_items,
+                    prefix_items: view
+                        .prefix_items
+                        .into_iter()
+                        .map(|schema| Py::new(py, PyCanonicalSchema { inner: schema }))
+                        .collect::<PyResult<_>>()?,
+                    items: view
+                        .items
+                        .map(|items| Py::new(py, PyCanonicalSchema { inner: items }))
+                        .transpose()?,
+                    contains: view
+                        .contains
+                        .into_iter()
+                        .map(|facet| {
+                            Py::new(
+                                py,
+                                ContainsView {
+                                    schema: Py::new(
+                                        py,
+                                        PyCanonicalSchema {
+                                            inner: facet.schema,
+                                        },
+                                    )?,
+                                    min_contains: facet
+                                        .min_contains
+                                        .map(|number| {
+                                            crate::value_to_python(
+                                                py,
+                                                &serde_json::Value::Number(number),
+                                            )
+                                        })
+                                        .transpose()?,
+                                    max_contains: facet
+                                        .max_contains
+                                        .map(|number| {
+                                            crate::value_to_python(
+                                                py,
+                                                &serde_json::Value::Number(number),
+                                            )
+                                        })
+                                        .transpose()?,
+                                },
+                            )
+                        })
+                        .collect::<PyResult<_>>()?,
+                },
+            )?
+            .into_any(),
+            CanonicalView::Object(view) => Py::new(
+                py,
+                ObjectView {
+                    min_properties: view
+                        .min_properties
+                        .map(|number| {
+                            crate::value_to_python(py, &serde_json::Value::Number(number))
+                        })
+                        .transpose()?,
+                    max_properties: view
+                        .max_properties
+                        .map(|number| {
+                            crate::value_to_python(py, &serde_json::Value::Number(number))
+                        })
+                        .transpose()?,
+                    required: view.required,
+                    property_names: view
+                        .property_names
+                        .map(|names| Py::new(py, PyCanonicalSchema { inner: names }))
+                        .transpose()?,
+                    properties: view
+                        .properties
+                        .into_iter()
+                        .map(|(key, schema)| {
+                            Ok((key, Py::new(py, PyCanonicalSchema { inner: schema })?))
+                        })
+                        .collect::<PyResult<_>>()?,
+                    pattern_properties: view
+                        .pattern_properties
+                        .into_iter()
+                        .map(|(pattern, schema)| {
+                            Ok((pattern, Py::new(py, PyCanonicalSchema { inner: schema })?))
+                        })
+                        .collect::<PyResult<_>>()?,
+                    additional_properties: view
+                        .additional_properties
+                        .map(|shield| Py::new(py, PyCanonicalSchema { inner: shield }))
+                        .transpose()?,
                 },
             )?
             .into_any(),
@@ -125,8 +258,6 @@ impl PyCanonicalSchema {
                 },
             )?
             .into_any(),
-            // TODO(canonical): new `CanonicalView` variants need view classes here.
-            other => unreachable!("unsupported canonical view: {other:?}"),
         })
     }
 
@@ -222,39 +353,199 @@ impl TypedGroupView {
     }
 }
 
-/// A string value within a length window matching every pattern.
+/// A string value within a length window matching every pattern, format, media type, and encoding.
 #[pyclass(frozen, name = "StringView", module = "jsonschema_rs.canonical")]
 pub(crate) struct StringView {
     #[pyo3(get)]
-    min_length: Option<u64>,
+    min_length: Option<Py<PyAny>>,
     #[pyo3(get)]
-    max_length: Option<u64>,
+    max_length: Option<Py<PyAny>>,
     #[pyo3(get)]
     patterns: Vec<String>,
+    #[pyo3(get)]
+    formats: Vec<String>,
+    #[pyo3(get)]
+    content_media_types: Vec<String>,
+    #[pyo3(get)]
+    content_encodings: Vec<String>,
 }
 
 #[pymethods]
 impl StringView {
     #[classattr]
-    fn __match_args__() -> (&'static str, &'static str, &'static str) {
-        ("min_length", "max_length", "patterns")
+    fn __match_args__() -> (
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+    ) {
+        (
+            "min_length",
+            "max_length",
+            "patterns",
+            "formats",
+            "content_media_types",
+            "content_encodings",
+        )
     }
 }
 
-/// An integer value within a range.
+/// An array value's constraints.
+// The fields carry the keywords they came from, whose names share the suffix.
+#[allow(clippy::struct_field_names)]
+#[pyclass(frozen, name = "ArrayView", module = "jsonschema_rs.canonical")]
+pub(crate) struct ArrayView {
+    #[pyo3(get)]
+    min_items: Option<Py<PyAny>>,
+    #[pyo3(get)]
+    max_items: Option<Py<PyAny>>,
+    #[pyo3(get)]
+    unique_items: bool,
+    #[pyo3(get)]
+    prefix_items: Vec<Py<PyCanonicalSchema>>,
+    #[pyo3(get)]
+    items: Option<Py<PyCanonicalSchema>>,
+    #[pyo3(get)]
+    contains: Vec<Py<ContainsView>>,
+}
+
+#[pymethods]
+impl ArrayView {
+    #[classattr]
+    fn __match_args__() -> (
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+    ) {
+        (
+            "min_items",
+            "max_items",
+            "unique_items",
+            "prefix_items",
+            "items",
+            "contains",
+        )
+    }
+}
+
+/// One `contains` demand of an array. An absent minimum spells the default of one.
+#[pyclass(frozen, name = "ContainsView", module = "jsonschema_rs.canonical")]
+pub(crate) struct ContainsView {
+    #[pyo3(get)]
+    schema: Py<PyCanonicalSchema>,
+    #[pyo3(get)]
+    min_contains: Option<Py<PyAny>>,
+    #[pyo3(get)]
+    max_contains: Option<Py<PyAny>>,
+}
+
+#[pymethods]
+impl ContainsView {
+    #[classattr]
+    fn __match_args__() -> (&'static str, &'static str, &'static str) {
+        ("schema", "min_contains", "max_contains")
+    }
+}
+
+/// An object value's constraints.
+#[pyclass(frozen, name = "ObjectView", module = "jsonschema_rs.canonical")]
+pub(crate) struct ObjectView {
+    #[pyo3(get)]
+    min_properties: Option<Py<PyAny>>,
+    #[pyo3(get)]
+    max_properties: Option<Py<PyAny>>,
+    #[pyo3(get)]
+    required: Vec<String>,
+    #[pyo3(get)]
+    property_names: Option<Py<PyCanonicalSchema>>,
+    #[pyo3(get)]
+    properties: std::collections::BTreeMap<String, Py<PyCanonicalSchema>>,
+    #[pyo3(get)]
+    pattern_properties: std::collections::BTreeMap<String, Py<PyCanonicalSchema>>,
+    #[pyo3(get)]
+    additional_properties: Option<Py<PyCanonicalSchema>>,
+}
+
+#[pymethods]
+impl ObjectView {
+    #[classattr]
+    fn __match_args__() -> (
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+    ) {
+        (
+            "min_properties",
+            "max_properties",
+            "required",
+            "property_names",
+            "properties",
+            "pattern_properties",
+            "additional_properties",
+        )
+    }
+}
+
+/// A number value within a real interval.
+#[pyclass(frozen, name = "NumberView", module = "jsonschema_rs.canonical")]
+pub(crate) struct NumberView {
+    #[pyo3(get)]
+    minimum: Option<Py<PyAny>>,
+    #[pyo3(get)]
+    exclusive_minimum: bool,
+    #[pyo3(get)]
+    maximum: Option<Py<PyAny>>,
+    #[pyo3(get)]
+    exclusive_maximum: bool,
+    #[pyo3(get)]
+    multiple_of: Vec<Py<PyAny>>,
+}
+
+#[pymethods]
+impl NumberView {
+    #[classattr]
+    fn __match_args__() -> (
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+    ) {
+        (
+            "minimum",
+            "exclusive_minimum",
+            "maximum",
+            "exclusive_maximum",
+            "multiple_of",
+        )
+    }
+}
+
+/// An integer value within a range, optionally a multiple of a divisor.
 #[pyclass(frozen, name = "IntegerView", module = "jsonschema_rs.canonical")]
 pub(crate) struct IntegerView {
     #[pyo3(get)]
     minimum: Option<Py<PyAny>>,
     #[pyo3(get)]
     maximum: Option<Py<PyAny>>,
+    #[pyo3(get)]
+    multiple_of: Vec<Py<PyAny>>,
 }
 
 #[pymethods]
 impl IntegerView {
     #[classattr]
-    fn __match_args__() -> (&'static str, &'static str) {
-        ("minimum", "maximum")
+    fn __match_args__() -> (&'static str, &'static str, &'static str) {
+        ("minimum", "maximum", "multiple_of")
     }
 }
 
@@ -303,17 +594,18 @@ impl EnumView {
     }
 }
 
-/// canonicalize(schema, /, *, draft=None, validate_formats=None)
+/// canonicalize(schema, /, *, draft=None, validate_formats=None, pattern_options=None)
 ///
 /// Parse and normalize a JSON Schema to its canonical form.
 ///
 /// Returns a :class:`CanonicalSchema` that is semantically equivalent to the input.
 #[pyfunction]
-#[pyo3(signature = (schema, *, draft=None, validate_formats=None))]
+#[pyo3(signature = (schema, *, draft=None, validate_formats=None, pattern_options=None))]
 pub(crate) fn canonicalize(
     schema: &Bound<'_, PyAny>,
     draft: Option<u8>,
     validate_formats: Option<bool>,
+    pattern_options: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyCanonicalSchema> {
     let schema_value = crate::ser::to_value(schema)?;
     let mut options = jsonschema::canonical::options();
@@ -322,6 +614,16 @@ pub(crate) fn canonicalize(
     }
     if let Some(validate_formats) = validate_formats {
         options = options.should_validate_formats(validate_formats);
+    }
+    if let Some(pattern_options) = pattern_options {
+        match crate::regex::extract_pattern_options(pattern_options)? {
+            crate::regex::PyPatternOptions::Fancy(inner) => {
+                options = options.with_pattern_options(inner);
+            }
+            crate::regex::PyPatternOptions::Regex(inner) => {
+                options = options.with_pattern_options(inner);
+            }
+        }
     }
     options
         .canonicalize(&schema_value)
@@ -365,6 +667,10 @@ pub(crate) fn init_module(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyRes
     canonical_module.add_class::<TypedGroupView>()?;
     canonical_module.add_class::<StringView>()?;
     canonical_module.add_class::<IntegerView>()?;
+    canonical_module.add_class::<ArrayView>()?;
+    canonical_module.add_class::<ContainsView>()?;
+    canonical_module.add_class::<ObjectView>()?;
+    canonical_module.add_class::<NumberView>()?;
     canonical_module.add_class::<AnyOfView>()?;
     canonical_module.add_class::<ConstView>()?;
     canonical_module.add_class::<EnumView>()?;
@@ -386,4 +692,14 @@ pub(crate) fn init_module(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyRes
 
     module.add_submodule(&canonical_module)?;
     Ok(())
+}
+
+fn divisors_to_python(
+    py: Python<'_>,
+    divisors: Vec<serde_json::Number>,
+) -> PyResult<Vec<Py<PyAny>>> {
+    divisors
+        .into_iter()
+        .map(|number| crate::value_to_python(py, &serde_json::Value::Number(number)))
+        .collect()
 }

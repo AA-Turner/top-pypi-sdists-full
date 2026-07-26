@@ -270,6 +270,8 @@ class NewgroundsExtractor(Extractor):
         type = extr('og:type" content="', '"')
         descr = extr('"og:description" content="', '"')
         src = extr('{"url":"', '"')
+        if not src and self.flash:
+            src = extr('swf: "', '"')
 
         if src:
             src = src.replace("\\/", "/")

@@ -11,12 +11,17 @@ use std::{
     collections::VecDeque,
     io::Write,
     panic::{self, AssertUnwindSafe},
+    sync::Arc,
 };
 
 use email::EmailOptions;
 #[cfg(not(target_arch = "wasm32"))]
 use http::HttpOptions;
-use jsonschema::{paths::LocationSegment, Draft};
+use jsonschema::{
+    json::{probe_root, take_pending_error, PendingErrorScope, Pyo3},
+    paths::LocationSegment,
+    Draft, Retrieve, ValidationOptions,
+};
 use pyo3::{
     exceptions::{self, PyKeyError, PyValueError},
     ffi::{PyList_New, PyList_SetItem, PyUnicode_AsUTF8AndSize, Py_DECREF},
@@ -808,81 +813,67 @@ struct CustomKeyword {
     instance: Py<PyAny>,
 }
 
-impl jsonschema::Keyword for CustomKeyword {
-    fn validate<'i>(
+impl<'i> jsonschema::Keyword<'i, Pyo3> for CustomKeyword {
+    fn validate(
         &self,
-        instance: &'i serde_json::Value,
+        instance: Borrowed<'i, 'i, PyAny>,
     ) -> Result<(), jsonschema::ValidationError<'i>> {
-        Python::attach(|py| {
-            let py_instance = value_to_python(py, instance).map_err(|e| {
-                jsonschema::ValidationError::custom(format!(
-                    "Failed to convert instance to Python: {e}"
-                ))
-            })?;
-
-            match self.instance.call_method1(py, "validate", (py_instance,)) {
-                Ok(_) => Ok(()),
-                Err(e) => {
-                    let msg = e.value(py).to_string();
-                    CUSTOM_KEYWORD_CAUSE.with(|cell| {
-                        cell.borrow_mut().push_back(e);
-                    });
-                    Err(jsonschema::ValidationError::custom(msg))
-                }
+        let py = instance.py();
+        match self
+            .instance
+            .call_method1(py, "validate", (instance.to_owned(),))
+        {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                let msg = e.value(py).to_string();
+                CUSTOM_KEYWORD_CAUSE.with(|cell| {
+                    cell.borrow_mut().push_back(e);
+                });
+                Err(jsonschema::ValidationError::custom(msg))
             }
-        })
+        }
     }
 
-    fn is_valid(&self, instance: &serde_json::Value) -> bool {
-        Python::attach(|py| {
-            let Ok(py_instance) = value_to_python(py, instance) else {
-                return false;
-            };
-            self.instance
-                .call_method1(py, "validate", (py_instance,))
-                .is_ok()
-        })
+    fn is_valid(&self, instance: Borrowed<'i, 'i, PyAny>) -> bool {
+        self.instance
+            .call_method1(instance.py(), "validate", (instance.to_owned(),))
+            .is_ok()
     }
 
-    fn iter_errors<'i>(
+    fn iter_errors(
         &self,
-        instance: &'i serde_json::Value,
+        instance: Borrowed<'i, 'i, PyAny>,
     ) -> Box<dyn Iterator<Item = jsonschema::ValidationError<'i>> + 'i> {
-        Python::attach(|py| {
-            // Without an `iter_errors` method, fall back to the single-error `validate` path.
-            if !self
-                .instance
-                .bind(py)
-                .hasattr("iter_errors")
-                .unwrap_or(false)
-            {
-                return boxed_error_iter(self.validate(instance).err());
-            }
-            let py_instance = match value_to_python(py, instance) {
-                Ok(instance) => instance,
-                Err(error) => return boxed_error_iter(Some(custom_error_with_cause(py, error))),
+        let py = instance.py();
+        // Without an `iter_errors` method, fall back to the single-error `validate` path.
+        if !self
+            .instance
+            .bind(py)
+            .hasattr("iter_errors")
+            .unwrap_or(false)
+        {
+            return boxed_error_iter(self.validate(instance).err());
+        }
+        let iterable = match self
+            .instance
+            .call_method1(py, "iter_errors", (instance.to_owned(),))
+        {
+            Ok(iterable) => iterable,
+            Err(error) => return boxed_error_iter(Some(custom_error_with_cause(py, error))),
+        };
+        let iterator = match iterable.bind(py).try_iter() {
+            Ok(iterator) => iterator,
+            Err(error) => return boxed_error_iter(Some(custom_error_with_cause(py, error))),
+        };
+        let mut errors = Vec::new();
+        for item in iterator {
+            let error = match item {
+                Ok(item) => custom_error_with_cause(py, PyErr::from_value(item)),
+                Err(error) => custom_error_with_cause(py, error),
             };
-            let iterable = match self
-                .instance
-                .call_method1(py, "iter_errors", (py_instance,))
-            {
-                Ok(iterable) => iterable,
-                Err(error) => return boxed_error_iter(Some(custom_error_with_cause(py, error))),
-            };
-            let iterator = match iterable.bind(py).try_iter() {
-                Ok(iterator) => iterator,
-                Err(error) => return boxed_error_iter(Some(custom_error_with_cause(py, error))),
-            };
-            let mut errors = Vec::new();
-            for item in iterator {
-                let error = match item {
-                    Ok(item) => custom_error_with_cause(py, PyErr::from_value(item)),
-                    Err(error) => custom_error_with_cause(py, error),
-                };
-                errors.push(error);
-            }
-            Box::new(errors.into_iter())
-        })
+            errors.push(error);
+        }
+        Box::new(errors.into_iter())
     }
 }
 
@@ -935,8 +926,8 @@ fn make_options<'a>(
     email_options: Option<&Bound<'a, PyAny>>,
     http_options: Option<&Bound<'a, PyAny>>,
     keywords: Option<&Bound<'a, PyDict>>,
-) -> PyResult<jsonschema::ValidationOptions<'a>> {
-    let mut options = jsonschema::options();
+) -> PyResult<ValidationOptions<'a, Arc<dyn Retrieve>, Pyo3>> {
+    let mut options = jsonschema::options_for::<Pyo3>();
     if let Some(raw_draft_version) = draft {
         options = options.with_draft(get_draft(raw_draft_version)?);
     }
@@ -1104,7 +1095,7 @@ fn make_options<'a>(
 
                         match callback.call1(py, (py_schema, py_value, py_path_list)) {
                             Ok(instance) => Ok(Box::new(CustomKeyword { instance })
-                                as Box<dyn jsonschema::Keyword>),
+                                as Box<dyn for<'i> jsonschema::Keyword<'i, Pyo3>>),
                             Err(e) => Err(jsonschema::ValidationError::custom(format!(
                                 "Failed to instantiate keyword class '{name_for_error}': {e}"
                             ))),
@@ -1117,40 +1108,63 @@ fn make_options<'a>(
     Ok(options)
 }
 
+// Errors the representation recorded out of band, since validation cannot return them.
+fn surface_pending_errors<T>(
+    instance: &Bound<'_, PyAny>,
+    run: impl FnOnce() -> PyResult<T>,
+) -> PyResult<T> {
+    let _scope = PendingErrorScope::enter();
+    probe_root(instance.as_borrowed());
+    if let Some(error) = take_pending_error() {
+        return Err(error);
+    }
+    // A recorded error outranks whatever `run` produced: building a validation error can itself hit
+    // an unreadable part of the instance, and that error is the accurate one.
+    let result = run();
+    if let Some(error) = take_pending_error() {
+        return Err(error);
+    }
+    result
+}
+
 fn iter_on_error(
     py: Python<'_>,
-    validator: &jsonschema::Validator,
+    validator: &jsonschema::Validator<Pyo3>,
     instance: &Bound<'_, PyAny>,
     mask: Option<&str>,
 ) -> PyResult<ValidationErrorIter> {
-    let _scope = KeywordCauseScope::enter();
-    let instance = ser::to_value(instance)?;
-    let mut pyerrors = vec![];
+    surface_pending_errors(instance, || {
+        let _scope = KeywordCauseScope::enter();
+        let mut pyerrors = vec![];
+        let node = instance.as_borrowed();
 
-    panic::catch_unwind(AssertUnwindSafe(|| {
-        for error in validator.iter_errors(&instance) {
-            pyerrors.push(into_py_err(py, error, mask)?);
-        }
-        PyResult::Ok(())
-    }))
-    .map_err(handle_format_checked_panic)??;
-    Ok(ValidationErrorIter {
-        iter: pyerrors.into_iter(),
+        panic::catch_unwind(AssertUnwindSafe(|| {
+            for error in validator.iter_errors(node) {
+                pyerrors.push(into_py_err(py, error, mask)?);
+            }
+            PyResult::Ok(())
+        }))
+        .map_err(handle_format_checked_panic)??;
+        Ok(ValidationErrorIter {
+            iter: pyerrors.into_iter(),
+        })
     })
 }
 
 fn raise_on_error(
     py: Python<'_>,
-    validator: &jsonschema::Validator,
+    validator: &jsonschema::Validator<Pyo3>,
     instance: &Bound<'_, PyAny>,
     mask: Option<&str>,
 ) -> PyResult<()> {
-    let _scope = KeywordCauseScope::enter();
-    let instance = ser::to_value(instance)?;
-    let error = panic::catch_unwind(AssertUnwindSafe(|| validator.validate(&instance)))
-        .map_err(handle_format_checked_panic)?
-        .err();
-    error.map_or_else(|| Ok(()), |err| Err(into_py_err(py, err, mask)?))
+    surface_pending_errors(instance, || {
+        let _scope = KeywordCauseScope::enter();
+        let node = instance.as_borrowed();
+        let error = panic::catch_unwind(AssertUnwindSafe(|| validator.validate(node)))
+            .map_err(handle_format_checked_panic)?
+            .err();
+        error.map_or_else(|| Ok(()), |err| Err(into_py_err(py, err, mask)?))
+    })
 }
 
 fn is_ascii_number(s: &str) -> bool {
@@ -1269,11 +1283,12 @@ fn is_valid(
     )?;
     let schema = ser::to_value(schema)?;
     match options.build(&schema) {
-        Ok(validator) => {
-            let instance = ser::to_value(instance)?;
-            panic::catch_unwind(AssertUnwindSafe(|| Ok(validator.is_valid(&instance))))
-                .map_err(handle_format_checked_panic)?
-        }
+        Ok(validator) => surface_pending_errors(instance, || {
+            panic::catch_unwind(AssertUnwindSafe(|| {
+                Ok(validator.is_valid(instance.as_borrowed()))
+            }))
+            .map_err(handle_format_checked_panic)?
+        }),
         Err(error) => Err(into_py_err(py, error, mask.as_deref())?),
     }
 }
@@ -1479,13 +1494,16 @@ fn evaluate(
         keywords,
     )?;
     let schema = ser::to_value(schema)?;
-    let instance = ser::to_value(instance)?;
     let validator = match options.build(&schema) {
         Ok(validator) => validator,
         Err(error) => return Err(into_py_err(py, error, None)?),
     };
-    let evaluation = panic::catch_unwind(AssertUnwindSafe(|| validator.evaluate(&instance)))
-        .map_err(handle_format_checked_panic)?;
+    let evaluation = surface_pending_errors(instance, || {
+        panic::catch_unwind(AssertUnwindSafe(|| {
+            validator.evaluate(instance.as_borrowed())
+        }))
+        .map_err(handle_format_checked_panic)
+    })?;
     Ok(PyEvaluation::new(evaluation))
 }
 
@@ -1503,13 +1521,13 @@ fn handle_format_checked_panic(err: Box<dyn Any + Send>) -> PyErr {
 
 #[pyclass(module = "jsonschema_rs", subclass)]
 struct Validator {
-    validator: jsonschema::Validator,
+    validator: jsonschema::Validator<Pyo3>,
     mask: Option<String>,
 }
 
 #[pyclass(module = "jsonschema_rs")]
 struct ValidatorMap {
-    inner: jsonschema::ValidatorMap,
+    inner: jsonschema::ValidatorMap<Pyo3>,
     mask: Option<String>,
 }
 
@@ -1852,9 +1870,12 @@ impl Validator {
     /// The output is a boolean value, that indicates whether the instance is valid or not.
     #[pyo3(text_signature = "(instance)")]
     fn is_valid(&self, instance: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let instance = ser::to_value(instance)?;
-        panic::catch_unwind(AssertUnwindSafe(|| Ok(self.validator.is_valid(&instance))))
+        surface_pending_errors(instance, || {
+            panic::catch_unwind(AssertUnwindSafe(|| {
+                Ok(self.validator.is_valid(instance.as_borrowed()))
+            }))
             .map_err(handle_format_checked_panic)?
+        })
     }
     /// validate(instance)
     ///
@@ -1927,12 +1948,14 @@ impl Validator {
     /// ```
     #[pyo3(text_signature = "(instance)")]
     fn evaluate(&self, instance: &Bound<'_, PyAny>) -> PyResult<PyEvaluation> {
-        let _scope = KeywordCauseScope::enter();
-        let instance = ser::to_value(instance)?;
-        let evaluation =
-            panic::catch_unwind(AssertUnwindSafe(|| self.validator.evaluate(&instance)))
-                .map_err(handle_format_checked_panic)?;
-        Ok(PyEvaluation::new(evaluation))
+        surface_pending_errors(instance, || {
+            let _scope = KeywordCauseScope::enter();
+            let evaluation = panic::catch_unwind(AssertUnwindSafe(|| {
+                self.validator.evaluate(instance.as_borrowed())
+            }))
+            .map_err(handle_format_checked_panic)?;
+            Ok(PyEvaluation::new(evaluation))
+        })
     }
     fn __repr__(&self) -> &'static str {
         match self.validator.draft() {
@@ -2204,6 +2227,7 @@ mod build {
 /// Meta-schema validation
 mod meta {
     use super::referencing_error_pyerr;
+    use jsonschema::json::Pyo3;
     use pyo3::prelude::*;
 
     /// is_valid(schema, registry=None)
@@ -2231,24 +2255,39 @@ mod meta {
         schema: &Bound<'_, PyAny>,
         registry: Option<&crate::registry::Registry>,
     ) -> PyResult<bool> {
-        let schema = crate::ser::to_value(schema)?;
-        let result = if let Some(registry) = registry {
-            jsonschema::meta::options()
-                .with_registry(registry.inner.as_ref())
-                .validate(&schema)
-        } else {
-            jsonschema::meta::validate(&schema)
+        let Some(registry) = registry else {
+            return crate::surface_pending_errors(
+                schema,
+                || match jsonschema::meta::is_valid_for::<Pyo3>(schema.as_borrowed()) {
+                    Ok(valid) => Ok(valid),
+                    Err(error) => {
+                        raise_if_unresolvable(py, &error)?;
+                        Ok(false)
+                    }
+                },
+            );
         };
-
-        match result {
+        let schema = crate::ser::to_value(schema)?;
+        match jsonschema::meta::options()
+            .with_registry(registry.inner.as_ref())
+            .validate(&schema)
+        {
             Ok(()) => Ok(true),
             Err(error) => {
-                if let jsonschema::error::ValidationErrorKind::Referencing(err) = error.kind() {
-                    return Err(referencing_error_pyerr(py, err.to_string())?);
-                }
+                raise_if_unresolvable(py, &error)?;
                 Ok(false)
             }
         }
+    }
+
+    fn raise_if_unresolvable(
+        py: Python<'_>,
+        error: &jsonschema::ValidationError<'_>,
+    ) -> PyResult<()> {
+        if let jsonschema::error::ValidationErrorKind::Referencing(err) = error.kind() {
+            return Err(referencing_error_pyerr(py, err.to_string())?);
+        }
+        Ok(())
     }
 
     /// validate(schema, registry=None)
@@ -2280,21 +2319,26 @@ mod meta {
         schema: &Bound<'_, PyAny>,
         registry: Option<&crate::registry::Registry>,
     ) -> PyResult<()> {
-        let schema = crate::ser::to_value(schema)?;
-        let result = if let Some(registry) = registry {
-            jsonschema::meta::options()
-                .with_registry(registry.inner.as_ref())
-                .validate(&schema)
-        } else {
-            jsonschema::meta::validate(&schema)
+        let Some(registry) = registry else {
+            return crate::surface_pending_errors(
+                schema,
+                || match jsonschema::meta::validate_for::<Pyo3>(schema.as_borrowed()) {
+                    Ok(()) => Ok(()),
+                    Err(error) => {
+                        raise_if_unresolvable(py, &error)?;
+                        Err(crate::into_py_err(py, error, None)?)
+                    }
+                },
+            );
         };
-
-        match result {
+        let schema = crate::ser::to_value(schema)?;
+        match jsonschema::meta::options()
+            .with_registry(registry.inner.as_ref())
+            .validate(&schema)
+        {
             Ok(()) => Ok(()),
             Err(error) => {
-                if let jsonschema::error::ValidationErrorKind::Referencing(err) = error.kind() {
-                    return Err(referencing_error_pyerr(py, err.to_string())?);
-                }
+                raise_if_unresolvable(py, &error)?;
                 Err(crate::into_py_err(py, error, None)?)
             }
         }

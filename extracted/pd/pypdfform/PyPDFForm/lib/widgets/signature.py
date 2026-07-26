@@ -17,13 +17,14 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any, Callable, List, Optional, Type
+from typing import Callable, List, Optional, Type
 
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import (
     ArrayObject,
     DictionaryObject,
     FloatObject,
+    IndirectObject,
     NameObject,
     NumberObject,
     StreamObject,
@@ -121,7 +122,7 @@ class SignatureWidget:
     def build_widget_watermarks(
         widgets: List[SignatureWidget],
         stream: bytes,
-        annotation_builder: Callable[[PdfWriter, SignatureWidget], Any],
+        annotation_builder: Callable[[PdfWriter, SignatureWidget], IndirectObject],
     ) -> List[bytes]:
         """
         Builds page-aligned carrier PDFs from widget annotation objects.
@@ -246,7 +247,7 @@ class SignatureWidget:
         )
 
     @staticmethod
-    def _build_annotation(out: PdfWriter, widget: SignatureWidget) -> Any:
+    def _build_annotation(out: PdfWriter, widget: SignatureWidget) -> IndirectObject:
         """
         Constructs a signature widget annotation owned by a PDF writer.
 
@@ -262,7 +263,8 @@ class SignatureWidget:
                 to convert into a PDF annotation.
 
         Returns:
-            Any: The writer-owned indirect reference to the widget annotation.
+            IndirectObject: The writer-owned indirect reference to the widget
+                annotation.
         """
         width = float(widget.optional_parameters["width"])
         height = float(widget.optional_parameters["height"])
@@ -308,29 +310,25 @@ class SignatureWidget:
             annotation
         )
 
-    @staticmethod
-    def bulk_watermarks(widgets: List[SignatureWidget], stream: bytes) -> List[bytes]:
+    @classmethod
+    def bulk_watermarks(
+        cls, widgets: List[SignatureWidget], stream: bytes
+    ) -> List[bytes]:
         """
-        Constructs signature widgets in page-aligned carrier PDFs.
+        Constructs widgets in page-aligned carrier PDFs.
 
-        Each widget is represented by a `/Sig` annotation with a transparent
-        interior and a dark-gray, one-point solid border. Its normal appearance
-        stream contains only that border. The annotation and appearance are
-        created in the carrier PDF's writer, so they do not retain references
-        to another PDF. ``build_widget_watermarks`` then packages the
-        annotations by source page.
+        Each annotation is constructed by the concrete widget class's
+        ``_build_annotation`` implementation, then ``build_widget_watermarks``
+        packages the annotations by source page.
 
         Args:
-            widgets (List[SignatureWidget]): Signature widgets to construct.
+            widgets (List[SignatureWidget]): Widgets to construct.
             stream (bytes): Source PDF used to determine page count and page size.
 
         Returns:
-            List[bytes]: Page-aligned PDF streams containing the constructed
-            signature annotations.
+            List[bytes]: Page-aligned PDF streams containing the constructed widgets.
         """
-        return SignatureWidget.build_widget_watermarks(
-            widgets, stream, SignatureWidget._build_annotation
-        )
+        return cls.build_widget_watermarks(widgets, stream, cls._build_annotation)
 
 
 @dataclass

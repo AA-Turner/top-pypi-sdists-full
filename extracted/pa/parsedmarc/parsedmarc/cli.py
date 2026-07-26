@@ -13,7 +13,7 @@ import sys
 import time
 from argparse import ArgumentParser, Namespace
 from configparser import ConfigParser
-from glob import glob
+from glob import escape as glob_escape, glob
 from multiprocessing import Pipe, Process
 from ssl import CERT_NONE, create_default_context
 
@@ -100,7 +100,7 @@ def _normalize_graph_auth_method(value: str) -> str:
         if method.name.lower() == value_lower:
             return method.name
     raise ConfigurationError(
-        "Invalid msgraph auth_method: {0!r}. Valid values are: {1}".format(
+        "Invalid msgraph auth_method: {!r}. Valid values are: {}".format(
             value, ", ".join(m.name for m in AuthMethod)
         )
     )
@@ -125,12 +125,12 @@ def _msgraph_request_id_suffix(error: Exception) -> str:
             request_id = headers.get("request-id")
         parts = []
         if request_id:
-            parts.append("request-id={0}".format(request_id))
+            parts.append(f"request-id={request_id}")
         if client_request_id:
-            parts.append("client-request-id={0}".format(client_request_id))
+            parts.append(f"client-request-id={client_request_id}")
         if not parts:
             return ""
-        return " ({0})".format(", ".join(parts))
+        return " ({})".format(", ".join(parts))
     except Exception:
         return ""
 
@@ -151,11 +151,11 @@ def _log_msgraph_failure(
     if isinstance(error, APIError):
         detail = getattr(error, "primary_message", None) or error.message or str(error)
         detail = " ".join(str(detail).split())
-        summary = "{0} status={1}: {2}".format(
-            type(error).__name__, error.response_status_code, detail
+        summary = (
+            f"{type(error).__name__} status={error.response_status_code}: {detail}"
         )
     else:
-        summary = "{0}: {1}".format(type(error).__name__, " ".join(str(error).split()))
+        summary = "{}: {}".format(type(error).__name__, " ".join(str(error).split()))
 
     logger.error(
         "Microsoft Graph %s failed (mailbox=%s, tenant_id=%s, auth_method=%s): %s%s",
@@ -174,10 +174,11 @@ def _expand_path(p: str) -> str:
     return os.path.expanduser(os.path.expandvars(p))
 
 
-def _expand_file_path_args(paths: list[str]) -> list[str]:
+def _expand_file_path_args(paths: list[str], recursive: bool = False) -> list[str]:
     """Expand CLI file-path arguments into a flat list of file paths.
 
-    A path that already exists on disk is taken literally; only a
+    A path to an existing file is taken literally, a path to an existing
+    directory is expanded to the files inside it (see below), and only a
     non-existent path is treated as a glob pattern. This preserves
     shell-style wildcard expansion (e.g. a quoted ``samples/*.xml``) while
     ensuring that literal filenames containing glob metacharacters
@@ -186,13 +187,38 @@ def _expand_file_path_args(paths: list[str]) -> list[str]:
     ``[Provider DMARC Failure Report] Subject.eml``; ``glob()`` treats the
     brackets as a character class, matches nothing, and drops the file
     (see <https://docs.python.org/3/library/glob.html>).
+
+    A directory is expanded to the files directly inside it, using the
+    same shell-glob semantics as ``<dir>/*`` (or ``<dir>/**`` when
+    ``recursive`` is ``True``): dotfile entries are excluded, and
+    non-file entries (subdirectories) are filtered out. With
+    ``recursive=False`` a subdirectory found this way is skipped with a
+    debug log rather than descended into. The directory component is
+    passed through ``glob.escape`` before being combined with the
+    wildcard so that directory names containing glob metacharacters
+    (``[``, ``]``, ``*``, ``?``) still expand correctly instead of being
+    treated as a character class or wildcard themselves.
+
+    ``recursive`` also enables ``**`` to match any number of directories
+    (including none) in glob patterns supplied directly as arguments, per
+    the same stdlib glob semantics.
     """
     expanded: list[str] = []
     for path in paths:
-        if os.path.exists(path):
+        if os.path.isdir(path):
+            pattern = os.path.join(glob_escape(path), "**" if recursive else "*")
+            for match in sorted(glob(pattern, recursive=recursive)):
+                if os.path.isfile(match):
+                    expanded.append(match)
+                elif not recursive and os.path.isdir(match):
+                    logger.debug(
+                        "Skipping subdirectory %s (pass --recursive to descend)",
+                        match,
+                    )
+        elif os.path.exists(path):
             expanded.append(path)
         else:
-            expanded += glob(path)
+            expanded += glob(path, recursive=recursive)
     return expanded
 
 
@@ -276,9 +302,7 @@ def _read_secret_file(env_key: str, raw_path: str) -> str:
             return f.read().rstrip("\r\n")
     except (OSError, UnicodeDecodeError) as exc:
         raise ConfigurationError(
-            "Cannot read secret file for {0}: {1} ({2})".format(
-                env_key, path, exc.__class__.__name__
-            )
+            f"Cannot read secret file for {env_key}: {path} ({exc.__class__.__name__})"
         ) from exc
 
 
@@ -375,7 +399,7 @@ def _configure_logging(log_level, log_file=None):
             fh.setFormatter(formatter)
             logger.addHandler(fh)
         except (IOError, OSError, PermissionError) as error:
-            logger.warning("Unable to write to log file: {}".format(error))
+            logger.warning(f"Unable to write to log file: {error}")
 
 
 # Loggers of the libraries that implement the mailbox and Microsoft Graph
@@ -498,10 +522,10 @@ def _load_config(config_file: str | None = None) -> ConfigParser:
     if config_file is not None:
         abs_path = os.path.abspath(config_file)
         if not os.path.exists(abs_path):
-            raise ConfigurationError("A file does not exist at {0}".format(abs_path))
+            raise ConfigurationError(f"A file does not exist at {abs_path}")
         if not os.access(abs_path, os.R_OK):
             raise ConfigurationError(
-                "Unable to read {0} — check file permissions".format(abs_path)
+                f"Unable to read {abs_path} — check file permissions"
             )
         config.read(config_file)
     _apply_env_overrides(config)
@@ -580,13 +604,11 @@ def _parse_config(config: ConfigParser, opts):
                 )
             except Exception as ns_error:
                 raise ConfigurationError(
-                    "DNS pre-flight check failed: {}".format(ns_error)
+                    f"DNS pre-flight check failed: {ns_error}"
                 ) from ns_error
             if not dummy_hostname:
                 raise ConfigurationError(
-                    "DNS pre-flight check failed: no PTR record for {} from {}".format(
-                        opts.dns_test_address, opts.nameservers
-                    )
+                    f"DNS pre-flight check failed: no PTR record for {opts.dns_test_address} from {opts.nameservers}"
                 )
         if "save_aggregate" in general_config:
             opts.save_aggregate = bool(general_config.getboolean("save_aggregate"))
@@ -1419,14 +1441,14 @@ def _init_output_clients(opts):
                 es_smtp_tls_index = "smtp_tls"
                 if opts.elasticsearch_index_suffix:
                     suffix = opts.elasticsearch_index_suffix
-                    es_aggregate_index = "{0}_{1}".format(es_aggregate_index, suffix)
-                    es_failure_index = "{0}_{1}".format(es_failure_index, suffix)
-                    es_smtp_tls_index = "{0}_{1}".format(es_smtp_tls_index, suffix)
+                    es_aggregate_index = f"{es_aggregate_index}_{suffix}"
+                    es_failure_index = f"{es_failure_index}_{suffix}"
+                    es_smtp_tls_index = f"{es_smtp_tls_index}_{suffix}"
                 if opts.elasticsearch_index_prefix:
                     prefix = opts.elasticsearch_index_prefix
-                    es_aggregate_index = "{0}{1}".format(prefix, es_aggregate_index)
-                    es_failure_index = "{0}{1}".format(prefix, es_failure_index)
-                    es_smtp_tls_index = "{0}{1}".format(prefix, es_smtp_tls_index)
+                    es_aggregate_index = f"{prefix}{es_aggregate_index}"
+                    es_failure_index = f"{prefix}{es_failure_index}"
+                    es_smtp_tls_index = f"{prefix}{es_smtp_tls_index}"
                 elastic_timeout_value = (
                     float(opts.elasticsearch_timeout)
                     if opts.elasticsearch_timeout is not None
@@ -1446,6 +1468,7 @@ def _init_output_clients(opts):
                 elastic.migrate_indexes(
                     aggregate_indexes=[es_aggregate_index],
                     failure_indexes=[es_failure_index],
+                    smtp_tls_indexes=[es_smtp_tls_index],
                 )
                 clients["elasticsearch"] = _ElasticsearchHandle()
         except Exception as e:
@@ -1463,14 +1486,14 @@ def _init_output_clients(opts):
                 os_smtp_tls_index = "smtp_tls"
                 if opts.opensearch_index_suffix:
                     suffix = opts.opensearch_index_suffix
-                    os_aggregate_index = "{0}_{1}".format(os_aggregate_index, suffix)
-                    os_failure_index = "{0}_{1}".format(os_failure_index, suffix)
-                    os_smtp_tls_index = "{0}_{1}".format(os_smtp_tls_index, suffix)
+                    os_aggregate_index = f"{os_aggregate_index}_{suffix}"
+                    os_failure_index = f"{os_failure_index}_{suffix}"
+                    os_smtp_tls_index = f"{os_smtp_tls_index}_{suffix}"
                 if opts.opensearch_index_prefix:
                     prefix = opts.opensearch_index_prefix
-                    os_aggregate_index = "{0}{1}".format(prefix, os_aggregate_index)
-                    os_failure_index = "{0}{1}".format(prefix, os_failure_index)
-                    os_smtp_tls_index = "{0}{1}".format(prefix, os_smtp_tls_index)
+                    os_aggregate_index = f"{prefix}{os_aggregate_index}"
+                    os_failure_index = f"{prefix}{os_failure_index}"
+                    os_smtp_tls_index = f"{prefix}{os_smtp_tls_index}"
                 opensearch_timeout_value = (
                     float(opts.opensearch_timeout)
                     if opts.opensearch_timeout is not None
@@ -1492,6 +1515,7 @@ def _init_output_clients(opts):
                 opensearch.migrate_indexes(
                     aggregate_indexes=[os_aggregate_index],
                     failure_indexes=[os_failure_index],
+                    smtp_tls_indexes=[os_smtp_tls_index],
                 )
                 clients["opensearch"] = _OpenSearchHandle()
         except Exception as e:
@@ -1575,8 +1599,8 @@ def _main():
             reports_["smtp_tls_reports"] = filtered_tls
 
         indent_value = 2 if opts.prettify_json else None
-        output_str = "{0}\n".format(
-            json.dumps(reports_, ensure_ascii=False, indent=indent_value)
+        output_str = (
+            f"{json.dumps(reports_, ensure_ascii=False, indent=indent_value)}\n"
         )
 
         if not opts.silent:
@@ -1909,7 +1933,7 @@ def _main():
 
         if opts.fail_on_output_error and output_errors:
             raise ParserError(
-                "Output destination failures detected: {0}".format(
+                "Output destination failures detected: {}".format(
                     " | ".join(output_errors)
                 )
             )
@@ -1923,8 +1947,15 @@ def _main():
     arg_parser.add_argument(
         "file_path",
         nargs="*",
-        help="one or more paths to aggregate or failure "
-        "report files, emails, or mbox files'",
+        help="one or more paths to aggregate or failure report files, "
+        "emails, mbox files, or directories containing them",
+    )
+    arg_parser.add_argument(
+        "-r",
+        "--recursive",
+        action="store_true",
+        help="search directories given as file_path recursively, and "
+        "enable '**' recursion in glob patterns",
     )
     strip_attachment_help = "remove attachment payloads from failure report output"
     arg_parser.add_argument(
@@ -2219,7 +2250,7 @@ def _main():
             fh.setFormatter(formatter)
             logger.addHandler(fh)
         except Exception as error:
-            logger.warning("Unable to write to log file: {}".format(error))
+            logger.warning(f"Unable to write to log file: {error}")
 
     opts.active_log_file = opts.log_file
     _configure_dependency_logging(logger.level)
@@ -2280,7 +2311,7 @@ def _main():
                 time.sleep(retry_delay)
                 retry_delay *= 2
             else:
-                logger.error("Output client error: {0}".format(error_))
+                logger.error(f"Output client error: {error_}")
                 exit(1)
 
     # Always close output clients on the way out (normal return,
@@ -2323,7 +2354,7 @@ def _main():
     signal.signal(signal.SIGTERM, _handle_sigterm)
     signal.signal(signal.SIGINT, _handle_sigint)
 
-    file_paths = _expand_file_path_args(args.file_path)
+    file_paths = _expand_file_path_args(args.file_path, recursive=args.recursive)
     mbox_paths = []
 
     for file_path in file_paths:
@@ -2341,7 +2372,7 @@ def _main():
     results = []
 
     pbar = None
-    if sys.stdout.isatty():
+    if sys.stderr.isatty() and len(file_paths) > 0:
         pbar = tqdm(total=len(file_paths))
 
     n_procs = int(opts.n_procs or 1)
@@ -2412,7 +2443,7 @@ def _main():
 
     for result in results:
         if isinstance(result[0], ParserError) or result[0] is None:
-            logger.error("Failed to parse {0} - {1}".format(result[1], result[0]))
+            logger.error(f"Failed to parse {result[1]} - {result[0]}")
         else:
             if result[0]["report_type"] == "aggregate":
                 report_org = result[0]["report"]["report_metadata"]["org_name"]
@@ -2681,7 +2712,16 @@ def _main():
         if isinstance(opts.smtp_to, list)
         else _str_to_list(str(opts.smtp_to))
     )
-    if opts.smtp_host:
+    has_reports = bool(
+        parsing_results["aggregate_reports"]
+        or parsing_results["failure_reports"]
+        or parsing_results["smtp_tls_reports"]
+    )
+    if not has_reports and (
+        opts.smtp_host or (msgraph_connection is not None and smtp_to_value)
+    ):
+        logger.info("No reports were parsed; skipping the results email")
+    elif opts.smtp_host:
         try:
             verify = True
             if opts.smtp_skip_certificate_verification:
@@ -2765,7 +2805,7 @@ def _main():
                     config_reloading=lambda: _reload_requested or _shutdown_requested,
                 )
             except FileExistsError as error:
-                logger.error("{0}".format(error.__str__()))
+                logger.error(f"{error.__str__()}")
                 exit(1)
             except ParserError as error:
                 logger.error(error.__str__())
@@ -2895,9 +2935,7 @@ def _main():
                             fh.setFormatter(file_formatter)
                             logger.addHandler(fh)
                         except Exception as log_error:
-                            logger.warning(
-                                "Unable to write to log file: {}".format(log_error)
-                            )
+                            logger.warning(f"Unable to write to log file: {log_error}")
                     opts.active_log_file = new_log_file
 
                 _configure_dependency_logging(logger.level)

@@ -35,6 +35,12 @@ from bernstein.core.protocols.mcp.stateless_core import (
     legacy_session_header_value,
     months_since_deprecation,
 )
+from bernstein.mcp.approval_gate import (
+    completion_refusal_payload,
+    is_approvable,
+    is_worker_completable,
+    refusal_payload,
+)
 from bernstein.mcp.streaming import InFlightRegistry, cancelled_envelope
 
 if TYPE_CHECKING:
@@ -61,6 +67,12 @@ _LOCALHOST_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 
 # Env var names used to pick up the bearer auth token if not provided explicitly.
 _TOKEN_ENV_VARS = ("BERNSTEIN_MCP_TOKEN", "BERNSTEIN_MCP_AUTH_TOKEN")
+
+# Characters a request authority may keep once it is echoed back into a
+# response header or body: registered names, IPv4 and bracketed IPv6 literals,
+# and a port. Everything else, CR and LF and the quote character included, is
+# dropped by :func:`_sanitise_authority`.
+_AUTHORITY_CHARS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~:[]%")
 
 # Clear-text scheme, spelled as a bare token so a browser origin can only be
 # built from it deliberately. Any origin carrying this scheme has to prove it
@@ -99,6 +111,24 @@ def _resolve_token_from_env() -> str:
 def _is_localhost(host: str) -> bool:
     """Return True if ``host`` refers to the loopback interface only."""
     return host in _LOCALHOST_HOSTS
+
+
+def _sanitise_authority(authority: str) -> str:
+    """Filter a request authority down to host and port characters.
+
+    The value reaches us from a client-supplied ``Host`` header and is
+    interpolated into response headers and bodies, so anything outside the
+    character set a host, an IPv6 literal, and a port may use is dropped. CR,
+    LF, and the quote character are the ones that matter: they would otherwise
+    terminate a header value or escape a quoted header parameter.
+
+    Args:
+        authority: Raw authority, for example ``bernstein.example.com:8053``.
+
+    Returns:
+        The filtered authority, possibly empty when nothing survived.
+    """
+    return "".join(c for c in authority.strip() if c in _AUTHORITY_CHARS)
 
 
 def _origin_host(origin: str) -> str | None:
@@ -299,7 +329,13 @@ _TOOL_DEFS: list[dict[str, Any]] = [
     },
     {
         "name": "bernstein_approve",
-        "description": "Approve a pending/blocked task.",
+        "description": (
+            "Sign off a finished result that is waiting on a decision. Acts "
+            "only on a task in 'pending_approval'; any other status is "
+            "refused, including 'planned', which is released by approving "
+            "the plan it belongs to. Not a way to finish work - use "
+            "bernstein_complete for that."
+        ),
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -307,6 +343,23 @@ _TOOL_DEFS: list[dict[str, Any]] = [
                 "note": {"type": "string", "default": "Approved via MCP"},
             },
             "required": ["task_id"],
+        },
+    },
+    {
+        "name": "bernstein_complete",
+        "description": (
+            "Report the result of work you are executing. Acts only on a task "
+            "you hold ('open', 'claimed', 'in_progress'); a task waiting on "
+            "its subtasks, one whose worker is gone, or one already awaiting "
+            "a decision is refused."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string"},
+                "result_summary": {"type": "string"},
+            },
+            "required": ["task_id", "result_summary"],
         },
     },
     {
@@ -327,6 +380,33 @@ _TOOL_DEFS: list[dict[str, Any]] = [
         },
     },
 ]
+
+
+def validation_scope_notice() -> str:
+    """Return the interim notice about this transport's weaker argument checks.
+
+    This transport does not route ``tools/call`` through
+    ``bernstein.mcp.input_validation.validate_tool_call``, so the
+    deny-by-default input firewall documented in ``docs/mcp/input-validation.md``
+    covers the stdio and SSE servers only. It also exposes a subset of the
+    server's tools, with schemas restated here rather than loaded from
+    ``src/bernstein/mcp/tool_schemas/``.
+
+    The tool list is derived from ``_TOOL_DEFS`` so the notice cannot drift
+    from what the transport actually serves.
+
+    This is a notice, not a fix. Delete this function, its call site, its
+    tests and the matching doc sections in the same change that closes issue
+    #3083.
+    """
+    names = ", ".join(str(defn["name"]) for defn in _TOOL_DEFS)
+    return (
+        f"Streamable HTTP transport: argument validation on this path is weaker than on stdio. "
+        f"It exposes {len(_TOOL_DEFS)} tools ({names}) with schemas restated in this module, "
+        f"and does not apply the deny-by-default input validation the stdio transport applies. "
+        f"Tracked in issue #3083."
+    )
+
 
 _SERVER_INFO: dict[str, Any] = {
     "name": "bernstein",
@@ -455,11 +535,7 @@ class StreamableHTTPTransport:
 
         # Auth check.
         if not self._authenticate(headers):
-            return (
-                401,
-                {"content-type": _CONTENT_TYPE_JSON},
-                b'{"error":"unauthorized"}',
-            )
+            return self._unauthorized_response(headers)
 
         # Legacy protocol-session shim: the removed header is accepted (and
         # ignored) for a bounded window, then refused with the removal date.
@@ -923,21 +999,46 @@ class StreamableHTTPTransport:
             return await self._proxy_post("/tasks", payload)
 
         if name == "bernstein_stop":
-            from pathlib import Path
+            from bernstein.mcp.signal_paths import shutdown_signal_path
 
-            workdir = arguments.get("workdir", ".")
-            signals_dir = Path(workdir) / ".sdd" / "runtime" / "signals"
-            signals_dir.mkdir(parents=True, exist_ok=True)
-            shutdown_file = signals_dir / "SHUTDOWN"
+            # Same barrier as the stdio surface: the workdir must name an
+            # existing project root and the signal path must stay inside it.
+            # A refusal raises and is rendered as the structured tool error,
+            # before any directory is created.
+            shutdown_file = shutdown_signal_path(arguments.get("workdir", "."))
+            shutdown_file.parent.mkdir(parents=True, exist_ok=True)
             shutdown_file.write_text("mcp-remote-stop\n", encoding="utf-8")
             return json.dumps({"status": "shutdown signal sent", "path": str(shutdown_file)})
 
         if name == "bernstein_approve":
             task_id = arguments["task_id"]
             note = arguments.get("note", "Approved via MCP")
+            # The gate is the same one the in-process server enforces: read
+            # the task first and refuse anything that is not holding a
+            # finished result for sign-off, so the remote transport is not a
+            # way around it.
+            raw_task = await self._proxy_get(f"/tasks/{task_id}")
+            current_status = str(json.loads(raw_task).get("status") or "")
+            if not is_approvable(current_status):
+                return json.dumps(refusal_payload(task_id, current_status), indent=2)
             return await self._proxy_post(
                 f"/tasks/{task_id}/complete",
                 {"result_summary": note},
+            )
+
+        if name == "bernstein_complete":
+            # Same read-before-act rule as the in-process server: a worker
+            # reports the result of a task it holds, and a task that is
+            # waiting on its subtasks or whose worker is gone is refused
+            # rather than marked done on request.
+            task_id = arguments["task_id"]
+            raw_task = await self._proxy_get(f"/tasks/{task_id}")
+            current_status = str(json.loads(raw_task).get("status") or "")
+            if not is_worker_completable(current_status):
+                return json.dumps(completion_refusal_payload(task_id, current_status), indent=2)
+            return await self._proxy_post(
+                f"/tasks/{task_id}/complete",
+                {"result_summary": arguments["result_summary"]},
             )
 
         if name == "bernstein_create_subtask":
@@ -985,6 +1086,58 @@ class StreamableHTTPTransport:
 
     # -- OAuth discovery -----------------------------------------------------
 
+    def _request_base_url(self, headers: dict[str, str]) -> str:
+        """Return the scheme and authority the client reached this server on.
+
+        Both the protected-resource metadata document and the
+        ``WWW-Authenticate`` challenge on a 401 are built from this, so the URL
+        a client is pointed at cannot drift from the URL that serves the
+        document.
+
+        ``Host`` and ``X-Forwarded-Proto`` are supplied by the client or by a
+        proxy in front of it, and the result is interpolated into a response
+        header, so the authority is filtered down to the characters a host and
+        port may contain. That drops CR, LF, and the quote character before
+        they can terminate the header value or the quoted parameter.
+
+        Args:
+            headers: HTTP request headers (lower-cased keys).
+
+        Returns:
+            An absolute base URL with no trailing slash.
+        """
+        fallback = f"{self._config.host}:{self._config.port}"
+        authority = _sanitise_authority(headers.get("host", "")) or _sanitise_authority(fallback)
+        scheme = "https" if headers.get("x-forwarded-proto", "").lower() == "https" else "http"
+        return f"{scheme}://{authority}"
+
+    def _unauthorized_response(
+        self,
+        headers: dict[str, str],
+    ) -> tuple[int, dict[str, str], bytes]:
+        """Build the 401 response, including the discovery challenge.
+
+        Every 401 the transport emits is built here. When an OAuth issuer is
+        configured, the response carries a ``WWW-Authenticate`` challenge
+        naming the protected-resource metadata URL, so a client that is refused
+        can locate the document and start the authorization flow instead of
+        stopping at the refusal. Without an issuer no challenge is emitted and
+        the anonymous and static-bearer flows are unchanged.
+
+        Args:
+            headers: HTTP request headers (lower-cased keys).
+
+        Returns:
+            Tuple of (401, response_headers, response_body).
+        """
+        from bernstein.mcp.oauth import www_authenticate_challenge
+
+        resp_headers = {"content-type": _CONTENT_TYPE_JSON}
+        challenge = www_authenticate_challenge(self._request_base_url(headers))
+        if challenge is not None:
+            resp_headers["www-authenticate"] = challenge
+        return (401, resp_headers, b'{"error":"unauthorized"}')
+
     @staticmethod
     def _is_well_known(path: str) -> bool:
         """Return True for the protected-resource discovery path.
@@ -1012,11 +1165,9 @@ class StreamableHTTPTransport:
         )
 
         if path == PR_METADATA_PATH:
-            # Build the absolute resource URL from the Host header so the
+            # Build the absolute resource URL from the request base so the
             # advertised resource matches what the client called.
-            host = headers.get("host", f"{self._config.host}:{self._config.port}")
-            scheme = headers.get("x-forwarded-proto", "http")
-            resource_url = f"{scheme}://{host}{self._config.path}"
+            resource_url = f"{self._request_base_url(headers)}{self._config.path}"
             meta = protected_resource_metadata(resource_url)
         else:
             meta = None
@@ -1084,6 +1235,10 @@ def create_asgi_app(
         ASGI application callable.
     """
     cfg = config or RemoteMCPConfig()
+    # Interim notice (issue #3088). Emitted at WARNING so an operator sees it
+    # in ordinary startup output, not only with debug logging on. Remove with
+    # issue #3083.
+    logger.warning("%s", validation_scope_notice())
     transport = StreamableHTTPTransport(
         config=cfg,
         server_url=server_url,

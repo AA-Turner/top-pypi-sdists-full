@@ -917,6 +917,33 @@ def _normalize_component_config_record(
     return out
 
 
+# Body surfaces the ``ha_mcp_tools`` component's ``search`` command accepts
+# (its voluptuous allowlist also has ``entity``, appended separately by
+# ``_build_component_search_request``). ``dashboard`` is deliberately absent:
+# the component has no dashboard scanner, so a request naming it must stay on
+# the legacy path — forwarding it just bounced off the component schema into a
+# warning-laden fallback on every call (issue #2008).
+_COMPONENT_BODY_SEARCH_TYPES: frozenset[str] = frozenset(
+    {"automation", "script", "scene", "helper"}
+)
+
+
+def _component_serves_search_types(req: _ResolvedSearch) -> bool:
+    """True when the component's search command accepts every requested surface.
+
+    Only an explicit ``search_types`` list can name an unsupported surface, and
+    only the body-eligible branch forwards it to the component — a
+    body-ineligible request sends the entity surface alone, which the component
+    always accepts. Routing is all-or-nothing per command, so one unsupported
+    surface sends the whole request to the legacy path, silently — the same
+    treatment as the other route-ineligible modes, not the warning-emitting
+    failure fallback.
+    """
+    if not req.body_eligible or req.parsed_search_types is None:
+        return True
+    return all(t in _COMPONENT_BODY_SEARCH_TYPES for t in req.parsed_search_types)
+
+
 def _build_component_search_request(req: _ResolvedSearch) -> dict[str, Any]:
     """Translate resolved ha_search inputs into an ``ha_mcp_tools/search`` request.
 
@@ -971,6 +998,43 @@ def _merge_component_visibility_warnings(
             response,
             [w for w in component_visibility_warnings if isinstance(w, str)],
         )
+
+
+async def _scrub_component_config_buckets(
+    response: dict[str, Any], client: Any
+) -> None:
+    """Omit component config-body records referencing a hidden entity (enforce mode).
+
+    The component's ``search_visibility`` wire applies the hide dimensions to
+    ENTITY results only; its config-body records (automations/scripts/scenes/
+    helpers/dashboards) can still reference a hidden entity, and the enforcement
+    middleware's outbound scan would then refuse the whole search on contact
+    instead of the issue-#2015 "collection reads omit" contract. Mirror of the
+    legacy path's scrub (``_deep._scrub_results_for_enforce``), applied after
+    ``_shape_component_search_response``. Totals are decremented by the dropped
+    count — the component's corpus-side match count cannot be recomputed
+    server-side. No-op unless enforce mode is active.
+    """
+    from ..visibility.enforcement import active_hidden_regex, scrub_records
+
+    regex = await active_hidden_regex(client)
+    if regex is None:
+        return
+    dropped = 0
+    for bucket in _CONFIG_BUCKETS:
+        records = response.get(bucket)
+        if records:
+            kept = scrub_records(records, regex)
+            dropped += len(records) - len(kept)
+            response[bucket] = kept
+    if not dropped:
+        return
+    if isinstance(response.get("config_total_matches"), int):
+        response["config_total_matches"] = max(
+            0, response["config_total_matches"] - dropped
+        )
+    if isinstance(response.get("count"), int):
+        response["count"] = max(0, response["count"] - dropped)
 
 
 def _shape_component_search_response(
@@ -1921,7 +1985,9 @@ class SearchTools:
         # response keys) — keep the legacy path: their response contracts
         # differ per mode, and after the request-dedup work they are cheap
         # registry-only calls, so the component round-trip buys nothing worth
-        # the shape risk.
+        # the shape risk. A ``search_types`` naming a surface the component
+        # lacks (``dashboard``) also stays legacy — see
+        # ``_component_serves_search_types`` (issue #2008).
         #
         # Entity-visibility gate. A plain ``search`` component applies no
         # filtering, so an install with an ACTIVE visibility filter would leak
@@ -1936,7 +2002,11 @@ class SearchTools:
         # needs no analogous gate — it re-applies the filter server-side over the
         # component's raw slices. Checked only when the component would otherwise
         # serve, so the common (no-component / filter-off) install pays nothing.
-        if req.query_text and not (req.area_filter or "").strip():
+        if (
+            req.query_text
+            and not (req.area_filter or "").strip()
+            and _component_serves_search_types(req)
+        ):
             caps = await get_component_caps(self._client)
             if component_supports(caps, "search"):
                 (
@@ -2035,7 +2105,9 @@ class SearchTools:
                 "ha_mcp_tools/search connection error; fell back to legacy: %r", exc
             )
             return legacy
-        return _shape_component_search_response(req, raw.get("result") or {})
+        response = _shape_component_search_response(req, raw.get("result") or {})
+        await _scrub_component_config_buckets(response, self._client)
+        return response
 
     async def _send_component_search(
         self, req: _ResolvedSearch, visibility: dict[str, Any] | None = None

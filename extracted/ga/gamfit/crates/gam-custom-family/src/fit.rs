@@ -135,6 +135,37 @@ fn audit_converged_identifiability<F: CustomFamily + ?Sized>(
             ),
         });
     }
+    // #2360 (#2337 §8 Thm 8.3) — say WHY this accepted.
+    //
+    // Agreeing endpoint ranks is a statement about two points, and the fit
+    // lives on the path between them: the pilot verdict can hold at both ends
+    // while the interior went somewhere else entirely. When the pilot's
+    // certificate transported, the agreement is a genuine path guarantee. When
+    // its margin was provably exhausted, the agreement is a coincidence that
+    // happens to be the right answer, and the record should not read as more
+    // than that. The verdict stays as-is either way — this is the honest
+    // provenance of an acceptance, not a new refusal.
+    match drift.pilot_certificate_transported {
+        Some(false) => {
+            let (excursion, radius) = drift.excursion_vs_radius.unwrap_or((f64::NAN, f64::NAN));
+            log::info!(
+                "[AUDIT-TRANSPORT] converged identifiability accepted on ENDPOINT AGREEMENT \
+                 ONLY (rank={}): the pilot certificate's transport radius {radius:.3e} was \
+                 exhausted by an excursion of at least {excursion:.3e}, so the pilot verdict is \
+                 not certified along the path it travelled",
+                drift.current_rank
+            );
+        }
+        Some(true) => {
+            let (excursion, radius) = drift.excursion_vs_radius.unwrap_or((f64::NAN, f64::NAN));
+            log::debug!(
+                "[AUDIT-TRANSPORT] converged identifiability rank={} TRANSPORTED from the pilot \
+                 (excursion {excursion:.3e} within radius {radius:.3e})",
+                drift.current_rank
+            );
+        }
+        None => {}
+    }
     Ok(())
 }
 
@@ -829,6 +860,242 @@ pub(crate) fn effective_df_floor_rho_upper_bounds(
     Ok(upper)
 }
 
+/// Seed the outer search with the mode the *definition* of `θ̂(ρ)` names, rather
+/// than with whatever mode the inner solver happens to reach from the caller's
+/// coefficients (#2366).
+///
+/// # Why a definition is needed at all
+///
+/// The outer criterion is profiled: `V(ρ) = ℓ_p(θ̂(ρ), ρ)` with
+/// `θ̂(ρ) ∈ argmin_θ ℓ_p(θ, ρ)`. `V` is a *function of ρ* only when that `argmin`
+/// is single-valued, or when a selection rule fixes which element is meant. For
+/// every family whose joint likelihood Hessian depends on β — link-wiggle (the
+/// warp basis is evaluated at the current index), transformation models with an
+/// `I`-spline cone, constrained PIRLS, locscale with a nonlinear warp —
+/// `ℓ_p(·, ρ)` is nonconvex and the `argmin` is a set. Without a selection rule,
+/// `θ̂` is a functional of the solver's trajectory and of the persistent cache,
+/// so `V` is not a function, and three things follow that this codebase has been
+/// treating as separate defects:
+///
+/// * the same data and model fit differently depending on cache state (#2363);
+/// * the envelope identity `dV/dρ = ∂ℓ_p/∂ρ|_θ̂` holds only along a branch that
+///   is continuous in ρ, so evaluations that land on different branches produce
+///   a gradient describing one branch and a value sequence walking another —
+///   the objective↔gradient desync class (#2349, #1561, #2298);
+/// * a gradient method cannot certify stationarity of an object that changes
+///   under it, so `‖Pg‖` stalls at `O(branch gap / step)` instead of `→ 0`.
+///
+/// # The selection rule
+///
+/// `θ̂(ρ)` is defined as the endpoint of the continuation that starts at the
+/// anchor `ρ_A` and follows the segment `ρ(t) = ρ_A + t·(ρ − ρ_A)`, `t: 0 → 1`.
+/// The anchor is [`effective_df_floor_rho_upper_bounds`] — the per-coordinate ρ
+/// at which each penalized term's structural unit-weight effective df reaches
+/// one. Three properties make it the canonical anchor rather than a chosen
+/// constant: it is bisected out of the design/penalty generalized eigenvalues so
+/// it is data-determined and carries no knob; at it each term sits on its
+/// penalty nullspace, where the surviving low-dimensional problem is the
+/// parametric fit and the mode is unique; and it is already the optimizer's own
+/// upper bound, so the whole path lies inside the admissible ρ-box.
+///
+/// The mathematical object is the limit of the exact continuation path, so the
+/// discretization is refined — 1, 2, 4, … uniform steps — until the endpoint
+/// stops moving. The stopping yardstick is the inner solver's own convergence
+/// tolerance: refinement halts once two successive discretizations agree to
+/// within what the corrector itself can resolve, which is the point past which
+/// a finer path cannot carry information. This is a self-consistency criterion,
+/// not a budget, so it introduces no tunable constant.
+///
+/// # Failure is not an error here
+///
+/// A corrector that does not converge means the path met a fold, and the
+/// continuation does not name a mode there. This returns `None` in that case and
+/// the caller keeps its existing seed: the definition improves the seed where it
+/// applies and never converts a fit that works today into a failure.
+pub(crate) fn anchored_continuation_seed<F: CustomFamily + Clone + Send + Sync + 'static>(
+    family: &F,
+    specs: &[ParameterBlockSpec],
+    options: &BlockwiseFitOptions,
+    layout: &PenaltyLabelLayout,
+    rho_prior: &gam_problem::RhoPrior,
+    rho_anchor: &Array1<f64>,
+    rho_target: &Array1<f64>,
+) -> Option<ConstrainedWarmStart> {
+    if rho_anchor.len() != rho_target.len() {
+        return None;
+    }
+    let path = ContinuationPath {
+        family,
+        specs,
+        options,
+        layout,
+        rho_prior,
+        rho_anchor,
+        rho_target,
+    };
+    let mut coarser: Option<ConstrainedWarmStart> = None;
+    let mut previous_discrepancy: Option<f64> = None;
+    let mut steps = 1usize;
+    loop {
+        let endpoint = path.sweep(steps)?;
+        if let Some(previous) = coarser.as_ref() {
+            let discrepancy = continuation_endpoint_discrepancy(previous, &endpoint)?;
+            if discrepancy <= options.inner_tol {
+                log::info!(
+                    "[OUTER] #2366 anchored continuation seed accepted at {steps} steps \
+                     (endpoint invariant under refinement; discrepancy {discrepancy:.3e})"
+                );
+                return Some(endpoint);
+            }
+            // Halving the step must at least halve the discretization error of a
+            // convergent continuation. A discrepancy that stops contracting is
+            // not a discretization that needs to be finer — it is the signature
+            // of a fold or a bifurcation on the path, where the continuation does
+            // not name a mode at all. Diagnosing that is what terminates this
+            // loop; there is deliberately no iteration budget, because a budget
+            // would silently return the wrong mode instead of declining.
+            if matches!(previous_discrepancy, Some(previous) if discrepancy >= previous) {
+                log::info!(
+                    "[OUTER] #2366 anchored continuation abandoned at {steps} steps: endpoint \
+                     discrepancy stopped contracting ({discrepancy:.3e} vs {:.3e}), so the path \
+                     carries a fold rather than an under-resolved segment",
+                    previous_discrepancy.unwrap_or(f64::NAN)
+                );
+                return None;
+            }
+            previous_discrepancy = Some(discrepancy);
+        }
+        let refined = steps.checked_mul(2)?;
+        if !continuation_path_resolves_steps(rho_anchor, rho_target, refined) {
+            // Refinement has reached the floating-point resolution of the path
+            // itself; a finer discretization is not representable, so the
+            // continuation limit is not attainable here.
+            log::info!(
+                "[OUTER] #2366 anchored continuation seed abandoned: endpoint still moving at \
+                 {steps} steps, and {refined} steps are below the ρ-path's floating-point \
+                 resolution"
+            );
+            return None;
+        }
+        coarser = Some(endpoint);
+        steps = refined;
+    }
+}
+
+/// The segment in ρ that the continuation follows, together with everything
+/// needed to solve at a point on it.
+///
+/// This exists so a sweep is `path.sweep(steps)` rather than an eight-argument
+/// call: the seven parts are one object — a path — not seven independent knobs,
+/// and naming it that way keeps the endpoints from being transposed.
+struct ContinuationPath<'a, F> {
+    family: &'a F,
+    specs: &'a [ParameterBlockSpec],
+    options: &'a BlockwiseFitOptions,
+    layout: &'a PenaltyLabelLayout,
+    rho_prior: &'a gam_problem::RhoPrior,
+    rho_anchor: &'a Array1<f64>,
+    rho_target: &'a Array1<f64>,
+}
+
+impl<F: CustomFamily + Clone + Send + Sync + 'static> ContinuationPath<'_, F> {
+    /// One continuation sweep at a fixed discretization: solve the inner problem
+    /// at each waypoint, carrying the previous mode forward as the predictor.
+    ///
+    /// The sweep starts AT the anchor (`step == 0`). That first solve is the one
+    /// that makes the whole construction well defined: it is the only corrector
+    /// that runs from the caller's coefficients, and at the anchor every
+    /// penalized term sits on its penalty nullspace, so the surviving problem
+    /// has a single mode and the caller's seed cannot select anything. Every
+    /// later waypoint is warm-started from the previous one, so the branch is
+    /// carried forward rather than rediscovered.
+    ///
+    /// The final waypoint uses `rho_target` verbatim rather than the
+    /// reconstructed `ρ_A + 1·(ρ − ρ_A)`: the endpoint must be the mode *at the
+    /// requested ρ* bitwise, because everything downstream binds the mode and
+    /// its ρ as one identity.
+    fn sweep(&self, steps: usize) -> Option<ConstrainedWarmStart> {
+        let mut carried: Option<ConstrainedWarmStart> = None;
+        for step in 0..=steps {
+            let waypoint = if step == steps {
+                self.rho_target.clone()
+            } else if step == 0 {
+                self.rho_anchor.clone()
+            } else {
+                let t = step as f64 / steps as f64;
+                Array1::from_shape_fn(self.rho_target.len(), |j| {
+                    self.rho_anchor[j] + t * (self.rho_target[j] - self.rho_anchor[j])
+                })
+            };
+            let eval = outerobjectivegradienthessian_labeled(
+                self.family,
+                self.specs,
+                self.options,
+                self.layout,
+                &waypoint,
+                carried.as_ref(),
+                self.rho_prior,
+                EvalMode::ValueOnly,
+            )
+            .ok()?;
+            if !eval.inner_converged || !eval.objective.is_finite() {
+                return None;
+            }
+            carried = Some(eval.warm_start);
+        }
+        carried
+    }
+}
+
+/// How far apart two continuation endpoints are, relative to each coefficient's
+/// own magnitude.
+///
+/// The measure is scale-free so it is invariant to the units of a block, and it
+/// is compared against the inner solve's own convergence tolerance rather than
+/// against a separate constant: two endpoints closer than what the corrector
+/// itself resolves are not evidence that the discretization still matters.
+/// `None` means the two endpoints do not even describe the same block structure,
+/// which is not a discrepancy but a broken comparison.
+fn continuation_endpoint_discrepancy(
+    coarser: &ConstrainedWarmStart,
+    finer: &ConstrainedWarmStart,
+) -> Option<f64> {
+    if coarser.block_beta.len() != finer.block_beta.len() {
+        return None;
+    }
+    let mut worst = 0.0_f64;
+    for (a, b) in coarser.block_beta.iter().zip(finer.block_beta.iter()) {
+        if a.len() != b.len() {
+            return None;
+        }
+        for (x, y) in a.iter().zip(b.iter()) {
+            worst = worst.max((x - y).abs() / (1.0 + x.abs().max(y.abs())));
+        }
+    }
+    Some(worst)
+}
+
+/// Whether a `steps`-way uniform split of the continuation path is still
+/// resolvable in floating point.
+///
+/// Once a step is smaller than the spacing of the ρ values it separates, the
+/// waypoints collapse onto each other and refining further cannot change the
+/// endpoint — the loop must stop rather than spin.
+fn continuation_path_resolves_steps(
+    rho_anchor: &Array1<f64>,
+    rho_target: &Array1<f64>,
+    steps: usize,
+) -> bool {
+    rho_anchor
+        .iter()
+        .zip(rho_target.iter())
+        .any(|(anchor, target)| {
+            let span = (target - anchor).abs();
+            let scale = anchor.abs().max(target.abs()).max(1.0);
+            span / steps as f64 > f64::EPSILON * scale
+        })
+}
+
 /// Bind one evaluator-owned coefficient mode to the optimizer-owned terminal
 /// certificate and consume the carrier on success.
 ///
@@ -1129,18 +1396,38 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         }
         refresh_all_block_etas(family, specs, &mut inner.block_states)?;
         audit_converged_identifiability(family, raw_specs, &canonical, &inner.block_states, 0)?;
-        let covariance_conditional = compute_joint_covariance_required(
+        let hessian = materialize_owned_terminal_unpenalized_hessian(
+            family,
+            specs,
+            &inner.block_states,
+            inner.joint_workspace.as_ref(),
+            inner.terminal_working_sets.as_deref(),
+            "custom-family no-smoothing terminal Hessian",
+        )
+        .map_err(|reason| CustomFamilyError::Optimization {
+            context: "fit_custom_family no-smoothing terminal curvature ownership",
+            reason,
+        })?;
+        let posterior = compute_joint_posterior(
             family,
             specs,
             &inner.block_states,
             &per_block,
             options,
-            None,
+            Some(&hessian),
+            inner.terminal_working_sets.as_deref(),
+            inner.joint_workspace.as_ref(),
         )
-        .map_err(|error| CustomFamilyError::Optimization {
-            context: "fit_custom_family no-smoothing covariance factorization",
-            reason: format!("{error}; no fit was assembled"),
+        .map_err(|reason| CustomFamilyError::Optimization {
+            context: "fit_custom_family no-smoothing terminal posterior",
+            reason: format!("{reason}; no fit was assembled"),
         })?;
+        let JointPosteriorAssembly {
+            covariance_conditional,
+            geometry,
+            reported_beta,
+        } = posterior;
+        let geometry = Some(geometry);
         let reml_term = if options.use_remlobjective {
             let logdet_h = inner.block_logdet_h.ok_or_else(|| CustomFamilyError::Optimization {
                 context: "fit_custom_family no-smoothing inner solve",
@@ -1154,19 +1441,6 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         } else {
             0.0
         };
-        let geometry = Some(compute_joint_geometry(
-            family,
-            specs,
-            &inner.block_states,
-            &per_block,
-            options,
-            None,
-            inner.terminal_working_sets.as_deref(),
-        )
-        .map_err(|reason| CustomFamilyError::Optimization {
-            context: "fit_custom_family no-smoothing joint geometry",
-            reason,
-        })?);
         let penalized_objective = checked_penalizedobjective(
             inner.log_likelihood,
             inner.penalty_value,
@@ -1193,6 +1467,16 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                 true,
             );
         }
+        install_reported_posterior_mean(
+            family,
+            specs,
+            &mut inner.block_states,
+            reported_beta.as_ref(),
+        )
+        .map_err(|reason| CustomFamilyError::Optimization {
+            context: "fit_custom_family no-smoothing reported posterior mean",
+            reason,
+        })?;
         return assemble_custom_family_fit_result(
             inner,
             BlockwiseFitAssembly {
@@ -1213,15 +1497,15 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         );
     }
 
-    // Exact Hessians are primary whenever the assembled family can supply them.
-    // If a particular outer step is ill-conditioned, strategy fallback handles
-    // the downgrade; we do not suppress second-order capability preemptively
-    // based on the presence of a wiggle block. Small iteration budgets still
-    // run through this same outer solver and must earn its convergence
-    // certificate; they are not a production shortcut to an unoptimized fit.
+    // Exact Hessians remain declared whenever the assembled family can supply
+    // them, but #2359 reserves that order-four work for the terminal minimum
+    // certificate. Search uses the exact analytic gradient. Small iteration
+    // budgets still run through this same outer solver and must earn its
+    // convergence certificate; they are not a production shortcut to an
+    // unoptimized fit.
     use gam_problem::OuterEval;
     use gam_solve::model_types::EstimationError;
-    use gam_solve::rho_optimizer::{FallbackPolicy, OuterEvalOrder, OuterProblem};
+    use gam_solve::rho_optimizer::{OuterEvalOrder, OuterProblem};
 
     let screening_cap = Arc::new(AtomicUsize::new(0));
     let outer_inner_cap = options
@@ -1233,7 +1517,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
     // it when it grants a STUCK-stall escape (a near-separating profiled fit
     // whose warm-started trajectory carries value hysteresis on a near-flat
     // inner ridge). The outer-eval closures below observe it, drop the warm
-    // cache, and re-solve the inner problem cold so ARC descends a consistent
+    // cache, and re-solve the inner problem cold so search descends a consistent
     // objective surface instead of grinding to `max_iter` at a non-stationary
     // point.
     let outer_force_cold = Arc::new(AtomicBool::new(false));
@@ -1260,33 +1544,18 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         family.outer_hyper_hessian_hvp_available(specs),
         family.outer_hyper_hessian_dense_available(specs),
     );
-    let bfgs_step_cap = first_order_bfgs_loglambda_step_cap(need_outer_hessian);
+    let bfgs_step_cap = Some(FIRST_ORDER_BFGS_LOGLAMBDA_STEP_CAP);
     // EFS / HybridEfs structural property (`H^{-1/2} B_k H^{-1/2} ≽ 0` plus a
     // parameter-independent nullspace, Wood-Fasiolo) fails for multi-block
-    // families whose joint likelihood Hessian depends on β. Disable
-    // fixed-point only for genuinely first-order capabilities; exact-Hessian
-    // capabilities route to ARC before EFS is considered.
+    // families whose joint likelihood Hessian depends on β.
     let multi_block_beta_dependent =
         specs.len() > 1 && family.exact_newton_joint_hessian_beta_dependent();
-    // Exact-Hessian plans must fail on their own terms rather than silently
-    // retrying on a quasi-Newton surface. First-order-only families keep the
-    // automatic cascade because there is no second-order geometry to discard.
-    let fallback_policy = if need_outer_hessian {
-        FallbackPolicy::Disabled
-    } else {
-        FallbackPolicy::Automatic
-    };
     // Calibrate the outer solver to the n-scaled profiled REML/LAML objective.
     // The profiled criterion is a sum over n observations, so |f| ~ O(n) for
-    // every family. Without this calibration the outer ARC/BFGS:
-    //   (a) uses a bare absolute gradient floor of `outer_tol ≈ 1e-5` — this
-    //       IS achievable at scale but forces the optimizer to iterate until
-    //       |g| ≤ 1e-5 even when |f| ~ 200 and τ·(1+|f|) ~ 2e-3 already
-    //       signals convergence in the relative-to-cost sense; and
-    //   (b) ARC's initial trust-region regularization `σ₀=1` and default
-    //       operator trust radius `τ₀=1` reference the wrong curvature
-    //       magnitude — the first ARC step overshoots when the Hessian is
-    //       O(n) and the trust radius is O(1).
+    // every family. Without this calibration the outer search uses a bare
+    // absolute gradient floor of `outer_tol ≈ 1e-5`, forcing iteration until
+    // |g| ≤ 1e-5 even when |f| ~ 200 and τ·(1+|f|) ~ 2e-3 already signals
+    // convergence in the relative-to-cost sense.
     // Mirroring the spatial exact-joint outer fix (#1053/#1066/#1069) and
     // the primary REML outer (solver/estimate.rs) for the custom-family path.
     let n_obs = specs.first().map(|s| s.design.nrows()).unwrap_or(0);
@@ -1298,12 +1567,47 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         RhoLowerWall(options.rho_lower_bound),
         RhoCeiling(EFFECTIVE_DF_CEILING),
     )?;
+    // The per-coordinate ρ at which each penalized term's structural effective
+    // df reaches one. This is both the optimizer's upper bound and — because
+    // every term sits on its penalty nullspace there, leaving a unique
+    // parametric mode — the anchor of the #2366 continuation below.
+    let rho_upper_bounds = effective_df_floor_rho_upper_bounds(specs, &label_layout, n_rho, rho_box)?;
+
+    // #2366: for a family whose joint likelihood Hessian depends on β the inner
+    // problem is nonconvex, so `argmin_θ ℓ_p(θ, ρ)` is a set and the outer
+    // criterion is only a function of ρ once a selection rule is fixed. Seed the
+    // search with the mode the selection rule names — the endpoint of the
+    // continuation from the effective-df-floor anchor — instead of with whatever
+    // mode the caller's coefficients happen to reach. Where the family's inner
+    // problem is convex the mode is already unique and the continuation would be
+    // pure overhead, so it is not run. See [`anchored_continuation_seed`].
+    let initial_warm_cache = if family.exact_newton_joint_hessian_beta_dependent() {
+        anchored_continuation_seed(
+            family,
+            specs,
+            &outer_options,
+            &label_layout,
+            &rho_prior,
+            &rho_upper_bounds,
+            &rho0,
+        )
+        .or_else(|| persistent_warm_start.clone())
+    } else {
+        persistent_warm_start.clone()
+    };
+    // What "cold" means when the stall guard drops the warm cache. Dropping it
+    // to `None` sends the inner solve back to whatever coefficients the caller
+    // supplied — trajectory-independent, but arbitrary, and for a nonconvex
+    // family that is a seed selecting a branch. The point of the pulse is to
+    // re-solve on a surface that does not depend on the path taken, so the
+    // fallback is the anchored mode: cold means CANONICAL, not arbitrary.
+    let canonical_seed = initial_warm_cache.clone();
     let problem = OuterProblem::new(n_rho)
         .with_stuck_stall_cold_reeval_signal(Arc::clone(&outer_force_cold))
         .with_gradient(cap_gradient)
         .with_hessian(hessian)
+        .with_prefer_gradient_only(true)
         .with_disable_fixed_point(multi_block_beta_dependent)
-        .with_fallback_policy(fallback_policy)
         .with_tolerance(options.outer_tol)
         .with_rel_cost_tolerance(options.outer_rel_cost_tol)
         .with_max_iter(options.outer_max_iter)
@@ -1312,13 +1616,10 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         .with_initial_rho(rho0.clone())
         .with_screen_initial_rho(options.screen_initial_rho)
         // n-scaled profiled-criterion calibration: absolute gradient floor =
-        // max(outer_tol, n·1e-9), ARC σ₀ = 0.25, operator trust radius = 4.0.
-        // Mirrors the primary REML outer (solver/estimate.rs) and the spatial
-        // exact-joint path.
+        // max(outer_tol, n·1e-9). Mirrors the primary REML outer
+        // (solver/estimate.rs) and the spatial exact-joint path.
         .with_objective_scale(if n_obs > 0 { Some(n_obs as f64) } else { None })
         .with_problem_size(n_obs, p_total.max(1))
-        .with_arc_initial_regularization(if n_obs > 0 { Some(0.25) } else { None })
-        .with_operator_initial_trust_radius(if n_obs > 0 { Some(4.0) } else { None })
         // Per-coordinate ρ box bounds. The uniform ceiling
         // [`EFFECTIVE_DF_CEILING`] keeps the optimizer out of the dead-flat
         // λ ≈ 10⁹ region where ARC's quadratic model breaks down, the retry-stall
@@ -1343,7 +1644,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         // λ-upper-side dual of the #752 full-subspace logdet work.
         .with_bounds(
             Array1::<f64>::from_elem(n_rho, rho_box.lower()),
-            effective_df_floor_rho_upper_bounds(specs, &label_layout, n_rho, rho_box)?,
+            rho_upper_bounds.clone(),
         );
     // Install the seed-screening cap only when initial-rho screening is
     // wanted. A caller that pins an already-identified `initial_rho` and
@@ -1435,7 +1736,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         // #2349: consume the cold-reeval pulse once per outer evaluation. When
         // active (a near-separating warm-start-hysteresis stall the outer guard
         // flagged), every inner solve in this evaluation drops the warm cache
-        // and runs cold + uncapped so ARC descends a trajectory-independent
+        // and runs cold + uncapped so search descends a trajectory-independent
         // objective surface.
         let force_cold = outer.take_force_cold();
         if force_cold {
@@ -1452,7 +1753,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         // k²·n·p² coupled-joint LAML gradient assembly.
         if matches!(order, OuterEvalOrder::Value) {
             let warm_ref = if force_cold {
-                None
+                canonical_seed.as_ref()
             } else {
                 screened_outer_warm_start(outer.warm_cache.as_ref(), rho)
             };
@@ -1503,7 +1804,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         // leave an older mode available for accidental substitution.
         outer.begin_terminal_evaluation();
         let warm_ref = if force_cold {
-            None
+            canonical_seed.as_ref()
         } else {
             screened_outer_warm_start(outer.warm_cache.as_ref(), rho)
         };
@@ -1617,7 +1918,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
 
     let mut obj = problem.build_objective_with_screening_proxy(
         CustomOuterState::new_with_cold_signal(
-            persistent_warm_start.clone(),
+            initial_warm_cache,
             Arc::clone(&outer_force_cold),
         )
         .with_inner_cap(
@@ -1641,7 +1942,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                     .outer_inner_max_iterations
                     .as_ref()
                     .map(|cap| cap.store(0, Ordering::Relaxed));
-                None
+                canonical_seed.as_ref()
             } else {
                 screened_outer_warm_start(outer.warm_cache.as_ref(), rho)
             };
@@ -1874,7 +2175,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         objective: penalized_objective,
         rho: mode_rho,
         hyper_values: mode_hyper_values,
-        inner,
+        mut inner,
     } = mode;
     if !mode_hyper_values.is_empty() {
         return Err(CustomFamilyError::Optimization {
@@ -1937,34 +2238,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         context: "fit_custom_family terminal curvature ownership",
         reason,
     })?;
-    let penalized_hessian = penalized_hessian_from_owned_mode(
-        specs,
-        &per_block,
-        &final_options,
-        &hessian,
-    )
-    .map_err(|reason| CustomFamilyError::Optimization {
-        context: "fit_custom_family terminal penalized Hessian",
-        reason,
-    })?;
-
-    let covariance_conditional = compute_joint_covariance_required(
-        family,
-        specs,
-        &inner.block_states,
-        &per_block,
-        &final_options,
-        Some(&hessian),
-    )
-    .map_err(|error| CustomFamilyError::Optimization {
-        context: "fit_custom_family final covariance factorization",
-        reason: format!(
-            "{error}; rho_checkpoint={:?}; no fit was assembled",
-            rho_star.as_slice().unwrap_or(&[])
-        ),
-    })?;
-
-    let geometry = Some(compute_joint_geometry(
+    let posterior = compute_joint_posterior(
         family,
         specs,
         &inner.block_states,
@@ -1972,11 +2246,20 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         &final_options,
         Some(&hessian),
         inner.terminal_working_sets.as_deref(),
+        inner.joint_workspace.as_ref(),
     )
     .map_err(|reason| CustomFamilyError::Optimization {
-        context: "fit_custom_family joint geometry",
-        reason,
-    })?);
+        context: "fit_custom_family final posterior assembly",
+        reason: format!(
+            "{reason}; rho_checkpoint={:?}; no fit was assembled",
+            rho_star.as_slice().unwrap_or(&[])
+        ),
+    })?;
+    let JointPosteriorAssembly {
+        covariance_conditional,
+        geometry,
+        reported_beta,
+    } = posterior;
     // Cross-fit FitArtifact capture (Phase 0/1) for the converged smoothing
     // fit: persist the descriptor-indexed raw-β + ρ so a later fold transfers
     // ρ. Best-effort; never affects this fit's result. Gated on the same opt-in
@@ -2000,11 +2283,15 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
     )?;
     let precomputed_edf = if label_layout.joint_specs.is_empty() {
         Some(
-            custom_family_blockwise_edf(&penalized_hessian, specs, &physical_lambdas.view())
-                .map_err(|reason| CustomFamilyError::Optimization {
-                    context: "fit_custom_family terminal EDF",
-                    reason,
-                })?,
+            custom_family_blockwise_edf(
+                geometry.penalized_hessian.as_array(),
+                specs,
+                &physical_lambdas.view(),
+            )
+            .map_err(|reason| CustomFamilyError::Optimization {
+                context: "fit_custom_family terminal EDF",
+                reason,
+            })?,
         )
     } else {
         // The public per-penalty EDF vectors are aligned to per-block lambdas.
@@ -2065,6 +2352,17 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         }
         _ => None,
     };
+    install_reported_posterior_mean(
+        family,
+        specs,
+        &mut inner.block_states,
+        reported_beta.as_ref(),
+    )
+    .map_err(|reason| CustomFamilyError::Optimization {
+        context: "fit_custom_family reported posterior mean",
+        reason,
+    })?;
+    let geometry = Some(geometry);
     assemble_custom_family_fit_result(
         inner,
         BlockwiseFitAssembly {
@@ -2264,34 +2562,51 @@ fn fit_custom_family_user_fixed_log_lambdas_impl<
         &inner.block_states,
         0,
     )?;
-    let covariance_conditional = compute_joint_covariance_required(
+    let hessian = materialize_owned_terminal_unpenalized_hessian(
+        family,
+        specs,
+        &inner.block_states,
+        inner.joint_workspace.as_ref(),
+        inner.terminal_working_sets.as_deref(),
+        "custom-family fixed-log-lambda terminal Hessian",
+    )
+    .map_err(|reason| CustomFamilyError::Optimization {
+        context: "fit_custom_family_fixed_log_lambdas terminal curvature ownership",
+        reason,
+    })?;
+    let posterior = compute_joint_posterior(
         family,
         specs,
         &inner.block_states,
         &per_block,
         options,
-        None,
+        Some(&hessian),
+        inner.terminal_working_sets.as_deref(),
+        inner.joint_workspace.as_ref(),
     )
-    .map_err(|error| CustomFamilyError::Optimization {
-        context: "fit_custom_family_fixed_log_lambdas covariance factorization",
+    .map_err(|reason| CustomFamilyError::Optimization {
+        context: "fit_custom_family_fixed_log_lambdas terminal posterior",
         reason: format!(
-            "{error}; rho_checkpoint={:?}; no fit was assembled",
+            "{reason}; rho_checkpoint={:?}; no fit was assembled",
             rho.as_slice().unwrap_or(&[])
         ),
     })?;
-    let geometry = Some(compute_joint_geometry(
+    let JointPosteriorAssembly {
+        covariance_conditional,
+        geometry,
+        reported_beta,
+    } = posterior;
+    install_reported_posterior_mean(
         family,
         specs,
-        &inner.block_states,
-        &per_block,
-        options,
-        None,
-        inner.terminal_working_sets.as_deref(),
+        &mut inner.block_states,
+        reported_beta.as_ref(),
     )
     .map_err(|reason| CustomFamilyError::Optimization {
-        context: "fit_custom_family_fixed_log_lambdas joint geometry",
+        context: "fit_custom_family_fixed_log_lambdas reported posterior mean",
         reason,
-    })?);
+    })?;
+    let geometry = Some(geometry);
     assemble_custom_family_fit_result(
         inner,
         BlockwiseFitAssembly {
@@ -2394,7 +2709,7 @@ fn fit_custom_family_fixed_log_lambdas_from_owned_mode_with_provenance<
         objective: selected_objective,
         rho,
         hyper_values,
-        inner,
+        mut inner,
     } = mode;
     if !inner.converged {
         return Err(CustomFamilyError::Optimization {
@@ -2485,19 +2800,7 @@ fn fit_custom_family_fixed_log_lambdas_from_owned_mode_with_provenance<
         reason,
     })?;
 
-    let covariance_conditional = compute_joint_covariance_required(
-        family,
-        specs,
-        &inner.block_states,
-        &per_block,
-        options,
-        Some(&hessian),
-    )
-    .map_err(|error| CustomFamilyError::Optimization {
-        context: "fit_custom_family_fixed_log_lambdas_from_owned_mode covariance",
-        reason: error.to_string(),
-    })?;
-    let geometry = Some(compute_joint_geometry(
+    let posterior = compute_joint_posterior(
         family,
         specs,
         &inner.block_states,
@@ -2505,11 +2808,28 @@ fn fit_custom_family_fixed_log_lambdas_from_owned_mode_with_provenance<
         options,
         Some(&hessian),
         inner.terminal_working_sets.as_deref(),
+        inner.joint_workspace.as_ref(),
     )
     .map_err(|reason| CustomFamilyError::Optimization {
-        context: "fit_custom_family_fixed_log_lambdas_from_owned_mode geometry",
+        context: "fit_custom_family_fixed_log_lambdas_from_owned_mode posterior",
         reason,
-    })?);
+    })?;
+    let JointPosteriorAssembly {
+        covariance_conditional,
+        geometry,
+        reported_beta,
+    } = posterior;
+    install_reported_posterior_mean(
+        family,
+        specs,
+        &mut inner.block_states,
+        reported_beta.as_ref(),
+    )
+    .map_err(|reason| CustomFamilyError::Optimization {
+        context: "fit_custom_family_fixed_log_lambdas_from_owned_mode reported posterior mean",
+        reason,
+    })?;
+    let geometry = Some(geometry);
 
     assemble_custom_family_fit_result(
         inner,
@@ -2703,14 +3023,75 @@ pub fn fit_custom_family_fixed_log_lambda_warm_start<
     Ok((block_beta, inner.converged, inner.cycles))
 }
 
+/// Exact outer-criterion evidence returned by the diagnostic evaluators.
+pub struct OuterCriterionDiagnostics {
+    pub objective: f64,
+    pub gradient: Array1<f64>,
+    pub outer_hessian: Option<Array2<f64>>,
+    pub inner_converged: bool,
+}
+
+fn materialize_outer_criterion_diagnostics(
+    eval: OuterObjectiveEvalResult,
+    context: &'static str,
+) -> Result<OuterCriterionDiagnostics, CustomFamilyError> {
+    let outer_hessian = eval
+        .outer_hessian
+        .materialize_dense()
+        .map_err(|reason| CustomFamilyError::Optimization {
+            context,
+            reason: reason.to_string(),
+        })?;
+    Ok(OuterCriterionDiagnostics {
+        objective: eval.objective,
+        gradient: eval.gradient,
+        outer_hessian,
+        inner_converged: eval.inner_converged,
+    })
+}
+
+/// Evaluate the generic rho-only outer criterion without penalty-label
+/// aggregation or identifiability canonicalization. Model-family derivative
+/// gates use this entry to test the exact carrier functional independently of
+/// the higher-level labeled-coordinate transformation.
+pub fn evaluate_rho_outer_criterion_for_diagnostics<
+    F: CustomFamily + Clone + Send + Sync + 'static,
+>(
+    family: &F,
+    specs: &[ParameterBlockSpec],
+    options: &BlockwiseFitOptions,
+    rho: &Array1<f64>,
+    eval_mode: EvalMode,
+) -> Result<OuterCriterionDiagnostics, CustomFamilyError> {
+    let penalty_counts = validate_blockspecs(specs)?;
+    let eval = outerobjectivegradienthessian_internal(
+        family,
+        specs,
+        options,
+        &penalty_counts,
+        rho,
+        None,
+        gam_problem::RhoPrior::Flat,
+        eval_mode,
+    )
+    .map_err(|reason| CustomFamilyError::Optimization {
+        context: "evaluate_rho_outer_criterion_for_diagnostics",
+        reason,
+    })?;
+    materialize_outer_criterion_diagnostics(
+        eval,
+        "evaluate_rho_outer_criterion_for_diagnostics",
+    )
+}
+
 /// Diagnostic-only entry: evaluate the SAME labeled outer criterion and
-/// analytic gradient the production outer optimizer descends (identifiability
-/// canonicalization → pulled-back joint penalty specs → labeled layout →
-/// `outerobjectivegradienthessian_labeled` with a flat ρ-prior), at a
-/// caller-supplied outer coordinate. This exists so obj↔grad desync
-/// investigations (#2349) can FD-gate the exact production functional from an
-/// integration test; it performs a cold inner solve per call and is not a
-/// fitting API.
+/// analytic derivatives the production outer optimizer consumes
+/// (identifiability canonicalization → pulled-back joint penalty specs →
+/// labeled layout → `outerobjectivegradienthessian_labeled` with a flat
+/// ρ-prior), at a caller-supplied outer coordinate. This exists so
+/// objective↔derivative desynchronization investigations can FD-gate the exact
+/// production functional from the model crate that owns the family; it
+/// performs a cold inner solve per call and is not a fitting API.
 pub fn evaluate_labeled_outer_criterion_for_diagnostics<
     F: CustomFamily + Clone + Send + Sync + 'static,
 >(
@@ -2718,7 +3099,8 @@ pub fn evaluate_labeled_outer_criterion_for_diagnostics<
     raw_specs: &[ParameterBlockSpec],
     options: &BlockwiseFitOptions,
     rho: &Array1<f64>,
-) -> Result<(f64, Array1<f64>, bool), CustomFamilyError> {
+    eval_mode: EvalMode,
+) -> Result<OuterCriterionDiagnostics, CustomFamilyError> {
     let canonical =
         gam_identifiability::canonical::canonicalize_for_identifiability_with_operating_scalars(
             raw_specs,
@@ -2747,11 +3129,14 @@ pub fn evaluate_labeled_outer_criterion_for_diagnostics<
         rho,
         None,
         &gam_problem::RhoPrior::Flat,
-        EvalMode::ValueAndGradient,
+        eval_mode,
     )
     .map_err(|reason| CustomFamilyError::Optimization {
         context: "evaluate_labeled_outer_criterion_for_diagnostics",
         reason,
     })?;
-    Ok((eval.objective, eval.gradient, eval.inner_converged))
+    materialize_outer_criterion_diagnostics(
+        eval,
+        "evaluate_labeled_outer_criterion_for_diagnostics",
+    )
 }

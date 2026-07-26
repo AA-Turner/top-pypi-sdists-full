@@ -103,10 +103,8 @@ pub struct PirlsStepStreamInput<'a> {
 /// Where the host-input form uploads `weights` + `gradient` per Newton
 /// step, this form reads them straight from the
 /// [`crate::gpu_kernels::pirls_row::RowOutputDevBuffers`] populated by the
-/// device-side row-reweight kernel — no host round-trip for the row
-/// state. Only the penalty matrix still crosses the host boundary
-/// because the outer REML loop updates Sλ + LM ridge between PIRLS
-/// steps.
+/// device-side row-reweight kernel. The fixed penalty and linear shift are
+/// uploaded asynchronously; the Newton RHS correction itself stays on device.
 #[cfg(target_os = "linux")]
 pub struct PirlsStepStreamDeviceInput<'a, 'b> {
     /// Device-resident solver weights `w_solver_i` (length n). Read
@@ -123,12 +121,12 @@ pub struct PirlsStepStreamDeviceInput<'a, 'b> {
     /// Real model-objective ridge. Appears in the exported
     /// `penalized_hessian` that flows to EDF / REML curvature.
     pub objective_ridge: f64,
-    /// Current coefficient vector β (length p). Downloaded to the host to
-    /// form the Newton RHS correction S·β. Only p f64 values cross the
-    /// boundary (β is small), so the round-trip cost is negligible.
+    /// Current coefficient vector β (length p), consumed in place by the
+    /// device-side Newton RHS correction.
     pub beta_dev: &'b cudarc::driver::CudaSlice<f64>,
-    /// Linear shift vector (length p) in transformed coordinates, on host.
-    /// Added to Newton RHS so the solve targets Xᵀ·score − S·β + linear_shift.
+    /// Linear shift vector (length p) in transformed coordinates. It is
+    /// uploaded to coefficient scratch without synchronizing the stream, then
+    /// added by the same kernel that applies `−Sβ`.
     pub linear_shift: ArrayView1<'b, f64>,
 }
 
@@ -1246,6 +1244,12 @@ extern "C" __global__ void chol_logdet_col_major(
                 input.linear_shift.len()
             ));
         }
+        if input.beta_dev.len() != p {
+            return Err(format!(
+                "beta_dev length {} does not match p={p}",
+                input.beta_dev.len()
+            ));
+        }
         let n_i = to_i32(n)?;
         let p_i = to_i32(p)?;
 
@@ -1398,28 +1402,44 @@ extern "C" __global__ void chol_logdet_col_major(
                 .memcpy_dtod(&ws.beta_orig_dev, &mut ws.rhs_dev)
                 .map_err(|e| format!("d2d Qsᵀ·score→rhs inplace: {e}"))?;
         }
-        // Now download rhs and β (both p-vectors; small, bounded-cost round-trip).
-        // Apply rhs −= S·β and rhs += linear_shift on the host for correctness.
-        let rhs_raw = ws
-            .stream
-            .clone_dtoh(&ws.rhs_dev)
-            .map_err(|e| format!("download Qsᵀ·score inplace: {e}"))?;
-        let beta_raw = ws
-            .stream
-            .clone_dtoh(input.beta_dev)
-            .map_err(|e| format!("download beta inplace: {e}"))?;
-        let mut rhs_host = Array1::from_vec(rhs_raw);
-        let beta_host = Array1::from_vec(beta_raw);
-        // S·β in transformed coordinates (S = input.penalty_hessian in transformed frame).
-        let s_beta = input.penalty_hessian.dot(&beta_host);
-        rhs_host -= &s_beta;
-        rhs_host += &input.linear_shift;
+        // Keep the correction in coefficient space on the device. The prior
+        // implementation downloaded both rhs and beta, performed Sβ on the
+        // CPU, and uploaded rhs again on every iteration. Those small transfers
+        // still drain the entire CUDA stream and dominated the n=80k, p=44
+        // device-resident loop (#2430).
         ws.stream
             .memcpy_htod(
-                rhs_host.as_slice().ok_or("rhs_host not contiguous")?,
-                &mut ws.rhs_dev,
+                input
+                    .linear_shift
+                    .as_slice()
+                    .ok_or("linear_shift must be contiguous")?,
+                &mut ws.dir_orig_dev,
             )
-            .map_err(|e| format!("re-upload corrected rhs inplace: {e}"))?;
+            .map_err(|e| format!("upload linear shift inplace: {e}"))?;
+        let loop_module = PIRLS_LOOP_CACHE
+            .get_or_compile(&shared.ctx, "pirls_loop", PIRLS_LOOP_PTX_SOURCE)
+            .map_err(|e| format!("load rhs-correction module: {e}"))?;
+        let correction_func = loop_module
+            .load_function("correct_newton_rhs")
+            .map_err(|e| format!("load correct_newton_rhs: {e}"))?;
+        let cfg = LaunchConfig {
+            grid_dim: ((p as u32).div_ceil(256).max(1), 1, 1),
+            block_dim: (256, 1, 1),
+            shared_mem_bytes: 0,
+        };
+        let mut builder = ws.stream.launch_builder(&correction_func);
+        builder.arg(&mut ws.rhs_dev);
+        builder.arg(&ws.penalty_dev);
+        builder.arg(input.beta_dev);
+        builder.arg(&ws.dir_orig_dev);
+        builder.arg(&input.step_lm_lambda);
+        builder.arg(&p_i);
+        builder.arg(&mut ws.beta_orig_dev);
+        // SAFETY: correct_newton_rhs receives p-sized rhs/beta/shift vectors
+        // and a column-major p×p penalty matrix; the launch covers p threads
+        // and preserves `(S + lm I)β` in coefficient scratch for the selector.
+        unsafe { builder.launch(cfg) }
+            .map_err(|e| format!("correct Newton rhs on device: {e}"))?;
 
         // Step 4: Cholesky factor + solve in-place.
         potrf_in_place_reuse(
@@ -2009,6 +2029,117 @@ extern "C" __global__ void axpy_n(
     y[i] += alpha * x[i];
 }
 
+// Correct the projected score in place:
+//   rhs = Qs^T score - S beta + linear_shift.
+// `penalty_step` stores S + lm*I for the factorization, so subtracting its
+// product and adding lm*beta recovers the model penalty S exactly.
+extern "C" __global__ void correct_newton_rhs(
+    double* __restrict__ rhs,
+    const double* __restrict__ penalty_step,
+    const double* __restrict__ beta,
+    const double* __restrict__ linear_shift,
+    double lm,
+    int p,
+    double* __restrict__ penalty_beta
+) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= p) return;
+    double s_beta = 0.0;
+    for (int j = 0; j < p; ++j) {
+        s_beta += penalty_step[i + j * p] * beta[j];
+    }
+    penalty_beta[i] = s_beta;
+    rhs[i] += -s_beta + lm * beta[i] + linear_shift[i];
+}
+
+extern "C" __global__ void apply_penalty(
+    const double* __restrict__ penalty_step,
+    const double* __restrict__ vector,
+    int p,
+    double* __restrict__ output
+) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= p) return;
+    double value = 0.0;
+    for (int j = 0; j < p; ++j) {
+        value += penalty_step[i + j * p] * vector[j];
+    }
+    output[i] = value;
+}
+
+// Select the first acceptable member of the seven-point line-search ladder
+// without exporting beta, direction, objectives, or refusal summaries.
+//
+// output layout:
+//   [0] alpha, [1] accepted data deviance, [2] accepted penalized objective,
+//   [3] halving index, [4] ||direction||_inf,
+//   [5] first refusal row, [6] first refusal code, [7] all-refused flag.
+extern "C" __global__ void select_alpha(
+    const double* __restrict__ data_deviance,
+    const unsigned int* __restrict__ refusal_summary,
+    const double* __restrict__ beta,
+    const double* __restrict__ direction,
+    const double* __restrict__ penalty_beta_step,
+    const double* __restrict__ penalty_direction_step,
+    const double* __restrict__ linear_shift,
+    const double* __restrict__ direction_linf,
+    double previous_deviance,
+    double previous_objective,
+    double constant_shift,
+    double lm,
+    int p,
+    double* __restrict__ output
+) {
+    if (blockIdx.x != 0 || threadIdx.x != 0) return;
+    const double alphas[7] = {
+        1.0, 0.5, 0.25, 0.125, 0.0625, 0.03125, 0.015625
+    };
+
+    double penalty_beta = constant_shift;
+    double linear_coeff_half = 0.0;
+    double direction_penalty = 0.0;
+    for (int i = 0; i < p; ++i) {
+        double s_beta = penalty_beta_step[i] - lm * beta[i];
+        double s_direction = penalty_direction_step[i] - lm * direction[i];
+        penalty_beta += beta[i] * s_beta - 2.0 * beta[i] * linear_shift[i];
+        linear_coeff_half += direction[i] * (s_beta - linear_shift[i]);
+        direction_penalty += direction[i] * s_direction;
+    }
+
+    output[0] = 0.0;
+    output[1] = previous_deviance;
+    output[2] = previous_objective;
+    output[3] = 0.0;
+    output[4] = direction_linf[0];
+    output[5] = 4294967295.0;
+    output[6] = 0.0;
+    output[7] = 1.0;
+
+    for (int k = 0; k < 7; ++k) {
+        unsigned int row = refusal_summary[k];
+        unsigned int code = refusal_summary[7 + k];
+        if (k == 0 && row != 0xffffffffu) {
+            output[5] = (double)row;
+            output[6] = (double)code;
+        }
+        if (row == 0xffffffffu) {
+            output[7] = 0.0;
+            double alpha = alphas[k];
+            double objective = data_deviance[k]
+                + penalty_beta
+                + 2.0 * alpha * linear_coeff_half
+                + alpha * alpha * direction_penalty;
+            if (isfinite(objective) && objective <= previous_objective) {
+                output[0] = alpha;
+                output[1] = data_deviance[k];
+                output[2] = objective;
+                output[3] = (double)k;
+                return;
+            }
+        }
+    }
+}
+
 extern "C" __global__ void deviance_sum(
     const double* __restrict__ d,
     int n,
@@ -2149,6 +2280,8 @@ extern "C" __global__ void status_first_ladder(
     /// - `row_final`: five numerical fields + status, written once at convergence.
     pub struct PirlsLoopWorkspace {
         pub beta_dev: CudaSlice<f64>,
+        /// Fixed shifted-quadratic linear term, uploaded once per loop.
+        pub linear_shift_dev: CudaSlice<f64>,
         pub eta_dev: CudaSlice<f64>,
         /// Solve-row buffers: `grad_eta`, `w_solver`, `deviance`, `status`.
         pub row_solve: crate::gpu_kernels::pirls_row::SolveRowBuffers,
@@ -2157,8 +2290,14 @@ extern "C" __global__ void status_first_ladder(
         /// Full production final-row buffers, written once at convergence.
         pub row_final: crate::gpu_kernels::pirls_row::RowOutputDevBuffers,
         pub direction_dev: CudaSlice<f64>,
+        /// Parallel `(S + lm I)δ` contraction consumed by `select_alpha`.
+        pub penalty_direction_dev: CudaSlice<f64>,
         pub xd_dev: CudaSlice<f64>,
         pub scalar_dev: CudaSlice<f64>,
+        /// Compact alpha-selection record, written and selected entirely on
+        /// device, then downloaded in one synchronization per Newton step.
+        /// Layout is documented by `select_alpha`.
+        pub alpha_selection_dev: CudaSlice<f64>,
         /// Fourteen u32 scratch slots: row/code pairs for one row surface or
         /// all seven alpha-ladder candidates.
         pub status_u32_dev: CudaSlice<u32>,
@@ -2180,6 +2319,7 @@ extern "C" __global__ void status_first_ladder(
             };
             Ok(Self {
                 beta_dev: alloc_f64("beta", p)?,
+                linear_shift_dev: alloc_f64("linear shift", p)?,
                 eta_dev: alloc_f64("eta", n)?,
                 row_solve: crate::gpu_kernels::pirls_row::SolveRowBuffers::allocate(stream, n)
                     .map_err(|e| format!("pirls loop alloc row_solve: {e}"))?,
@@ -2190,8 +2330,10 @@ extern "C" __global__ void status_first_ladder(
                 row_final: crate::gpu_kernels::pirls_row::RowOutputDevBuffers::allocate(stream, n)
                     .map_err(|e| format!("pirls loop alloc row_final: {e}"))?,
                 direction_dev: alloc_f64("direction", p)?,
+                penalty_direction_dev: alloc_f64("penalty direction", p)?,
                 xd_dev: alloc_f64("xd", n)?,
                 scalar_dev: alloc_f64("scalar", 1)?,
+                alpha_selection_dev: alloc_f64("alpha selection", 8)?,
                 status_u32_dev: stream
                     .alloc_zeros::<u32>(14)
                     .map_err(|e| format!("pirls loop alloc status_u32: {e}"))?,
@@ -2398,9 +2540,10 @@ extern "C" __global__ void status_first_ladder(
         pub max_abs_eta: f64,
     }
 
-    /// Full device-resident PIRLS loop. Only three scalar (1 f64)
-    /// downloads per Newton iter (deviance, direction-L∞, candidate
-    /// deviance per α). β + final H downloaded once at exit.
+    /// Full device-resident PIRLS loop. Candidate deviances, refusal summaries,
+    /// direction, beta, and shifted-penalty algebra stay on device; one compact
+    /// alpha decision record synchronizes the host per Newton iteration. Beta
+    /// and the final Hessian are downloaded once at exit.
     pub(super) fn pirls_loop(
         shared: &PirlsGpuSharedData,
         ws: &mut SigmaPirlsGpuWorkspace,
@@ -2460,6 +2603,14 @@ extern "C" __global__ void status_first_ladder(
                 &mut loop_ws.beta_dev,
             )
             .map_err(|e| format!("upload beta0: {e}"))?;
+        ws.stream
+            .memcpy_htod(
+                linear_shift
+                    .as_slice()
+                    .ok_or("linear_shift not contiguous")?,
+                &mut loop_ws.linear_shift_dev,
+            )
+            .map_err(|e| format!("upload linear_shift: {e}"))?;
 
         let backend = crate::gpu_kernels::pirls_row::PirlsRowBackend::probe()
             .map_err(|e| format!("pirls_row backend: {e}"))?;
@@ -2481,6 +2632,12 @@ extern "C" __global__ void status_first_ladder(
         let status_first_ladder_func = loop_module
             .load_function("status_first_ladder")
             .map_err(|e| format!("load status_first_ladder: {e}"))?;
+        let select_alpha_func = loop_module
+            .load_function("select_alpha")
+            .map_err(|e| format!("load select_alpha: {e}"))?;
+        let apply_penalty_func = loop_module
+            .load_function("apply_penalty")
+            .map_err(|e| format!("load apply_penalty: {e}"))?;
 
         // beta_orig = Qs · beta  (transforms from transformed to original coords).
         // For identity Qs, this is a copy; always goes through ws.beta_orig_dev.
@@ -2549,20 +2706,13 @@ extern "C" __global__ void status_first_ladder(
         let mut last_logdet = 0.0_f64;
         let mut converged = false;
 
-        // Host-side mirror of `beta_dev`. Maintained in lock-step with
-        // every accepted Newton step so we can evaluate the
-        // shifted-quadratic penalty `βᵀSβ − 2βᵀlinear_shift +
-        // constant_shift` on the host without an extra `β` DtoH per
-        // iteration. The initial state is `beta0_host` verbatim.
-        let mut beta_host: Array1<f64> = beta0_host.to_owned();
-
         // Initial *penalized* objective = data-deviance(β₀) + shifted
         // quadratic(β₀). This is the value the line search and
         // convergence test compare candidates against — matches the CPU
         // oracle's `penalized_objective` in `CandidateScreen`.
-        let s_beta0 = penalty_hessian.dot(&beta_host);
+        let s_beta0 = penalty_hessian.dot(&beta0_host);
         let penalty_init =
-            beta_host.dot(&s_beta0) - 2.0 * beta_host.dot(&linear_shift) + constant_shift;
+            beta0_host.dot(&s_beta0) - 2.0 * beta0_host.dot(&linear_shift) + constant_shift;
         let mut prev_objective = prev_deviance + penalty_init;
 
         // Diagnostic scalars surfaced on the outcome so the dispatch
@@ -2599,7 +2749,7 @@ extern "C" __global__ void status_first_ladder(
                 .memcpy_dtod(&ws.rhs_dev, &mut loop_ws.direction_dev)
                 .map_err(|e| format!("direction d2d copy it={it}: {e}"))?;
 
-            let dir_linf = reduce_scalar(
+            launch_scalar_reduction(
                 &ws.stream,
                 &linf_func,
                 &loop_ws.direction_dev,
@@ -2630,10 +2780,10 @@ extern "C" __global__ void status_first_ladder(
             // One kernel launch evaluates eta + alpha_k*xdelta for all k in
             // ALPHA_LADDER simultaneously, atomically accumulating per-row
             // deviance into objective_dev[k] and writing exact per-row refusal
-            // codes. A deterministic device reduction returns 7 row/code pairs;
-            // a scalar-sized DtoH selects the
-            // accepted step -- no per-alpha kernel launch, no full row-output
-            // write, no per-alpha host scalar sync.
+            // codes. A deterministic device reduction returns seven row/code
+            // pairs to device memory; `select_alpha` combines those with the
+            // exact shifted-quadratic penalty and direction norm. Only its
+            // compact decision record crosses to the host.
             loop_ws
                 .alpha_ladder
                 .zero(&ws.stream)
@@ -2652,67 +2802,67 @@ extern "C" __global__ void status_first_ladder(
                 &mut loop_ws.alpha_ladder,
             )
             .map_err(|e| format!("alpha-ladder it={it}: {e}"))?;
-            let obj_host: Vec<f64> = ws
-                .stream
-                .clone_dtoh(&loop_ws.alpha_ladder.objective_dev)
-                .map_err(|e| format!("ladder dtoh obj it={it}: {e}"))?;
-            let candidate_refusals = reduce_ladder_status_first(
+            launch_ladder_status_first_reduction(
                 &ws.stream,
                 &status_first_ladder_func,
                 &loop_ws.alpha_ladder.status_dev,
                 n,
                 &mut loop_ws.status_u32_dev,
             )?;
-            // Download the direction (p << n; one DtoH per iteration to
-            // compute the host-side penalty term and maintain beta_host).
-            let direction_host: Vec<f64> = ws
+            let p_i = to_i32(p)?;
+            let contraction_cfg = LaunchConfig {
+                grid_dim: ((p as u32).div_ceil(256).max(1), 1, 1),
+                block_dim: (256, 1, 1),
+                shared_mem_bytes: 0,
+            };
+            let mut contraction_builder = ws.stream.launch_builder(&apply_penalty_func);
+            contraction_builder.arg(&ws.penalty_dev);
+            contraction_builder.arg(&loop_ws.direction_dev);
+            contraction_builder.arg(&p_i);
+            contraction_builder.arg(&mut loop_ws.penalty_direction_dev);
+            // SAFETY: apply_penalty covers p output rows and reads a
+            // column-major p×p matrix plus one p-vector.
+            unsafe { contraction_builder.launch(contraction_cfg) }
+                .map_err(|e| format!("apply penalty to direction it={it}: {e}"))?;
+            let selection_cfg = LaunchConfig {
+                grid_dim: (1, 1, 1),
+                block_dim: (1, 1, 1),
+                shared_mem_bytes: 0,
+            };
+            let mut builder = ws.stream.launch_builder(&select_alpha_func);
+            builder.arg(&loop_ws.alpha_ladder.objective_dev);
+            builder.arg(&loop_ws.status_u32_dev);
+            builder.arg(&loop_ws.beta_dev);
+            builder.arg(&loop_ws.direction_dev);
+            builder.arg(&ws.beta_orig_dev);
+            builder.arg(&loop_ws.penalty_direction_dev);
+            builder.arg(&loop_ws.linear_shift_dev);
+            builder.arg(&loop_ws.scalar_dev);
+            builder.arg(&prev_deviance);
+            builder.arg(&prev_objective);
+            builder.arg(&constant_shift);
+            builder.arg(&lm_ridge);
+            builder.arg(&p_i);
+            builder.arg(&mut loop_ws.alpha_selection_dev);
+            // SAFETY: select_alpha is a single-thread coefficient-space
+            // reduction over p-sized vectors and the p×p penalty, with seven
+            // ladder objectives and fourteen refusal-summary inputs.
+            unsafe { builder.launch(selection_cfg) }
+                .map_err(|e| format!("select alpha on device it={it}: {e}"))?;
+            let selection = ws
                 .stream
-                .clone_dtoh(&loop_ws.direction_dev)
-                .map_err(|e| format!("dtoh direction it={it}: {e}"))?;
-
-            // Penalized objective for each candidate step:
-            //   obj_pen[k] = deviance(eta + alpha_k * xd)
-            //               + (beta + alpha_k * d)^T S (beta + alpha_k * d)
-            //               - 2 (beta + alpha_k * d) . linear_shift
-            //               + constant_shift
-            // The quadratic in alpha expands as:
-            //   penalty(beta) + alpha * [2 d^T (S beta - linear_shift)]
-            //                  + alpha^2 * d^T S d
-            let dir_view = ndarray::aview1(&direction_host);
-            let sd = penalty_hessian.dot(&dir_view);
-            let s_beta = penalty_hessian.dot(&beta_host);
-            let dtsd = dir_view.dot(&sd);
-            let linear_coeff = 2.0 * dir_view.dot(&(&s_beta - &linear_shift));
-            let penalty_beta =
-                beta_host.dot(&s_beta) - 2.0 * beta_host.dot(&linear_shift) + constant_shift;
-
-            let mut alpha = 0.0_f64;
-            let mut accepted_dev = prev_deviance;
-            let mut accepted_objective = prev_objective;
-            let mut halving_count: usize = 0;
-            for (k, &dev_k) in obj_host.iter().enumerate() {
-                let a = crate::gpu_kernels::pirls_row::ALPHA_LADDER[k];
-                let pen_k = penalty_beta + a * linear_coeff + a * a * dtsd;
-                let obj_k = dev_k + pen_k;
-                // Match the CPU oracle's acceptance test (#263):
-                // `<= prev_objective` is the `CandidateScreen`
-                // criterion — a step that holds the penalized
-                // objective steady (e.g. an exact zero-gradient
-                // direction) must still be accepted so the line
-                // search does not spuriously exhaust at a
-                // stationary point.
-                if candidate_refusals[k].is_none() && obj_k.is_finite() && obj_k <= prev_objective {
-                    alpha = a;
-                    accepted_dev = dev_k;
-                    accepted_objective = obj_k;
-                    halving_count = k;
-                    break;
-                }
-            }
+                .clone_dtoh(&loop_ws.alpha_selection_dev)
+                .map_err(|e| format!("download alpha selection it={it}: {e}"))?;
+            let alpha = selection[0];
+            let accepted_dev = selection[1];
+            let accepted_objective = selection[2];
+            let halving_count = selection[3] as usize;
+            let dir_linf = selection[4];
+            let all_candidates_refused = selection[7] != 0.0;
             if alpha == 0.0 {
-                if candidate_refusals.iter().all(Option::is_some) {
-                    let (row, code) = candidate_refusals[0]
-                        .expect("all alpha-ladder candidates were certified as refusals");
+                if all_candidates_refused {
+                    let row = selection[5] as usize;
+                    let code = selection[6] as u32;
                     let eta_host = ws
                         .stream
                         .clone_dtoh(&loop_ws.eta_dev)
@@ -2784,10 +2934,6 @@ extern "C" __global__ void status_first_ladder(
                 &mut loop_ws.eta_dev,
                 n,
             )?;
-            // Maintain host-side beta mirror: beta_host += alpha * direction.
-            for (b, &d) in beta_host.iter_mut().zip(direction_host.iter()) {
-                *b += alpha * d;
-            }
             // Refresh the 4-output solve-row buffers for the next Newton iter.
             crate::gpu_kernels::pirls_row::launch_solve_row_on_stream(
                 backend,
@@ -3237,14 +3383,14 @@ extern "C" __global__ void status_first_ladder(
             .map_err(|e| format!("axpy launch: {e}"))
     }
 
-    fn reduce_scalar(
+    fn launch_scalar_reduction(
         stream: &std::sync::Arc<cudarc::driver::CudaStream>,
         func: &cudarc::driver::CudaFunction,
         src: &CudaSlice<f64>,
         len: usize,
         scalar_dev: &mut CudaSlice<f64>,
         label: &'static str,
-    ) -> Result<f64, String> {
+    ) -> Result<(), String> {
         const THREADS: u32 = 1024;
         let len_i = to_i32(len)?;
         let cfg = LaunchConfig {
@@ -3258,8 +3404,20 @@ extern "C" __global__ void status_first_ladder(
         builder.arg(&mut *scalar_dev);
         // SAFETY: kernel signature (const double*, int, double*). The
         // `&mut *scalar_dev` reborrow keeps `scalar_dev` available for the
-        // download below.
+        // caller after the asynchronous launch.
         unsafe { builder.launch(cfg) }.map_err(|e| format!("{label} reduce launch: {e}"))?;
+        Ok(())
+    }
+
+    fn reduce_scalar(
+        stream: &std::sync::Arc<cudarc::driver::CudaStream>,
+        func: &cudarc::driver::CudaFunction,
+        src: &CudaSlice<f64>,
+        len: usize,
+        scalar_dev: &mut CudaSlice<f64>,
+        label: &'static str,
+    ) -> Result<f64, String> {
+        launch_scalar_reduction(stream, func, src, len, scalar_dev, label)?;
         let host = stream
             .clone_dtoh(scalar_dev)
             .map_err(|e| format!("download {label}: {e}"))?;
@@ -3300,15 +3458,15 @@ extern "C" __global__ void status_first_ladder(
         }
     }
 
-    /// Reduce the alpha-major `[7*n]` status matrix in one seven-block launch.
-    fn reduce_ladder_status_first(
+    /// Reduce the alpha-major `[7*n]` status matrix in one seven-block launch,
+    /// leaving all summaries device-resident for the alpha selector.
+    fn launch_ladder_status_first_reduction(
         stream: &std::sync::Arc<cudarc::driver::CudaStream>,
         func: &cudarc::driver::CudaFunction,
         src: &CudaSlice<u32>,
         n: usize,
         status_dev: &mut CudaSlice<u32>,
-    ) -> Result<[Option<(usize, u32)>; crate::gpu_kernels::pirls_row::ALPHA_LADDER_LEN], String>
-    {
+    ) -> Result<(), String> {
         const THREADS: u32 = 1024;
         let n_i = to_i32(n)?;
         let cfg = LaunchConfig {
@@ -3324,19 +3482,7 @@ extern "C" __global__ void status_first_ladder(
         // status_dev owns 14 slots (seven rows followed by seven codes).
         unsafe { builder.launch(cfg) }
             .map_err(|e| format!("alpha-ladder status reduction launch: {e}"))?;
-        let host = stream
-            .clone_dtoh(status_dev)
-            .map_err(|e| format!("download alpha-ladder status summary: {e}"))?;
-        let mut result = [None; crate::gpu_kernels::pirls_row::ALPHA_LADDER_LEN];
-        for k in 0..crate::gpu_kernels::pirls_row::ALPHA_LADDER_LEN {
-            if host[k] != u32::MAX {
-                result[k] = Some((
-                    host[k] as usize,
-                    host[crate::gpu_kernels::pirls_row::ALPHA_LADDER_LEN + k],
-                ));
-            }
-        }
-        Ok(result)
+        Ok(())
     }
 
     fn replay_row_refusal(
@@ -3666,9 +3812,9 @@ pub fn solve_pirls_step_on_stream_device(
 }
 
 /// Stage 3.3 device-resident PIRLS loop driver. See
-/// [`cuda::pirls_loop`] for the full per-iter contract. Only a few
-/// 1-f64 scalars cross the host boundary per Newton iteration; β and
-/// the final penalised Hessian are downloaded once at loop exit.
+/// [`cuda::pirls_loop`] for the full per-iter contract. One compact
+/// device-selected alpha record crosses the host boundary per Newton iteration;
+/// β and the final penalised Hessian are downloaded once at loop exit.
 ///
 /// `step_lm_lambda` is the Levenberg–Marquardt damping applied to each
 /// Newton solve only; it never enters the exported `penalized_hessian`,
@@ -3909,12 +4055,130 @@ mod stream_device_parity_tests {
             .is_some()
     }
 
+    /// #2424 device-free half, shared by every test in this module: on a host
+    /// with no CUDA runtime the device-resident seam must REFUSE, loudly and
+    /// by returning `Err`. `upload_shared_pirls_gpu` routes through
+    /// `GpuRuntime::require()`, so the refusal carries the device-absence
+    /// reason — it never fabricates device state and never panics. This is the
+    /// #1551 class (a device entry that quietly produces *something* on a
+    /// device-free host), and it is exactly what a `return`-before-the-first-
+    /// assertion skip could never see.
+    fn assert_device_seam_declines_without_cuda() {
+        let x = arr2(&[[1.0, 0.0], [0.0, 1.0]]);
+        let y = ndarray::Array1::<f64>::zeros(2);
+        let prior_w = ndarray::Array1::<f64>::ones(2);
+        let offset = ndarray::Array1::<f64>::zeros(2);
+        let refusal =
+            match upload_shared_pirls_gpu(x.view(), y.view(), prior_w.view(), offset.view()) {
+                Ok(_) => panic!(
+                    "no CUDA runtime on this host, yet the device-resident PIRLS upload \
+                     returned Ok — the seam fabricated device state (#1551 class)"
+                ),
+                Err(reason) => reason,
+            };
+        assert!(
+            refusal.contains("cannot upload shared GPU PIRLS data"),
+            "the device-free refusal must name the device-absence reason, got: {refusal}"
+        );
+    }
+
+    /// `XᵀWX + S` by an explicit triple loop. Independent of the cuBLAS /
+    /// faer crossproduct the production path runs, so it pins the ANSWER
+    /// instead of replaying the algorithm.
+    fn xtwx_plus_penalty(
+        x: ndarray::ArrayView2<'_, f64>,
+        w: ndarray::ArrayView1<'_, f64>,
+        s: ndarray::ArrayView2<'_, f64>,
+    ) -> ndarray::Array2<f64> {
+        let (n, p) = x.dim();
+        let mut h = ndarray::Array2::<f64>::zeros((p, p));
+        for k in 0..n {
+            for i in 0..p {
+                for j in 0..p {
+                    h[[i, j]] += w[k] * x[[k, i]] * x[[k, j]];
+                }
+            }
+        }
+        h += &s;
+        h
+    }
+
+    /// `ln det(A)` for a 3×3 matrix via the cofactor expansion — no
+    /// factorization at all, so it is independent of the Cholesky whose
+    /// diagonal the production path sums to report `logdet`.
+    fn logdet_3x3(a: ndarray::ArrayView2<'_, f64>) -> f64 {
+        let det = a[[0, 0]] * (a[[1, 1]] * a[[2, 2]] - a[[1, 2]] * a[[2, 1]])
+            - a[[0, 1]] * (a[[1, 0]] * a[[2, 2]] - a[[1, 2]] * a[[2, 0]])
+            + a[[0, 2]] * (a[[1, 0]] * a[[2, 1]] - a[[1, 1]] * a[[2, 0]]);
+        det.ln()
+    }
+
+    /// #2424: assert the defining properties of one PIRLS Newton step against
+    /// an independent host oracle — `H = XᵀWX + S`, the Newton residual
+    /// `(H + λ_lm·I)·δ = rhs`, and `logdet = ln det(H + λ_lm·I)`. Runs on
+    /// every host: on a CUDA box `solve_pirls_step_gpu` executes the device
+    /// step, on a device-free box the documented CPU fallback, and both owe
+    /// the same triple.
+    fn assert_one_shot_step_matches_host_oracle(
+        x: ndarray::ArrayView2<'_, f64>,
+        weights: ndarray::ArrayView1<'_, f64>,
+        penalty: ndarray::ArrayView2<'_, f64>,
+        gradient: ndarray::ArrayView1<'_, f64>,
+        step_lm_lambda: f64,
+    ) -> PirlsGpuStep {
+        let p = x.ncols();
+        assert_eq!(p, 3, "the closed-form 3×3 logdet oracle fixes p = 3");
+        let step = solve_pirls_step_gpu(PirlsGpuInput {
+            x,
+            weights,
+            penalty_hessian: penalty,
+            gradient,
+            step_lm_lambda,
+            objective_ridge: 0.0,
+        })
+        .expect("the one-shot PIRLS step entry must succeed on every host");
+
+        let h_ref = xtwx_plus_penalty(x, weights, penalty);
+        let mut max_h = 0.0_f64;
+        for i in 0..p {
+            for j in 0..p {
+                max_h = max_h.max((step.penalized_hessian[[i, j]] - h_ref[[i, j]]).abs());
+            }
+        }
+        assert!(
+            max_h <= 1e-12,
+            "exported penalized Hessian must equal XᵀWX + S: max |Δ| = {max_h:.3e}"
+        );
+
+        let mut h_step = h_ref;
+        for i in 0..p {
+            h_step[[i, i]] += step_lm_lambda;
+        }
+        let residual = h_step.dot(&step.direction) - &gradient.to_owned();
+        let max_residual = residual.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
+        assert!(
+            max_residual <= 1e-11,
+            "Newton direction must solve (H + λ_lm·I)·δ = rhs: max |residual| = \
+             {max_residual:.3e}"
+        );
+
+        let logdet_ref = logdet_3x3(h_step.view());
+        assert!(
+            (step.logdet - logdet_ref).abs() <= 1e-11,
+            "logdet must equal ln det(H + λ_lm·I): got {} vs cofactor oracle {logdet_ref}",
+            step.logdet
+        );
+        step
+    }
+
+    /// Stage 3.2 device-input parity. The device-input-vs-host-input half is
+    /// genuinely device-only and runs in the CUDA branch; the step's defining
+    /// properties are asserted against a host oracle on every host, and a
+    /// device-free host additionally owes the decline contract (#2424 — this
+    /// test used to `return` before its first assertion on a CPU-only runner
+    /// and report a pass).
     #[test]
     fn device_input_step_matches_host_input_step_on_v100() {
-        if !device_available() {
-            eprintln!("[stream_device_parity] no CUDA runtime — skipping");
-            return;
-        }
         let x = arr2(&[
             [1.0, 0.5, 0.1],
             [0.2, -0.3, 1.4],
@@ -3930,6 +4194,25 @@ mod stream_device_parity_tests {
         let gradient: ndarray::Array1<f64> = x.t().dot(&g_eta);
         let penalty = arr2(&[[0.4, 0.0, 0.0], [0.0, 0.9, 0.0], [0.0, 0.0, 1.2]]);
         let lm_ridge = 0.1;
+
+        // EVERY HOST: the production one-shot step owes the host oracle its
+        // (H, direction, logdet) triple — the device path on a CUDA box, the
+        // documented CPU fallback otherwise.
+        drop(assert_one_shot_step_matches_host_oracle(
+            x.view(),
+            weights.view(),
+            penalty.view(),
+            gradient.view(),
+            lm_ridge,
+        ));
+
+        if !device_available() {
+            // Device-free host: the device-resident seam must decline loudly.
+            // The device-input form below has no host counterpart to compare
+            // against, so it is the CUDA branch's business.
+            assert_device_seam_declines_without_cuda();
+            return;
+        }
 
         let n = x.nrows();
         let y_dummy = ndarray::Array1::<f64>::zeros(n);
@@ -4013,27 +4296,20 @@ mod stream_device_parity_tests {
         }
     }
 
-    /// V100 hill-climb gate: at large-scale (n=80k, p=44,
-    /// BernoulliLogit/Fisher) the device-resident loop must be ≥10×
-    /// faster than the CPU reference. Marked `#[ignore]` so it only
-    /// runs when explicitly invoked (`cargo test -- --ignored
-    /// hill_climb_loop`); the CI/mac path can't host the GPU work
-    /// anyway. Uses CPU `row_reweight_cpu` + faer Cholesky as the
-    /// PIRLS reference loop to avoid dragging in `solver::pirls`'s
-    /// 13k-line state machine.
-    #[test]
-    fn hill_climb_loop_beats_cpu_10x_on_large_scale_logit() {
-        use crate::gpu_kernels::pirls_row::{
-            CurvatureMode, PirlsRowFamily, RowInput, row_reweight_cpu,
-        };
-        use std::time::Instant;
-        if !device_available() {
-            eprintln!("[hill_climb] no CUDA runtime — skipping");
-            return;
-        }
-        let n = 80_000_usize;
-        let p = 44_usize;
-        // Synthesise X (col-major dense) and y from a known β.
+    /// Deterministic BernoulliLogit hill-climb fixture: `X` from a fixed sine
+    /// pattern, `y` a deterministic Bernoulli draw from the true `β`, unit
+    /// prior weights, and a `1e-3` ridge penalty. Shared by the large-scale
+    /// device timing and the device-free baseline-convergence check so both
+    /// halves grade the same problem.
+    fn logit_hill_climb_fixture(
+        n: usize,
+        p: usize,
+    ) -> (
+        ndarray::Array2<f64>,
+        ndarray::Array1<f64>,
+        ndarray::Array1<f64>,
+        ndarray::Array2<f64>,
+    ) {
         let beta_true: ndarray::Array1<f64> = ndarray::Array1::from_iter(
             (0..p).map(|j| 0.05 * ((j as f64) - 0.5 * p as f64) / p as f64),
         );
@@ -4058,47 +4334,34 @@ mod stream_device_parity_tests {
             .collect();
         let prior_w = ndarray::Array1::<f64>::ones(n);
         let penalty = ndarray::Array2::<f64>::eye(p) * 1e-3;
-        let beta0 = ndarray::Array1::<f64>::zeros(p);
+        (x, y, prior_w, penalty)
+    }
 
-        // GPU timing.
-        let offset_bench = ndarray::Array1::<f64>::zeros(n);
-        let shared =
-            upload_shared_pirls_gpu(x.view(), y.view(), prior_w.view(), offset_bench.view())
-                .expect("upload shared design");
-        let mut ws = allocate_sigma_pirls_workspace(&shared).expect("alloc ws");
-        let mut loop_ws = allocate_pirls_loop_workspace(&shared, &ws).expect("alloc loop_ws");
-        let t0 = Instant::now();
-        // No prior-mean shift in this benchmark — penalty = ½βᵀSβ
-        // with `s_transformed = penalty`, `linear_shift = 0`,
-        // `constant_shift = 0`.
-        let linear_shift_zero = ndarray::Array1::<f64>::zeros(p);
-        drop(
-            pirls_loop_on_stream(
-                &shared,
-                &mut ws,
-                &mut loop_ws,
-                PirlsRowFamily::BernoulliLogit,
-                CurvatureMode::Fisher,
-                PirlsLoopLikelihoodScale::non_gamma(),
-                beta0.view(),
-                penalty.view(),
-                linear_shift_zero.view(),
-                0.0,
-                0.0,
-                0.0,
-                30,
-                1e-6,
-                None,
-            )
-            .expect("pirls loop"),
-        );
-        let gpu_secs = t0.elapsed().as_secs_f64();
-
-        // CPU reference: same PIRLS structure (eta = Xβ; row reweight;
-        // XᵀWX + Sλ; faer Cholesky; β update with α=1).
-        let t1 = Instant::now();
+    /// CPU PIRLS reference loop: `η = Xβ`; per-row reweight; `XᵀWX + Sλ`;
+    /// faer Cholesky; penalized Fisher-scoring update `β += H⁻¹(Xᵀg − Sβ)`
+    /// with `α = 1`. Same structure as the device-resident loop without
+    /// dragging in `solver::pirls`'s 13k-line state machine.
+    ///
+    /// #2424: lifted out of the hill-climb gate so the device-free half can
+    /// assert this BASELINE converges. A diverging baseline makes the
+    /// wall-clock ratio meaningless, and that is not hypothetical — the
+    /// original reference subtracted the step and dropped the `−Sβ` term, a
+    /// divergent iteration (η reached ~−1e5 by iteration 30) that no CPU-only
+    /// run ever executed because the gate returned before its first assertion.
+    fn cpu_pirls_reference_loop(
+        x: ndarray::ArrayView2<'_, f64>,
+        y: ndarray::ArrayView1<'_, f64>,
+        prior_w: ndarray::ArrayView1<'_, f64>,
+        penalty: ndarray::ArrayView2<'_, f64>,
+        iterations: usize,
+    ) -> ndarray::Array1<f64> {
+        use crate::gpu_kernels::pirls_row::{
+            CurvatureMode, PirlsRowFamily, RowInput, row_reweight_cpu,
+        };
+        use gam_linalg::faer_ndarray::FaerCholesky;
+        let (n, p) = x.dim();
         let mut beta = ndarray::Array1::<f64>::zeros(p);
-        for _ in 0..30 {
+        for _ in 0..iterations {
             let eta: ndarray::Array1<f64> = x.dot(&beta);
             let mut w = ndarray::Array1::<f64>::zeros(n);
             let mut g = ndarray::Array1::<f64>::zeros(n);
@@ -4117,7 +4380,7 @@ mod stream_device_parity_tests {
                 w[i] = out.w_solver;
                 g[i] = out.grad_eta;
             }
-            let mut wx_full = x.clone();
+            let mut wx_full = x.to_owned();
             for j in 0..p {
                 for i in 0..n {
                     wx_full[[i, j]] *= w[i];
@@ -4126,12 +4389,8 @@ mod stream_device_parity_tests {
             let h = x.t().dot(&wx_full) + &penalty;
             // Penalized Fisher-scoring step: `grad_eta` is the per-row
             // LIKELIHOOD score `w·(y−μ)` (ascent direction), so the penalized
-            // objective's ascent step is `β += H⁻¹(Xᵀg − Sβ)`. The original
-            // reference subtracted the step and dropped the `−Sβ` term — a
-            // divergent iteration (η reached ~−1e5 by iteration 30) that no
-            // CPU-only run ever executed because this test skips without CUDA.
+            // objective's ascent step is `β += H⁻¹(Xᵀg − Sβ)`.
             let rhs = x.t().dot(&g) - penalty.dot(&beta);
-            use gam_linalg::faer_ndarray::FaerCholesky;
             let chol = h
                 .cholesky(faer::Side::Lower)
                 .expect("CPU PIRLS reference Cholesky");
@@ -4140,12 +4399,221 @@ mod stream_device_parity_tests {
                 beta[i] += d[i];
             }
         }
+        beta
+    }
+
+    /// `‖Xᵀ·score(β) − S·β‖∞` — the penalized score, exactly zero at the
+    /// penalized MLE. This is the convergence certificate for
+    /// [`cpu_pirls_reference_loop`].
+    fn penalized_score_inf_norm(
+        x: ndarray::ArrayView2<'_, f64>,
+        y: ndarray::ArrayView1<'_, f64>,
+        prior_w: ndarray::ArrayView1<'_, f64>,
+        penalty: ndarray::ArrayView2<'_, f64>,
+        beta: ndarray::ArrayView1<'_, f64>,
+    ) -> f64 {
+        use crate::gpu_kernels::pirls_row::{
+            CurvatureMode, PirlsRowFamily, RowInput, row_reweight_cpu,
+        };
+        let eta: ndarray::Array1<f64> = x.dot(&beta);
+        let mut g = ndarray::Array1::<f64>::zeros(x.nrows());
+        for i in 0..x.nrows() {
+            g[i] = row_reweight_cpu(
+                PirlsRowFamily::BernoulliLogit,
+                CurvatureMode::Fisher,
+                RowInput {
+                    eta: eta[i],
+                    y: y[i],
+                    prior_weight: prior_w[i],
+                },
+                1.0,
+            )
+            .expect("penalized-score row must be representable")
+            .grad_eta;
+        }
+        let score = x.t().dot(&g) - penalty.dot(&beta.to_owned());
+        score.iter().fold(0.0_f64, |m, v| m.max(v.abs()))
+    }
+
+    /// Hill-climb gate: at large scale (n=80k, p=44, BernoulliLogit/Fisher)
+    /// the device-resident loop must clearly beat the same box's CPU
+    /// reference. The wall-clock ratio is genuinely device-only, so on a
+    /// device-free host this test instead grades what IS checkable there: the
+    /// CPU baseline of the ratio converges to the penalized MLE, and the
+    /// device-resident seam declines loudly (#2424 — the gate used to return
+    /// before its first assertion and report a pass on every CI runner).
+    #[test]
+    fn hill_climb_loop_declines_without_device_else_beats_cpu_on_large_scale_logit() {
+        use std::time::Instant;
+        let p = 44_usize;
+
+        // EVERY HOST: the CPU baseline must be a CONVERGED PIRLS loop, else
+        // the ratio below grades a divergent iteration. Small n keeps this
+        // affordable on a CPU-only runner; the large-scale baseline gets the
+        // same certificate in the device branch.
+        {
+            let (x_small, y_small, prior_w_small, penalty_small) =
+                logit_hill_climb_fixture(4_000, p);
+            let beta_small = cpu_pirls_reference_loop(
+                x_small.view(),
+                y_small.view(),
+                prior_w_small.view(),
+                penalty_small.view(),
+                30,
+            );
+            assert!(
+                beta_small.iter().all(|v| v.is_finite()),
+                "CPU PIRLS baseline diverged to a non-finite β at n=4000"
+            );
+            let score = penalized_score_inf_norm(
+                x_small.view(),
+                y_small.view(),
+                prior_w_small.view(),
+                penalty_small.view(),
+                beta_small.view(),
+            );
+            assert!(
+                score <= 1e-6,
+                "CPU PIRLS baseline did not reach the penalized MLE at n=4000: \
+                 ‖Xᵀg − Sβ‖∞ = {score:.3e}"
+            );
+        }
+
+        if !device_available() {
+            // The wall-clock claim needs a device; the decline contract does not.
+            assert_device_seam_declines_without_cuda();
+            return;
+        }
+
+        use crate::gpu_kernels::pirls_row::{CurvatureMode, PirlsRowFamily};
+        let n = 80_000_usize;
+        let (x, y, prior_w, penalty) = logit_hill_climb_fixture(n, p);
+        let beta0 = ndarray::Array1::<f64>::zeros(p);
+
+        // GPU timing.
+        let offset_bench = ndarray::Array1::<f64>::zeros(n);
+        let shared =
+            upload_shared_pirls_gpu(x.view(), y.view(), prior_w.view(), offset_bench.view())
+                .expect("upload shared design");
+        let mut ws = allocate_sigma_pirls_workspace(&shared).expect("alloc ws");
+        let mut loop_ws = allocate_pirls_loop_workspace(&shared, &ws).expect("alloc loop_ws");
+
+        // #2430: warm the device loop before timing it. The first
+        // `pirls_loop_on_stream` call in a process pays the NVRTC compile of
+        // the loop module plus first-touch device allocation — a one-time cost
+        // production amortizes across the whole REML outer loop, and one the
+        // CPU baseline has no equivalent of. Timing it made the device side
+        // ~0.65 s more expensive than its steady state and inverted this gate's
+        // verdict. The sphere kernel hill-climb warms for exactly this reason;
+        // this gate did not, which is the THIRD way its two sides were timing
+        // different work (after the 30-vs-3 iteration mismatch).
+        {
+            let warm_shift = ndarray::Array1::<f64>::zeros(p);
+            drop(
+                pirls_loop_on_stream(
+                    &shared,
+                    &mut ws,
+                    &mut loop_ws,
+                    PirlsRowFamily::BernoulliLogit,
+                    CurvatureMode::Fisher,
+                    PirlsLoopLikelihoodScale::non_gamma(),
+                    beta0.view(),
+                    penalty.view(),
+                    warm_shift.view(),
+                    0.0,
+                    0.0,
+                    0.0,
+                    30,
+                    1e-6,
+                    None,
+                )
+                .expect("warmup pirls loop"),
+            );
+        }
+
+        let t0 = Instant::now();
+        // No prior-mean shift in this benchmark — penalty = ½βᵀSβ
+        // with `s_transformed = penalty`, `linear_shift = 0`,
+        // `constant_shift = 0`.
+        let linear_shift_zero = ndarray::Array1::<f64>::zeros(p);
+        let gpu_outcome = pirls_loop_on_stream(
+            &shared,
+            &mut ws,
+            &mut loop_ws,
+            PirlsRowFamily::BernoulliLogit,
+            CurvatureMode::Fisher,
+            PirlsLoopLikelihoodScale::non_gamma(),
+            beta0.view(),
+            penalty.view(),
+            linear_shift_zero.view(),
+            0.0,
+            0.0,
+            0.0,
+            30,
+            1e-6,
+            None,
+        )
+        .expect("pirls loop");
+        let gpu_secs = t0.elapsed().as_secs_f64();
+
+        // #2424: the two sides of a wall-clock ratio must time the SAME work.
+        // The device loop stops as soon as its `tol = 1e-6` criterion is met,
+        // so the CPU baseline runs exactly the iteration count the device
+        // actually spent — a fixed 30 CPU iterations against a device run that
+        // exits early inflates the ratio by the iteration mismatch rather than
+        // by device throughput. (Upload/alloc of the shared design sits
+        // outside BOTH timed regions: production uploads once per model and
+        // reuses it across the whole REML outer loop, so the loop is the
+        // steady state being graded.)
+        let iterations = gpu_outcome.iterations.max(1);
+
+        // CPU reference: same PIRLS structure (eta = Xβ; row reweight;
+        // XᵀWX + Sλ; faer Cholesky; β update with α=1).
+        let t1 = Instant::now();
+        let beta_cpu = cpu_pirls_reference_loop(
+            x.view(),
+            y.view(),
+            prior_w.view(),
+            penalty.view(),
+            iterations,
+        );
         let cpu_secs = t1.elapsed().as_secs_f64();
+
+        // The device loop's ANSWER, not just its clock: iteration-matched to
+        // the CPU reference from the same β₀ under the same update rule, the
+        // two must land on the same coefficients.
+        assert!(
+            gpu_outcome.beta.iter().all(|v| v.is_finite()),
+            "device PIRLS loop returned a non-finite β at n={n}"
+        );
+        let mut max_beta_delta = 0.0_f64;
+        for i in 0..p {
+            max_beta_delta = max_beta_delta.max((gpu_outcome.beta[i] - beta_cpu[i]).abs());
+        }
+        let gpu_score = penalized_score_inf_norm(
+            x.view(),
+            y.view(),
+            prior_w.view(),
+            penalty.view(),
+            gpu_outcome.beta.view(),
+        );
 
         let speedup = cpu_secs / gpu_secs;
         eprintln!(
-            "[hill_climb] n={n} p={p} BernoulliLogit/Fisher: gpu={:.3}s cpu={:.3}s speedup={:.2}×",
-            gpu_secs, cpu_secs, speedup
+            "[hill_climb] n={n} p={p} BernoulliLogit/Fisher: gpu={:.3}s cpu={:.3}s \
+             speedup={:.2}× iters={iterations} converged={} max|Δβ|={max_beta_delta:.3e} \
+             gpu ‖Xᵀg − Sβ‖∞={gpu_score:.3e}",
+            gpu_secs, cpu_secs, speedup, gpu_outcome.converged
+        );
+        assert!(
+            max_beta_delta <= 1e-8,
+            "iteration-matched device-vs-CPU PIRLS β parity at n={n}: max |Δβ| = \
+             {max_beta_delta:.3e} after {iterations} shared iterations"
+        );
+        assert!(
+            gpu_score <= 1e-6,
+            "device PIRLS loop did not reach the penalized MLE at n={n}: \
+             ‖Xᵀg − Sβ‖∞ = {gpu_score:.3e}"
         );
         // Dispatch-worthiness gate, not a hardware bet (#2313 hardware
         // sweep): a fixed 10× floor asserts the calibration box's CPU/GPU
@@ -4155,8 +4623,11 @@ mod stream_device_parity_tests {
         assert!(
             speedup >= 2.0,
             "GPU PIRLS loop dispatch-worthiness: got speedup={speedup:.2}× \
-             (gpu={gpu_secs:.3}s cpu={cpu_secs:.3}s) — the resident loop must \
-             clearly beat the same-box CPU"
+             (gpu={gpu_secs:.3}s cpu={cpu_secs:.3}s, both over {iterations} iterations) \
+             — the resident loop must clearly beat the same-box CPU. #2424: this ratio \
+             is iteration-matched. The previous form timed a fixed 30 CPU iterations \
+             against a device loop that converges in 3, so it reported ~4× where the \
+             per-iteration truth is below 1×"
         );
     }
 
@@ -4164,12 +4635,14 @@ mod stream_device_parity_tests {
     /// Gaussian-identity fit reaches OLS β to high precision in a
     /// handful of iterations and matches the closed-form
     /// `(XᵀX + Sλ)⁻¹·Xᵀy` solution.
+    ///
+    /// #2424: the same OLS claim is checkable without a device through the
+    /// one-shot production entry — Gaussian identity has `W = I` and score
+    /// `y − Xβ₀ = y` at `β₀ = 0`, so a SINGLE Newton step from zero IS the
+    /// ridge-OLS solution. That half runs on every host; the device-resident
+    /// loop's own convergence stays in the CUDA branch.
     #[test]
     fn pirls_loop_converges_to_ols_solution_on_gaussian_identity() {
-        if !device_available() {
-            eprintln!("[stage_3_3] no CUDA runtime — skipping");
-            return;
-        }
         let x = arr2(&[
             [1.0, 0.5, 0.1],
             [0.2, -0.3, 1.4],
@@ -4188,6 +4661,46 @@ mod stream_device_parity_tests {
         let prior_w = ndarray::Array1::<f64>::ones(n);
         let penalty = ndarray::Array2::<f64>::eye(p) * 1e-4; // tiny ridge
         let beta0 = ndarray::Array1::<f64>::zeros(p);
+
+        // Closed-form OLS (with tiny ridge). Shared by both halves.
+        let xtx = x.t().dot(&x);
+        let xty = x.t().dot(&y);
+        let h_ref = xtx + &penalty;
+        // Solve via the crate's faer/ndarray bridge.
+        use gam_linalg::faer_ndarray::FaerCholesky;
+        let chol = h_ref
+            .cholesky(faer::Side::Lower)
+            .expect("OLS reference Cholesky");
+        let beta_ref: ndarray::Array1<f64> = chol.solvevec(&xty);
+
+        // EVERY HOST: one Newton step from β₀ = 0 under Gaussian identity has
+        // W = I and RHS = Xᵀy, so `direction` IS the ridge-OLS solution. The
+        // one-shot production entry runs the device step on a CUDA box and the
+        // documented CPU fallback otherwise; both owe this β and the host
+        // oracle's (H, residual, logdet) triple.
+        let one_shot = assert_one_shot_step_matches_host_oracle(
+            x.view(),
+            prior_w.view(),
+            penalty.view(),
+            xty.view(),
+            0.0,
+        );
+        let mut max_beta_delta = 0.0_f64;
+        for i in 0..p {
+            max_beta_delta = max_beta_delta.max((one_shot.direction[i] - beta_ref[i]).abs());
+        }
+        assert!(
+            max_beta_delta <= 1e-9,
+            "one-shot Gaussian-identity step must equal the closed-form ridge OLS \
+             solution: max |Δβ| = {max_beta_delta:.3e}"
+        );
+
+        if !device_available() {
+            // The device-resident LOOP needs a device; the decline contract
+            // and the OLS identity above do not.
+            assert_device_seam_declines_without_cuda();
+            return;
+        }
 
         let offset_ols = ndarray::Array1::<f64>::zeros(n);
         let shared = upload_shared_pirls_gpu(x.view(), y.view(), prior_w.view(), offset_ols.view())
@@ -4217,17 +4730,6 @@ mod stream_device_parity_tests {
             None,
         )
         .expect("pirls loop");
-
-        // Closed-form OLS (with tiny ridge).
-        let xtx = x.t().dot(&x);
-        let xty = x.t().dot(&y);
-        let h_ref = xtx + &penalty;
-        // Solve via the crate's faer/ndarray bridge.
-        use gam_linalg::faer_ndarray::FaerCholesky;
-        let chol = h_ref
-            .cholesky(faer::Side::Lower)
-            .expect("OLS reference Cholesky");
-        let beta_ref: ndarray::Array1<f64> = chol.solvevec(&xty);
 
         // Gaussian-identity PIRLS converges in one Newton iter (linear
         // problem); the loop may take a few iters because the line

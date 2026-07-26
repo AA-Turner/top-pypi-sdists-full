@@ -39,13 +39,20 @@ class AudiochanExtractor(Extractor):
 
     def items(self):
         for post in self.posts():
-            file = post["audioFile"]
-
-            post["_http_headers"] = self.headers_dl
-            post["date"] = self.parse_datetime_iso(file["created_at"])
-            post["date_updated"] = self.parse_datetime_iso(file["updated_at"])
-            post["description"] = self._extract_description(
-                post["description"])
+            if file := post.get("audioFile"):
+                post["_http_headers"] = self.headers_dl
+                post["date"] = self.parse_datetime_iso(
+                    file["created_at"])
+                post["date_updated"] = self.parse_datetime_iso(
+                    file["updated_at"])
+                post["description"] = self._extract_description(
+                    post["description"])
+            else:
+                post["date"] = self.parse_datetime_iso(
+                    post["created_at"])
+                post["date_updated"] = self.parse_datetime_iso(
+                    post["updated_at"])
+                post["description"] = post.pop("teaser", "")
 
             tags = []
             for tag in post["tags"]:
@@ -61,8 +68,9 @@ class AudiochanExtractor(Extractor):
                         break
 
             yield Message.Directory, "", post
-            text.nameext_from_name(file["filename"], post)
-            yield Message.Url, self._extract_url(post), post
+            if file:
+                text.nameext_from_name(file["filename"], post)
+                yield Message.Url, self._extract_url(post), post
 
     def request_api(self, endpoint, params=None):
         url = self.root_api + endpoint

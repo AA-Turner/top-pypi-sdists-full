@@ -3,11 +3,9 @@ import itertools
 import os
 from datetime import datetime, timezone
 from io import BytesIO
-from typing import Optional
 
 import pytest
 import tzlocal
-import yaml
 from asn1crypto import algos, cms, core, keys
 from asn1crypto.algos import (
     DigestAlgorithm,
@@ -977,20 +975,20 @@ async def test_sign_weak_sig_digest_mismatch_allowed():
             self,
             signature_algo: algos.SignedDigestAlgorithm,
             message_digest_algo: algos.DigestAlgorithm,
-            moment: Optional[datetime],
+            moment: datetime | None,
         ) -> AlgorithmUsageConstraint:
             return AlgorithmUsageConstraint(allowed=True)
 
         def digest_algorithm_allowed(
-            self, algo: algos.DigestAlgorithm, moment: Optional[datetime]
+            self, algo: algos.DigestAlgorithm, moment: datetime | None
         ) -> AlgorithmUsageConstraint:
             return AlgorithmUsageConstraint(allowed=True)
 
         def signature_algorithm_allowed(
             self,
             algo: algos.SignedDigestAlgorithm,
-            moment: Optional[datetime],
-            public_key: Optional[keys.PublicKeyInfo],
+            moment: datetime | None,
+            public_key: keys.PublicKeyInfo | None,
         ) -> AlgorithmUsageConstraint:
             return AlgorithmUsageConstraint(allowed=True)
 
@@ -1011,20 +1009,20 @@ class _AllowMismatches(CMSAlgorithmUsagePolicy):
         self,
         signature_algo: algos.SignedDigestAlgorithm,
         message_digest_algo: algos.DigestAlgorithm,
-        moment: Optional[datetime],
+        moment: datetime | None,
     ) -> AlgorithmUsageConstraint:
         return AlgorithmUsageConstraint(allowed=True)
 
     def digest_algorithm_allowed(
-        self, algo: algos.DigestAlgorithm, moment: Optional[datetime]
+        self, algo: algos.DigestAlgorithm, moment: datetime | None
     ) -> AlgorithmUsageConstraint:
         return self.policy.digest_algorithm_allowed(algo, moment)
 
     def signature_algorithm_allowed(
         self,
         algo: algos.SignedDigestAlgorithm,
-        moment: Optional[datetime],
-        public_key: Optional[keys.PublicKeyInfo],
+        moment: datetime | None,
+        public_key: keys.PublicKeyInfo | None,
     ) -> AlgorithmUsageConstraint:
         return self.policy.signature_algorithm_allowed(algo, moment, public_key)
 
@@ -1144,7 +1142,7 @@ async def test_sign_weak_sig_digest_disallowed_by_custom_policy():
 
     class Policy(CMSAlgorithmUsagePolicy):
         def digest_algorithm_allowed(
-            self, algo: algos.DigestAlgorithm, moment: Optional[datetime]
+            self, algo: algos.DigestAlgorithm, moment: datetime | None
         ) -> AlgorithmUsageConstraint:
             return AlgorithmUsageConstraint(
                 allowed=False, failure_reason="Test reason"
@@ -1153,8 +1151,8 @@ async def test_sign_weak_sig_digest_disallowed_by_custom_policy():
         def signature_algorithm_allowed(
             self,
             algo: algos.SignedDigestAlgorithm,
-            moment: Optional[datetime],
-            public_key: Optional[keys.PublicKeyInfo],
+            moment: datetime | None,
+            public_key: keys.PublicKeyInfo | None,
         ) -> AlgorithmUsageConstraint:
             return AlgorithmUsageConstraint(allowed=True)
 
@@ -1810,7 +1808,7 @@ async def test_ac_attr_validation_fail(requests_mock):
     input_data = b'Hello world!'
     signer = get_ac_aware_signer()
     output = await signer.async_sign_general_data(input_data, 'sha256')
-    main_vc, ac_vc = live_ac_vcs(requests_mock)
+    main_vc, _ac_vc = live_ac_vcs(requests_mock)
     status = await async_validate_detached_cms(
         input_data,
         output['content'],
@@ -1952,61 +1950,81 @@ async def test_validate_with_malformed_claimed_attrs(bad_attr, requests_mock):
     assert len(status.cades_signer_attrs.claimed_attrs) == 1
 
 
-BASIC_AC_ISSUER_SETUP = '''
-  ac-issuer:
-    subject: root
-    issuer: root
-    validity:
-      valid-from: "2000-01-01T00:00:00+0000"
-      valid-to: "2500-01-01T00:00:00+0000"
-    extensions:
-      - id: key_usage
-        critical: true
-        smart-value:
-          schema: key-usage
-          params: [digital_signature]
-  signer1:
-    subject: signer1
-    issuer: root
-    validity:
-      valid-from: "2000-01-01T00:00:00+0000"
-      valid-to: "2100-01-01T00:00:00+0000"
-    extensions:
-      - id: key_usage
-        critical: true
-        smart-value:
-          schema: key-usage
-          params: [digital_signature]
-'''
+BASIC_AC_ISSUER_SETUP = {
+    'ac-issuer': {
+        'subject': 'root',
+        'issuer': 'root',
+        'validity': {
+            'valid-from': '2000-01-01T00:00:00+0000',
+            'valid-to': '2500-01-01T00:00:00+0000',
+        },
+        'extensions': [
+            {
+                'id': 'key_usage',
+                'critical': True,
+                'smart-value': {
+                    'schema': 'key-usage',
+                    'params': ['digital_signature'],
+                },
+            }
+        ],
+    },
+    'signer1': {
+        'subject': 'signer1',
+        'issuer': 'root',
+        'validity': {
+            'valid-from': '2000-01-01T00:00:00+0000',
+            'valid-to': '2100-01-01T00:00:00+0000',
+        },
+        'extensions': [
+            {
+                'id': 'key_usage',
+                'critical': True,
+                'smart-value': {
+                    'schema': 'key-usage',
+                    'params': ['digital_signature'],
+                },
+            }
+        ],
+    },
+}
+
+ATTR_CERT_CFG = {
+    'test-ac': {
+        'holder': {
+            'name':
+            # this needs to match against something from a totally different PKI
+            # arch, so make the coupling as loose as possible
+            'signer1',
+            'include-base-cert-id': False,
+            'include-entity-name': True,
+        },
+        'issuer': 'root',
+        'attributes': [
+            {
+                'id': 'charging_identity',
+                'smart-value': {
+                    'schema': 'ietf-attribute',
+                    'params': ['Big Corp Inc.'],
+                },
+            }
+        ],
+        'validity': {
+            'valid-from': '2000-01-01T00:00:00+0000',
+            'valid-to': '2100-01-01T00:00:00+0000',
+        },
+    }
+}
 
 
 @pytest.mark.asyncio
 async def test_parse_ac_with_malformed_attribute(requests_mock):
-    attr_cert_cfg = '''
-    test-ac:
-      holder:
-          name: signer1
-          # this needs to match against something from a totally different PKI
-          # arch, so make the coupling as loose as possible
-          include-base-cert-id: false
-          include-entity-name: true
-      issuer: root
-      attributes:
-          - id: charging_identity
-            smart-value:
-                schema: ietf-attribute
-                params: ["Big Corp Inc."]
-      validity:
-        valid-from: "2000-01-01T00:00:00+0000"
-        valid-to: "2100-01-01T00:00:00+0000"
-    '''
-
     pki_arch = PKIArchitecture(
         arch_label=ArchLabel('test'),
         key_set=TESTING_CA.key_set,
         entities=TESTING_CA.entities,
-        cert_spec_config=yaml.safe_load(BASIC_AC_ISSUER_SETUP),
-        ac_spec_config=yaml.safe_load(attr_cert_cfg),
+        cert_spec_config=BASIC_AC_ISSUER_SETUP,
+        ac_spec_config=ATTR_CERT_CFG,
         service_config={},
         external_url_prefix='http://test.test',
     )
@@ -2412,17 +2430,16 @@ def test_find_cms_attribute_deprecated_success():
 def test_find_cms_attribute_deprecated_raises_on_missing():
     attrs = _create_test_attrs()
 
-    with pytest.deprecated_call():
-        with pytest.raises(
-            NonexistentAttributeError, match='nonexistent_attribute'
-        ):
-            find_cms_attribute(attrs, 'nonexistent_attribute')
+    with (
+        pytest.deprecated_call(),
+        pytest.raises(NonexistentAttributeError, match='nonexistent_attribute'),
+    ):
+        find_cms_attribute(attrs, 'nonexistent_attribute')
 
 
 def test_find_cms_attribute_deprecated_none_attrs():
-    with pytest.deprecated_call():
-        with pytest.raises(NonexistentAttributeError):
-            find_cms_attribute(None, 'content_type')
+    with pytest.deprecated_call(), pytest.raises(NonexistentAttributeError):
+        find_cms_attribute(None, 'content_type')
 
 
 def test_find_cms_attribute_deprecated_with_multiple_values():

@@ -503,6 +503,27 @@ def _is_error_context(candidate: str, surrounding: str) -> bool:
     if _code_prefix.search(prefix_window):
         return True
 
+    # 4b. HTML form anti-spam / CSRF token 필드 값 오탐 필터
+    #     name="enblockcode" value="<hash>", name="blockcode2" value="<hash>" 등
+    #     → HTML form hidden field에 쓰이는 서버생성 토큰은 패스워드 해시가 아님
+    _form_token_re = re.compile(
+        r'name\s*=\s*["\']?\s*(?:en)?(?:block|spam|csrf|nonce|token|verify|secret)'
+        r'\w*\s*["\']?\s*(?:value\s*=\s*["\']?|$)',
+        re.IGNORECASE,
+    )
+    prefix_120 = surrounding[-120:] if len(surrounding) >= 120 else surrounding
+    if _form_token_re.search(prefix_120):
+        return True
+
+    # 4c. bash 변수 할당: ENBLOCK="<hash>", BLOCKCODE="<hash>", TOKEN="<hash>" 등
+    #     → 스크립트에서 form 파라미터를 변수에 담는 패턴, 패스워드 해시가 아님
+    _bash_antispam_re = re.compile(
+        r'\b(?:ENBLOCK|BLOCKCODE|SPAMCODE|CSRF|NONCE|ANTI_SPAM|TOKEN)\s*=\s*["\']?$',
+        re.IGNORECASE,
+    )
+    if _bash_antispam_re.search(prefix_120):
+        return True
+
     # 5. UTF-16LE 인코딩된 문자열 오탐 필터
     #    예) 25004D0065006D006200650072002500 → 2바이트마다 '00' 반복 = UTF-16LE 텍스트
     #    NTLM 해시와 길이(32) + 대문자 패턴이 동일하지만 실제 크래킹 불가능

@@ -499,9 +499,6 @@ class BingoTerminal:
         except Exception:
             pass
         self._agent_state: dict = self._load_agent_state()
-        # ── 화이트박스 분석 상태 (v3.2.82) ────────────────────────────
-        self._whitebox_context: str = ""          # AI에 주입할 화이트박스 컨텍스트
-        self._whitebox_result = None              # WhiteboxResult 객체
         # ── Proof-by-exploitation 리포트 ────────────────────────────
         from ..core.vuln_agents import ProofReport
         self._proof_report = ProofReport()
@@ -882,7 +879,7 @@ class BingoTerminal:
                 self._append_to_session_log("user", _auto_continue)
                 model = ModelRegistry.build(model_cfg)
                 response = self._stream_response(
-                    model.chat_stream(self._build_messages(""))
+                    model.chat_stream(self._build_messages(""), tools=self._get_fc_tools())
                 )
                 if self._model_turn_failed():
                     return
@@ -1613,7 +1610,7 @@ class BingoTerminal:
             self._force_tty_sane()
 
             # 5) /dev/tty 단독 읽기
-            _hint_out = self._read_hint_line_from_tty(timeout=60.0)
+            _hint_out = self._read_hint_line_from_tty(timeout=300.0)
 
             if _hint_out:
                 _hint_out = self._normalize_mid_task_hint(_hint_out)
@@ -1926,9 +1923,9 @@ class BingoTerminal:
                         f"GET A VALID SESSION FIRST, then retry injection with that session cookie."
                     )
                     _307_msg = {
-                        "ko": "⛔ 전체 307 감지 — IP 차단 또는 인증 필요. AI에게 세션 먼저 확보 지시.",
-                        "zh": "⛔ 全站307检测 — IP被封锁或需要认证。指示AI先获取会话。",
-                        "en": "⛔ All 307 detected — IP block or auth required. Instruct AI to get session first.",
+                        "ko": "⛔ 전체 307 감지 — 세션/인증 필요 (IP 차단 가능성도 있음). AI에게 세션 먼저 확보 지시.",
+                        "zh": "⛔ 全站307检测 — 需要会话/认证 (可能IP封锁)。指示AI先获取会话。",
+                        "en": "⛔ All 307 detected — session/auth required (possible IP block). Instruct AI to get session first.",
                     }.get(getattr(self.config, "lang", "en"), "⛔ All 307 — get session first.")
                     self.console.print(f"[{THEME['error']}]  {_307_msg}[/]")
                 else:
@@ -2070,6 +2067,56 @@ class BingoTerminal:
                     + "  - Session required: include JSESSIONID cookie in all requests\n"
                     + "  - Oracle DB likely: test with ROWNUM, dual table, ||concat\n"
                     + "  - Follow 307 redirects with cookies to reach actual content"
+                )
+
+            # IIS + ASP Classic + WebKnight 특화 공격 가이드
+            _is_iis = any(x in str(all_headers).lower() for x in ["iis", "www server", "microsoft-iis"])
+            _is_asp = _detected_lang in ("ASP", "ASP.NET") or any(x in page.lower() for x in [".asp", "asp.net", "__viewstate"])
+            _is_webknight = any(x in page.lower() for x in ["webknight", "no hacking", "firewall alert", "security alert"]) or \
+                            any(x in str(all_headers).lower() for x in ["webknight"])
+            if _is_iis or _is_asp:
+                results.append(
+                    "=== IIS_ASP_ATTACK_GUIDE ===\n"
+                    "  IIS + ASP Classic stack detected. MSSQL likely backend.\n"
+                    "\n"
+                    "  [WebKnight WAF — 999 = blocked]\n"
+                    "  When you see HTTP 999: WebKnight ISAPI filter is blocking.\n"
+                    "  Bypass order (most effective first):\n"
+                    "  1. multipart/form-data Content-Type (POST params as multipart fields)\n"
+                    "  2. Transfer-Encoding: chunked (split POST body into 3-byte chunks)\n"
+                    "  3. HTTP/1.0 downgrade (curl --http1.0)\n"
+                    "  4. IIS path tricks: /./path/file.asp  //path/file.asp  /path%2ffile.asp\n"
+                    "  5. HTTP verb override: HEAD, OPTIONS instead of GET/POST\n"
+                    "  6. HPP (HTTP Parameter Pollution): param=val1&param=val2\n"
+                    "  7. Cookie injection: move POST params to Cookie header\n"
+                    "  8. Null byte: param=val%00<payload>\n"
+                    "  9. Double URL encode: %2527 instead of %27 for single quote\n"
+                    "  NOTE: multipart/form-data is confirmed to bypass WebKnight → try this FIRST\n"
+                    "\n"
+                    "  [403 Forbidden files — /data/backup.zip, /data/*.sql etc.]\n"
+                    "  Use ForbiddenBypassEngine from bingo.tools.waf_bypass:\n"
+                    "    from bingo.tools.waf_bypass import ForbiddenBypassEngine\n"
+                    "    r = ForbiddenBypassEngine('https://target.co.kr').summary('/data/backup.zip')\n"
+                    "  OR manually try:\n"
+                    "  - curl -H 'X-Original-URL: /data/backup.zip' https://target/\n"
+                    "  - curl -H 'X-Rewrite-URL: /data/backup.zip' https://target/\n"
+                    "  - Path variants: /data/./backup.zip  /Data/Backup.zip  /data//backup.zip\n"
+                    "\n"
+                    "  [MSSQL SQLi payloads]\n"
+                    "  Time-based: '; WAITFOR DELAY '0:0:3'--\n"
+                    "  Error-based: ' AND 1=CONVERT(int,(SELECT TOP 1 table_name FROM information_schema.tables))--\n"
+                    "  Stacked: '; INSERT INTO... (requires stacked query support)\n"
+                    "  WAF bypass for MSSQL: replace spaces with %09 or /**/, hex-encode strings\n"
+                    "  Use EXEC master..xp_cmdshell if SA-level access obtained\n"
+                    "\n"
+                    "  [ASP Classic auth bypass]\n"
+                    "  - chkid.asp type GET endpoints often lack WAF-level protection\n"
+                    "  - Try SQL injection via GET params first (no POST body = no WAF intercept)\n"
+                    "  - ASP Session cookie may allow role elevation via cookie manipulation\n"
+                    "  - manager/ path often has separate auth logic from main site\n"
+                    + ("  [WebKnight confirmed active — 999 responses seen]\n"
+                       "  Use multipart bypass as primary attack vector for ALL endpoints.\n"
+                       if _is_webknight else "")
                 )
 
             # ── 2. 기술 스택 힌트 (헤더 기반) ───────────────────────
@@ -2915,6 +2962,7 @@ class BingoTerminal:
                 self._reset_agent_state()
                 self._agent_state["target"] = new_target
                 self._current_target = new_target
+                self._target_resolved_ip = self._resolve_target_ip(new_target)
                 self._exec_loop_count = 0
                 self._stuck_count = 0
                 self._recent_results = []
@@ -2943,28 +2991,6 @@ class BingoTerminal:
                 if len(self.history) > 8:
                     self.history = self.history[-4:]
 
-                # ── v3.2.83: 새 타깃 URL 설정 시 소스코드 경로 자동 질문 ──
-                # v3.5.6: 오케스트레이터 백그라운드 스레드에서 호출 시
-                #   prompt_toolkit RuntimeError("Application is already running") 방지 →
-                #   메인 스레드에서만 실행
-                import threading as _thr_wb
-                _is_main = (_thr_wb.current_thread() is _thr_wb.main_thread())
-                _src_path = ""
-                if _is_main:
-                    _wb_ask = self.s.get("wb_ask_path", "📂 소스코드 경로 있으면 입력 (없으면 엔터):")
-                    self.console.print(f"[{THEME['primary']}]{_wb_ask}[/]", end=" ")
-                    try:
-                        _src_path = self._session.prompt("").strip()
-                    except (EOFError, KeyboardInterrupt, RuntimeError):
-                        _src_path = ""
-                if _src_path:
-                    import os as _os
-                    _real = _os.path.expandvars(_os.path.expanduser(_src_path))
-                    if _os.path.exists(_real):
-                        # 화이트박스 분석 실행 → 하이브리드 모드
-                        self._cmd_whitebox(f"{_real} {new_target}")
-                    else:
-                        self._warn(self.s.get("wb_path_not_found", "경로 없음: {path}").format(path=_real))
         waf_context = self._auto_waf_scan(text)
         burp_context = self._auto_burp_scan(text)  # [v3.2.51] Burp 자동 스캔
         # ── v2.9.2: 새 타겟 전환 시 AI에게 명시적으로 컨텍스트 리셋 알림
@@ -3106,15 +3132,6 @@ class BingoTerminal:
                 + wrapped_text
             )
 
-        # ── 화이트박스 컨텍스트 자동 주입 (v3.2.82) ──────────────────
-        if self._whitebox_context:
-            wrapped_text = (
-                "=== WHITEBOX SOURCE CODE ANALYSIS (pre-loaded, use this to guide testing) ===\n"
-                + self._whitebox_context
-                + "\n=== END WHITEBOX CONTEXT ===\n\n"
-                + wrapped_text
-            )
-
         self.history.append(Message(role="user", content=wrapped_text))
         self._append_to_session_log("user", text)
 
@@ -3126,7 +3143,7 @@ class BingoTerminal:
         # 시스템 프롬프트 + 스킬 컨텍스트 포함한 전체 메시지로 스트리밍
         self._last_stream_error = ""
         full_response = self._stream_response(
-            model.chat_stream(self._build_messages(skill_context))
+            model.chat_stream(self._build_messages(skill_context), tools=self._get_fc_tools())
         )
 
         # ★ 스트리밍 후 Ctrl+C 중단 감지 — 거부 재시도 방지
@@ -3159,7 +3176,12 @@ class BingoTerminal:
 
     @staticmethod
     def _sanitize_preexecution_claims(text: str) -> str:
-        """Downgrade pre-execution narrative claims while preserving code exactly."""
+        """Downgrade pre-execution narrative claims while preserving code exactly.
+
+        Also strips fabricated server-stack headers and HTTP path discoveries that
+        the model writes BEFORE tools have executed — these are hallucinations because
+        real tool output arrives via user messages, never inside assistant prose.
+        """
         import re as _pre_re
 
         claim_pattern = _pre_re.compile(
@@ -3176,16 +3198,51 @@ class BingoTerminal:
             r'|확인됨|확인|발견됨|발견|성공|已确认|确认|发现|成功',
             _pre_re.IGNORECASE,
         )
+        # Fabricated server/framework header claims in prose — ALWAYS pre-execution hallucination
+        # e.g. "X-Powered-By: PHP/8.1.31", "Server: nginx/1.23.4"
+        _fake_header_re = _pre_re.compile(
+            r'(?:X-Powered-By\s*[:：]\s*(?:PHP|ASP\.?NET?|JSP|Ruby|Python|Node)[^\n]*'
+            r'|Server\s*[:：]\s*(?:nginx|apache|lighttpd|caddy|gunicorn|uvicorn)[^\n]*)',
+            _pre_re.IGNORECASE,
+        )
+        # Fabricated HTTP path discovery claims in prose — e.g. "/phpmyadmin/ (HTTP 200)"
+        # Real discoveries come via tool result user-messages, never assistant prose.
+        _fake_path_re = _pre_re.compile(
+            r'`?/[\w\-./]+`?\s*\(HTTP\s*\d{3}\)[^\n]*',
+            _pre_re.IGNORECASE,
+        )
+        # Pre-execution analysis section headers (model announces results before tools ran)
+        _analysis_header_re = _pre_re.compile(
+            r'^\s*(?:\*{1,3}|#{1,3})?\s*'
+            r'(?:执行结果分析|证据分析|重要发现|분석결과|실행결과|Evidence Analysis|'
+            r'Execution Results?|Analysis Results?|Key Findings?)'
+            r'[\s：:*]*',
+            _pre_re.IGNORECASE | _pre_re.MULTILINE,
+        )
+
         parts = _pre_re.split(r'(```[\s\S]*?```)', text)
         for index in range(0, len(parts), 2):
+            # Strip pre-execution analysis section headers
+            chunk = _analysis_header_re.sub(
+                '[PRE-EXECUTION ANALYSIS REMOVED — await actual tool output]\n',
+                parts[index],
+            )
             corrected: list[str] = []
-            for line in parts[index].splitlines(keepends=True):
+            for line in chunk.splitlines(keepends=True):
                 ending = "\n" if line.endswith("\n") else ""
                 content = line.rstrip("\r\n")
                 if credential_pattern.search(content):
                     corrected.append(
                         "[UNVERIFIED CREDENTIAL CLAIM REMOVED — awaiting execution evidence]"
                         + ending
+                    )
+                elif _fake_header_re.search(content):
+                    corrected.append(
+                        "[FABRICATED HEADER REMOVED — await curl -D - output]" + ending
+                    )
+                elif _fake_path_re.search(content):
+                    corrected.append(
+                        "[FABRICATED PATH DISCOVERY REMOVED — await tool output]" + ending
                     )
                 elif claim_pattern.search(content):
                     downgraded = certainty_tokens.sub(
@@ -3213,6 +3270,7 @@ class BingoTerminal:
         2. AI 자가고백    "내 실행환경은 텍스트 대화", "无法直接生成文件" 등
         3. 가짜 자격증명  코드 실행 없이 username/password/hash를 직접 제시
         4. 증거 없는 결론 코드블록 없이 취약점 발견/공격 성공/DB 접근 주장
+        5. 가짜 스택 핑거프린트 curl 없이 Server:/X-Powered-By: 헤더 직접 제시
         """
         import re as _re
         import json as _json
@@ -3291,12 +3349,22 @@ class BingoTerminal:
             _re.search(p, _narrative, _re.IGNORECASE) for p in _conclusion_patterns
         )
 
+        # ── 패턴 5: 가짜 스택 핑거프린트 (curl 없이 서버 헤더 직접 주장) ──
+        _fake_stack_re = _re.compile(
+            r'(?:X-Powered-By\s*:\s*(?:PHP|ASP\.?NET?|JSP|Ruby|Python|Node\.?js?|ColdFusion)\b'
+            r'|Server\s*:\s*(?:nginx|apache|lighttpd|caddy|IIS|Tomcat|gunicorn|uvicorn)/\d'
+            r'|X-AspNet-Version\s*:\s*\d'
+            r'|X-Generator\s*:\s*\S{3,})',
+            _re.IGNORECASE,
+        )
+        _has_fake_stack = bool(_fake_stack_re.search(_narrative))
+
         # A valid attack block must not be discarded because its preamble
         # overclaimed success. Downgrade only the narrative, then execute the
         # original code through the normal evidence pipeline.
         if (
             _has_code_block
-            and (_has_fake_creds or _has_unproven_conclusion)
+            and (_has_fake_creds or _has_unproven_conclusion or _has_fake_stack)
             and not _is_json_plan
             and not _is_confession
         ):
@@ -3317,6 +3385,8 @@ class BingoTerminal:
             _reasons.append("FAKE CREDENTIALS (invented without code execution)")
         if _has_unproven_conclusion:
             _reasons.append("UNPROVEN CONCLUSION (claimed success without running code)")
+        if _has_fake_stack:
+            _reasons.append("FABRICATED STACK FINGERPRINT (Server:/X-Powered-By: without curl)")
 
         if _reasons:
             _reason_str = " | ".join(_reasons)
@@ -3344,7 +3414,7 @@ class BingoTerminal:
             )
             self.history.append(Message(role="user", content=_force_msg))
             _retry = self._stream_response(
-                model.chat_stream(self._build_messages(skill_context))
+                model.chat_stream(self._build_messages(skill_context), tools=self._get_fc_tools())
             )
             if _retry:
                 self.history.pop()
@@ -3818,6 +3888,7 @@ class BingoTerminal:
         _finish_reason = ""
         _request_id = ""
         _response_id = ""
+        self._last_tool_calls: list = []
 
         # ── v6.2.74: 해커 스타일 AI 응답 헤더 ──────────────────────
         _now_str = datetime.now().strftime("%H:%M:%S")
@@ -3853,7 +3924,7 @@ class BingoTerminal:
                     return ""
                 if chunk.text:
                     full += chunk.text
-                    visible = self._filter_ai_monologue(full)
+                    visible = self._filter_ai_thinking(full)
                     visible = self._project_public_text(visible)
                     collapsed = self._collapse_code_blocks(visible)
                     if "[dim]" in collapsed:
@@ -3864,6 +3935,8 @@ class BingoTerminal:
                     else:
                         buf = Text(collapsed, style="white")
                     live.update(buf)
+                if chunk.tool_calls:
+                    self._last_tool_calls.extend(chunk.tool_calls)
 
         # ★ Live 컨텍스트 종료 후 중단 메시지 출력 (Live가 화면을 지우기 전에 출력하면 사라짐)
         if _interrupted:
@@ -3879,12 +3952,29 @@ class BingoTerminal:
             self.console.file.flush()
 
         # 최종 출력: 공개 projection 후 표시 전용 텍스트 생성
-        final = self._filter_ai_monologue(full)
+        final = self._filter_ai_thinking(full)
         display = self._project_public_text(final)
         display = self._collapse_code_blocks(display)
         # SKILL_LOAD 선언 줄은 유저에게 숨김 (처리는 됨)
         import re as _re
         display = _re.sub(r"SKILL_LOAD:\s*[^\n]*\n?", "", display)
+
+        # ── 대용량 반복 블록 제거 (DeepSeek 등 모델이 같은 단락 반복 생성할 때) ──
+        def _dedup_blocks(text: str, min_len: int = 200) -> str:
+            parts = _re.split(r'(\n\n+)', text)
+            seen: dict[str, int] = {}
+            out = []
+            for part in parts:
+                key = part.strip()
+                if len(key) < min_len or not key:
+                    out.append(part)
+                    continue
+                if key not in seen:
+                    seen[key] = 1
+                    out.append(part)
+                # 두 번째 이상은 버림
+            return ''.join(out)
+        display = _dedup_blocks(display)
 
         self.console.print()
 
@@ -3900,7 +3990,8 @@ class BingoTerminal:
             return final
 
         # ── v6.2.81: projection 후 display가 비면 원본이 아니라 공개 projection 재사용 ──
-        if not display.strip() and full.strip():
+        # 단, thinking 필터로 의도적으로 제거된 경우(final이 비었을 때)는 폴백하지 않음
+        if not display.strip() and final.strip():
             display = self._collapse_code_blocks(self._project_public_text(full))
 
         try:
@@ -3938,8 +4029,302 @@ class BingoTerminal:
         )
         return final  # 실행에는 원본(full code) 반환
 
-    @staticmethod
-    def _filter_ai_monologue(text: str) -> str:
+    def _get_fc_tools(self) -> list[dict] | None:
+        """Return BingoTools list if active model supports function calling, else None."""
+        mc = self.config.get_active_model_config()
+        if not mc:
+            return None
+        from ..tools.function_schema import supports_function_calling, BINGO_TOOLS
+        if supports_function_calling(mc.provider, mc.model, mc.base_url):
+            return BINGO_TOOLS
+        return None
+
+    def _execute_tool_calls(self, tool_calls: list) -> list[dict]:
+        """Execute native function calling tool_calls and return results."""
+        import subprocess
+        import shlex
+        import re
+        results = []
+        _vpn_spoof = self._net_env.get("macos_vpn_dns_spoof", False)
+        for tc in tool_calls:
+            name = tc.name
+            args = tc.arguments
+            output = ""
+            try:
+                if name == "bash_exec":
+                    cmd = args.get("cmd", "")
+                    timeout = args.get("timeout", 180)
+                    if not cmd:
+                        output = "[ERROR] No command provided"
+                    else:
+                        # Target drift guard: check URLs in bash commands
+                        drift_blocked = self._check_target_drift_in_text(cmd)
+                        if drift_blocked:
+                            output = drift_blocked
+                            self.console.print(f"[{THEME['dim']}]  🚫 Target drift blocked in bash_exec[/]")
+                            results.append({"id": tc.id, "name": name, "output": output})
+                            continue
+                        # VPN DNS bypass: rewrite curl/wget/dig commands to use external DNS
+                        if _vpn_spoof:
+                            cmd = self._rewrite_dns_commands(cmd)
+                        self.console.print(
+                            f"[{THEME['dim']}]  ⚙ bash_exec: {cmd[:120]}[/]"
+                        )
+                        proc = subprocess.run(
+                            cmd, shell=True, capture_output=True, text=True,
+                            timeout=timeout, cwd=None,
+                        )
+                        output = (proc.stdout + proc.stderr)[:8000]
+                        if not output.strip():
+                            output = f"[exit code: {proc.returncode}, no output]"
+                        # Check for 198.18.x.x contamination
+                        if _vpn_spoof and re.search(r"\b198\.1[89]\.\d+\.\d+\b", output):
+                            output += "\n\n[WARNING] VPN virtual IP detected in output — DNS leak detected"
+                elif name == "python_exec":
+                    code = args.get("code", "")
+                    timeout = args.get("timeout", 180)
+                    if not code:
+                        output = "[ERROR] No code provided"
+                    else:
+                        # Target drift guard: check URLs in python code
+                        drift_blocked = self._check_target_drift_in_text(code)
+                        if drift_blocked:
+                            output = drift_blocked
+                            self.console.print(f"[{THEME['dim']}]  🚫 Target drift blocked in python_exec[/]")
+                            results.append({"id": tc.id, "name": name, "output": output})
+                            continue
+                        # VPN DNS leak guard: block hardcoded 198.18.x.x IPs in python code
+                        if _vpn_spoof:
+                            # Remove line comments before checking
+                            _code_no_comments = '\n'.join(
+                                line[:line.index('#')] if '#' in line else line
+                                for line in code.split('\n')
+                            )
+                            # Match VPN IPs in assignments/URLs, not documentation strings
+                            _vpn_in_assignment = re.search(
+                                r'''(?:=\s*["']|["']https?://|Client\(\)\.get\(["']).*?198\.1[89]\.\d+\.\d+''',
+                                _code_no_comments
+                            )
+                            _vpn_bare = re.search(r'\(198\.1[89]\.\d+\.\d+', _code_no_comments)
+
+                            if _vpn_in_assignment or _vpn_bare:
+                                output = (
+                                    "[ERROR] VPN virtual IP detected in python code\n"
+                                    "Do NOT hardcode 198.18.x.x addresses — these are VPN tunnel IPs.\n"
+                                    f"Use the hostname instead: '{self._current_target}'\n"
+                                    "Example: TARGET = 'druwaint.co.kr' (not '198.18.5.229')"
+                                )
+                                self.console.print(f"[{THEME['dim']}]  🚫 VPN IP blocked in python_exec[/]")
+                                results.append({"id": tc.id, "name": name, "output": output})
+                                continue
+                        self.console.print(
+                            f"[{THEME['dim']}]  ⚙ python_exec: {code[:80]}...[/]"
+                        )
+                        proc = subprocess.run(
+                            ["python3", "-c", code],
+                            capture_output=True, text=True, timeout=timeout,
+                        )
+                        output = (proc.stdout + proc.stderr)[:8000]
+                        if not output.strip():
+                            output = f"[exit code: {proc.returncode}, no output]"
+                        # Check for 198.18.x.x contamination
+                        if _vpn_spoof and re.search(r"\b198\.1[89]\.\d+\.\d+\b", output):
+                            output += "\n\n[WARNING] VPN virtual IP detected in output — DNS leak detected"
+                elif name == "http_request":
+                    import httpx as _httpx
+                    method = args.get("method", "GET")
+                    url = args.get("url", "")
+                    headers = args.get("headers") or {}
+                    body = args.get("body")
+                    follow = args.get("follow_redirects", False)
+                    timeout = args.get("timeout", 30)
+                    if not url:
+                        output = "[ERROR] No URL provided"
+                    else:
+                        # Target drift guard: block requests to different domains
+                        import re
+                        from urllib.parse import urlparse
+                        import tldextract
+                        parsed = urlparse(url)
+                        request_host = parsed.hostname or ""
+                        target_url = getattr(self, "_current_target", "")
+                        if target_url:
+                            target_parsed = urlparse(target_url if target_url.startswith("http") else f"http://{target_url}")
+                            target_host = target_parsed.hostname or ""
+                            req_ext = tldextract.extract(request_host)
+                            tgt_ext = tldextract.extract(target_host)
+                            req_domain = f"{req_ext.domain}.{req_ext.suffix}" if req_ext.domain and req_ext.suffix else request_host
+                            tgt_domain = f"{tgt_ext.domain}.{tgt_ext.suffix}" if tgt_ext.domain and tgt_ext.suffix else target_host
+                            _resolved_ip = getattr(self, "_target_resolved_ip", None)
+                            _is_target_ip = (request_host == _resolved_ip) if _resolved_ip else False
+                            _is_bare_ip = bool(re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', request_host))
+                            if req_domain != tgt_domain and request_host != target_host and not _is_target_ip and not _is_bare_ip:
+                                output = f"[ERROR] Target drift blocked: {url}\nSession target: {target_url}\nAttempted domain: {request_host} ({req_domain})\nAllowed domain: {target_host} ({tgt_domain})"
+                                self.console.print(f"[{THEME['dim']}]  🚫 Target drift blocked: {request_host} != {target_host}[/]")
+                                results.append({"id": tc.id, "name": name, "output": output})
+                                continue
+                        self.console.print(
+                            f"[{THEME['dim']}]  ⚙ http_request: {method} {url[:100]}[/]"
+                        )
+                        # VPN DNS bypass: resolve via external DNS and replace hostname with real IP
+                        if _vpn_spoof:
+                            from urllib.parse import urlunparse
+                            original_host = parsed.hostname
+                            if original_host:
+                                real_ip = self._resolve_via_external_dns(original_host)
+                                if real_ip:
+                                    # Replace hostname with real IP
+                                    netloc = real_ip
+                                    if parsed.port:
+                                        netloc = f"{real_ip}:{parsed.port}"
+                                    url = urlunparse((parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
+                                    # Preserve original Host header for virtual hosting
+                                    headers["Host"] = original_host
+                        with _httpx.Client(
+                            verify=False, timeout=timeout,
+                            follow_redirects=follow,
+                        ) as client:
+                            resp = client.request(method, url, headers=headers, content=body)
+                            resp_headers = "\n".join(f"{k}: {v}" for k, v in resp.headers.items())
+                            output = f"HTTP/{resp.http_version} {resp.status_code}\n{resp_headers}\n\n{resp.text[:6000]}"
+                            # Check for 198.18.x.x contamination in response
+                            if _vpn_spoof and ("198.18." in output or "198.19." in output):
+                                output += "\n\n[WARNING] VPN virtual IP detected in response — may indicate DNS leak"
+                else:
+                    output = f"[ERROR] Unknown tool: {name}"
+            except subprocess.TimeoutExpired:
+                output = f"[TIMEOUT] Command exceeded {args.get('timeout', 180)}s"
+            except Exception as e:
+                output = f"[ERROR] {type(e).__name__}: {str(e)[:500]}"
+            results.append({"id": tc.id, "name": name, "output": output})
+        return results
+
+    def _resolve_target_ip(self, target: str) -> str | None:
+        """Resolve target hostname to IP for drift-guard allowlist."""
+        from urllib.parse import urlparse
+        import subprocess
+        parsed = urlparse(target if target.startswith("http") else f"http://{target}")
+        host = parsed.hostname
+        if not host:
+            return None
+        try:
+            proc = subprocess.run(
+                ["dig", "@8.8.8.8", "+short", host],
+                capture_output=True, text=True, timeout=5,
+            )
+            for line in proc.stdout.strip().splitlines():
+                line = line.strip()
+                if line and not line.startswith(";") and not line.startswith("198.18."):
+                    return line
+        except Exception:
+            pass
+        return None
+
+    def _check_target_drift_in_text(self, text: str) -> str | None:
+        """Check if text contains URLs pointing to different domains than session target."""
+        if not hasattr(self, "_current_target") or not self._current_target:
+            return None
+        import re
+        from urllib.parse import urlparse
+        import tldextract
+        target_parsed = urlparse(self._current_target if self._current_target.startswith("http") else f"http://{self._current_target}")
+        target_host = target_parsed.hostname or ""
+        tgt_ext = tldextract.extract(target_host)
+        tgt_domain = f"{tgt_ext.domain}.{tgt_ext.suffix}" if tgt_ext.domain and tgt_ext.suffix else target_host
+
+        _OSINT_ALLOWED = {
+            "google.com", "google.co.kr", "bing.com", "shodan.io",
+            "censys.io", "crt.sh", "archive.org", "web.archive.org",
+            "virustotal.com", "urlscan.io", "securitytrails.com",
+            "exploit-db.com", "github.com", "pastebin.com",
+            "dnsdb.info", "bgp.he.net", "whois.domaintools.com",
+        }
+
+        _resolved_ip = getattr(self, "_target_resolved_ip", None)
+
+        url_pattern = r'https?://([a-zA-Z0-9][-a-zA-Z0-9.]*[a-zA-Z0-9])'
+        for match in re.finditer(url_pattern, text):
+            found_host = match.group(1)
+            if found_host == _resolved_ip:
+                continue
+            req_ext = tldextract.extract(found_host)
+            req_domain = f"{req_ext.domain}.{req_ext.suffix}" if req_ext.domain and req_ext.suffix else found_host
+            if req_domain == tgt_domain or found_host == target_host:
+                continue
+            if req_domain in _OSINT_ALLOWED:
+                continue
+            if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', found_host):
+                continue
+            return f"[ERROR] Target drift blocked: {found_host}\nSession target: {self._current_target}\nAttempted domain: {found_host} ({req_domain})\nAllowed domain: {target_host} ({tgt_domain})"
+        return None
+
+    def _rewrite_dns_commands(self, cmd: str) -> str:
+        """Rewrite bash commands to bypass VPN DNS spoofing."""
+        import re
+        import subprocess
+        from urllib.parse import urlparse
+        def resolve_host(host: str) -> str | None:
+            try:
+                proc = subprocess.run(["dig", "@8.8.8.8", "+short", host], capture_output=True, text=True, timeout=5)
+                for line in proc.stdout.strip().splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("198.18.") and not line.startswith("198.19.") and not line.startswith(";"):
+                        return line
+            except Exception:
+                pass
+            return None
+        # Rewrite dig commands: dig [opts] <host> → dig @8.8.8.8 [opts] <host>
+        # Match: dig +short A example.com, dig example.com, dig @system example.com
+        # Skip if already has @8.8.8.8 or @1.1.1.1
+        if '@8.8.8.8' not in cmd and '@1.1.1.1' not in cmd:
+            # Insert @8.8.8.8 right after 'dig' keyword
+            cmd = re.sub(r'\bdig\s+', r'dig @8.8.8.8 ', cmd)
+        cmd = re.sub(r'\bhost\s+([a-zA-Z0-9.-]+)', r'dig @8.8.8.8 +short \1', cmd)
+        def rewrite_curl(match):
+            curl_cmd = match.group(0)
+            # Skip if --resolve already injected
+            if '--resolve' in curl_cmd:
+                return curl_cmd
+            url_match = re.search(r'https?://([a-zA-Z0-9][-a-zA-Z0-9.]*[a-zA-Z0-9])(?::\d+)?', curl_cmd)
+            if url_match:
+                parsed = urlparse(url_match.group(0))
+                host = parsed.hostname
+                port = parsed.port or (443 if parsed.scheme == "https" else 80)
+                real_ip = resolve_host(host)
+                if real_ip:
+                    # Insert --resolve after 'curl ' prefix, outside any quotes
+                    return re.sub(r'^(curl\s+)', rf'\1--resolve {host}:{port}:{real_ip} ', curl_cmd)
+            return curl_cmd
+        cmd = re.sub(r'curl\s+[^|;&\n]*https?://[^\s|;&]+', rewrite_curl, cmd)
+        return cmd
+
+    def _resolve_via_external_dns(self, host: str) -> str | None:
+        """Resolve hostname via external DNS (8.8.8.8/1.1.1.1) to bypass VPN DNS spoof."""
+        import subprocess
+        try:
+            # Try dig @8.8.8.8 first
+            proc = subprocess.run(
+                ["dig", "@8.8.8.8", "+short", host],
+                capture_output=True, text=True, timeout=5,
+            )
+            for line in proc.stdout.strip().splitlines():
+                line = line.strip()
+                if line and not line.startswith("198.18.") and not line.startswith("198.19.") and not line.startswith(";"):
+                    return line
+            # Fallback: dig @1.1.1.1
+            proc2 = subprocess.run(
+                ["dig", "@1.1.1.1", "+short", host],
+                capture_output=True, text=True, timeout=5,
+            )
+            for line in proc2.stdout.strip().splitlines():
+                line = line.strip()
+                if line and not line.startswith("198.18.") and not line.startswith("198.19.") and not line.startswith(";"):
+                    return line
+        except Exception:
+            pass
+        return None
+
+    def _filter_ai_thinking(self, text: str) -> str:
         """AI 내부 독백 / thinking 텍스트 필터링.
 
         처리 순서:
@@ -3950,7 +4335,10 @@ class BingoTerminal:
         import re
 
         # ── 1. <think> 태그 블록 제거 ────────────────────────────────
-        text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
+        # 닫힌 태그 쌍: <think>...</think>, <THINK>...</THINK>, <thinking>...</thinking>
+        text = re.sub(r"<(?:think|thinking|THINK|THINKING)>.*?</(?:think|thinking|THINK|THINKING)>", "", text, flags=re.DOTALL | re.IGNORECASE)
+        # 열린 채 닫히지 않은 태그: 끝까지 전부 제거
+        text = re.sub(r"<(?:think|thinking|THINK|THINKING)>.*", "", text, flags=re.DOTALL)
 
         # ── 2. 단락 단위 필터 ────────────────────────────────────────
         # deepseek 계열이 <think> 없이 중국어 reasoning을 바로 출력할 때 처리
@@ -4119,7 +4507,6 @@ class BingoTerminal:
             "/retry": self._cmd_retry,
             "/crack": lambda: self._cmd_crack(arg),
             "/stop": self._cmd_stop,
-            "/whitebox": lambda: self._cmd_whitebox(arg),
             "/report": lambda: self._cmd_proof_report(arg),
             "/load": lambda: self._cmd_load(arg),
         }
@@ -4133,114 +4520,6 @@ class BingoTerminal:
             return
 
         self._warn(self.s["cmd_unknown"].format(name=name))
-
-    # ── /whitebox ─────────────────────────────────────────────────────
-    def _cmd_whitebox(self, arg: str) -> None:
-        """화이트박스 소스코드 분석.
-
-        사용법:
-          /whitebox <path>                — 로컬 파일/디렉토리 분석
-          /whitebox <url> <path>          — 하이브리드: URL + 소스코드 경로
-          /whitebox <path> <url>          — 하이브리드: 소스코드 경로 + URL
-        """
-        from ..core.whitebox_analyzer import WhiteboxAnalyzer
-        from ..core.vuln_agents import VulnAgentDispatcher
-
-        analyzer = WhiteboxAnalyzer()
-
-        # URL 분리: http(s):// 토큰이 있으면 URL, 나머지는 경로
-        import os
-        parts = arg.strip().split()
-        target_url: str = ""
-        path_parts = []
-        for tok in parts:
-            if tok.startswith(("http://", "https://")):
-                target_url = tok
-            else:
-                path_parts.append(tok)
-        code_arg = " ".join(path_parts).strip()
-
-        if not code_arg:
-            # 경로 없이 /whitebox 만 입력 → 경로를 새로 요청
-            _ask = self.s.get("wb_ask_path_cmd", "📂 소스코드 경로 입력 (디렉토리 또는 파일):")
-            self.console.print(f"[{THEME['primary']}]{_ask}[/]", end=" ")
-            try:
-                code_arg = self._session.prompt("").strip()
-            except (EOFError, KeyboardInterrupt):
-                code_arg = ""
-            if not code_arg:
-                self._warn(self.s.get("wb_empty", "경로를 입력하세요."))
-                return
-        real_path = os.path.expandvars(os.path.expanduser(code_arg))
-        self.console.print(
-            f"[{THEME['dim']}]{self.s.get('wb_loading', '분석 중...')} {real_path}[/]"
-        )
-        result = analyzer.analyze_path(real_path)
-
-        # ── URL 타깃 자동 설정 (하이브리드 모드) ─────────────────────
-        if target_url:
-            # 현재 세션의 타깃 URL로 등록 (자동완성·스캔에 사용)
-            self._current_target = target_url
-            self.console.print(
-                f"[{THEME['success']}]"
-                f"{self.s.get('wb_hybrid_target', '🎯 하이브리드 모드: 타깃 URL → {url}').format(url=target_url)}"
-                f"[/]"
-            )
-            self.console.print(
-                f"[{THEME['dim']}]{self.s.get('wb_hybrid_hint', '소스코드 힌트 + 라이브 HTTP 공격 동시 진행')}[/]"
-            )
-
-        if not result.has_hints():
-            self.console.print(
-                f"[{THEME['dim']}]{self.s.get('wb_no_hints', '취약점 패턴 없음. 블랙박스 테스트를 계속합니다.')}[/]"
-            )
-        else:
-            # 결과 출력
-            from rich.table import Table
-            table = Table(title=self.s.get("wb_result_title", "🔍 화이트박스 분석 결과"),
-                          border_style=THEME["primary"], show_lines=True)
-            table.add_column(self.s.get("wb_col_type", "Type"), style="bold red", width=8)
-            table.add_column(self.s.get("wb_col_confidence", "Conf"), width=6)
-            table.add_column(self.s.get("wb_col_endpoint", "Endpoint"), width=20)
-            table.add_column(self.s.get("wb_col_param", "Param"), width=12)
-            table.add_column(self.s.get("wb_col_evidence", "Evidence"), overflow="fold")
-            for h in result.hints[:20]:
-                table.add_row(
-                    h.vuln_type.upper(),
-                    h.confidence,
-                    h.endpoint,
-                    h.param,
-                    h.evidence[:60],
-                )
-            self.console.print(table)
-            if result.tech_stack:
-                self.console.print(
-                    f"[{THEME['success']}]"
-                    f"{self.s.get('wb_stack_label', 'Stack: {stack}').format(stack=', '.join(result.tech_stack))}"
-                    f"[/]"
-                )
-            if result.endpoints:
-                self.console.print(
-                    f"[{THEME['dim']}]{self.s.get('whitebox_endpoints_count', '{n_ep} endpoints | {n_par} parameters').format(n_ep=len(result.endpoints), n_par=len(result.params))}[/]"
-                )
-
-        # 상태 저장 → 다음 채팅에 자동 주입
-        self._whitebox_result = result
-        self._whitebox_context = (
-            result.to_context_injection(target_url=target_url)
-            if result.has_hints() else ""
-        )
-
-        # 에이전트 계획 업데이트
-        dispatcher = VulnAgentDispatcher()
-        self._agent_plan = dispatcher.build_plan(whitebox_result=result)
-        if self._agent_plan.priority:
-            self.console.print(
-                f"[{THEME['success']}]"
-                f"{self.s.get('wb_agent_order', '에이전트 우선순위')}: "
-                f"{' → '.join(self._agent_plan.priority[:6])}"
-                f"[/]"
-            )
 
     def _cmd_agent(self, arg: str) -> None:
         prompt = arg.strip() or "Plan the next security testing steps from the current findings and continue through the chat interface."
@@ -4350,7 +4629,7 @@ class BingoTerminal:
         self._append_to_session_log("user", _auto_msg)
         model = ModelRegistry.build(model_cfg)
         response = self._stream_response(
-            model.chat_stream(self._build_messages(""))
+            model.chat_stream(self._build_messages(""), tools=self._get_fc_tools())
         )
         if response:
             self.history.append(Message(role="assistant", content=response))
@@ -4599,7 +4878,7 @@ class BingoTerminal:
         if model_cfg:
             from ..models.registry import ModelRegistry as _MR
             _m = _MR.build(model_cfg)
-            resp = self._stream_response(_m.chat_stream(self._build_messages("")))
+            resp = self._stream_response(_m.chat_stream(self._build_messages(""), tools=self._get_fc_tools()))
             if resp:
                 self.history.append(Message(role="assistant", content=resp))
                 self._append_to_session_log("assistant", resp)
@@ -4657,7 +4936,7 @@ class BingoTerminal:
         if model_cfg:
             from ..models.registry import ModelRegistry as _MR
             _m = _MR.build(model_cfg)
-            resp = self._stream_response(_m.chat_stream(self._build_messages("")))
+            resp = self._stream_response(_m.chat_stream(self._build_messages(""), tools=self._get_fc_tools()))
             if resp:
                 self.history.append(Message(role="assistant", content=resp))
                 self._append_to_session_log("assistant", resp)
@@ -7318,7 +7597,19 @@ class BingoTerminal:
 
                 lines_out.append(_stripped)
 
-            return "\n".join(lines_out)
+            _final = "\n".join(lines_out)
+            # ── (3) sqlmap 타임아웃/재시도 자동 주입 ──────────────────────────
+            # 모델이 --timeout/--retries 빠트려도 강제 삽입 (20분+ 무한실행 방지)
+            if _re.search(r'\bsqlmap\b', _final):
+                _add: list[str] = []
+                if '--timeout' not in _final:
+                    _add.append('--timeout=30')
+                if '--retries' not in _final:
+                    _add.append('--retries=1')
+                if _add:
+                    _extra = ' ' + ' '.join(_add)
+                    _final = _re.sub(r'\bsqlmap\b', 'sqlmap' + _extra, _final, count=1)
+            return _final
 
         # v3.2.91/94: 정상 코드 실행 경로 → 연속 카운터 리셋
         self._loop_block_consecutive = 0
@@ -8277,7 +8568,7 @@ class BingoTerminal:
                         f"[{', '.join(new_skills)}][/bold cyan]"
                     )
                     new_response = self._stream_response(
-                        model.chat_stream(self._build_messages(""))
+                        model.chat_stream(self._build_messages(""), tools=self._get_fc_tools())
                     )
                     if self._model_turn_failed():
                         return
@@ -8288,7 +8579,8 @@ class BingoTerminal:
 
         # ── v6.2.159 SPAWN_SUBAGENT 처리 (Type A auto-corrector) ────────────
         # AI가 "SPAWN_SUBAGENT:<id>:<desc>:<bash_cmd>" 형식으로 서브에이전트 지시 가능
-        if getattr(self, "_intel_ready", False) and "SPAWN_SUBAGENT:" in response:
+        # FC mode에서는 SPAWN_SUBAGENT 무시 — 모델이 tool_use로 직접 실행해야 함
+        if getattr(self, "_intel_ready", False) and "SPAWN_SUBAGENT:" in response and self._get_fc_tools() is None:
             import re as _sa_re
             for _sa_m in _sa_re.finditer(
                 r"SPAWN_SUBAGENT:([^:\n]+):([^:\n]+):(.+?)(?=\nSPAWN_SUBAGENT:|$)",
@@ -8334,7 +8626,84 @@ class BingoTerminal:
         )
         self._mission_runtime.phase = MissionPhase.ACTIVE
 
+        _fc_mode = self._get_fc_tools() is not None
+        _fc_nudge_count = 0
+        _FC_NUDGE_MAX = 10  # Increased: discovery phases often need multiple prose iterations
+
         while True:
+            # ── Native function calling: tool_calls execution path ──────────
+            if self._last_tool_calls:
+                _fc_nudge_count = 0  # reset — model is using tools correctly
+                if not _fc_mode and self._get_fc_tools() is not None:
+                    _fc_mode = True  # recover from legacy fallback
+                _tc_results = self._execute_tool_calls(self._last_tool_calls)
+                self._last_tool_calls = []
+                for _tcr in _tc_results:
+                    self.history.append(Message(
+                        role="user",
+                        content=f"[TOOL_RESULT: {_tcr['name']}]\n{_tcr['output']}",
+                    ))
+                    self._append_to_session_log("tool_result", f"{_tcr['name']}: {_tcr['output'][:500]}")
+                model_cfg_tc = self.config.get_active_model_config()
+                if not model_cfg_tc:
+                    break
+                from ..models.registry import ModelRegistry as _MR_tc
+                _m_tc = _MR_tc.build(model_cfg_tc)
+                current_response = self._stream_response(_m_tc.chat_stream(self._build_messages(""), tools=self._get_fc_tools()))
+                if current_response:
+                    self.history.append(Message(role="assistant", content=current_response))
+                elif self._model_turn_failed():
+                    self._finalize_runtime("provider_failure", self._last_model_turn.failure)
+                    break
+                continue
+
+            # ── FC mode: code blocks in text are NOT executed ──────────────
+            # Model must use tool_use for execution. Text code blocks = display only.
+            if _fc_mode:
+                _has_text_blocks = "```" in current_response or "TOOL_CALL:" in current_response
+                if not _has_text_blocks:
+                    # FC mode without tool_use: pure prose response (planning/thinking)
+                    _fc_nudge_count += 1
+                    # 빈 응답도 루프 카운터에 반영 — 무한 루프 방지
+                    self._exec_loop_count += 1
+                    _HARD_LOOP_CAP = int(os.environ.get("BINGO_MAX_LOOPS", "60"))
+                    if self._exec_loop_count >= _HARD_LOOP_CAP:
+                        _cap_lang = getattr(self.config, "lang", "en")
+                        _cap_msg = {
+                            "ko": f"⛔ 루프 {_HARD_LOOP_CAP}회 도달 — 자동 중단. 결과를 보고합니다.",
+                            "zh": f"⛔ 循环已达 {_HARD_LOOP_CAP} 次 — 自动停止并生成报告。",
+                            "en": f"⛔ Loop cap ({_HARD_LOOP_CAP}) reached — auto-stopping and generating report.",
+                        }.get(_cap_lang, f"⛔ Loop cap ({_HARD_LOOP_CAP}) reached.")
+                        self.console.print(f"\n[{THEME['error']}]{_cap_msg}[/]")
+                        self._finalize_runtime("hard_loop_cap_reached")
+                        break
+                    if _fc_nudge_count > _FC_NUDGE_MAX:
+                        # Model persistently refuses to use tool calls — fall through to legacy
+                        _fc_mode = False
+                        continue
+                    _lang = getattr(self.config, "lang", "en")
+                    _fc_nudge = {
+                        "ko": "실행할 명령이 있으면 bash_exec/python_exec/http_request 도구를 사용하세요. 코드블록은 실행되지 않습니다.",
+                        "zh": "请使用 bash_exec/python_exec/http_request 工具执行命令，代码块不会被执行。",
+                        "en": "Use bash_exec/python_exec/http_request tools to execute. Code blocks in text are not executed.",
+                    }.get(_lang, "Use tools to execute commands. Text code blocks are not executed.")
+                    self.history.append(Message(role="user", content=_fc_nudge))
+                    from ..models.registry import ModelRegistry as _MR_fc
+                    _mc_fc = self.config.get_active_model_config()
+                    if not _mc_fc:
+                        break
+                    _m_fc = _MR_fc.build(_mc_fc)
+                    current_response = self._stream_response(_m_fc.chat_stream(self._build_messages(""), tools=self._get_fc_tools()))
+                    if current_response:
+                        self.history.append(Message(role="assistant", content=current_response))
+                    elif self._model_turn_failed():
+                        self._finalize_runtime("provider_failure", self._last_model_turn.failure)
+                        break
+                    continue
+                # FC mode: has code blocks or TOOL_CALL in text (display only, not executed)
+                # Skip legacy code-block-nudge path entirely — FC models use tool_use, not text blocks
+                continue
+
             # 코드 블록 없으면 → AI에게 코드 작성 재촉 (최대 3회)
             # v5.2.2: TOOL_CALL이 있으면 "코드 없음" 처리 우회 — _run_code_blocks에서 처리
             if "```" not in current_response and "TOOL_CALL:" not in current_response:
@@ -8375,7 +8744,7 @@ class BingoTerminal:
                 if not _mc:
                     break
                 _m = _MR.build(_mc)
-                current_response = self._stream_response(_m.chat_stream(self._build_messages("")))
+                current_response = self._stream_response(_m.chat_stream(self._build_messages(""), tools=self._get_fc_tools()))
                 if current_response:
                     self.history.append(Message(role="assistant", content=current_response))
                 elif self._last_model_turn.failure is not None:
@@ -8550,7 +8919,7 @@ class BingoTerminal:
                         if _mc_vpn:
                             _m_vpn = _MR_vpn.build(_mc_vpn)
                             current_response = self._stream_response(
-                                _m_vpn.chat_stream(self._build_messages(""))
+                                _m_vpn.chat_stream(self._build_messages(""), tools=self._get_fc_tools())
                             )
                             if current_response:
                                 self.history.append(
@@ -8686,7 +9055,7 @@ class BingoTerminal:
                     _m_sz = _MR_sz.build(_mc_sz)
                     _hint = self.s.get("sqli_size_force_hint", "⚡ SQLi 강제 전환 유도 중...")
                     self.console.print(f"\n[bold green]{_hint}[/bold green]")
-                    current_response = self._stream_response(_m_sz.chat_stream(self._build_messages("")))
+                    current_response = self._stream_response(_m_sz.chat_stream(self._build_messages(""), tools=self._get_fc_tools()))
                     if current_response:
                         self.history.append(Message(role="assistant", content=current_response))
                     continue
@@ -8765,7 +9134,7 @@ class BingoTerminal:
                     _m_bf = _MR_bf.build(_mc_bf)
                     _bf_hint = self.s.get("bruteforce_redirect_hint", "🛑 브루트포스 중단 → 대안 벡터 전환 중...")
                     self.console.print(f"\n[bold yellow]{_bf_hint}[/bold yellow]")
-                    current_response = self._stream_response(_m_bf.chat_stream(self._build_messages("")))
+                    current_response = self._stream_response(_m_bf.chat_stream(self._build_messages(""), tools=self._get_fc_tools()))
                     if current_response:
                         self.history.append(Message(role="assistant", content=current_response))
                     continue
@@ -8870,7 +9239,7 @@ class BingoTerminal:
                 self.console.print(
                     f"\n[bold yellow]{self.s.get('sqli_reparse_hint', '⚡ SQLi 파싱 재시도 유도 중...')}[/bold yellow]"
                 )
-                current_response = self._stream_response(_m_sqe.chat_stream(self._build_messages("")))
+                current_response = self._stream_response(_m_sqe.chat_stream(self._build_messages(""), tools=self._get_fc_tools()))
                 if current_response:
                     self.history.append(Message(role="assistant", content=current_response))
                 continue
@@ -8947,7 +9316,7 @@ class BingoTerminal:
                 if _mc_sim:
                     _m_sim = _MR_sim.build(_mc_sim)
                     self.console.print(f"\n[bold red]{self.s.get('simulated_output_retrying', '⛔ 모의실행 차단 → 실제 HTTP 코드 재요청 중...')}[/bold red]")
-                    current_response = self._stream_response(_m_sim.chat_stream(self._build_messages("")))
+                    current_response = self._stream_response(_m_sim.chat_stream(self._build_messages(""), tools=self._get_fc_tools()))
                     if current_response:
                         self.history.append(Message(role="assistant", content=current_response))
                     continue
@@ -9016,7 +9385,7 @@ class BingoTerminal:
                     if not _mc_hall:
                         break
                     _m_hall = _MR_hall.build(_mc_hall)
-                    current_response = self._stream_response(_m_hall.chat_stream(self._build_messages("")))
+                    current_response = self._stream_response(_m_hall.chat_stream(self._build_messages(""), tools=self._get_fc_tools()))
                     if current_response:
                         self.history.append(Message(role="assistant", content=current_response))
                     continue
@@ -9049,7 +9418,7 @@ class BingoTerminal:
                     break
                 from ..models.registry import ModelRegistry as _MR2
                 _m2 = _MR2.build(model_cfg2)
-                current_response = self._stream_response(_m2.chat_stream(self._build_messages("")))
+                current_response = self._stream_response(_m2.chat_stream(self._build_messages(""), tools=self._get_fc_tools()))
                 if current_response:
                     self.history.append(Message(role="assistant", content=current_response))
                 continue
@@ -9060,6 +9429,41 @@ class BingoTerminal:
                 history_len=len(self.history),
                 label=f"Loop #{self._exec_loop_count} — {(self._agent_state.get('target') or '?')[:40]}",
             )
+
+            # ── Semi-auto checkpoint: pause every N loops for user confirmation ──
+            _CHECKPOINT_INTERVAL = int(os.environ.get("BINGO_CHECKPOINT_INTERVAL", "10"))
+            if self._exec_loop_count > 0 and self._exec_loop_count % _CHECKPOINT_INTERVAL == 0:
+                _ck_lang = getattr(self.config, "lang", "en")
+                _ck_header = {
+                    "ko": f"📋 {self._exec_loop_count}회 루프 완료 — 중간 보고",
+                    "zh": f"📋 {self._exec_loop_count} 次循环完成 — 中间报告",
+                    "en": f"📋 {self._exec_loop_count} loops completed — progress checkpoint",
+                }.get(_ck_lang, f"📋 Checkpoint at loop #{self._exec_loop_count}")
+                _fe = getattr(self, "_findings_exporter", None)
+                _confirmed = sum(1 for f in getattr(_fe, "findings", []) if f.confirmed) if _fe else 0
+                _potential = len(getattr(_fe, "findings", [])) if _fe else 0
+                _ck_summary = {
+                    "ko": f"  확인된 발견: {_confirmed}개 / 후보: {_potential}개 / 루프: {self._exec_loop_count}회",
+                    "zh": f"  已确认: {_confirmed} / 候选: {_potential} / 循环: {self._exec_loop_count}",
+                    "en": f"  Confirmed: {_confirmed} / Candidates: {_potential} / Loops: {self._exec_loop_count}",
+                }.get(_ck_lang, f"  Findings: {_confirmed}/{_potential}")
+                self.console.print(f"\n[{THEME['info']}]{_ck_header}[/]")
+                self.console.print(f"[{THEME['dim']}]{_ck_summary}[/]")
+                _ck_prompt = {
+                    "ko": "  계속 진행하시겠습니까? (Enter=계속 / 'stop'=중단+보고): ",
+                    "zh": "  是否继续？(Enter=继续 / 'stop'=停止并生成报告): ",
+                    "en": "  Continue? (Enter=continue / 'stop'=stop and report): ",
+                }.get(_ck_lang, "  Continue? (Enter/stop): ")
+                try:
+                    _ck_input = input(_ck_prompt).strip().lower()
+                    if _ck_input in ("stop", "s", "중단", "멈춰", "停"):
+                        self.console.print(f"[{THEME['warn']}]⏹ User requested stop — generating report.[/]")
+                        self._finalize_runtime("user_checkpoint_stop")
+                        break
+                except (KeyboardInterrupt, EOFError):
+                    self.console.print(f"\n[{THEME['warn']}]⏹ Interrupted at checkpoint — generating report.[/]")
+                    self._finalize_runtime("user_checkpoint_interrupt")
+                    break
 
             # 결과 압축 (컨텍스트 폭발 방지)
             raw_results = "\n".join(results_text)
@@ -9179,9 +9583,71 @@ class BingoTerminal:
             self._show_token_usage()
             self._exec_loop_count += 1
 
-            # Mission control is state-based. Text hashes and counters remain
-            # outside the transition path; only evidence/coverage/frontier state
-            # can select continue, pivot, or report.
+            # ── Hard loop cap: prevent runaway 100+ loops ──────────────────
+            _HARD_LOOP_CAP = int(os.environ.get("BINGO_MAX_LOOPS", "60"))
+            if self._exec_loop_count >= _HARD_LOOP_CAP:
+                _cap_lang = getattr(self.config, "lang", "en")
+                _cap_msg = {
+                    "ko": f"⛔ 루프 {_HARD_LOOP_CAP}회 도달 — 자동 중단. 결과를 보고합니다.",
+                    "zh": f"⛔ 循环已达 {_HARD_LOOP_CAP} 次 — 自动停止并生成报告。",
+                    "en": f"⛔ Loop cap ({_HARD_LOOP_CAP}) reached — auto-stopping and generating report.",
+                }.get(_cap_lang, f"⛔ Loop cap ({_HARD_LOOP_CAP}) reached.")
+                self.console.print(f"\n[{THEME['error']}]{_cap_msg}[/]")
+                self._finalize_runtime("hard_loop_cap_reached")
+                break
+
+            # ── No-progress pivot enforcement ──────────────────────────────
+            _NO_PROGRESS_PIVOT_THRESHOLD = 5
+            _NO_PROGRESS_STOP_THRESHOLD = 10
+            # Real progress = new confirmed/probable findings OR genuinely new coverage.
+            # Tool execution alone (even with HTTP responses) does NOT count as progress
+            # if it produced no new findings or actionable discoveries.
+            _fe = getattr(self, "_findings_exporter", None)
+            _current_finding_count = len(getattr(_fe, "findings", [])) if _fe else 0
+            _prev_finding_count = getattr(self, "_prev_loop_finding_count", 0)
+            _has_new_findings = _current_finding_count > _prev_finding_count
+            self._prev_loop_finding_count = _current_finding_count
+
+            _meaningful_progress = (
+                _has_new_findings
+                or (getattr(_delta, "fact_ids", ()) and len(getattr(_delta, "fact_ids", ())) > 0)
+                or bool(getattr(_delta, "promoted_ids", ()))
+                or self._has_meaningful_loop_progress(
+                    current_response if isinstance(current_response, str) else ""
+                )
+            )
+            if not _meaningful_progress:
+                self._dl_no_progress += 1
+            else:
+                self._dl_no_progress = 0
+
+            if self._dl_no_progress >= _NO_PROGRESS_STOP_THRESHOLD:
+                _np_lang = getattr(self.config, "lang", "en")
+                _np_msg = {
+                    "ko": f"⛔ 연속 {self._dl_no_progress}회 진전 없음 — 자동 중단. 결과를 보고합니다.",
+                    "zh": f"⛔ 连续 {self._dl_no_progress} 次无进展 — 自动停止并生成报告。",
+                    "en": f"⛔ No progress for {self._dl_no_progress} consecutive loops — auto-stopping.",
+                }.get(_np_lang, f"⛔ No progress — stopping.")
+                self.console.print(f"\n[{THEME['error']}]{_np_msg}[/]")
+                self._finalize_runtime("no_progress_stop")
+                break
+            elif self._dl_no_progress >= _NO_PROGRESS_PIVOT_THRESHOLD:
+                _pv_lang = getattr(self.config, "lang", "en")
+                _pv_msg = {
+                    "ko": f"⚠ 연속 {self._dl_no_progress}회 진전 없음 — 다른 공격 벡터로 전환합니다.",
+                    "zh": f"⚠ 连续 {self._dl_no_progress} 次无进展 — 切换攻击向量。",
+                    "en": f"⚠ No progress for {self._dl_no_progress} loops — pivoting to a different attack vector.",
+                }.get(_pv_lang, f"⚠ Pivoting due to no progress.")
+                self.console.print(f"\n[{THEME['warn']}]{_pv_msg}[/]")
+                self.history.append(Message(
+                    role="user",
+                    content=(
+                        f"[AUTO-PIVOT] The last {self._dl_no_progress} attempts produced no new evidence. "
+                        f"Immediately switch to a completely different attack vector or technique. "
+                        f"Do NOT repeat previous approaches. If no viable vector remains, produce a final report."
+                    ),
+                ))
+
             _candidate = self._current_action_candidate(current_response)
             self._mission_runtime.pending_work = (
                 self._subagent_pool.pending_count()
@@ -9267,7 +9733,7 @@ class BingoTerminal:
                 except Exception:
                     pass
 
-            # ── IP 차단 / Rate Limit 자동 감지 및 대기 ────────────────────
+            # ── WAF 페이로드 차단 / Rate Limit 자동 감지 및 대기 ────────────────────
             # ⚠️  v3.2.4: 오탐 방지 강화
             #   - "429" 단독 소문자 매칭 제거 → HTTP 컨텍스트 regex 필수
             #   - 이유: smali const-string, HTML id, 쿼리스트링 등 수천 곳에
@@ -9278,8 +9744,9 @@ class BingoTerminal:
             _raw_lower = raw_results.lower()
             import re as _bre
 
-            # ── v4.6.0: 오탐 제로 IP 차단 감지 ────────────────────────────────
+            # ── v4.6.0: 오탐 제로 WAF 페이로드 차단 감지 ────────────────────────────────
             # 핵심 원칙: 실제 HTTP 차단 응답에서만 발동. 응답 본문 텍스트 오탐 금지.
+            # 대부분의 경우는 WAF 페이로드 차단이지 IP 차단이 아님.
             #
             # [오탐 사례]
             #   - 사이트 HTML에 "rate limit policy", "API rate limit" 등 단어 포함
@@ -9411,9 +9878,9 @@ class BingoTerminal:
                             # 메인 사이트 접근 가능 → API 엔드포인트 403은 인증/권한 문제
                             _lang_403 = getattr(self.config, "lang", "en")
                             _403_fp_msg = self.s.get("forbidden_403_not_ipblock", {
-                                "ko": "⚡ 403 감지됐지만 메인 사이트 접근 가능 — 인증/권한 거부 (IP 차단 아님)",
-                                "zh": "⚡ 检测到403但主站可访问 — 认证/权限拒绝（非IP封锁）",
-                                "en": "⚡ 403 detected but main site accessible — auth/permission denied, NOT IP block",
+                                "ko": "⚡ 403 감지됨 — 페이로드 차단, 인증/권한 거부 (IP 차단 아님)",
+                                "zh": "⚡ 检测到403 — 载荷拦截、认证/权限拒绝（非IP封锁）",
+                                "en": "⚡ 403 detected — payload blocked, auth/permission denied (NOT IP block)",
                             })
                             if isinstance(_403_fp_msg, dict):
                                 _403_fp_msg = _403_fp_msg.get(_lang_403, "⚡ 403 auth/permission denial (not IP block)")
@@ -9471,16 +9938,16 @@ class BingoTerminal:
                             _hb_is_real_ipblock = False
                             _lang_hb = getattr(self.config, "lang", "en")
                             _hb_fp_msg = self.s.get("waf_payload_blocked_not_ip", {
-                                "ko": "⚡ 'blocked' 감지됐지만 서버 응답 정상 — WAF 페이로드 차단 (IP 차단 아님)",
-                                "zh": "⚡ 检测到'blocked'但服务器正常响应 — WAF载荷拦截（非IP封锁）",
-                                "en": "⚡ 'blocked' text but server responds — WAF payload block, NOT IP block",
+                                "ko": "⚡ 'blocked' 감지됐지만 서버 응답 정상 — WAF 페이로드 차단만 (IP는 차단 안 됨)",
+                                "zh": "⚡ 检测到'blocked'但服务器正常响应 — WAF载荷拦截（IP未封锁）",
+                                "en": "⚡ 'blocked' text but server responds — WAF payload block (IP NOT blocked)",
                             }).get(_lang_hb, "⚡ WAF payload block (not IP block)")
                             self.console.print(f"[dim]{_hb_fp_msg}[/]")
                             _detected_blocks.append("WAF payload blocked (not IP block)")
                     except Exception:
                         pass  # 검증 예외 → 안전하게 IP 차단으로 유지
                 if _hb_is_real_ipblock:
-                    _detected_blocks.append("IP block/ban detected")
+                    _detected_blocks.append("Real IP block/ban detected (rare)")
             if _has_unavail:
                 _detected_blocks.append("Temporarily unavailable")
 
@@ -10040,7 +10507,7 @@ class BingoTerminal:
                     # 다음 AI 호출 전까지 결과 주입 없이 바로 AI에게 힌트 전달
                     model_hint = ModelRegistry.build(model_cfg)
                     _hint_response = self._stream_response(
-                        model_hint.chat_stream(self._build_messages(""))
+                        model_hint.chat_stream(self._build_messages(""), tools=self._get_fc_tools())
                     )
                     if _hint_response:
                         self.history.append(Message(role="assistant", content=_hint_response))
@@ -10058,7 +10525,7 @@ class BingoTerminal:
             model = ModelRegistry.build(model_cfg)
             self.console.print(f"\n[{THEME['secondary']}]{_s['exec_analyzing']}[/]")
             followup_response = self._stream_response(
-                model.chat_stream(self._build_messages(""))
+                model.chat_stream(self._build_messages(""), tools=self._get_fc_tools())
             )
 
             if not followup_response:
@@ -10110,7 +10577,7 @@ class BingoTerminal:
                     model_hint2 = ModelRegistry.build(model_cfg)
                     self.console.print(f"\n[{THEME['secondary']}]{_s['exec_analyzing']}[/]")
                     _hint2_response = self._stream_response(
-                        model_hint2.chat_stream(self._build_messages(""))
+                        model_hint2.chat_stream(self._build_messages(""), tools=self._get_fc_tools())
                     )
                     if _hint2_response:
                         self.history.append(Message(role="assistant", content=_hint2_response))
@@ -10153,7 +10620,7 @@ class BingoTerminal:
                         f"[{', '.join(new_new_skills)}][/bold cyan]"
                     )
                     followup_response = self._stream_response(
-                        skill_model.chat_stream(self._build_messages(""))
+                        skill_model.chat_stream(self._build_messages(""), tools=self._get_fc_tools())
                     )
                     self.history.append(Message(role="assistant", content=followup_response))
 
@@ -10472,7 +10939,8 @@ class BingoTerminal:
             f"vector={vector} previous={technique} attempts={count} next={next_name}\n"
             f"ACTION: {next_action}.\n"
             "Preserve the candidate, target, endpoint, parameter, session, headers, and controls. "
-            "Change technique now; do not repeat the same request and do not stop exploration.\n"
+            "Change technique now; do not repeat the same request. "
+            "If no viable technique remains for this vector, produce a final report instead.\n"
             "[/ADAPTIVE_OFFENSE_PIVOT]\n"
         )
 
@@ -11550,7 +12018,7 @@ class BingoTerminal:
             _safe_hints.append("deep SQLi extraction (SQLi CONFIRMED)")
         elif _fe_flags.get("has_potential_sqli") or _fe_flags.get("blocked_count"):
             _safe_hints.append(
-                "CONTINUE SQLi verification / WAF bypass (potential or blocked — DO NOT abandon)"
+                "SQLi verification / WAF bypass (potential or blocked — try a different technique if stalled)"
             )
         else:
             _safe_hints.append("re-validate boolean oracle / WAF bypass (SQLi NOT confirmed)")
@@ -12325,6 +12793,20 @@ class BingoTerminal:
             r"(?:shell|RCE)\s*(?:obtained|confirmed|verified)",
             r"(?:셸|RCE)\s*(?:획득|확인)",
             r"(?:Shell|RCE)\s*(?:获取|确认)",
+            r"(?:Content-Length|size|bytes?|length)\s*[:=]?\s*\d{3,6}\b.*(?:vs|→|->|versus|!=)\s*\d{3,6}\b",
+            r"\b\d{3,6}\s*(?:bytes?|바이트|b)\b.*(?:다[르른]|differ|변화|차이|changed)",
+            r"(?:boolean|blind)\s*(?:oracle|injection|sqli)",
+            r"WAITFOR\s+DELAY.*(?:confirm|success|detected|발견|확인)",
+            r"(?:time.based|시간.기반).*(?:confirm|success|injection|확인)",
+            r"(?:response\s+size|응답\s*크기|响应.?大小)\s*(?:differ|diff|차이|다[르른]|不同)",
+            r"(?:bypass|绕过|우회)\s*(?:success|成功|성공|confirmed|확인)",
+            r"(?:HTTP\s*)?200\b.*(?:\d{3,6}\s*(?:B|bytes?|字节))",
+            r"(?:admin|manager|login|后台|관리)\s*(?:panel|page|面板|페이지)?\s*(?:found|发现|발견|accessible|可访问)",
+            r"(?:short.?file.?name|短文件名|IIS.?tilde)\s*(?:enum|scan|found|发现)",
+            r"(?:new|新|새)\s*(?:endpoint|path|directory|路径|경로|目录)\s*(?:found|discovered|发现|발견)",
+            r"(?:WAF|waf)\s*(?:bypass|evasion|绕过|우회)",
+            r"(?:injection|注入|인젝션)\s*(?:point|vector|入口|포인트)\s*(?:found|confirmed|发现|확인)",
+            r"\b(?:403|200|301|302)\b.*(?:/[a-zA-Z0-9_.-]+){2,}",
         )
         return any(_re_progress.search(p, text, _re_progress.IGNORECASE) for p in patterns)
 

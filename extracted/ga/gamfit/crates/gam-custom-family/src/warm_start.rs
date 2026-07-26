@@ -320,17 +320,24 @@ pub(crate) fn custom_family_blockwise_edf(
         format!("custom-family edf: exact penalized-Hessian factorization failed: {error}")
     })?;
 
-    let mut edf_by_penalty = vec![0.0_f64; expected_rho];
-    // Raw per-penalty trace tr_kk = λ_kk·tr(H⁻¹S_kk), aligned with edf_by_penalty
-    // (issue #1219), so per-term EDF assembles as |coeff_range| − Σ tr_kk.
-    let mut penalty_trace = vec![0.0_f64; expected_rho];
-    let mut block_edf = Vec::with_capacity(specs.len());
-    let mut total_trace = 0.0_f64;
+    // Raw per-penalty traces and their block ranks, handed to the shared
+    // accounting below. Admission, the non-finite resolution and the
+    // `[mp, p]` floor are stated once in `penalized_edf_bundle` (#2470);
+    // this route previously floored `edf_total` at 0, which permits an
+    // effective dimension below the joint penalty null space.
+    let mut raw_traces = vec![0.0_f64; expected_rho];
+    let mut penalty_ranks = vec![0_usize; expected_rho];
+    // `Σ_k S_k` in the joint layout, whose rank gives the null-space floor.
+    // Unscaled on purpose: the floor is a structural property of the penalty
+    // geometry, exactly as the canonical path reads it off the stacked
+    // penalty root rather than off `λ`.
+    let mut joint_penalty = Array2::<f64>::zeros((p, p));
+    let mut block_spans: Vec<(usize, usize, usize)> = Vec::with_capacity(specs.len());
     let mut penalty_offset = 0usize;
     let mut block_col_start = 0usize;
     for spec in specs.iter() {
         let block_cols = spec.design.ncols();
-        let mut block_edf_acc = block_cols as f64;
+        block_spans.push((penalty_offset, spec.penalties.len(), block_cols));
         for (local_k, penalty) in spec.penalties.iter().enumerate() {
             let global_k = penalty_offset + local_k;
             let lambda = lambdas[global_k];
@@ -377,23 +384,37 @@ pub(crate) fn custom_family_blockwise_edf(
             for d in 0..p {
                 trace += z[[d, d]];
             }
-            let lam_trace = if lambda > 0.0 { lambda * trace } else { 0.0 };
-            total_trace += lam_trace;
-            penalty_trace[global_k] = lam_trace;
-            let penalty_rank = penalty_rank as f64;
-            let edf_k = (penalty_rank - lam_trace).clamp(0.0, penalty_rank);
-            edf_by_penalty[global_k] = edf_k;
-            // The block's edf is the column count minus the total trace this
-            // block's penalties spend (so multiple penalties on one block
-            // compose), clamped to the block's column count.
-            block_edf_acc -= lam_trace;
+            joint_penalty += &s_full;
+            raw_traces[global_k] = if lambda > 0.0 { lambda * trace } else { 0.0 };
+            penalty_ranks[global_k] = penalty_rank;
         }
-        block_edf.push(block_edf_acc.clamp(0.0, block_cols as f64));
         penalty_offset += spec.penalties.len();
         block_col_start += block_cols;
     }
 
-    let edf_total = (p as f64 - total_trace).clamp(0.0, p as f64);
+    let joint_penalty_rank = penalty_matrix_root(&joint_penalty)
+        .map_err(|error| format!("custom-family edf: joint penalty rank failed: {error}"))?
+        .nrows();
+    let bundle = gam_solve::estimate::penalized_edf_bundle(
+        &raw_traces,
+        &penalty_ranks,
+        p,
+        (p - joint_penalty_rank.min(p)) as f64,
+    );
+    let edf_by_penalty = bundle.edf_by_block;
+    let penalty_trace = bundle.penalty_block_trace;
+    // A block's edf is its column count minus the trace its penalties spend, so
+    // multiple penalties on one block compose. It is built from the ADMITTED
+    // traces above, not the raw products, so the block figure and the per-penalty
+    // figures cannot disagree about how much each penalty absorbed.
+    let block_edf: Vec<f64> = block_spans
+        .iter()
+        .map(|&(start, count, block_cols)| {
+            let spent: f64 = penalty_trace[start..start + count].iter().sum();
+            (block_cols as f64 - spent).clamp(0.0, block_cols as f64)
+        })
+        .collect();
+    let edf_total = bundle.edf_total;
     if !edf_total.is_finite()
         || edf_by_penalty.iter().any(|v| !v.is_finite())
         || block_edf.iter().any(|v| !v.is_finite())
@@ -446,6 +467,118 @@ fn require_converged_outer_for_assembly(outer_converged: bool) -> Result<(), Cus
                  the solver must return its checkpoint as nonconvergence evidence instead"
             .to_string(),
     })
+}
+
+/// Assemble the first-order corrected covariance `V_c = V_cond + C` and the
+/// standard errors published beside it (#2346).
+///
+/// The standard errors go through `gam_problem::se_from_covariance` — the same
+/// gate the standard GAM lane, the GAMLSS builders and the penalty path already
+/// use — rather than a local `max(0, ·)` clamp. `V_c` is a *sum*, not a
+/// factorization, so a large negative correction on a weakly identified
+/// coefficient can drive a diagonal materially negative. A clamp publishes that
+/// coefficient with `SE = 0`, i.e. infinite precision and a Wald `p ≈ 0`;
+/// snapping a negative diagonal to zero is legitimate only inside the
+/// dimension-scaled backward-error bound, which is exactly the judgement
+/// `se_from_covariance` owns.
+fn corrected_covariance_and_standard_errors(
+    smoothing_corrected: Option<&(Array2<f64>, gam_solve::model_types::SmoothingCorrectionMethod)>,
+    covariance_conditional: Option<&Array2<f64>>,
+) -> Result<
+    (
+        Option<Array2<f64>>,
+        Option<gam_solve::model_types::SmoothingCorrectionMethod>,
+        Option<Array2<f64>>,
+        Option<Array1<f64>>,
+    ),
+    CustomFamilyError,
+> {
+    let (Some((correction, method)), Some(v_cond)) = (smoothing_corrected, covariance_conditional)
+    else {
+        return Ok((None, None, None, None));
+    };
+    if correction.dim() != v_cond.dim() {
+        return Ok((None, None, None, None));
+    }
+    let corrected = v_cond + correction;
+    let standard_errors = gam_problem::se_from_covariance(&corrected).map_err(|reason| {
+        CustomFamilyError::NumericalFailure {
+            reason: format!(
+                "corrected covariance V_c = V_cond + C has an invalid diagonal: {reason}"
+            ),
+        }
+    })?;
+    Ok((
+        Some(correction.clone()),
+        Some(*method),
+        Some(corrected),
+        Some(standard_errors),
+    ))
+}
+
+#[cfg(test)]
+mod corrected_covariance_tests {
+    use super::*;
+    use gam_solve::model_types::SmoothingCorrectionMethod;
+
+    fn first_order_method() -> SmoothingCorrectionMethod {
+        SmoothingCorrectionMethod::FirstOrderIdentifiedSubspace {
+            active_rank: 1,
+            rho_dimension: 1,
+        }
+    }
+
+    #[test]
+    fn corrected_standard_errors_are_the_covariance_diagonal_roots() {
+        let v_cond = Array2::from_diag(&Array1::from_vec(vec![4.0, 9.0]));
+        let correction = Array2::from_diag(&Array1::from_vec(vec![5.0, 7.0]));
+        let (_, _, corrected, se) = corrected_covariance_and_standard_errors(
+            Some(&(correction, first_order_method())),
+            Some(&v_cond),
+        )
+        .expect("a positive-definite corrected covariance must be accepted");
+        let corrected = corrected.expect("corrected covariance is published");
+        assert_eq!(corrected[[0, 0]], 9.0);
+        assert_eq!(corrected[[1, 1]], 16.0);
+        let se = se.expect("corrected standard errors are published");
+        assert_eq!(se[0], 3.0);
+        assert_eq!(se[1], 4.0);
+    }
+
+    #[test]
+    fn a_materially_negative_corrected_diagonal_is_refused_not_clamped_to_zero() {
+        // `V_c = V_cond + C` with a correction that overwhelms the conditional
+        // variance of coefficient 1. The clamp this seam replaced published
+        // `SE = 0` here — an infinitely precise coefficient whose Wald p-value
+        // is 0 — so the guard is that assembly now fails instead.
+        let v_cond = Array2::from_diag(&Array1::from_vec(vec![4.0, 1.0]));
+        let correction = Array2::from_diag(&Array1::from_vec(vec![0.0, -3.0]));
+        let error = corrected_covariance_and_standard_errors(
+            Some(&(correction, first_order_method())),
+            Some(&v_cond),
+        )
+        .expect_err("a materially negative corrected diagonal must be refused");
+        assert!(matches!(
+            error,
+            CustomFamilyError::NumericalFailure { reason }
+                if reason.contains("V_c = V_cond + C has an invalid diagonal")
+        ));
+    }
+
+    #[test]
+    fn a_dimension_mismatched_correction_publishes_no_corrected_pair() {
+        let v_cond = Array2::from_diag(&Array1::from_vec(vec![4.0, 9.0]));
+        let correction = Array2::from_diag(&Array1::from_vec(vec![1.0]));
+        let (correction_out, method, corrected, se) = corrected_covariance_and_standard_errors(
+            Some(&(correction, first_order_method())),
+            Some(&v_cond),
+        )
+        .expect("a mismatched correction is a typed absence, not a failure");
+        assert!(correction_out.is_none());
+        assert!(method.is_none());
+        assert!(corrected.is_none());
+        assert!(se.is_none());
+    }
 }
 
 #[cfg(test)]
@@ -512,6 +645,7 @@ mod assembly_convergence_tests {
                 },
             hessian_psd: Some(true),
             lambdas_railed: Vec::new(),
+            curvature_floor: None,
         };
         let error =
             blockwise_fit_from_parts(parts_with_outer_evidence(1, true, Some(certificate)), &[])
@@ -781,21 +915,10 @@ pub fn blockwise_fit_from_parts(
     // curvature supplied one — `V_c = V_cond + C`, with the correction matrix
     // and its typed method provenance carried exactly like the standard lane.
     let (smoothing_correction, smoothing_correction_method, corrected_cov, corrected_se) =
-        match (&smoothing_corrected, &covariance_conditional) {
-            (Some((correction, method)), Some(v_cond))
-                if correction.dim() == v_cond.dim() =>
-            {
-                let corrected = v_cond + correction;
-                let se = corrected.diag().mapv(|v| v.max(0.0).sqrt());
-                (
-                    Some(correction.clone()),
-                    Some(method.clone()),
-                    Some(corrected),
-                    Some(se),
-                )
-            }
-            _ => (None, None, None, None),
-        };
+        corrected_covariance_and_standard_errors(
+            smoothing_corrected.as_ref(),
+            covariance_conditional.as_ref(),
+        )?;
     let inference = Some(gam_solve::model_types::FitInference {
         edf_by_block: edf_by_penalty,
         penalty_block_trace: penalty_trace,
@@ -1187,11 +1310,13 @@ pub struct CustomFamilyJointHyperEfsOwnedResult {
 
 pub(crate) struct OuterObjectiveEvalResult {
     pub(crate) objective: f64,
+    pub(crate) criterion_components: [f64; 4],
     pub(crate) gradient: Array1<f64>,
     pub(crate) outer_hessian: gam_problem::HessianValue,
     pub(crate) warm_start: ConstrainedWarmStart,
     pub(crate) inner_converged: bool,
     pub(crate) hyper_values: Array1<f64>,
+    pub(crate) ext_mode_response_cols: Option<Array2<f64>>,
     /// The exact coefficient mode used to assemble this objective payload.
     ///
     /// Keeping the owned result here lets an atomic multi-start evaluation
@@ -1206,13 +1331,29 @@ pub(crate) fn outer_eval_result_into_joint_hyper_owned_result(
 ) -> CustomFamilyJointHyperOwnedResult {
     let OuterObjectiveEvalResult {
         objective,
+        criterion_components,
         gradient,
         outer_hessian,
         warm_start,
         inner_converged,
         hyper_values,
+        ext_mode_response_cols,
         inner,
     } = result;
+    gam_solve::estimate::outer_eval_capture::record_outer_criterion_components(
+        objective,
+        criterion_components,
+    );
+    let selected_beta = Array1::from_iter(
+        inner
+            .block_states
+            .iter()
+            .flat_map(|state| state.beta.iter().copied()),
+    );
+    gam_solve::estimate::outer_eval_capture::record_outer_selected_mode(
+        selected_beta,
+        ext_mode_response_cols,
+    );
     let rho = warm_start.rho.clone();
     CustomFamilyJointHyperOwnedResult {
         result: CustomFamilyJointHyperResult {

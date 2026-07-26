@@ -39,6 +39,10 @@ setup(
     packages=packages,
     package_data=package_data,
     download_url='https://pypi.org/project/pytz/',
+    project_urls={
+        'Source': 'https://github.com/stub42/pytz.git',
+        'Issues': 'https://github.com/stub42/pytz/issues',
+    },
     platforms=['Independent'],
     classifiers=[
         'Development Status :: 6 - Mature',

@@ -2467,6 +2467,34 @@ pub(crate) fn joint_inner_kkt_converged(residual: f64, residual_tol: f64) -> boo
     residual.is_finite() && residual_tol.is_finite() && residual <= residual_tol
 }
 
+/// The Conn–Gould–Toint (Thm 6.4.6) stopping test: no step the local quadratic
+/// model can resolve lowers the penalized objective by more than tolerance, so the
+/// iterate IS the optimum on the identifiable subspace.
+///
+/// `decrement` is `½gᵀH⁻¹g` over the identified modes; `weakly_identified_decrement`
+/// re-measures the achievable improvement over the genuinely-curved band (above the
+/// conditioning-robust `numerical_floor` rather than `rank_tol·λ_max`), so a
+/// weakly-identified real direction blocks certification instead of being written
+/// off as gauge (gam#1449). Both must clear the tolerance.
+///
+/// This lives here, as ONE predicate, because two sites in `inner_blockwise_fit`
+/// decide this same fact and used to answer it differently (#2485): the
+/// fully-rejected stall guard concluded "no accepted descent step is reachable ⇒ not
+/// converged" and `break`, while the certificate below concluded the opposite from
+/// the strictly weaker premise — and the guard is sequenced first, so on a
+/// roundoff-floor optimum the certificate never ran. Restating a stopping rule in
+/// two places is what let them disagree; keep it in one.
+pub(crate) fn joint_newton_decrement_certifies(
+    decrement: f64,
+    weakly_identified_decrement: f64,
+    objective_tol: f64,
+) -> bool {
+    decrement.is_finite()
+        && decrement <= objective_tol
+        && weakly_identified_decrement.is_finite()
+        && weakly_identified_decrement <= objective_tol
+}
+
 /// Per-iterate diagnostic snapshot assembled when the joint Newton inner solve
 /// refuses to certify constrained-stationarity. The report breaks the failure
 /// down by block (so the offending smooth can be named), records the H_pen
@@ -2592,6 +2620,16 @@ pub(crate) const LEVENBERG_ILL_CONDITIONING_THRESHOLD: f64 = 1.0e4;
 #[derive(Clone, Debug)]
 pub(crate) struct JointSpectralNewtonStep {
     pub(crate) delta: Array1<f64>,
+    /// Moré–Sorensen multiplier `λ` in `(H + λD)δ = rhs`.
+    ///
+    /// `Some(0)` is the interior exact-Newton solution, `Some(λ>0)` is a
+    /// trust-boundary solution, and `None` is the explicit no-trust-region
+    /// reflected fallback. Constrained reduced-face callers consume this to
+    /// build the same shifted convex model before resolving inactive blockers.
+    pub(crate) trust_region_shift: Option<f64>,
+    /// Whether the trust-region solution required the singular hard-case
+    /// component in the minimum eigenspace.
+    pub(crate) trust_region_hard_case: bool,
     pub(crate) range_rhs_inf: f64,
     pub(crate) null_rhs_inf: f64,
     pub(crate) lambda_max_abs: f64,
@@ -3004,6 +3042,8 @@ pub(crate) mod whitened_spectrum {
             let delta = &self.d_inv_sqrt * &eta;
             JointSpectralNewtonStep {
                 delta,
+                trust_region_shift: Some(lambda),
+                trust_region_hard_case: extra_min_mode.is_some(),
                 range_rhs_inf,
                 null_rhs_inf,
                 lambda_max_abs: self.lambda_max_abs,
@@ -3222,6 +3262,8 @@ pub(crate) mod whitened_spectrum {
             let delta = &self.d_inv_sqrt * &eta;
             JointSpectralNewtonStep {
                 delta,
+                trust_region_shift: None,
+                trust_region_hard_case: false,
                 range_rhs_inf,
                 null_rhs_inf,
                 lambda_max_abs: self.lambda_max_abs,

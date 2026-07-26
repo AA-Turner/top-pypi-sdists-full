@@ -12,11 +12,20 @@ from .semantic_search import (
     handle_reindex,
 )
 from .citation_graph import citation_graph_tool, handle_citation_graph
+from .export_citations import export_citations_tool, handle_export_citations
 from .alerts import (
     watch_topic_tool,
     handle_watch_topic,
     check_alerts_tool,
     handle_check_alerts,
+)
+from .latex import (
+    get_paper_latex_tool,
+    handle_get_paper_latex,
+    list_paper_latex_sections_tool,
+    handle_list_paper_latex_sections,
+    get_paper_latex_section_tool,
+    handle_get_paper_latex_section,
 )
 
 __all__ = [
@@ -36,8 +45,16 @@ __all__ = [
     "handle_reindex",
     "citation_graph_tool",
     "handle_citation_graph",
+    "export_citations_tool",
+    "handle_export_citations",
     "watch_topic_tool",
     "handle_watch_topic",
     "check_alerts_tool",
     "handle_check_alerts",
+    "get_paper_latex_tool",
+    "handle_get_paper_latex",
+    "list_paper_latex_sections_tool",
+    "handle_list_paper_latex_sections",
+    "get_paper_latex_section_tool",
+    "handle_get_paper_latex_section",
 ]

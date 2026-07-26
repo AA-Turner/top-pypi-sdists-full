@@ -27,6 +27,7 @@ from rxfoundry.clients.swifty_api.models.patient_allergy import PatientAllergy
 from rxfoundry.clients.swifty_api.models.patient_condition import PatientCondition
 from rxfoundry.clients.swifty_api.models.patient_medication import PatientMedication
 from rxfoundry.clients.swifty_api.models.patient_possible_match import PatientPossibleMatch
+from rxfoundry.clients.swifty_api.models.patient_with_possible_matches import PatientWithPossibleMatches
 from rxfoundry.clients.swifty_api.models.pharmacy import Pharmacy
 
 from rxfoundry.clients.swifty_api.api_client import ApiClient, RequestSerialized
@@ -303,6 +304,303 @@ class PatientApi:
         return self.api_client.param_serialize(
             method='POST',
             resource_path='/swifty/1/patients',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def find_patient_possible_matches(
+        self,
+        reviewed: Annotated[Optional[StrictBool], Field(description="Whether or not the possible match has been reviewed")] = None,
+        page: Annotated[Optional[StrictInt], Field(description="Page number to return.  Defaults to 1.")] = None,
+        results_per_page: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.  Defaults to 10.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> List[PatientWithPossibleMatches]:
+        """Get partial matches grouped by the patient the possible match applies to
+
+
+        :param reviewed: Whether or not the possible match has been reviewed
+        :type reviewed: bool
+        :param page: Page number to return.  Defaults to 1.
+        :type page: int
+        :param results_per_page: Number of results to return per page.  Defaults to 10.
+        :type results_per_page: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._find_patient_possible_matches_serialize(
+            reviewed=reviewed,
+            page=page,
+            results_per_page=results_per_page,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[PatientWithPossibleMatches]",
+            '404': None,
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def find_patient_possible_matches_with_http_info(
+        self,
+        reviewed: Annotated[Optional[StrictBool], Field(description="Whether or not the possible match has been reviewed")] = None,
+        page: Annotated[Optional[StrictInt], Field(description="Page number to return.  Defaults to 1.")] = None,
+        results_per_page: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.  Defaults to 10.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[List[PatientWithPossibleMatches]]:
+        """Get partial matches grouped by the patient the possible match applies to
+
+
+        :param reviewed: Whether or not the possible match has been reviewed
+        :type reviewed: bool
+        :param page: Page number to return.  Defaults to 1.
+        :type page: int
+        :param results_per_page: Number of results to return per page.  Defaults to 10.
+        :type results_per_page: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._find_patient_possible_matches_serialize(
+            reviewed=reviewed,
+            page=page,
+            results_per_page=results_per_page,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[PatientWithPossibleMatches]",
+            '404': None,
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def find_patient_possible_matches_without_preload_content(
+        self,
+        reviewed: Annotated[Optional[StrictBool], Field(description="Whether or not the possible match has been reviewed")] = None,
+        page: Annotated[Optional[StrictInt], Field(description="Page number to return.  Defaults to 1.")] = None,
+        results_per_page: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.  Defaults to 10.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get partial matches grouped by the patient the possible match applies to
+
+
+        :param reviewed: Whether or not the possible match has been reviewed
+        :type reviewed: bool
+        :param page: Page number to return.  Defaults to 1.
+        :type page: int
+        :param results_per_page: Number of results to return per page.  Defaults to 10.
+        :type results_per_page: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._find_patient_possible_matches_serialize(
+            reviewed=reviewed,
+            page=page,
+            results_per_page=results_per_page,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[PatientWithPossibleMatches]",
+            '404': None,
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _find_patient_possible_matches_serialize(
+        self,
+        reviewed,
+        page,
+        results_per_page,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if reviewed is not None:
+            
+            _query_params.append(('reviewed', reviewed))
+            
+        if page is not None:
+            
+            _query_params.append(('page', page))
+            
+        if results_per_page is not None:
+            
+            _query_params.append(('results_per_page', results_per_page))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'opaque_token'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/swifty/1/patients/possible_matches',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -1666,276 +1964,6 @@ class PatientApi:
 
 
     @validate_call
-    def get_patient_partial_matches(
-        self,
-        patient_id: Annotated[StrictStr, Field(description="The patient's UUID or an external id in the format of 'uuid' or 'external_slug:external_id'")],
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> List[PatientPossibleMatch]:
-        """Get possible matches for a patient
-
-        Get possible matches for a patient
-
-        :param patient_id: The patient's UUID or an external id in the format of 'uuid' or 'external_slug:external_id' (required)
-        :type patient_id: str
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._get_patient_partial_matches_serialize(
-            patient_id=patient_id,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "List[PatientPossibleMatch]",
-            '400': None,
-            '401': None,
-            '404': None,
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        ).data
-
-
-    @validate_call
-    def get_patient_partial_matches_with_http_info(
-        self,
-        patient_id: Annotated[StrictStr, Field(description="The patient's UUID or an external id in the format of 'uuid' or 'external_slug:external_id'")],
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[List[PatientPossibleMatch]]:
-        """Get possible matches for a patient
-
-        Get possible matches for a patient
-
-        :param patient_id: The patient's UUID or an external id in the format of 'uuid' or 'external_slug:external_id' (required)
-        :type patient_id: str
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._get_patient_partial_matches_serialize(
-            patient_id=patient_id,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "List[PatientPossibleMatch]",
-            '400': None,
-            '401': None,
-            '404': None,
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        )
-
-
-    @validate_call
-    def get_patient_partial_matches_without_preload_content(
-        self,
-        patient_id: Annotated[StrictStr, Field(description="The patient's UUID or an external id in the format of 'uuid' or 'external_slug:external_id'")],
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> RESTResponseType:
-        """Get possible matches for a patient
-
-        Get possible matches for a patient
-
-        :param patient_id: The patient's UUID or an external id in the format of 'uuid' or 'external_slug:external_id' (required)
-        :type patient_id: str
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._get_patient_partial_matches_serialize(
-            patient_id=patient_id,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "List[PatientPossibleMatch]",
-            '400': None,
-            '401': None,
-            '404': None,
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        return response_data.response
-
-
-    def _get_patient_partial_matches_serialize(
-        self,
-        patient_id,
-        _request_auth,
-        _content_type,
-        _headers,
-        _host_index,
-    ) -> RequestSerialized:
-
-        _host = None
-
-        _collection_formats: Dict[str, str] = {
-        }
-
-        _path_params: Dict[str, str] = {}
-        _query_params: List[Tuple[str, str]] = []
-        _header_params: Dict[str, Optional[str]] = _headers or {}
-        _form_params: List[Tuple[str, str]] = []
-        _files: Dict[
-            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
-        ] = {}
-        _body_params: Optional[bytes] = None
-
-        # process the path parameters
-        if patient_id is not None:
-            _path_params['patient_id'] = patient_id
-        # process the query parameters
-        # process the header parameters
-        # process the form parameters
-        # process the body parameter
-
-
-        # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    'application/json'
-                ]
-            )
-
-
-        # authentication setting
-        _auth_settings: List[str] = [
-            'opaque_token'
-        ]
-
-        return self.api_client.param_serialize(
-            method='GET',
-            resource_path='/swifty/1/patients/{patient_id}/partial_matches',
-            path_params=_path_params,
-            query_params=_query_params,
-            header_params=_header_params,
-            body=_body_params,
-            post_params=_form_params,
-            files=_files,
-            auth_settings=_auth_settings,
-            collection_formats=_collection_formats,
-            _host=_host,
-            _request_auth=_request_auth
-        )
-
-
-
-
-    @validate_call
     def get_patient_pharmacies(
         self,
         patient_id: Annotated[StrictStr, Field(description="The patient's UUID or an external id in the format of 'uuid' or 'external_slug:external_id'")],
@@ -2272,13 +2300,282 @@ class PatientApi:
 
 
     @validate_call
+    def get_patient_possible_matches(
+        self,
+        patient_id: Annotated[StrictStr, Field(description="The patient's UUID or an external id in the format of 'uuid' or 'external_slug:external_id'")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> List[PatientPossibleMatch]:
+        """Get possible matches for a patient
+
+        Get possible matches for a patient
+
+        :param patient_id: The patient's UUID or an external id in the format of 'uuid' or 'external_slug:external_id' (required)
+        :type patient_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_patient_possible_matches_serialize(
+            patient_id=patient_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[PatientPossibleMatch]",
+            '400': None,
+            '401': None,
+            '404': None,
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_patient_possible_matches_with_http_info(
+        self,
+        patient_id: Annotated[StrictStr, Field(description="The patient's UUID or an external id in the format of 'uuid' or 'external_slug:external_id'")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[List[PatientPossibleMatch]]:
+        """Get possible matches for a patient
+
+        Get possible matches for a patient
+
+        :param patient_id: The patient's UUID or an external id in the format of 'uuid' or 'external_slug:external_id' (required)
+        :type patient_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_patient_possible_matches_serialize(
+            patient_id=patient_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[PatientPossibleMatch]",
+            '400': None,
+            '401': None,
+            '404': None,
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_patient_possible_matches_without_preload_content(
+        self,
+        patient_id: Annotated[StrictStr, Field(description="The patient's UUID or an external id in the format of 'uuid' or 'external_slug:external_id'")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get possible matches for a patient
+
+        Get possible matches for a patient
+
+        :param patient_id: The patient's UUID or an external id in the format of 'uuid' or 'external_slug:external_id' (required)
+        :type patient_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_patient_possible_matches_serialize(
+            patient_id=patient_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[PatientPossibleMatch]",
+            '400': None,
+            '401': None,
+            '404': None,
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_patient_possible_matches_serialize(
+        self,
+        patient_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if patient_id is not None:
+            _path_params['patient_id'] = patient_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'opaque_token'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/swifty/1/patients/{patient_id}/possible_matches',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
     def get_patients(
         self,
         q: Annotated[Optional[StrictStr], Field(description="Filter patients by query.  This takes precedence if set over remaining filters.  Searches on first name, last name, date of birth (yyyy-mm-dd), home address and phone numbers in (555) 555-5555 format.")] = None,
         external_id: Annotated[Optional[StrictStr], Field(description="An external id to find the patient by.  Format is {slug}:{external_id}.  This takes precedence if set over remaining filters, but not used if q is set.")] = None,
         uuid_list: Annotated[Optional[List[StrictStr]], Field(description="A list of uuid strings to filter by.  Only used if q and external_id are not set.")] = None,
         is_registered: Annotated[Optional[StrictBool], Field(description="Filter patients by registration status.  Optional parameter with no default value.")] = None,
-        has_partial_matches: Annotated[Optional[StrictBool], Field(description="Filter patients by whether they have partial matches.  Optional parameter with no default value.")] = None,
         page: Annotated[Optional[StrictInt], Field(description="Page number to return.  Defaults to 1.")] = None,
         results_per_page: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.  Defaults to 10.")] = None,
         expand: Annotated[Optional[List[StrictStr]], Field(description="The list of contained objects to return as well.  Defaults to none.")] = None,
@@ -2306,8 +2603,6 @@ class PatientApi:
         :type uuid_list: List[str]
         :param is_registered: Filter patients by registration status.  Optional parameter with no default value.
         :type is_registered: bool
-        :param has_partial_matches: Filter patients by whether they have partial matches.  Optional parameter with no default value.
-        :type has_partial_matches: bool
         :param page: Page number to return.  Defaults to 1.
         :type page: int
         :param results_per_page: Number of results to return per page.  Defaults to 10.
@@ -2341,7 +2636,6 @@ class PatientApi:
             external_id=external_id,
             uuid_list=uuid_list,
             is_registered=is_registered,
-            has_partial_matches=has_partial_matches,
             page=page,
             results_per_page=results_per_page,
             expand=expand,
@@ -2373,7 +2667,6 @@ class PatientApi:
         external_id: Annotated[Optional[StrictStr], Field(description="An external id to find the patient by.  Format is {slug}:{external_id}.  This takes precedence if set over remaining filters, but not used if q is set.")] = None,
         uuid_list: Annotated[Optional[List[StrictStr]], Field(description="A list of uuid strings to filter by.  Only used if q and external_id are not set.")] = None,
         is_registered: Annotated[Optional[StrictBool], Field(description="Filter patients by registration status.  Optional parameter with no default value.")] = None,
-        has_partial_matches: Annotated[Optional[StrictBool], Field(description="Filter patients by whether they have partial matches.  Optional parameter with no default value.")] = None,
         page: Annotated[Optional[StrictInt], Field(description="Page number to return.  Defaults to 1.")] = None,
         results_per_page: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.  Defaults to 10.")] = None,
         expand: Annotated[Optional[List[StrictStr]], Field(description="The list of contained objects to return as well.  Defaults to none.")] = None,
@@ -2401,8 +2694,6 @@ class PatientApi:
         :type uuid_list: List[str]
         :param is_registered: Filter patients by registration status.  Optional parameter with no default value.
         :type is_registered: bool
-        :param has_partial_matches: Filter patients by whether they have partial matches.  Optional parameter with no default value.
-        :type has_partial_matches: bool
         :param page: Page number to return.  Defaults to 1.
         :type page: int
         :param results_per_page: Number of results to return per page.  Defaults to 10.
@@ -2436,7 +2727,6 @@ class PatientApi:
             external_id=external_id,
             uuid_list=uuid_list,
             is_registered=is_registered,
-            has_partial_matches=has_partial_matches,
             page=page,
             results_per_page=results_per_page,
             expand=expand,
@@ -2468,7 +2758,6 @@ class PatientApi:
         external_id: Annotated[Optional[StrictStr], Field(description="An external id to find the patient by.  Format is {slug}:{external_id}.  This takes precedence if set over remaining filters, but not used if q is set.")] = None,
         uuid_list: Annotated[Optional[List[StrictStr]], Field(description="A list of uuid strings to filter by.  Only used if q and external_id are not set.")] = None,
         is_registered: Annotated[Optional[StrictBool], Field(description="Filter patients by registration status.  Optional parameter with no default value.")] = None,
-        has_partial_matches: Annotated[Optional[StrictBool], Field(description="Filter patients by whether they have partial matches.  Optional parameter with no default value.")] = None,
         page: Annotated[Optional[StrictInt], Field(description="Page number to return.  Defaults to 1.")] = None,
         results_per_page: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.  Defaults to 10.")] = None,
         expand: Annotated[Optional[List[StrictStr]], Field(description="The list of contained objects to return as well.  Defaults to none.")] = None,
@@ -2496,8 +2785,6 @@ class PatientApi:
         :type uuid_list: List[str]
         :param is_registered: Filter patients by registration status.  Optional parameter with no default value.
         :type is_registered: bool
-        :param has_partial_matches: Filter patients by whether they have partial matches.  Optional parameter with no default value.
-        :type has_partial_matches: bool
         :param page: Page number to return.  Defaults to 1.
         :type page: int
         :param results_per_page: Number of results to return per page.  Defaults to 10.
@@ -2531,7 +2818,6 @@ class PatientApi:
             external_id=external_id,
             uuid_list=uuid_list,
             is_registered=is_registered,
-            has_partial_matches=has_partial_matches,
             page=page,
             results_per_page=results_per_page,
             expand=expand,
@@ -2558,7 +2844,6 @@ class PatientApi:
         external_id,
         uuid_list,
         is_registered,
-        has_partial_matches,
         page,
         results_per_page,
         expand,
@@ -2601,10 +2886,6 @@ class PatientApi:
         if is_registered is not None:
             
             _query_params.append(('is_registered', is_registered))
-            
-        if has_partial_matches is not None:
-            
-            _query_params.append(('has_partial_matches', has_partial_matches))
             
         if page is not None:
             

@@ -406,12 +406,15 @@ pub(crate) fn factor_gauge_deflated_evidence_row(
     })
 }
 
-/// Relative spectral floor (vs the block's largest-magnitude eigenvalue) below
-/// which a per-row `H_tt` eigen-direction is treated as non-identified and
-/// unit-stiffness deflated rather than ridge-damped. Matches the magnitude of
-/// the gauge Rayleigh qualifier and the `SAE_MANIFOLD_SPECTRAL_RANK_CUTOFF`
-/// data-null detection so the three deflation paths agree on what "flat" means.
-pub const SPECTRAL_DEFLATION_REL_FLOOR: f64 = 1.0e-8;
+// The relative spectral floor — vs the block's largest-magnitude eigenvalue,
+// below which a per-row `H_tt` eigen-direction is non-identified and
+// unit-stiffness deflated rather than ridge-damped — is DEFINED in `gam-linalg`.
+// The smooth curvature majorizers in `gam-terms`/`gam-sae` derive their
+// smoothing budgets from the identical number (#2339) and sit BELOW `gam-solve`
+// in the crate graph, so a single definition has to live in a crate both can
+// see. Re-exported here so `gam_solve::arrow_schur` stays the consumer-facing
+// path this crate and `gam-sae` already read.
+pub use gam_linalg::utils::SPECTRAL_DEFLATION_REL_FLOOR;
 
 /// Hysteresis half-width (as a fraction of `SPECTRAL_DEFLATION_REL_FLOOR`)
 /// applied to the spectral-deflation decision for *positive* near-floor
@@ -536,6 +539,10 @@ pub(crate) fn factor_spectral_deflated_criterion_row(
     // surfaced alongside `evecs` so the outer-gradient deflation correction can
     // form the exact Daleckii–Krein divided differences.
     let mut cond_evals = Array1::<f64>::zeros(d);
+    // Store the classifier's actual decision for every direction. Numeric
+    // equality between raw and conditioned eigenvalues is not a branch
+    // certificate (for example, a raw eigenvalue can already equal one).
+    let mut conditioning = vec![RowSpectralConditioning::Raw; d];
     let mut deflated_count = 0usize;
     // The unit-stiffness deflated eigenvectors `vᵢ` (columns of `evecs`), in
     // this row's `d`-dim block coordinates — surfaced so the outer ρ/θ-gradient
@@ -547,10 +554,14 @@ pub(crate) fn factor_spectral_deflated_criterion_row(
             // Genuine positive direction: keep it, but clamp UP to the positive
             // `floor` so a tiny-but-kept eigenvalue cannot make the reconstructed
             // block numerically non-PD (it never lowers a healthy `λ ≫ floor`).
+            if lambda < floor {
+                conditioning[eig_idx] = RowSpectralConditioning::FloorClamped;
+            }
             lambda.max(floor)
         } else {
             // Null / indefinite / numerically-flat quotient direction: unit
             // stiffness `+1`, contributing `log 1 = 0` to the evidence log-det.
+            conditioning[eig_idx] = RowSpectralConditioning::UnitDeflated;
             deflated_count += 1;
             deflated_directions.push(evecs.column(eig_idx).to_owned());
             1.0
@@ -590,6 +601,7 @@ pub(crate) fn factor_spectral_deflated_criterion_row(
             }
         }
         cond_evals[min_idx] = 1.0;
+        conditioning[min_idx] = RowSpectralConditioning::UnitDeflated;
         deflated_count = 1;
         deflated_directions.clear();
         deflated_directions.push(evecs.column(min_idx).to_owned());
@@ -603,6 +615,7 @@ pub(crate) fn factor_spectral_deflated_criterion_row(
             evecs,
             raw_evals: evals,
             cond_evals,
+            conditioning: conditioning.into(),
         }),
     })
 }

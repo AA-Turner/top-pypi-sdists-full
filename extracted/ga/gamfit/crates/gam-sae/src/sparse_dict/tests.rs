@@ -540,12 +540,146 @@ fn over_complete_trainer_returns_best_effort_open_certificate_2275() {
     assert!(
         fit.convergence.routing_residual > fit.convergence.routing_tolerance,
         "an open certificate must record routing_residual above tolerance; got {} <= {}",
-        fit.convergence.routing_residual, fit.convergence.routing_tolerance
+        fit.convergence.routing_residual,
+        fit.convergence.routing_tolerance
     );
     assert!(
         fit.convergence.inner_ev_residual.is_finite(),
         "the plateaued objective residual must be recorded (finite); got {}",
         fit.convergence.inner_ev_residual
+    );
+}
+
+/// `N` distinct unit directions spread over the sphere in `P` dimensions, from a
+/// deterministic integer hash (no RNG, no float seeds). Unlike [`planted`] — whose
+/// rows collapse onto `rank` distinct directions, so any `K ≥ rank` dictionary
+/// interpolates them exactly — every row here needs its own direction, so a
+/// dictionary with `K < N` leaves residual on every row no matter how it routes.
+fn spread_directions(n: usize, p: usize) -> Array2<f32> {
+    let mut x = Array2::<f32>::zeros((n, p));
+    for row in 0..n {
+        let mut norm2 = 0.0f32;
+        for col in 0..p {
+            // The `row·col` cross term keeps the per-row pattern from being a
+            // pure arithmetic progression, so directions stay distinct well past
+            // the modulus rather than repeating every 1009 rows.
+            let hash = (row * 131 + col * 71 + row * col * 17) % 1009;
+            let value = (hash as f32) / 504.0 - 1.0;
+            x[[row, col]] = value;
+            norm2 += value * value;
+        }
+        let norm = norm2.sqrt();
+        if norm > 0.0 {
+            for col in 0..p {
+                x[[row, col]] /= norm;
+            }
+        }
+    }
+    x
+}
+
+/// #2400 — the saturated-support birth-swap arm, at the production entry.
+///
+/// The open arm admits a fit whose final transition still accepted residual-row
+/// births, but ONLY when live-support cardinality has stopped setting new highs:
+/// those births are replacements on a fixed-cardinality support manifold, not
+/// structure the fit is still recruiting. `LiveSupportGrowth`'s own unit test
+/// pins the state machine in isolation; this pins that `run` actually reaches
+/// that branch and that nothing else can mint a model while births are live.
+///
+/// The invariant is asserted for every shape and is premise-free: a certified fit
+/// or a still-growing support with live births would be a model minted from
+/// churning structure, whatever the data. The sweep also requires that at least
+/// one shape genuinely reach the OPEN arm, so it cannot degenerate into a set of
+/// trivially-certified fits that assert nothing.
+///
+/// The POSITIVE birth-swap arm is proven separately and deterministically by
+/// `churning_births_are_admitted_only_after_the_support_saturates_2400`, which
+/// drives `open_round_is_stationary` against a live `LiveSupportGrowth`. That is
+/// deliberate: across the regimes below — `K` above and below `N`, `s` from 1 to
+/// 8, low-rank and continuum data — the trainer's births always stop before the
+/// plateau confirms, because the two conditions fight each other. Births need a
+/// substantially unexplained row AND a dead atom, and spare capacity (`K > N`,
+/// which produces the dead atoms) is exactly what lets the fit explain every row.
+/// The production arm therefore stays exercised by the real-activation lane; the
+/// sweep here records the regimes so that stays visible rather than assumed.
+#[test]
+fn open_fit_with_positive_births_is_certified_only_by_saturated_support_2400() {
+    // (K, s, N, P). Rows are `N` distinct directions spread over the sphere (see
+    // `spread_directions`) rather than a `planted` mixture, whose `rank` distinct
+    // directions every one of these shapes interpolates to EV = 1 in four epochs.
+    // The list spans both sides of the capacity frontier: `K < N` (no spare
+    // capacity, every atom stays live) and `K > N` with a wide active set (spare
+    // capacity, so dead atoms exist and a revived atom can win one of `s` slots).
+    let shapes = [
+        (96usize, 1usize, 600usize, 12usize),
+        (64, 2, 600, 12),
+        (200, 1, 900, 16),
+        (512, 4, 256, 16),
+        (768, 8, 384, 32),
+    ];
+
+    let mut observed = String::new();
+    let mut open_arms = 0usize;
+    for (k, s, n, p) in shapes {
+        let x = spread_directions(n, p);
+        let config = SparseDictConfig {
+            n_atoms: k,
+            active: s,
+            minibatch: 256,
+            max_epochs: 12,
+            score_tile: 256,
+            tolerance: 1.0e-9,
+            score_mode: gam_gpu::GpuPolicy::Off,
+            ..SparseDictConfig::new(k)
+        };
+        let Ok(fit) = fit_sparse_dictionary(x.view(), &config) else {
+            // A shape that never confirms a plateau inside its budget is a typed
+            // non-convergence, which is the honest outcome and not this test's
+            // subject. Record it and move on.
+            observed.push_str(&format!("K={k} s={s}: typed non-convergence\n"));
+            continue;
+        };
+        let convergence = fit.convergence;
+        observed.push_str(&format!(
+            "K={k} s={s}: births={} live_high_water={} saturated={} certified={} \
+             epochs={} ev={:.6}\n",
+            convergence.accepted_births,
+            convergence.live_atom_high_water,
+            convergence.support_saturated,
+            convergence.certified,
+            fit.epochs,
+            fit.explained_variance,
+        ));
+
+        assert!(
+            convergence.live_atom_high_water <= k,
+            "live support cannot exceed the dictionary width: {} > {k}",
+            convergence.live_atom_high_water
+        );
+        if !convergence.certified {
+            open_arms += 1;
+        }
+        if convergence.accepted_births > 0 {
+            assert!(
+                convergence.support_saturated,
+                "a fit returned with {} live births must have saturated its support \
+                 (K={k}, s={s}); returning one whose support is still growing mints a \
+                 model from structure the fit has not finished recruiting",
+                convergence.accepted_births
+            );
+            assert!(
+                !convergence.certified,
+                "births in the final transition are incompatible with an ABSOLUTE \
+                 fixed-point certificate (K={k}, s={s}); only the open arm admits them"
+            );
+        }
+    }
+
+    assert!(
+        open_arms > 0,
+        "every shape certified an absolute fixed point, so the sweep never reached \
+         the open arm whose invariant it is asserting; observed:\n{observed}"
     );
 }
 
@@ -578,21 +712,6 @@ fn over_complete_trainer_still_errors_without_confirmed_plateau_2275() {
         err.to_string().contains("did not converge"),
         "expected the typed InnerNonConvergence, got: {err}"
     );
-}
-
-/// Fraction of atoms that fired for no training row (dead atoms) in a fit.
-fn dead_atom_fraction(fit: &super::SparseDictFit) -> f64 {
-    let k = fit.decoder.nrows();
-    let mut alive = vec![false; k];
-    for (i, idx_row) in fit.indices.outer_iter().enumerate() {
-        for (j, &idx) in idx_row.iter().enumerate() {
-            if fit.codes[[i, j]] != 0.0 {
-                alive[idx as usize] = true;
-            }
-        }
-    }
-    let dead = alive.iter().filter(|&&a| !a).count();
-    dead as f64 / k as f64
 }
 
 #[test]
@@ -683,148 +802,6 @@ fn dead_atom_revival_keeps_ev_monotone_in_k_and_beats_linear_subspace() {
         "[#1026] K=256 held-out EV ({ev_large:.4}) should resolve the 2-sparse \
          planted mixture (reconstruction parity at scale)"
     );
-}
-
-/// Minimal reader for a NumPy `.npy` v1.0 file holding a C-order little-endian
-/// `float32` 2-D array (the format of the banked activation slices in
-/// `tests/data`). Returns `(rows, cols, data)` in row-major order. Panics with a
-/// clear message on any format it does not handle — this is a measurement
-/// helper, not a general parser.
-fn read_npy_f32_2d(path: &str) -> (usize, usize, Vec<f32>) {
-    let bytes = std::fs::read(path).unwrap_or_else(|e| panic!("read {path}: {e}"));
-    assert!(
-        bytes.len() > 10 && &bytes[0..6] == b"\x93NUMPY",
-        "{path}: not a .npy file"
-    );
-    // Byte 6/7 = version; bytes 8..10 = little-endian header length (v1.0).
-    let header_len = u16::from_le_bytes([bytes[8], bytes[9]]) as usize;
-    let header = std::str::from_utf8(&bytes[10..10 + header_len]).expect("utf8 header");
-    assert!(
-        header.contains("'<f4'") || header.contains("\"<f4\""),
-        "{path}: expected little-endian float32 (<f4); header: {header}"
-    );
-    assert!(
-        header.contains("'fortran_order': False") || header.contains("\"fortran_order\": false"),
-        "{path}: expected C-order; header: {header}"
-    );
-    // Parse the shape tuple "(N, P)".
-    let shape_start = header.find("'shape':").expect("shape key") + "'shape':".len();
-    let paren_open = header[shape_start..].find('(').expect("shape (") + shape_start + 1;
-    let paren_close = header[paren_open..].find(')').expect("shape )") + paren_open;
-    let dims: Vec<usize> = header[paren_open..paren_close]
-        .split(',')
-        .filter_map(|t| t.trim().parse::<usize>().ok())
-        .collect();
-    assert_eq!(dims.len(), 2, "{path}: expected a 2-D array, got {dims:?}");
-    let (n, p) = (dims[0], dims[1]);
-    let data_off = 10 + header_len;
-    let expect = n * p * 4;
-    assert_eq!(
-        bytes.len() - data_off,
-        expect,
-        "{path}: data length mismatch (n={n}, p={p})"
-    );
-    let mut data = Vec::with_capacity(n * p);
-    let mut off = data_off;
-    for _ in 0..(n * p) {
-        data.push(f32::from_le_bytes([
-            bytes[off],
-            bytes[off + 1],
-            bytes[off + 2],
-            bytes[off + 3],
-        ]));
-        off += 4;
-    }
-    (n, p, data)
-}
-
-/// #1026 REAL-DATA parity measurement (ignored by default — it is a measurement
-/// harness, not a pass/fail gate, and it reads the banked activation slices).
-///
-/// Run explicitly:
-///   ./build.sh nextest run -p gam-sae real_olmo_sparse_dict_ev_vs_k_parity \
-///       --run-ignored all --no-capture
-///
-/// Prints, for each banked OLMo slice and active budget `s`, the held-in and
-/// held-out EV of the collapsed-linear lane at K on the parity ladder, plus the
-/// dead-atom fraction and the rank-`s` held-out PCA baseline. This is the
-/// before/after evidence for the dead-atom-revival fix: EV must be MONOTONE in K
-/// and the dead fraction small (pre-fix it was non-monotone with the majority of
-/// atoms dead).
-#[test]
-fn real_olmo_sparse_dict_ev_vs_k_parity() {
-    let files = [
-        concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../tests/data/olmo_l18_pca64_635.npy"
-        ),
-        concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../tests/data/olmo_mixedlayer_pca64_768.npy"
-        ),
-    ];
-    for path in files {
-        let (n, p, data) = read_npy_f32_2d(path);
-        let x = Array2::from_shape_vec((n, p), data).expect("shape");
-        // Deterministic 80/20 split by stride.
-        let mut tr: Vec<usize> = Vec::new();
-        let mut te: Vec<usize> = Vec::new();
-        for i in 0..n {
-            if i % 5 == 0 {
-                te.push(i);
-            } else {
-                tr.push(i);
-            }
-        }
-        let mut x_tr = Array2::<f32>::zeros((tr.len(), p));
-        for (r, &i) in tr.iter().enumerate() {
-            x_tr.row_mut(r).assign(&x.row(i));
-        }
-        let mut x_te = Array2::<f32>::zeros((te.len(), p));
-        for (r, &i) in te.iter().enumerate() {
-            x_te.row_mut(r).assign(&x.row(i));
-        }
-        println!(
-            "\n=== {path}  (N={n}, P={p}, train={}, test={}) ===",
-            tr.len(),
-            te.len()
-        );
-        for s in [8usize, 32usize] {
-            let tile = p.max(1);
-            let pca = pca_ev_held_out(x_tr.view(), x_te.view(), s);
-            println!("  active s={s}  rank-{s} held-out PCA EV = {pca:.4}");
-            let mut prev = f64::NEG_INFINITY;
-            for k in [s, 32usize, 128, 512, 1024] {
-                if k < s {
-                    continue;
-                }
-                let config = SparseDictConfig {
-                    n_atoms: k,
-                    active: s,
-                    minibatch: 256,
-                    max_epochs: 40,
-                    score_tile: tile,
-                    code_ridge: 1.0e-6,
-                    decoder_ridge: 1.0e-6,
-                    tolerance: 1.0e-7,
-                    score_mode: gam_gpu::GpuPolicy::Off,
-                };
-                let fit = fit_sparse_dictionary(x_tr.view(), &config).expect("fit");
-                let ev_te = held_out_ev(fit.decoder.view(), x_te.view(), s, tile, 1.0e-6);
-                let dead = dead_atom_fraction(&fit);
-                let mono = if ev_te + 5.0e-3 >= prev {
-                    ""
-                } else {
-                    "  <-- DROP"
-                };
-                println!(
-                    "    K={k:5}  train_EV={:.4}  test_EV={ev_te:.4}  dead={dead:.3}  epochs={}{mono}",
-                    fit.explained_variance, fit.epochs
-                );
-                prev = ev_te;
-            }
-        }
-    }
 }
 
 #[test]

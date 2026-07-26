@@ -1,4 +1,5 @@
 use super::*;
+use gam_solve::estimate::reml::reml_outer_engine::penalty_matrix_root;
 
 pub(crate) fn survival_inverse_link_has_free_parameters(link: &InverseLink) -> bool {
     match link {
@@ -179,11 +180,14 @@ mod profiled_outer_payload_tests {
 
 /// Inner-PIRLS controls shared by the survival-transformation baseline and
 /// smoothing-coordinate eval closures. The baseline geometry is mildly
-/// nonlinear, so the iteration budget is generous; the convergence/step floors
-/// match the working-model PIRLS contract used throughout the survival path.
+/// nonlinear, so the iteration budget is generous. The convergence target is
+/// the same projected-KKT contract required by the survival LAML envelope; an
+/// inner solve that only satisfies a looser tolerance is a checkpoint, not a
+/// derivative-bearing objective sample.
 const SURVIVAL_TRANSFORMATION_PIRLS_MAX_ITERATIONS: usize = 400;
 
-const SURVIVAL_TRANSFORMATION_PIRLS_CONVERGENCE_TOL: f64 = 1e-6;
+const SURVIVAL_TRANSFORMATION_PIRLS_CONVERGENCE_TOL: f64 =
+    crate::survival::SURVIVAL_LAML_STATIONARITY_RELATIVE_TOL;
 
 const SURVIVAL_TRANSFORMATION_PIRLS_MAX_STEP_HALVING: usize = 40;
 
@@ -815,7 +819,13 @@ pub(crate) fn fit_standard_model(
     // `StandardBinomialWiggleConfig` now carries `refit_options` directly, so
     // the previous "pilot config present, blockwise options missing" failure
     // state (#320) is unrepresentable at the type level.
-    let wiggle_options = wiggle.refit_options.clone();
+    let mut wiggle_options = wiggle.refit_options.clone();
+    // A link-wiggle makes the response map curved, so the fitted mode is not a
+    // complete model: default prediction needs the joint [Mean, LinkWiggle]
+    // posterior to integrate E[g⁻¹(η)]. This is a model invariant, not an
+    // optional inference request. Force covariance assembly even for low-level
+    // callers that supplied custom refit options with the generic default.
+    wiggle_options.compute_covariance = true;
     let wiggle_link_kind =
         resolved_wiggle_inverse_link(&request.family, &result.fit, &wiggle.link_kind)?;
     let selected_wiggle_basis = select_binomial_mean_link_wiggle_basis_from_pilot(
@@ -890,6 +900,12 @@ pub(crate) fn fit_standard_model(
             ));
         }
     };
+    if solved.fit.beta_covariance().is_none() {
+        return Err(
+            "link-wiggle fit reached assembly without its joint [Mean, LinkWiggle] posterior covariance; no model was minted"
+                .to_string(),
+        );
+    }
 
     Ok(StandardFitResult {
         saved_link_state: result.saved_link_state,
@@ -1007,18 +1023,50 @@ fn fit_location_scale_with_optional_wiggle<A: LocationScaleWorkflowAdapter>(
     } = A::into_parts(request);
 
     let Some(wiggle_cfg) = wiggle else {
-        let fit = A::fit_plain(data, spec, &options, &kappa_options)?;
+        // A location-scale model has two coupled predictors. For binomial
+        // location-scale, default response prediction integrates their
+        // nonlinear map over the joint Laplace posterior; for Gaussian
+        // location-scale, second-channel/delta-method uncertainty needs that
+        // same joint posterior. The fitted coefficient mode alone is therefore
+        // not a complete model. Request covariance at the final plain fit
+        // rather than making every low-level pilot pay for it.
+        let mut fit_options = options.clone();
+        fit_options.compute_covariance = true;
+        let fit = A::fit_plain(data, spec, &fit_options, &kappa_options)?;
+        if fit.fit.beta_covariance().is_none() {
+            return Err(
+                "plain location-scale fit reached assembly without its joint posterior covariance; no model was minted"
+                    .to_string(),
+            );
+        }
         return Ok(A::assemble_plain(fit));
     };
 
     let pilot = A::fit_pilot(data, &spec, &options, &kappa_options)?;
-    let solved =
-        A::refit_with_selected_wiggle(data, spec, &pilot, &wiggle_cfg, &options, &kappa_options)?;
+    let mut refit_options = options.clone();
+    // Link-wiggle response geometry is curved even when the surrounding
+    // location model uses an identity link. Its posterior mean therefore
+    // requires the complete cross-block covariance at prediction time.
+    refit_options.compute_covariance = true;
+    let solved = A::refit_with_selected_wiggle(
+        data,
+        spec,
+        &pilot,
+        &wiggle_cfg,
+        &refit_options,
+        &kappa_options,
+    )?;
 
     // The selected link-wiggle basis is appended as the third blockwise term
     // (after the mean/threshold and log-σ blocks), so its coefficients live in
     // block 2 of the refit.
     let fit = solved.fit.fit;
+    if fit.beta_covariance().is_none() {
+        return Err(
+            "location-scale link-wiggle fit reached assembly without its joint posterior covariance; no model was minted"
+                .to_string(),
+        );
+    }
     let beta_link_wiggle = fit.block_states.get(2).map(|b| b.beta.to_vec());
     let assembled_fit = BlockwiseTermFitResult::try_from_parts(BlockwiseTermFitResultParts {
         fit,
@@ -1527,13 +1575,6 @@ pub(crate) fn fit_gaussian_location_scale_model(
             .mapv_inplace(|v| v / response_scale);
     }
 
-    // Gaussian location-scale prediction has two coupled linear predictors, so
-    // uncertainty on either response channel must be assembled from the joint
-    // `(β_μ, β_logσ)` Laplace posterior covariance. Request it
-    // unconditionally; otherwise predict-time delta-method SEs for the second
-    // predictor can only fall back to scalar/block-local approximations.
-    request.options.compute_covariance = true;
-
     let mut result =
         fit_location_scale_with_optional_wiggle::<GaussianLocationScaleWorkflow>(request)?;
 
@@ -1612,21 +1653,38 @@ fn survival_edf_from_dense_hessian(
     let factor = h_sym.factorize().map_err(|error| {
         format!("survival edf: exact penalized-Hessian factorization failed: {error}")
     })?;
-    let mut edf_by_block = vec![0.0_f64; penalty_blocks.len()];
-    // Raw per-block penalty trace tr_kk = λ_kk·tr(H⁻¹S_kk) (issue #1219).
-    let mut penalty_block_trace = vec![0.0_f64; penalty_blocks.len()];
-    let mut total_trace = 0.0_f64;
+    // Raw per-block penalty traces and their ranks, handed to the shared
+    // accounting (#2470). The rank comes from the realized penalty root, NOT
+    // from the declared `block.nullspace_dim`: a declared nullity is a
+    // pre-transform statement that canonical pullback intentionally clears, so
+    // consulting it here can price a block against a rank the fitted penalty no
+    // longer has. `penalty_matrix_root` is the same oracle the REML criterion
+    // uses when it charges `rank(S_k)·rho_k`.
+    let mut raw_traces = vec![0.0_f64; penalty_blocks.len()];
+    let mut block_ranks = vec![0_usize; penalty_blocks.len()];
+    // `Σ_k S_k` in the joint layout. Summed UNSCALED on purpose: the penalty
+    // null space is a structural property of the penalty geometry, so the floor
+    // it induces must not move with `λ`.
+    let mut joint_penalty = Array2::<f64>::zeros((p, p));
     for (kk, block) in penalty_blocks.iter().enumerate() {
         let block_cols = block.range.end - block.range.start;
-        let penalty_rank = block_cols.checked_sub(block.nullspace_dim).ok_or_else(|| {
-            format!(
-                "survival edf: penalty {kk} nullity {} exceeds block width {block_cols}",
-                block.nullspace_dim
-            )
-        })?;
+        let penalty_rank = if block_cols == 0 {
+            0
+        } else {
+            penalty_matrix_root(&block.matrix)
+                .map_err(|error| {
+                    format!("survival edf: penalty {kk} rank factorization failed: {error}")
+                })?
+                .nrows()
+        };
+        block_ranks[kk] = penalty_rank;
+        if block_cols > 0 {
+            let r = block.range.start..block.range.end;
+            let mut target = joint_penalty.slice_mut(ndarray::s![r.clone(), r]);
+            target += &block.matrix;
+        }
         if block.lambda <= 0.0 || block_cols == 0 {
-            edf_by_block[kk] = penalty_rank as f64;
-            penalty_block_trace[kk] = 0.0;
+            raw_traces[kk] = 0.0;
             continue;
         }
         // RHS = S_k embedded into the full p×block_cols layout: column j holds
@@ -1677,18 +1735,23 @@ fn survival_edf_from_dense_hessian(
         for j in 0..block_cols {
             trace += sol[[block.range.start + j, j]];
         }
-        // Per-block penalty trace `λ_kk·tr(H⁻¹ S_kk)` is the penalized EDF of the
-        // block, bounded by `[0, rank(S_k)]`. A ceiling-`λ` redundant block
-        // (gam#1379) can otherwise overflow `λ·trace` to `+∞` on a ridge-
-        // stabilized Hessian; clamp to the valid interval so the stored trace and
-        // EDF stay finite. In-range traces pass through unchanged.
-        let penalty_rank = penalty_rank as f64;
-        let lam_trace = (block.lambda * trace).clamp(0.0, penalty_rank);
-        total_trace += lam_trace;
-        penalty_block_trace[kk] = lam_trace;
-        edf_by_block[kk] = (penalty_rank - lam_trace).clamp(0.0, penalty_rank);
+        // Raw product; the `[0, rank]` admission (which is what keeps a
+        // ceiling-`λ` redundant block's `+∞` from poisoning the stored trace,
+        // gam#1379) is applied by the shared accounting below.
+        raw_traces[kk] = block.lambda * trace;
     }
-    let edf_total = (p as f64 - total_trace).clamp(0.0, p as f64);
+    let joint_penalty_rank = penalty_matrix_root(&joint_penalty)
+        .map_err(|error| format!("survival edf: joint penalty rank failed: {error}"))?
+        .nrows();
+    let bundle = gam_solve::estimate::penalized_edf_bundle(
+        &raw_traces,
+        &block_ranks,
+        p,
+        (p - joint_penalty_rank.min(p)) as f64,
+    );
+    let edf_by_block = bundle.edf_by_block;
+    let penalty_block_trace = bundle.penalty_block_trace;
+    let edf_total = bundle.edf_total;
     if !edf_total.is_finite()
         || edf_by_block.iter().any(|v| !v.is_finite())
         || penalty_block_trace.iter().any(|v| !v.is_finite())
@@ -2199,9 +2262,18 @@ fn survival_unified_fit_result(
     // a fabricated nearby matrix.
     let covariance_conditional =
         survival_conditional_covariance_from_penalized_hessian(&penalized_hessian);
-    let beta_standard_errors = covariance_conditional.as_ref().map(|cov| {
-        Array1::from_iter((0..cov.nrows()).map(|i| cov[[i, i]].max(0.0).sqrt()))
-    });
+    // Standard errors come from the one gate that owns the negative-diagonal
+    // judgement (`gam_problem::se_from_covariance`), not a local `max(0, ·)`.
+    // A clamp reports a materially negative variance as `SE = 0` — an
+    // infinitely precise coefficient — where the shared gate refuses anything
+    // outside its dimension-scaled backward-error bound.
+    let beta_standard_errors = covariance_conditional
+        .as_ref()
+        .map(gam_problem::se_from_covariance)
+        .transpose()
+        .map_err(|reason| {
+            format!("survival transformation conditional standard errors are invalid: {reason}")
+        })?;
     let beta_covariance = covariance_conditional
         .clone()
         .map(gam_problem::dispersion_cov::PhiScaledCovariance::wrap);
@@ -2264,6 +2336,7 @@ fn survival_unified_fit_result(
         geometry: Some(gam_solve::estimate::FitGeometry {
             coefficient_gauge: gam_problem::gauge::Gauge::identity(&[beta.len()]),
             penalized_hessian,
+            constrained_posterior: None,
             working: None,
         }),
         block_states: Vec::new(),

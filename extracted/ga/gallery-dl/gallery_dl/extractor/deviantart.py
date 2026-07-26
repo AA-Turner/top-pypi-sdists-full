@@ -434,7 +434,7 @@ class DeviantartExtractor(Extractor):
 
             # parse __INITIAL_STATE__ as fallback
             state = util.json_loads(text.extr(
-                page, 'window.__INITIAL_STATE__ = JSON.parse("', '");')
+                page, 'window.__INITIAL_STATE__ = JSON.parse("', '");\n')
                 .replace("\\\\", "\\").replace("\\'", "'").replace('\\"', '"'))
             deviations = state["@@entities"]["deviation"]
             content = deviations.popitem()[1]["textContent"]

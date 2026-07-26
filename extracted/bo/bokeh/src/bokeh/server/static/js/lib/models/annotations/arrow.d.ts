@@ -28,6 +28,7 @@ export declare class ArrowView extends DataAnnotationView {
     lazy_initialize(): Promise<void>;
     set_data(source: ColumnarDataSource): void;
     remove(): void;
+    connect_signals(): void;
     map_data(): void;
     _paint_data(ctx: Context2d): void;
 }

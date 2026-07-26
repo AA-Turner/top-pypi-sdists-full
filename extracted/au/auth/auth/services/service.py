@@ -4,11 +4,12 @@ SQLAlchemy-based authorization service
 
 import logging
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, cast
 
-from sqlalchemy import func, select
+from sqlalchemy import Table, func, select, text, update
 from sqlalchemy.orm import Session
 
+from auth.audit import client_fingerprint
 from auth.encryption import encrypt_sensitive_data
 from auth.models.sql import (
     AuthGroup,
@@ -35,14 +36,47 @@ def validate_client_key(client: str) -> bool:
 class AuthorizationService:
     """Authorization service using SQLAlchemy"""
 
-    def __init__(self, db: Session, client: str, validate_client: bool = True):
+    def __init__(
+        self,
+        db: Session,
+        client: str,
+        validate_client: bool = True,
+        manage_transaction: bool = True,
+    ):
         if validate_client and not validate_client_key(client):
-            raise ValueError(
-                f"Invalid client key: {client}. Client key must be a valid UUID4."
-            )
+            # Never echo the raw key (it is the credential) — it would land in
+            # the traceback logger. Report only that validation failed.
+            raise ValueError("Invalid client key: must be a valid UUID4.")
         self.db = db
-        self.client = client
+        # Canonicalize the key: it is the tenant identifier and the per-tenant
+        # encryption KDF input, so case variants must not fork the namespace.
+        self.client = client.lower()
         self.validate_client = validate_client
+        # When True (default; the in-process/library callers) each mutating
+        # method commits its own transaction. The HTTP layer sets this False and
+        # commits once itself, so the mutation and its audit row commit together.
+        self.manage_transaction = manage_transaction
+
+    def _commit(self) -> None:
+        """Commit only when this service owns the transaction (see __init__)."""
+        if self.manage_transaction:
+            self.db.commit()
+
+    def _lock_tenant(self) -> None:
+        """Serialize this tenant's writes against key rotation (PostgreSQL).
+
+        A transaction-scoped advisory lock keyed on the tenant, so a rotation and
+        a concurrent write — or a second rotation — for the same tenant cannot
+        interleave. Rotation therefore sees a stable set of rows: none is
+        stranded under the old key, and no concurrent update is clobbered by the
+        re-encrypt/reassign pass. Auto-released at commit/rollback. On SQLite
+        (single writer) it is unnecessary and skipped.
+        """
+        if self.db.get_bind().dialect.name == "postgresql":
+            self.db.execute(
+                text("SELECT pg_advisory_xact_lock(hashtext(:k))"),
+                {"k": self.client},
+            )
 
     def _get_encrypted_user(self, user: str) -> str:
         """Get the encrypted version of a user string for database queries"""
@@ -198,6 +232,7 @@ class AuthorizationService:
         race-condition-free upsert. The unique constraint (creator, role)
         ensures atomicity.
         """
+        self._lock_tenant()
         try:
             table = AuthGroup.__table__
             # Mirror the AuthGroup.description setter: store encrypted.
@@ -225,15 +260,36 @@ class AuthorizationService:
                 },
             )
             self.db.execute(stmt)
-            self.db.commit()
+            self._commit()
             return True
         except Exception:
-            logger.exception("add_role failed (client=%s, role=%r)", self.client, role)
+            logger.exception(
+                "add_role failed (client=%s, role=%r)",
+                client_fingerprint(self.client),
+                role,
+            )
             self.db.rollback()
-            return False
+            # Do not mask a real DB failure as a legitimate False — re-raise so
+            # the request becomes a 500 and the audit records the failure.
+            raise
 
     def del_role(self, role: str) -> bool:
-        """Delete a role"""
+        """Delete a role and PURGE its grants.
+
+        The group row is soft-deleted, and its membership/permission links are
+        removed so the grants cannot come back. Without the purge, re-creating a
+        role with the same name silently restored every previous member and
+        permission — a privilege-restoration hazard, since deleting a role is
+        how callers revoke access.
+
+        Re-adding a role that is still live is untouched and remains idempotent:
+        callers that bootstrap roles repeatedly keep their members. Only a
+        delete purges.
+
+        The user and permission rows themselves are not deleted — they are
+        tenant-level entities that may still belong to other roles.
+        """
+        self._lock_tenant()
         group = (
             self.db.query(AuthGroup)
             .filter(AuthGroup.creator == self.client, AuthGroup.role == role)
@@ -241,8 +297,10 @@ class AuthorizationService:
         )
 
         if group and group.is_active:
+            group.memberships.clear()
+            group.permissions.clear()
             group.is_active = False  # type: ignore[assignment]
-            self.db.commit()
+            self._commit()
             return True
         return False
 
@@ -252,6 +310,7 @@ class AuthorizationService:
         Uses INSERT ... ON CONFLICT (PostgreSQL and SQLite) for
         race-condition-free operations.
         """
+        self._lock_tenant()
         try:
             group_table = AuthGroup.__table__
             group_id = self.db.execute(
@@ -293,20 +352,22 @@ class AuthorizationService:
                 .on_conflict_do_nothing(index_elements=["membership_id", "group_id"])
             )
             self.db.execute(link)
-            self.db.commit()
+            self._commit()
             return True
         except Exception:
             logger.exception(
-                "add_membership failed (client=%s, user=%r, role=%r)",
-                self.client,
-                user,
+                "add_membership failed (client=%s, role=%r)",
+                client_fingerprint(self.client),
                 role,
             )
             self.db.rollback()
-            return False
+            # Re-raise a real DB failure (a legitimate "role missing" already
+            # returned False above) so it surfaces as 500 + a failed audit.
+            raise
 
     def del_membership(self, user: str, role: str) -> bool:
         """Remove user from a role"""
+        self._lock_tenant()
         if not self.has_membership(user, role):
             return True
 
@@ -330,7 +391,7 @@ class AuthorizationService:
 
         if group in membership.groups:
             membership.groups.remove(group)
-            self.db.commit()
+            self._commit()
 
         return True
 
@@ -359,6 +420,7 @@ class AuthorizationService:
         Uses INSERT ... ON CONFLICT (PostgreSQL and SQLite) for
         race-condition-free operations.
         """
+        self._lock_tenant()
         if self.has_permission(role, name):
             return True
 
@@ -406,20 +468,23 @@ class AuthorizationService:
                 .on_conflict_do_nothing(index_elements=["permission_id", "group_id"])
             )
             self.db.execute(link)
-            self.db.commit()
+            self._commit()
             return True
         except Exception:
             logger.exception(
                 "add_permission failed (client=%s, role=%r, name=%r)",
-                self.client,
+                client_fingerprint(self.client),
                 role,
                 name,
             )
             self.db.rollback()
-            return False
+            # Re-raise a real DB failure (a legitimate "role missing" already
+            # returned False above) so it surfaces as 500 + a failed audit.
+            raise
 
     def del_permission(self, role: str, name: str) -> bool:
         """Remove permission from a role"""
+        self._lock_tenant()
         if not self.has_permission(role, name):
             return True
 
@@ -443,7 +508,7 @@ class AuthorizationService:
 
         if group in permission.groups:
             permission.groups.remove(group)
-            self.db.commit()
+            self._commit()
 
         return True
 
@@ -483,3 +548,120 @@ class AuthorizationService:
             if group.is_active and self.has_permission(group.role, name):
                 return True
         return False
+
+    # --- Key rotation ----------------------------------------------------
+
+    @staticmethod
+    def _rotate_cell(enc, stored, old_creator: str, new_creator: str):
+        """Re-key one encrypted cell from ``old_creator`` to ``new_creator``.
+
+        Returns the ciphertext sealed under the new creator, or ``None`` when
+        the cell is empty (nothing to write). Mirrors
+        ``scripts/reencrypt_pertenant.reencrypt_value`` but decrypts under the
+        OLD creator and re-encrypts under the NEW one — necessary because field
+        keys are derived per-creator (HKDF), so ciphertext is bound to the
+        creator that wrote it. Legacy global-key ciphertext and never-encrypted
+        plaintext both recover their plaintext and are then sealed (v2) under
+        the new key. A value that looks like ciphertext but fails authentication
+        raises ``InvalidCiphertextError`` rather than being silently rewritten.
+        """
+        from auth.encryption import InvalidCiphertextError
+
+        if not stored:
+            return None
+        try:
+            plaintext = enc.decrypt(stored, old_creator)
+        except InvalidCiphertextError:
+            raise
+        except ValueError:
+            plaintext = stored  # legacy plaintext row (never encrypted)
+        return enc.encrypt(plaintext, new_creator)
+
+    def rotate_client_key(self, new_key: str) -> Dict[str, Any]:
+        """Atomically move this client's namespace to a fresh key (cutover).
+
+        Reassigns every ``auth_group`` / ``auth_membership`` / ``auth_permission``
+        row from ``creator = self.client`` (the old key) to ``creator = new_key``
+        in a single transaction, then returns the migrated row counts. Junction
+        tables reference row ids and follow automatically, so they need no change.
+
+        When field encryption is enabled the encrypted columns (``user`` /
+        ``name`` / ``description``) are cryptographically bound to the creator, so
+        each is decrypted under the old key and re-encrypted under the new key in
+        the same pass, keeping the new namespace equality-queryable. When
+        encryption is off the columns are plaintext and a single bulk ``creator``
+        update per table suffices.
+
+        The new key is generated by the caller (server-side) and is a fresh
+        UUID4, so the target namespace is empty and the ``UNIQUE(creator, ...)``
+        constraints cannot conflict. On any error the transaction is rolled back
+        — leaving the old namespace intact — and the error re-raised.
+        """
+        if not validate_client_key(new_key):
+            raise ValueError("new_key must be a valid UUID4")
+        if new_key == self.client:
+            raise ValueError("new_key must differ from the current key")
+
+        from auth.encryption import field_encryption
+
+        # Serialize against concurrent writes/rotation for this tenant so the
+        # scan-then-update pass below sees a stable row set (no stranded insert,
+        # no clobbered update). Held until this transaction commits/rolls back.
+        self._lock_tenant()
+
+        old = self.client
+        # (result label, table, encrypted column name)
+        # __table__ is a Table at runtime; the declarative stubs type it as the
+        # broader FromClause, so cast for the DML/column APIs below.
+        targets: List[Tuple[str, Table, str]] = [
+            ("roles", cast(Table, AuthGroup.__table__), "description"),
+            ("memberships", cast(Table, AuthMembership.__table__), "user"),
+            ("permissions", cast(Table, AuthPermission.__table__), "name"),
+        ]
+        migrated: Dict[str, int] = {}
+        try:
+            for label, table, enc_col in targets:
+                if field_encryption.enabled and field_encryption.encryptor is not None:
+                    # Re-key each row's encrypted cell (bound to creator), then
+                    # flip creator — both in the same UPDATE.
+                    rows = self.db.execute(
+                        select(table.c.id, table.c[enc_col]).where(
+                            table.c.creator == old
+                        )
+                    ).fetchall()
+                    for row_id, cell in rows:
+                        values: Dict[str, Any] = {"creator": new_key}
+                        new_cell = self._rotate_cell(
+                            field_encryption.encryptor, cell, old, new_key
+                        )
+                        if new_cell is not None:
+                            values[enc_col] = new_cell
+                        self.db.execute(
+                            update(table).where(table.c.id == row_id).values(values)
+                        )
+                    migrated[label] = len(rows)
+                else:
+                    # Plaintext columns: count, then one bulk creator update.
+                    count = self.db.execute(
+                        select(func.count())
+                        .select_from(table)
+                        .where(table.c.creator == old)
+                    ).scalar_one()
+                    self.db.execute(
+                        update(table)
+                        .where(table.c.creator == old)
+                        .values(creator=new_key)
+                    )
+                    migrated[label] = int(count)
+            self._commit()
+        except Exception:
+            logger.exception(
+                "rotate_client_key failed (old_creator=%s)", client_fingerprint(old)
+            )
+            self.db.rollback()
+            raise
+
+        # The old scope is now empty; point this instance at the new key so any
+        # further use is consistent with what was just committed.
+        self.client = new_key
+        return {"new_key": new_key, "migrated": migrated}

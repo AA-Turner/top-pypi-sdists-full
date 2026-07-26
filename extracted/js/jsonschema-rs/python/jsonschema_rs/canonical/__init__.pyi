@@ -32,7 +32,7 @@ class TypedGroupView:
 
 @final
 class StringView:
-    """A string value within a length window matching every pattern."""
+    """A string value within a length window matching every pattern and format."""
 
     __match_args__: tuple[str, ...]
     @property
@@ -41,16 +41,90 @@ class StringView:
     def max_length(self) -> int | None: ...
     @property
     def patterns(self) -> list[str]: ...
+    @property
+    def formats(self) -> list[str]: ...
+    @property
+    def content_media_types(self) -> list[str]: ...
+    @property
+    def content_encodings(self) -> list[str]: ...
+
+@final
+class NumberView:
+    """A number value within a real interval."""
+
+    __match_args__: tuple[str, ...]
+    @property
+    def minimum(self) -> int | float | None: ...
+    @property
+    def exclusive_minimum(self) -> bool: ...
+    @property
+    def maximum(self) -> int | float | None: ...
+    @property
+    def exclusive_maximum(self) -> bool: ...
+    @property
+    def multiple_of(self) -> list[int | float]: ...
 
 @final
 class IntegerView:
-    """An integer value within a range."""
+    """An integer value within a range, optionally a multiple of a divisor."""
 
     __match_args__: tuple[str, ...]
     @property
     def minimum(self) -> int | None: ...
     @property
     def maximum(self) -> int | None: ...
+    @property
+    def multiple_of(self) -> list[int | float]: ...
+
+@final
+class ArrayView:
+    """An array value's constraints."""
+
+    __match_args__: tuple[str, ...]
+    @property
+    def min_items(self) -> int | None: ...
+    @property
+    def max_items(self) -> int | None: ...
+    @property
+    def unique_items(self) -> bool: ...
+    @property
+    def prefix_items(self) -> list[CanonicalSchema]: ...
+    @property
+    def items(self) -> CanonicalSchema | None: ...
+    @property
+    def contains(self) -> list[ContainsView]: ...
+
+@final
+class ContainsView:
+    """One `contains` demand of an array. An absent minimum spells the default of one."""
+
+    __match_args__: tuple[str, ...]
+    @property
+    def schema(self) -> CanonicalSchema: ...
+    @property
+    def min_contains(self) -> int | None: ...
+    @property
+    def max_contains(self) -> int | None: ...
+
+@final
+class ObjectView:
+    """An object value's constraints."""
+
+    __match_args__: tuple[str, ...]
+    @property
+    def min_properties(self) -> int | None: ...
+    @property
+    def max_properties(self) -> int | None: ...
+    @property
+    def required(self) -> list[str]: ...
+    @property
+    def property_names(self) -> CanonicalSchema | None: ...
+    @property
+    def properties(self) -> dict[str, CanonicalSchema]: ...
+    @property
+    def pattern_properties(self) -> dict[str, CanonicalSchema]: ...
+    @property
+    def additional_properties(self) -> CanonicalSchema | None: ...
 
 @final
 class AnyOfView:
@@ -90,7 +164,10 @@ CanonicalViewType: TypeAlias = (
     | MultiTypeView
     | TypedGroupView
     | StringView
+    | NumberView
     | IntegerView
+    | ArrayView
+    | ObjectView
     | AnyOfView
     | ConstView
     | EnumView

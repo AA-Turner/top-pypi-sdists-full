@@ -1,13 +1,65 @@
 #![allow(dead_code, unused)]
 
 use crate::algorithm::{EnrichmentScore, EnrichmentScoreTrait};
+use crate::fgsea::util::multilevelError;
 use crate::fgsea::{calcGseaStatCumulativeBatch, compute_pvalue_multilevel, scale_ranks};
 use crate::utils::{CorrelType, DynamicEnum, Metric, Statistic};
 use itertools::{izip, Itertools};
 use pyo3::prelude::*;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use special::Gamma;
+use statrs::function::beta::beta_reg;
+use std::collections::{BTreeMap, HashMap};
+
+/// The `p`-quantile of a Beta(`a`, `b`) distribution -- R's `qbeta(p, a, b)`.
+///
+/// Found by bisection on the regularised incomplete beta function (Beta's CDF),
+/// which is monotone on `[0, 1]`. 200 iterations take the bracket well below f64
+/// resolution. Degenerate shapes match R's boundary conventions: `qbeta` is 0 when
+/// `a <= 0` and 1 when `b <= 0`.
+fn qbeta(p: f64, a: f64, b: f64) -> f64 {
+    if a <= 0.0 {
+        return 0.0;
+    }
+    if b <= 0.0 {
+        return 1.0;
+    }
+    let (mut lo, mut hi) = (0.0f64, 1.0f64);
+    for _ in 0..200 {
+        let mid = 0.5 * (lo + hi);
+        if beta_reg(a, b, mid) < p {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    0.5 * (lo + hi)
+}
+
+/// Half-width (in log2 units) of the 95% interval around the simple permutation
+/// p-value estimate `(n_more_extreme + 1) / (n_perm + 1)`.
+///
+/// Mirrors the `leftBorder`/`rightBorder`/`crudeEstimator` block of `fgseaMultilevel`.
+/// With `n_more_extreme == 0` the left border is `log2(0) = -inf`, so the error is
+/// infinite and the multilevel estimator always wins -- which is the intent: zero
+/// more-extreme permutations tells you nothing about how small the p-value is.
+fn simple_error_log2(n_more_extreme: f64, n_perm: f64) -> f64 {
+    let left_border = qbeta(0.025, n_more_extreme, n_perm - n_more_extreme + 1.0).log2();
+    let right_border = qbeta(0.975, n_more_extreme + 1.0, n_perm - n_more_extreme).log2();
+    let crude = ((n_more_extreme + 1.0) / (n_perm + 1.0)).log2();
+    0.5 * (crude - left_border).max(right_border - crude)
+}
+
+/// Expected log2 error of the multilevel estimate of `pval` -- fgsea's
+/// `multilevelError(pval, sampleSize)`.
+///
+/// The multilevel algorithm needs `floor(-log2(pval) + 1)` splitting levels to reach
+/// `pval`, and each level contributes independent sampling error.
+fn multilevel_error_pval(pval: f64, sample_size: usize) -> f64 {
+    let level = (-pval.log2() + 1.0).floor();
+    multilevelError(level as i32, sample_size as i32)
+}
 
 #[pyclass(from_py_object)]
 #[allow(dead_code)]
@@ -304,8 +356,15 @@ impl GSEAResult {
                     } else {
                         0.0
                     }; // obs.count.col
-                       // FDR
-                    fdrs_all.push((phi_norm / phi_obs).clamp(f64::MIN, 1.0));
+                       // FDR is undefined when phi_obs == 0 (0/0 -> NaN); by
+                       // convention set it to the maximum (1.0). Otherwise clamp
+                       // to the valid [0, 1] range.
+                    let fdr = if phi_obs == 0.0 {
+                        1.0
+                    } else {
+                        (phi_norm / phi_obs).clamp(0.0, 1.0)
+                    };
+                    fdrs_all.push(fdr);
                 }
                 fdrs_all.as_slice().mean()
             })
@@ -320,7 +379,7 @@ impl GSEAResult {
 
         // To speedup, sort f64 in acending order in place, then do a binary search
         self.nesnull_concat
-            .sort_unstable_by(|a, b| a.partial_cmp(b).unwrap()); // if descending -> b.partial_cmp(a)
+            .sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)); // NaN-safe; if descending -> b.partial_cmp(a)
         let (indices, nes_sorted) = self.nes_concat.as_slice().argsort(true); // ascending order
 
         // binary_search assumes that the elements are sorted in less-to-greater order.
@@ -366,8 +425,13 @@ impl GSEAResult {
                 } else {
                     0.0
                 }; // obs.count.col
-                   // FDR
-                (phi_norm / phi_obs).clamp(f64::MIN, 1.0)
+                   // FDR is undefined when phi_obs == 0 (0/0 -> NaN); by
+                   // convention set it to the maximum (1.0), else clamp to [0, 1].
+                if phi_obs == 0.0 {
+                    1.0
+                } else {
+                    (phi_norm / phi_obs).clamp(0.0, 1.0)
+                }
             })
             .collect();
 
@@ -467,7 +531,7 @@ impl GSEAResult {
         genes: &[String],
         group: &[bool],
         gene_exp: &[Vec<f64>],
-        gmt: &HashMap<&str, &[String]>,
+        gmt: &BTreeMap<&str, &[String]>,
         method: Metric,
     ) {
         let mut es = EnrichmentScore::new(genes, self.nperm, self.seed, false, false);
@@ -530,7 +594,7 @@ impl GSEAResult {
         self.summaries = summ;
     }
 
-    pub fn prerank(&mut self, genes: &[String], metric: &[f64], gmt: &HashMap<&str, &[String]>) {
+    pub fn prerank(&mut self, genes: &[String], metric: &[f64], gmt: &BTreeMap<&str, &[String]>) {
         // NOTE: input must not contain duplcated genes
 
         let weighted_metric: Vec<f64> = metric.iter().map(|x| x.abs().powf(self.weight)).collect();
@@ -581,7 +645,7 @@ impl GSEAResult {
         &mut self,
         genes: &[String],
         metric: &[Vec<f64>], // 2d vector [m_gene, n_sample];
-        gmt: &HashMap<&str, &[String]>,
+        gmt: &BTreeMap<&str, &[String]>,
     ) {
         // Calculate number of samples
         let n_samples = metric[0].len();
@@ -640,7 +704,7 @@ impl GSEAResult {
         &mut self,
         genes: &[String],
         gene_exp: &[Vec<f64>], // 2d vector [m_gene, n_sample];
-        gmt: &HashMap<&str, &[String]>,
+        gmt: &BTreeMap<&str, &[String]>,
         correl_type: CorrelType,
     ) {
         // transpose [m_gene, n_sample] --> [n_sample, m_gene]
@@ -751,7 +815,7 @@ impl GSEAResult {
         &mut self,
         genes: &[String],
         gene_exp: &[Vec<f64>], // 2d vector [m_gene, n_sample];
-        gmt: &HashMap<&str, &[String]>,
+        gmt: &BTreeMap<&str, &[String]>,
         correl_type: CorrelType,
     ) {
         // transpose [m_gene, n_sample] --> [n_sample, m_gene]
@@ -932,7 +996,7 @@ impl GSEAResult {
         &mut self,
         genes: &[String],
         metric: &[f64],
-        gmt: &HashMap<&str, &[String]>,
+        gmt: &BTreeMap<&str, &[String]>,
         sample_size: usize,
         eps: f64,
     ) {
@@ -963,29 +1027,25 @@ impl GSEAResult {
             let observed_es = es.fast_random_walk(&weighted_metric, &gtag);
             let run_es = es.running_enrichment_score(&weighted_metric, &gtag);
 
-            // Multilevel p-value and log2 error bound (faithful fgsea core).
-            let (ml_pval, ml_log2err) = compute_pvalue_multilevel(
-                &int_ranks,
-                gidx.len(),
-                observed_es,
-                sample_size,
-                self.seed,
-                eps,
-            );
-
+            // p-value is deferred: fgsea needs the simple-permutation null (computed in
+            // one batch below) both to normalise the multilevel estimate and to decide
+            // which estimator to use for each gene set.
             pathway_sizes.push(gidx.len() as i32);
             pathway_scores.push(observed_es);
             summ.push(GSEASummary {
                 term: term.to_string(),
                 es: observed_es,
-                pval: ml_pval,
-                log2err: ml_log2err,
+                pval: f64::NAN,
+                log2err: f64::NAN,
                 fwerp: 1.0,
                 run_es,
                 hits: gidx,
                 ..Default::default()
             });
         }
+
+        let mut n_unbalanced = 0usize;
+        let mut n_overestimated = 0usize;
 
         // NES via fgsea's random-gene-set null (calcGseaStatCumulativeBatch):
         // for each of `nperm` random size-k samples, the per-size prefix ES is
@@ -1015,29 +1075,138 @@ impl GSEAResult {
                 } else {
                     0.0
                 };
-                s.nes = if s.es >= 0.0 {
-                    if ge_mean != 0.0 {
-                        s.es / ge_mean
-                    } else {
-                        s.es
-                    }
-                } else if le_mean != 0.0 {
-                    s.es / le_mean.abs()
+                // NES is normalised by the mean null ES of the SAME sign. `ES > 0`
+                // (not `>= 0`) matches fgseaSimpleImpl, which sends a zero ES to the
+                // negative branch.
+                let nes_mean = if s.es > 0.0 { ge_mean } else { le_mean.abs() };
+                s.nes = if nes_mean != 0.0 { s.es / nes_mean } else { f64::NAN };
+
+                // ---- p-value, following fgseaMultilevel's two-estimator scheme ----
+                //
+                // `modeFraction` counts the permutations whose null ES has the same
+                // sign as the observed ES; `nMoreExtreme` counts those at least as
+                // extreme as it. (fgsea uses `ES >= 0` for the former and `ES > 0` for
+                // the latter; both are reproduced verbatim.)
+                let n_perm = self.nperm as f64;
+                let mode_fraction = if s.es >= 0.0 {
+                    batch.geZero[j]
                 } else {
-                    s.es
+                    batch.leZero[j]
                 };
+                let n_more_extreme = if s.es > 0.0 {
+                    batch.geEs[j]
+                } else {
+                    batch.leEs[j]
+                };
+
+                // No same-sign null mass to normalise against, or too little of it:
+                // fgsea reports pval/NES/log2err as NA rather than a number it cannot
+                // stand behind.
+                if s.nes.is_nan() || mode_fraction < 10.0 {
+                    n_unbalanced += 1;
+                    s.pval = f64::NAN;
+                    s.nes = f64::NAN;
+                    s.log2err = f64::NAN;
+                    continue;
+                }
+
+                // fgsea compares the two estimators' accuracy on the crude estimate
+                // (nMoreExtreme + 1) / (nPerm + 1), not on the reported p-value.
+                let crude = (n_more_extreme + 1.0) / (n_perm + 1.0);
+                let simple_err = simple_error_log2(n_more_extreme, n_perm);
+                let mult_err = multilevel_error_pval(crude, sample_size);
+
+                if mult_err >= simple_err {
+                    // The simple permutation estimate is at least as accurate here as
+                    // the multilevel one would be, so fgsea keeps it. This is the
+                    // common case: for all but the smallest p-values, `nperm` draws
+                    // resolve the tail better than multilevel sampling does.
+                    //
+                    // Each side is normalised by its OWN sign's null count, and the
+                    // smaller of the two is taken -- normalising by `n_perm` instead
+                    // would bias every p-value low by the same-sign fraction (~2x).
+                    s.pval = ((1.0 + batch.leEs[j]) / (1.0 + batch.leZero[j]))
+                        .min((1.0 + batch.geEs[j]) / (1.0 + batch.geZero[j]));
+                    s.log2err = ((n_more_extreme + 1.0).trigamma() - (n_perm + 1.0).trigamma())
+                        .sqrt()
+                        / std::f64::consts::LN_2;
+                } else {
+                    // Deep tail: fall back to adaptive multilevel splitting, which can
+                    // resolve p-values far below 1/nperm.
+                    let (cond_pval, is_cp_ge_half, _) = compute_pvalue_multilevel(
+                        &int_ranks,
+                        s.hits.len(),
+                        s.es,
+                        sample_size,
+                        self.seed,
+                        eps,
+                    );
+                    // The multilevel core returns a probability CONDITIONAL on the null
+                    // ES sharing the observed sign. Dividing by that sign's frequency
+                    // recovers the unconditional p-value; without this the result is
+                    // biased low by ~1/denom_prob (roughly 2x for a balanced metric).
+                    let denom_prob = (mode_fraction + 1.0) / (n_perm + 1.0);
+                    s.pval = (cond_pval / denom_prob).min(1.0);
+                    s.log2err = if is_cp_ge_half {
+                        multilevel_error_pval(s.pval, sample_size)
+                    } else {
+                        // p-value likely overestimated; fgsea declines to report an error bound.
+                        n_overestimated += 1;
+                        f64::NAN
+                    };
+                }
+
+                if s.pval < eps {
+                    s.pval = eps;
+                    s.log2err = f64::NAN;
+                }
             }
         } else {
+            // No simple-permutation null requested. Without it there is no
+            // `denomProb` to normalise the multilevel estimate against, so fall back
+            // to the raw conditional p-value and an unnormalised NES.
             for s in summ.iter_mut() {
-                s.nes = s.es; // no simple-permutation null requested (nperm == 0)
+                s.nes = s.es;
+                let (cond_pval, _, ml_log2err) = compute_pvalue_multilevel(
+                    &int_ranks,
+                    s.hits.len(),
+                    s.es,
+                    sample_size,
+                    self.seed,
+                    eps,
+                );
+                s.pval = cond_pval;
+                s.log2err = ml_log2err;
             }
         }
 
-        // Apply Benjamini-Hochberg correction across all gene sets for FDR.
-        let pvals: Vec<f64> = summ.iter().map(|s| s.pval).collect();
+        if n_unbalanced > 0 {
+            eprintln!(
+                "Warning: {} gene sets had fewer than 10 same-sign null enrichment scores \
+                 (unbalanced gene-level statistics); their pval, FDR, NES and log2err are NaN. \
+                 Increasing the number of permutations may help.",
+                n_unbalanced
+            );
+        }
+        if n_overestimated > 0 {
+            eprintln!(
+                "Warning: for {} gene sets the p-value was likely overestimated; \
+                 log2err is set to NaN.",
+                n_overestimated
+            );
+        }
+
+        // Benjamini-Hochberg correction for FDR. Gene sets with a NaN p-value are
+        // excluded from the correction (and keep a NaN FDR), matching p.adjust's
+        // handling of NAs -- leaving them in would corrupt the rank ordering.
+        let scored: Vec<usize> = (0..summ.len()).filter(|&i| !summ[i].pval.is_nan()).collect();
+        let pvals: Vec<f64> = scored.iter().map(|&i| summ[i].pval).collect();
         let fdrs = Self::bh_correction(&pvals);
-        for (s, fdr) in summ.iter_mut().zip(fdrs.iter()) {
-            s.fdr = *fdr;
+        for s in summ.iter_mut() {
+            s.fdr = f64::NAN;
+        }
+        for (&i, &fdr) in scored.iter().zip(fdrs.iter()) {
+            summ[i].fdr = fdr;
         }
 
         self.summaries = summ;
@@ -1081,7 +1250,7 @@ mod tests {
         }
 
         // hashmap
-        let mut gmt2 = HashMap::<&str, &[String]>::new();
+        let mut gmt2 = BTreeMap::<&str, &[String]>::new();
         gmt.record.iter().for_each(|r| {
             gmt2.insert(r[0].as_str(), &r[2..]);
         });
@@ -1140,7 +1309,7 @@ mod tests {
             gene_exp.push(vv);
         }
 
-        let mut gmt2 = HashMap::<&str, &[String]>::new();
+        let mut gmt2 = BTreeMap::<&str, &[String]>::new();
         gmt.record.iter().for_each(|r| {
             gmt2.insert(r[0].as_str(), &r[2..]);
         });
@@ -1189,7 +1358,7 @@ mod tests {
 
         let sample_names = &gct.header.get_vec()[2..];
 
-        let mut gmt2 = HashMap::<&str, &[String]>::new();
+        let mut gmt2 = BTreeMap::<&str, &[String]>::new();
         gmt.record.iter().for_each(|r| {
             gmt2.insert(r[0].as_str(), &r[2..]);
         });
@@ -1272,7 +1441,7 @@ mod tests {
             gene.push(r[0].clone());
             gene_metric.push(r[1].parse::<f64>().unwrap());
         }
-        let mut gmt2 = HashMap::<&str, &[String]>::new();
+        let mut gmt2 = BTreeMap::<&str, &[String]>::new();
         gmt.record.iter().for_each(|r| {
             gmt2.insert(r[0].as_str(), &r[2..]);
         });
@@ -1323,42 +1492,132 @@ mod tests {
         }
     }
 
-    /// Verify that classical prerank() and prerank_multilevel() produce identical ES
-    /// and NES values when given the same input, same permutation count and same seed.
+    /// Load the bundled prerank fixtures, ready for `prerank_multilevel`.
+    ///
+    /// The metric keeps its SIGN and is sorted descending, which is what
+    /// `prerank_multilevel` expects -- it applies `|x|^weight` internally for the
+    /// enrichment score and needs the signed values for the permutation null. Passing
+    /// a pre-`abs()`ed metric makes every null enrichment score one-signed, which
+    /// drives `denomProb` to 1 and hides any error in the sign normalisation.
+    fn load_prerank_fixture() -> (Vec<String>, Vec<f64>, FileReader, FileReader) {
+        let cwd = std::env::current_dir().unwrap();
+        let mut rnk = FileReader::new();
+        let _ = rnk.read_csv(
+            cwd.join("tests/data/mds.2k.rnk").to_str().unwrap(), b'\t', false, Some(b'#'));
+        let mut gmt = FileReader::new();
+        let _ = gmt.read_table(
+            cwd.join("tests/data/c2.cp.kegg.v7.5.1.symbols.gmt").to_str().unwrap(), '\t', false);
+        let mut gene: Vec<String> = Vec::new();
+        let mut gene_metric: Vec<f64> = Vec::new();
+        for r in rnk.record.iter() {
+            gene.push(r[0].clone());
+            gene_metric.push(r[1].parse::<f64>().unwrap());
+        }
+        let (gidx, metric) = gene_metric.as_slice().argsort(false);
+        let gene = gidx.iter().map(|&i| gene[i].clone()).collect();
+        (gene, metric, rnk, gmt)
+    }
+
+    /// Under the null, p-values must be approximately Uniform(0, 1).
+    ///
+    /// This is the property that a missing `denomProb` normalisation destroys. The
+    /// multilevel core returns a probability CONDITIONAL on the null ES sharing the
+    /// observed ES's sign; reporting it directly makes every p-value roughly
+    /// `1 / denomProb` (~2x) too small. Shuffling the gene labels removes any real
+    /// enrichment, so a correctly normalised implementation gives mean(p) ~ 0.5 and
+    /// P(p < 0.05) ~ 0.05, while the unnormalised one gives ~0.29 and ~0.12.
+    #[test]
+    fn test_prerank_multilevel_null_calibration() {
+        let weight = 1.0;
+        let (gene, metric, _rnk, gmt) = load_prerank_fixture();
+        let mut gmt2 = BTreeMap::<&str, &[String]>::new();
+        gmt.record.iter().for_each(|r| { gmt2.insert(r[0].as_str(), &r[2..]); });
+
+        // Deterministic label shuffle (LCG): keeps the metric distribution intact but
+        // destroys any association between gene sets and the ranking.
+        let mut shuffled = gene.clone();
+        let mut state: u64 = 0x2545F491_4F6CDD1D;
+        for i in (1..shuffled.len()).rev() {
+            state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            shuffled.swap(i, (state >> 33) as usize % (i + 1));
+        }
+
+        let mut gsea = GSEAResult::new(weight, 500, 15, 1000, 42);
+        gsea.prerank_multilevel(&shuffled, &metric, &gmt2, 101, 1e-50);
+        let p: Vec<f64> = gsea.summaries.iter().map(|s| s.pval).filter(|v| !v.is_nan()).collect();
+        assert!(p.len() > 50, "expected a decent number of gene sets, got {}", p.len());
+
+        let mean = p.iter().sum::<f64>() / p.len() as f64;
+        let frac_sig = p.iter().filter(|&&v| v < 0.05).count() as f64 / p.len() as f64;
+        println!("null calibration: n={} mean(p)={:.4} P(p<0.05)={:.4}", p.len(), mean, frac_sig);
+
+        // Generous bounds: these must catch a ~2x bias, not police Monte-Carlo noise.
+        // The unnormalised implementation lands at mean ~0.29 / P ~0.12.
+        assert!((0.42..=0.58).contains(&mean),
+                "null p-values are not uniform: mean(p)={:.4}, expected ~0.5. \
+                 A low mean indicates the conditional multilevel p-value is not being \
+                 divided by denomProb.", mean);
+        assert!(frac_sig < 0.10,
+                "type-I error inflated: P(p<0.05)={:.4}, expected ~0.05", frac_sig);
+    }
+
+    /// `eps` floors the reported p-value, and fgsea reports no error bound once the
+    /// floor is hit (`result[pval < eps, c("pval","log2err") := list(eps, NA)]`).
+    #[test]
+    fn test_prerank_multilevel_eps_floor() {
+        let weight = 1.0;
+        let (gene, metric, _rnk, gmt) = load_prerank_fixture();
+        let mut gmt2 = BTreeMap::<&str, &[String]>::new();
+        gmt.record.iter().for_each(|r| { gmt2.insert(r[0].as_str(), &r[2..]); });
+
+        let eps = 1e-3;
+        let mut gsea = GSEAResult::new(weight, 500, 15, 1000, 42);
+        gsea.prerank_multilevel(&gene, &metric, &gmt2, 101, eps);
+
+        let mut clamped = 0;
+        for s in &gsea.summaries {
+            if s.pval.is_nan() { continue; }
+            assert!(s.pval >= eps, "p-value {:.3e} fell below eps={:.0e}", s.pval, eps);
+            if s.pval == eps {
+                clamped += 1;
+                assert!(s.log2err.is_nan(),
+                        "log2err must be NaN once the eps floor is hit, got {}", s.log2err);
+            }
+        }
+        assert!(clamped > 0, "expected at least one gene set to hit the eps floor");
+    }
+
+    /// Classical `prerank()` and `prerank_multilevel()` must agree exactly on ES, and
+    /// only approximately on NES.
     ///
     /// ES is a deterministic function of the sorted metric and gene-set membership, so
-    /// it must be bit-for-bit equal.  NES is derived from the same gene-permutation
-    /// null distribution in both methods (prerank uses gperm[1..nperm], while
-    /// prerank_multilevel skips index 0 of the same gperm), so with nperm == n_perm_simple
-    /// and the same seed the NES values must also be exactly equal.
+    /// it is bit-for-bit equal between the two paths.
+    ///
+    /// NES is **not**, and must not be asserted equal: the two paths normalise against
+    /// deliberately different null distributions. `prerank` divides by the mean
+    /// same-sign ES of a *gene-label permutation* null, while `prerank_multilevel`
+    /// divides by the mean same-sign ES of fgsea's *random-gene-set* null
+    /// (`calcGseaStatCumulativeBatch`), which is what makes it fgsea-faithful. They
+    /// estimate the same quantity from different samples, so they agree in sign and
+    /// track each other closely, but never to the bit — measured over these 177 gene
+    /// sets, zero have equal NES while the correlation is 0.997.
+    ///
+    /// An earlier version of this test asserted exact NES equality. That was valid when
+    /// `prerank_multilevel` reused the classical `gperm` matrix, but stopped being true
+    /// once the fgsea random-gene-set null landed; the assertion was left behind and had
+    /// been failing ever since, reporting an arbitrary gene set each run because the
+    /// comparison iterated a `HashMap`.
     #[test]
     fn test_prerank_vs_fgsea() {
-        let cwd = std::env::current_dir().unwrap();
-        let rnk_path = cwd.join("tests/data/mds.2k.rnk");
-        let gmt_path = cwd.join("tests/data/c2.cp.kegg.v7.5.1.symbols.gmt");
-
-        // --- load data -------------------------------------------------------
-        let mut rnk = FileReader::new();
-        let _ = rnk.read_csv(rnk_path.to_str().unwrap(), b'\t', false, Some(b'#'));
-        let mut gmt_file = FileReader::new();
-        let _ = gmt_file.read_table(gmt_path.to_str().unwrap(), '\t', false);
-
         let weight = 1.0f64;
-        let mut raw_gene: Vec<String> = Vec::new();
-        let mut raw_metric: Vec<f64> = Vec::new();
-        for r in rnk.record.iter() {
-            raw_gene.push(r[0].clone());
-            raw_metric.push(r[1].parse::<f64>().unwrap());
-        }
-        let mut gmt2 = HashMap::<&str, &[String]>::new();
+        // The shared fixture keeps the metric SIGNED. An earlier version of this test
+        // sorted by |metric| instead, which made every null enrichment score one-signed
+        // and hid exactly the sign-handling this comparison is meant to exercise.
+        let (gene, metric, _rnk, gmt_file) = load_prerank_fixture();
+        let mut gmt2 = BTreeMap::<&str, &[String]>::new();
         gmt_file.record.iter().for_each(|r| {
             gmt2.insert(r[0].as_str(), &r[2..]);
         });
-
-        // sort descending by |metric|^weight (same pre-processing as prerank)
-        let mut wm: Vec<f64> = raw_metric.iter().map(|x| x.abs().powf(weight)).collect();
-        let (gidx, metric) = wm.as_slice().argsort(false);
-        let gene: Vec<String> = gidx.iter().map(|&i| raw_gene[i].clone()).collect();
 
         // Use a small permutation count so the test runs quickly.
         let n_perm = 50usize;
@@ -1379,10 +1638,18 @@ mod tests {
             .summaries.iter().map(|s| (s.term.as_str(), s)).collect();
 
         // Only compare terms present in both results (size filters are identical).
-        let common_terms: Vec<&str> = classical_map.keys()
+        // Sorted so that any failure names the same gene set on every run.
+        let mut common_terms: Vec<&str> = classical_map.keys()
             .filter(|&&t| fgsea_map.contains_key(t)).copied().collect();
+        common_terms.sort_unstable();
 
         assert!(!common_terms.is_empty(), "no gene sets in common between prerank and fgsea");
+
+        // NES pairs, collected for the distribution-level checks below. Gene sets whose
+        // NES is NaN are skipped: prerank_multilevel reports NaN when fewer than 10
+        // permutations share the observed ES's sign, which fgsea also treats as
+        // uninformative rather than as a value to compare.
+        let mut pairs: Vec<(f64, f64)> = Vec::new();
 
         for term in &common_terms {
             let c = classical_map[term];
@@ -1392,17 +1659,51 @@ mod tests {
             assert_eq!(c.es, f.es,
                 "ES mismatch for '{}': classical={:.8}, fgsea={:.8}", term, c.es, f.es);
 
-            // NES normalises by the mean of same-sign null ESs drawn from the same
-            // gene-permutation sequence, so it must also be exactly equal.
-            assert_eq!(c.nes, f.nes,
-                "NES mismatch for '{}': classical={:.8}, fgsea={:.8}", term, c.nes, f.nes);
+            if c.nes.is_nan() || f.nes.is_nan() {
+                continue;
+            }
+
+            // Both nulls are same-sign normalised, so NES cannot flip sign relative to
+            // ES. A disagreement here means one path picked the wrong side of the null.
+            assert_eq!(c.nes.is_sign_positive(), f.nes.is_sign_positive(),
+                "NES sign mismatch for '{}': classical={:.8}, fgsea={:.8}", term, c.nes, f.nes);
+
+            pairs.push((c.nes, f.nes));
         }
 
-        println!("test_prerank_vs_fgsea: {} terms compared", common_terms.len());
+        assert!(pairs.len() > 100, "expected >100 comparable gene sets, got {}", pairs.len());
+
+        // The two NES estimates must track each other tightly. Bounds are deliberately
+        // loose -- they exist to catch one path regressing to a different statistic, not
+        // to police Monte-Carlo noise at only 50 permutations. Measured here: median
+        // relative difference 0.033, correlation 0.997.
+        let mut rel: Vec<f64> = pairs.iter()
+            .map(|(c, f)| (f - c).abs() / c.abs())
+            .collect();
+        rel.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let median_rel = rel[rel.len() / 2];
+
+        let n = pairs.len() as f64;
+        let mean_c = pairs.iter().map(|p| p.0).sum::<f64>() / n;
+        let mean_f = pairs.iter().map(|p| p.1).sum::<f64>() / n;
+        let cov: f64 = pairs.iter().map(|(c, f)| (c - mean_c) * (f - mean_f)).sum::<f64>();
+        let var_c: f64 = pairs.iter().map(|(c, _)| (c - mean_c).powi(2)).sum::<f64>();
+        let var_f: f64 = pairs.iter().map(|(_, f)| (f - mean_f).powi(2)).sum::<f64>();
+        let corr = cov / (var_c.sqrt() * var_f.sqrt());
+
+        println!("test_prerank_vs_fgsea: {} terms compared, {} with comparable NES; \
+                  median rel diff {:.4}, correlation {:.6}",
+                 common_terms.len(), pairs.len(), median_rel, corr);
+
+        assert!(median_rel < 0.10,
+            "classical and fgsea NES have diverged: median relative difference {:.4}, \
+             expected < 0.10", median_rel);
+        assert!(corr > 0.99,
+            "classical and fgsea NES are no longer tracking: correlation {:.6}, \
+             expected > 0.99", corr);
+
         // Print a few for visual inspection
-        let mut sample: Vec<&str> = common_terms.clone();
-        sample.sort();
-        for term in sample.iter().take(5) {
+        for term in common_terms.iter().take(5) {
             let c = classical_map[term];
             let f = fgsea_map[term];
             println!("  {} | classical es={:.6} nes={:.6} | fgsea es={:.6} nes={:.6}",

@@ -1,13 +1,15 @@
 use crate::{
     compiler,
     error::ValidationError,
-    ext::numeric,
     keywords::CompilationResult,
+    numeric,
     paths::{LazyLocation, Location, RefTracker},
     types::JsonType,
     validator::{Validate, ValidationContext},
-    Json, JsonNode,
+    Json, Node,
 };
+#[cfg(feature = "arbitrary-precision")]
+use jsonschema_value::JsonNumber;
 use serde_json::{Map, Value};
 use std::borrow::Cow;
 
@@ -170,7 +172,7 @@ impl<F: Json> Validate<F> for MultipleOfBigIntValidator {
         use num_bigint::BigInt;
         use num_traits::One;
         if let Some(item) = instance.as_number() {
-            if let Some(instance_bigint) = numeric::bignum::try_parse_bigint(&item) {
+            if let Some(instance_bigint) = numeric::bignum::try_parse_bigint(&item.to_number()) {
                 numeric::bignum::is_multiple_of_bigint(&instance_bigint, &self.multiple_of)
             } else if let Some(v) = item.as_u64() {
                 let v_bigint = BigInt::from(v);
@@ -200,7 +202,9 @@ impl<F: Json> Validate<F> for MultipleOfBigIntValidator {
                 // written in plain decimal form with more precision than f64 can carry. We attempt to
                 // parse it as an exact BigFraction and only accept it when the denominator is 1 so we
                 // can safely convert it to BigInt before running the modulo check below.
-                if let Some(instance_bigfrac) = numeric::bignum::try_parse_bigfraction(&item) {
+                if let Some(instance_bigfrac) =
+                    numeric::bignum::try_parse_bigfraction(&item.to_number())
+                {
                     if instance_bigfrac.denom().is_none_or(One::is_one) {
                         if let Some(numer) = instance_bigfrac.numer() {
                             let instance_bigint = BigInt::from(numer.clone());
@@ -269,9 +273,13 @@ impl<F: Json> Validate<F> for MultipleOfBigFracValidator {
         use num_traits::ToPrimitive;
         if let Some(item) = instance.as_number() {
             // Try to parse instance as BigFraction for exact precision
-            if let Some(instance_bigfrac) = numeric::bignum::try_parse_bigfraction(&item) {
+            if let Some(instance_bigfrac) =
+                numeric::bignum::try_parse_bigfraction(&item.to_number())
+            {
                 numeric::bignum::is_multiple_of_bigfrac(&instance_bigfrac, &self.multiple_of)
-            } else if let Some(instance_bigint) = numeric::bignum::try_parse_bigint(&item) {
+            } else if let Some(instance_bigint) =
+                numeric::bignum::try_parse_bigint(&item.to_number())
+            {
                 let value_frac = fraction::BigFraction::from(instance_bigint);
                 numeric::bignum::is_multiple_of_bigfrac(&value_frac, &self.multiple_of)
             } else if let Some(v) = item.as_u64() {
@@ -871,6 +879,12 @@ mod tests {
         #[test_case(r#"{"multipleOf": 0.5}"#, HUGE_POSITIVE, true ; "huge_positive_multiple_of_0_5")]
         #[test_case(r#"{"multipleOf": 0.5}"#, HUGE_NEGATIVE, true ; "huge_negative_multiple_of_0_5")]
         #[test_case(r#"{"multipleOf": 2}"#, HUGE_POSITIVE, false ; "huge_positive_not_multiple_of_2")]
+        // Integers past `u64` divide exactly, so a divisor `f64` holds must not decide them by
+        // rounding the instance first.
+        #[test_case(r#"{"multipleOf": 3}"#, "135107988821114880000000000000", true ; "past_u64_multiple_of_3")]
+        #[test_case(r#"{"multipleOf": 3}"#, "135107988821114880000000000001", false ; "past_u64_not_multiple_of_3")]
+        #[test_case(r#"{"multipleOf": 2}"#, "18446744073709551617", false ; "past_u64_odd_not_multiple_of_2")]
+        #[test_case(r#"{"multipleOf": 2}"#, "18446744073709551618", true ; "past_u64_even_multiple_of_2")]
         fn huge_decimal_validation(schema_json: &str, instance_value: &str, expected_valid: bool) {
             let schema = parse_json(schema_json);
             let instance = parse_json(instance_value);

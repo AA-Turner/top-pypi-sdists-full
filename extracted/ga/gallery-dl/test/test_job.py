@@ -474,7 +474,24 @@ class TestDataJob(TestJob):
             "https://example.org/3.jpg",
             "https://example1.org/content/abc",
             "https://example2.org/content?query=123",
-            "https://example3.org/content/#frag"
+            "https://example3.org/content/#frag",
+        ])
+
+    def test_opt_follow_list(self):
+        config.set((), "follow", [
+            "{foo}", "{user[bio]!R}", "+++ http://bar.baz/{user[id]} +++"])
+
+        extr = TestExtractor.from_url("test:urls")
+        tjob = self.jobclass(extr, file=None)
+        tjob.run()
+        self.assertEqual(tjob.data_urls, [
+            "https://example.org/1.jpg",
+            "https://example.org/2.jpg",
+            "https://example.org/3.jpg",
+            "https://example1.org/content/abc",
+            "https://example2.org/content?query=123",
+            "https://example3.org/content/#frag",
+            "http://bar.baz/123",
         ])
 
     def test_resolve(self):

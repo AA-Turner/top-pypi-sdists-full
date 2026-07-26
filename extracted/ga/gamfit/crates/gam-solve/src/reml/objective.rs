@@ -184,7 +184,7 @@ impl<'a> RemlState<'a> {
             return Ok(f64::INFINITY);
         }
         let t_pirls = std::time::Instant::now();
-        let bundle = match self.obtain_eval_bundle(p) {
+        let bundle = match self.obtain_value_eval_bundle(p) {
             Ok(bundle) => bundle,
             Err(EstimationError::ModelIsIllConditioned { .. }) => {
                 self.cache_manager.invalidate_eval_bundle();
@@ -1083,7 +1083,7 @@ impl<'a> RemlState<'a> {
             // dropped zero-weight observations) — identical to the effective `n`
             // estimate.rs uses for the dispersion denominator (#584). With no
             // weights / all weights 1 this equals `self.y.len()`.
-            n_observations: self.weights.iter().filter(|&&wi| wi > 0.0).count(),
+            n_observations: self.positive_weight_observation_count(),
             hessian_op,
             penalty_coords,
             penalty_logdet,
@@ -1172,7 +1172,7 @@ impl<'a> RemlState<'a> {
             PseudoLogdetMode::Smooth
         };
 
-        let c_nontrivial = pirls_result.solve_c_array.iter().any(|&c| c != 0.0);
+        let c_nontrivial = pirls_result.solve_c_nontrivial;
 
         // For ValueOnly evaluations on the SPD fast path (no Firth, no hard
         // linear constraints), use a Cholesky-backed operator.  LLT costs
@@ -1623,7 +1623,7 @@ impl<'a> RemlState<'a> {
         } else {
             PseudoLogdetMode::Smooth
         };
-        let c_nontrivial = pirls_result.solve_c_array.iter().any(|&c| c != 0.0);
+        let c_nontrivial = pirls_result.solve_c_nontrivial;
 
         // Same Cholesky fast path as `build_dense_assembly`: for ValueOnly
         // evaluations with `Smooth` mode (no Firth and no beta-dependent
@@ -1996,6 +1996,15 @@ impl<'a> RemlState<'a> {
             block_terms,
         );
         let result = self.apply_theta_correction_atom_to_result(result, &block_atom)?;
+        crate::estimate::outer_eval_capture::record_outer_criterion_components(
+            result.cost,
+            [
+                result.criterion_components.fixed_beta,
+                result.criterion_components.logdet_h,
+                result.criterion_components.logdet_s,
+                result.criterion_components.kkt,
+            ],
+        );
         // This value/derivative tuple is the genuine REML/LAML criterion. An
         // optimizer-only diagnostic must never mutate it: a former hard-gated
         // ALO augmentation introduced a finite objective jump when leverage
@@ -2058,6 +2067,15 @@ impl<'a> RemlState<'a> {
             block_terms,
         );
         let cost_result = self.apply_theta_correction_atom_to_result(cost_result, &block_atom)?;
+        crate::estimate::outer_eval_capture::record_outer_criterion_components(
+            cost_result.cost,
+            [
+                cost_result.criterion_components.fixed_beta,
+                cost_result.criterion_components.logdet_h,
+                cost_result.criterion_components.logdet_s,
+                cost_result.criterion_components.kkt,
+            ],
+        );
         self.store_ift_mode_response_cache_from_result(rho, bundle, &cost_result);
         let gradient =
             cost_result
@@ -2435,7 +2453,6 @@ impl<'a> RemlState<'a> {
                 super::reml_outer_engine::EvalMode::ValueAndGradient,
             )?;
             let ift_residual_energy = result.ift_residual_energy;
-            store_ift_residual_energy_for_outer_theta(p, ift_residual_energy);
             let grad = result
                 .gradient
                 .ok_or(EstimationError::GradientUnavailable {
@@ -2458,7 +2475,6 @@ impl<'a> RemlState<'a> {
             super::reml_outer_engine::EvalMode::ValueAndGradient,
         )?;
         let ift_residual_energy = result.ift_residual_energy;
-        store_ift_residual_energy_for_outer_theta(p, ift_residual_energy);
         let grad = result
             .gradient
             .ok_or(EstimationError::GradientUnavailable {
@@ -2560,7 +2576,6 @@ impl<'a> RemlState<'a> {
             } else {
                 self.evaluate_unified(p, &bundle, super::reml_outer_engine::EvalMode::ValueOnly)?
             };
-            store_ift_residual_energy_for_outer_theta(p, result.ift_residual_energy);
             let cost = result.cost;
             log::debug!(
                 "[REML] outer-eval value-only done | cost {:.6e} | assemble {:.1}ms | total {:.1}ms",
@@ -2616,7 +2631,6 @@ impl<'a> RemlState<'a> {
         };
         let assemble_ms = t_assemble.elapsed().as_secs_f64() * 1000.0;
         let ift_residual_energy = result.ift_residual_energy;
-        store_ift_residual_energy_for_outer_theta(p, ift_residual_energy);
 
         let gradient = result.gradient.ok_or_else(|| {
             EstimationError::InvalidInput(format!(

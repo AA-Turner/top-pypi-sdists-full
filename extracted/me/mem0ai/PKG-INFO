@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mem0ai
-Version: 2.0.13
+Version: 2.0.14
 Summary: Long-term memory for AI Agents
 Author-email: Mem0 <support@mem0.ai>
 License-Expression: Apache-2.0
@@ -17,7 +17,7 @@ Requires-Dist: sqlalchemy>=2.0.31
 Provides-Extra: dev
 Requires-Dist: isort>=5.13.2; extra == 'dev'
 Requires-Dist: pytest>=8.2.2; extra == 'dev'
-Requires-Dist: ruff>=0.6.5; extra == 'dev'
+Requires-Dist: ruff==0.16.0; extra == 'dev'
 Provides-Extra: extras
 Requires-Dist: boto3>=1.34.0; extra == 'extras'
 Requires-Dist: elasticsearch<9.0.0,>=8.0.0; extra == 'extras'
@@ -53,6 +53,7 @@ Requires-Dist: dbutils>=3.0.3; extra == 'vector-stores'
 Requires-Dist: elasticsearch<9.0.0,>=8.0.0; extra == 'vector-stores'
 Requires-Dist: faiss-cpu>=1.7.4; extra == 'vector-stores'
 Requires-Dist: langchain-aws<0.3.0,>=0.2.23; extra == 'vector-stores'
+Requires-Dist: oracledb>=2.2.0; extra == 'vector-stores'
 Requires-Dist: pinecone-text>=0.10.0; extra == 'vector-stores'
 Requires-Dist: pinecone<=7.3.0; extra == 'vector-stores'
 Requires-Dist: psycopg-pool<4.0.0,>=3.2.6; extra == 'vector-stores'

@@ -31,7 +31,7 @@ def github_pr_body_file_is_safe(
         return False
     if _path_looks_sensitive(candidate):
         return False
-    if not candidate.name.casefold().endswith(("-pr-body.md", "-pr-body.markdown")):
+    if not _is_pr_body_markdown_name(candidate.name):
         return False
     authored_root = _authored_location_root(candidate, cwd=cwd)
     if authored_root is None or not _ancestor_chain_is_controlled(candidate, root=authored_root):
@@ -75,15 +75,14 @@ def github_pr_body_file_is_safe(
 
 
 def _resolve_operand(operand: str, *, cwd: Path, home_dir: Path) -> Path | None:
-    stripped = operand.strip().strip("'\"")
-    if not stripped:
+    if not operand or operand != operand.strip():
         return None
-    if stripped == "~":
+    if operand == "~":
         candidate = home_dir
-    elif stripped.startswith("~/"):
-        candidate = home_dir / stripped[2:]
+    elif operand.startswith("~/"):
+        candidate = home_dir / operand[2:]
     else:
-        candidate = Path(stripped)
+        candidate = Path(operand)
         if not candidate.is_absolute():
             candidate = cwd / candidate
     if candidate.is_symlink():
@@ -170,3 +169,8 @@ def _path_looks_sensitive(candidate: Path) -> bool:
         return True
     name = candidate.name.casefold()
     return name.startswith((".env", "credentials", "id_rsa", "id_ed25519", "secrets", "token"))
+
+
+def _is_pr_body_markdown_name(name: str) -> bool:
+    normalized = name.casefold()
+    return normalized in {"pr-body.md", "pr-body.markdown"} or normalized.endswith(("-pr-body.md", "-pr-body.markdown"))

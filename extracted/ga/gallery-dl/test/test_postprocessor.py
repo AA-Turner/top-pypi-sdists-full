@@ -1137,6 +1137,17 @@ class MtimeTest(BasePostprocessorTest):
         self._trigger()
         self.assertEqual(self.pathfmt.kwdict["_mtime_meta"], 315532800)
 
+    def test_mtime_directory(self):
+        self._create({"target": "directory"}, {"date": 315532800})
+
+        with patch("os.utime") as ut:
+            self._trigger(("post-after",))
+
+        ut.assert_called_once()
+        args = ut.mock_calls[0].args
+        self.assertEqual(args[0], self.pathfmt.realdirectory)
+        self.assertEqual(args[1][1], 315532800)
+
 
 class PythonTest(BasePostprocessorTest):
 

@@ -6,9 +6,9 @@ use crate::{
     paths::Location,
     types::{JsonType, JsonTypeSet},
     validator::{EvaluationResult, Validate, ValidationContext},
-    Json, JsonNode,
+    Json, Node,
 };
-use serde_json::{json, Map, Number, Value};
+use serde_json::{json, Map, Value};
 use std::{borrow::Cow, str::FromStr};
 
 use crate::paths::{LazyLocation, RefTracker};
@@ -466,13 +466,14 @@ impl<F: Json> Validate<F> for IntegerTypeValidator {
     }
 }
 
-pub(crate) fn is_integer(num: &Number) -> bool {
-    if num.is_u64() || num.is_i64() {
+pub(crate) fn is_integer<N: jsonschema_value::JsonNumber>(num: &N) -> bool {
+    if num.as_u64().is_some() || num.as_i64().is_some() {
         return true;
     }
+    let num = &num.to_number();
     #[cfg(feature = "arbitrary-precision")]
     {
-        use crate::ext::numeric::bignum;
+        use crate::numeric::bignum;
         use num_traits::One;
 
         // Check huge plain integers first (no decimal point)

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # The MIT License (MIT)
-# Copyright (c) 2014-2021 Matias Bordese
+# Copyright (c) 2014-2023 Matias Bordese
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,18 +24,13 @@
 
 """Tests for the unified diff parser process."""
 
-from __future__ import unicode_literals
-
 import codecs
 import os.path
 import unittest
 
 from unidiff import PatchSet
-from unidiff.patch import PY2
 from unidiff.errors import UnidiffParseError
 
-if not PY2:
-    unicode = str
 
 class TestUnidiffParser(unittest.TestCase):
     """Tests for Unified Diff Parser."""
@@ -52,11 +47,8 @@ class TestUnidiffParser(unittest.TestCase):
         utf8_file = os.path.join(self.samples_dir, 'samples/sample3.diff')
         # read bytes
         with open(utf8_file, 'rb') as diff_file:
-            if PY2:
-                self.assertRaises(UnicodeDecodeError, PatchSet, diff_file)
-            else:
-                # unicode expected
-                self.assertRaises(TypeError, PatchSet, diff_file)
+            # unicode expected
+            self.assertRaises(TypeError, PatchSet, diff_file)
 
     def test_encoding_param(self):
         utf8_file = os.path.join(self.samples_dir, 'samples/sample3.diff')
@@ -110,7 +102,7 @@ class TestUnidiffParser(unittest.TestCase):
     def test_print_hunks_without_gaps(self):
         with codecs.open(self.sample_file, 'r', encoding='utf-8') as diff_file:
             res = PatchSet(diff_file)
-        lines = unicode(res).splitlines()
+        lines = str(res).splitlines()
         self.assertEqual(lines[12], '@@ -5,16 +11,10 @@')
         self.assertEqual(lines[31], '@@ -22,3 +22,7 @@')
 
@@ -194,6 +186,21 @@ class TestUnidiffParser(unittest.TestCase):
 
         self.assertEqual(ps1, ps2)
 
+    def test_metadata_only_via_convenience_constructors(self):
+        # from_filename and from_string should forward metadata_only (the
+        # from_filename usage is documented in the README)
+        ps_file = PatchSet.from_filename(
+            self.sample_file, encoding='utf-8', metadata_only=True)
+        with codecs.open(self.sample_file, 'r', encoding='utf-8') as diff_file:
+            ps_string = PatchSet.from_string(diff_file.read(), metadata_only=True)
+
+        # counts are still computed under metadata_only
+        self.assertEqual((ps_file.added, ps_file.removed), (21, 17))
+        self.assertEqual((ps_string.added, ps_string.removed), (21, 17))
+        # metadata_only skips storing the line content
+        self.assertEqual(len(ps_file[0][0]), 0)
+        self.assertEqual(len(ps_string[0][0]), 0)
+
     def test_patchset_from_bytes_string(self):
         with codecs.open(self.sample_file, 'rb') as diff_file:
             diff_data = diff_file.read()
@@ -213,6 +220,23 @@ class TestUnidiffParser(unittest.TestCase):
             ps2 = PatchSet(diff_file)
 
         self.assertEqual(ps1, ps2)
+
+    def test_patchset_bytes_input(self):
+        # issue #43: accept bytes directly so callers need not pre-decode;
+        # with no encoding given, bytes default to UTF-8
+        utf8_file = os.path.join(self.samples_dir, 'samples/sample3.diff')
+        with open(utf8_file, 'rb') as diff_file:
+            diff_bytes = diff_file.read()
+
+        ps_default = PatchSet(diff_bytes)
+        ps_explicit = PatchSet(diff_bytes, encoding='utf-8')
+        with open(utf8_file, 'rb') as diff_file:
+            ps_ref = PatchSet(diff_file, encoding='utf-8')
+
+        self.assertEqual(ps_default, ps_ref)
+        self.assertEqual(ps_explicit, ps_ref)
+        # from_string also accepts bytes without an explicit encoding
+        self.assertEqual(PatchSet.from_string(diff_bytes), ps_ref)
 
     def test_parse_malformed_diff(self):
         """Parse malformed file."""
@@ -243,6 +267,41 @@ class TestUnidiffParser(unittest.TestCase):
 
         self.assertEqual(ps1, ps2)
 
+    def test_parse_content_with_control_characters(self):
+        # regression test for issue #120: hunk content may contain arbitrary
+        # control bytes (e.g. ESC, and lone CR) as in the reported vim diff.
+        # A lone CR must not be treated as a line separator; reading the data
+        # without universal-newline translation preserves and round-trips it.
+        content = (
+            '--- a/f\n'
+            '+++ b/f\n'
+            '@@ -1,1 +1,3 @@\n'
+            ' context\n'
+            '+sil! norm R\x1bdoo\x1bbdeu\x17\x18R\rcont\n'
+            '+tail line\n'
+        )
+
+        # string input goes through StringIO, which only splits on \n
+        res = PatchSet(content)
+        self.assertEqual(res.added, 2)
+        self.assertEqual(len(res[0][0]), 3)
+        self.assertEqual(
+            str(res[0][0][1]), '+sil! norm R\x1bdoo\x1bbdeu\x17\x18R\rcont\n')
+        self.assertEqual(str(res), content)
+
+        # reading from a file requires newline='\n' to avoid the lone CR being
+        # interpreted as a line boundary (the from_filename default would raise)
+        path = os.path.join(self.samples_dir, 'samples', '_control_chars.diff')
+        try:
+            with open(path, 'wb') as f:
+                f.write(content.encode('utf-8'))
+            self.assertRaises(UnidiffParseError, PatchSet.from_filename, path)
+            res2 = PatchSet.from_filename(path, newline='\n')
+            self.assertEqual(res, res2)
+        finally:
+            if os.path.exists(path):
+                os.remove(path)
+
     def test_parse_diff_with_new_and_modified_binary_files(self):
         """Parse git diff file with newly added and modified binaries files."""
         utf8_file = os.path.join(self.samples_dir, 'samples/sample8.diff')
@@ -257,30 +316,58 @@ class TestUnidiffParser(unittest.TestCase):
         self.assertFalse(res[0].is_removed_file)
         self.assertTrue(res[0].is_added_file)
         self.assertFalse(res[0].is_binary_file)
+        self.assertEqual(res[0].diff_line_no, 1)
 
         # second file is added
         self.assertFalse(res[1].is_modified_file)
         self.assertFalse(res[1].is_removed_file)
         self.assertTrue(res[1].is_added_file)
         self.assertTrue(res[1].is_binary_file)
+        self.assertEqual(res[1].diff_line_no, 4)
 
         # third file is modified
         self.assertTrue(res[2].is_modified_file)
         self.assertFalse(res[2].is_removed_file)
         self.assertFalse(res[2].is_added_file)
         self.assertTrue(res[2].is_binary_file)
+        self.assertEqual(res[2].diff_line_no, 8)
 
         # fourth file is removed
         self.assertFalse(res[3].is_modified_file)
         self.assertTrue(res[3].is_removed_file)
         self.assertFalse(res[3].is_added_file)
         self.assertTrue(res[3].is_binary_file)
+        self.assertEqual(res[3].diff_line_no, 11)
 
         # fifth empty file is added
         self.assertFalse(res[4].is_modified_file)
         self.assertFalse(res[4].is_removed_file)
         self.assertTrue(res[4].is_added_file)
         self.assertFalse(res[4].is_binary_file)
+        self.assertEqual(res[4].diff_line_no, 15)
+
+    def test_parse_debdiff_binary_file_line_numbers(self):
+        # issue #122 / PR #123: a binary change without hunks should still
+        # expose the diff line number where its entry appears.
+        utf8_file = os.path.join(self.samples_dir, 'samples/debdiff.diff')
+        with open(utf8_file, 'r') as diff_file:
+            res = PatchSet(diff_file)
+
+        self.assertEqual(len(res), 3)
+
+        # first file has a hunk; entry starts at the +++ line (3)
+        self.assertEqual(res[0].path, 'new/added.txt')
+        self.assertEqual(res[0].diff_line_no, 3)
+        self.assertEqual(res[0][0][0].diff_line_no, 5)
+
+        # the binary entries carry the line number of their "Binary files" line
+        self.assertEqual(res[1].path, '/t/p2/a.png')
+        self.assertTrue(res[1].is_binary_file)
+        self.assertEqual(res[1].diff_line_no, 6)
+
+        self.assertEqual(res[2].path, '/t/p2/b.png')
+        self.assertTrue(res[2].is_binary_file)
+        self.assertEqual(res[2].diff_line_no, 7)
 
     def test_parse_round_trip_with_binary_files_in_diff(self):
         """Parse git diff with binary files though round trip"""
@@ -313,6 +400,51 @@ class TestUnidiffParser(unittest.TestCase):
         self.assertTrue(res[2].is_added_file)
         self.assertEqual(res[2].path, 'file3')
 
+    def test_parse_diff_git_mnemonic_prefix(self):
+        # issue #81: git diff with diff.mnemonicPrefix set uses i/ w/ (etc.)
+        # instead of a/ b/; path should still resolve to the plain filename.
+        diff = (
+            'diff --git i/foo/bar.py w/foo/bar.py\n'
+            'index abc1234..def5678 100644\n'
+            '--- i/foo/bar.py\n'
+            '+++ w/foo/bar.py\n'
+            '@@ -1,2 +1,2 @@\n'
+            ' a\n'
+            '-b\n'
+            '+c\n'
+        )
+        res = PatchSet(diff)
+
+        self.assertEqual(len(res), 1)
+        self.assertEqual(res[0].source_file, 'i/foo/bar.py')
+        self.assertEqual(res[0].target_file, 'w/foo/bar.py')
+        self.assertEqual(res[0].path, 'foo/bar.py')
+        self.assertFalse(res[0].is_rename)
+        self.assertTrue(res[0].is_modified_file)
+        self.assertEqual(str(res), diff)
+
+    def test_parse_diff_with_empty_filenames(self):
+        # regression test for issue #115: difflib.unified_diff() without
+        # fromfile/tofile emits bare "--- " / "+++ " headers (empty
+        # filenames), which should parse instead of raising.
+        import difflib
+        a = 'l1\nl2\nl3\nl4\nl5\nl6\nl7\n'.splitlines(keepends=True)
+        b = 'l1\nl2x\nl3\nl4\nl5\nl6\nl7\n'.splitlines(keepends=True)
+        diff = list(difflib.unified_diff(a, b))
+
+        res = PatchSet(diff)
+
+        self.assertEqual(len(res), 1)
+        self.assertEqual(res[0].source_file, '')
+        self.assertEqual(res[0].target_file, '')
+        self.assertEqual(res[0].path, '')
+        self.assertTrue(res[0].is_modified_file)
+        self.assertFalse(res[0].is_rename)
+        self.assertEqual(res.added, 1)
+        self.assertEqual(res.removed, 1)
+        # the parsed patch should round-trip back to the original input
+        self.assertEqual(str(res), ''.join(diff))
+
     def test_parse_filename_with_spaces(self):
         filename = os.path.join(self.samples_dir, 'samples/git_filenames_with_spaces.diff')
         with open(filename) as f:
@@ -337,6 +469,70 @@ class TestUnidiffParser(unittest.TestCase):
         self.assertTrue(res[0].is_added_file)
         self.assertEqual(res[0].path, 'dst://foo bar/baz')
 
+    def test_parse_quoted_filename(self):
+        filename = os.path.join(self.samples_dir, 'samples/git_quoted_filename.diff')
+        with open(filename) as f:
+            res = PatchSet(f)
+
+        self.assertEqual(len(res), 1)
+
+        self.assertEqual(res[0].source_file, '/dev/null')
+        self.assertEqual(res[0].target_file, '"b/A \\303\\242 B.py"')
+        self.assertTrue(res[0].is_added_file)
+        self.assertEqual(res[0].path, '"A \\303\\242 B.py"')
+
+    def test_parse_quoted_filename_with_spaces(self):
+        # regression test for issue #119: a quoted filename containing
+        # spaces must not be mis-split into wrong source/target and must
+        # not be detected as a rename when source and target match.
+        filename = os.path.join(
+            self.samples_dir, 'samples/git_quoted_filename_with_spaces.diff')
+        with open(filename) as f:
+            res = PatchSet(f)
+
+        self.assertEqual(len(res), 1)
+        self.assertEqual(
+            res[0].source_file, '"a/docs/develop/Bug \\346\\216\\222\\346\\237\\245.md"')
+        self.assertEqual(
+            res[0].target_file, '"b/docs/develop/Bug \\346\\216\\222\\346\\237\\245.md"')
+        self.assertFalse(res[0].is_rename)
+        self.assertTrue(res[0].is_modified_file)
+        self.assertEqual(
+            res[0].path, '"docs/develop/Bug \\346\\216\\222\\346\\237\\245.md"')
+
+    def test_line_numbers_with_section_header(self):
+        # regression test for issue / PR #118: a hunk carrying a non-empty
+        # section header must not throw off source/target line numbering.
+        diff = (
+            '--- a/f.py\n'
+            '+++ b/f.py\n'
+            '@@ -10,7 +10,7 @@ def my_function(arg):\n'
+            ' ctx1\n'
+            ' ctx2\n'
+            ' ctx3\n'
+            '-old line\n'
+            '+new line\n'
+            ' ctx4\n'
+            ' ctx5\n'
+            ' ctx6\n'
+        )
+        res = PatchSet(diff)
+        hunk = res[0][0]
+
+        self.assertEqual(hunk.section_header, 'def my_function(arg):')
+        self.assertTrue(hunk.is_valid())
+        self.assertEqual(hunk.added, 1)
+        self.assertEqual(hunk.removed, 1)
+        # the removed line is source line 13; the added line is target line 13
+        removed = [l for l in hunk if l.is_removed][0]
+        added = [l for l in hunk if l.is_added][0]
+        self.assertEqual(removed.source_line_no, 13)
+        self.assertEqual(added.target_line_no, 13)
+        # trailing context keeps counting correctly
+        self.assertEqual(hunk[-1].source_line_no, 16)
+        self.assertEqual(hunk[-1].target_line_no, 16)
+
+
     def test_deleted_file(self):
         filename = os.path.join(self.samples_dir, 'samples/git_delete.diff')
         with open(filename) as f:
@@ -346,6 +542,94 @@ class TestUnidiffParser(unittest.TestCase):
         self.assertEqual(res[0].source_file, 'a/somefile.c')
         self.assertEqual(res[0].target_file, '/dev/null')
         self.assertTrue(res[0].is_removed_file)
+
+    def test_added_symlink_file_mode(self):
+        # issue #125: expose the file mode; a new symlink has mode 120000
+        filename = os.path.join(self.samples_dir, 'samples/git_symlink.diff')
+        with open(filename) as f:
+            res = PatchSet(f)
+
+        self.assertEqual(len(res), 1)
+        self.assertTrue(res[0].is_added_file)
+        self.assertIsNone(res[0].source_mode)
+        self.assertEqual(res[0].target_mode, '120000')
+        self.assertTrue(res[0].is_symlink)
+
+    def test_new_file_mode(self):
+        # issue #125: a regular new file carries `new file mode 100644`
+        filename = os.path.join(self.samples_dir, 'samples/git_quoted_filename.diff')
+        with open(filename) as f:
+            res = PatchSet(f)
+
+        self.assertEqual(res[0].target_mode, '100644')
+        self.assertFalse(res[0].is_symlink)
+
+    def test_mode_change_file(self):
+        # issue #125: `old mode` / `new mode` expose a chmod
+        diff = (
+            'diff --git a/server.py b/bin/server.py\n'
+            'old mode 100644\n'
+            'new mode 100755\n'
+            'similarity index 100%\n'
+            'rename from server.py\n'
+            'rename to bin/server.py\n'
+        )
+        res = PatchSet(diff)
+
+        self.assertEqual(res[0].source_mode, '100644')
+        self.assertEqual(res[0].target_mode, '100755')
+        self.assertFalse(res[0].is_symlink)
+        self.assertTrue(res[0].is_rename)
+
+    def test_index_line_mode(self):
+        # issue #125: an unchanged mode on the index line applies to both sides
+        diff = (
+            'diff --git a/info.sh b/info.sh\n'
+            'index ddbe53c40..6c84b8acf 100755\n'
+            '--- a/info.sh\n'
+            '+++ b/info.sh\n'
+            '@@ -1,2 +1,2 @@\n'
+            ' a\n'
+            '-b\n'
+            '+c\n'
+        )
+        res = PatchSet(diff)
+
+        self.assertEqual(res[0].source_mode, '100755')
+        self.assertEqual(res[0].target_mode, '100755')
+        self.assertFalse(res[0].is_symlink)
+        # the index line is preserved so the diff still round-trips
+        self.assertEqual(str(res), diff)
+
+    def test_parse_format_patch_hunkless_rename(self):
+        # regression test for issues #73 / #74: git format-patch output where a
+        # hunkless file (a pure rename) is followed by the "-- " email
+        # signature and a trailing blank line must not raise.
+        lines = [
+            'From 82dd164 Mon Sep 17 00:00:00 2001\n',
+            'From: Someone <someone@example.com>\n',
+            'Subject: [PATCH] Rename JSONHelper to JSONHelper.java\n',
+            '\n',
+            '---\n',
+            ' JSONHelper => JSONHelper.java | 0\n',
+            ' 1 file changed, 0 insertions(+), 0 deletions(-)\n',
+            ' rename JSONHelper => JSONHelper.java (100%)\n',
+            '\n',
+            'diff --git a/JSONHelper b/JSONHelper.java\n',
+            'similarity index 100%\n',
+            'rename from JSONHelper\n',
+            'rename to JSONHelper.java\n',
+            '-- \n',
+            '2.17.1\n',
+            '\n',
+        ]
+
+        res = PatchSet(lines)
+
+        self.assertEqual(len(res), 1)
+        self.assertTrue(res[0].is_rename)
+        self.assertEqual(res[0].path, 'JSONHelper.java')
+        self.assertEqual(len(res[0]), 0)
 
     def test_diff_lines_linenos(self):
         with open(self.sample_file, 'rb') as diff_file:

@@ -1,8 +1,12 @@
 use super::*;
+use gam_problem::StationarityRung;
 
 use super::asymptote_certificate::{
     AsymptoteSample, AsymptoteSide, AsymptoteTolerances, AsymptoteVerdict, AsymptoteWindow,
     MIN_TAIL_SAMPLES, assess_coordinate,
+};
+use super::rail_face::{
+    RailFaceLimit, RailFaceLimitOutcome, RailFaceProof, RailFaceVerdict, certify_rail_face,
 };
 
 pub(crate) const OPERATOR_TRUST_RESTART_RADIUS_FLOOR: f64 = 1.0e-6;
@@ -279,6 +283,10 @@ impl OuterProblem {
             n_params,
             gradient: Derivative::Unavailable,
             hessian: DeclaredHessianForm::Unavailable,
+            // Closed-form/test objectives preserve explicit ARC availability;
+            // production family-ladder entry points opt into #2359's
+            // optimize-3/certify-4 protocol with
+            // `with_prefer_gradient_only(true)`.
             prefer_gradient_only: false,
             disable_fixed_point: false,
             psi_dim: 0,
@@ -325,6 +333,9 @@ impl OuterProblem {
         self.hessian = form;
         self
     }
+    /// Choose whether analytic Hessian work is reserved for terminal
+    /// certification (`true`, the generic derivative-ladder protocol) or may
+    /// also be consumed by the search (`false`, for closed-form objectives).
     pub fn with_prefer_gradient_only(mut self, prefer_gradient_only: bool) -> Self {
         self.prefer_gradient_only = prefer_gradient_only;
         self
@@ -653,6 +664,7 @@ impl OuterProblem {
             efs_fn,
             fixed_point_certificate_fn: None,
             exact_polish_fn: None,
+            rail_face_limit_fn: None,
             screening_proxy_fn: None::<fn(&mut S, &Array1<f64>) -> Result<f64, EstimationError>>,
             seed_fn: None::<fn(&mut S, &Array1<f64>) -> Result<SeedOutcome, EstimationError>>,
             terminal_eval_order: None,
@@ -691,6 +703,7 @@ impl OuterProblem {
             efs_fn,
             fixed_point_certificate_fn: None,
             exact_polish_fn: None,
+            rail_face_limit_fn: None,
             screening_proxy_fn: None::<fn(&mut S, &Array1<f64>) -> Result<f64, EstimationError>>,
             seed_fn: None::<fn(&mut S, &Array1<f64>) -> Result<SeedOutcome, EstimationError>>,
             terminal_eval_order: None,
@@ -731,6 +744,7 @@ impl OuterProblem {
             efs_fn,
             fixed_point_certificate_fn: None,
             exact_polish_fn: None,
+            rail_face_limit_fn: None,
             screening_proxy_fn: Some(screening_proxy_fn),
             seed_fn: None::<fn(&mut S, &Array1<f64>) -> Result<SeedOutcome, EstimationError>>,
             terminal_eval_order: None,
@@ -1090,13 +1104,12 @@ pub struct OuterResult {
     /// once by [`run_outer`] when the exact rho Hessian is cheap enough to use.
     pub rho_uncertainty_diagnostic: Option<crate::rho_uncertainty::RhoUncertaintyDiagnostic>,
     /// Reseed point minted by a refused certification whose tail snap CONFIRMED
-    /// an exponential tail (probing passed) but whose interior coordinates were
-    /// not yet raw-gradient stationary (#2348 Inc 2b): the loop budget died
-    /// mid-crawl while the interior tracked the crawling tail coordinate. The
-    /// plan runner retries ONCE from this point — the box projection pins the
-    /// snapped coordinate at its rail while the interior polishes, and the
-    /// Inc 1 railed mint then judges the result through the natural path with
-    /// untouched evidence semantics.
+    /// an exponential tail (#2348 Inc 2b). A snap is a waypoint, never a
+    /// candidate optimum: even an interior coordinate stationary before the
+    /// snap can move when it is coupled to the tail coordinate (#2358). The
+    /// plan runner retries ONCE from this point, allowing every coordinate to
+    /// re-descend or remain on the rail before the natural certificate judges
+    /// the result.
     pub tail_snap_reseed: Option<Array1<f64>>,
     /// Saddle-escape reseed point minted by a refused certification whose
     /// interior reduced Hessian is a certified strict saddle — small projected
@@ -1132,17 +1145,17 @@ pub struct OuterResult {
     /// interior cannot polish; freezing that coordinate at its bound and
     /// re-running lets the optimizer converge the interior in the well-conditioned
     /// REDUCED space. The reseed carries the frozen box (`bounds`, with
-    /// `lower[k]==upper[k]==rail` for each frozen coordinate) and the frozen
-    /// indices, so the plan runner's un-freeze re-check can judge each frozen
-    /// coordinate's KKT sign against the ORIGINAL bounds at the reduced optimum
-    /// (an inward-feasible-descent gradient un-freezes it — no silent clamping of
-    /// a coordinate that stops wanting the rail).
+    /// `lower[k]==upper[k]==rail` for each frozen coordinate); the plan runner's
+    /// re-certification under the ORIGINAL bounds then judges every pinned
+    /// coordinate's KKT sign at the reduced optimum (an inward-feasible-descent
+    /// gradient unfreezes it — no silent clamping of a coordinate that stops
+    /// wanting the rail).
     pub active_set_reseed: Option<ActiveSetReseed>,
 }
 
 /// An active-set reduction reseed (#2392): re-run the outer search with a set of
 /// railed coordinates FROZEN at their box bounds so the optimizer polishes the
-/// interior in the reduced space, plus the metadata the un-freeze re-check needs.
+/// interior in the reduced space.
 #[derive(Clone, Debug)]
 pub struct ActiveSetReseed {
     /// The reseed point: the refused checkpoint with the frozen coordinates
@@ -1151,10 +1164,6 @@ pub struct ActiveSetReseed {
     /// The reduced-space box: `lower[k] == upper[k] == rail` for every frozen
     /// coordinate `k`, the original bounds elsewhere.
     pub bounds: (Array1<f64>, Array1<f64>),
-    /// The coordinates frozen at their bounds for the reduced-space run. The
-    /// un-freeze re-check judges each of these against the original box after the
-    /// interior converges.
-    pub frozen: Vec<usize>,
 }
 
 impl OuterResult {
@@ -1482,14 +1491,44 @@ pub(crate) fn certificate_hessian_is_psd_off_railed(
 /// sub-resolution entry was the entire `interior Hessian sub-block not PSD`
 /// refusal — the full 6×6 spectrum was `[−1.02e-3, 0.135, …, 0.904]`.
 ///
-/// The residue is `O(|g_k|)`, and every coordinate judged here has already
-/// passed gradient stationarity (`|g_k|` at or below the stationarity bound),
-/// so flooring the diagonal by `|g_k|` bounds the judgment at exactly the
-/// instrument's resolution: it can absorb only negative curvature whose
-/// exploitable improvement (`≲ g²/2|H|`, sub-resolution by construction at a
-/// stationary point) is below the run's own cost tolerance, and can never mask
-/// a genuine interior saddle (`λ_min ≪ −bound` dwarfs the bound-scale floor —
-/// the #2357 trace's saddle had `λ_min ≈ −0.5` against `|g| ≈ 1e-3`).
+/// # Why the floor is safe — instrument resolution, not step economics
+///
+/// The residue is `O(|g_k|)`, and the sub-block is extracted AFTER flooring, so
+/// only the *judged* (un-excluded) coordinates' gradients ever enter: a railed
+/// coordinate's large `|g|` (measured 1.40 on the #2349 checkpoint) cannot
+/// inflate the floor. Weyl bounds what remains exactly:
+///
+/// ```text
+///     λ_min(H) + min|g| ≤ λ_min(H + diag|g|) ≤ λ_min(H) + max|g|
+/// ```
+///
+/// so the floor absorbs **at most `max_k |g_k|` over the judged coordinates**.
+/// Where this verdict can mint, those coordinates have passed gradient
+/// stationarity, so that is at most the stationarity bound. A negative
+/// eigenvalue smaller than that is not distinguishable from zero *by the
+/// instrument that produced it* — the assembled tail entry IS `λV_λ = g`
+/// (ratio 0.999 as measured) — while a genuine saddle survives untouched: the
+/// #2357 trace's `λ_min ≈ −0.5` against `|g| ≈ 1e-3` floors to `−0.4973`, and a
+/// `−1.50e-2` direction still refuses at a `1e-2` bound.
+///
+/// ## Do not widen this floor beyond `diag(|g|)`
+///
+/// Earlier revisions of this argument (and #2349 rounds 6/7) justified the
+/// floor by an "exploitable improvement `≲ g²/2|H| ≈ 5e-7`". Both halves are
+/// wrong and the pair is misleading in the permissive direction:
+///
+/// * the quoted number is `g²/2 = 5.23e-7`; the quoted formula evaluates to
+///   `g²/(2|H|) = 5.12e-4` on the same measured `g = 1.0228e-3`,
+///   `|H| = 1.0216e-3` — a 979× discrepancy. Since `|H| ≈ g` at exactly the
+///   point this floor serves, that formula collapses to `≈ g/2`;
+/// * and `g²/2|H|` is the Newton decrement, which bounds the improvement along
+///   a direction of POSITIVE curvature. Along curvature `−ε` the model
+///   `−g·t − ½εt²` is unbounded below, so the quantity it purports to bound
+///   does not exist in the regime this floor exists for; the step is limited by
+///   the trust radius, not the curvature.
+///
+/// The Weyl bound above is the correct and checkable statement. Anything that
+/// widens the floor must re-derive against it, not against `g²/2|H|`.
 pub(crate) fn certificate_hessian_is_psd_off_railed_above_gradient_floor(
     hessian: &Array2<f64>,
     excluded: &[usize],
@@ -1504,6 +1543,68 @@ pub(crate) fn certificate_hessian_is_psd_off_railed_above_gradient_floor(
         floored[[k, k]] += gradient[k].abs();
     }
     certificate_hessian_is_psd_off_railed(&floored, excluded)
+}
+
+/// Measure the gradient-residue floor's clearance on the interior sub-block:
+/// the sub-block's smallest eigenvalue as assembled, the floor it is judged
+/// against (`max_k |g_k|` over exactly those coordinates), and whether
+/// `H + diag(|g|)` is PSD there.
+///
+/// This RECORDS the verdict; it does not replace the raw measurement. See
+/// [`certificate_hessian_is_psd_off_railed_above_gradient_floor`] for why the
+/// Weyl bound makes the floor safe where it can mint, and
+/// [`crate::model_types::CurvatureFloorClearance`] for why the two facts are
+/// kept apart.
+pub(crate) fn interior_curvature_floor_clearance(
+    hessian: &Array2<f64>,
+    excluded: &[usize],
+    gradient: &Array1<f64>,
+) -> Option<CurvatureFloorClearance> {
+    use faer::Side;
+    use gam_linalg::faer_ndarray::FaerEigh;
+
+    let n = hessian.nrows();
+    if n == 0 || hessian.ncols() != n || gradient.len() != n {
+        return None;
+    }
+    let excluded_set: std::collections::BTreeSet<usize> = excluded.iter().copied().collect();
+    let interior: Vec<usize> = (0..n).filter(|k| !excluded_set.contains(k)).collect();
+    if interior.is_empty() {
+        return None;
+    }
+    let m = interior.len();
+    let mut sub = Array2::<f64>::zeros((m, m));
+    for (i, &ri) in interior.iter().enumerate() {
+        for (j, &rj) in interior.iter().enumerate() {
+            sub[[i, j]] = 0.5 * (hessian[[ri, rj]] + hessian[[rj, ri]]);
+        }
+    }
+    if sub.iter().any(|v| !v.is_finite()) {
+        return None;
+    }
+    let interior_min_eigenvalue = sub
+        .eigh(Side::Lower)
+        .ok()?
+        .0
+        .iter()
+        .fold(f64::INFINITY, |acc, v| acc.min(*v));
+    if !interior_min_eigenvalue.is_finite() {
+        return None;
+    }
+    // The floor is the largest gradient among EXACTLY the judged coordinates —
+    // the excluded ones never enter, so a railed coordinate's large |g| cannot
+    // inflate it.
+    let gradient_floor = interior
+        .iter()
+        .fold(0.0_f64, |acc, &k| acc.max(gradient[k].abs()));
+    let cleared = certificate_hessian_is_psd_off_railed_above_gradient_floor(
+        hessian, excluded, gradient,
+    ) == Some(true);
+    Some(CurvatureFloorClearance {
+        interior_min_eigenvalue,
+        gradient_floor,
+        cleared,
+    })
 }
 
 /// Escape point off a certified strict saddle in the free (un-railed) subspace
@@ -1774,23 +1875,192 @@ pub(crate) fn newton_predicted_decrease(hessian: &Array2<f64>, grad: &Array1<f64
     Some(0.5 * quad)
 }
 
+/// Is outer coordinate `k` pinned within [`CERTIFICATE_RAIL_MARGIN`] of either
+/// of its own box bounds?
+///
+/// Factored out so the λ-block REPORT and the θ-wide certificate FACE below
+/// cannot drift apart about what "railed" means for the same coordinate: they
+/// differ only in which coordinates they scan, never in the test.
+fn outer_coordinate_is_railed(theta: &Array1<f64>, k: usize, config: &OuterConfig) -> bool {
+    let (lo, hi) = match config.bounds.as_ref() {
+        Some((lo, hi)) if k < lo.len() && k < hi.len() => (lo[k], hi[k]),
+        Some(_) => return false,
+        None => (-config.rho_bound, config.rho_bound),
+    };
+    (theta[k] - lo).abs() <= CERTIFICATE_RAIL_MARGIN
+        || (hi - theta[k]).abs() <= CERTIFICATE_RAIL_MARGIN
+}
+
 /// Smoothing coordinates (leading ρ block) railed against the outer box.
+///
+/// This is the **report**. `OuterCriterionCertificate::lambdas_railed` indexes
+/// *smoothing parameters*, and every consumer reads it that way — gam-report's
+/// "λ railed" warning, the pyffi certificate surface, `is_clean`. It is
+/// deliberately NOT the set the certificate reasons with; see
+/// [`certificate_railed_coordinates`].
 pub(crate) fn certificate_railed_lambdas(
     rho: &Array1<f64>,
     rho_dim: usize,
     config: &OuterConfig,
 ) -> Vec<usize> {
     (0..rho_dim.min(rho.len()))
-        .filter(|&k| {
-            let (lo, hi) = match config.bounds.as_ref() {
-                Some((lo, hi)) if k < lo.len() && k < hi.len() => (lo[k], hi[k]),
-                Some(_) => return false,
-                None => (-config.rho_bound, config.rho_bound),
-            };
-            (rho[k] - lo).abs() <= CERTIFICATE_RAIL_MARGIN
-                || (hi - rho[k]).abs() <= CERTIFICATE_RAIL_MARGIN
-        })
+        .filter(|&k| outer_coordinate_is_railed(rho, k, config))
         .collect()
+}
+
+/// **Every** outer coordinate railed against its own box bound — the ρ block
+/// *and* the trailing non-ρ blocks that a joint search carries in the same θ
+/// vector under the same box: the spatial log-κ ψ coordinates and the
+/// auxiliary coordinates.
+///
+/// This is the set every *decision* in [`certify_outer_optimality`] must use,
+/// and using the λ-only report there instead was a real defect. The active-set
+/// reasoning at a box-constrained optimum is a statement about coordinates, not
+/// about what a coordinate happens to parameterize:
+///
+/// * the second-order condition only has to hold on the **feasible tangent
+///   subspace**, so `certificate_hessian_is_psd_off_railed` deletes the railed
+///   rows and columns. `layout.rho_dim()` is `n_params − psi_dim`, so a ψ
+///   coordinate pinned on its data-derived κ window stayed *inside* that
+///   sub-block and its saturated (and, near a window edge, routinely negative)
+///   curvature row decided `hessian_psd = false` for the whole fit. That is
+///   precisely the failure the block's own comment says must not happen — "a
+///   rail-caused indefiniteness would disable the very certificate that exists
+///   to certify a railed optimum (#2299)" — it was simply never extended past
+///   the ρ block;
+/// * the same omission hid the coordinate from the asymptote-rail mint
+///   (#2348 Inc 1), from tail-snap, from `interior_curvature_floor_clearance`,
+///   from the #2155 saddle escape, and from the #2392 wrong-rail pull-back and
+///   active-set reduction. A κ search whose rail is a ψ coordinate could
+///   therefore never be certified *by construction*, no matter how correct its
+///   gradient was;
+/// * and it made the refusal message actively misleading, because
+///   `project_gradient_vector` DOES project every coordinate against its own
+///   bound. So `|g|` could collapse to a small `|Pg|` while `railed=[]`
+///   reported nothing responsible for the collapse — the exact disagreement
+///   #979 measured from the other side and could not explain.
+///
+/// Relaxing nothing: a coordinate near a bound whose gradient still points
+/// *into* the box keeps its feasible-descent component in `|Pg|`
+/// ([`project_gradient_vector`] zeros only the outward half), so a genuinely
+/// unconverged interior direction is still refused.
+pub(crate) fn certificate_railed_coordinates(
+    theta: &Array1<f64>,
+    config: &OuterConfig,
+) -> Vec<usize> {
+    (0..theta.len())
+        .filter(|&k| outer_coordinate_is_railed(theta, k, config))
+        .collect()
+}
+
+/// Which term of the stationarity bound's `max` chain actually set it.
+///
+/// `certify_outer_optimality` does not compute *a* bound; it takes the maximum of
+/// up to five independently-derived quantities, and until #2458 nothing recorded
+/// which one won. That is why a `bound=1.000e0` and a `bound=5.68e-6` came out of
+/// the same message shape and telling them apart required reading this file --
+/// the emitted number is a DERIVATIVE of a construction-site value, computed
+/// later, so grepping the construction sites cannot match an observed bound.
+///
+/// The rungs are not interchangeable calibrations of one quantity. Only
+/// [`Self::CurvatureResolvability`] is derived from what a gradient of that size
+/// does to the criterion: `|Pg|·√(τ/Δpred)` simplifies to `√(2·h·τ)` -- the `|Pg|`
+/// cancels -- i.e. the gradient magnitude below which the criterion cannot resolve
+/// descent at all. The others are gradient-magnitude tests, blind to how curvature
+/// maps a gradient to an objective change, which is exactly what this file's own
+/// comment at the curvature block already says. Recording the rung is the
+/// prerequisite for holding every route to the derived one: it makes "which
+/// machinery did this route happen to have" an observable rather than an
+/// inference.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum StationarityBoundSource {
+    /// `outer_gradient_tolerance(config).threshold(cost, |g|)` -- the raw band.
+    SolverBand,
+    /// `flat_valley_converged_grad_bound(cost)`, gated on a `CostStallFlatValley`
+    /// exit. Saturates at its `1.0` cap (#2456).
+    FlatValleyScore,
+    /// The cost-stall guard's measured probe-noise floor `σ̂/Δ` (#2241). Diverges
+    /// as the step collapses, which is the regime it fires in.
+    ProbeNoiseFloor,
+    /// `|Pg|·√(τ/Δpred)` = `√(2·h·τ)` (#2253/#2249/#2015/#2091) -- the only rung
+    /// with a derivation from the criterion's own resolution.
+    CurvatureResolvability,
+    /// Twice the same-ρ spread between the run-recorded and certificate-time
+    /// gradients (#2299): the measuring instrument's demonstrated noise.
+    GradientReproducibility,
+}
+
+impl StationarityBoundSource {
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Self::SolverBand => "solver-band",
+            Self::FlatValleyScore => "flat-valley-score",
+            Self::ProbeNoiseFloor => "probe-noise-floor",
+            Self::CurvatureResolvability => "curvature-resolvability",
+            Self::GradientReproducibility => "gradient-reproducibility",
+        }
+    }
+
+    /// Whether this rung is the derived resolvability standard rather than a
+    /// gradient-magnitude substitute adopted where that standard was unavailable.
+    pub(crate) fn is_derived_standard(self) -> bool {
+        matches!(self, Self::CurvatureResolvability)
+    }
+
+    /// The neutral projection carried on the refusal, so a red states its own
+    /// rung instead of leaving it to be inferred from the numbers.
+    pub(crate) fn provenance(self) -> StationarityRung {
+        StationarityRung {
+            label: self.label(),
+            derived_standard: self.is_derived_standard(),
+        }
+    }
+}
+
+/// A stationarity bound bundled with the rung that produced it (#2458).
+///
+/// The bound and its provenance travelled separately before this: the bound was
+/// a bare `f64` argument and the rung stayed a local in the certificate block,
+/// so every refusal outside that block reported a number with no way to say
+/// which standard it came from. Bundling them makes it impossible to pass one
+/// without deciding the other.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct StationarityBound {
+    value: f64,
+    source: Option<StationarityBoundSource>,
+}
+
+impl StationarityBound {
+    /// A bound the rung ladder produced, carrying the rung it came from.
+    pub(crate) fn from_ladder(value: f64, source: StationarityBoundSource) -> Self {
+        Self {
+            value,
+            source: Some(source),
+        }
+    }
+
+    /// A bound from a route that does not select a ladder rung — a raw config
+    /// tolerance, or a refusal reached before the ladder is evaluated.
+    ///
+    /// This is deliberately not defaulted to [`StationarityBoundSource::SolverBand`]:
+    /// labelling an unclassified bound with a rung it did not come from would
+    /// make the ladder look more uniformly applied than it is, which is the
+    /// exact inference #2458 exists to stop. `rung=unrecorded` in a refusal is a
+    /// finding — it names a route whose stationarity standard is still unstated.
+    pub(crate) fn unrecorded(value: f64) -> Self {
+        Self {
+            value,
+            source: None,
+        }
+    }
+
+    pub(crate) fn value(self) -> f64 {
+        self.value
+    }
+
+    pub(crate) fn rung(self) -> Option<StationarityRung> {
+        self.source.map(StationarityBoundSource::provenance)
+    }
 }
 
 fn outer_nonconvergence_error(
@@ -1798,17 +2068,87 @@ fn outer_nonconvergence_error(
     reason: &str,
     result: &OuterResult,
     projected_grad_norm: Option<f64>,
-    stationarity_bound: f64,
+    stationarity_bound: StationarityBound,
 ) -> EstimationError {
+    // Solver provenance, appended to every outer non-convergence.
+    //
+    // The certificate answers "is this point stationary" — and when it is not,
+    // the next question is always "then why did the search STOP here", which
+    // the message did not answer. A binomial/logit P-spline (#1575/#1561)
+    // refuses with `|Pg|=7.5e-1` against a `1.0e-2` bound, PSD Hessian, nothing
+    // railed, all coordinates 18 e-folds inside the box, "after 7 outer
+    // iteration(s)" — and the 7 is the whole mystery. `converged` distinguishes
+    // a solver that CLAIMED convergence (a tolerance desync, and the only case
+    // the #2273/#2374 resume will retry) from one that ran out of budget;
+    // `operator_stop_reason` separates a trust-region reject floor from a
+    // flat-valley cost stall from an iteration budget. All three are already on
+    // the result and cost nothing to print.
+    let reason = format!(
+        "{reason}; solver provenance: claimed_converged={}{}{}",
+        result.converged,
+        result
+            .operator_stop_reason
+            .map(|stop| format!(", stop_reason={stop:?}"))
+            .unwrap_or_default(),
+        result
+            .converged_via
+            .map(|via| format!(", converged_via={via:?}"))
+            .unwrap_or_default(),
+    );
     EstimationError::RemlDidNotConverge {
         context: context.to_string(),
-        reason: reason.to_string(),
+        reason,
         iterations: result.iterations,
         final_value: result.final_value,
         projected_grad_norm,
-        stationarity_bound,
+        stationarity_bound: stationarity_bound.value(),
+        stationarity_bound_rung: stationarity_bound.rung(),
         rho_checkpoint: result.rho.to_vec(),
     }
+}
+
+/// Roundoff envelope for two independently assembled values of the same outer
+/// criterion at the same point.
+///
+/// Value-only and derivative-bearing evaluation lanes may use different
+/// kernels and reduction trees, so bitwise identity is not a valid contract.
+/// Their relative disagreement must nevertheless stay below the square root of
+/// machine epsilon: beyond that scale the derivative sample is not evidence
+/// about the scalar objective the optimizer's value lane ranks.
+pub fn outer_value_agreement_bound(value_only: f64, derivative_sample: f64) -> f64 {
+    f64::EPSILON.sqrt() * value_only.abs().max(derivative_sample.abs()).max(1.0)
+}
+
+fn audit_outer_value_agreement(
+    context: &str,
+    value_only: f64,
+    derivative_sample: f64,
+    result: &mut OuterResult,
+    projected_grad_norm: Option<f64>,
+    stationarity_bound: StationarityBound,
+) -> Result<(), EstimationError> {
+    let bound = outer_value_agreement_bound(value_only, derivative_sample);
+    let disagreement = (value_only - derivative_sample).abs();
+    if disagreement <= bound {
+        return Ok(());
+    }
+
+    // The value-only lane is the scalar criterion authority. Preserve it on
+    // the resumable checkpoint rather than the derivative lane's inconsistent
+    // scalar; no certificate may be attached to this mixed evidence.
+    result.final_value = value_only;
+    result.converged = false;
+    Err(outer_nonconvergence_error(
+        context,
+        &format!(
+            "cost-only value disagrees with analytic-sample value at the same outer point: \
+             value-only={value_only:.16e}, analytic-sample={derivative_sample:.16e}, \
+             disagreement={disagreement:.3e}, roundoff bound={bound:.3e}"
+        ),
+        result,
+        projected_grad_norm,
+        stationarity_bound,
+    ))
 }
 
 fn certify_fixed_point_optimality(
@@ -1816,8 +2156,45 @@ fn certify_fixed_point_optimality(
     config: &OuterConfig,
     context: &str,
     result: &mut OuterResult,
+    fidelity: CertificationFidelity,
 ) -> Result<OuterCriterionCertificate, EstimationError> {
     let layout = obj.capability().theta_layout();
+    // A fixed-point residual is only a certificate for the scalar objective
+    // when both lanes price that same objective at the same rho. Sample the
+    // authoritative value lane first; the analytic fixed-point evaluator then
+    // remains the installed terminal-state owner.
+    //
+    // MINT ONLY (#2359), for the same reason as on the analytic path: whether
+    // the two lanes agree is terminal proof work, not a ranking signal, and on
+    // this route it is the ONLY thing that distinguishes screening from mint —
+    // there is no order-four ladder to reserve here.
+    let value_only = match fidelity {
+        CertificationFidelity::Screening => None,
+        CertificationFidelity::Mint => {
+            let sample = obj
+                .eval_with_order(&result.rho, OuterEvalOrder::Value)
+                .map_err(|err| {
+                    outer_nonconvergence_error(
+                        context,
+                        &format!("terminal value-only certificate evaluation failed: {err}"),
+                        result,
+                        None,
+                        StationarityBound::unrecorded(config.tolerance),
+                    )
+                })?
+                .cost;
+            if !sample.is_finite() {
+                return Err(outer_nonconvergence_error(
+                    context,
+                    "terminal value-only certificate evaluation returned a non-finite objective value",
+                    result,
+                    None,
+                    StationarityBound::unrecorded(config.tolerance),
+                ));
+            }
+            Some(sample)
+        }
+    };
     let evaluation = obj
         .eval_fixed_point_certificate(&result.rho)
         .map_err(|err| {
@@ -1826,7 +2203,7 @@ fn certify_fixed_point_optimality(
                 &format!("analytic fixed-point certificate evaluation failed: {err}"),
                 result,
                 None,
-                config.tolerance,
+                StationarityBound::unrecorded(config.tolerance),
             )
         })?;
     if !inner_solve_converged(config.outer_inner_cap.as_ref()) {
@@ -1835,7 +2212,7 @@ fn certify_fixed_point_optimality(
             "terminal fixed-point evidence was evaluated at a non-converged inner state",
             result,
             None,
-            config.tolerance,
+            StationarityBound::unrecorded(config.tolerance),
         ));
     }
     if evaluation.coordinates.len() != layout.n_params {
@@ -1848,7 +2225,7 @@ fn certify_fixed_point_optimality(
             ),
             result,
             None,
-            config.tolerance,
+            StationarityBound::unrecorded(config.tolerance),
         ));
     }
     if !evaluation.cost.is_finite() {
@@ -1857,8 +2234,18 @@ fn certify_fixed_point_optimality(
             "fixed-point certificate returned a non-finite objective value",
             result,
             None,
-            config.tolerance,
+            StationarityBound::unrecorded(config.tolerance),
         ));
+    }
+    if let Some(value_only) = value_only {
+        audit_outer_value_agreement(
+            context,
+            value_only,
+            evaluation.cost,
+            result,
+            None,
+            StationarityBound::unrecorded(config.tolerance),
+        )?;
     }
 
     let mut normalized_updates = Vec::with_capacity(layout.n_params);
@@ -1891,7 +2278,7 @@ fn certify_fixed_point_optimality(
             ),
             result,
             None,
-            config.tolerance,
+            StationarityBound::unrecorded(config.tolerance),
         ));
     }
 
@@ -1934,6 +2321,7 @@ fn certify_fixed_point_optimality(
         },
         hessian_psd: None,
         lambdas_railed: certificate_railed_lambdas(&result.rho, layout.rho_dim(), config),
+        curvature_floor: None,
     };
     result.criterion_certificate = Some(certificate.clone());
     if !certificate.certifies() {
@@ -1942,7 +2330,7 @@ fn certify_fixed_point_optimality(
             &certificate.summary(),
             result,
             Some(projected_inf),
-            config.tolerance,
+            StationarityBound::unrecorded(config.tolerance),
         ));
     }
 
@@ -1960,17 +2348,48 @@ fn certify_fixed_point_optimality(
 
 /// Build the mandatory analytic optimality certificate at the returned point.
 ///
-/// The objective is evaluated once at the selected point through its analytic
-/// derivative path. Missing, malformed, or non-finite derivative evidence is
-/// non-convergence: an optimizer status bit cannot substitute for a
-/// stationarity certificate. Exact analytic curvature is checked when the
-/// objective declares it and can materialize it; BFGS/EFS solver geometry is
-/// never mistaken for objective curvature.
+/// The objective is evaluated at the selected point through both its
+/// authoritative value-only lane and its analytic derivative lane. The two
+/// values must agree within their roundoff envelope before the derivative
+/// sample can certify the scalar objective. Missing, malformed, non-finite, or
+/// split-objective evidence is non-convergence: an optimizer status bit cannot
+/// substitute for a stationarity certificate. Exact analytic curvature is
+/// checked when the objective declares it and can materialize it; BFGS/EFS
+/// solver geometry is never mistaken for objective curvature.
+/// Which derivative fidelity a certification pass is allowed to spend.
+///
+/// #2359: the generic REML/LAML Hessian consumes the row-family derivative
+/// ladder through order FOUR while its analytic gradient stops at order three,
+/// so order four is a mint-time cost, not a per-candidate one. A multi-start
+/// screens every seed it starts — that screening is a first-order gate
+/// (stationarity, KKT projection, rail facts), and `curvature_admissible()`
+/// reads `hessian_psd != Some(false)`, so a `None` curvature verdict certifies
+/// on stationarity alone. The one order-four evaluation belongs to the winner,
+/// once, and its verdict is the one that mints.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CertificationFidelity {
+    /// Per-candidate multi-start gate. Never spends order four.
+    Screening,
+    /// The single terminal mint audit. Spends order four when the objective
+    /// declares an analytic Hessian.
+    Mint,
+}
+
 pub(crate) fn certify_outer_optimality(
     obj: &mut dyn OuterObjective,
     config: &OuterConfig,
     context: &str,
     result: &mut OuterResult,
+) -> Result<OuterCriterionCertificate, EstimationError> {
+    certify_outer_optimality_with_fidelity(obj, config, context, result, CertificationFidelity::Mint)
+}
+
+pub(crate) fn certify_outer_optimality_with_fidelity(
+    obj: &mut dyn OuterObjective,
+    config: &OuterConfig,
+    context: &str,
+    result: &mut OuterResult,
+    fidelity: CertificationFidelity,
 ) -> Result<OuterCriterionCertificate, EstimationError> {
     let terminal_cap_guard = config
         .outer_inner_cap
@@ -1990,7 +2409,8 @@ pub(crate) fn certify_outer_optimality(
         // bimodal at `rho_star`.
         obj.reset();
     }
-    let outcome = certify_outer_optimality_at_terminal_fidelity(obj, config, context, result, true);
+    let outcome =
+        certify_outer_optimality_at_terminal_fidelity(obj, config, context, result, true, fidelity);
     drop(terminal_cap_guard);
     outcome
 }
@@ -2001,6 +2421,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
     context: &str,
     result: &mut OuterResult,
     allow_tail_snap: bool,
+    fidelity: CertificationFidelity,
 ) -> Result<OuterCriterionCertificate, EstimationError> {
     let capability = obj.capability();
     let layout = capability.theta_layout();
@@ -2017,7 +2438,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
             "the selected checkpoint contains non-finite coordinates",
             result,
             None,
-            outer_gradient_tolerance(config).abs,
+            StationarityBound::unrecorded(outer_gradient_tolerance(config).abs),
         ));
     }
     if layout.n_params == 0 {
@@ -2027,7 +2448,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
                 &format!("zero-dimensional final objective evaluation failed: {err}"),
                 result,
                 Some(0.0),
-                outer_gradient_tolerance(config).abs,
+                StationarityBound::unrecorded(outer_gradient_tolerance(config).abs),
             )
         })?;
         if !value.is_finite() {
@@ -2036,7 +2457,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
                 "the zero-dimensional final objective is non-finite",
                 result,
                 Some(0.0),
-                outer_gradient_tolerance(config).abs,
+                StationarityBound::unrecorded(outer_gradient_tolerance(config).abs),
             ));
         }
         let certificate = OuterCriterionCertificate {
@@ -2047,6 +2468,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
             },
             hessian_psd: None,
             lambdas_railed: Vec::new(),
+            curvature_floor: None,
         };
         result.final_value = value;
         result.final_grad_norm = Some(0.0);
@@ -2060,7 +2482,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
     if matches!(result.plan_used.solver, Solver::Efs | Solver::HybridEfs)
         && capability.gradient != Derivative::Analytic
     {
-        return certify_fixed_point_optimality(obj, config, context, result);
+        return certify_fixed_point_optimality(obj, config, context, result, fidelity);
     }
     if capability.gradient != Derivative::Analytic {
         return Err(outer_nonconvergence_error(
@@ -2068,11 +2490,66 @@ fn certify_outer_optimality_at_terminal_fidelity(
             "the objective exposes no analytic gradient for final certification",
             result,
             None,
-            outer_gradient_tolerance(config).abs,
+            StationarityBound::unrecorded(outer_gradient_tolerance(config).abs),
         ));
     }
 
-    let order = if capability.hessian.is_analytic() {
+    // Sample the scalar authority first and leave the derivative-bearing
+    // evaluator as the terminal state owner. This is one same-rho audit, not a
+    // finite-difference derivative: it catches a split value/gradient
+    // implementation without violating the production no-FD contract.
+    //
+    // BOTH fidelities pay this, deliberately. It is tempting to reserve it for
+    // the mint the way order four is reserved (#2359), but the two are not
+    // alike: order four is evidence the filter does not consume, while the
+    // value-agreement audit is a REFUSAL GATE on the very number the
+    // multistart ranks by. `retain_best_outer_checkpoint` orders candidates on
+    // `final_value`; admitting a candidate whose value lane disagrees with its
+    // derivative lane lets a desynced candidate win the ranking on a number
+    // nothing has validated, and mint then refuses the whole fit instead of a
+    // runner-up carrying it. Pinned by
+    // `analytic_hessian_candidate_screening_requires_only_first_order_evidence_2414`,
+    // which asserts screening's orders are exactly [Value, ValueAndGradient].
+    //
+    // The EFS/fixed-point route is different and IS gated on fidelity — see
+    // `certify_fixed_point_optimality`. It returns above this block, and there
+    // screening and mint are otherwise identical work (no order-four ladder to
+    // reserve), so running the audit twice buys nothing at all.
+    let value_only = obj
+        .eval_with_order(&result.rho, OuterEvalOrder::Value)
+        .map_err(|err| {
+            outer_nonconvergence_error(
+                context,
+                &format!("terminal value-only certificate evaluation failed: {err}"),
+                result,
+                result.final_grad_norm,
+                StationarityBound::unrecorded(outer_gradient_tolerance(config).abs),
+            )
+        })?
+        .cost;
+    if !value_only.is_finite() {
+        return Err(outer_nonconvergence_error(
+            context,
+            "terminal value-only certificate evaluation returned a non-finite objective value",
+            result,
+            result.final_grad_norm,
+            StationarityBound::unrecorded(outer_gradient_tolerance(config).abs),
+        ));
+    }
+
+    // Order four is reserved for the mint audit (#2359). A screening pass takes
+    // the same first-order evidence the no-analytic-Hessian path already
+    // certifies on, so the multi-start keeps its filter without building the
+    // order-four family tower once per seed.
+    // One boolean drives BOTH the request below and the requirement at the
+    // analytic-Hessian block: a pass that does not ask for curvature must not
+    // then refuse the candidate for not supplying it. Splitting them made every
+    // screened candidate of an analytic-Hessian objective fail certification
+    // with "declared analytic curvature but returned none at the final point" —
+    // a statement about this pass's own eval order, not about the candidate.
+    let wants_analytic_hessian =
+        capability.hessian.is_analytic() && matches!(fidelity, CertificationFidelity::Mint);
+    let order = if wants_analytic_hessian {
         OuterEvalOrder::ValueGradientHessian
     } else {
         OuterEvalOrder::ValueAndGradient
@@ -2083,7 +2560,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
             &format!("analytic final-point evaluation failed: {err}"),
             result,
             result.final_grad_norm,
-            outer_gradient_tolerance(config).abs,
+            StationarityBound::unrecorded(outer_gradient_tolerance(config).abs),
         )
     })?;
     if !inner_solve_converged(config.outer_inner_cap.as_ref()) {
@@ -2092,7 +2569,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
             "terminal analytic evidence was evaluated at a non-converged inner state",
             result,
             None,
-            outer_gradient_tolerance(config).abs,
+            StationarityBound::unrecorded(outer_gradient_tolerance(config).abs),
         ));
     }
     layout
@@ -2103,7 +2580,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
                 &format!("malformed analytic final gradient: {err}"),
                 result,
                 None,
-                outer_gradient_tolerance(config).abs,
+                StationarityBound::unrecorded(outer_gradient_tolerance(config).abs),
             )
         })?;
     if !evaluation.cost.is_finite() || evaluation.gradient.iter().any(|value| !value.is_finite()) {
@@ -2112,7 +2589,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
             "the analytic final-point value or gradient is non-finite",
             result,
             None,
-            outer_gradient_tolerance(config).abs,
+            StationarityBound::unrecorded(outer_gradient_tolerance(config).abs),
         ));
     }
 
@@ -2130,13 +2607,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
     // projection only zeros the OUTWARD half (`.max(0.0)`/`.min(0.0)`), so a coordinate near
     // the bound that still has feasible-descent gradient keeps it and is never falsely
     // certified.
-    let rail_projection_bounds = {
-        let (lower, upper) = &bounds;
-        (
-            lower.mapv(|v| v + CERTIFICATE_RAIL_MARGIN),
-            upper.mapv(|v| v - CERTIFICATE_RAIL_MARGIN),
-        )
-    };
+    let rail_projection_bounds = rail_relaxed_bounds(&bounds);
     let grad_norm = evaluation.gradient.dot(&evaluation.gradient).sqrt();
     // The terminal inner coefficients β(ρ̂), published by the REML bridge on
     // every eval (`inner_beta_hint`). Used to scale the estimand tolerance for
@@ -2153,11 +2624,18 @@ fn certify_outer_optimality_at_terminal_fidelity(
     );
     let projected_grad_norm = projected_gradient.iter().map(|v| v * v).sum::<f64>().sqrt();
     let solver_bound = outer_gradient_tolerance(config).threshold(evaluation.cost, grad_norm);
+    let mut bound_source = StationarityBoundSource::SolverBand;
     let mut stationarity_bound = if matches!(
         result.operator_stop_reason,
         Some(OperatorTrustRegionStopReason::CostStallFlatValley)
     ) {
-        solver_bound.max(flat_valley_converged_grad_bound(evaluation.cost))
+        let flat_valley = flat_valley_converged_grad_bound(evaluation.cost);
+        if flat_valley > solver_bound {
+            bound_source = StationarityBoundSource::FlatValleyScore;
+            flat_valley
+        } else {
+            solver_bound
+        }
     } else {
         solver_bound
     };
@@ -2168,8 +2646,19 @@ fn certify_outer_optimality_at_terminal_fidelity(
     if let Some(noise_bound) = result.flat_noise_grad_bound
         && noise_bound.is_finite()
     {
-        stationarity_bound = stationarity_bound.max(noise_bound);
+        if noise_bound > stationarity_bound {
+            bound_source = StationarityBoundSource::ProbeNoiseFloor;
+            stationarity_bound = noise_bound;
+        }
     }
+    audit_outer_value_agreement(
+        context,
+        value_only,
+        evaluation.cost,
+        result,
+        Some(projected_grad_norm),
+        StationarityBound::from_ladder(stationarity_bound, bound_source),
+    )?;
 
     // The optimizer's own recorded best-iterate evidence, captured before the
     // fresh certificate-time measurement overwrites it below. Together with
@@ -2187,7 +2676,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
     result.final_gradient = Some(evaluation.gradient);
     result.converged = false;
 
-    let analytic_hessian = if capability.hessian.is_analytic() {
+    let analytic_hessian = if wants_analytic_hessian {
         match evaluation.hessian.materialize_dense() {
             Ok(Some(hessian)) => {
                 layout
@@ -2198,7 +2687,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
                             &format!("malformed analytic final Hessian: {err}"),
                             result,
                             Some(projected_grad_norm),
-                            stationarity_bound,
+                            StationarityBound::from_ladder(stationarity_bound, bound_source),
                         )
                     })?;
                 if hessian.iter().any(|value| !value.is_finite()) {
@@ -2207,7 +2696,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
                         "the analytic final Hessian contains non-finite entries",
                         result,
                         Some(projected_grad_norm),
-                        stationarity_bound,
+                        StationarityBound::from_ladder(stationarity_bound, bound_source),
                     ));
                 }
                 Some(hessian)
@@ -2218,7 +2707,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
                     "the objective declared analytic curvature but returned none at the final point",
                     result,
                     Some(projected_grad_norm),
-                    stationarity_bound,
+                    StationarityBound::from_ladder(stationarity_bound, bound_source),
                 ));
             }
             Err(err) => {
@@ -2227,7 +2716,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
                     &format!("analytic final Hessian could not be certified: {err}"),
                     result,
                     Some(projected_grad_norm),
-                    stationarity_bound,
+                    StationarityBound::from_ladder(stationarity_bound, bound_source),
                 ));
             }
         }
@@ -2285,6 +2774,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
                  widened from gradient-band {stationarity_bound:.3e}"
             );
             stationarity_bound = curvature_grad_bound;
+            bound_source = StationarityBoundSource::CurvatureResolvability;
         }
     }
 
@@ -2342,8 +2832,25 @@ fn certify_outer_optimality_at_terminal_fidelity(
                  {spread:.3e}, cost drift {cost_drift:.3e} ≤ tol {objective_tol:.3e})"
             );
             stationarity_bound = repro_bound;
+            bound_source = StationarityBoundSource::GradientReproducibility;
         }
     }
+
+    // #2458 -- the bound's own provenance, emitted UNCONDITIONALLY rather than only
+    // when a rung happens to widen. A certificate that does not carry which of its
+    // five terms decided it can only be re-derived from source, never audited; the
+    // same complaint this file's refusal messages make about the fits they refuse.
+    // `derived_standard=false` is the actionable bit: it says this verdict rests on
+    // a gradient-magnitude substitute because the resolvability form was
+    // unavailable on this route, not because the problem called for it.
+    log::info!(
+        "[CERTIFICATE-BOUND] {context}: bound {stationarity_bound:.6e} set by {} \
+         (derived_standard={}, |Pg|={projected_grad_norm:.6e}, |g|={grad_norm:.6e}, \
+         solver_band={solver_bound:.6e}, cost={:.6e})",
+        bound_source.label(),
+        bound_source.is_derived_standard(),
+        evaluation.cost,
+    );
 
     // Large-step flatness certificate (#2299 fully-saturated smooth). After the
     // reproducibility floor a coordinate that has collapsed EXACTLY onto its
@@ -2371,7 +2878,13 @@ fn certify_outer_optimality_at_terminal_fidelity(
     // flatness certificate below — and the final curvature gate — judge PSD on the
     // interior (un-railed) sub-block instead, or a rail-caused indefiniteness would
     // disable the very certificate that exists to certify a railed optimum (#2299).
-    let certificate_railed = certificate_railed_lambdas(&result.rho, layout.rho_dim(), config);
+    // The FACE the certificate reasons on: every θ coordinate against its own
+    // bound, ρ and non-ρ alike. See `certificate_railed_coordinates` for why
+    // the λ-block report cannot be used here.
+    let certificate_railed = certificate_railed_coordinates(&result.rho, config);
+    // The λ-block REPORT that ships on the certificate. Same predicate,
+    // narrower scan, because `lambdas_railed` indexes smoothing parameters.
+    let railed_lambda_block = certificate_railed_lambdas(&result.rho, layout.rho_dim(), config);
 
     // Typed stationary-at-asymptote rail certificate (#2348 Inc 1, #2299 layer 3,
     // #2337 Thm 2.1). Before falling through to the generic gradient/criterion-flat
@@ -2465,7 +2978,8 @@ fn certify_outer_optimality_at_terminal_fidelity(
                         rails,
                     },
                     hessian_psd: Some(true),
-                    lambdas_railed: certificate_railed.clone(),
+                    lambdas_railed: railed_lambda_block.clone(),
+                    curvature_floor: None,
                 };
                 // Move the certified curvature onto the result; the mint path returns
                 // immediately, so the fall-through below never observes the move.
@@ -2478,7 +2992,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
                         &certificate.summary(),
                         result,
                         Some(interior_projected_grad_norm),
-                        stationarity_bound,
+                        StationarityBound::from_ladder(stationarity_bound, bound_source),
                     ));
                 }
                 result.converged = true;
@@ -2596,7 +3110,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
                     ),
                     result,
                     Some(certified_projected_grad_norm),
-                    stationarity_bound,
+                    StationarityBound::from_ladder(stationarity_bound, bound_source),
                 )
             })?;
         }
@@ -2608,20 +3122,26 @@ fn certify_outer_optimality_at_terminal_fidelity(
             projected_grad_norm: certified_projected_grad_norm,
             bound: stationarity_bound,
         },
+        // The RAW measurement — unchanged, and what every consumer that asks
+        // for a genuine PSD certificate keeps receiving.
         hessian_psd: analytic_hessian.as_ref().and_then(|hessian| {
             certificate_hessian_is_psd_off_railed(hessian, &certificate_railed)
         }),
-        lambdas_railed: certificate_railed.clone(),
+        lambdas_railed: railed_lambda_block.clone(),
+        // The floor's verdict on that same curvature, recorded beside it.
+        curvature_floor: analytic_hessian.as_ref().and_then(|hessian| {
+            interior_curvature_floor_clearance(hessian, &certificate_railed, &projected_gradient)
+        }),
     };
     // Certify-time tail snap (#2348 Inc 2). About to refuse a point whose
     // residual gradient is carried by un-railed coordinates crawling a
     // CONFIRMED exponential tail toward the ρ-box (the one-e-fold-per-step
     // grind: the loop budget can exhaust strictly inside the box, where the
     // Inc 1 railed mint can never fire), snap those coordinates to their box
-    // bound and re-certify once. The recursive certification re-solves the
-    // inner problem at the snapped point and judges it with the FULL Inc 1
-    // rail discipline — this path grants nothing by itself. On a refused snap
-    // the checkpoint is restored and the ordinary refusal below proceeds.
+    // bound and publish that point as a one-shot optimization reseed. The
+    // resumed optimizer lets coupled interior coordinates move before the
+    // FULL Inc 1 rail discipline judges the result — this path grants nothing
+    // by itself.
     let mut tail_snap_note: Option<String> = None;
     if allow_tail_snap
         && !certificate.certifies()
@@ -2695,7 +3215,8 @@ fn certify_outer_optimality_at_terminal_fidelity(
                         rails,
                     },
                     hessian_psd: Some(true),
-                    lambdas_railed: certificate_railed.clone(),
+                    lambdas_railed: railed_lambda_block.clone(),
+                    curvature_floor: None,
                 };
                 result.final_hessian = analytic_hessian;
                 result.criterion_certificate = Some(certificate.clone());
@@ -2706,7 +3227,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
                         &certificate.summary(),
                         result,
                         Some(interior_projected_grad_norm),
-                        effective_interior_bound,
+                        StationarityBound::unrecorded(effective_interior_bound),
                     ));
                 }
                 result.converged = true;
@@ -2720,56 +3241,14 @@ fn certify_outer_optimality_at_terminal_fidelity(
                 );
                 return Ok(certificate);
             }
-            TailSnapOutcome::Snapped(snapped) => {
-                let original_rho = result.rho.clone();
-                // The run-recorded first-order evidence describes the PRE-snap
-                // point; the recursive certification must not consume it as a
-                // same-ρ second measurement for its gradient-reproducibility
-                // floor.
-                let saved_gradient = result.final_gradient.take();
-                result.final_value = f64::NAN;
-                log::info!(
-                    "[CERTIFICATE] {context}: confirmed exponential tail on un-railed \
-                     coordinate(s); snapping ρ {original_rho} → {snapped} and re-certifying \
-                     at the rail (#2348 Inc 2)"
-                );
-                result.rho = snapped;
-                match certify_outer_optimality_at_terminal_fidelity(
-                    obj, config, context, result, false,
-                ) {
-                    Ok(snap_certificate) => return Ok(snap_certificate),
-                    Err(snap_err) => {
-                        log::info!(
-                            "[CERTIFICATE] {context}: snapped point refused \
-                             ({snap_err}); restoring the checkpoint and refusing at the \
-                             original point"
-                        );
-                        tail_snap_note = Some(format!("snapped point refused: {snap_err}"));
-                        result.rho = original_rho;
-                        result.final_value = evaluation.cost;
-                        result.final_grad_norm = Some(projected_grad_norm);
-                        result.final_gradient = saved_gradient;
-                        // Best-effort restore of the inner state to the
-                        // checkpoint; the refusal below is the verdict either
-                        // way.
-                        if let Err(restore_err) = obj.eval_cost(&result.rho) {
-                            log::warn!(
-                                "[CERTIFICATE] {context}: failed to restore the objective \
-                                 to the checkpoint after a refused tail snap: {restore_err}"
-                            );
-                        }
-                    }
-                }
-            }
             TailSnapOutcome::ConfirmedNeedsReseed(snapped) => {
                 log::info!(
                     "[CERTIFICATE] {context}: confirmed exponential tail on un-railed \
-                     coordinate(s) but the interior is not yet stationary; publishing \
-                     the snapped point {snapped} as a reseed for one retry (#2348 Inc 2b)"
+                     coordinate(s); publishing the snapped point {snapped} as a waypoint \
+                     for one re-optimization retry (#2348 Inc 2b / #2358)"
                 );
                 tail_snap_note = Some(
-                    "tail confirmed; interior unpolished — retry seeded at the snapped rail point"
-                        .to_string(),
+                    "tail confirmed; retry seeded at the snapped rail waypoint".to_string(),
                 );
                 result.tail_snap_reseed = Some(snapped);
             }
@@ -2818,13 +3297,16 @@ fn certify_outer_optimality_at_terminal_fidelity(
             // `curvature_admissible()` is `false` exactly when the REDUCED
             // (off-railed) Hessian is indefinite, so a railed coordinate no
             // longer waives the escape: it is passed through and held fixed while
-            // the step descends the free-direction saddle (#2155).
+            // the step descends the free-direction saddle (#2155). It must be
+            // held fixed on the SAME face the reduction was taken on — the
+            // certificate's λ-block report would leave a railed ψ free to be
+            // stepped out of its box.
             result.saddle_escape_reseed = negative_curvature_escape_point(
                 obj,
                 &saddle_rho,
                 &gradient,
                 &hessian,
-                &certificate.lambdas_railed,
+                &certificate_railed,
                 baseline_cost,
                 &bounds,
                 context,
@@ -2849,10 +3331,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
         //       under the ORIGINAL box, so a frozen coordinate whose gradient
         //       turns inward there un-freezes (no silent clamping).
         // (1) takes precedence: a wrong rail must be pulled back, never frozen.
-        if allow_tail_snap
-            && !certificate_railed.is_empty()
-            && let Some(hessian) = result.final_hessian.clone()
-        {
+        if allow_tail_snap && !certificate_railed.is_empty() {
             let beta_norm = terminal_beta
                 .as_ref()
                 .map(|b| b.dot(b).sqrt())
@@ -2888,7 +3367,13 @@ fn certify_outer_optimality_at_terminal_fidelity(
             }
             if let Some(reseed) = wrong_rail_point {
                 result.wrong_rail_reseed = Some(reseed);
-            } else {
+            } else if let Some(hessian) = result.final_hessian.as_ref() {
+                // Active-set reduction needs curvature to prove that the free
+                // subspace is genuinely unpolished. Wrong-rail pull-back above
+                // is a first-order tail-sign proof and deliberately does NOT:
+                // gradient-only BFGS objectives can rail incorrectly too, and
+                // withholding a valid pull-back merely because they do not
+                // materialize H would make recovery depend on solver class.
                 let interior_indices: Vec<usize> = (0..projected_gradient.len())
                     .filter(|k| !certificate_railed.contains(k))
                     .collect();
@@ -2905,7 +3390,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
                     let mut froz_lower = lower.clone();
                     let mut froz_upper = upper.clone();
                     let mut reseed = result.rho.clone();
-                    let mut frozen: Vec<usize> = Vec::new();
+                    let mut froze_any = false;
                     for &k in certificate_railed.iter() {
                         if k >= reseed.len() {
                             continue;
@@ -2918,13 +3403,12 @@ fn certify_outer_optimality_at_terminal_fidelity(
                         reseed[k] = rail;
                         froz_lower[k] = rail;
                         froz_upper[k] = rail;
-                        frozen.push(k);
+                        froze_any = true;
                     }
-                    if !frozen.is_empty() {
+                    if froze_any {
                         result.active_set_reseed = Some(ActiveSetReseed {
                             rho: reseed,
                             bounds: (froz_lower, froz_upper),
-                            frozen,
                         });
                     }
                 }
@@ -2934,6 +3418,18 @@ fn certify_outer_optimality_at_terminal_fidelity(
         // refusal so a railed or budget-exhausted crawl explains which
         // certificate gate refused instead of failing silently.
         let mut summary = certificate.summary();
+        // `summary()` prints `lambdas_railed`, which is the λ-block report. When
+        // the face the certificate actually reasoned on is wider — a joint
+        // [ρ, ψ] search with a κ coordinate on its data-derived window — say so,
+        // or the refusal reads as `railed=[]` while the projector has already
+        // discarded that coordinate's outward pull and nothing explains where
+        // `|g|` went (#979).
+        if certificate_railed.len() != railed_lambda_block.len() {
+            summary = format!(
+                "{summary}; outer coordinates railed (theta-wide, incl. non-rho blocks): \
+                 {certificate_railed:?}"
+            );
+        }
         if let Some(note) = asymptote_rail_note {
             summary = format!("{summary}; asymptote-rail declined: {note}");
         }
@@ -2946,7 +3442,7 @@ fn certify_outer_optimality_at_terminal_fidelity(
             &summary,
             result,
             Some(certified_projected_grad_norm),
-            stationarity_bound,
+            StationarityBound::from_ladder(stationarity_bound, bound_source),
         ));
     }
 
@@ -3023,6 +3519,19 @@ const ASYMPTOTE_ESTIMAND_REL_TOL: f64 = 1.0e-4;
 // confirmed tail declined with "no finite-difference-clean tail window". Six
 // extra value+gradient evals, paid only at certification of railed fits.
 const ASYMPTOTE_PROBE_COUNT: usize = 18;
+
+/// Local confirmation resolution used only when the one-e-fold ladder cannot
+/// find a clean run. A finite smoothing box can intersect a perfectly regular
+/// asymptote before three whole e-folds of the leading-order tail are visible;
+/// half-e-fold probes resolve that band without relaxing any certificate gate.
+///
+/// The probes remain equally spaced, which is load-bearing: the estimand
+/// certificate interprets consecutive coefficient moves as one geometric
+/// sequence. Six samples cover three e-folds, so the fallback still observes
+/// curvature over a material interval instead of manufacturing constancy from
+/// an arbitrarily small neighborhood.
+const ASYMPTOTE_LOCAL_PROBE_DELTA: f64 = 0.5;
+const ASYMPTOTE_LOCAL_PROBE_COUNT: usize = 6;
 
 /// Read-only inputs to [`try_certify_asymptote_rail`], bundled so the certify
 /// path passes one borrow rather than a long positional argument list.
@@ -3111,6 +3620,43 @@ fn try_certify_asymptote_rail(
     tol.tail_drift_rel = TAIL_SNAP_DRIFT_REL;
     let (lower, upper) = inputs.bounds;
 
+    // #2348 Inc 5 — the ANALYTIC face proof, first resort.
+    //
+    // Measuring a tail beside the ρ box asks the criterion for derivative
+    // information exactly where its logdet pair cancels; and even when it
+    // succeeds it speaks for ONE coordinate along ONE ray. The analytic route
+    // forms the λ=∞ limit itself — the null-space-restricted fit, and the
+    // exact first-order form of the logdet and trace terms there — and its
+    // positive definiteness proves the whole face against every way of coming
+    // off it. When the objective cannot form that limit, or the proof does not
+    // hold, the measured-tail path below is unchanged.
+    match try_certify_face_analytically(obj, inputs, estimand_tol)? {
+        Ok((rails, proof)) => {
+            log::info!(
+                "[CERTIFICATE] {}: analytic λ=∞ face proof on {} coordinate(s): λ_min(C)={:.6e} \
+                 > margin {:.3e}, joint pencil ĉ={:.6e}, remaining value gap {:.3e}, estimand \
+                 travel {:.3e}",
+                inputs.context,
+                rails.len(),
+                proof.min_curvature,
+                proof.curvature_margin,
+                proof.joint_tail_constant,
+                proof.value_gap,
+                proof.estimand_travel,
+            );
+            return Ok(Ok((
+                interior_projected_grad_norm,
+                effective_interior_bound,
+                rails,
+            )));
+        }
+        Err(reason) => log::info!(
+            "[CERTIFICATE] {}: analytic λ=∞ face proof declined ({reason}); measuring the tail \
+             instead",
+            inputs.context,
+        ),
+    }
+
     let mut rails: Vec<RailCoordinate> = Vec::new();
     let mut decline: Option<String> = None;
     let mut probed_any = false;
@@ -3162,6 +3708,197 @@ fn try_certify_asymptote_rail(
         effective_interior_bound,
         rails,
     )))
+}
+
+/// The analytic face law is falsified against production criterion VALUES, so
+/// the admissible discrepancy is exactly the error sources the comparison is
+/// made of: the run's own cost resolution (absolute, once per evaluation), the
+/// law's `O(e^{−ρ})` second-order remainder (relative), and the digits the
+/// Gram/Schur assembly loses. `FACE_LAW_ERROR_SLACK` widens that budget by the
+/// factor a two-point difference accumulates — each evaluation carries its own
+/// resolution error and the remainder enters both the predicted and the
+/// measured side — so a CORRECT law is never refused by its own error bars,
+/// while a wrong one (which misses by orders of magnitude, not by slack) still
+/// is. The falsification only runs where the budget leaves a discriminating
+/// band; where it does not, the analytic route declines rather than minting
+/// unfalsifiable evidence.
+const FACE_LAW_ERROR_SLACK: f64 = 4.0;
+
+/// Floor on the falsification band.
+///
+/// The derived numerical budget can land many orders below the honest fidelity
+/// of a closed form that deliberately does not model the criterion's
+/// stabilization ridge or its reparameterization; holding the law to that
+/// budget would reject a CORRECT law over a difference that changes no
+/// decision. What the falsification exists to catch is a structurally wrong law
+/// — a missing Schur term, the wrong dispersion convention, a sign error — and
+/// those miss by orders of magnitude, not by slack (measured on a fixture whose
+/// released directions genuinely earned their cost: 100%). Half the predicted
+/// drop is the coarsest band that still separates those two worlds.
+const FACE_LAW_ORDER_BAND: f64 = 0.5;
+
+/// Prove the rail face analytically (#2348 Inc 5): ask the objective for the
+/// exact λ→∞ limit, test the first-order form, and falsify the resulting law
+/// against the production criterion before minting anything from it.
+///
+/// Returns the minted rail coordinates plus the proof, or a human-readable
+/// decline that the caller logs before falling back to the measured tail.
+fn try_certify_face_analytically(
+    obj: &mut dyn OuterObjective,
+    inputs: &AsymptoteRailInputs<'_>,
+    estimand_tol: f64,
+) -> Result<Result<(Vec<RailCoordinate>, RailFaceProof), String>, EstimationError> {
+    let rho = inputs.rho;
+    let (lower, upper) = inputs.bounds;
+    // The analytic limit is the INFINITE-smoothing face. A coordinate railed at
+    // the zero-smoothing bound is the opposite limit (the penalty leaves the
+    // model rather than pinning it) and belongs to the measured-tail path.
+    for &k in inputs.railed.iter() {
+        if k >= rho.len() || k >= lower.len() || k >= upper.len() {
+            return Ok(Err("railed coordinate outside the box layout".to_string()));
+        }
+        if (upper[k] - rho[k]).abs() > (rho[k] - lower[k]).abs() {
+            return Ok(Err(format!(
+                "coordinate {k} rails at the zero-smoothing bound; the analytic face limit \
+                 covers λ→∞ only"
+            )));
+        }
+    }
+    let limit = match obj.rail_face_limit(rho, inputs.railed)? {
+        RailFaceLimitOutcome::Available(limit) => *limit,
+        // The decline is typed, and the distinction is worth carrying into the
+        // refusal: "outside this closed form" invites a different one, while
+        // "the face is unavailable" is a statement about the face.
+        RailFaceLimitOutcome::OutsideClosedForm { reason } => {
+            return Ok(Err(format!("outside the analytic closed form: {reason}")));
+        }
+        RailFaceLimitOutcome::FaceUnavailable { reason } => {
+            return Ok(Err(format!("the λ=∞ face is unavailable: {reason}")));
+        }
+    };
+    let proof = match certify_rail_face(&limit) {
+        RailFaceVerdict::Certified(proof) => proof,
+        RailFaceVerdict::Refused { reason } => return Ok(Err(reason)),
+    };
+    // The face being optimal does not by itself mean the SHIPPED fit is the
+    // limit fit; the estimand gate is the same one the measured path applies,
+    // now answered by the exact first-order coefficient offset rather than a
+    // geometric extrapolation of observed steps.
+    if !(proof.estimand_travel <= estimand_tol) {
+        return Ok(Err(format!(
+            "λ=∞ face proven, but the shipped fit has not reached it: coefficient travel \
+             {:.3e} > estimand tolerance {estimand_tol:.3e}",
+            proof.estimand_travel
+        )));
+    }
+    if let Err(reason) = falsify_face_law(obj, inputs, &limit, &proof)? {
+        return Ok(Err(reason));
+    }
+    let rails: Vec<RailCoordinate> = limit
+        .face
+        .iter()
+        .zip(limit.face_rho.iter())
+        .zip(proof.tail_constants.iter())
+        .map(|((&index, &rho_k), &tail_constant)| RailCoordinate {
+            index,
+            side: AsymptoteSide::Upper,
+            tail_constant,
+            // On the tail law the remaining value gap of one coordinate is
+            // exactly `c_k·e^{−ρ_k}`; a coordinate the rest of the face has
+            // already pinned reports `c_k = 0` because releasing it does not
+            // move the criterion at all.
+            value_gap: tail_constant * (-rho_k).exp(),
+            estimand_travel_bound: proof.estimand_travel,
+            // The analytic proof's floor is the eigen-backward-error margin it
+            // cleared, not a finite-difference noise floor.
+            noise_margin: proof.curvature_margin,
+        })
+        .collect();
+    Ok(Ok((rails, proof)))
+}
+
+/// Falsify the analytic face law against the production criterion.
+///
+/// The law predicts `V(ρ) − V_∞ = ½tr((Σλ_kQᵀS_kQ)⁻¹C)`, so pulling every face
+/// coordinate back by `Δ` must raise the criterion by exactly
+/// `gap·(e^{Δ} − 1)`. That is a VALUE comparison — no derivative, no
+/// cancellation — and it costs two evaluations instead of a probe ladder.
+///
+/// `Δ` is not a knob: the measurement error is `resolution/(gap·(e^Δ−1))` and
+/// the law's own remainder is `O(e^{Δ−ρ})`, so their sum is minimized at
+/// `Δ* = ½(ln(resolution/gap) + ρ)`, where both equal `√(resolution·e^{−ρ}/gap)`.
+fn falsify_face_law(
+    obj: &mut dyn OuterObjective,
+    inputs: &AsymptoteRailInputs<'_>,
+    limit: &RailFaceLimit,
+    proof: &RailFaceProof,
+) -> Result<Result<(), String>, EstimationError> {
+    const FACE_LAW_DOMAIN_MARGIN: f64 = 1.0e-6;
+    let rho = inputs.rho;
+    let (lower, _) = inputs.bounds;
+    let gap = proof.value_gap;
+    let resolution = inputs.objective_tol;
+    if !(gap > 0.0) || !(resolution > 0.0) {
+        return Ok(Err(format!(
+            "the face law carries no resolvable value gap: gap={gap:.3e}, cost resolution \
+             {resolution:.3e}"
+        )));
+    }
+    let deepest = limit
+        .face_rho
+        .iter()
+        .fold(f64::INFINITY, |acc, v| acc.min(*v));
+    let ideal = 0.5 * ((resolution / gap).ln() + deepest);
+    let room = limit
+        .face
+        .iter()
+        .zip(limit.face_rho.iter())
+        .map(|(&k, &rho_k)| rho_k - lower[k] - FACE_LAW_DOMAIN_MARGIN)
+        .fold(f64::INFINITY, f64::min);
+    let delta = ideal.min(room);
+    // One e-fold is the natural unit of the law being tested; below that the
+    // predicted change is not a statement about a tail.
+    if !(delta >= 1.0) || !delta.is_finite() {
+        return Ok(Err(format!(
+            "no room inside the box to falsify the face law: Δ={delta:.3e} e-folds"
+        )));
+    }
+    let predicted = gap * (delta.exp() - 1.0);
+    let measurement_error = resolution / predicted;
+    let remainder_error = (delta - deepest).exp();
+    let assembly_error = f64::EPSILON.sqrt() * limit.form_conditioning.sqrt();
+    let budget = measurement_error + remainder_error + assembly_error;
+    let admissible = (FACE_LAW_ERROR_SLACK * budget).max(FACE_LAW_ORDER_BAND);
+    if !(admissible < 1.0) {
+        return Ok(Err(format!(
+            "the face law cannot be falsified here: error budget {budget:.3e} (measurement \
+             {measurement_error:.3e}, remainder {remainder_error:.3e}, assembly \
+             {assembly_error:.3e}) leaves no discriminating band"
+        )));
+    }
+    let baseline = obj.eval_cost(rho)?;
+    let mut pulled_back = rho.clone();
+    for &k in limit.face.iter() {
+        pulled_back[k] -= delta;
+    }
+    let pulled_value = obj.eval_cost(&pulled_back)?;
+    // Every exit below ships the certified point, so restore it before judging.
+    obj.eval_cost(rho)?;
+    if !baseline.is_finite() || !pulled_value.is_finite() {
+        return Ok(Err(
+            "the criterion is not finite at the falsification points".to_string()
+        ));
+    }
+    let measured = pulled_value - baseline;
+    let discrepancy = (predicted - measured).abs() / predicted;
+    if discrepancy > admissible {
+        return Ok(Err(format!(
+            "the analytic face law does not reproduce the criterion: pulling the face back \
+             {delta:.2} e-folds should raise V by {predicted:.6e}, measured {measured:.6e} \
+             (relative {discrepancy:.3e} > admissible {admissible:.3e})"
+        )));
+    }
+    Ok(Ok(()))
 }
 
 /// Two-stage interior stationarity judgment shared by the Inc 1 railed mint
@@ -3235,10 +3972,9 @@ const TAIL_SNAP_CURVATURE_BAND: (f64, f64) = (0.25, 4.0);
 /// the asymptote certificate exists to kill — the loop can exhaust its budget
 /// strictly inside the box, where the Inc 1 railed mint can never fire),
 /// positively confirm each such coordinate's tail from the current point and
-/// return the point with those coordinates snapped to their box bound. The
-/// caller re-certifies the snapped point, where `certificate_railed_lambdas`
-/// flags the coordinates and the Inc 1 rail mint takes over with its full
-/// probe/assess discipline.
+/// return the point with those coordinates snapped to their box bound as an
+/// optimization waypoint. The caller re-runs the outer search from that point;
+/// only the resulting point is eligible for the Inc 1 rail certificate.
 ///
 /// Refusal semantics mirror [`try_certify_asymptote_rail`]: any gate failure
 /// returns `Ok(None)` (fall through to the ordinary refusal); the only `Err` is
@@ -3247,17 +3983,13 @@ const TAIL_SNAP_CURVATURE_BAND: (f64, f64) = (0.25, 4.0);
 /// 1. candidate coordinates = un-railed, `|g_k|` above the stationarity bound,
 ///    positive own-curvature within [`TAIL_SNAP_CURVATURE_BAND`] of `|g_k|`
 ///    (the tail-law tie), with the rail side read from the gradient sign;
-/// 2. every remaining interior coordinate is gradient-stationary and the
-///    interior Hessian sub-block (railed + candidates excluded) is PSD;
+/// 2. the interior Hessian sub-block (railed + candidates excluded) is PSD;
 /// 3. every candidate's tail is confirmed by the same probing engine the rail
-///    mint uses (`CertifiedAtAsymptote` or `OnTailNotYetEquivalent`; the final
-///    at-rail equivalence is re-judged by the Inc 1 mint after the snap).
-/// Outcome of a certify-time tail-snap attempt: the snapped point to
-/// re-certify, a confirmed tail whose interior still needs a polishing
-/// reseed-retry (#2348 Inc 2b), or a human-readable decline reason that is
-/// carried into the refusal summary so a budget-exhausted crawl explains WHY
-/// it was not snapped (the decline evidence is otherwise invisible in a red
-/// test/fit).
+///    mint uses (`CertifiedAtAsymptote` or `OnTailNotYetEquivalent`).
+/// Outcome of a certify-time tail-snap attempt: a point already stationary on
+/// its confirmed tail, a confirmed-tail waypoint requiring one optimization
+/// retry (#2348 Inc 2b / #2358), or a human-readable decline reason carried
+/// into the refusal summary.
 #[derive(Debug)]
 enum TailSnapOutcome {
     /// Every candidate's confirmed tail EXTRAPOLATES to a gradient already
@@ -3276,14 +4008,10 @@ enum TailSnapOutcome {
         interior_projected_grad_norm: f64,
         effective_interior_bound: f64,
     },
-    /// Tails confirmed AND the interior is already gradient-stationary:
-    /// re-certify the snapped point directly (the Inc 1 railed mint judges it).
-    Snapped(Array1<f64>),
-    /// Tails confirmed but the interior is not yet raw-gradient stationary —
-    /// the loop budget died mid-crawl while the interior tracked the crawling
-    /// tail coordinate. Re-certifying in place cannot help (the interior
-    /// gradient does not move without re-optimization); the plan runner
-    /// should retry ONCE seeded at this point instead.
+    /// Tails confirmed, but the current point is not already
+    /// tail-stationary. The snapped rail point is only a waypoint: the plan
+    /// runner must retry ONCE from it so coupled coordinates can reoptimize
+    /// before certification.
     ConfirmedNeedsReseed(Array1<f64>),
     Declined(String),
 }
@@ -3466,7 +4194,6 @@ fn try_tail_snap_to_rail(
     // reseed retry re-descends from the snapped point with the rails free to
     // hold or relax; a direct re-certification there would refuse exactly that
     // relaxation.
-    let mut joint_face_confirmed = false;
     if decline.is_some() && candidates.len() >= 2 {
         let (window, joint_rows) =
             probe_joint_tail_window(obj, rho, &candidates, &tol, (lower, upper))?;
@@ -3503,14 +4230,12 @@ fn try_tail_snap_to_rail(
                         })
                         .collect();
                 }
-                joint_face_confirmed = true;
                 decline = None;
             }
             Some(AsymptoteVerdict::OnTailNotYetEquivalent { .. }) => {
                 // Confirmed on the joint tail; travel not yet settled — the
                 // face snaps/reseeds below exactly as a confirmed single
                 // candidate would.
-                joint_face_confirmed = true;
                 decline = None;
             }
             Some(AsymptoteVerdict::NoAsymptote { reason }) => {
@@ -3524,15 +4249,14 @@ fn try_tail_snap_to_rail(
                 // ĉ settled to 34.2 over the last four probes while the crawl
                 // was still travelling). That is the same state as
                 // `OnTailNotYetEquivalent`: the law says WHERE the optimum is;
-                // the snap below re-solves and re-certifies at the face with
-                // the full rail discipline, granting nothing by itself.
+                // the snap below reoptimizes from the face, granting nothing
+                // by itself.
                 log::info!(
                     "[CERTIFICATE] joint {}-coordinate face: pencil-constant run \
                      confirmed but estimand not settled at the checkpoint \
-                     ({reason}); snapping the face for re-certification",
+                     ({reason}); snapping the face for re-optimization",
                     candidates.len(),
                 );
-                joint_face_confirmed = true;
                 decline = None;
             }
             None => {
@@ -3561,12 +4285,6 @@ fn try_tail_snap_to_rail(
     let interior_indices: Vec<usize> = (0..n)
         .filter(|k| !inputs.railed.contains(k) && !candidates.iter().any(|(c, _)| c == k))
         .collect();
-    let interior_grad_norm = interior_indices
-        .iter()
-        .map(|&k| gradient[k] * gradient[k])
-        .sum::<f64>()
-        .sqrt();
-
     // #2348 Inc 2c: every candidate's confirmed tail already extrapolates
     // BELOW the stationarity bound at the current point — the fit is
     // tail-stationary where it stands and the measured local gradient is
@@ -3603,26 +4321,20 @@ fn try_tail_snap_to_rail(
         };
     }
 
-    // Tails confirmed. Whether the snapped point can be re-certified DIRECTLY
-    // depends on the interior: the asymptote mint requires every non-rail
-    // coordinate gradient-stationary, and snapping the tail coordinate does
-    // not move the interior gradient. A budget-exhausted crawl typically
-    // leaves the interior UNPOLISHED (it was still tracking the crawling tail
-    // coordinate), so hand the runner a reseed point instead — one more
-    // optimizer pass pins the snapped coordinate at its rail (box projection)
-    // while the interior converges in its few remaining Newton steps.
-    if interior_grad_norm <= inputs.stationarity_bound && !joint_face_confirmed {
-        Ok(TailSnapOutcome::Snapped(snapped))
-    } else {
-        Ok(TailSnapOutcome::ConfirmedNeedsReseed(snapped))
-    }
+    // Tails confirmed, but a finite snap can change every coupled coordinate's
+    // optimum even when its PRE-snap gradient was stationary (#2358 measured
+    // the location-scale interior gradient jumping to 0.5). The snap proves a
+    // direction and supplies a waypoint; only a resumed optimization and its
+    // subsequent certificate can prove the endpoint.
+    Ok(TailSnapOutcome::ConfirmedNeedsReseed(snapped))
 }
 
 /// Reconstruct one railed coordinate's exponential tail by probing the analytic
-/// gradient a fixed number of e-folds back from the rail, locate the longest
-/// finite-difference-clean run (rejecting the noise floor adjacent to the rail),
-/// and assess it against the tail law (#2348 Inc 1 / #2337 Thm 2.1). Returns the
-/// certified [`RailCoordinate`] or `None` if no confirmable tail is found.
+/// gradient back from the rail at coarse and, when needed, local resolution;
+/// locate the longest finite-difference-clean run (rejecting the noise floor
+/// adjacent to the rail); and assess it against the tail law (#2348 Inc 1 /
+/// #2337 Thm 2.1). Returns the certified [`RailCoordinate`] or `None` if no
+/// confirmable tail is found.
 fn build_and_assess_rail_coordinate(
     obj: &mut dyn OuterObjective,
     rho: &Array1<f64>,
@@ -3634,8 +4346,25 @@ fn build_and_assess_rail_coordinate(
     let window = match probe_tail_window(obj, rho, coord, side, tol, domain)? {
         (Some(window), _) => window,
         (None, rows) => {
+            // #2450: name the floor instead of leaving the reader to find it.
+            // The criterion ALWAYS carries the soft rho-guard barrier
+            // (`soft_rho_guard_prior_atom`), and a `log cosh` barrier's gradient
+            // SATURATES to `w*a` rather than decaying, so once the REML tail
+            // falls below it, `c_hat = -e^rho * dV/drho` diverges and no tail is
+            // observable THROUGH the guard at any box width or probe count. That
+            // is a different failure from a noisy or truncated window, and
+            // reporting both as "no finite-difference-clean tail window" cost
+            // real time: it reads as a fixture/conditioning problem when it is a
+            // property of the objective. Measured: the floor is exactly
+            // `w*a*tanh(a*rho)` = 1.3324e-7 at rho=30 against a predicted
+            // 1.3324e-7 (five significant figures, every coordinate).
+            let guard_floor = crate::estimate::RHO_SOFT_PRIOR_WEIGHT
+                * (crate::estimate::RHO_SOFT_PRIOR_SHARPNESS / crate::estimate::RHO_BOUND);
             return Ok(Err(format!(
-                "k={coord}: no finite-difference-clean tail window; probes {rows}"
+                "k={coord}: no finite-difference-clean tail window; note the soft \
+                 rho-guard gradient saturates at w*a={guard_floor:.4e} (#2450), so any \
+                 tail whose |dV/drho| is at or below that is unobservable through the \
+                 guard rather than merely unclean; probes {rows}"
             )));
         }
     };
@@ -3763,14 +4492,14 @@ fn detect_wrong_rail_pullback(
     Ok(best.map(|(_, b)| rows[b].0))
 }
 
-/// Probe one coordinate's tail by stepping the analytic gradient a fixed number
-/// of e-folds from `rho[coord]` toward the interior (the shared probing engine of
-/// [`build_and_assess_rail_coordinate`] and the certify-time tail snap), locate
-/// the longest finite-difference-clean constant-`ĉ` run, and return it as an
-/// assessment window (newest sample nearest `rho[coord]`). `None` when no clean
-/// run of at least [`MIN_TAIL_SAMPLES`] rows exists; the second element is a
-/// compact `(ρ, ∂V/∂ρ, ĉ)` dump of every probed row so a refused tail carries
-/// its own evidence into the decline note instead of an opaque verdict.
+/// Probe one coordinate's tail toward the interior (the shared probing engine
+/// of [`build_and_assess_rail_coordinate`] and the certify-time tail snap).
+/// The one-e-fold ladder runs first; if it finds no clean run, a short
+/// half-e-fold ladder resolves a narrower local band without mixing step sizes
+/// in one estimand window. Returns the longest finite-difference-clean
+/// constant-`ĉ` run (newest sample nearest `rho[coord]`), or `None` when neither
+/// resolution contains at least [`MIN_TAIL_SAMPLES`] clean rows. The second
+/// element dumps `(ρ, ∂V/∂ρ, ĉ)` evidence for every attempted resolution.
 fn probe_tail_window(
     obj: &mut dyn OuterObjective,
     rho: &Array1<f64>,
@@ -3779,7 +4508,58 @@ fn probe_tail_window(
     tol: &AsymptoteTolerances,
     domain: (f64, f64),
 ) -> Result<(Option<AsymptoteWindow>, String), EstimationError> {
-    const PROBE_DELTA: f64 = 1.0;
+    let (coarse_window, coarse_rows) = probe_tail_window_at_resolution(
+        obj,
+        rho,
+        coord,
+        side,
+        tol,
+        domain,
+        (1.0, ASYMPTOTE_PROBE_COUNT),
+    )?;
+    if coarse_window.is_some() {
+        return Ok((coarse_window, coarse_rows));
+    }
+
+    // The coarse ladder is deliberately retained as the first pass: railed
+    // dense REML fits can have several e-folds of cancellation noise beside
+    // the box followed by a clean band far inside it. The local pass addresses
+    // the complementary geometry exposed by #2358, where a modest finite box
+    // contains a narrow but regular tail and unit steps skip over it.
+    let (local_window, local_rows) = probe_tail_window_at_resolution(
+        obj,
+        rho,
+        coord,
+        side,
+        tol,
+        domain,
+        (
+            ASYMPTOTE_LOCAL_PROBE_DELTA,
+            ASYMPTOTE_LOCAL_PROBE_COUNT,
+        ),
+    )?;
+    Ok((
+        local_window,
+        format!("coarse[{coarse_rows}] local[{local_rows}]"),
+    ))
+}
+
+/// Probe a single equally-spaced resolution of one coordinate's tail.
+///
+/// Keeping each returned window at one resolution is essential for
+/// [`assess_coordinate`]: its coefficient-travel bound estimates a geometric
+/// ratio from consecutive steps, which is only meaningful when their `Δρ`
+/// values are identical.
+fn probe_tail_window_at_resolution(
+    obj: &mut dyn OuterObjective,
+    rho: &Array1<f64>,
+    coord: usize,
+    side: AsymptoteSide,
+    tol: &AsymptoteTolerances,
+    domain: (f64, f64),
+    resolution: (f64, usize),
+) -> Result<(Option<AsymptoteWindow>, String), EstimationError> {
+    let (probe_delta, probe_count) = resolution;
     // Strictly-inside guard for probes against the probed coordinate's own box
     // interval (#2388). The ρ-gradient assembly freezes any coordinate at (or
     // within 1e-8 of) its recorded upper bound to the #197 KKT projection — a
@@ -3797,8 +4577,8 @@ fn probe_tail_window(
     // rows[r] corresponds to probe j=r+1: r=0 is the point CLOSEST to the rail,
     // increasing r steps further into the interior (larger |grad|).
     let mut rows: Vec<(f64, f64, Option<Array1<f64>>)> = Vec::new();
-    for j in 1..=ASYMPTOTE_PROBE_COUNT {
-        let stepped = rho[coord] + sign * (j as f64) * PROBE_DELTA;
+    for j in 1..=probe_count {
+        let stepped = rho[coord] + sign * (j as f64) * probe_delta;
         if stepped <= domain.0 + PROBE_DOMAIN_MARGIN || stepped >= domain.1 - PROBE_DOMAIN_MARGIN {
             break;
         }
@@ -4097,11 +4877,11 @@ pub(crate) fn compute_rho_uncertainty_diagnostic(
         .outer_inner_cap
         .as_ref()
         .map(TerminalInnerCapGuard::lift);
-    // Do not reset here: successful certification immediately precedes this
-    // call and already installed a fresh cap=0 state.  Holding cap=0 makes the
-    // diagnostic reuse that exact cache identity (or extend it with analytic
-    // Hessian work) instead of reopening the selected rho under the restored
-    // search cap and leaving a coarse mode as the shipped state.
+    // Do not reset here. The diagnostic intentionally runs before terminal
+    // installation and certification; the certificate must remain the final
+    // owner of objective state. Holding cap=0 ensures proposal evaluations use
+    // terminal fidelity, and the selected point is reinstalled immediately
+    // afterward before the mint audit.
     let diagnostic =
         compute_rho_uncertainty_diagnostic_at_terminal_fidelity(obj, config, context, result);
     drop(terminal_cap_guard);
@@ -4134,42 +4914,33 @@ fn compute_rho_uncertainty_diagnostic_at_terminal_fidelity(
             0,
         );
     }
-    // The ρ-uncertainty diagnostic needs the EXACT outer Hessian. A non-analytic
-    // (BFGS / quasi-Newton) capability cannot supply one, so requesting
-    // `ValueGradientHessian` below would (a) waste an eval that materializes to
-    // `None` and skips two lines later anyway, and (b) VIOLATE the mode-aware eval
-    // contract — a BFGS run must never request Hessian work
-    // (`run_bfgs_mode_aware_eval_skips_hessian_work`). Gate on the SAME
-    // `capability.hessian.is_analytic()` the terminal certificate uses so a BFGS
-    // fit skips the diagnostic up front instead of leaking a Hessian request.
+    // The ρ-uncertainty diagnostic needs the EXACT outer Hessian, but it runs
+    // BEFORE terminal certification so that the certificate remains the final
+    // owner of objective state. Under the optimize-3/certify-4 protocol (#2359)
+    // this diagnostic may therefore consume only curvature the SEARCH already
+    // retained. It must never trigger its own `ValueGradientHessian` evaluation:
+    // a gradient-only search has deliberately reserved that one order-four pass
+    // for the mint gate. Such a search skips this optional diagnostic; the
+    // terminal certificate still computes and persists exact curvature.
     if !cap.hessian.is_analytic() {
         return crate::rho_uncertainty::RhoUncertaintyDiagnostic::skipped(
             "outer Hessian is not analytic; rho-uncertainty diagnostic needs exact curvature",
             0,
         );
     }
+    if result.plan_used.hessian_source != HessianSource::Analytic {
+        return crate::rho_uncertainty::RhoUncertaintyDiagnostic::skipped(
+            "search did not use exact outer curvature; order-four work is reserved for the terminal certificate",
+            0,
+        );
+    }
 
-    let final_eval = match obj.eval_with_order(&result.rho, OuterEvalOrder::ValueGradientHessian) {
-        Ok(eval) => eval,
-        Err(err) => {
+    let hessian = match result.final_hessian.as_ref() {
+        Some(hessian) => hessian.clone(),
+        None => {
             return crate::rho_uncertainty::RhoUncertaintyDiagnostic::skipped(
-                format!("final exact Hessian evaluation failed: {err}"),
-                1,
-            );
-        }
-    };
-    let hessian = match final_eval.hessian.materialize_dense() {
-        Ok(Some(hessian)) => hessian,
-        Ok(None) => {
-            return crate::rho_uncertainty::RhoUncertaintyDiagnostic::skipped(
-                "exact outer Hessian unavailable at fitted rho",
-                1,
-            );
-        }
-        Err(message) => {
-            return crate::rho_uncertainty::RhoUncertaintyDiagnostic::skipped(
-                format!("exact outer Hessian materialization failed: {message}"),
-                1,
+                "search retained no exact outer Hessian; order-four work is reserved for the terminal certificate",
+                0,
             );
         }
     };
@@ -4184,23 +4955,6 @@ fn compute_rho_uncertainty_diagnostic_at_terminal_fidelity(
             1,
         );
     }
-    // Persist the exact outer curvature at θ̂ when the solver did not already
-    // track one. A gradient-based BFGS solve keeps its inverse-Hessian
-    // internally and `opt` does not surface it, so `result.final_hessian` is
-    // `None` on the BFGS path — yet the exact analytic `H(θ̂)` was just
-    // materialized here for the rho-uncertainty diagnostic and is otherwise
-    // discarded. Stashing it lets the persistent-cache finalize write carry the
-    // converged curvature, so the NEXT structurally-matching fit (e.g. the next
-    // LOSO fold, whose θ̂ and curvature are nearly identical) can seed BFGS with
-    // `InitialMetric::DenseInverseHessian` and take a quasi-Newton first step
-    // instead of rediscovering curvature through line-search bracketing. This
-    // never changes a converged optimum (BFGS converges to ∇V=0 under any SPD
-    // initial metric); it only reshapes the starting line-search path. Guarded
-    // on finiteness and on the solver not already owning a Hessian, so the
-    // exact-Newton / ARC paths (which DO populate `final_hessian`) are untouched.
-    if result.final_hessian.is_none() && hessian.iter().all(|v| v.is_finite()) {
-        result.final_hessian = Some(hessian.clone());
-    }
     let mut hessian_rho = Array2::<f64>::zeros((rho_dim, rho_dim));
     for row in 0..rho_dim {
         for col in 0..rho_dim {
@@ -4209,8 +4963,7 @@ fn compute_rho_uncertainty_diagnostic_at_terminal_fidelity(
     }
     let rho_hat = result.rho.slice(ndarray::s![..rho_dim]).to_owned();
     let theta_hat = result.rho.clone();
-    let cost_hat = final_eval.cost;
-    let final_beta_hint = final_eval.inner_beta_hint.clone();
+    let cost_hat = result.final_value;
     let diagnostic = {
         let mut served_hat_cost = false;
         let mut criterion = |rho: &Array1<f64>| -> Option<f64> {
@@ -4226,11 +4979,6 @@ fn compute_rho_uncertainty_diagnostic_at_terminal_fidelity(
             let mut theta = theta_hat.clone();
             for idx in 0..rho_dim {
                 theta[idx] = rho[idx];
-            }
-            if let Some(beta) = final_beta_hint.as_ref()
-                && obj.seed_inner_state(beta).is_err()
-            {
-                return None;
             }
             obj.eval_cost(&theta).ok()
         };
@@ -4324,7 +5072,7 @@ const OUTER_CERTIFY_RESUME_BUDGET: usize = 16;
 /// cleared in one escape; the small cap keeps a pathological non-convergent
 /// objective (e.g. a bimodal inner solve, #2363) from re-escaping a family of
 /// shallow saddles until the general resume budget is spent.
-const OUTER_SADDLE_ESCAPE_BUDGET: usize = 3;
+pub(crate) const OUTER_SADDLE_ESCAPE_BUDGET: usize = 3;
 
 /// Roundoff-relative scale below which a certify-last reseed's objective
 /// reduction is numerical noise rather than exploited descent (#2374). A
@@ -4469,7 +5217,7 @@ pub(crate) fn run_outer(
                 "final outer state installation did not converge at full inner fidelity",
                 result,
                 result.final_grad_norm,
-                outer_gradient_tolerance(config).abs,
+                StationarityBound::unrecorded(outer_gradient_tolerance(config).abs),
             ));
         }
         certify_outer_optimality(obj, config, context, result)
@@ -4820,8 +5568,6 @@ pub(crate) fn run_outer_uncertified(
                 }
             })?;
     }
-    crate::estimate::reml::outer_eval::clear_outer_ift_residual_energy_for_fit();
-
     // Frontier ρ-scaling auto-switch (#986): at per-atom-EFS-eligible frontier
     // rho dimension the decoupled per-atom fixed point is the primary outer
     // iteration; everything else falls through to the dense / standard path
@@ -4835,7 +5581,7 @@ pub(crate) fn run_outer_uncertified(
             "per-atom EFS exhausted its iteration budget before the fixed-point step converged",
             &result,
             None,
-            outer_gradient_tolerance(config).abs,
+            StationarityBound::unrecorded(outer_gradient_tolerance(config).abs),
         ));
     }
 
@@ -5428,6 +6174,31 @@ pub(crate) fn run_fixed_point_outer_solver(
             );
             Ok(solution_into_outer_result(*last_solution, false, the_plan))
         }
+        Err(FixedPointError::ObjectiveFailed { message })
+            if requests_immediate_first_order_fallback(&message) =>
+        {
+            // The bridge raises `EFS_FIRST_ORDER_FALLBACK_MARKER` when the
+            // fixed-point step is not a descent direction it can rescue — a
+            // ψ-stagnation streak, or a step every halving rejected on both
+            // the full vector and the ρ/τ-only fallback. That marker is a
+            // ROUTING REQUEST ("abandon the fixed point, run the joint
+            // gradient solver that enforces ∇_ψ V = 0"), not a defect: the
+            // ladder `automatic_fallback_attempts` builds for an
+            // analytic-gradient EFS/HybridEFS primary is exactly the
+            // `disable_fixed_point` BFGS plan it is asking for.
+            //
+            // The seed evaluation above already honours it. Every LATER
+            // iteration reached this arm instead, where the blanket
+            // `fatal_outer_evaluation` classification short-circuits both
+            // `run_outer_with_plan`'s own marker check and the attempt loop in
+            // `run_outer_with_strategy` — so a HybridEFS search that descended
+            // and then asked to hand over died fatally with the fallback plan
+            // never attempted. Carry the same recoverable routing the seed
+            // path uses, so the request is honoured wherever it is raised.
+            Err(FixedPointOuterRunError::ImmediateFallback(
+                EstimationError::RemlOptimizationFailed(message),
+            ))
+        }
         Err(FixedPointError::ObjectiveFailed { message }) => Err(FixedPointOuterRunError::Failed(
             EstimationError::fatal_outer_evaluation(
                 "outer fixed-point evaluation",
@@ -5522,6 +6293,142 @@ mod asymptote_rail_certify_tests {
             verdict.is_err(),
             "a drifting ĉ must not certify a tail, got {verdict:?}",
         );
+    }
+
+    /// #2358: a finite smoothing box can expose fewer than three whole
+    /// e-folds of the leading-order tail even though the compactified
+    /// criterion is already regular there. For
+    ///
+    /// `V(ρ) = c·e⁻ρ + (d/2)·e⁻²ρ`,
+    ///
+    /// the pencil constant is `ĉ(ρ) = c + d·e⁻ρ`: the ordinary asymptotic law
+    /// plus its first vanishing correction. Unit probes from ρ=10 step into
+    /// enough correction curvature that no three-row clean run exists; the
+    /// equal-spaced half-e-fold fallback resolves the local tail without
+    /// changing the drift, estimand, sign, or noise gates.
+    #[test]
+    fn tail_probe_resolves_narrow_regular_band_before_finite_box_2358() {
+        let (c, d, a) = (7.1_f64, 400.0_f64, 1.0e-3_f64);
+        let problem = OuterProblem::new(1).with_gradient(Derivative::Analytic);
+        let mut obj = problem.build_objective(
+            (),
+            move |_: &mut (), rho: &Array1<f64>| {
+                let tau = (-rho[0]).exp();
+                Ok(c * tau + 0.5 * d * tau * tau)
+            },
+            move |_: &mut (), rho: &Array1<f64>| {
+                let tau = (-rho[0]).exp();
+                Ok(OuterEval {
+                    cost: c * tau + 0.5 * d * tau * tau,
+                    gradient: array![-c * tau - d * tau * tau],
+                    hessian: HessianValue::Unavailable,
+                    inner_beta_hint: Some(array![a * tau]),
+                })
+            },
+            None::<fn(&mut ())>,
+            None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+        );
+        let rho = array![10.0];
+        let mut tol = AsymptoteTolerances::exp4_rail_bands(1.0e-2);
+        tol.tail_drift_rel = TAIL_SNAP_DRIFT_REL;
+
+        let (coarse, coarse_rows) = probe_tail_window_at_resolution(
+            &mut obj,
+            &rho,
+            0,
+            AsymptoteSide::Upper,
+            &tol,
+            (-10.0, 10.5),
+            (1.0, ASYMPTOTE_PROBE_COUNT),
+        )
+        .expect("coarse probing must not error");
+        assert!(
+            coarse.is_none(),
+            "unit probes must not manufacture a pure tail through the curved band: {coarse_rows}"
+        );
+
+        let (window, rows) = probe_tail_window(
+            &mut obj,
+            &rho,
+            0,
+            AsymptoteSide::Upper,
+            &tol,
+            (-10.0, 10.5),
+        )
+        .expect("multi-resolution probing must not error");
+        let window = window.unwrap_or_else(|| {
+            panic!("the half-e-fold fallback must resolve the regular tail: {rows}")
+        });
+        assert!(
+            matches!(
+                assess_coordinate(&window, &tol),
+                AsymptoteVerdict::CertifiedAtAsymptote { .. }
+            ),
+            "the resolved tail must pass the unchanged asymptote gates"
+        );
+    }
+
+    /// #2358: pre-snap interior stationarity cannot authorize direct
+    /// certification at the rail. The second coordinate is stationary at the
+    /// checkpoint but its mode depends on the tail coordinate, so moving the
+    /// first coordinate changes the second coordinate's optimum. A confirmed
+    /// snap must therefore publish a re-optimization waypoint even though the
+    /// pre-snap interior gradient is exactly zero.
+    #[test]
+    fn coupled_coordinate_stationary_before_snap_still_reseeds_2358() {
+        let c = 10.0_f64;
+        let problem = OuterProblem::new(2).with_gradient(Derivative::Analytic);
+        let mut obj = problem.build_objective(
+            (),
+            move |_: &mut (), rho: &Array1<f64>| {
+                let tau = (-rho[0]).exp();
+                let coupled = rho[1] - tau;
+                Ok(c * tau + 0.5 * coupled * coupled)
+            },
+            move |_: &mut (), rho: &Array1<f64>| {
+                let tau = (-rho[0]).exp();
+                Ok(OuterEval {
+                    cost: c * tau + 0.5 * (rho[1] - tau).powi(2),
+                    gradient: array![
+                        -c * tau + (rho[1] - tau) * tau,
+                        rho[1] - tau
+                    ],
+                    hessian: HessianValue::Unavailable,
+                    inner_beta_hint: Some(array![1.0e-3 * tau]),
+                })
+            },
+            None::<fn(&mut ())>,
+            None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+        );
+        let rho = array![8.0, (-8.0_f64).exp()];
+        let tail_gradient = -c * (-rho[0]).exp();
+        let gradient = array![tail_gradient, 0.0];
+        let hessian = array![[tail_gradient.abs(), 0.0], [0.0, 1.0]];
+        let bounds = (Array1::from_elem(2, -12.0), Array1::from_elem(2, 12.0));
+
+        let outcome = try_tail_snap_to_rail(
+            &mut obj,
+            &AsymptoteRailInputs {
+                rho: &rho,
+                projected_gradient: &gradient,
+                railed: &[],
+                hessian: &hessian,
+                bounds: &bounds,
+                terminal_beta: None,
+                stationarity_bound: 1.0e-3,
+                objective_tol: 1.0e-8,
+                context: "coupled pre-snap stationarity guard",
+            },
+        )
+        .expect("tail snap must not error");
+        match outcome {
+            TailSnapOutcome::ConfirmedNeedsReseed(snapped) => {
+                assert_eq!(snapped, array![12.0, (-8.0_f64).exp()]);
+            }
+            other => panic!(
+                "a coupled coordinate stationary only before the snap must reoptimize, got {other:?}"
+            ),
+        }
     }
 
     /// #2392 wrong-rail pull-back FIRES: a coordinate sitting at the UPPER bound
@@ -5626,6 +6533,67 @@ mod asymptote_rail_certify_tests {
         );
     }
 
+    /// THE GUARANTEE, not an instance of it. Weyl bounds the floored spectrum by
+    /// `λ_min(H) + min|g| ≤ λ_min(H + diag|g|) ≤ λ_min(H) + max|g|`, so the floor
+    /// can absorb AT MOST `max_k |g_k|` over the JUDGED coordinates. Therefore
+    /// any interior spectrum whose most negative direction exceeds that floor
+    /// must still refuse — for every such spectrum, not merely for the one
+    /// saddle that happened to be measured.
+    ///
+    /// Swept over curvatures spanning six orders and gradients spanning four,
+    /// including the pair where they are within a factor of two of each other
+    /// (the regime the floor exists to serve, and the only place the verdict is
+    /// genuinely close). The excluded coordinate carries a deliberately huge
+    /// gradient: the sub-block is extracted AFTER flooring, so it must never
+    /// reach the floor.
+    #[test]
+    fn gradient_floor_absorbs_at_most_max_interior_gradient_weyl_bound() {
+        let excluded = [0usize];
+        for &lambda_min in &[-5.0e-1, -1.5e-2, -1.0e-3, -1.0e-5, -1.0e-7] {
+            for &g_interior in &[1.0e-7, 1.0e-5, 1.0e-3, 1.0e-2] {
+                // The railed coordinate's gradient is four orders above every
+                // interior one; if it ever entered the floor the sweep would
+                // certify everything.
+                let gradient = array![-1.4017, g_interior];
+                let hessian = array![[0.2828, 0.0004], [0.0004, lambda_min]];
+                let floored = certificate_hessian_is_psd_off_railed_above_gradient_floor(
+                    &hessian, &excluded, &gradient,
+                );
+                if g_interior < lambda_min.abs() {
+                    assert_eq!(
+                        floored,
+                        Some(false),
+                        "Weyl: max|g_int|={g_interior:.1e} < |λ_min|={:.1e} means the floored \
+                         sub-block is still indefinite, so the gate MUST refuse",
+                        lambda_min.abs()
+                    );
+                }
+                // And the recorded clearance must report the same verdict
+                // against the same floor, so the certificate's evidence and its
+                // gate can never disagree.
+                let clearance =
+                    interior_curvature_floor_clearance(&hessian, &excluded, &gradient)
+                        .expect("a finite 1×1 interior sub-block has a clearance");
+                assert_eq!(
+                    clearance.gradient_floor, g_interior,
+                    "the floor must be the largest JUDGED gradient — the excluded \
+                     coordinate's 1.4017 must never enter it"
+                );
+                assert!(
+                    (clearance.interior_min_eigenvalue - lambda_min).abs()
+                        <= 1.0e-12 * lambda_min.abs(),
+                    "recorded λ_min {} should be the interior sub-block's own {lambda_min}",
+                    clearance.interior_min_eigenvalue
+                );
+                assert_eq!(
+                    Some(clearance.cleared),
+                    floored,
+                    "the recorded verdict and the gate must be the same judgment"
+                );
+            }
+        }
+    }
+
     /// Joint-face objective `V(ρ) = c·e^{−(ρ₀+ρ₁)/2}` — the algebraic skeleton
     /// of an OVERLAPPING-penalty λ→∞ face (the coalesced pseudo-logdet's
     /// shared range space couples the two coordinates, so each marginal
@@ -5727,7 +6695,7 @@ mod asymptote_rail_certify_tests {
         )
         .expect("tail snap must not error");
         match outcome {
-            TailSnapOutcome::Snapped(snapped) | TailSnapOutcome::ConfirmedNeedsReseed(snapped) => {
+            TailSnapOutcome::ConfirmedNeedsReseed(snapped) => {
                 assert_eq!(
                     snapped,
                     array![12.0, 12.0],
@@ -5735,7 +6703,7 @@ mod asymptote_rail_certify_tests {
                 );
             }
             other => panic!(
-                "the joint face must confirm and snap (Snapped/ConfirmedNeedsReseed), got {other:?}"
+                "the joint face must confirm and publish a reseed waypoint, got {other:?}"
             ),
         }
     }
@@ -5744,11 +6712,11 @@ mod asymptote_rail_certify_tests {
     /// the multinomial checkpoint: ĉ settling 62.7 → … → 34.2) while the
     /// coefficient steps in the retained deep-interior rows are NOT yet
     /// geometrically contracting — the crawl was cut mid-travel. A confirmed
-    /// law with an unsettled estimand must SNAP the face for re-certification
+    /// law with an unsettled estimand must SNAP the face for re-optimization
     /// (the single-coordinate `OnTailNotYetEquivalent` semantics), not
     /// decline.
     #[test]
-    fn joint_face_with_unsettled_estimand_snaps_for_recertification_2349() {
+    fn joint_face_with_unsettled_estimand_snaps_for_reoptimization_2349() {
         let c = 1.2 * (7.5_f64).exp();
         // Non-contracting coefficient hints: constant per-probe steps (β moves
         // linearly in r), so coef_step_ratio has q = 1 and the estimand gate
@@ -5790,7 +6758,7 @@ mod asymptote_rail_certify_tests {
         )
         .expect("tail snap must not error");
         match outcome {
-            TailSnapOutcome::Snapped(snapped) | TailSnapOutcome::ConfirmedNeedsReseed(snapped) => {
+            TailSnapOutcome::ConfirmedNeedsReseed(snapped) => {
                 assert_eq!(
                     snapped,
                     array![12.0, 12.0],

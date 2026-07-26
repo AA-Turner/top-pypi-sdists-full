@@ -9,7 +9,7 @@ import typing
 
 # ── Module metadata ──
 
-__version__: builtins.str = "0.19.76"  # x-release-please-version
+__version__: builtins.str = "0.19.78"  # x-release-please-version
 __author__: builtins.str = "Hal Long <hal.long@outlook.com>"
 
 # ── Constants (registered via m.add() in src/lib.rs::register_constants) ──
@@ -60,12 +60,14 @@ __all__ = [
     "DccErrorCode",
     "DccInfo",
     "DccLinkFrame",
+    "DispatchStatus",
     "EventBus",
     "FileRef",
     "FrameRange",
     "GracefulIpcChannelAdapter",
     "GuiExecutableHint",
     "InputValidator",
+    "InstanceStatus",
     "IpcChannelAdapter",
     "LoggingMiddleware",
     "ObjectTransform",
@@ -1056,6 +1058,45 @@ class InputValidator:
         Returns ``(True, None)`` on success, ``(False, error_message)`` on failure.
         """
     def __repr__(self) -> builtins.str: ...
+
+@typing.final
+class InstanceStatus:
+    r"""
+    Python-facing unified instance status (ADR 018).
+
+    Combines transport-level status, dispatch readiness, retryability,
+    and a recommended next action.
+
+    ```python,ignore
+    from dcc_mcp_core import InstanceStatus
+
+    status = InstanceStatus.from_entry(entry, stale=False)
+    print(status.status)               # ServiceStatus.AVAILABLE
+    print(status.dispatch_status)      # DispatchStatus.READY
+    print(status.retryable)            # True
+    print(status.recommended_next_action)  # "Instance is available for dispatch."
+    ```
+    """
+    @property
+    def status(self) -> ServiceStatus:
+        r"""
+        Transport-level connection state.
+        """
+    @property
+    def dispatch_status(self) -> DispatchStatus:
+        r"""
+        Application-level dispatch readiness.
+        """
+    @property
+    def retryable(self) -> builtins.bool:
+        r"""
+        Whether the current state is safe to retry.
+        """
+    @property
+    def recommended_next_action(self) -> builtins.str:
+        r"""
+        Human + machine-readable recommended next step.
+        """
 
 @typing.final
 class IpcChannelAdapter:
@@ -3949,6 +3990,40 @@ class DccErrorCode(enum.Enum):
     INVALID_INPUT = ...
     SCENE_ERROR = ...
     INTERNAL = ...
+
+    def __repr__(self) -> builtins.str: ...
+    def __str__(self) -> builtins.str: ...
+
+@typing.final
+class DispatchStatus(enum.Enum):
+    r"""
+    Python-facing enum for application-level dispatch readiness.
+
+    ADR 018 — replaces the free-form ``dispatch_status`` metadata string.
+
+    ```python,ignore
+    from dcc_mcp_core import DispatchStatus
+
+    status = DispatchStatus.READY
+    print(status)  # "READY"
+    ```
+    """
+    READY = ...
+    r"""
+    Instance has reported dispatch-ready.
+    """
+    PENDING = ...
+    r"""
+    Instance is alive but not yet dispatch-ready.
+    """
+    FAILED = ...
+    r"""
+    Instance reported a dispatch failure.
+    """
+    UNKNOWN = ...
+    r"""
+    Instance has not reported dispatch status.
+    """
 
     def __repr__(self) -> builtins.str: ...
     def __str__(self) -> builtins.str: ...

@@ -91,6 +91,7 @@ from bernstein.core.models import (
     AbortReason,
     AgentBackend,
     AgentSession,
+    IsolationDowngrade,
     IsolationMode,
     ModelConfig,
     Task,
@@ -242,6 +243,8 @@ def emit_process_reap_receipt(
             grace_seconds=receipt.grace_seconds,
             reason=reason,
             actor=actor,
+            already_gone=receipt.already_gone,
+            confirmed_dead=receipt.confirmed_dead,
         )
     except Exception as exc:  # audit must never block the reap path
         logger.warning(
@@ -671,13 +674,14 @@ def _render_auth_section(token_path: Path) -> str:
         '  -H "Content-Type: application/json" \\\n'
         '  -d \'{"title": "...", "role": "backend", "description": "..."}\'\n'
         "```\n"
-        "Example - marking a task complete (pass the whole line to `run_command` as ONE string):\n"
+        "Marking a task complete - use the first-class CLI, NOT curl. It reads\n"
+        "the token and the server port itself, so there is no auth header or\n"
+        "JSON body to hand-quote (pass this whole line to `run_command` as ONE string):\n"
         "```bash\n"
-        f"curl -sS -w '\\n%{{http_code}}' -X POST {base}/tasks/<TASK_ID>/complete \\\n"
-        f'  -H "Authorization: Bearer $(cat {absolute})" \\\n'
-        '  -H "Content-Type: application/json" \\\n'
-        '  -d \'{"result_summary": "Done"}\'\n'
+        'bernstein task complete <TASK_ID> --summary "Done"\n'
         "```\n"
+        "It exits non-zero and prints the reason if the server is unreachable or\n"
+        "rejects the token, so you never mis-read a failure as success.\n"
         "If the token file is unreadable for any reason, fall back to the\n"
         "`BERNSTEIN_AUTH_TOKEN` environment variable, which is exported into\n"
         "your shell:\n"
@@ -895,17 +899,16 @@ def _render_batch_prompt(task: Task) -> str:
     Returns:
         Prompt string starting with ``/batch`` that triggers the batch skill.
     """
-    base = _resolve_task_server_url()
     lines: list[str] = [f"/batch {task.description}"]
     if task.owned_files:
         lines.append(f"\nAffected paths: {', '.join(task.owned_files)}")
     lines.extend(
         (
             f"\nTask ID for completion reporting: {task.id}",
-            "\nAfter all batch units are complete, run:\n"
-            f"curl -sS -X POST {base}/tasks/{task.id}/complete "
-            f'-H "Content-Type: application/json" '
-            f'-d \'{{"result_summary": "Batch complete: {task.title}"}}\'',
+            "\nAfter all batch units are complete, mark the task done with the "
+            "first-class CLI (it reads the token and server port itself - no auth "
+            "header or JSON body to hand-quote):\n"
+            f'bernstein task complete {task.id} --summary "Batch complete: {task.title}"',
         )
     )
     return "\n".join(lines)
@@ -1007,6 +1010,22 @@ def _build_file_scope_context(tasks: list[Task]) -> str:
         return ""
 
 
+def _render_output_style(workdir: Path) -> str:
+    """Return the operator's active output-style prompt fragment, if any.
+
+    Styles live in ``.bernstein/output-styles/*.md``; ``output_style:`` in
+    ``bernstein.yaml`` selects which one is active.  Returns an empty string
+    when the workspace defines no styles, so the section is simply absent.
+    """
+    try:
+        from bernstein.core.config.output_styles import load_output_styles
+
+        return load_output_styles(workdir).get_prompt()
+    except Exception as exc:
+        logger.debug("Output style resolution failed: %s", exc)
+        return ""
+
+
 def _render_prompt(
     tasks: list[Task],
     templates_dir: Path,
@@ -1078,19 +1097,12 @@ def _render_prompt(
     project_md = workdir / ".sdd" / "project.md"
     project_context = _read_cached(project_md)
 
-    # Completion instructions with concrete curl commands and retry logic.
-    # The server may briefly restart during hot-reload (evolve mode), so
-    # agents must retry on transient connection errors (--retry-connrefused).
-    # Do NOT use --retry-all-errors: it retries 4xx (e.g. 409 Conflict),
-    # causing infinite loops when task state has changed.
-    completion_base = _resolve_task_server_url()
-    completion_cmds = "\n".join(
-        f"curl -s -w '\\n%{{http_code}}' --retry 3 --retry-delay 2 --retry-connrefused "
-        f"-X POST {completion_base}/tasks/{t.id}/complete "
-        f'-H "Content-Type: application/json" '
-        f'-d \'{{"result_summary": "Completed: {t.title}"}}\''
-        for t in tasks
-    )
+    # Completion instructions use the first-class CLI (#3015), NOT a hand-built
+    # curl. The command resolves the token and server port itself and retries a
+    # completion only on connection refused (evolve-mode hot-reload), never on a
+    # 4xx like 409 - so agents never nest a Bearer header and a JSON body inside
+    # one shell string just to mark a task done.
+    completion_cmds = "\n".join(f'bernstein task complete {t.id} --summary "Completed: {t.title}"' for t in tasks)
     instructions = (
         f"Complete these tasks. When ALL are done:\n\n"
         f"**Step 1: Commit your changes**\n"
@@ -1098,10 +1110,9 @@ def _render_prompt(
         f'git add -A && git commit -m "feat: <brief summary of what you did>"\n'
         f"```\n\n"
         f"**Step 2: Mark tasks complete on the task server**\n"
-        f"```bash\n{completion_cmds}\n```\n\n"
-        f"**Important:** Only retry on connection refused / network errors. "
-        f"If the server returns HTTP 409 or any other 4xx error, do NOT retry - "
-        f"the task state has changed and retrying will not help. Just exit.\n\n"
+        f"```bash\n{completion_cmds}\n```\n"
+        f"The command exits non-zero and prints why if the server is unreachable "
+        f"or rejects the token; do not treat a task as done unless it succeeds.\n\n"
         f"**Step 3: Exit**"
     )
 
@@ -1225,6 +1236,9 @@ def _render_prompt(
         logger.debug("Recommendation rendering failed: %s", exc)
     if project_context:
         sections.append(deduplicate_section(f"\n## Project context\n{project_context}\n"))
+    output_style_prompt = _render_output_style(workdir)
+    if output_style_prompt:
+        sections.append(deduplicate_section(f"\n## Output style\n{output_style_prompt}\n"))
     if token_budget > 0:
         if token_budget >= 1_000_000:
             budget_hint = f"~{token_budget // 1_000_000}M"
@@ -1507,6 +1521,11 @@ class AgentSpawner:
         self._runtime_bridge = runtime_bridge
         self._sandbox = sandbox if sandbox is not None and sandbox.enabled else None
         self._sandbox_managers: dict[str, ContainerManager] = {}
+        # Issue #3014: requested-vs-actual isolation downgrades recorded when a
+        # container isolation request cannot be honoured and the spawn falls
+        # back to a weaker boundary. The run summary drains this so the
+        # downgrade is visible in the run outcome, not just a log WARNING.
+        self._isolation_downgrades: list[IsolationDowngrade] = []
         # oai-002 phase 1: optional SandboxBackend-issued session.
         # Phase 2 (oai-002b) routes adapter exec through the session
         # via :mod:`spawner_sandbox_session` when the backend is not
@@ -3008,6 +3027,73 @@ class AgentSpawner:
                 verdict.advisory_id,
             )
 
+    def _preflight_adapter_admission(self, adapter_name: str) -> None:
+        """Refuse an adapter that cannot prove conformance admission (#2610).
+
+        Adapter resolution used to be name-based: a key in the registry
+        produced a live adapter regardless of whether its conformance verdict
+        was ``ok`` or ``skip``. A skip is inconclusive, not passing, so that
+        made "unverified" indistinguishable from "trusted" at the most
+        privileged hand-off in the system.
+
+        This re-derives the adapter's admission evidence -- the installed
+        binary version, the pinned contract's content hash, the golden
+        transcript replay, and the nightly canary attestation -- checks it
+        against the sealed admission receipt on disk, and seals a chain-
+        anchored receipt for the decision either way. A refusal receipt names
+        the reason, the capabilities withheld, and the remediation, so a
+        withheld adapter is an actionable finding rather than a silent gap.
+
+        The default policy is warn: the decision is recorded and the spawn
+        proceeds, so an operator sees exactly which adapters would be refused
+        before flipping ``BERNSTEIN_ADAPTER_ADMISSION_POLICY=enforce``. Under
+        enforce the refusal raises. ``mock`` and ``generic`` are always exempt
+        so offline work is never blocked.
+
+        Placed alongside the security-floor preflight and outside the inner
+        spawn ``try`` for the same reason: a refusal is a hard stop, not an
+        alternate-provider failover.
+
+        The gate is invoked directly rather than through
+        :func:`~bernstein.adapters.registry.get_adapter`. A spawner can be
+        constructed around an adapter instance that was injected rather than
+        resolved from the registry -- test doubles and third-party adapters
+        both do this -- and re-resolving its name here would raise "unknown
+        adapter" for a spawn that is otherwise legitimate. ``get_adapter``
+        keeps its own ``admission_gate`` parameter for callers that do resolve
+        by name; both routes reach the same gate.
+
+        Raises:
+            AdapterAdmissionRefusal: Under the enforce policy, when the
+                adapter cannot present a fresh, matching admission receipt.
+        """
+        from bernstein.adapters.admission import (
+            POLICY_OFF,
+            AdmissionGate,
+            policy_from_env,
+        )
+
+        policy = policy_from_env()
+        if policy == POLICY_OFF:
+            return
+
+        from bernstein.core.security.audit_chain import AuditChainStore
+
+        sdd = self._workdir / ".sdd"
+        try:
+            chain: object | None = AuditChainStore(sdd / "audit")
+        except Exception as exc:
+            logger.debug("adapter admission: chain ctor failed (%s); decision will not be anchored", exc)
+            chain = None
+
+        gate = AdmissionGate(
+            receipts_dir=sdd / "adapters" / "admission",
+            chain=chain,
+            policy=policy,
+            decisions_dir=sdd / "adapters" / "admission" / "decisions",
+        )
+        gate.admit(adapter_name)
+
     def _record_adapter_capability_selection(self, adapter_name: str, tasks: list[Task]) -> None:
         """Anchor the capability profile the routed adapter presents (#2663).
 
@@ -4112,6 +4198,13 @@ class AgentSpawner:
                     # falling through to alternate-provider failover.
                     self._preflight_adapter_security_floor(adapter_name)
 
+                    # Receipt-gated admission (#2610): re-derive the adapter's
+                    # conformance evidence and refuse one that cannot present
+                    # a fresh, matching admission receipt, sealing a chain-
+                    # anchored receipt for the decision either way. Same
+                    # placement rationale as the floor preflight above.
+                    self._preflight_adapter_admission(adapter_name)
+
                     # Capability-aware routing (#2663): anchor the profile hash
                     # the resolved adapter presents at dispatch so replay detects
                     # profile drift, and refuse with a signed receipt when the
@@ -4718,6 +4811,20 @@ class AgentSpawner:
                 exc,
             )
             session.isolation = IsolationMode.NONE.value
+            # Issue #3039: this legacy ``--container`` path dropped straight to
+            # IsolationMode.NONE behind a bare WARNING - the widest downgrade in
+            # the spawner and the only one outside the surfaced-and-audited path
+            # from #3014. Record it the same way so the run summary shows
+            # container -> none and the audit chain carries the reason. The
+            # ``--sandbox`` flag never reaches here (it builds a sandbox config,
+            # which suppresses the container manager), so this is always a
+            # non-explicit request and still degrades rather than refusing.
+            self._record_isolation_downgrade(
+                session_id=session_id,
+                requested=IsolationMode.CONTAINER.value,
+                actual=IsolationMode.NONE.value,
+                reason=str(exc),
+            )
             return adapter.spawn(
                 prompt=prompt,
                 workdir=spawn_cwd,
@@ -4753,6 +4860,12 @@ class AgentSpawner:
 
         Returns:
             Spawn result for the sandboxed process.
+
+        Raises:
+            SandboxSelectionError: When the runtime cannot start a sandbox
+                and the operator pinned a container runtime with
+                ``--sandbox`` (issue #3039). A non-explicit request keeps
+                the graceful, surfaced-and-audited downgrade instead.
         """
         assert self._sandbox is not None
 
@@ -4793,12 +4906,39 @@ class AgentSpawner:
                 log_path=log_path,
             )
         except ContainerError as exc:
+            explicit_runtime = self._explicit_container_runtime()
+            if explicit_runtime is not None:
+                # Issue #3039: this is the route an explicit ``--sandbox
+                # podman`` takes - podman has no first-party SandboxBackend,
+                # so it never reaches the refusal in
+                # _spawn_via_sandbox_session and used to degrade here with
+                # only a WARNING. An explicitly requested container boundary
+                # fails closed for every runtime, not just the one the old
+                # gate happened to name.
+                raise SandboxSelectionError(
+                    f"Explicit '--sandbox {explicit_runtime}' could not start a sandbox for "
+                    f"agent {session_id}: {exc} Refusing to fall back to worktree or host "
+                    f"execution because container isolation was explicitly requested. "
+                    f"Re-run without --sandbox to allow automatic fallback, or install "
+                    f"{explicit_runtime} and make sure it is running.",
+                    attempted=(explicit_runtime,),
+                ) from exc
             logger.warning(
                 "Sandbox runtime unavailable for %s, falling back to worktree isolation: %s",
                 session_id,
                 exc,
             )
-            session.isolation = IsolationMode.WORKTREE.value if self._use_worktrees else IsolationMode.NONE.value
+            actual = IsolationMode.WORKTREE.value if self._use_worktrees else IsolationMode.NONE.value
+            session.isolation = actual
+            # Issue #3014: the operator configured container isolation and got
+            # a weaker boundary. Record the downgrade so it lands in the run
+            # summary and the audit chain instead of only this WARNING.
+            self._record_isolation_downgrade(
+                session_id=session_id,
+                requested=IsolationMode.CONTAINER.value,
+                actual=actual,
+                reason=str(exc),
+            )
             return adapter.spawn(
                 prompt=prompt,
                 workdir=spawn_cwd,
@@ -4872,33 +5012,51 @@ class AgentSpawner:
             try:
                 sbx_session = self._provision_sandbox_session(session_id)
             except Exception as exc:
-                if self._sandbox_explicitly_requested():
+                explicit_runtime = self._explicit_container_runtime()
+                if explicit_runtime is not None:
                     # Issue #2809 (second fallback): the operator explicitly
-                    # requested container isolation with ``--sandbox docker``.
-                    # A live daemon whose ``bernstein-agent:latest`` image is
-                    # missing passes the wiring-time availability probe
-                    # (SDK import + daemon ping) but fails here when
-                    # containers.run raises ImageNotFound. Falling back to a
-                    # host spawn would silently drop the isolation boundary the
-                    # operator asked for, exactly the degradation #2809 reports,
-                    # so the failure is raised instead of swallowed. Auto-
-                    # selected sandboxes still degrade gracefully below.
+                    # requested container isolation with ``--sandbox
+                    # <runtime>``. A live daemon whose
+                    # ``bernstein-agent:latest`` image is missing passes the
+                    # wiring-time availability probe (SDK import + daemon
+                    # ping) but fails here when containers.run raises
+                    # ImageNotFound. Falling back to a host spawn would
+                    # silently drop the isolation boundary the operator asked
+                    # for, exactly the degradation #2809 reports, so the
+                    # failure is raised instead of swallowed. Auto-selected
+                    # sandboxes still degrade gracefully below.
+                    #
+                    # Issue #3039: the refusal names whichever runtime the
+                    # operator pinned. It used to fire only for docker, so a
+                    # podman request took the graceful path below and lost
+                    # the boundary without a signal.
                     image = self._sandbox_options.get("image") or "the configured image"
                     raise SandboxSelectionError(
-                        f"Explicit '--sandbox docker' could not provision a sandbox for "
+                        f"Explicit '--sandbox {explicit_runtime}' could not provision a sandbox for "
                         f"agent {session_id}: {exc}. Refusing to fall back to host "
                         f"execution because container isolation was explicitly requested "
-                        f"(is the '{image}' image built and available to the Docker "
+                        f"(is the '{image}' image built and available to the {explicit_runtime} "
                         f"daemon?). Re-run without --sandbox to allow automatic fallback, "
                         f"or build/pull the image and retry.",
-                        attempted=("docker",),
+                        attempted=(explicit_runtime,),
                     ) from exc
                 logger.warning(
                     "Sandbox session provisioning failed for %s, falling back to direct spawn: %s",
                     session_id,
                     exc,
                 )
-                session.isolation = IsolationMode.WORKTREE.value if self._use_worktrees else IsolationMode.NONE.value
+                actual = IsolationMode.WORKTREE.value if self._use_worktrees else IsolationMode.NONE.value
+                session.isolation = actual
+                # Issue #3014: a non-explicit container isolation request that
+                # could not be provisioned degrades gracefully (the explicit
+                # --sandbox path above refuses instead). Surface and audit the
+                # downgrade so it is visible in the run outcome.
+                self._record_isolation_downgrade(
+                    session_id=session_id,
+                    requested=IsolationMode.CONTAINER.value,
+                    actual=actual,
+                    reason=str(exc),
+                )
                 return adapter.spawn(
                     prompt=prompt,
                     workdir=spawn_cwd,
@@ -5023,19 +5181,44 @@ class AgentSpawner:
         return SpawnResult(pid=0, log_path=log_path)
 
     @staticmethod
-    def _sandbox_explicitly_requested() -> bool:
-        """Whether the operator pinned the sandbox runtime with ``--sandbox``.
+    def _explicit_container_runtime() -> str | None:
+        """The container runtime the operator pinned with ``--sandbox``, if any.
 
         ``BERNSTEIN_SANDBOX_RUNTIME`` is set only by the ``--sandbox`` CLI
         flag (see ``run_bootstrap`` and ``orchestrator``); an auto-selected
-        sandbox never sets it. Issue #2809: this is the intent signal that
-        turns a per-spawn provisioning failure from a graceful host fallback
-        into a loud :class:`SandboxSelectionError` for the explicit-docker
-        case, while leaving auto-selection's fallback intact.
+        sandbox never sets it.
+
+        Returns:
+            The named runtime when it is one of
+            :data:`~bernstein.core.sandbox.explicit_attach.CONTAINER_SANDBOX_RUNTIMES`,
+            otherwise ``None``. ``worktree`` and the cloud backends return
+            ``None``: they have no container boundary for a provisioning
+            failure to drop, so they keep their graceful fallback.
         """
         import os
 
-        return os.environ.get("BERNSTEIN_SANDBOX_RUNTIME", "").strip().lower() == "docker"
+        from bernstein.core.sandbox.explicit_attach import CONTAINER_SANDBOX_RUNTIMES
+
+        runtime = os.environ.get("BERNSTEIN_SANDBOX_RUNTIME", "").strip().lower()
+        return runtime if runtime in CONTAINER_SANDBOX_RUNTIMES else None
+
+    @staticmethod
+    def _sandbox_explicitly_requested() -> bool:
+        """Whether the operator pinned a container runtime with ``--sandbox``.
+
+        Issue #2809: this is the intent signal that turns a per-spawn
+        provisioning failure from a graceful host fallback into a loud
+        :class:`SandboxSelectionError`, while leaving auto-selection's
+        fallback intact.
+
+        Issue #3039: the signal keys on "the operator named a container
+        runtime", not on the literal string ``docker``. Hardcoding one
+        runtime meant ``--sandbox podman`` returned ``False`` here and so
+        failed *open* - an explicit isolation request silently degraded to
+        worktree or host execution - while the identical docker request
+        failed closed.
+        """
+        return AgentSpawner._explicit_container_runtime() is not None
 
     def _provision_sandbox_session(self, session_id: str) -> SandboxSession:
         """Provision a dedicated sandbox session for one spawn (issue #2162).
@@ -5226,6 +5409,64 @@ class AgentSpawner:
                 sbx_session.session_id,
                 port,
             )
+
+    @property
+    def isolation_downgrades(self) -> list[IsolationDowngrade]:
+        """Return the isolation downgrades recorded during this run.
+
+        Issue #3014: each entry is a spawn whose requested container isolation
+        could not be provided and fell back to a weaker boundary. The
+        orchestrator drains this into the end-of-run summary so an operator who
+        asked for stronger isolation sees, at run level, that they got a weaker
+        one.
+        """
+        return list(self._isolation_downgrades)
+
+    def _record_isolation_downgrade(
+        self,
+        *,
+        session_id: str,
+        requested: str,
+        actual: str,
+        reason: str,
+    ) -> None:
+        """Record - and audit - a requested-vs-actual isolation downgrade.
+
+        Issue #3014: a container isolation request that cannot be honoured used
+        to leave only a log WARNING, so an operator who configured ``sandbox:
+        docker`` silently ran on a weaker boundary. This makes the downgrade a
+        first-class, surfaced decision: it
+        is appended to :attr:`_isolation_downgrades` for the run summary and
+        written to the HMAC-chained audit log. Audit emission is best-effort and
+        never blocks the spawn (see :meth:`_emit_sandbox_audit`).
+
+        Args:
+            session_id: Agent session whose isolation was downgraded.
+            requested: Requested isolation mode (an :class:`IsolationMode`
+                value, e.g. ``"container"``).
+            actual: Isolation mode actually provided (e.g. ``"worktree"``).
+            reason: Human-readable cause (typically the runtime error).
+        """
+        self._isolation_downgrades.append(
+            IsolationDowngrade(
+                session_id=session_id,
+                requested=requested,
+                actual=actual,
+                reason=reason,
+            )
+        )
+        from bernstein.core.security.audit import SANDBOX_ISOLATION_DOWNGRADE
+
+        self._emit_sandbox_audit(
+            SANDBOX_ISOLATION_DOWNGRADE,
+            resource_id=session_id,
+            details={
+                "session_id": session_id,
+                "requested_isolation": requested,
+                "actual_isolation": actual,
+                "reason": reason,
+            },
+        )
 
     def _emit_sandbox_audit(self, event_type: str, *, resource_id: str, details: dict[str, Any]) -> None:
         """Append a sandbox lifecycle event to the HMAC-chained audit log.

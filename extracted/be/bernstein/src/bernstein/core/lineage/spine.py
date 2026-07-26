@@ -54,6 +54,16 @@ if sys.platform == "win32":
 else:
     import fcntl  # type: ignore[no-redef]
 
+from bernstein.core.lineage.artifact_uri import (
+    REASON_ABSOLUTE,
+    REASON_EMPTY,
+    REASON_MALFORMED_URI,
+    REASON_NON_CANONICAL,
+    REASON_TRAVERSAL,
+    REASON_UNKNOWN_SCHEME,
+    artifact_key_rejection_reason,
+)
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -69,6 +79,15 @@ SPINE_ENTRY_VERSION = 1
 #: artifact, so ``verify`` treats a chain built only of these as having no
 #: artifact provenance (issue #2789).
 JOURNAL_SEAL_STEP_PREFIX = "replay-journal-head:"
+
+#: ``step_id`` prefix of an artifact *attempt* record: a task declared an output
+#: and the run ended without it landing (see
+#: ``bernstein.core.lineage.artifact_attempt``). The entry is keyed by the
+#: declared artifact URI so the failure is queryable from the artifact side, but
+#: it records the absence of a production rather than one, so every consumer that
+#: answers "what was produced" filters it out the same way it filters the journal
+#: seal (issue #2559). The suffix is the declaring task id.
+ARTIFACT_ATTEMPT_STEP_PREFIX = "artifact-attempt:"
 
 _SPINE_LOG_NAME = "spine.jsonl"
 _SPINE_HEAD_NAME = "spine.head"
@@ -99,20 +118,43 @@ def _validate_run_id(run_id: str) -> str:
     return run_id
 
 
-def _reject_unsafe_artifact_path(artifact_path: str) -> None:
-    """Reject absolute paths and ``..`` traversal in ``artifact_path``.
+#: Boundary wording for each rejection code from
+#: :func:`bernstein.core.lineage.artifact_uri.artifact_key_rejection_reason`.
+#: The three legacy codes keep their pre-#2559 message verbatim so existing
+#: callers and tests that match on the error text are unaffected.
+_REJECTION_MESSAGES = {
+    REASON_EMPTY: "empty artifact_path",
+    REASON_ABSOLUTE: "absolute artifact_path not allowed",
+    REASON_TRAVERSAL: "path traversal in artifact_path",
+    REASON_UNKNOWN_SCHEME: "unknown artifact URI scheme in artifact_path",
+    REASON_MALFORMED_URI: "malformed artifact URI in artifact_path",
+    REASON_NON_CANONICAL: "non-canonical artifact URI in artifact_path",
+}
 
-    Lineage paths are repo-relative POSIX strings. An attacker
-    controlling the call site must not smuggle ``../`` outside the repo
-    or anchor an artifact at ``/etc/passwd``.
+
+def _reject_unsafe_artifact_path(artifact_path: str) -> None:
+    """Reject anything that is not a canonical artifact key (issue #2559).
+
+    A spine key is either a repo-relative POSIX path (the implicit scheme, and
+    what every historical entry carries) or a canonical artifact URI from the
+    closed scheme set in :mod:`bernstein.core.lineage.artifact_uri`.
+
+    Repo paths take the same branch as before: an attacker controlling the call
+    site still cannot smuggle ``../`` outside the repo or anchor an artifact at
+    ``/etc/passwd``, and every path accepted before is accepted now.
+
+    What changes is that a string carrying ``://`` is no longer treated as a
+    filename. It used to slip past all three checks and be stored verbatim, so
+    the chain could carry a key whose scheme meant nothing. It is now parsed,
+    and rejected unless its scheme is known and its spelling is canonical.
     """
-    if not artifact_path:
-        raise ValueError("empty artifact_path")
-    if artifact_path.startswith("/") or (len(artifact_path) > 2 and artifact_path[1:3] == ":\\"):
-        raise ValueError(f"absolute artifact_path not allowed: {artifact_path!r}")
-    segments = artifact_path.replace("\\", "/").split("/")
-    if any(seg == ".." for seg in segments):
-        raise ValueError(f"path traversal in artifact_path: {artifact_path!r}")
+    reason = artifact_key_rejection_reason(artifact_path)
+    if reason is None:
+        return
+    message = _REJECTION_MESSAGES[reason]
+    if reason == REASON_EMPTY:
+        raise ValueError(message)
+    raise ValueError(f"{message}: {artifact_path!r}")
 
 
 # ---------------------------------------------------------------------------
@@ -624,7 +666,10 @@ class LineageSpine:
             expected_hmac = _compute_hmac(self._hmac_key, body)
             if not _hmac.compare_digest(str(row["hmac"]), expected_hmac):
                 errors.append(f"line {line_no}: hmac mismatch")
-            if not str(row["step_id"]).startswith(JOURNAL_SEAL_STEP_PREFIX):
+            # An attempt record counts with the seal here: neither is a produced
+            # artifact, so a chain built only of them still carries no artifact
+            # provenance (issues #2789, #2559).
+            if not str(row["step_id"]).startswith((JOURNAL_SEAL_STEP_PREFIX, ARTIFACT_ATTEMPT_STEP_PREFIX)):
                 seal_only = False
             prev_hash = str(row["entry_hash"])
 
@@ -635,7 +680,42 @@ class LineageSpine:
         return SpineVerifyResult(status=SpineStatus.OK, count=count)
 
 
+def verify_entry(entry: SpineEntry, hmac_key: bytes) -> bool:
+    """Whether one materialised entry is intact on its own terms.
+
+    Recomputes the entry hash from the entry's own fields and the HMAC tag over
+    its body, so a single-byte mutation of any hashed field or of the tag
+    returns ``False``. This is the per-entry counterpart of
+    :meth:`LineageSpine.verify`, which additionally walks the ``prev_hash``
+    linkage across the whole chain.
+
+    Split out because a per-artifact projection needs a verdict for the exact
+    entries that carry one artifact key, not for the run's whole chain: a
+    tampered entry belonging to a different artifact must not turn every other
+    artifact in the same run red.
+
+    Returns:
+        ``True`` when both the entry hash and the HMAC tag recompute.
+    """
+    expected_hash = compute_entry_hash(
+        prev_hash=entry.prev_hash,
+        artifact_path=entry.artifact_path,
+        content_hash=entry.content_hash,
+        actor=entry.actor,
+        step_id=entry.step_id,
+        model=entry.model,
+        timestamp=entry.timestamp,
+        traceparent=entry.traceparent,
+        tracestate=entry.tracestate,
+        baggage=entry.baggage,
+    )
+    if not _hmac.compare_digest(entry.entry_hash, expected_hash):
+        return False
+    return _hmac.compare_digest(entry.hmac, _compute_hmac(hmac_key, entry.body()))
+
+
 __all__ = [
+    "ARTIFACT_ATTEMPT_STEP_PREFIX",
     "JOURNAL_SEAL_STEP_PREFIX",
     "SPINE_ENTRY_VERSION",
     "LineageSpine",
@@ -645,4 +725,5 @@ __all__ = [
     "SpineVerifyResult",
     "compute_entry_hash",
     "content_hash_of",
+    "verify_entry",
 ]

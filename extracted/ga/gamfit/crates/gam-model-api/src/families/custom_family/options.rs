@@ -429,9 +429,7 @@ pub fn block_offsets_from_specs(specs: &[ParameterBlockSpec]) -> Arc<[Range<usiz
 /// validate. `5.0` allows up to `e^5 ≈ 148`-fold smoothing-parameter change
 /// per accepted outer iter, which matches the typical quasi-Newton direction
 /// magnitude while still bounding pathological probes.
-pub const fn first_order_bfgs_loglambda_step_cap(has_outer_hessian: bool) -> Option<f64> {
-    if has_outer_hessian { None } else { Some(5.0) }
-}
+pub const FIRST_ORDER_BFGS_LOGLAMBDA_STEP_CAP: f64 = 5.0;
 
 pub fn exact_newton_outer_geometry_supports_second_order_solver<F: CustomFamily + ?Sized>(
     family: &F,
@@ -490,16 +488,6 @@ pub struct BlockwiseFitOptions {
     pub use_outer_hessian: bool,
     /// If false, skip post-fit joint covariance assembly.
     pub compute_covariance: bool,
-    /// When `compute_covariance` is true, treat a covariance FACTORIZATION
-    /// failure as a typed absence (the fit is minted, covariance is `None`,
-    /// the reason is logged) instead of failing the whole fit. A fit whose
-    /// coefficients converged and whose penalized Hessian is PSD is a VALID
-    /// fit; the covariance being unfactorizable makes *inference* unavailable,
-    /// not the *fit* wrong. Off by default so existing consumers keep the
-    /// covariance-is-required contract; the standard link-wiggle refit turns it
-    /// on so a degenerate warp Hessian does not convert a converged fit into a
-    /// hard error (#2299).
-    pub covariance_best_effort: bool,
     /// Shared cap engaged during seed screening so cost-only evaluations can
     /// stop inner iterations early without affecting the full solve.
     pub screening_max_inner_iterations: Option<Arc<AtomicUsize>>,
@@ -683,7 +671,6 @@ impl Default for BlockwiseFitOptions {
             // analytic dense or operator representation is implemented.
             use_outer_hessian: true,
             compute_covariance: false,
-            covariance_best_effort: false,
             screening_max_inner_iterations: None,
             outer_inner_max_iterations: None,
             seed_screening: false,
@@ -791,20 +778,6 @@ mod tests {
         assert_eq!(&offsets[0], &(0..2));
         assert_eq!(&offsets[1], &(2..2));
         assert_eq!(&offsets[2], &(2..3));
-    }
-
-    // -----------------------------------------------------------------------
-    // first_order_bfgs_loglambda_step_cap
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn step_cap_without_outer_hessian_is_some_five() {
-        assert_eq!(first_order_bfgs_loglambda_step_cap(false), Some(5.0));
-    }
-
-    #[test]
-    fn step_cap_with_outer_hessian_is_none() {
-        assert_eq!(first_order_bfgs_loglambda_step_cap(true), None);
     }
 
     #[test]

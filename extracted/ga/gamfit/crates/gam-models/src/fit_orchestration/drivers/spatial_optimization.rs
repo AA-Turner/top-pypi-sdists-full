@@ -1562,10 +1562,6 @@ struct SingleBlockLatentCoordDesignCache {
     analytic_penalties: Option<std::sync::Arc<gam_terms::AnalyticPenaltyRegistry>>,
     analytic_rho_count: usize,
     design_revision: u64,
-    // Stamp the outer-iter the cached cost/eval was computed under; analytic
-    // penalty weight schedules advance with this counter, so a stale stamp
-    // invalidates the memo even at unchanged θ.
-    last_outer_iter: Option<u64>,
 }
 
 impl SingleBlockLatentCoordDesignCache {
@@ -1627,7 +1623,6 @@ impl SingleBlockLatentCoordDesignCache {
             analytic_penalties: latent.analytic_penalties.clone(),
             analytic_rho_count,
             design_revision: 0,
-            last_outer_iter: None,
         })
     }
 
@@ -1941,7 +1936,6 @@ impl SingleBlockLatentCoordDesignCache {
         self.current_theta = Some(theta.clone());
         self.last_cost = None;
         self.last_eval = None;
-        self.last_outer_iter = None;
         if !latent_values_changed && self.current_design_cache_id != Some(lookup.entry_id) {
             self.design_revision = self.design_revision.wrapping_add(1);
         }
@@ -1954,8 +1948,6 @@ impl SingleBlockLatentCoordDesignCache {
             .current_theta
             .as_ref()
             .is_some_and(|cached| theta_values_match(cached, theta))
-            && self.last_outer_iter
-                == Some(gam_solve::estimate::reml::outer_eval::current_outer_iter())
         {
             self.last_eval
                 .as_ref()
@@ -1974,8 +1966,6 @@ impl SingleBlockLatentCoordDesignCache {
             .current_theta
             .as_ref()
             .is_some_and(|cached| theta_values_match(cached, theta))
-            && self.last_outer_iter
-                == Some(gam_solve::estimate::reml::outer_eval::current_outer_iter())
         {
             self.last_eval.clone()
         } else {
@@ -1986,12 +1976,10 @@ impl SingleBlockLatentCoordDesignCache {
     fn store_eval(&mut self, eval: (f64, Array1<f64>, gam_problem::HessianValue)) {
         self.last_cost = Some(eval.0);
         self.last_eval = Some(eval);
-        self.last_outer_iter = Some(gam_solve::estimate::reml::outer_eval::current_outer_iter());
     }
 
     fn store_cost(&mut self, cost: f64) {
         self.last_cost = Some(cost);
-        self.last_outer_iter = Some(gam_solve::estimate::reml::outer_eval::current_outer_iter());
     }
 
     fn reset(&mut self) {
@@ -2002,7 +1990,6 @@ impl SingleBlockLatentCoordDesignCache {
         self.latent_design_cache.invalidate();
         self.last_cost = None;
         self.last_eval = None;
-        self.last_outer_iter = None;
     }
 }
 
@@ -2841,6 +2828,17 @@ struct SpatialJointContext<'d> {
     /// O(outer steps), not O(trials). `None` until the first compute / when no
     /// frozen-W inputs are installed.
     frozen_glm_weight_memo: Option<(Array1<f64>, Array1<f64>)>,
+    /// #2481: value probes that returned `+∞` because the EVALUATOR failed at
+    /// that θ, not because the point is infeasible. `eval_cost` hands the line
+    /// search a bare `f64`, so a realizer or evaluation error is indistinguishable
+    /// from genuine infeasibility once it crosses that boundary — and the gradient
+    /// lane treats the same condition as fatal (`is_recoverable_trial_point_error`
+    /// keeps layout/topology invariants non-recoverable). Counting the two error
+    /// kinds separately is what lets a run's narrative say "the objective is a
+    /// wall here" apart from "N trials never evaluated". Split by kind because
+    /// they fail at different stages and a fix for one does not touch the other.
+    value_realization_failures: usize,
+    value_evaluation_failures: usize,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -3431,7 +3429,37 @@ impl<'d> SpatialJointContext<'d> {
             self.cache.store_cost_at(theta, f64::INFINITY);
             return f64::INFINITY;
         }
-        if !skip_value_realization && self.cache.ensure_theta(theta).is_err() {
+        // #2481: `ensure_theta` failing is a statement about the EVALUATOR at this
+        // θ, not about the point. Both are reported to the line search as `+∞`
+        // because that is the only value this signature can carry, but the reason
+        // is no longer destroyed: the first one warns with the θ that produced it,
+        // the rest are counted and reported in `[KAPPA-PHASE-SUMMARY]`. Note the
+        // asymmetry with the coverage refusal above, which memoizes its `∞` — a
+        // point outside the ψ window has that cost, whereas a failed realization
+        // may succeed on a later attempt and must not be cached as a value.
+        if !skip_value_realization && let Err(err) = self.cache.ensure_theta(theta) {
+            self.value_realization_failures += 1;
+            let (theta_norm, log_kappa_norm) = kphase_log_norms(theta, self.rho_dim);
+            if self.value_realization_failures == 1 {
+                log::warn!(
+                    "[STAGE] {} value-probe: design realization FAILED at theta_norm={:.4e} \
+                     log_kappa_norm={:.4e} ({err}); reporting +inf to the line search, which \
+                     cannot distinguish this from genuine infeasibility (#2481). Further \
+                     occurrences are counted, not logged.",
+                    self.kind.label(),
+                    theta_norm,
+                    log_kappa_norm,
+                );
+            } else {
+                log::debug!(
+                    "[STAGE] {} value-probe: design realization FAILED (occurrence {}) at \
+                     theta_norm={:.4e} log_kappa_norm={:.4e} ({err})",
+                    self.kind.label(),
+                    self.value_realization_failures,
+                    theta_norm,
+                    log_kappa_norm,
+                );
+            }
             return f64::INFINITY;
         }
         // #1033 penalty lane: stage the EXACT n-free `S(ψ)` for this probe's ψ so
@@ -3505,7 +3533,31 @@ impl<'d> SpatialJointContext<'d> {
                 self.cache.store_cost_at(theta, cost);
                 cost
             }
-            Err(_) => f64::INFINITY,
+            // #2481: same reasoning as the realization failure above — the
+            // evaluator refused, the line search can only be told `+∞`, so the
+            // reason is logged once and counted rather than discarded. Not
+            // memoized: this is a failure to produce the value, not the value.
+            Err(err) => {
+                self.value_evaluation_failures += 1;
+                let (theta_norm, log_kappa_norm) = kphase_log_norms(theta, self.rho_dim);
+                if self.value_evaluation_failures == 1 {
+                    log::warn!(
+                        "[STAGE] {cost_label} value-probe: cost evaluation FAILED at \
+                         theta_norm={theta_norm:.4e} log_kappa_norm={log_kappa_norm:.4e} \
+                         ({err}); reporting +inf to the line search, which cannot distinguish \
+                         this from genuine infeasibility (#2481). Further occurrences are \
+                         counted, not logged.",
+                    );
+                } else {
+                    log::debug!(
+                        "[STAGE] {cost_label} value-probe: cost evaluation FAILED (occurrence \
+                         {}) at theta_norm={theta_norm:.4e} log_kappa_norm={log_kappa_norm:.4e} \
+                         ({err})",
+                        self.value_evaluation_failures,
+                    );
+                }
+                f64::INFINITY
+            }
         }
     }
 
@@ -3595,15 +3647,10 @@ fn run_exact_joint_spatial_optimization(
     // Directional-coordinate dimension: psi-per-axis (anisotropic) or
     // kappa-per-term (isotropic). The numerics below are identical either way.
     let coord_dim = theta_dim - rho_dim;
-    // Capability is declared solely from derivative coverage, not from
-    // problem size. The unified REML evaluator now exposes exact matrix-free
-    // outer Hessian operators for the costly third/fourth-derivative
-    // contractions used by spatial ψ coordinates; its internal
-    // `(n, p, K)` work model chooses `HessianValue::Operator` at large-scale
-    // scale and the dense analytic matrix only below that crossover. Keeping
-    // `Derivative::Analytic` here preserves ARC / trust-region-CG second-order
-    // optimization for `n > 50_000` and `coord_dim > 30` instead of forcing the
-    // obsolete HybridEFS compatibility path.
+    // Capability records the exact Hessian even though #2359 reserves it for
+    // the terminal certificate. Search uses the analytic gradient and therefore
+    // stops at the third-order family channel; minting alone consumes the
+    // fourth-order spatial contractions.
     let analytic_outer_hessian_available =
         exact_joint_spatial_outer_hessian_available(&family, baseline_design);
     if !analytic_outer_hessian_available {
@@ -3611,23 +3658,10 @@ fn run_exact_joint_spatial_optimization(
             "[{label}] analytic outer Hessian unavailable for family/design; routing without second-order geometry (coord_dim={coord_dim})"
         );
     }
-    // Cost-aware second-order routing, mirroring the n-block path's
-    // work-budget policy: past the pair budget gradient-only quasi-Newton
-    // converges to the same optimum strictly cheaper per eval; below it,
-    // exact second-order keeps the ARC/TR-CG geometry. The budget's
-    // derivation is owned by `EXACT_JOINT_SECOND_ORDER_THETA_CAP`.
-    let mut prefer_gradient_only = theta_dim > EXACT_JOINT_SECOND_ORDER_THETA_CAP;
-    if prefer_gradient_only {
-        log::info!(
-            "[{label}] joint θ-dim {theta_dim} exceeds the exact pair-Hessian budget \
-             ({EXACT_JOINT_SECOND_ORDER_THETA_CAP}); routing gradient-only quasi-Newton"
-        );
-    }
     // #1033: set when the n-free Gaussian ψ-lane arms below. It must SUPPRESS the
-    // declared analytic outer Hessian (force `Unavailable`), not merely prefer
-    // gradient-only: the planner keeps the second-order ARC solver whenever an
-    // analytic Hessian is declared `Either`, even under `prefer_gradient_only`
-    // (see `plan_prefer_gradient_only_does_not_hide_analytic_hessian`). A
+    // declared analytic outer Hessian (force `Unavailable`), not merely reserve
+    // it for the #2359 terminal certificate: the n-free lane cannot even build
+    // that curvature slab without realizing O(n) state. A
     // `ValueGradientHessian` eval forces the O(n) design re-realization because
     // the outer Hessian curvature slab `B_j` is irreducibly n-dependent, so only
     // routing to a gradient-only solver (BFGS) keeps every in-window κ-trial on
@@ -3646,6 +3680,8 @@ fn run_exact_joint_spatial_optimization(
         data,
         rho_dim,
         kind,
+        value_realization_failures: 0,
+        value_evaluation_failures: 0,
         cache: SingleBlockExactJointDesignCache::new_with_policy(
             data,
             resolvedspec.clone(),
@@ -3751,14 +3787,22 @@ fn run_exact_joint_spatial_optimization(
             // ψ — the seed is the geometric-mean midpoint and is well clear of the
             // degenerate band), so the optimizer never starts outside its bounds.
             let psi_anchor = theta0[rho_dim];
-            psi_rank_stable_floor = evaluator
-                .psi_gram_rank_stable_floor(psi_anchor)
+            // #2448: the band search and the skip witness both decide on the
+            // anchor's range projector, so its Davis–Kahan bar is what says whether
+            // an edge that came back AT the anchor means "the band is that narrow"
+            // or "the instrument could not resolve the question and everything
+            // soundly refused". Read once and log it alongside the edge.
+            let psi_projector_bar = evaluator.psi_gram_projector_error_bar(psi_anchor);
+            // One bisection, not two: each `rank_stable_psi_floor` call is a
+            // 64-step search with an O(k³) eigendecomposition per step.
+            let psi_rank_stable_floor_raw = evaluator.psi_gram_rank_stable_floor(psi_anchor);
+            psi_rank_stable_floor = psi_rank_stable_floor_raw
                 .filter(|&f| f.is_finite() && f > psi_lo && f < psi_anchor);
             log::info!(
                 "[KAPPA-PHASE-FLOOR] n_rows={} psi_lo={psi_lo:.6} psi_anchor={psi_anchor:.6} \
-                 rank_stable_floor={:?} lifted={}",
+                 rank_stable_floor={psi_rank_stable_floor_raw:?} lifted={} \
+                 projector_error_bar={psi_projector_bar:?}",
                 data.nrows(),
-                evaluator.psi_gram_rank_stable_floor(psi_anchor),
                 psi_rank_stable_floor.is_some(),
             );
             if let Some(floor) = psi_rank_stable_floor {
@@ -3768,8 +3812,14 @@ fn run_exact_joint_spatial_optimization(
                      in-window trial on the n-free design-realization skip (#1033). The \
                      conditioned Gram is rank-deficient below ψ_floor (longest-length-scale \
                      radial mode collapses into the nullspace), where the skip is soundly \
-                     refused; that band drifts with n via the sample-std standardization, \
-                     so this n-free k-space floor is the n-independent fix."
+                     refused. The SEARCH is n-free — O(iters·k³) off the k-space tensor, \
+                     zero row access — but the EDGE IS NOT AN n-INVARIANT CONSTANT of the \
+                     design (#2408): the tensor is built from n rows, so its Gram is an \
+                     O(1/n) relative perturbation of the continuum Gram, which moves the \
+                     rank margin additively and displaces this root by \
+                     sup|δ margin| / inf|d margin/dψ|. A steep cliff pins it to machine \
+                     precision; a grazing crossing does not. Treat it as a clamp carrying \
+                     that transport bound, not as the n-independent answer."
                 );
             }
             // #1033: read the n-free rank-stable κ-CEILING (symmetric twin of the
@@ -3780,14 +3830,14 @@ fn run_exact_joint_spatial_optimization(
             // line search overshot to ψ≈1.0 (rank 11→10 at the high edge), tripping
             // two O(n) reset_surface calls; clamping the upper bound keeps the
             // search inside the band where the n-free skip stays sound.
-            psi_rank_stable_ceiling = evaluator
-                .psi_gram_rank_stable_ceiling(psi_anchor)
+            let psi_rank_stable_ceiling_raw = evaluator.psi_gram_rank_stable_ceiling(psi_anchor);
+            psi_rank_stable_ceiling = psi_rank_stable_ceiling_raw
                 .filter(|&c| c.is_finite() && c < psi_hi && c > psi_anchor);
             log::info!(
                 "[KAPPA-PHASE-CEIL] n_rows={} psi_hi={psi_hi:.6} psi_anchor={psi_anchor:.6} \
-                 rank_stable_ceiling={:?} clamped={}",
+                 rank_stable_ceiling={psi_rank_stable_ceiling_raw:?} clamped={} \
+                 projector_error_bar={psi_projector_bar:?}",
                 data.nrows(),
-                evaluator.psi_gram_rank_stable_ceiling(psi_anchor),
                 psi_rank_stable_ceiling.is_some(),
             );
             if let Some(ceiling) = psi_rank_stable_ceiling {
@@ -3799,6 +3849,31 @@ fn run_exact_joint_spatial_optimization(
                      radial mode goes collinear), where the skip is soundly refused; a \
                      line-search overshoot there trips the O(n) reset_surface lane (and the \
                      deficient pinning ψ it records resets the next in-band trial too)."
+                );
+            }
+            // #2448: when the anchor's range projector is not resolved to the
+            // subspace tolerance, `reduced_basis_equal` refuses EVERY non-trivial
+            // pair, so both band edges collapse onto the anchor and get filtered
+            // out above — indistinguishable in the log from "the band already
+            // covers the window". It is not the same thing at all: the n-free
+            // design-realization skip is dead for the whole fit and every trial
+            // falls to the O(n) exact path. Say so once, loudly, so the resulting
+            // wall-clock is attributable to the geometry rather than mysterious.
+            if let Some(bar) = psi_projector_bar
+                && bar > gam_solve::psi_gram_tensor::PSI_GRAM_SKIP_PROJ_ATOL
+            {
+                log::warn!(
+                    "[{label}] ψ-gram range projector at the anchor ψ={psi_anchor:.6} is \
+                     UNRESOLVED: Davis–Kahan bar {bar:.3e} exceeds the {:.3e} subspace \
+                     tolerance the design-revision skip gates on (#2448). The conditioned \
+                     Gram has no kept/dropped eigen-gap wide enough to decide subspace \
+                     identity at double precision here — its spectrum decays smoothly \
+                     through the rank cutoff instead of cliffing — so the skip witness \
+                     soundly refuses every trial and the n-free fast path will not fire \
+                     at all. Results are unaffected (the exact O(n) path runs); the cost \
+                     is the fast path. The lever is the geometry (basis size / centers) \
+                     or the rank cutoff, not this clamp.",
+                    gam_solve::psi_gram_tensor::PSI_GRAM_SKIP_PROJ_ATOL
                 );
             }
             let gradient_covers_full_window = evaluator.psi_gram_tensor_covers_gradient(psi_lo)
@@ -3873,7 +3948,6 @@ fn run_exact_joint_spatial_optimization(
             && cache.supports_nfree_gradient_only_routing()
         {
             suppress_outer_hessian_for_nfree = true;
-            prefer_gradient_only = true;
             log::info!(
                 "[{label}] n-free Gaussian ψ-lane armed; suppressing the analytic outer \
                  Hessian and routing gradient-only (BFGS) so the κ outer loop never realizes \
@@ -3888,12 +3962,9 @@ fn run_exact_joint_spatial_optimization(
         );
     }
 
-    let kphase_prime_order =
-        if analytic_outer_hessian_available && !suppress_outer_hessian_for_nfree {
-            OuterEvalOrder::ValueGradientHessian
-        } else {
-            OuterEvalOrder::ValueAndGradient
-        };
+    // Priming is part of search, so it must stop at the order-three gradient
+    // lane. The only `ValueGradientHessian` request belongs to the mint audit.
+    let kphase_prime_order = OuterEvalOrder::ValueAndGradient;
     let kphase_prime_start = std::time::Instant::now();
     drop(ctx.eval_full(theta0, kphase_prime_order, analytic_outer_hessian_available)?);
     log::info!(
@@ -3977,7 +4048,9 @@ fn run_exact_joint_spatial_optimization(
             // design-realization skip.
             DeclaredHessianForm::Unavailable
         },
-        prefer_gradient_only,
+        // The generic single-block derivative ladder reserves order-four work
+        // for the terminal mint certificate (#2359).
+        true,
         // Single-block spatial path: penalty-like rho + spatial psi.
         // EFS/HybridEFS remain eligible (the Wood-Fasiolo PSD structure holds
         // for single-block families with β-independent joint H_L) UNLESS the
@@ -3992,9 +4065,8 @@ fn run_exact_joint_spatial_optimization(
         seed_risk_profile_for_likelihood_family(&family),
         kappa_options.rel_tol.max(1e-6),
         kappa_options.max_outer_iter.max(1),
-        // Rho-axis BFGS cap: log-λ's natural step is ≈ 5 per
-        // `first_order_bfgs_loglambda_step_cap`. Anything tighter throttles
-        // BFGS on flat REML valleys.
+        // Rho-axis BFGS cap: log-λ's natural step is ≈ 5. Anything tighter
+        // throttles BFGS on flat REML valleys.
         Some(5.0),
         // Psi-axis BFGS cap: kappa / aniso-log-scale needs ~ln 2 per iter.
         Some(kappa_options.log_step.clamp(0.25, 1.0)),
@@ -4153,20 +4225,10 @@ fn run_exact_joint_spatial_optimization(
             eval_outer(
                 ctx,
                 theta,
-                // #1033: when the n-free Gaussian ψ-lane is armed we suppress the
-                // outer Hessian and route BFGS — so this default gradient eval MUST
-                // request `ValueAndGradient`, not `ValueGradientHessian`. A
-                // second-order order sets `allow_second_order`, which forces
-                // `ensure_theta` → the O(n) design re-realization (the Hessian slab
-                // is irreducibly n-dependent), DISARMING the design-revision fast
-                // path for every trial — exactly the O(n) κ-loop this lane exists to
-                // remove. Gating only the planner's solver (Unavailable→BFGS)
-                // without gating this eval-order left every trial second-order.
-                if analytic_outer_hessian_available && !suppress_outer_hessian_for_nfree {
-                    OuterEvalOrder::ValueGradientHessian
-                } else {
-                    OuterEvalOrder::ValueAndGradient
-                },
+                // The legacy gradient bridge is first-order by definition.
+                // Exact curvature is reachable only through the order-aware hook
+                // below, which terminal certification invokes once.
+                OuterEvalOrder::ValueAndGradient,
             )
         },
         |ctx: &mut &mut SpatialJointContext<'_>, theta: &Array1<f64>, order: OuterEvalOrder| {
@@ -4221,7 +4283,7 @@ fn run_exact_joint_spatial_optimization(
     let kphase_nfree_skip_touches = gam_solve::pirls::nfree_skip_row_element_touches()
         .saturating_sub(kphase_nfree_skip_touches_start);
     log::info!(
-        "[KAPPA-PHASE-SUMMARY] n_rows={} log_kappa_dim={} n_cost={} cost_total_s={:.4} n_eval={} eval_total_s={:.4} n_efs={} efs_total_s={:.4} slow_path_resets={} design_revision_delta={} nfree_skip_row_touches={} nfree_miss_shape={} nfree_miss_value={} nfree_miss_gradient={} nfree_miss_penalty={} nfree_miss_revision={} nfree_miss_second_order={} nfree_miss_other={} optim_total_s={:.4}",
+        "[KAPPA-PHASE-SUMMARY] n_rows={} log_kappa_dim={} n_cost={} cost_total_s={:.4} n_eval={} eval_total_s={:.4} n_efs={} efs_total_s={:.4} value_realization_failures={} value_evaluation_failures={} slow_path_resets={} design_revision_delta={} nfree_skip_row_touches={} nfree_miss_shape={} nfree_miss_value={} nfree_miss_gradient={} nfree_miss_penalty={} nfree_miss_revision={} nfree_miss_second_order={} nfree_miss_other={} optim_total_s={:.4}",
         data.nrows(),
         kphase_log_kappa_dim,
         kphase_cost_calls.get(),
@@ -4230,6 +4292,8 @@ fn run_exact_joint_spatial_optimization(
         kphase_eval_total_s.get(),
         kphase_efs_calls.get(),
         kphase_efs_total_s.get(),
+        ctx.value_realization_failures,
+        ctx.value_evaluation_failures,
         kphase_slow_resets,
         kphase_design_revision_delta,
         kphase_nfree_skip_touches,
@@ -4371,46 +4435,6 @@ struct SingleSmoothTermRealization {
     design_local: DesignMatrix,
     term: SmoothTerm,
     dropped_penaltyinfo: Vec<DroppedPenaltyBlockInfo>,
-}
-
-impl SingleSmoothTermRealization {
-    fn active_penalty_count(&self) -> usize {
-        self.term.active_penalties.len()
-    }
-}
-
-fn build_single_smooth_term_realization_with_policy(
-    data: ArrayView2<'_, f64>,
-    termspec: &SmoothTermSpec,
-    policy: &gam_runtime::resource::ResourcePolicy,
-) -> Result<SingleSmoothTermRealization, BasisError> {
-    let mut workspace = gam_terms::basis::BasisWorkspace::with_policy(policy.clone());
-    let raw =
-        build_smooth_design_withworkspace(data, std::slice::from_ref(termspec), &mut workspace)?;
-    finish_single_smooth_term_realization(raw)
-}
-
-fn finish_single_smooth_term_realization(
-    raw: RawSmoothDesign,
-) -> Result<SingleSmoothTermRealization, BasisError> {
-    let RawSmoothDesign {
-        term_designs,
-        dropped_penaltyinfo,
-        terms,
-        ..
-    } = raw;
-    let term = terms.into_iter().next().ok_or_else(|| {
-        BasisError::InvalidInput("single-term smooth build returned no term".to_string())
-    })?;
-    let design = term_designs.into_iter().next().ok_or_else(|| {
-        BasisError::InvalidInput("single-term smooth build returned no term design".to_string())
-    })?;
-
-    Ok(SingleSmoothTermRealization {
-        design_local: design,
-        term,
-        dropped_penaltyinfo,
-    })
 }
 
 /// Wrap a fresh `LocalSmoothTermBuild` (produced by `build_single_local_smooth_term`)
@@ -4926,43 +4950,49 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
         // blocks: unpenalized fixed/random effects own columns but emit no
         // penalty, and multi-penalty smooths own more than one coordinate.
         let (smooth_penalty_ranges, full_penalty_ranges) = emitted_smooth_penalty_ranges(&design)?;
+        // The emitted collection design is also the authority for the replay
+        // specification. In particular, global smooth identifiability can
+        // restrict a source term's coefficient chart and eliminate a dependent
+        // double-penalty ridge. Retaining the caller's raw pre-assembly spec
+        // would let the first κ proposal rebuild in that obsolete chart even
+        // though every cached range below describes the emitted chart (#2433).
+        //
+        // Freeze once at this ownership boundary so value rebuilds, analytic
+        // derivatives, and the geometry cache all start from the same centers,
+        // scaling, identifiability transform, and penalty topology.
+        let spec = freeze_term_collection_from_design(&spec, &design)
+            .map_err(|e| format!("failed to freeze incremental replay specification: {e}"))?;
         let fixed_blocks = build_term_collection_fixed_blocks(data, &spec)
             .map_err(|e| format!("failed to cache fixed term-collection blocks: {e}"))?;
 
-        let mut dropped_penaltyinfo_by_term = Vec::with_capacity(spec.smooth_terms.len());
-        for (term_idx, termspec) in spec.smooth_terms.iter().enumerate() {
-            let realization = build_single_smooth_term_realization_with_policy(
-                data, termspec, policy,
-            )
-            .map_err(|e| {
-                format!(
-                    "failed to build cached realization for smooth term '{}' (index {}): {e}",
-                    termspec.name, term_idx
-                )
-            })?;
-            let expected_cols = design.smooth.terms[term_idx].coeff_range.len();
-            if realization.design_local.ncols() != expected_cols {
-                return Err(SmoothError::dimension_mismatch(format!(
-                    "cached realization width mismatch for term '{}': cached_cols={}, design_cols={}",
-                    termspec.name,
-                    realization.design_local.ncols(),
-                    expected_cols
-                ))
-                .into());
-            }
-            if realization.active_penalty_count()
-                != design.smooth.terms[term_idx].active_penalties.len()
-            {
-                return Err(SmoothError::dimension_mismatch(format!(
-                    "cached realization penalty mismatch for term '{}': cached_penalties={}, design_penalties={}",
-                    termspec.name,
-                    realization.active_penalty_count(),
-                    design.smooth.terms[term_idx].active_penalties.len()
-                ))
-                .into());
-            }
-            dropped_penaltyinfo_by_term.push(realization.dropped_penaltyinfo);
-        }
+        // The collection design is the authority for the realized coefficient
+        // chart and penalty topology. Do not rebuild each source term in
+        // isolation here: that bypasses `apply_global_smooth_identifiability`,
+        // whose constrained-primary analysis can legitimately eliminate a
+        // double-penalty ridge. Re-deriving the term therefore manufactured a
+        // second, incompatible topology before the incremental realizer even
+        // received its first κ proposal (#2433).
+        //
+        // Carry the collection's certified dropped-penalty facts directly.
+        // Later κ rebuilds still pass through `replace_term_realization`, whose
+        // topology guard compares each new realization with the authoritative
+        // emitted penalty range and continues to hard-fail a genuine topology
+        // change.
+        let dropped_penaltyinfo_by_term: Vec<Vec<DroppedPenaltyBlockInfo>> = design
+            .smooth
+            .terms
+            .iter()
+            .map(|term| {
+                term.dropped_penalties
+                    .iter()
+                    .cloned()
+                    .map(|penalty| DroppedPenaltyBlockInfo {
+                        termname: Some(term.name.clone()),
+                        penalty,
+                    })
+                    .collect()
+            })
+            .collect();
 
         let geometry_slots = spec.smooth_terms.len();
         Ok(Self {
@@ -6163,15 +6193,6 @@ pub(crate) fn seed_risk_profile_for_likelihood_family(
     }
 }
 
-/// Joint-θ dimension above which the single-block exact-joint driver routes
-/// gradient-only (this doc owns the derivation; the routing site only
-/// compares against it). The exact outer Hessian builds θ(θ+1)/2 pairwise
-/// hyper operators, so per-eval cost grows quadratically in θ-dim —
-/// profiled: `TauTauPairHyperOperator::mul_vec` dominates wall-clock at
-/// spectral-mode measure-jet candidate counts (θ ≈ 9–11), while θ ≤ 8
-/// (classic Matérn κ/η fits) keeps cheap exact second-order geometry.
-const EXACT_JOINT_SECOND_ORDER_THETA_CAP: usize = 8;
-
 fn exact_joint_seed_config(
     risk_profile: gam_problem::SeedRiskProfile,
     auxiliary_dim: usize,
@@ -6334,7 +6355,11 @@ pub(crate) fn exact_joint_multistart_outer_problem(
     n_params: usize,
     gradient: gam_problem::Derivative,
     hessian: gam_problem::DeclaredHessianForm,
-    prefer_gradient_only: bool,
+    // Generic REML/LAML derivative ladders may reserve expensive order-four
+    // contractions for terminal certification. Callers with an explicit
+    // family-specific affordability policy can instead spend declared exact
+    // curvature during search.
+    reserve_analytic_hessian_for_certificate: bool,
     disable_fixed_point: bool,
     risk_profile: gam_problem::SeedRiskProfile,
     tolerance: f64,
@@ -6416,7 +6441,7 @@ pub(crate) fn exact_joint_multistart_outer_problem(
     let mut problem = gam_solve::rho_optimizer::OuterProblem::new(n_params)
         .with_gradient(gradient)
         .with_hessian(hessian)
-        .with_prefer_gradient_only(prefer_gradient_only)
+        .with_prefer_gradient_only(reserve_analytic_hessian_for_certificate)
         .with_disable_fixed_point(disable_fixed_point)
         // Re-enable the automatic fallback ladder for exact joint spatial
         // problems. It was previously `Disabled` to suppress a geo-bench
@@ -6462,18 +6487,13 @@ pub(crate) fn exact_joint_multistart_outer_problem(
         .with_rho_bound(rho_ceiling)
         .with_heuristic_lambdas(seed_heuristic);
     if let Some((n_obs, p_cols)) = profiled_objective_size {
-        // Calibrate to the n-scaled profiled criterion (see the param doc):
-        // n-aware objective scale → sane absolute gradient floor + correct ARC
-        // reduction-ratio reference, plus a warm ARC regularization / operator
-        // trust radius that prevents the first-step overshoot. These are the
-        // knobs the spatial exact-joint path was missing relative to the
-        // primary REML outer; without them the iso-κ length-scale fit stalls or
-        // diverges as |f| grows with n (#1053 / #1066 / #1069).
+        // Calibrate to the n-scaled profiled criterion (see the param doc).
+        // This is the scale the spatial exact-joint path was missing relative
+        // to the primary REML outer; without it the iso-κ length-scale fit
+        // stalls as |f| grows with n (#1053 / #1066 / #1069).
         problem = problem
             .with_objective_scale(Some(n_obs as f64))
-            .with_problem_size(n_obs, p_cols)
-            .with_arc_initial_regularization(Some(0.25))
-            .with_operator_initial_trust_radius(Some(4.0));
+            .with_problem_size(n_obs, p_cols);
     }
     if let Some(screening_cap) = screening_cap {
         problem = problem
@@ -6622,8 +6642,6 @@ where
                 | gam_problem::DeclaredHessianForm::Dense
                 | gam_problem::DeclaredHessianForm::Operator { .. }
         );
-    let prefer_gradient_only = !analytic_outer_hessian_available;
-
     let theta_dim = theta0.len();
     let psi_dim = theta_dim - rho_dim;
 
@@ -6838,7 +6856,10 @@ where
         } else {
             DeclaredHessianForm::Unavailable
         },
-        prefer_gradient_only,
+        // The family-specific work policy above has already withheld exact
+        // curvature when it is unaffordable. If it declared a Hessian here,
+        // spend that geometry in ARC instead of silently overriding the policy.
+        false,
         disable_fixed_point,
         seed_risk_profile,
         kappa_options.rel_tol.max(1e-6),
@@ -7061,15 +7082,9 @@ where
                 }
             },
             |ctx: &mut &mut NBlockExactJointState<'_, Mode>, theta: &Array1<f64>| {
-                eval_outer(
-                    ctx,
-                    theta,
-                    if analytic_outer_hessian_available {
-                        OuterEvalOrder::ValueGradientHessian
-                    } else {
-                        OuterEvalOrder::ValueAndGradient
-                    },
-                )
+                // Search's legacy derivative bridge is first-order. The
+                // order-aware hook below owns the terminal curvature request.
+                eval_outer(ctx, theta, OuterEvalOrder::ValueAndGradient)
             },
             |ctx: &mut &mut NBlockExactJointState<'_, Mode>,
              theta: &Array1<f64>,
@@ -7351,15 +7366,11 @@ fn try_exact_joint_latent_coord_optimization(
             )?;
             let latent = self.cache.latent().map_err(EstimationError::InvalidInput)?;
             if let Some(registry) = registry_for_key {
-                let mut registry = registry.as_ref().clone();
-                registry.apply_weight_schedules(
-                    gam_solve::estimate::reml::outer_eval::current_outer_iter() as usize,
-                );
                 add_analytic_penalty_objective_to_eval(
                     theta,
                     self.rho_dim,
                     latent.as_ref(),
-                    &registry,
+                    registry.as_ref(),
                     &mut eval,
                 )?;
             }
@@ -7398,16 +7409,12 @@ fn try_exact_joint_latent_coord_optimization(
                 Some(self.cache.design_revision()),
             )?;
             if let Some(registry) = registry_for_key {
-                let mut registry = registry.as_ref().clone();
-                registry.apply_weight_schedules(
-                    gam_solve::estimate::reml::outer_eval::current_outer_iter() as usize,
-                );
                 let latent = self.cache.latent().map_err(EstimationError::InvalidInput)?;
                 let contribution = analytic_penalty_objective_contribution(
                     theta,
                     self.rho_dim,
                     latent.as_ref(),
-                    &registry,
+                    registry.as_ref(),
                 )?;
                 efs.cost += contribution.cost;
                 if let (Some(psi_gradient), Some(psi_indices)) =
@@ -7470,15 +7477,11 @@ fn try_exact_joint_latent_coord_optimization(
                     };
                     let cost = cost + contribution.cost;
                     let cost = if let Some(registry) = registry_for_key {
-                        let mut registry = registry.as_ref().clone();
-                        registry.apply_weight_schedules(
-                            gam_solve::estimate::reml::outer_eval::current_outer_iter() as usize,
-                        );
                         match analytic_penalty_objective_contribution(
                             theta,
                             self.rho_dim,
                             latent.as_ref(),
-                            &registry,
+                            registry.as_ref(),
                         ) {
                             Ok(contribution) => cost + contribution.cost,
                             Err(_) => return f64::INFINITY,
@@ -7546,7 +7549,9 @@ fn try_exact_joint_latent_coord_optimization(
         theta0.len(),
         Derivative::Analytic,
         DeclaredHessianForm::Unavailable,
-        false,
+        // No Hessian is declared on this route, so this lifecycle preference is
+        // inert; retain the generic terminal-reservation policy explicitly.
+        true,
         false,
         seed_risk_profile_for_likelihood_family(&family),
         options.tol,

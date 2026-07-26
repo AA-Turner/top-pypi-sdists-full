@@ -4,24 +4,73 @@ use std::borrow::Cow;
 
 use serde_json::{Map, Value};
 
-use crate::{ext::cmp, types::JsonType};
+use crate::{cmp, types::JsonType};
 
-use super::{Json, JsonArrayAccess, JsonNode, JsonObjectAccess};
+use super::{Array, Json, JsonNumber, Node, NodeIdentity, Object};
 
 pub struct SerdeJson;
 
 impl Json for SerdeJson {
     type Node<'a> = &'a Value;
     type PreparedKey = String;
+    type StringBuffer = Value;
 
     fn prepare_key(key: &str) -> String {
         key.to_owned()
     }
+
+    fn with_string_node<T>(buffer: &mut Value, string: &str, f: impl FnOnce(&Value) -> T) -> T {
+        // Reuses the buffer's allocation across calls instead of building a fresh `String` per name.
+        if let Value::String(existing) = buffer {
+            existing.clear();
+            existing.push_str(string);
+        } else {
+            *buffer = Value::String(string.to_owned());
+        }
+        f(buffer)
+    }
 }
 
-impl<'a> JsonNode<'a, SerdeJson> for &'a Value {
+impl JsonNumber for serde_json::Number {
+    fn as_u64(&self) -> Option<u64> {
+        serde_json::Number::as_u64(self)
+    }
+    fn as_i64(&self) -> Option<i64> {
+        serde_json::Number::as_i64(self)
+    }
+    fn as_f64(&self) -> Option<f64> {
+        serde_json::Number::as_f64(self)
+    }
+    fn as_str(&self) -> Cow<'_, str> {
+        Cow::Owned(self.to_string())
+    }
+    fn to_number(&self) -> Cow<'_, serde_json::Number> {
+        Cow::Borrowed(self)
+    }
+}
+
+impl JsonNumber for &serde_json::Number {
+    fn as_u64(&self) -> Option<u64> {
+        serde_json::Number::as_u64(self)
+    }
+    fn as_i64(&self) -> Option<i64> {
+        serde_json::Number::as_i64(self)
+    }
+    fn as_f64(&self) -> Option<f64> {
+        serde_json::Number::as_f64(self)
+    }
+    fn as_str(&self) -> Cow<'_, str> {
+        Cow::Owned(self.to_string())
+    }
+    fn to_number(&self) -> Cow<'_, serde_json::Number> {
+        Cow::Borrowed(self)
+    }
+}
+
+impl<'a> Node<'a, SerdeJson> for &'a Value {
     type Object = &'a Map<String, Value>;
     type Array = &'a [Value];
+    type Number = &'a serde_json::Number;
 
     fn as_object(&self) -> Option<&'a Map<String, Value>> {
         match self {
@@ -44,9 +93,9 @@ impl<'a> JsonNode<'a, SerdeJson> for &'a Value {
         }
     }
 
-    fn as_number(&self) -> Option<Cow<'a, serde_json::Number>> {
+    fn as_number(&self) -> Option<&'a serde_json::Number> {
         match self {
-            Value::Number(number) => Some(Cow::Borrowed(number)),
+            Value::Number(number) => Some(number),
             _ => None,
         }
     }
@@ -89,8 +138,8 @@ impl<'a> JsonNode<'a, SerdeJson> for &'a Value {
         Cow::Borrowed(self)
     }
 
-    fn cache_key(&self) -> Option<usize> {
-        Some(std::ptr::from_ref::<Value>(self) as usize)
+    fn identity(&self) -> Option<NodeIdentity> {
+        Some(NodeIdentity::new(std::ptr::from_ref::<Value>(self) as usize))
     }
 }
 
@@ -104,7 +153,7 @@ impl<'a> Iterator for SerdeMembersIter<'a> {
     }
 }
 
-impl<'a> JsonObjectAccess<'a, SerdeJson> for &'a Map<String, Value> {
+impl<'a> Object<'a, SerdeJson> for &'a Map<String, Value> {
     type Node = &'a Value;
     type MemberName = &'a str;
     type MembersIter = SerdeMembersIter<'a>;
@@ -122,7 +171,7 @@ impl<'a> JsonObjectAccess<'a, SerdeJson> for &'a Map<String, Value> {
     }
 }
 
-impl<'a> JsonArrayAccess<'a, SerdeJson> for &'a [Value] {
+impl<'a> Array<'a, SerdeJson> for &'a [Value] {
     type Node = &'a Value;
     type ElementsIter = std::slice::Iter<'a, Value>;
 
@@ -135,7 +184,7 @@ impl<'a> JsonArrayAccess<'a, SerdeJson> for &'a [Value] {
     }
 
     fn is_unique(&self) -> bool {
-        crate::ext::unique::is_unique(self)
+        crate::unique::is_unique(self)
     }
 }
 
@@ -147,7 +196,7 @@ mod tests {
     use test_case::test_case;
 
     use super::{
-        super::{Json, JsonArrayAccess, JsonNode, JsonObjectAccess},
+        super::{Array, Json, JsonNumber, Node, Object},
         SerdeJson,
     };
     use crate::types::JsonType;
@@ -217,20 +266,20 @@ mod tests {
         assert!(matches!(node.to_value(), Cow::Borrowed(_)));
     }
 
-    fn assert_cache_key_stability<F: Json>(node: &F::Node<'_>) {
+    fn assert_identity_stability<F: Json>(node: &F::Node<'_>) {
         let child = node
             .as_object()
             .expect("object")
             .get(&F::prepare_key("a"))
             .expect("present");
-        assert_eq!(node.cache_key(), node.cache_key());
-        assert_ne!(node.cache_key(), child.cache_key());
+        assert_eq!(node.identity(), node.identity());
+        assert_ne!(node.identity(), child.identity());
     }
 
     #[test]
-    fn cache_key_is_stable_per_node() {
+    fn identity_is_stable_per_node() {
         let document = json!({"a": {"b": 1}});
-        assert_cache_key_stability::<SerdeJson>(&&document);
+        assert_identity_stability::<SerdeJson>(&&document);
     }
 
     fn assert_iteration_order<F: Json>(node: &F::Node<'_>) {

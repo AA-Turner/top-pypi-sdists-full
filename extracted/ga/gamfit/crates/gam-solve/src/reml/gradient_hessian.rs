@@ -5,32 +5,24 @@ use std::sync::RwLock;
 impl<'a> RemlState<'a> {
     pub(crate) const POLISH_NORM_RATIO: f64 = 0.25;
 
-    pub(crate) fn hypergradient_owner_key(&self) -> usize {
-        self as *const _ as usize
-    }
-
     pub(crate) fn ift_quality_step_cap(&self, default_cap: f64) -> f64 {
-        let states = ift_quality_states().lock().unwrap();
-        states
-            .get(&self.hypergradient_owner_key())
-            .and_then(|state| state.next_step_cap)
+        self.ift_quality_runtime
+            .lock()
+            .unwrap()
+            .next_step_cap
             .filter(|cap| cap.is_finite() && *cap > 0.0)
             .unwrap_or(default_cap)
     }
 
     pub(crate) fn take_ift_quality_flat_override(&self) -> bool {
-        let mut states = ift_quality_states().lock().unwrap();
-        let Some(state) = states.get_mut(&self.hypergradient_owner_key()) else {
-            return false;
-        };
+        let mut state = self.ift_quality_runtime.lock().unwrap();
         let fallback = state.fallback_next_flat;
         state.fallback_next_flat = false;
         fallback
     }
 
     pub(crate) fn clear_ift_quality_runtime_state(&self) {
-        let mut states = ift_quality_states().lock().unwrap();
-        states.remove(&self.hypergradient_owner_key());
+        *self.ift_quality_runtime.lock().unwrap() = Default::default();
     }
 
     pub(crate) fn record_ift_prediction_quality(
@@ -41,8 +33,7 @@ impl<'a> RemlState<'a> {
         if !quality.is_finite() || quality < 0.0 || !current_cap.is_finite() || current_cap <= 0.0 {
             return None;
         }
-        let mut states = ift_quality_states().lock().unwrap();
-        let state = states.entry(self.hypergradient_owner_key()).or_default();
+        let mut state = self.ift_quality_runtime.lock().unwrap();
         state.quality_history.push(quality);
         while state.quality_history.len() > IFT_QUALITY_HISTORY_CAP {
             state.quality_history.remove(0);
@@ -62,17 +53,14 @@ impl<'a> RemlState<'a> {
     }
 
     pub(crate) fn reset_hypergradient_budget_controller(&self) {
-        let mut budgets = hypergradient_budgets().lock().unwrap();
-        budgets.remove(&self.hypergradient_owner_key());
+        *self.hypergradient_runtime.lock().unwrap() = None;
     }
 
     pub(crate) fn hypergradient_trace_state(
         &self,
     ) -> Arc<Mutex<super::reml_outer_engine::StochasticTraceState>> {
-        let mut budgets = hypergradient_budgets().lock().unwrap();
-        let state = budgets
-            .entry(self.hypergradient_owner_key())
-            .or_insert_with(HyperGradientRuntimeState::new);
+        let mut slot = self.hypergradient_runtime.lock().unwrap();
+        let state = slot.get_or_insert_with(HyperGradientRuntimeState::new);
         Arc::clone(&state.trace_state)
     }
 
@@ -92,9 +80,11 @@ impl<'a> RemlState<'a> {
         &self,
         pirls_config: &pirls::PirlsConfig,
     ) -> Option<pirls::AdaptiveKktTolerance> {
-        let budgets = hypergradient_budgets().lock().unwrap();
-        let tau = budgets
-            .get(&self.hypergradient_owner_key())?
+        let tau = self
+            .hypergradient_runtime
+            .lock()
+            .unwrap()
+            .as_ref()?
             .adaptive_kkt_override?;
         if !tau.is_finite() || tau <= 0.0 {
             return None;
@@ -124,10 +114,8 @@ impl<'a> RemlState<'a> {
             return;
         }
 
-        let mut budgets = hypergradient_budgets().lock().unwrap();
-        let state = budgets
-            .entry(self.hypergradient_owner_key())
-            .or_insert_with(HyperGradientRuntimeState::new);
+        let mut slot = self.hypergradient_runtime.lock().unwrap();
+        let state = slot.get_or_insert_with(HyperGradientRuntimeState::new);
         let (e_linear, sigma_sq, k, current_floor) = {
             let trace = match state.trace_state.lock() {
                 Ok(guard) => guard,
@@ -2332,7 +2320,9 @@ impl<'a> RemlState<'a> {
     where
         A: super::atoms::ThetaCorrectionProjection + ?Sized,
     {
-        result.cost += correction.cost();
+        let correction_cost = correction.cost();
+        result.cost += correction_cost;
+        result.criterion_components.fixed_beta += correction_cost;
         if let Some(correction_hess) = correction.hessian() {
             crate::objective_base::add_rho_block_dense_to_hessian(
                 &mut result.hessian,
@@ -2923,30 +2913,16 @@ impl<'a> RemlState<'a> {
         self.clear_ift_mode_response_cache();
     }
 
-    pub(crate) fn ift_mode_response_cache_key(&self) -> usize {
-        self as *const Self as usize
-    }
-
     pub(crate) fn pending_joint_ift_theta(&self) -> Option<Array1<f64>> {
         latest_outer_theta_for_ift()
     }
 
     pub(crate) fn clear_joint_ift_mode_response_cache(&self) {
-        if let Some(caches) = IFT_JOINT_MODE_RESPONSE_CACHES.get() {
-            caches
-                .lock()
-                .unwrap()
-                .remove(&self.ift_mode_response_cache_key());
-        }
+        *self.ift_joint_mode_response_slot.lock().unwrap() = None;
     }
 
     pub(crate) fn clear_ift_mode_response_cache(&self) {
-        if let Some(caches) = IFT_MODE_RESPONSE_CACHES.get() {
-            caches
-                .lock()
-                .unwrap()
-                .remove(&self.ift_mode_response_cache_key());
-        }
+        *self.ift_mode_response_slot.lock().unwrap() = None;
     }
 
     pub(crate) fn mode_response_cols_for_warm_start(
@@ -3000,14 +2976,11 @@ impl<'a> RemlState<'a> {
         }
         let rho_col_count = rho_cols.as_ref().map_or(0, Array2::ncols);
         let ext_col_count = ext_cols.as_ref().map_or(0, Array2::ncols);
-        ift_mode_response_caches().lock().unwrap().insert(
-            self.ift_mode_response_cache_key(),
-            IftModeResponseRuntimeCache {
-                rho: rho.clone(),
-                rho_mode_response_cols: rho_cols.clone(),
-                ext_mode_response_cols: ext_cols.clone(),
-            },
-        );
+        *self.ift_mode_response_slot.lock().unwrap() = Some(IftModeResponseRuntimeCache {
+            rho: rho.clone(),
+            rho_mode_response_cols: rho_cols.clone(),
+            ext_mode_response_cols: ext_cols.clone(),
+        });
         log::debug!(
             "[IFT-CACHE] outcome=mode_response_store rho_cols={} ext_cols={} p={}",
             rho_col_count,
@@ -3075,16 +3048,14 @@ impl<'a> RemlState<'a> {
             self.clear_joint_ift_mode_response_cache();
             return;
         }
-        ift_joint_mode_response_caches().lock().unwrap().insert(
-            self.ift_mode_response_cache_key(),
-            IftJointModeResponseRuntimeCache {
+        *self.ift_joint_mode_response_slot.lock().unwrap() =
+            Some(IftJointModeResponseRuntimeCache {
                 theta,
                 rho_dim: rho.len(),
                 beta_original,
                 mode_response_cols,
                 active_constraints,
-            },
-        );
+            });
         log::debug!(
             "[IFT-CACHE] outcome=joint_mode_response_store rho_cols={} ext_cols={} p={}",
             rho_col_count,
@@ -3097,8 +3068,8 @@ impl<'a> RemlState<'a> {
         &self,
         cache: &super::IftWarmStartCache,
     ) -> Option<Array2<f64>> {
-        let guard = ift_mode_response_caches().lock().unwrap();
-        let cached = guard.get(&self.ift_mode_response_cache_key())?;
+        let guard = self.ift_mode_response_slot.lock().unwrap();
+        let cached = guard.as_ref()?;
         if cached.rho.len() != cache.rho.len()
             || cached
                 .rho
@@ -3129,8 +3100,8 @@ impl<'a> RemlState<'a> {
     ) -> Option<(Coefficients, IftPredictionOutcome)> {
         let theta = self.pending_joint_ift_theta()?;
         let cache = {
-            let guard = ift_joint_mode_response_caches().lock().unwrap();
-            guard.get(&self.ift_mode_response_cache_key())?.clone()
+            let guard = self.ift_joint_mode_response_slot.lock().unwrap();
+            guard.as_ref()?.clone()
         };
         if cache.active_constraints {
             log::info!(
@@ -3226,8 +3197,8 @@ impl<'a> RemlState<'a> {
         let Some(theta) = self.pending_joint_ift_theta() else {
             return false;
         };
-        let guard = ift_joint_mode_response_caches().lock().unwrap();
-        let Some(cache) = guard.get(&self.ift_mode_response_cache_key()) else {
+        let guard = self.ift_joint_mode_response_slot.lock().unwrap();
+        let Some(cache) = guard.as_ref() else {
             return false;
         };
         joint_ift_cache_matches_theta(cache, &theta, new_rho)
@@ -3729,6 +3700,18 @@ impl<'a> RemlState<'a> {
             .sum::<f64>()
     }
 
+    /// Number of observations that participate in the likelihood after
+    /// zero-weight rows are dropped.
+    ///
+    /// This is a fit-invariant sufficient statistic of `weights`. Carry it
+    /// across outer evaluations instead of re-deriving it from all rows while
+    /// assembling every trial objective.
+    pub(crate) fn positive_weight_observation_count(&self) -> usize {
+        *self
+            .positive_weight_observation_count_cache
+            .get_or_init(|| self.weights.iter().filter(|&&weight| weight > 0.0).count())
+    }
+
     /// Weighted null deviance `D₀ = Σ wᵢ(yᵢ − ȳ_w)²` of the Gaussian response,
     /// used as the *relative* reference scale for the smooth penalized-deviance
     /// floor (`InnerSolution::dp_floor_scale`, see
@@ -3838,15 +3821,20 @@ impl<'a> RemlState<'a> {
         if !reml_is_gaussian_identity(&self.config.likelihood) {
             return 0.0;
         }
-        let mut sum = 0.0;
-        let mut count = 0usize;
-        for &wi in self.weights.iter() {
-            if wi > 0.0 {
-                sum += wi.ln();
-                count += 1;
+        // The anchor is a sufficient statistic of immutable prior weights, not
+        // a property of rho. Carry it across outer evaluations instead of
+        // re-scanning every observation each time the rho prior is evaluated.
+        *self.rho_weight_anchor_cache.get_or_init(|| {
+            let mut sum = 0.0;
+            let mut count = 0usize;
+            for &wi in self.weights.iter() {
+                if wi > 0.0 {
+                    sum += wi.ln();
+                    count += 1;
+                }
             }
-        }
-        if count == 0 { 0.0 } else { sum / count as f64 }
+            if count == 0 { 0.0 } else { sum / count as f64 }
+        })
     }
 
     /// mgcv-style analytic initial smoothing-parameter seed (`initial.sp`).
@@ -4125,6 +4113,10 @@ impl<'a> RemlState<'a> {
             warm_start_rho: RwLock::new(None),
             prev_warm_start_beta: RwLock::new(None),
             prev_warm_start_rho: RwLock::new(None),
+            ift_quality_runtime: std::sync::Mutex::new(Default::default()),
+            hypergradient_runtime: std::sync::Mutex::new(None),
+            ift_mode_response_slot: std::sync::Mutex::new(None),
+            ift_joint_mode_response_slot: std::sync::Mutex::new(None),
             warm_start_enabled: AtomicBool::new(true),
             screening_max_inner_iterations: Arc::new(AtomicUsize::new(0)),
             outer_inner_cap: Arc::new(AtomicUsize::new(0)),
@@ -4142,6 +4134,7 @@ impl<'a> RemlState<'a> {
             kronecker_penalty_system: None,
             kronecker_factored: None,
             gaussian_fixed_cache: RwLock::new(None),
+            gaussian_cost_only_frozen_rows: RwLock::new(None),
             gaussian_psi_gram_deriv: RwLock::new(None),
             glm_psi_gram_deriv: RwLock::new(None),
             glm_first_step_gram: RwLock::new(None),
@@ -4155,6 +4148,8 @@ impl<'a> RemlState<'a> {
             persistent_warm_start_disk_enabled: AtomicBool::new(false),
             gaussian_weight_log_sum_half_cache: std::sync::OnceLock::new(),
             gaussian_dp_floor_scale_cache: std::sync::OnceLock::new(),
+            positive_weight_observation_count_cache: std::sync::OnceLock::new(),
+            rho_weight_anchor_cache: std::sync::OnceLock::new(),
         })
     }
 
@@ -4390,6 +4385,15 @@ impl<'a> RemlState<'a> {
         rho: &Array1<f64>,
         key: Option<Vec<u64>>,
     ) -> Result<EvalShared, EstimationError> {
+        self.prepare_eval_bundlewithkey_and_row_policy(rho, key, false)
+    }
+
+    fn prepare_eval_bundlewithkey_and_row_policy(
+        &self,
+        rho: &Array1<f64>,
+        key: Option<Vec<u64>>,
+        value_only_rows: bool,
+    ) -> Result<EvalShared, EstimationError> {
         // #1575 observability: count every genuine (cache-missing) full-n inner
         // P-IRLS solve. Callers funnel cache hits through `obtain_eval_bundle*`,
         // which only reaches here on a miss, so this counts exactly the
@@ -4402,7 +4406,11 @@ impl<'a> RemlState<'a> {
         let decision = self.select_reml_geometry(rho)?;
         match decision.geometry {
             RemlGeometry::SparseExactSpd => {
-                match self.prepare_sparse_eval_bundlewithkey(rho, key.clone()) {
+                match self.prepare_sparse_eval_bundlewithkey(
+                    rho,
+                    key.clone(),
+                    value_only_rows,
+                ) {
                     Ok(bundle) => {
                         log::info!(
                             "[reml-geometry] sparse_exact_spd reason={} p={} nnz_x={} nnz_h_est={} density_h_est={}",
@@ -4425,11 +4433,13 @@ impl<'a> RemlState<'a> {
                             "[reml-geometry] sparse_exact_spd failed ({}); falling back to dense spectral",
                             err
                         );
-                        self.prepare_dense_eval_bundlewithkey(rho, key)
+                        self.prepare_dense_eval_bundlewithkey(rho, key, value_only_rows)
                     }
                 }
             }
-            RemlGeometry::DenseSpectral => self.prepare_dense_eval_bundlewithkey(rho, key),
+            RemlGeometry::DenseSpectral => {
+                self.prepare_dense_eval_bundlewithkey(rho, key, value_only_rows)
+            }
         }
     }
 
@@ -4444,6 +4454,27 @@ impl<'a> RemlState<'a> {
         let bundle = self.prepare_eval_bundlewithkey(rho, key)?;
         self.cache_manager.store_eval_bundle(bundle.clone());
         Ok(bundle)
+    }
+
+    /// Obtain a bundle for a scalar value callback without forcing fixed-design
+    /// Gaussian row materialization.
+    ///
+    /// A previously cached full bundle is always reusable. On a cache miss,
+    /// only the eligible Gaussian-identity surface takes the compact row policy,
+    /// and that bundle is not stored in the full-result cache. Other families
+    /// retain the ordinary path and its cache behavior.
+    pub(crate) fn obtain_value_eval_bundle(
+        &self,
+        rho: &Array1<f64>,
+    ) -> Result<EvalShared, EstimationError> {
+        if !self.gaussian_fixed_cache_eligible() {
+            return self.obtain_eval_bundle(rho);
+        }
+        let key = self.rhokey_sanitized(rho);
+        if let Some(existing) = self.cache_manager.cached_eval_bundle(&key) {
+            return Ok(existing.clone());
+        }
+        self.prepare_eval_bundlewithkey_and_row_policy(rho, key, true)
     }
 
     /// Fixes audit answer C for design-moving ext-coords: when the realized
@@ -5106,6 +5137,41 @@ impl<'a> RemlState<'a> {
     pub(crate) fn enable_persistent_warm_start_disk(&self) {
         self.persistent_warm_start_disk_enabled
             .store(true, Ordering::Relaxed);
+    }
+
+    /// Run one canonical computation without consulting or mutating the
+    /// cross-process warm-start store, then restore the caller's disk policy.
+    ///
+    /// A design-moving outer search uses this immediately after
+    /// `reset_surface`: the previous design's estimated nuisance is stale, but
+    /// the persistent session is already attached. Merely clearing the
+    /// in-memory predictor is insufficient because the inner solve would reload
+    /// a cached beta mid-anchor. Temporarily disengaging the per-state disk
+    /// layer suppresses both the load and store paths while leaving the ordinary
+    /// in-memory anchor result available to seed the requested evaluation.
+    pub(crate) fn without_persistent_warm_start_disk<T>(&self, f: impl FnOnce() -> T) -> T {
+        struct PersistentDiskGuard<'a> {
+            enabled: &'a AtomicBool,
+            restore_enabled: bool,
+        }
+
+        impl Drop for PersistentDiskGuard<'_> {
+            fn drop(&mut self) {
+                self.enabled
+                    .store(self.restore_enabled, Ordering::Relaxed);
+            }
+        }
+
+        let restore_enabled = self
+            .persistent_warm_start_disk_enabled
+            .swap(false, Ordering::Relaxed);
+        let guard = PersistentDiskGuard {
+            enabled: &self.persistent_warm_start_disk_enabled,
+            restore_enabled,
+        };
+        let out = f();
+        drop(guard);
+        out
     }
 
     pub(crate) fn persistent_warm_start_cache_key(&self) -> Option<String> {
@@ -6226,6 +6292,43 @@ impl<'a> RemlState<'a> {
         Some(cache)
     }
 
+    /// Return the shared fixed-design Gaussian row placeholders used only by
+    /// value-only rho probes.
+    ///
+    /// The exact coefficient solve, score, deviance, Hessian, and REML value
+    /// still come from `GaussianFixedCache` sufficient statistics. The row
+    /// carrier exists solely because `PirlsResult` also transports
+    /// observation-scale diagnostics that the value evaluator never reads.
+    /// Building these invariant arrays once keeps distinct rho trials in
+    /// coefficient space without lying to full gradient or final-fit callers
+    /// about their fitted rows (#2435).
+    fn gaussian_cost_only_frozen_rows_if_eligible(
+        &self,
+    ) -> Result<Option<Arc<crate::pirls::GaussianFrozenRows>>, EstimationError> {
+        if !self.gaussian_fixed_cache_eligible() {
+            return Ok(None);
+        }
+        {
+            let guard = self.gaussian_cost_only_frozen_rows.read().unwrap();
+            if let Some(rows) = guard.as_ref() {
+                return Ok(Some(Arc::clone(rows)));
+            }
+        }
+        let mut guard = self.gaussian_cost_only_frozen_rows.write().unwrap();
+        if let Some(rows) = guard.as_ref() {
+            return Ok(Some(Arc::clone(rows)));
+        }
+        let rows = Arc::new(crate::pirls::GaussianFrozenRows::build(
+            self.offset.view(),
+            self.y,
+            self.weights,
+            &self.config.likelihood,
+            &self.runtime_inverse_link(),
+        )?);
+        *guard = Some(Arc::clone(&rows));
+        Ok(Some(rows))
+    }
+
     pub(crate) fn canonical_penalties(&self) -> &[gam_terms::construction::CanonicalPenalty] {
         &self.canonical_penalties
     }
@@ -6234,8 +6337,13 @@ impl<'a> RemlState<'a> {
         &self,
         rho: &Array1<f64>,
         key: Option<Vec<u64>>,
+        value_only_rows: bool,
     ) -> Result<EvalShared, EstimationError> {
-        let pirls_result = self.execute_pirls_if_needed(rho)?;
+        let pirls_result = if value_only_rows {
+            self.execute_pirls_for_value_only(rho)?
+        } else {
+            self.execute_pirls_if_needed(rho)?
+        };
         let (mut h_total, ridge_passport) = self.effectivehessian(pirls_result.as_ref())?;
         let mut firth_dense_operator: Option<Arc<FirthDenseOperator>> = None;
         if let Some(jeffreys_link) = reml_robust_jeffreys_link(&self.config) {
@@ -6333,8 +6441,13 @@ impl<'a> RemlState<'a> {
         &self,
         rho: &Array1<f64>,
         key: Option<Vec<u64>>,
+        value_only_rows: bool,
     ) -> Result<EvalShared, EstimationError> {
-        let pirls_result = self.execute_pirls_if_needed(rho)?;
+        let pirls_result = if value_only_rows {
+            self.execute_pirls_for_value_only(rho)?
+        } else {
+            self.execute_pirls_if_needed(rho)?
+        };
         if !matches!(
             pirls_result.coordinate_frame,
             pirls::PirlsCoordinateFrame::OriginalSparseNative
@@ -6479,6 +6592,28 @@ impl<'a> RemlState<'a> {
         &self,
         rho: &Array1<f64>,
     ) -> Result<Arc<PirlsResult>, EstimationError> {
+        self.execute_pirls_if_needed_with_row_policy(rho, false)
+    }
+
+    /// Gaussian value-only twin of [`Self::execute_pirls_if_needed`].
+    ///
+    /// On an eligible fixed-design Gaussian surface this asks P-IRLS to synthesize
+    /// observation fields from one shared invariant carrier while all numerical
+    /// fit quantities come from exact sufficient statistics. The compact result
+    /// is deliberately not inserted into the ordinary PIRLS cache: a later
+    /// gradient or accepted fit at the same rho must materialize exact rows.
+    fn execute_pirls_for_value_only(
+        &self,
+        rho: &Array1<f64>,
+    ) -> Result<Arc<PirlsResult>, EstimationError> {
+        self.execute_pirls_if_needed_with_row_policy(rho, true)
+    }
+
+    fn execute_pirls_if_needed_with_row_policy(
+        &self,
+        rho: &Array1<f64>,
+        value_only_rows: bool,
+    ) -> Result<Arc<PirlsResult>, EstimationError> {
         let use_cache = self
             .cache_manager
             .pirls_cache_enabled
@@ -6578,6 +6713,11 @@ impl<'a> RemlState<'a> {
             .as_ref()
             .map(|(c, _)| c.clone());
         let prediction_source = predicted_warm_start_with_source.as_ref().map(|(_, s)| *s);
+        let cost_only_gaussian_rows = if value_only_rows {
+            self.gaussian_cost_only_frozen_rows_if_eligible()?
+        } else {
+            None
+        };
         let pirls_result = {
             let warm_start_holder = self.warm_start_beta.read().unwrap();
             let fallback_warm_start_ref = if self.warm_start_enabled.load(Ordering::Relaxed) {
@@ -6911,6 +7051,7 @@ impl<'a> RemlState<'a> {
                 // shape / Beta precision) against the trial λ's residuals — that
                 // would couple the scale to λ and bias selection (#678, #769).
                 false,
+                cost_only_gaussian_rows.as_ref(),
             );
             let pirls_elapsed = pirls_start.elapsed();
             if let Ok((ref res, ref wm)) = result {
@@ -6955,13 +7096,9 @@ impl<'a> RemlState<'a> {
             .resolved_scale()
             .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
         // Capture the data-driven NB θ from the first converged non-screening
-        // λ-search solve and freeze it for the rest of the search (#1082). The
-        // first solve still estimated θ from the seed η (this branch only runs
-        // when no frozen value exists yet), so the captured value is the same
-        // ML θ the legacy estimated path would have used at the seed — we simply
-        // stop letting it drift on subsequent outer evaluations. Screening
-        // solves use a tiny inner budget and a partial mode, so they are never
-        // the source of the frozen value.
+        // λ-search solve and freeze it for the rest of the search (#1082).
+        // Screening solves use a tiny inner budget and a partial mode, so they
+        // are never the source of the frozen value.
         if !in_screening
             && matches!(
                 resolved_likelihood_scale,
@@ -6976,23 +7113,40 @@ impl<'a> RemlState<'a> {
                 pirls::PirlsStatus::Converged | pirls::PirlsStatus::StalledAtValidMinimum
             )
         {
-            let theta = resolved_likelihood_scale
-                .negative_binomial_theta()
-                .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
+            // #2363 (the #2361 class, negative-binomial instance): estimate θ
+            // at this solve's CONVERGED η. The resolved scale was profiled from
+            // the seed η before P-IRLS, so copying it here made the supposedly
+            // fixed outer surface depend on whether the seed came from a cold
+            // start or the persistent cache. This is one O(n) profile at an η
+            // the accepted solve already produced, performed once per search;
+            // θ remains frozen across every subsequent ρ evaluation.
+            let theta = pirls::estimate_negbin_theta_from_eta(
+                self.y,
+                &pirls_result.final_eta.to_owned(),
+                self.weights,
+            )?;
+            if !(theta.is_finite() && theta > 0.0) {
+                return Err(EstimationError::InvalidInput(format!(
+                    "converged-η negative-binomial freeze produced an invalid θ: {theta:?}"
+                )));
+            }
             self.frozen_negbin_theta
                 .store(theta.to_bits(), Ordering::Relaxed);
             log::info!(
-                "[OUTER] negative-binomial λ-search θ frozen at {theta:.6e} (#1082); \
-                 outer REML criterion now stationary in ρ"
+                "[OUTER] negative-binomial λ-search θ frozen at {theta:.6e} (#1082/#2363, \
+                 measured at the converged η); outer REML criterion now stationary in ρ"
             );
         }
         // Capture the data-driven Tweedie φ from the first converged non-screening
-        // λ-search solve and freeze it for the rest of the search (#1477), exactly
-        // as for the NB θ above. The first solve estimated φ from the seed η via
-        // the Pearson moment estimator (this branch only runs when no frozen value
-        // exists yet), so the captured value is the seed-fit φ the estimated path
-        // would have used — we simply stop letting it drift (and reward dispersion
-        // inflation) on subsequent outer evaluations.
+        // λ-search solve and freeze it for the rest of the search (#1477),
+        // exactly as for the NB θ above.
+        //
+        // In the standard fit that first solve is the canonical anchor
+        // `freeze_lambda_search_nuisance_at_canonical_anchor` (estimate/optimizer.rs)
+        // runs at ρ = 0 before any warm start is attached, so the value captured
+        // here is a function of (data, model spec) and not of whichever seed the
+        // persistent cache donated (#2363). This branch remains the general
+        // capture path for any caller that reaches the λ-search without it.
         if !in_screening
             && matches!(
                 resolved_likelihood_scale,
@@ -7047,6 +7201,8 @@ impl<'a> RemlState<'a> {
         // simply stop letting it drift with each warm-start η (which makes both
         // the curvature `H = k·XᵀX + λS` and the data-fit `k·½D` jump with ρ and
         // rails λ to the over-smoothed corner) on subsequent outer evaluations.
+        // Which solve is "first" is itself pinned by the canonical anchor at
+        // ρ = 0 (#2363, see the Tweedie block above).
         if !in_screening
             && matches!(
                 resolved_likelihood_scale,
@@ -7109,7 +7265,10 @@ impl<'a> RemlState<'a> {
         // re-solve, and NOT a per-λ re-profile: the value is captured once and
         // held fixed for every subsequent ρ, so `F(ρ) = REML(ρ, φ_frozen)` stays
         // stationary in ρ exactly as #2369 requires. The single final reported
-        // fit still Pearson-refreshes φ at its own converged η.
+        // fit still Pearson-refreshes φ at its own converged η. Which solve is
+        // "first" is pinned by the canonical anchor at ρ = 0 (#2363, see the
+        // Tweedie block above) — Beta is the family where letting the cache pick
+        // it moved the reported criterion by 16%.
         if !in_screening
             && matches!(
                 resolved_likelihood_scale,
@@ -7246,7 +7405,7 @@ impl<'a> RemlState<'a> {
                     }
                     self.store_persistent_warm_start();
                     // Cache only if key is valid (not NaN).
-                    if use_cache && let Some(key) = key_opt {
+                    if use_cache && !value_only_rows && let Some(key) = key_opt {
                         self.cache_manager
                             .pirls_cache
                             .write()
@@ -7314,11 +7473,46 @@ impl<'a> RemlState<'a> {
                         pirls_result.iteration
                     );
                 } else {
-                    log::error!(
-                        "P-IRLS could not certify a valid minimum: {kind} (gradient norm {:.3e}, iter {})",
-                        pirls_result.lastgradient_norm,
-                        pirls_result.iteration
+                    // Outside screening the only thing that can shorten the
+                    // inner budget below the configured one is the outer
+                    // schedule (`screening_iteration_cap_applies` requires
+                    // `in_screening`). `MaxIterationsReached` under that
+                    // throttle is the scheduled budget event the geometric
+                    // backoff immediately below exists to correct — NOT a
+                    // statement about the fit. Both the gradient norm and the
+                    // iteration index describe a solve that was stopped early
+                    // on purpose, so reporting them at ERROR under a
+                    // certification verdict makes a routine, self-correcting
+                    // event indistinguishable from a real refusal to any
+                    // consumer reading the log stream. `LmStepSearchExhausted`
+                    // is a genuine step-search failure at any budget and keeps
+                    // its ERROR.
+                    let configured_cap = self.config.max_iterations;
+                    let budget_was_throttled = inner_budget_exhaustion_was_scheduled(
+                        pirls_result.status,
+                        pirls_result.iteration,
+                        outer_cap,
+                        configured_cap,
                     );
+                    if budget_was_throttled {
+                        log::debug!(
+                            "P-IRLS stopped at the scheduled inner cap: {kind} (gradient norm \
+                             {:.3e}, iter {}; scheduled cap {} of configured budget {}). The \
+                             outer schedule grows the cap for the next outer iteration.",
+                            pirls_result.lastgradient_norm,
+                            pirls_result.iteration,
+                            outer_cap,
+                            configured_cap,
+                        );
+                    } else {
+                        log::error!(
+                            "P-IRLS could not certify a valid minimum: {kind} (gradient norm \
+                             {:.3e}, iter {} of configured budget {})",
+                            pirls_result.lastgradient_norm,
+                            pirls_result.iteration,
+                            configured_cap,
+                        );
+                    }
                     // Adaptive-cap feedback: cap was hit. Geometric
                     // backoff on the next outer iter's cap. Only write
                     // outside screening so the 3-iter screening cap
@@ -7520,6 +7714,7 @@ impl<'a> RemlState<'a> {
             // Sigma-point cubature eval: Gamma scale refinement stays OFF (only
             // the final reported fit refines — see #678).
             false,
+            None,
         );
         let pirls_elapsed = pirls_start.elapsed();
         if let Ok((ref res, ref wm)) = result {
@@ -7571,6 +7766,144 @@ impl<'a> RemlState<'a> {
 /// every multistart full solve run with `in_screening == false`, so the
 /// converged REML/LAML optimum and its bit-results are unchanged.
 pub(crate) const SEED_SCREENING_INNER_CONVERGENCE_TOLERANCE: f64 = 1e-3;
+
+/// Whether an inner P-IRLS budget exhaustion is the outer schedule's own
+/// truncation rather than evidence about the fit.
+///
+/// The outer→inner cap schedule (`first_order_inner_cap_schedule`) hands the
+/// inner solver as few as `INNER_CAP_FLOOR` iterations and grows the budget
+/// geometrically as soon as a solve reports it ran out — the truncation is the
+/// mechanism, and hitting it is the signal the backoff consumes. Outside seed
+/// screening that schedule is the only thing that can shorten the budget below
+/// the configured `max_iterations` (`screening_iteration_cap_applies` requires
+/// `in_screening`), so a `MaxIterationsReached` at or under the scheduled cap
+/// is routine and self-correcting: its gradient norm and iteration index
+/// describe a solve stopped early on purpose and say nothing about whether a
+/// minimum exists at this ρ.
+///
+/// `LmStepSearchExhausted` is a genuine step-search failure at any budget and
+/// is never scheduled.
+pub(crate) fn inner_budget_exhaustion_was_scheduled(
+    status: pirls::PirlsStatus,
+    iteration: usize,
+    scheduled_cap: usize,
+    configured_cap: usize,
+) -> bool {
+    matches!(status, pirls::PirlsStatus::MaxIterationsReached)
+        && scheduled_cap > 0
+        && scheduled_cap < configured_cap
+        && iteration <= scheduled_cap
+}
+
+#[cfg(test)]
+mod scheduled_inner_cap_exhaustion_tests {
+    use super::inner_budget_exhaustion_was_scheduled;
+    use crate::pirls::PirlsStatus;
+
+    /// The configured inner budget a production fit runs under. Any scheduled
+    /// cap is strictly below this; the point of the predicate is to tell the
+    /// two apart.
+    const CONFIGURED: usize = 200;
+
+    #[test]
+    fn schedules_cold_start_caps_are_recognized_as_scheduled() {
+        // `first_order_inner_cap_schedule` returns 3 / 5 / 10 for the first
+        // outer iterations before any inner-progress history exists. Each of
+        // those exhausting its budget is the schedule working, not a fit
+        // verdict.
+        for cap in [3usize, 5, 10] {
+            assert!(
+                inner_budget_exhaustion_was_scheduled(
+                    PirlsStatus::MaxIterationsReached,
+                    cap,
+                    cap,
+                    CONFIGURED,
+                ),
+                "cold-start scheduled cap {cap} must read as scheduled"
+            );
+        }
+    }
+
+    #[test]
+    fn the_widest_throttle_below_the_budget_is_still_scheduled() {
+        // The schedule can grow the cap geometrically; as long as it stays
+        // strictly under the configured budget the exhaustion is still the
+        // schedule's, not the fit's.
+        assert!(inner_budget_exhaustion_was_scheduled(
+            PirlsStatus::MaxIterationsReached,
+            CONFIGURED - 1,
+            CONFIGURED - 1,
+            CONFIGURED,
+        ));
+    }
+
+    #[test]
+    fn exhausting_the_configured_budget_is_not_scheduled() {
+        // `scheduled_cap == 0` is the "no cap from this source" sentinel: the
+        // solve ran on the caller's own budget and genuinely failed.
+        assert!(!inner_budget_exhaustion_was_scheduled(
+            PirlsStatus::MaxIterationsReached,
+            CONFIGURED,
+            0,
+            CONFIGURED,
+        ));
+    }
+
+    #[test]
+    fn a_schedule_that_does_not_shorten_the_budget_is_not_scheduled() {
+        // A scheduled cap at or above the configured budget throttles nothing,
+        // so exhaustion under it is exhaustion of the real budget.
+        assert!(!inner_budget_exhaustion_was_scheduled(
+            PirlsStatus::MaxIterationsReached,
+            CONFIGURED,
+            CONFIGURED,
+            CONFIGURED,
+        ));
+        assert!(!inner_budget_exhaustion_was_scheduled(
+            PirlsStatus::MaxIterationsReached,
+            CONFIGURED,
+            CONFIGURED + 8,
+            CONFIGURED,
+        ));
+    }
+
+    #[test]
+    fn lm_step_search_exhaustion_is_never_scheduled() {
+        // A collapsed LM step search is a real failure of the inner Newton at
+        // whatever budget it had; the schedule never produces it.
+        assert!(!inner_budget_exhaustion_was_scheduled(
+            PirlsStatus::LmStepSearchExhausted,
+            5,
+            5,
+            CONFIGURED,
+        ));
+    }
+
+    #[test]
+    fn converged_and_stalled_states_are_not_scheduled_exhaustion() {
+        for status in [PirlsStatus::Converged, PirlsStatus::StalledAtValidMinimum] {
+            assert!(!inner_budget_exhaustion_was_scheduled(
+                status,
+                5,
+                5,
+                CONFIGURED,
+            ));
+        }
+    }
+
+    #[test]
+    fn running_past_the_scheduled_cap_is_not_scheduled() {
+        // If the solve reached more iterations than the scheduled cap allowed,
+        // something other than the schedule bounded it, so the schedule cannot
+        // claim the exhaustion.
+        assert!(!inner_budget_exhaustion_was_scheduled(
+            PirlsStatus::MaxIterationsReached,
+            12,
+            5,
+            CONFIGURED,
+        ));
+    }
+}
 
 /// Default cap on |Δρ_k| beyond which the IFT linear predictor rejects.
 /// Δρ = log(λ_new / λ_old); 2.0 corresponds to a 7.4× change in λ along

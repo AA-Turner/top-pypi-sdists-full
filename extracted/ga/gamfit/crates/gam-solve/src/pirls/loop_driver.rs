@@ -16,6 +16,7 @@ use super::{
     ExportedLaplaceCurvature,
     FirthDiagnostics,
     GamWorkingModel,
+    GaussianFrozenRows,
     HessianCurvatureKind,
     // penalty types
     KroneckerQsTransform,
@@ -376,6 +377,7 @@ pub(super) fn assemble_pirls_result(
         solve_d2mu_deta2: final_d2mu_deta2.clone().into_shared(),
         solve_d3mu_deta3: final_d3mu_deta3.clone().into_shared(),
         solve_c_array: final_c.clone().into_shared(),
+        solve_c_nontrivial: final_c.iter().any(|&value| value != 0.0),
         solve_d_array: final_d.clone().into_shared(),
         derivatives_unsupported: false,
         status,
@@ -790,6 +792,7 @@ pub fn fit_model_for_fixed_rho<'a, X: Into<DesignMatrix> + Clone>(
         warm_start_beta,
         None,
         false,
+        None,
     )
 }
 
@@ -822,6 +825,13 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
     warm_start_beta: Option<&Coefficients>,
     adaptive_kkt_tolerance: Option<AdaptiveKktTolerance>,
     refine_dispersion_at_converged_eta: bool,
+    // Shared invariant row carrier for a Gaussian value-only evaluation.
+    //
+    // `Some` requests sufficient-statistic-only result synthesis: beta,
+    // deviance, gradient, and curvature remain exact, while observation-scale
+    // fields share these placeholders instead of recomputing `X beta`.
+    // Full gradients and accepted fits always pass `None`.
+    cost_only_gaussian_rows: Option<&Arc<GaussianFrozenRows>>,
 ) -> Result<(PirlsResult, WorkingModelPirlsResult), EstimationError> {
     let PirlsProblem {
         x,
@@ -920,7 +930,15 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
     let x_original: DesignMatrix = x.into();
     // Auto-detect sparse structure in dense designs so the sparse-native path
     // can engage for structurally sparse models that happen to be stored dense.
-    let x_original = {
+    //
+    // A Gaussian value-only probe already owns the exact dense coefficient
+    // statistics consumed by its solve. Scanning all design rows here to
+    // rediscover a sparse representation cannot change that solve and would
+    // make every rho candidate O(n) before the sufficient-statistic lane even
+    // begins (#2435).
+    let x_original = if cost_only_gaussian_rows.is_some() {
+        x_original
+    } else {
         let auto_sparse = x_original
             .as_dense()
             .and_then(|dense| sparse_from_denseview(dense.view()));
@@ -937,8 +955,29 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
             .map(|cp| cp.rank())
             .sum::<usize>()
     };
-    let mut workspace = PirlsWorkspace::new(x_original.nrows(), x_original.ncols(), ebrows, erows);
-    let solver_decision = if let Some((_, _, _)) = kronecker_runtime.as_ref() {
+    // A value-only Gaussian probe is already represented completely by its
+    // coefficient-space sufficient statistics and shared frozen row carrier.
+    // It exits through the exact zero-iteration branch below, so constructing
+    // the general workspace with n rows would allocate five length-n scratch
+    // vectors that no consumer reads (#2435). Full gradients, final fits, and
+    // every iterative family retain the ordinary observation workspace.
+    let mut workspace = if cost_only_gaussian_rows.is_some() {
+        PirlsWorkspace::coefficient_only(x_original.ncols())
+    } else {
+        PirlsWorkspace::new(x_original.nrows(), x_original.ncols(), ebrows, erows)
+    };
+    let solver_decision = if cost_only_gaussian_rows.is_some() {
+        SparsePirlsDecision {
+            path: PirlsLinearSolvePath::DenseTransformed,
+            reason: "gaussian_sufficient_statistics",
+            p: x_original.ncols(),
+            nnz_x: 0,
+            nnz_xtwx_symbolic: None,
+            nnz_s_lambda: 0,
+            nnz_h_est: None,
+            density_h_est: None,
+        }
+    } else if let Some((_, _, _)) = kronecker_runtime.as_ref() {
         SparsePirlsDecision {
             path: PirlsLinearSolvePath::DenseTransformed,
             reason: "kronecker_runtime",
@@ -1218,7 +1257,9 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
             .as_ref()
             .map(|transform| transform.apply(beta_transformed.as_ref()))
             .unwrap_or_else(|| beta_transformed.as_ref().clone());
-        let stale_row_cache = cache_for_solve.filter(|cache| cache.row_prediction_is_stale);
+        let sufficient_only_row_cache = cache_for_solve.filter(|cache| {
+            cache.row_prediction_is_stale || cost_only_gaussian_rows.is_some()
+        });
 
         // #1868: all length-`n` row arrays of the zero-iteration synthesis,
         // collected in one place so the skip path can SHARE them O(1) from the
@@ -1247,7 +1288,7 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
             max_abs_eta: f64,
         }
 
-        let rows = if let Some(cache) = stale_row_cache {
+        let rows = if let Some(cache) = sufficient_only_row_cache {
             // #1868 FAST PATH: the criterion, gradient and inner solve are served
             // entirely from k-space Gram sufficient statistics; the length-`n`
             // row arrays are trial-invariant placeholders (η≡μ≡offset, z≡y,
@@ -1279,7 +1320,7 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
             // statistic.
             let deviance = weighted_rss;
 
-            if let Some(bundle) = cache.frozen_rows.as_ref() {
+            if let Some(bundle) = cost_only_gaussian_rows.or(cache.frozen_rows.as_ref()) {
                 // Zero length-`n` touches: every row array is an O(1) Arc clone
                 // of the shared frozen bundle (η≡μ≡offset via `bundle.eta`).
                 ZeroIterRows {
@@ -1518,6 +1559,7 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
             solve_d2mu_deta2,
             solve_d3mu_deta3,
             solve_c_array,
+            solve_c_nontrivial: false,
             solve_d_array,
             derivatives_unsupported: false,
             status: PirlsStatus::Converged,
@@ -2132,6 +2174,17 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
             )?;
         }
     }
+
+    // Candidate screens and a rejected post-loop polish are speculative
+    // mutations of the model's row-space scratch. Reinstall the certified
+    // coefficient state's arrays only when that scratch no longer carries its
+    // exact coefficient identity; the common accepted-state path is an O(p)
+    // bit comparison and performs no extra curvature work.
+    working_model.refresh_working_arrays_for_state(
+        &working_summary.beta,
+        &working_summary.state,
+        "finalization",
+    )?;
 
     // Extract workspace before consuming working_model so we can reuse
     // the pre-allocated buffers in calculate_edfwithworkspace_with_penalty.

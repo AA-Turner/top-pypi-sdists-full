@@ -1,7 +1,6 @@
 use super::*;
 use gam_problem::dispersion_cov::se_from_covariance;
 
-pub(crate) const REML_SECOND_ORDER_RHO_CAP: usize = 4;
 /// Above this rho dimension, startup work must be linear in "one real solve",
 /// not "rank a seed lattice with capped PIRLS solves". The heuristic seed is
 /// deterministic and already centered on the current penalty scale; BFGS/ARC
@@ -382,6 +381,21 @@ impl ParametricColumnConditioning {
             return Ok(result);
         }
         result.beta = self.backtransform_beta(&result.beta);
+        if let Some(geometry) = result.geometry.as_mut() {
+            geometry.penalized_hessian = self
+                .backtransform_penalized_hessian(geometry.penalized_hessian.as_array())
+                .into();
+            if let Some(posterior) = geometry.constrained_posterior.as_mut() {
+                posterior.constraints.a =
+                    self.right_multiply_by_m_inv(&posterior.constraints.a);
+                posterior.mode = self.backtransform_beta(&posterior.mode);
+                posterior.unconstrained_center =
+                    self.backtransform_beta(&posterior.unconstrained_center);
+                if let Some(correction) = posterior.correction.as_mut() {
+                    correction.lift = self.left_multiply_by_m(&correction.lift);
+                }
+            }
+        }
         if let Some(inf) = result.inference.as_mut() {
             inf.penalized_hessian = self
                 .backtransform_penalized_hessian(inf.penalized_hessian.as_array())
@@ -474,7 +488,12 @@ pub(crate) fn map_hessian_to_original_basis(
     pirls: &crate::pirls::PirlsResult,
 ) -> Result<Array2<f64>, EstimationError> {
     let qs = &pirls.reparam_result.qs;
-    let h_t = &pirls.penalized_hessian_transformed;
+    // The accepted posterior precision is the stabilized Hessian. Any solver
+    // ridge is part of the minted objective and its RidgePassport; exporting
+    // the pre-stabilization matrix would make dense inference, factorized
+    // prediction, and constrained-posterior moments describe different local
+    // Gaussians.
+    let h_t = &pirls.stabilizedhessian_transformed;
     // H_original = Qs * H_transformed * Qs'
     // left_dot_matrix avoids densification for sparse Hessians.
     let tmp = h_t.left_dot_matrix(qs);

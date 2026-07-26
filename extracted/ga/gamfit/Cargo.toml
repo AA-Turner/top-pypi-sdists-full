@@ -1,8 +1,8 @@
 [package]
 name = "gam"
-version = "0.3.150"
+version = "0.3.151"
 edition = "2024"
-rust-version = "1.93"
+rust-version = "1.97"
 autobins = false
 description = "Generalized penalized likelihood engine"
 license = "AGPL-3.0-or-later"
@@ -64,7 +64,7 @@ faer = "0.24.0"
 # persistence (e.g. the #1034 spline-scan smoother state).
 serde_json = { version = "1.0.149", features = ["float_roundtrip"] }
 rand_distr = "0.6.0"
-statrs = "0.18.0"
+statrs = "0.19.0"
 libm = "0.2.16"
 # Foundation crates extracted under #1521. They publish to crates.io as part of
 # the gam family so the published `gam` crate's path dependencies resolve to real
@@ -72,29 +72,29 @@ libm = "0.2.16"
 # `gam` release only ever builds against the foundation crates it was compiled
 # against (their cross-crate surface is internal and unstable).
 gam-data = { path = "crates/gam-data", version = "=0.3.149" }
-gam-math = { path = "crates/gam-math", version = "=0.3.150" }
-gam-problem = { path = "crates/gam-problem", version = "=0.3.150" }
-gam-spec = { path = "crates/gam-spec", version = "=0.3.150" }
-gam-runtime = { path = "crates/gam-runtime", version = "=0.3.150" }
-gam-linalg = { path = "crates/gam-linalg", version = "=0.3.150" }
-gam-geometry = { path = "crates/gam-geometry", version = "=0.3.150" }
-gam-gpu = { path = "crates/gam-gpu", version = "=0.3.150" }
-gam-identifiability = { path = "crates/gam-identifiability", version = "=0.3.150" }
-gam-terms = { path = "crates/gam-terms", version = "=0.3.150" }
-gam-solve = { path = "crates/gam-solve", version = "=0.3.150" }
-gam-models = { path = "crates/gam-models", version = "=0.3.150" }
-gam-inference = { path = "crates/gam-inference", version = "=0.3.150" }
-gam-predict = { path = "crates/gam-predict", version = "=0.3.150" }
-gam-report = { path = "crates/gam-report", version = "=0.3.150" }
-gam-config = { path = "crates/gam-config", version = "=0.3.150" }
-gam-sae = { path = "crates/gam-sae", version = "=0.3.150" }
+gam-math = { path = "crates/gam-math", version = "=0.3.151" }
+gam-problem = { path = "crates/gam-problem", version = "=0.3.151" }
+gam-spec = { path = "crates/gam-spec", version = "=0.3.151" }
+gam-runtime = { path = "crates/gam-runtime", version = "=0.3.151" }
+gam-linalg = { path = "crates/gam-linalg", version = "=0.3.151" }
+gam-geometry = { path = "crates/gam-geometry", version = "=0.3.151" }
+gam-gpu = { path = "crates/gam-gpu", version = "=0.3.151" }
+gam-identifiability = { path = "crates/gam-identifiability", version = "=0.3.151" }
+gam-terms = { path = "crates/gam-terms", version = "=0.3.151" }
+gam-solve = { path = "crates/gam-solve", version = "=0.3.151" }
+gam-models = { path = "crates/gam-models", version = "=0.3.151" }
+gam-inference = { path = "crates/gam-inference", version = "=0.3.151" }
+gam-predict = { path = "crates/gam-predict", version = "=0.3.151" }
+gam-report = { path = "crates/gam-report", version = "=0.3.151" }
+gam-config = { path = "crates/gam-config", version = "=0.3.151" }
+gam-sae = { path = "crates/gam-sae", version = "=0.3.151" }
 # Shared test-support helpers (FD harness, fixtures, reference-tool + CLI
 # harnesses) carved into their own crate under #1521 so the workspace's other
 # crates can reach them cross-crate from their `#[cfg(test)]` modules. The root
 # `gam` crate re-exports it as `gam::test_support` (and re-exports its
 # `#[macro_export]` macros) so the integration tests under `tests/` keep their
 # `gam::test_support::*` / `gam::gam_binary!` paths unchanged.
-gam-test-support = { path = "crates/gam-test-support", version = "=0.3.150" }
+gam-test-support = { path = "crates/gam-test-support", version = "=0.3.151" }
 wide = "1.5"
 
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -102,7 +102,7 @@ cudarc.workspace = true
 
 [dependencies.general-mcmc]
 package = "general-mcmc"
-version = "0.9"
+version = "0.10"
 default-features = false
 
 [dev-dependencies]
@@ -277,6 +277,39 @@ opt-level = 2
 # dominated by incremental rebuilds of one or two crates, where the tradeoff
 # measures in favor of runtime (solver-bound tests are the per-test-cap risk).
 codegen-units = 1
+
+# …but that measurement was taken on gam_sae, and the bill for it is paid as
+# COMPILE time by every crate in the workspace — most of all by the largest one,
+# which is not the crate that asked for the setting (#2429). `gam-models` is
+# 304,847 lines across 225 files with 169 `#[cfg(test)]` modules, so collapsing
+# its LLVM phase into a single unit made its test target the only one in the
+# workspace that cannot be compiled inside CI's focused-proof budget at all:
+#
+#     issue 2422    112s      issue 2399 (gam-sae)   455s
+#     issue 2429    181s      issue 2280             545s
+#     gam-models   >1200s — times out, so that crate had NO fast validation path
+#
+# MEASURED 2026-07-25 on the 30-vCPU A10, paired interleaved A,B,A,B (contention
+# inflates both arms multiplicatively, so adjacent-pair ratios survive noise that
+# absolute wall-clock cannot), each arm timing BOTH the compile and the runtime of
+# the `marginal_slope` fits — the #979 survival family this profile's `opt-level`
+# note names as the per-test-cap risk:
+#
+#     cgu= 1   compile 1258s / 1120s     runtime 182s / 181s
+#     cgu=16   compile  319s /  300s     runtime 181s / 180s
+#
+# Compile 3.94x and 3.73x faster, consistent across a 2.5x swing in box load.
+# Runtime IDENTICAL to 1.1% with no ordering by codegen-units, and all four arms
+# produced the same 190 passed / 4 failed with the same named failures — so the
+# outlined-`index_mut` effect that motivates `codegen-units = 1` is simply not hot
+# in this crate. That is consistent with the pattern's density: gam-sae carries
+# 16.50 `[[i, j]]` sites per KLOC, gam-models only 7.58.
+#
+# So restore parallel codegen HERE and nowhere else. The setting stays at 1 for
+# every crate whose runtime was actually measured to need it; this override is
+# scoped to the one crate where the cost was measured and the benefit was not.
+[profile.test.package.gam-models]
+codegen-units = 16
 
 # Dev/`maturin develop` profile — same rationale as [profile.test]. Cargo's
 # default dev profile emits full DWARF (`debug = 2`), which is what lets

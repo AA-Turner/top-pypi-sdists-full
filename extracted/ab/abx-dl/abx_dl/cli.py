@@ -9,27 +9,29 @@ import re
 import signal
 import sys
 import time
+import tomllib
 from collections import defaultdict, deque
+from collections.abc import Callable, Mapping
 from contextlib import nullcontext
-from dataclasses import dataclass, field as dataclass_field
-from datetime import datetime
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
+from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TypeVar
-from collections.abc import Callable, Mapping
 
 import rich_click as click
+from abxpkg.binary_service import BinaryEvent, BinaryRequestEvent, BinaryService
+from pydantic import ValidationError
+from rich import box
 from rich.console import Console, Group
 from rich.highlighter import ReprHighlighter
 from rich.live import Live
 from rich.markup import escape
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TaskID
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TaskProgressColumn, TextColumn
 from rich.table import Table
 from rich.text import Text
-from rich import box
-from pydantic import ValidationError
-from abxpkg.binary_service import BinaryEvent, BinaryRequestEvent, BinaryService
 
 from .config import (
     CONFIG_FILE,
@@ -52,9 +54,19 @@ from .events import (
     ProcessStdoutEvent,
 )
 from .limits import parse_filesize_to_bytes
+from .models import (
+    LIBRARY_VERSION,
+    ArchiveResult,
+    Hook,
+    Plugin,
+    PluginEnv,
+    Process,
+    discover_plugins,
+    filter_plugins,
+    now_iso,
+    plugins_matching_output,
+)
 from .orchestrator import compute_install_phase_timeout, compute_phase_timeout, create_bus, download, get_install_plugins, install_plugins
-from .models import ArchiveResult, LIBRARY_VERSION, PluginEnv, Process, now_iso
-from .models import Hook, Plugin, discover_plugins, filter_plugins, plugins_matching_output
 from .output_files import OutputFile
 
 console = Console()
@@ -69,6 +81,25 @@ REPR_HIGHLIGHTER = ReprHighlighter()
 HOME_PREFIX = str(Path.home())
 
 
+def _source_checkout_root() -> Path | None:
+    root = Path(__file__).resolve().parent.parent
+    git_marker = root / ".git"
+    if git_marker.is_file():
+        try:
+            is_checkout = git_marker.read_text().strip().startswith("gitdir:")
+        except OSError:
+            return None
+    else:
+        is_checkout = (git_marker / "config").is_file()
+    if not is_checkout:
+        return None
+    try:
+        project_name = tomllib.loads((root / "pyproject.toml").read_text())["project"]["name"]
+    except (OSError, KeyError, tomllib.TOMLDecodeError):
+        return None
+    return root if project_name == "abx-dl" else None
+
+
 def _get_commit_hash() -> str | None:
     for env_var in ("ABX_DL_COMMIT_HASH", "COMMIT_HASH"):
         env_commit_hash = os.environ.get(env_var, "").strip()
@@ -77,17 +108,19 @@ def _get_commit_hash() -> str | None:
 
     def read_git_file(git_dir: Path, ref: str) -> str | None:
         try:
-            return git_dir.joinpath(ref).read_text().strip()
-        except Exception:
-            pass
+            loose_ref_value = git_dir.joinpath(ref).read_text().strip()
+        except OSError:
+            loose_ref_value = ""
+        if loose_ref_value:
+            return loose_ref_value
 
         try:
             packed_refs = git_dir.joinpath("packed-refs").read_text().splitlines()
-        except Exception:
+        except OSError:
             return None
 
         for line in packed_refs:
-            if line.startswith("#") or line.startswith("^") or not line.strip():
+            if line.startswith(("#", "^")) or not line.strip():
                 continue
             commit_hash, packed_ref = line.split(" ", 1)
             if packed_ref == ref:
@@ -108,8 +141,8 @@ def _get_commit_hash() -> str | None:
         commit_hash = read_git_file(git_dir, ref)
         if commit_hash:
             return commit_hash
-    except Exception:
-        pass
+    except OSError:
+        return None
 
     return None
 
@@ -142,8 +175,8 @@ def _binary_display_path(path: object) -> str:
         home = str(Path.home())
         if text.startswith(home):
             return "~" + text.removeprefix(home)
-    except Exception:
-        pass
+    except OSError:
+        return text
     return text
 
 
@@ -203,8 +236,8 @@ def _plugin_binary_row_dedupe_key(row: dict[str, str]) -> tuple[str, str, str, s
         path = str(Path.home() / path.removeprefix("~/"))
     try:
         path = Path(path).expanduser().resolve(strict=False).as_posix()
-    except Exception:
-        pass
+    except OSError:
+        path = str(path)
     return (row["plugin"], row["state"], row["binary"], row["version"], row["provider"], path)
 
 
@@ -352,7 +385,7 @@ def _record_status_style(record: VisibleRecord) -> str:
     status = _record_status(record)
     if status == "started" and _record_is_background(record):
         return BG_STARTED_STYLE
-    return STATUS_STYLES[status] if status in STATUS_STYLES else "white"
+    return STATUS_STYLES.get(status, "white")
 
 
 def _record_status_label(record: VisibleRecord) -> str:
@@ -583,9 +616,7 @@ def _record_status(record: VisibleRecord) -> str:
 
 
 def _record_output_size(record: VisibleRecord) -> int:
-    if isinstance(record, ArchiveResult):
-        output_files = record.output_files
-    elif isinstance(record, _LiveProcessRecord):
+    if isinstance(record, (ArchiveResult, _LiveProcessRecord)):
         output_files = record.output_files
     else:
         output_files = []
@@ -660,7 +691,7 @@ def _normalize_archive_result_output(text: str) -> str:
         return _abbreviate_home_paths(text)
     try:
         return _abbreviate_home_paths(os.path.relpath(str(path), Path.cwd()))
-    except Exception:
+    except (OSError, ValueError):
         return _abbreviate_home_paths(text)
 
 
@@ -747,9 +778,14 @@ def _format_elapsed(start_ts: str | None, end_ts: str | None, timeout_seconds: i
     if end_ts:
         end = _parse_iso_datetime(end_ts)
         if end is None:
-            end = now or datetime.now()
+            end = now or datetime.now(start.tzinfo or UTC)
     else:
-        end = now or datetime.now()
+        end = now or datetime.now(start.tzinfo or UTC)
+
+    if start.tzinfo is None and end.tzinfo is not None:
+        start = start.replace(tzinfo=end.tzinfo)
+    elif start.tzinfo is not None and end.tzinfo is None:
+        end = end.replace(tzinfo=start.tzinfo)
 
     elapsed = max(0.0, (end - start).total_seconds())
     return f"{elapsed:.1f}s/{timeout_seconds}s"
@@ -833,7 +869,7 @@ class _LiveStatusView:
                 _build_archive_results_table(
                     list(self.results.values()),
                     timeout_seconds=self.timeout_seconds,
-                    now=datetime.now(),
+                    now=datetime.now(UTC),
                     stream=True,
                     max_width=options.max_width,
                 ),
@@ -1015,7 +1051,7 @@ class LiveBusUI:
             hook_name=event.hook_name,
             timeout=event.timeout,
             phase=_phase_label_for_event(self.bus, event),
-            started_at=event.start_ts or datetime.now().isoformat(),
+            started_at=event.start_ts or datetime.now(UTC).isoformat(),
             cmd=[event.hook_path, *event.hook_args],
         )
         current_task = self.progress.tasks[self.task_id]
@@ -1047,7 +1083,7 @@ class LiveBusUI:
                 hook_name=f"install:{event.name}",
                 timeout=int(event.event_timeout or self.timeout_seconds),
                 phase="Install",
-                started_at=datetime.now().isoformat(),
+                started_at=datetime.now(UTC).isoformat(),
             )
         )
         row.plugin = plugin_name or row.plugin
@@ -1095,7 +1131,7 @@ class LiveBusUI:
             hook_name="-",
             status="installed",
         )
-        row.started_at = row.started_at or datetime.now().isoformat()
+        row.started_at = row.started_at or datetime.now(UTC).isoformat()
         row.ended_at = now_iso()
         row.status = "succeeded"
         row.output = record.display_output
@@ -1350,6 +1386,11 @@ def dl(
             raise click.UsageError(f"No plugins found matching output types: {', '.join(prefixes)}")
         selected = list(set(selected or []) | set(output_matched))
     out_path = Path(output_dir) if output_dir else Path.cwd()
+    source_checkout_root = _source_checkout_root()
+    if source_checkout_root is not None and out_path.expanduser().resolve() == source_checkout_root:
+        raise click.UsageError(
+            "Refusing to write crawl output into the abx-dl source checkout root. Pass --dir with a path outside the checkout.",
+        )
     config_overrides: dict[str, object] = {"TIMEOUT": timeout} if timeout else {}
     if max_urls < 0:
         raise click.BadParameter("max_urls must be 0 or a positive integer.", param_hint="--max-urls")
@@ -1737,7 +1778,7 @@ def plugins(ctx, plugin_names: tuple[str, ...], do_install: bool, dry_run: bool,
 
         abx-dl plugins --install wget ytdlp git  # install only these plugins
     """
-    plugins_obj = ctx.obj["plugins"] if "plugins" in ctx.obj else None
+    plugins_obj = ctx.obj.get("plugins", None)
     if isinstance(plugins_obj, dict):
         context_plugins = {name: plugin for name, plugin in plugins_obj.items() if isinstance(name, str) and isinstance(plugin, Plugin)}
         all_plugins = context_plugins if len(context_plugins) == len(plugins_obj) else discover_plugins()
@@ -1929,8 +1970,8 @@ def plugins(ctx, plugin_names: tuple[str, ...], do_install: bool, dry_run: bool,
             if plugin.config.properties:
                 console.print("\n[bold]Config options:[/bold]")
                 for key, prop in plugin.config.properties.items():
-                    console.print(f"  {key}={prop['default'] if 'default' in prop else '-'}")
-                    if "description" in prop and prop["description"]:
+                    console.print(f"  {key}={prop.get('default', '-')}")
+                    if prop.get("description"):
                         console.print(f"    [dim]{prop['description']}[/dim]")
 
             hooks = plugin.filter_hooks("CrawlSetup") + plugin.filter_hooks("Snapshot")

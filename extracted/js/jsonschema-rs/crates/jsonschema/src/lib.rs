@@ -8,6 +8,8 @@
 //! - 🌐 Blocking & non-blocking remote reference fetching (network/file)
 //! - 🎨 Structured Output v1 reports (flag/list/hierarchical)
 //! - ✨ Meta-schema validation for schema documents
+//! - 🧮 Schema canonicalization (experimental; see the [`canonical`] module)
+//! - 🧩 Validation of custom in-memory JSON representations
 //! - 🚀 WebAssembly support
 //!
 //! ## Supported drafts
@@ -691,6 +693,7 @@
 //!
 //! `jsonschema` allows you to extend its functionality by implementing custom validation logic through custom keywords.
 //! This feature is particularly useful when you need to validate against domain-specific rules that aren't covered by the standard JSON Schema keywords.
+//! Keywords are generic over the instance representation ([`json`] module).
 //!
 //! To implement a custom keyword, you need to:
 //! 1. Create a struct that implements the [`Keyword`] trait
@@ -705,8 +708,8 @@
 //!
 //! struct EvenNumberValidator;
 //!
-//! impl Keyword for EvenNumberValidator {
-//!     fn validate<'i>(&self, instance: &'i Value) -> Result<(), ValidationError<'i>> {
+//! impl<'i> Keyword<'i> for EvenNumberValidator {
+//!     fn validate(&self, instance: &'i Value) -> Result<(), ValidationError<'i>> {
 //!         if let Some(n) = instance.as_u64() {
 //!             if n % 2 == 0 {
 //!                 return Ok(());
@@ -715,7 +718,7 @@
 //!         Err(ValidationError::custom("value must be an even integer"))
 //!     }
 //!
-//!     fn is_valid(&self, instance: &Value) -> bool {
+//!     fn is_valid(&self, instance: &'i Value) -> bool {
 //!         instance.as_u64().map_or(false, |n| n % 2 == 0)
 //!     }
 //! }
@@ -724,7 +727,7 @@
 //!     _parent: &'a Map<String, Value>,
 //!     value: &'a Value,
 //!     _path: Location,
-//! ) -> Result<Box<dyn Keyword>, ValidationError<'a>> {
+//! ) -> Result<Box<dyn for<'i> Keyword<'i>>, ValidationError<'a>> {
 //!     if value.as_bool() == Some(true) {
 //!         Ok(Box::new(EvenNumberValidator))
 //!     } else {
@@ -755,12 +758,12 @@
 //! #
 //! # struct EvenNumberValidator;
 //! #
-//! # impl Keyword for EvenNumberValidator {
-//! #     fn validate<'i>(&self, instance: &'i Value) -> Result<(), ValidationError<'i>> {
+//! # impl<'i> Keyword<'i> for EvenNumberValidator {
+//! #     fn validate(&self, instance: &'i Value) -> Result<(), ValidationError<'i>> {
 //! #         Ok(())
 //! #     }
 //! #
-//! #     fn is_valid(&self, instance: &Value) -> bool {
+//! #     fn is_valid(&self, instance: &'i Value) -> bool {
 //! #         true
 //! #     }
 //! # }
@@ -846,6 +849,26 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
+//! # Custom JSON Representations
+//!
+//! Validators can accept instances in any in-memory JSON representation, not just
+//! `serde_json::Value`. Implement the traits in the [`json`] module for your representation and
+//! build validators with [`options_for`]:
+//!
+//! ```rust
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! # type MyJson = jsonschema::json::SerdeJson;
+//! # let schema = serde_json::json!({"type": "string"});
+//! # let my_instance = &serde_json::json!("data");
+//! let validator = jsonschema::options_for::<MyJson>().build(&schema)?;
+//! assert!(validator.is_valid(my_instance));
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! See the [`json`] module for the full trait contract, a worked example, and how to verify an
+//! implementation. The Python bindings use this mechanism to validate Python objects directly.
+//!
 //! # WebAssembly support
 //!
 //! `jsonschema` supports WebAssembly with different capabilities based on the target platform:
@@ -911,7 +934,6 @@ compile_error!(
 );
 
 pub(crate) mod bundler;
-#[doc(hidden)]
 pub mod canonical;
 pub(crate) mod compiler;
 mod content_encoding;
@@ -919,9 +941,241 @@ mod content_media_type;
 pub(crate) mod dereferencer;
 pub mod error;
 mod evaluation;
-#[doc(hidden)]
-pub use jsonschema_value::ext;
-pub(crate) use jsonschema_value::{Json, JsonArrayAccess, JsonNode, JsonObjectAccess, SerdeJson};
+pub(crate) use jsonschema_value::{
+    cmp, numeric, unique, Array, Json, Node, NodeIdentity, Object, SerdeJson,
+};
+/// Validating instances in a custom in-memory JSON representation.
+///
+/// Implement [`Json`], [`Node`], [`Object`], [`Array`], and [`JsonNumber`](json::JsonNumber)
+/// for your representation, then build validators with [`options_for`]. Schemas are always
+/// `serde_json::Value`; only instances use the custom representation. [`SerdeJson`] is the
+/// built-in representation behind [`validator_for`] and the crate-level convenience functions.
+///
+/// The accessors are infallible, so the representation must be total over JSON: reject nodes
+/// with no JSON meaning (tags, foreign objects) before validation, or track them on a side
+/// channel of the representation.
+///
+/// # Example
+///
+/// ```rust
+/// use std::borrow::Cow;
+///
+/// use jsonschema::{
+///     json::{Array, Json, JsonNumber, Node, NodeIdentity, Object},
+///     JsonType,
+/// };
+/// use serde_json::Value;
+///
+/// #[derive(Default)]
+/// enum ToyValue {
+///     #[default]
+///     Null,
+///     Boolean(bool),
+///     Number(f64),
+///     String(String),
+///     Array(Vec<ToyValue>),
+///     Object(Vec<(String, ToyValue)>),
+/// }
+///
+/// struct ToyJson;
+///
+/// impl Json for ToyJson {
+///     // A cheap-to-`Clone` handle; `&ToyValue` plays the role `&serde_json::Value` does
+///     // for the built-in representation.
+///     type Node<'a> = &'a ToyValue;
+///     // Property names are prepared once at schema compile time.
+///     type PreparedKey = String;
+///     // Scratch storage for nodes made from property names (`propertyNames`).
+///     type StringBuffer = ToyValue;
+///
+///     fn prepare_key(key: &str) -> String {
+///         key.to_owned()
+///     }
+///
+///     fn with_string_node<T>(
+///         buffer: &mut ToyValue,
+///         string: &str,
+///         f: impl FnOnce(&ToyValue) -> T,
+///     ) -> T {
+///         *buffer = ToyValue::String(string.to_owned());
+///         f(buffer)
+///     }
+/// }
+///
+/// struct ToyNumber(f64);
+///
+/// impl JsonNumber for ToyNumber {
+///     fn as_u64(&self) -> Option<u64> {
+///         (self.0.fract() == 0.0 && self.0 >= 0.0).then_some(self.0 as u64)
+///     }
+///     fn as_i64(&self) -> Option<i64> {
+///         (self.0.fract() == 0.0).then_some(self.0 as i64)
+///     }
+///     fn as_f64(&self) -> Option<f64> {
+///         Some(self.0)
+///     }
+///     fn as_str(&self) -> Cow<'_, str> {
+///         Cow::Owned(self.0.to_string())
+///     }
+///     fn to_number(&self) -> Cow<'_, serde_json::Number> {
+///         Cow::Owned(serde_json::Number::from_f64(self.0).expect("finite"))
+///     }
+/// }
+///
+/// impl<'a> Node<'a, ToyJson> for &'a ToyValue {
+///     type Object = &'a [(String, ToyValue)];
+///     type Array = &'a [ToyValue];
+///     type Number = ToyNumber;
+///
+///     fn as_object(&self) -> Option<&'a [(String, ToyValue)]> {
+///         match self {
+///             ToyValue::Object(members) => Some(members),
+///             _ => None,
+///         }
+///     }
+///     fn as_array(&self) -> Option<&'a [ToyValue]> {
+///         match self {
+///             ToyValue::Array(items) => Some(items),
+///             _ => None,
+///         }
+///     }
+///     fn as_string(&self) -> Option<Cow<'a, str>> {
+///         match self {
+///             ToyValue::String(string) => Some(Cow::Borrowed(string)),
+///             _ => None,
+///         }
+///     }
+///     fn as_number(&self) -> Option<ToyNumber> {
+///         match self {
+///             ToyValue::Number(number) => Some(ToyNumber(*number)),
+///             _ => None,
+///         }
+///     }
+///     fn as_boolean(&self) -> Option<bool> {
+///         match self {
+///             ToyValue::Boolean(boolean) => Some(*boolean),
+///             _ => None,
+///         }
+///     }
+///     fn is_null(&self) -> bool {
+///         matches!(self, ToyValue::Null)
+///     }
+///     fn json_type(&self) -> JsonType {
+///         match self {
+///             ToyValue::Null => JsonType::Null,
+///             ToyValue::Boolean(_) => JsonType::Boolean,
+///             ToyValue::Number(_) => JsonType::Number,
+///             ToyValue::String(_) => JsonType::String,
+///             ToyValue::Array(_) => JsonType::Array,
+///             ToyValue::Object(_) => JsonType::Object,
+///         }
+///     }
+///     // Cold paths only: error messages, `const`/`enum` comparisons, `uniqueItems`.
+///     fn to_value(&self) -> Cow<'a, Value> {
+///         Cow::Owned(match self {
+///             ToyValue::Null => Value::Null,
+///             ToyValue::Boolean(boolean) => Value::Bool(*boolean),
+///             ToyValue::Number(number) => serde_json::Number::from_f64(*number)
+///                 .map(Value::Number)
+///                 .expect("finite"),
+///             ToyValue::String(string) => Value::String(string.clone()),
+///             ToyValue::Array(items) => Value::Array(
+///                 items.iter().map(|item| item.to_value().into_owned()).collect(),
+///             ),
+///             ToyValue::Object(members) => Value::Object(
+///                 members
+///                     .iter()
+///                     .map(|(name, value)| (name.clone(), value.to_value().into_owned()))
+///                     .collect(),
+///             ),
+///         })
+///     }
+///     // Stable per live node; see the trait docs for the exact contract.
+///     fn identity(&self) -> Option<NodeIdentity> {
+///         Some(NodeIdentity::new(std::ptr::from_ref::<ToyValue>(*self) as usize))
+///     }
+/// }
+///
+/// impl<'a> Object<'a, ToyJson> for &'a [(String, ToyValue)] {
+///     type Node = &'a ToyValue;
+///     type MemberName = &'a str;
+///     type MembersIter = ToyMembersIter<'a>;
+///
+///     fn len(&self) -> usize {
+///         <[(String, ToyValue)]>::len(self)
+///     }
+///     fn get(&self, key: &String) -> Option<&'a ToyValue> {
+///         self.iter().find(|(name, _)| name == key).map(|(_, value)| value)
+///     }
+///     fn members(&self) -> ToyMembersIter<'a> {
+///         ToyMembersIter(self.iter())
+///     }
+/// }
+///
+/// struct ToyMembersIter<'a>(std::slice::Iter<'a, (String, ToyValue)>);
+///
+/// impl<'a> Iterator for ToyMembersIter<'a> {
+///     type Item = (&'a str, &'a ToyValue);
+///     fn next(&mut self) -> Option<Self::Item> {
+///         self.0.next().map(|(name, value)| (name.as_str(), value))
+///     }
+/// }
+///
+/// impl<'a> Array<'a, ToyJson> for &'a [ToyValue] {
+///     type Node = &'a ToyValue;
+///     type ElementsIter = std::slice::Iter<'a, ToyValue>;
+///
+///     fn len(&self) -> usize {
+///         <[ToyValue]>::len(self)
+///     }
+///     fn elements(&self) -> std::slice::Iter<'a, ToyValue> {
+///         self.iter()
+///     }
+/// }
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let schema = serde_json::json!({
+///     "type": "object",
+///     "properties": {"name": {"type": "string", "minLength": 2}},
+///     "required": ["name"]
+/// });
+/// let validator = jsonschema::options_for::<ToyJson>().build(&schema)?;
+/// # let _ = format!("{:?}", jsonschema::options_for::<ToyJson>());
+///
+/// let valid = ToyValue::Object(vec![("name".into(), ToyValue::String("bob".into()))]);
+/// let invalid = ToyValue::Object(vec![]);
+/// assert!(validator.is_valid(&valid));
+/// let error = validator.validate(&invalid).expect_err("missing required");
+/// assert_eq!(error.to_string(), "\"name\" is a required property");
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Verifying an implementation
+///
+/// Enable the `conformance` feature, encode the `conformance::document()` JSON document in your
+/// representation, and run `conformance::assert_conformance` on it; it checks the accessor
+/// contract the validator relies on, including the subtle parts (code-point string lengths,
+/// mathematical number equality, node identity stability).
+///
+/// # Custom keywords
+///
+/// [`Keyword`] is generic over the representation and operates on `F::Node` directly; register
+/// implementations with [`ValidationOptions::with_keyword`](crate::ValidationOptions::with_keyword).
+pub mod json {
+    #[cfg(feature = "conformance")]
+    pub use jsonschema_value::conformance;
+    pub use jsonschema_value::{
+        cmp, unique, Array, Json, JsonNumber, Node, NodeIdentity, Object, SerdeJson,
+    };
+    #[cfg(feature = "magnus")]
+    pub use jsonschema_value::{
+        magnus_child, magnus_invalidate_members_cache, magnus_is_object, magnus_probe_root,
+        magnus_take_pending_error, Magnus, MagnusPendingErrorScope, PendingError, RbNode,
+    };
+    #[cfg(feature = "pyo3")]
+    pub use jsonschema_value::{probe_root, take_pending_error, PendingErrorScope, Pyo3};
+}
 mod http;
 mod keywords;
 #[cfg(all(feature = "macros", not(target_family = "wasm")))]
@@ -938,7 +1192,6 @@ pub mod types {
 }
 mod validator;
 
-#[doc(hidden)]
 pub use canonical::CanonicalizationError;
 pub use error::{
     ErrorIterator, MaskedValidationError, ValidationError, ValidationErrorParts, ValidationErrors,
@@ -1292,13 +1545,17 @@ pub async fn async_validator_map_for(
 
 /// Reduce a JSON Schema to its canonical IR form.
 ///
+/// Experimental: keyword coverage is incomplete and the API may change in minor releases.
+///
 /// Use [`canonical::options`](fn@canonical::options) to configure canonicalization.
+///
+/// Inputs the canonical form cannot model exactly succeed as an opaque `Raw` pass-through of the original document;
+/// see the [`canonical`] module's Coverage section.
 ///
 /// # Errors
 ///
 /// Returns [`CanonicalizationError`] when the input is not a valid JSON Schema document or cannot be represented in
 /// canonical form.
-#[doc(hidden)]
 pub fn canonicalize(value: &Value) -> Result<canonical::CanonicalSchema, CanonicalizationError> {
     canonical::options().canonicalize(value)
 }
@@ -1357,6 +1614,25 @@ pub fn canonicalize(value: &Value) -> Result<canonical::CanonicalSchema, Canonic
 #[must_use]
 pub fn options<'i>() -> ValidationOptions<'i> {
     Validator::options()
+}
+
+/// Create a builder whose validators accept instances in the JSON representation `F`.
+///
+/// Same configuration surface as [`options()`]; `build` yields a `Validator<F>`.
+#[must_use]
+pub fn options_for<'i, F: Json>() -> ValidationOptions<'i, std::sync::Arc<dyn Retrieve>, F> {
+    ValidationOptions::default()
+}
+
+/// Create a builder whose validators accept instances in the JSON representation `F`, with
+/// async retrieval of external references.
+///
+/// Same configuration surface as [`async_options()`]; `build` yields a `Validator<F>`.
+#[cfg(feature = "resolve-async")]
+#[must_use]
+pub fn async_options_for<'i, F: Json>(
+) -> ValidationOptions<'i, std::sync::Arc<dyn AsyncRetrieve>, F> {
+    ValidationOptions::default()
 }
 
 /// Create a builder for configuring JSON Schema validation options.
@@ -1427,10 +1703,15 @@ pub fn async_options<'i>() -> ValidationOptions<'i, std::sync::Arc<dyn AsyncRetr
 
 /// Functionality for validating JSON Schema documents against their meta-schemas.
 pub mod meta {
-    use crate::{error::ValidationError, Draft, Registry};
+    use crate::{error::ValidationError, Draft, Json, Node, Object, Registry, Validator};
     use ahash::AHashSet;
     use referencing::Retrieve;
     use serde_json::Value;
+    use std::{
+        any::{Any, TypeId},
+        borrow::Cow,
+        sync::{OnceLock, RwLock},
+    };
 
     pub use validator_handle::MetaValidator;
 
@@ -1846,6 +2127,125 @@ pub mod meta {
         schema: &Value,
     ) -> Result<MetaValidator<'static>, ValidationError<'static>> {
         try_meta_validator_for(schema, None)
+    }
+
+    /// Validate a schema document held in a foreign representation against its meta-schema.
+    /// Draft version is detected automatically.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first [`ValidationError`], or a referencing error if the meta-schema cannot be
+    /// resolved.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a bundled meta-schema fails to build.
+    pub fn validate_for<F: Json>(schema: F::Node<'_>) -> Result<(), ValidationError<'_>> {
+        let cache = meta_cache::<F>();
+        match cache.draft_of(&schema) {
+            Draft::Unknown => custom_meta_validator(cache, &schema)?.validate(schema),
+            draft => cache.validator(draft).validate(schema),
+        }
+    }
+
+    /// Check a schema document held in a foreign representation against its meta-schema.
+    /// Draft version is detected automatically.
+    ///
+    /// # Errors
+    ///
+    /// Returns a referencing error if the meta-schema cannot be resolved.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a bundled meta-schema fails to build.
+    pub fn is_valid_for<F: Json>(schema: F::Node<'_>) -> Result<bool, ValidationError<'static>> {
+        let cache = meta_cache::<F>();
+        Ok(match cache.draft_of(&schema) {
+            Draft::Unknown => custom_meta_validator(cache, &schema)?.is_valid(schema),
+            draft => cache.validator(draft).is_valid(schema),
+        })
+    }
+
+    /// Meta-schemas outside the bundled drafts are resolved through the `$schema` chain.
+    fn custom_meta_validator<F: Json>(
+        cache: &MetaCache<F>,
+        schema: &F::Node<'_>,
+    ) -> Result<Validator<F>, ValidationError<'static>> {
+        let uri = cache
+            .meta_schema_uri(schema)
+            .expect("`$schema` must exist when draft is Unknown")
+            .into_owned();
+        let (custom_meta_schema, resolved_draft) = resolve_meta_schema_chain(&uri)?;
+        crate::options_for::<F>()
+            .with_draft(resolved_draft)
+            .without_schema_validation()
+            .build(&custom_meta_schema)
+    }
+
+    /// A `Validator<F>` only accepts nodes of the representation it was built for, so meta-schema
+    /// state is shared per `F` rather than globally.
+    struct MetaCache<F: Json> {
+        schema_key: F::PreparedKey,
+        validators: [OnceLock<Validator<F>>; 5],
+    }
+
+    impl<F: Json> MetaCache<F> {
+        fn meta_schema_uri<'a>(&self, schema: &F::Node<'a>) -> Option<Cow<'a, str>> {
+            schema.as_object()?.get(&self.schema_key)?.as_string()
+        }
+
+        fn draft_of(&self, schema: &F::Node<'_>) -> Draft {
+            self.meta_schema_uri(schema)
+                .map_or_else(Draft::default, |uri| Draft::from_schema_uri(&uri))
+        }
+
+        fn validator(&self, draft: Draft) -> &Validator<F> {
+            let (index, meta_schema) = match draft {
+                Draft::Draft4 => (0, &referencing::meta::DRAFT4),
+                Draft::Draft6 => (1, &referencing::meta::DRAFT6),
+                Draft::Draft7 => (2, &referencing::meta::DRAFT7),
+                Draft::Draft201909 => (3, &referencing::meta::DRAFT201909),
+                // Draft202012, Unknown, or any future draft variants
+                _ => (4, &referencing::meta::DRAFT202012),
+            };
+            self.validators[index].get_or_init(|| {
+                crate::options_for::<F>()
+                    .without_schema_validation()
+                    .build(meta_schema)
+                    .expect("Meta-schema should be valid")
+            })
+        }
+    }
+
+    /// Statics cannot be generic over `F`, so entries are found by type. There is one per
+    /// representation reaching this code, which a linear scan covers.
+    fn meta_cache<F: Json>() -> &'static MetaCache<F> {
+        static CACHE: RwLock<Vec<(TypeId, &'static (dyn Any + Send + Sync))>> =
+            RwLock::new(Vec::new());
+
+        fn find<F: Json>(
+            entries: &[(TypeId, &'static (dyn Any + Send + Sync))],
+        ) -> Option<&'static MetaCache<F>> {
+            let type_id = TypeId::of::<F>();
+            entries.iter().find(|(id, _)| *id == type_id).map(|(_, e)| {
+                e.downcast_ref()
+                    .expect("Entries are found by representation type")
+            })
+        }
+
+        if let Some(cache) = find::<F>(&CACHE.read().expect("Meta-validator cache is poisoned")) {
+            return cache;
+        }
+        let mut entries = CACHE.write().expect("Meta-validator cache is poisoned");
+        if let Some(cache) = find::<F>(&entries) {
+            return cache;
+        }
+        let cache: &'static MetaCache<F> = Box::leak(Box::new(MetaCache {
+            schema_key: F::prepare_key("$schema"),
+            validators: Default::default(),
+        }));
+        entries.push((TypeId::of::<F>(), cache));
+        cache
     }
 
     fn try_meta_validator_for<'a>(
@@ -2868,10 +3268,10 @@ pub mod __private {
         pub use regex::{Regex, RegexBuilder};
     }
     pub mod unique_items {
-        pub use crate::ext::unique::is_unique;
+        pub use crate::unique::is_unique;
     }
     pub mod cmp {
-        pub use crate::ext::cmp::{equal, equal_numbers};
+        pub use crate::cmp::{equal, equal_numbers};
     }
     pub mod custom {
         use crate::paths::Location;
@@ -2883,7 +3283,7 @@ pub mod __private {
 
         /// Run a custom keyword and fill in error context exactly like the runtime validator's `CustomKeyword` wrapper.
         pub fn validate<'i>(
-            keyword: &dyn crate::Keyword,
+            keyword: &dyn crate::Keyword<'i>,
             instance: &'i serde_json::Value,
             instance_path: Location,
             schema_path: &str,
@@ -2902,7 +3302,7 @@ pub mod __private {
 
         /// Run a custom keyword's `iter_errors`, filling in context exactly like [`validate`] does.
         pub fn collect_errors<'i>(
-            keyword: &dyn crate::Keyword,
+            keyword: &dyn crate::Keyword<'i>,
             instance: &'i serde_json::Value,
             instance_path: &Location,
             schema_path: &str,
@@ -2979,7 +3379,7 @@ pub mod __private {
             i64: num_cmp::NumCmp<T>,
             f64: num_cmp::NumCmp<T>,
         {
-            crate::ext::numeric::ge(value, limit)
+            crate::numeric::ge(value, limit)
         }
 
         /// Compare `value` <= `limit` using runtime numeric semantics.
@@ -2990,7 +3390,7 @@ pub mod __private {
             i64: num_cmp::NumCmp<T>,
             f64: num_cmp::NumCmp<T>,
         {
-            crate::ext::numeric::le(value, limit)
+            crate::numeric::le(value, limit)
         }
 
         pub fn eq<T>(value: &serde_json::Number, limit: T) -> bool
@@ -3000,7 +3400,7 @@ pub mod __private {
             i64: num_cmp::NumCmp<T>,
             f64: num_cmp::NumCmp<T>,
         {
-            crate::ext::numeric::eq(value, limit)
+            crate::numeric::eq(value, limit)
         }
 
         /// Compare `value` > `limit` using runtime numeric semantics.
@@ -3011,7 +3411,7 @@ pub mod __private {
             i64: num_cmp::NumCmp<T>,
             f64: num_cmp::NumCmp<T>,
         {
-            crate::ext::numeric::gt(value, limit)
+            crate::numeric::gt(value, limit)
         }
 
         /// Compare `value` < `limit` using runtime numeric semantics.
@@ -3022,19 +3422,19 @@ pub mod __private {
             i64: num_cmp::NumCmp<T>,
             f64: num_cmp::NumCmp<T>,
         {
-            crate::ext::numeric::lt(value, limit)
+            crate::numeric::lt(value, limit)
         }
 
         /// Check `multipleOf` with integer divisors using runtime numeric semantics.
         #[must_use]
         pub fn is_multiple_of_integer(value: &serde_json::Number, multiple: f64) -> bool {
-            crate::ext::numeric::is_multiple_of_integer(value, multiple)
+            crate::numeric::is_multiple_of_integer(value, multiple)
         }
 
         /// Check `multipleOf` with fractional divisors using runtime numeric semantics.
         #[must_use]
         pub fn is_multiple_of_float(value: &serde_json::Number, multiple: f64) -> bool {
-            crate::ext::numeric::is_multiple_of_float(value, multiple)
+            crate::numeric::is_multiple_of_float(value, multiple)
         }
 
         /// Check numeric bounds with a compiled descriptor for arbitrary-precision schemas.
@@ -3045,7 +3445,9 @@ pub mod __private {
             op: u8,
             limit_literal: &'static str,
         ) -> bool {
-            use crate::ext::numeric_check::{check_bound, compile_bound, BoundOp, CompiledBound};
+            use jsonschema_value::numeric_check::{
+                check_bound, compile_bound, BoundOp, CompiledBound,
+            };
 
             #[inline]
             fn literal_key(literal: &'static str) -> (usize, usize) {
@@ -3082,7 +3484,7 @@ pub mod __private {
             value: &serde_json::Number,
             limit_literal: &'static str,
         ) -> bool {
-            use crate::ext::numeric_check::{
+            use jsonschema_value::numeric_check::{
                 check_multiple_of, compile_multiple_of, CompiledMultipleOf,
             };
 
@@ -3863,7 +4265,7 @@ pub(crate) mod tests_util {
 
 #[cfg(test)]
 mod tests {
-    use crate::{validator_for, Registry, ValidationError};
+    use crate::{validator_for, Registry, SerdeJson, ValidationError};
 
     use super::Draft;
     use serde_json::json;
@@ -3990,6 +4392,39 @@ mod tests {
         assert!(validate_fn(&invalid).is_err());
         assert!(is_valid_fn(&valid));
         assert!(!is_valid_fn(&invalid));
+    }
+
+    #[test_case(&json!({"type": "object", "required": ["name"]}), true ; "valid")]
+    #[test_case(&json!({"type": "invalid_type", "required": true}), false ; "invalid")]
+    #[test_case(&json!(true), true ; "boolean schema")]
+    #[test_case(&json!({"$schema": "http://json-schema.org/draft-04/schema#", "minimum": 5, "exclusiveMinimum": true}), true ; "draft4 boolean exclusive minimum")]
+    #[test_case(&json!({"$schema": "http://json-schema.org/draft-04/schema#", "exclusiveMinimum": 5}), false ; "draft4 numeric exclusive minimum")]
+    #[test_case(&json!({"$schema": "https://json-schema.org/draft/2020-12/schema", "exclusiveMinimum": 5}), true ; "draft2020-12 numeric exclusive minimum")]
+    fn test_meta_validate_for(schema: &serde_json::Value, expected: bool) {
+        let result = crate::meta::validate_for::<SerdeJson>(schema);
+        assert_eq!(result.is_ok(), expected);
+        assert_eq!(result.is_ok(), crate::meta::validate(schema).is_ok());
+        assert_eq!(
+            crate::meta::is_valid_for::<SerdeJson>(schema).expect("Meta-schema is resolvable"),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_meta_validate_for_unresolvable_meta_schema() {
+        let schema = json!({"$schema": "htt://json-schema.org/draft-07/schema"});
+        let error = crate::meta::validate_for::<SerdeJson>(&schema)
+            .expect_err("Unresolvable meta-schema should fail");
+        assert!(matches!(
+            error.kind(),
+            crate::error::ValidationErrorKind::Referencing(_)
+        ));
+        let error = crate::meta::is_valid_for::<SerdeJson>(&schema)
+            .expect_err("Unresolvable meta-schema should fail");
+        assert!(matches!(
+            error.kind(),
+            crate::error::ValidationErrorKind::Referencing(_)
+        ));
     }
 
     #[test]

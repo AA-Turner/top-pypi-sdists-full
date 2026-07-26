@@ -1,13 +1,11 @@
 Metadata-Version: 2.1
 Name: garminconnect
-Version: 0.3.6
+Version: 0.3.7
 Summary: Python 3 API wrapper for Garmin Connect
 Keywords: garmin connect,api,garmin
 Author-Email: Ron Klinkien <ron@cyberjunky.nl>
 License: MIT
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: MIT License
@@ -19,8 +17,8 @@ Project-URL: Homepage, https://github.com/cyberjunky/python-garminconnect
 Project-URL: Issues, https://github.com/cyberjunky/python-garminconnect/issues
 Project-URL: Changelog, https://github.com/cyberjunky/python-garminconnect/releases
 Requires-Python: >=3.12
-Requires-Dist: curl_cffi>=0.6
-Requires-Dist: requests>=2.28
+Requires-Dist: curl_cffi>=0.15.0
+Requires-Dist: requests>=2.33.0
 Requires-Dist: ua-generator>=1.0
 Provides-Extra: dev
 Requires-Dist: ipython; extra == "dev"
@@ -29,9 +27,12 @@ Requires-Dist: ipykernel; extra == "dev"
 Requires-Dist: pandas; extra == "dev"
 Requires-Dist: matplotlib; extra == "dev"
 Provides-Extra: workout
-Requires-Dist: pydantic>=2.0.0; extra == "workout"
+Requires-Dist: pydantic>=2.4.0; extra == "workout"
 Provides-Extra: typed
-Requires-Dist: pydantic>=2.0.0; extra == "typed"
+Requires-Dist: pydantic>=2.4.0; extra == "typed"
+Provides-Extra: security
+Requires-Dist: bandit[toml]; extra == "security"
+Requires-Dist: pip-audit; extra == "security"
 Provides-Extra: linting
 Requires-Dist: black[jupyter]; extra == "linting"
 Requires-Dist: ruff; extra == "linting"
@@ -91,13 +92,13 @@ Make your selection:
 
 ## API Coverage Statistics
 
-- **Total API Methods**: 134+ unique endpoints (snapshot)
+- **Total API Methods**: 142+ unique endpoints (snapshot)
 - **Categories**: 13 organized sections
 - **User & Profile**: 4 methods (basic user info, settings)
 - **Daily Health & Activity**: 9 methods (today's health data)
-- **Advanced Health Metrics**: 12 methods (fitness metrics, HRV, VO2, training readiness, running tolerance)
+- **Advanced Health Metrics**: 15 methods (fitness metrics, HRV, VO2, training readiness, training zones, running tolerance)
 - **Historical Data & Trends**: 9 methods (date range queries, weekly aggregates)
-- **Activities & Workouts**: 38 methods (comprehensive activity, workout management, typed workout uploads, scheduling, import, edit description / exercise sets)
+- **Activities & Workouts**: 41 methods (comprehensive activity, workout management, typed workout uploads including strength, in-place edit, scheduling, push to device, import, edit description / exercise sets)
 - **Body Composition & Weight**: 8 methods (weight tracking, body composition)
 - **Goals & Achievements**: 15 methods (challenges, badges, goals)
 - **Device & Technical**: 7 methods (device info, settings)
@@ -105,7 +106,7 @@ Make your selection:
 - **Hydration & Wellness**: 12 methods (hydration, nutrition, blood pressure, menstrual)
 - **System & Export**: 4 methods (reporting, logout, GraphQL)
 - **Training Plans**: 3 methods (plans, plan by ID, adaptive plan by ID)
-- **Golf**: 3 methods (scorecard summary, scorecard detail, shot data)
+- **Golf**: 5 methods (scorecard summary, scorecard detail, shot data, club stats, user stats)
 
 ### Interactive Features
 
@@ -125,7 +126,7 @@ A comprehensive Python3 API wrapper for Garmin Connect, providing access to heal
 This library enables developers to programmatically access Garmin Connect data including:
 
 - **Health Metrics**: Heart rate, sleep, stress, body composition, SpO2, HRV
-- **Activity Data**: Workouts, typed workout uploads (running, cycling, swimming, walking, hiking), workout scheduling, exercises, training status, performance metrics, import-style uploads (no Strava re-export)
+- **Activity Data**: Workouts, typed workout uploads (running, cycling, swimming, walking, hiking, strength), workout scheduling, exercises, training status, performance metrics, import-style uploads (no Strava re-export)
 - **Nutrition**: Daily food logs, meals, and nutrition settings
 - **Golf**: Scorecard summaries, scorecard details, shot-by-shot data
 - **Device Information**: Connected devices, settings, alarms, solar data
@@ -165,7 +166,7 @@ This project uses [PDM](https://pdm.fming.dev/) for dependency management and ta
 python3 -m venv .venv --copies
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install pdm
-python -m pdm install --group :all
+python3 -m pdm install --group :all
 pre-commit install --install-hooks  # optional but recommended
 ```
 
@@ -217,6 +218,11 @@ No browser is needed.
 ~/.garminconnect/garmin_tokens.json   # saved automatically, mode 0600
 ```
 
+The containing directory is restricted to mode `0700`. Treat the token file
+like a password: the refresh token can provide persistent account access. Avoid
+putting a Garmin password in shell history or a long-lived environment variable;
+prefer `getpass()` or another interactive secret prompt.
+
 **Resilient login (multi-strategy + token validation):**
 
 `login()` tries several authentication strategies in order (mobile, SSO widget,
@@ -236,30 +242,53 @@ performs a fresh credential login automatically. To force a clean slate yourself
 (e.g. between a failed resume and a retry), call:
 
 ```python
-g.logout()            # clears in-memory auth + cached tokens (uses GARMINTOKENS)
+g.logout()  # clears in-memory auth + cached tokens (uses GARMINTOKENS)
 g.logout(tokenstore)  # or pass an explicit path
 ```
 
+`logout()` removes only the local `garmin_tokens.json` file and preserves its
+directory and unrelated files. It does **not** revoke a token that has already
+been issued by Garmin. Revoke account access from Garmin's account/security
+settings if a token may have been copied or exposed.
+
+### What running it locally does
+
+This is an unofficial client for Garmin's web services; it does not pair with
+the Garmin Connect phone app or connect directly to a watch. When you call
+`login()`, your credentials and MFA code are sent over HTTPS to Garmin's login
+service. The library receives an access/refresh token pair and, when a token
+store is supplied, caches it locally for later sessions. Subsequent API methods
+send that token to Garmin and can read or change the same account data that the
+selected method targets.
+
+The library does not automatically download an entire account. The demo writes
+responses, activity downloads, and health reports only when you select those
+actions. Demo exports are stored under `your_data/` with owner-only directory
+and file permissions. Run the project in a dedicated virtual environment, read
+the method you plan to call, and start with read-only methods. Upload, edit,
+delete, schedule, hydration, and weigh-in methods can change Garmin account data.
+
 ## 🧪 Testing
 
-Run `example.py` once first to create saved tokens in `~/.garminconnect`, then:
+The default suite is credential-free and excludes live-account integration tests:
 
 ```bash
 pdm run test        # Run all tests
 pdm run testcov     # Run tests with coverage report
 ```
 
-Optional: keep test tokens isolated
+To explicitly run live integration tests, use a test account if possible. This
+can create local VCR recordings and includes methods that may mutate the account:
 
 ```bash
-export GARMINTOKENS="$(mktemp -d)"
-python3 ./example.py   # create a fresh token file for tests
-pdm run test
+export GARMIN_EMAIL="you@example.com"
+read -s GARMIN_PASSWORD && export GARMIN_PASSWORD
+pdm run pytest -m integration --vcr-record=once
+unset GARMIN_PASSWORD
 ```
 
-**Note:** Tests use VCR cassettes to record/replay API responses. If tests fail with
-authentication errors, ensure valid tokens exist in `~/.garminconnect` (run
-`example.py` first).
+VCR recordings are ignored by Git because Garmin responses contain sensitive
+health, activity, location, and account data. Do not commit them.
 
 ## 📦 Publishing
 
@@ -327,6 +356,7 @@ Explore the API interactively with our [reference notebook](https://github.com/c
 
 ```python
 import os
+from getpass import getpass
 from datetime import date
 from garminconnect import Garmin
 
@@ -334,7 +364,7 @@ from garminconnect import Garmin
 # Subsequent runs: loads saved tokens and auto-refreshes
 client = Garmin(
     os.getenv("EMAIL"),
-    os.getenv("PASSWORD"),
+    getpass("Garmin password: "),
     prompt_mfa=lambda: input("MFA code: "),
 )
 client.login("~/.garminconnect")
@@ -358,8 +388,12 @@ pip install garminconnect[workout]
 
 ```python
 from garminconnect.workout import (
-    RunningWorkout, WorkoutSegment,
-    create_warmup_step, create_interval_step, create_cooldown_step,
+    RunningWorkout,
+    WorkoutSegment,
+    create_warmup_step,
+    create_interval_step,
+    create_distance_interval_step,
+    create_cooldown_step,
     create_repeat_group,
 )
 
@@ -371,23 +405,69 @@ workout = RunningWorkout(
         WorkoutSegment(
             segmentOrder=1,
             sportType={"sportTypeId": 1, "sportTypeKey": "running"},
-            workoutSteps=[create_warmup_step(300.0)]
+            workoutSteps=[create_warmup_step(300.0)],
         )
-    ]
+    ],
 )
 
 # Upload and optionally schedule it
 result = client.upload_running_workout(workout)
 client.schedule_workout(result["workoutId"], "2026-03-20")
 
+# Edit it in place - keeps its id, so any schedules pointing at it stay valid
+workout_data = client.get_workout_by_id(result["workoutId"])
+workout_data["workoutName"] = "Easy Run (revised)"
+client.update_workout(result["workoutId"], workout_data)
+
 # Delete a workout or remove it from the calendar
 client.delete_workout(workout_id)
 client.unschedule_workout(scheduled_workout_id)
+
+# Push a workout to a device - defaults to the last workout / last used device
+client.push_workout_to_device(result["workoutId"], device_id)
 ```
 
-**Available workout classes:** `RunningWorkout`, `CyclingWorkout`, `SwimmingWorkout`, `WalkingWorkout`, `HikingWorkout`, `MultiSportWorkout`, `FitnessEquipmentWorkout`
+**Available workout classes:** `RunningWorkout`, `CyclingWorkout`, `SwimmingWorkout`, `WalkingWorkout`, `HikingWorkout`, `StrengthWorkout`, `MultiSportWorkout`, `FitnessEquipmentWorkout`
 
-**Helper functions:** `create_warmup_step`, `create_interval_step`, `create_recovery_step`, `create_cooldown_step`, `create_repeat_group`
+**Strength workouts** are rep-based. Build each exercise with `create_strength_set(category, step_order, sets, reps, rest_seconds, exercise_name="", weight_kg=None)` and identify exercises with a `category` / `exercise` pair from the bundled catalog in `garminconnect.exercises` (1,527 exercises across 47 categories, with `resolve(name)` and `find(term)` helpers):
+
+```python
+from garminconnect import exercises
+from garminconnect.workout import StrengthWorkout, WorkoutSegment, create_strength_set
+
+lat = exercises.resolve(
+    "Lat Pull-down"
+)  # {'category': 'PULL_UP', 'exercise': 'LAT_PULLDOWN'}
+
+workout = StrengthWorkout(
+    workoutName="Upper Body",
+    estimatedDurationInSecs=0,
+    workoutSegments=[
+        WorkoutSegment(
+            segmentOrder=1,
+            sportType={"sportTypeId": 5, "sportTypeKey": "strength_training"},
+            workoutSteps=[
+                create_strength_set(
+                    "BENCH_PRESS", step_order=1, sets=4, reps=10, rest_seconds=120
+                ),
+                create_strength_set(
+                    lat["category"],
+                    step_order=4,
+                    sets=3,
+                    reps=12,
+                    rest_seconds=90,
+                    exercise_name=lat["exercise"],
+                ),
+            ],
+        )
+    ],
+)
+api.upload_strength_workout(workout)
+```
+
+**Helper functions:** `create_warmup_step`, `create_interval_step`, `create_distance_interval_step`, `create_recovery_step`, `create_cooldown_step`, `create_repeat_group`, `create_strength_exercise_step`, `create_strength_rest_step`, `create_strength_set`
+
+Use `create_distance_interval_step(600.0, step_order=1)` for interval steps that should end after a distance in meters instead of after a duration.
 
 ### Additional Resources
 - **Simple Example**: [example.py](https://raw.githubusercontent.com/cyberjunky/python-garminconnect/master/example.py) - Getting started guide

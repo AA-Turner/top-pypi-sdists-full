@@ -16,8 +16,17 @@ class CodeGeneratorDraft06(CodeGeneratorDraft04):
         ),
     })
 
-    def __init__(self, definition, resolver=None, formats={}, use_default=True, use_formats=True, detailed_exceptions=True):
-        super().__init__(definition, resolver, formats, use_default, use_formats, detailed_exceptions)
+    def __init__(
+        self,
+        definition,
+        resolver=None,
+        formats={},
+        use_default=True,
+        use_formats=True,
+        detailed_exceptions=True,
+        fast_fail=True,
+    ):
+        super().__init__(definition, resolver, formats, use_default, use_formats, detailed_exceptions, fast_fail)
         self._json_keywords_to_function.update((
             ('exclusiveMinimum', self.generate_exclusive_minimum),
             ('exclusiveMaximum', self.generate_exclusive_maximum),
@@ -28,12 +37,11 @@ class CodeGeneratorDraft06(CodeGeneratorDraft04):
 
     def _generate_func_code_block(self, definition):
         if isinstance(definition, bool):
-            self.generate_boolean_schema()
+            return self.generate_boolean_schema()
         elif '$ref' in definition:
             # needed because ref overrides any sibling keywords
-            self.generate_ref()
-        else:
-            self.run_generate_functions(definition)
+            return self.generate_ref()
+        return self.run_generate_functions(definition)
 
     def generate_boolean_schema(self):
         """
@@ -60,7 +68,7 @@ class CodeGeneratorDraft06(CodeGeneratorDraft04):
         try:
             python_types = ', '.join(JSON_TYPE_TO_PYTHON_TYPE[t] for t in types)
         except KeyError as exc:
-            raise JsonSchemaDefinitionException('Unknown type: {}'.format(exc))
+            raise JsonSchemaDefinitionException('Unknown type') from exc
 
         extra = ''
 
@@ -118,12 +126,15 @@ class CodeGeneratorDraft06(CodeGeneratorDraft04):
                     self.l('{variable}_property_names = True')
                     with self.l('for {variable}_key in {variable}:'):
                         with self.l('try:'):
+                            code_len = len(self._code)
                             self.generate_func_code_block(
                                 property_names_definition,
                                 '{}_key'.format(self._variable),
                                 self._variable_name,
                                 clear_variables=True,
                             )
+                            if len(self._code) == code_len:
+                                self.l('pass')
                         with self.l('except JsonSchemaValueException:'):
                             self.l('{variable}_property_names = False')
                     with self.l('if not {variable}_property_names:'):
@@ -182,7 +193,6 @@ class CodeGeneratorDraft06(CodeGeneratorDraft04):
         Only valid value is 42 in this example.
         """
         const = self._definition['const']
-        if isinstance(const, str):
-            const = '"{}"'.format(self.e(const))
-        with self.l('if {variable} != {}:', const):
+        match = self._enum_value_matches(self._variable, const)
+        with self.l('if not ({}):', match):
             self.exc('{name} must be same as const definition: {definition_rule}', rule='const')

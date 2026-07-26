@@ -259,7 +259,9 @@ pub struct WorkingModelPirlsResult {
 pub enum PirlsStatus {
     /// Converged successfully within tolerance.
     Converged,
-    /// Reached maximum iterations but the gradient and Hessian indicate a valid minimum.
+    /// Reached the iteration limit at a near-stationary checkpoint whose local
+    /// gradient/Hessian diagnostics look minimum-like. This remains a
+    /// non-converged checkpoint; only `Converged` may mint a fit.
     StalledAtValidMinimum,
     /// Reached maximum iterations without converging.
     MaxIterationsReached,
@@ -308,29 +310,6 @@ impl PirlsStatus {
     #[inline]
     pub const fn is_converged(self) -> bool {
         matches!(self, PirlsStatus::Converged)
-    }
-
-    /// Whether this status certifies a stationary inner mode that may mint a
-    /// fit. `StalledAtValidMinimum` qualifies alongside `Converged`: it is
-    /// *only* produced when the iteration/LM budget was exhausted AT a point
-    /// that already passed the near-stationary soft-acceptance band (a
-    /// KKT-tolerance-gated plateau / boundary-saturation / relative-decrement
-    /// certificate — see `reweight.rs` final-state certification and the
-    /// `loop_driver.rs` `stalled_at_valid_minimum` rescue). Per the variant's
-    /// own contract, "the gradient and Hessian indicate a valid minimum"; the
-    /// exhausted resource is the iteration counter, not the validity of the
-    /// mode. `MaxIterationsReached` and `LmStepSearchExhausted` (which never
-    /// cleared that band) and `Unstable` (separation) do NOT qualify.
-    ///
-    /// This is deliberately broader than [`Self::is_converged`], which keeps
-    /// its strict "clean convergence, only `Converged`" meaning for callers
-    /// that must distinguish a strict-KKT mode from a plateau-rescued one.
-    #[inline]
-    pub const fn is_certified_minimum(self) -> bool {
-        matches!(
-            self,
-            PirlsStatus::Converged | PirlsStatus::StalledAtValidMinimum
-        )
     }
 }
 
@@ -433,6 +412,13 @@ pub struct PirlsResult {
     /// This carries 3rd-order likelihood information used in exact dH/dρ
     /// terms for outer LAML derivatives.
     pub solve_c_array: ArcArray1<f64>,
+    /// Exact certificate that at least one entry of `solve_c_array` is nonzero.
+    ///
+    /// Assembly uses this to choose the intrinsic-Hessian correction. Carrying
+    /// the fact from row finalization prevents every value-only REML probe from
+    /// rescanning all observations; Gaussian identity stamps `false`
+    /// analytically because its working curvature is eta-invariant (#2435).
+    pub solve_c_nontrivial: bool,
     /// Second eta-derivative of the diagonal Hessian curvature W_H(eta):
     /// d_i := d²W_i/deta_i² at the accepted PIRLS solution.
     ///
@@ -592,6 +578,7 @@ impl PirlsResult {
             solve_d2mu_deta2: ArcArray1::zeros(0),
             solve_d3mu_deta3: ArcArray1::zeros(0),
             solve_c_array: self.solve_c_array.clone(),
+            solve_c_nontrivial: self.solve_c_nontrivial,
             solve_d_array: self.solve_d_array.clone(),
             derivatives_unsupported: self.derivatives_unsupported,
             status: self.status,
@@ -690,6 +677,7 @@ impl PirlsResult {
             solve_d2mu_deta2: solve_d2mu_deta2.into(),
             solve_d3mu_deta3: solve_d3mu_deta3.into(),
             solve_c_array,
+            solve_c_nontrivial: self.solve_c_nontrivial,
             solve_d_array,
             derivatives_unsupported: self.derivatives_unsupported,
             status: self.status,

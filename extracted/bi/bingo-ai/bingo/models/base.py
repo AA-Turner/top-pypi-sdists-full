@@ -24,6 +24,14 @@ class Message:
     content: str
 
 
+@dataclass
+class ToolCall:
+    """Structured tool invocation returned by native function calling."""
+    id: str
+    name: str        # "bash_exec" | "python_exec" | "http_request"
+    arguments: dict  # parsed JSON arguments
+
+
 @dataclass(frozen=True)
 class ProviderFailure:
     kind: str
@@ -61,6 +69,7 @@ class StreamChunk:
     finish_reason: str = ""
     request_id: str = ""
     response_id: str = ""
+    tool_calls: list = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.failure is not None and not self.error:
@@ -225,8 +234,8 @@ class BaseModel:
         _amp_blackboard: str = "",
         _amp_chain: str = "",
         _amp_skip: bool = False,
+        tools: list[dict] | None = None,
     ) -> Iterator[StreamChunk]:
-        """Stream one model turn and preserve provider failure semantics."""
         import time as _time
 
         source_messages: list[Message] | list[dict] = list(messages)
@@ -253,9 +262,10 @@ class BaseModel:
         transient_attempt = 0
 
         while True:
-            payload = self._build_payload(current_messages)
+            payload = self._build_payload(current_messages, tools=tools)
             try:
-                with httpx.Client(timeout=180) as client:
+                timeout_config = httpx.Timeout(connect=30.0, read=180.0, write=30.0, pool=10.0)
+                with httpx.Client(timeout=timeout_config) as client:
                     with client.stream(
                         "POST",
                         f"{self.config.base_url}/chat/completions",
@@ -287,6 +297,7 @@ class BaseModel:
                         emitted = False
                         terminal = False
                         response_id = ""
+                        _pending_tool_calls: list = []
                         request_id = str(
                             response.headers.get("request-id")
                             or response.headers.get("x-request-id")
@@ -342,16 +353,46 @@ class BaseModel:
                                 )
                             text = str(content or "")
                             finish_reason = str(choice.get("finish_reason") or "")
+                            # ── tool_calls in delta (OpenAI function calling) ──
+                            _delta_tool_calls = delta.get("tool_calls") if isinstance(delta, dict) else None
+                            if _delta_tool_calls and isinstance(_delta_tool_calls, list):
+                                for tc in _delta_tool_calls:
+                                    if not isinstance(tc, dict):
+                                        continue
+                                    idx = tc.get("index", 0)
+                                    while len(_pending_tool_calls) <= idx:
+                                        _pending_tool_calls.append({"id": "", "name": "", "arguments": ""})
+                                    if tc.get("id"):
+                                        _pending_tool_calls[idx]["id"] = tc["id"]
+                                    fn = tc.get("function") or {}
+                                    if fn.get("name"):
+                                        _pending_tool_calls[idx]["name"] = fn["name"]
+                                    if fn.get("arguments"):
+                                        _pending_tool_calls[idx]["arguments"] += fn["arguments"]
                             if text:
                                 emitted = True
                             if finish_reason:
                                 terminal = True
+                            # Emit tool_calls on final chunk
+                            _chunk_tools: list = []
+                            if finish_reason and _pending_tool_calls:
+                                for _ptc in _pending_tool_calls:
+                                    try:
+                                        _args = json.loads(_ptc["arguments"]) if _ptc["arguments"] else {}
+                                    except (json.JSONDecodeError, TypeError):
+                                        _args = {"raw": _ptc["arguments"]}
+                                    _chunk_tools.append(ToolCall(
+                                        id=_ptc["id"] or f"call_{id(_ptc)}",
+                                        name=_ptc["name"],
+                                        arguments=_args,
+                                    ))
                             yield StreamChunk(
                                 text=text,
                                 done=bool(finish_reason),
                                 finish_reason=finish_reason,
                                 request_id=request_id,
                                 response_id=response_id,
+                                tool_calls=_chunk_tools,
                             )
                         if not terminal:
                             if emitted:
@@ -404,7 +445,7 @@ class BaseModel:
                 )
                 return
 
-    def _build_payload(self, messages: list[Message]) -> dict:
+    def _build_payload(self, messages: list[Message], tools: list[dict] | None = None) -> dict:
         msgs = []
         normalized = self._normalize_messages(messages)
         if not any(message.role == "system" for message in normalized):
@@ -422,6 +463,11 @@ class BaseModel:
             "temperature": self.config.temperature,
             "max_tokens": self.config.max_tokens,
         }
+
+        if tools:
+            from ..tools.function_schema import to_openai_format
+            payload["tools"] = to_openai_format(tools)
+            payload["tool_choice"] = "auto"
 
         # DeepSeek V4 Pro 특화 파라미터
         if self.config.provider == "deepseek":
@@ -456,6 +502,7 @@ class ClaudeModel(BaseModel):
         _amp_blackboard: str = "",
         _amp_chain: str = "",
         _amp_skip: bool = False,
+        tools: list[dict] | None = None,
     ) -> Iterator[StreamChunk]:
         source_messages: list[Message] | list[dict] = list(messages)
         if self._amplifier_enabled and not _amp_skip:
@@ -517,10 +564,15 @@ class ClaudeModel(BaseModel):
             "messages": conv_msgs,
             "stream": True,
         }
+        if tools:
+            from ..tools.function_schema import to_anthropic_format
+            payload["tools"] = to_anthropic_format(tools)
+            payload["tool_choice"] = {"type": "auto"}
         url = f"{self.config.base_url}/messages"
 
         try:
-            with httpx.Client(timeout=120) as client:
+            timeout_config = httpx.Timeout(connect=30.0, read=120.0, write=30.0, pool=10.0)
+            with httpx.Client(timeout=timeout_config) as client:
                 with client.stream("POST", url, json=payload, headers=headers) as response:
                     if response.status_code != 200:
                         body = response.read().decode("utf-8", "replace")
@@ -536,6 +588,10 @@ class ClaudeModel(BaseModel):
                     terminal = False
                     finish_reason = ""
                     response_id = ""
+                    _pending_tool_calls: list = []
+                    _current_tool_input: str = ""
+                    _current_tool_id: str = ""
+                    _current_tool_name: str = ""
                     request_id = str(
                         response.headers.get("request-id")
                         or response.headers.get("anthropic-request-id")
@@ -585,17 +641,41 @@ class ClaudeModel(BaseModel):
                                 _pc_get_stats().record_hit(cache_read)
                             elif cache_write > 0:
                                 _pc_get_stats().record_miss()
+                        elif event_type == "content_block_start":
+                            cb = event.get("content_block", {})
+                            if cb.get("type") == "tool_use":
+                                _current_tool_id = str(cb.get("id") or "")
+                                _current_tool_name = str(cb.get("name") or "")
+                                _current_tool_input = ""
                         elif event_type == "content_block_delta":
                             delta = event.get("delta", {})
-                            text = str(delta.get("text") or "")
-                            if text:
-                                emitted = True
-                            yield StreamChunk(
-                                text=text,
-                                done=False,
-                                request_id=request_id,
-                                response_id=response_id,
-                            )
+                            delta_type = str(delta.get("type") or "")
+                            if delta_type == "input_json_delta":
+                                _current_tool_input += str(delta.get("partial_json") or "")
+                            else:
+                                text = str(delta.get("text") or "")
+                                if text:
+                                    emitted = True
+                                yield StreamChunk(
+                                    text=text,
+                                    done=False,
+                                    request_id=request_id,
+                                    response_id=response_id,
+                                )
+                        elif event_type == "content_block_stop":
+                            if _current_tool_name:
+                                try:
+                                    _args = json.loads(_current_tool_input) if _current_tool_input else {}
+                                except (json.JSONDecodeError, TypeError):
+                                    _args = {"raw": _current_tool_input}
+                                _pending_tool_calls.append(ToolCall(
+                                    id=_current_tool_id or f"toolu_{len(_pending_tool_calls)}",
+                                    name=_current_tool_name,
+                                    arguments=_args,
+                                ))
+                                _current_tool_name = ""
+                                _current_tool_id = ""
+                                _current_tool_input = ""
                         elif event_type == "message_delta":
                             delta = event.get("delta", {})
                             finish_reason = str(delta.get("stop_reason") or "")
@@ -623,6 +703,7 @@ class ClaudeModel(BaseModel):
                                     finish_reason=finish_reason or "message_stop",
                                     request_id=request_id,
                                     response_id=response_id,
+                                    tool_calls=_pending_tool_calls,
                                 )
                             return
                     if not terminal:

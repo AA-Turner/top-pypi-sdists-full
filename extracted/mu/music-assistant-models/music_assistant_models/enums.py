@@ -36,6 +36,7 @@ class MediaType(StrEnum, metaclass=MediaTypeMeta):
     PODCAST = "podcast"
     PODCAST_EPISODE = "podcast_episode"
     FOLDER = "folder"
+    COLLECTION = "collection"
     ANNOUNCEMENT = "announcement"
     FLOW_STREAM = "flow_stream"
     # deprecated: replaced by AUDIO_SOURCE, kept for one release for backwards compatibility
@@ -769,6 +770,9 @@ class ConfigEntryType(StrEnum):
     ICON = "icon"
     ALERT = "alert"
     IMAGE = "image"
+    # url: a clickable link; when returned from a config invoke_action response,
+    # the frontend opens the value (one-shot) instead of rendering a field
+    URL = "url"
     UNKNOWN = "unknown"
 
     @classmethod

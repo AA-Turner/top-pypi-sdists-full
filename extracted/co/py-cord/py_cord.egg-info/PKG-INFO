@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: py-cord
-Version: 2.8.0
+Version: 2.8.1
 Summary: A Python wrapper for the Discord API
 Author: Pycord Development
 License-Expression: MIT
@@ -37,15 +37,15 @@ Requires-Dist: myst-parser[linkify]==5.1.0; python_version >= "3.13" and extra =
 Requires-Dist: sphinxext-opengraph==0.13.0; python_version >= "3.13" and extra == "docs"
 Requires-Dist: sphinx-copybutton==0.5.2; python_version >= "3.13" and extra == "docs"
 Requires-Dist: furo==2025.12.19; python_version >= "3.13" and extra == "docs"
-Requires-Dist: sphinx-autodoc-typehints==3.10.2; python_version >= "3.13" and extra == "docs"
+Requires-Dist: sphinx-autodoc-typehints==3.12.1; python_version >= "3.13" and extra == "docs"
 Requires-Dist: sphinx-intl==2.3.2; python_version >= "3.13" and extra == "docs"
-Requires-Dist: typing_extensions==4.15.0; python_version >= "3.13" and extra == "docs"
+Requires-Dist: typing_extensions==4.16.0; python_version >= "3.13" and extra == "docs"
 Requires-Dist: levenshtein==0.27.3; python_version >= "3.13" and extra == "docs"
 Provides-Extra: speed
 Requires-Dist: msgspec~=0.21.0; extra == "speed"
 Requires-Dist: aiohttp[speedups]; extra == "speed"
 Provides-Extra: voice
-Requires-Dist: PyNaCl<1.7,>=1.6; extra == "voice"
+Requires-Dist: PyNaCl<1.7,>=1.6.2; extra == "voice"
 Requires-Dist: davey<1,>=0.1.4; extra == "voice"
 Dynamic: license-file
 

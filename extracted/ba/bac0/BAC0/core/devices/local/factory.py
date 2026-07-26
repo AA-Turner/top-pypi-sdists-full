@@ -14,7 +14,7 @@ from bacpypes3.local.binary import (
     BinaryOutputObject,
     BinaryValueObject,
 )
-from bacpypes3.local.cov import COVIncrementCriteria
+from bacpypes3.local.cov import criteria_type_map
 from bacpypes3.local.multistate import (
     MultiStateInputObject,
     MultiStateOutputObject,
@@ -146,7 +146,13 @@ class ObjectFactory(object):
                 self.objects[objectName], datatype=_localTrendLogDataType
             )  # this will need to be fed by another process.
         else:
-            self.objects[objectName]._cov_criteria = COVIncrementCriteria
+            try:
+                self.objects[objectName]._cov_criteria = criteria_type_map[objectType.objectType]
+            except KeyError:
+                self.log(
+                    f"Object {objectType} does not support COV, skipping criteria assignment",
+                    level="warning",
+                )
 
     def validate_instance(self, objectType, instance):
         _warning = True

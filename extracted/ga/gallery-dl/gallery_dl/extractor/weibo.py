@@ -198,7 +198,7 @@ class WeiboExtractor(Extractor):
 
         try:
             media = max(info["playback_list"],
-                        key=lambda m: m["meta"]["quality_index"])
+                        key=lambda m: m["meta"].get("quality_index", 0))
         except Exception:
             video = {"url": (info.get("replay_hd") or
                              info.get("stream_url_hd") or

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docsig
-Version: 0.92.1
+Version: 0.92.2
 Summary: Check signature params for proper documentation
 License-Expression: MIT
 License-File: LICENSE
@@ -204,7 +204,7 @@ ensure your installation has registered `docsig`
 .. code-block:: console
 
     $ flake8 --version
-    7.3.0 (docsig: 0.92.1, mccabe: 0.7.0, pycodestyle: 2.14.0, pyflakes: 3.4.0) CPython 3.10.19 on Darwin
+    7.3.0 (docsig: 0.92.2, mccabe: 0.7.0, pycodestyle: 2.14.0, pyflakes: 3.4.0) CPython 3.10.19 on Darwin
 
 And now use `flake8` to lint your files
 
@@ -213,8 +213,9 @@ And now use `flake8` to lint your files
     $ flake8 example.py
     example.py:1:1: SIG202 includes parameters that do not exist (params-do-not-exist) 'function'
 
-With ``flake8`` the pyproject.toml config will still be the base config, though the
-`ini files <https://flake8.pycqa.org/en/latest/user/configuration.html#configuration-locations>`_ ``flake8`` gets its config from will override the pyproject.toml config.
+With ``flake8`` configuration comes from ``flake8``'s own
+`ini files <https://flake8.pycqa.org/en/latest/user/configuration.html#configuration-locations>`_
+or commandline options; the plugin does not read pyproject.toml.
 For ``flake8`` all args and config options are prefixed with ``sig`` to
 avoid any potential conflicts with other plugins
 
@@ -290,7 +291,7 @@ Standalone
 
     repos:
       - repo: https://github.com/jshwi/docsig
-        rev: v0.92.1
+        rev: v0.92.2
         hooks:
           - id: docsig
             args:
@@ -309,7 +310,7 @@ or integrated with ``flake8``
         hooks:
           - id: flake8
             additional_dependencies:
-              - docsig==0.92.1
+              - docsig==0.92.2
             args:
               - "--sig-check-class"
               - "--sig-check-dunders"

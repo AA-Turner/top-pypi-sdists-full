@@ -7,7 +7,7 @@
 use super::tests::*;
 use super::*;
 use gam_solve::rho_optimizer::OuterObjective;
-use ndarray::{s, Array1, Array2};
+use ndarray::{Array1, Array2, s};
 
 /// Reproduce the off-manifold, fixed-stratum state whose `B`-converged mode is an
 /// exact-`A` SADDLE. This is the excitation the #2253/#2330 shared fixture uses:
@@ -74,7 +74,10 @@ pub(crate) fn e_attributable_ard_saddle_prices_finite_2336() {
     assert!(
         matches!(&priced, Ok((value, _, _)) if value.is_finite()),
         "post E-attributability fix the ARD-wrinkle saddle must PRICE FINITE, not refuse; got: {:?}",
-        priced.as_ref().map(|(value, _, _)| *value).map_err(|e| format!("{e:?}"))
+        priced
+            .as_ref()
+            .map(|(value, _, _)| *value)
+            .map_err(|e| format!("{e:?}"))
     );
 
     let (term, target, rho) = ard_saddle_state();
@@ -94,6 +97,130 @@ pub(crate) fn e_attributable_ard_saddle_prices_finite_2336() {
     }
 }
 
+/// #2434 regression gate — the switched-direction derivative already landed with
+/// the #2336 value rule in `e97238721`; two stale prototype comments later made it
+/// look absent. Pin the production direct-ρ channel against the value it actually
+/// differentiates so neither comments nor implementation can drift again.
+///
+/// Hold θ̂ fixed at the canonical E-attributable saddle, rebuild the cache at each
+/// perturbed ρ, and centrally difference
+/// `½(log|A_priced| − log|A_tt,priced|)`. The analytic side is the direct trace from
+/// `dense_exact_a_logdet_channels`, including:
+///
+/// 1. the priced inverse contraction;
+/// 2. the Daleckii–Krein eigenvector-response matrix; and
+/// 3. the explicit `dE/dρ_ard = E` term.
+///
+/// This deliberately probes only ARD coordinates: they are the coordinates on
+/// which the allegedly missing B-channel is live. The spectral assertion first
+/// proves the fixture really contains a switched negative direction; otherwise an
+/// ordinary positive-definite state could false-green the derivative comparison.
+#[test]
+fn priced_ard_direct_gradient_matches_fixed_state_value_2434() {
+    let (mut term, target, rho) = ard_saddle_state();
+    let (_value, loss, cache) = term
+        .penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            &rho,
+            None,
+            40,
+            0.4,
+            1.0e-6,
+            1.0e-6,
+        )
+        .expect("canonical E-attributable saddle must produce a priced cache");
+
+    let total_t = cache.delta_t_len();
+    let a = term
+        .materialize_exact_hessian_dense(&rho, target.view(), &cache)
+        .expect("materialize exact A at the priced state");
+    let e_diag = term
+        .materialize_ard_concave_clamp_diagonal(&rho, &cache)
+        .expect("materialize the clamp-attribution diagonal");
+    let (eigs, vecs) =
+        SaeManifoldTerm::cluster_stable_eigh(&a, &e_diag, total_t).expect("stable exact-A eigh");
+    let max_eig = eigs.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let floor = SaeManifoldTerm::SAE_EXACT_A_PD_FLOOR_REL * max_eig.max(1.0);
+    let switched = eigs
+        .iter()
+        .enumerate()
+        .filter(|(idx, lambda)| {
+            if **lambda >= -floor {
+                return false;
+            }
+            let v = vecs.column(*idx);
+            let e_v = (0..total_t)
+                .map(|row| e_diag[row] * v[row] * v[row])
+                .sum::<f64>();
+            **lambda + e_v >= -floor
+        })
+        .count();
+    assert!(
+        switched > 0,
+        "#2434 gate is invalid: the fixture contains no clamp-attributable switched direction"
+    );
+
+    let (analytic, _theta_adjoint) = term
+        .dense_exact_a_logdet_channels(target.view(), &rho, &loss, &cache)
+        .expect("complete priced exact-A derivative");
+    let fixed_state_priced_logdet =
+        |mut candidate: SaeManifoldTerm, at_rho: &SaeManifoldRho| -> f64 {
+            let (_criterion, _loss, at_cache) = candidate
+                .penalized_quasi_laplace_criterion_with_cache(
+                    target.view(),
+                    at_rho,
+                    None,
+                    0,
+                    0.4,
+                    1.0e-6,
+                    1.0e-6,
+                )
+                .expect("fixed-state perturbed cache must remain on the priced stratum");
+            let (log_a, log_a_tt) = candidate
+                .exact_observed_information_log_dets(at_rho, target.view(), &at_cache)
+                .expect("fixed-state perturbed exact-A value");
+            0.5 * (log_a - log_a_tt)
+        };
+
+    let converged_term = term;
+    let h = 1.0e-5_f64;
+    let mut checked = 0usize;
+    let mut max_signal = 0.0_f64;
+    let mut worst_relative_error = 0.0_f64;
+    for atom in 0..rho.log_ard.len() {
+        for axis in 0..rho.log_ard[atom].len() {
+            let mut plus = rho.clone();
+            let mut minus = rho.clone();
+            plus.log_ard[atom][axis] += h;
+            minus.log_ard[atom][axis] -= h;
+            let value_plus = fixed_state_priced_logdet(converged_term.clone(), &plus);
+            let value_minus = fixed_state_priced_logdet(converged_term.clone(), &minus);
+            let finite_difference = (value_plus - value_minus) / (2.0 * h);
+            let index = rho.ard_flat_index(atom, axis);
+            let exact = analytic[index];
+            let scale = 1.0 + finite_difference.abs().max(exact.abs());
+            let relative_error = (finite_difference - exact).abs() / scale;
+            max_signal = max_signal.max(finite_difference.abs().max(exact.abs()));
+            worst_relative_error = worst_relative_error.max(relative_error);
+            eprintln!(
+                "#2434 priced ARD atom={atom} axis={axis}: analytic={exact:.12e} \
+                 fd={finite_difference:.12e} scaled_error={relative_error:.3e}"
+            );
+            checked += 1;
+        }
+    }
+    assert!(checked > 0, "#2434 gate found no ARD coordinates");
+    assert!(
+        max_signal > 1.0e-6,
+        "#2434 gate is not load-bearing: every priced ARD derivative is numerically zero"
+    );
+    assert!(
+        worst_relative_error <= 1.0e-4,
+        "priced exact-A analytic derivative disagrees with the fixed-state central \
+         difference of its value: worst scaled error {worst_relative_error:.3e}"
+    );
+}
+
 /// #2336 refusal companion — a GENUINE saddle (indefiniteness NOT attributable to
 /// the bounded ARD concave-clamp: `λ+e_v < −floor`) must STILL return the typed
 /// `IndefiniteObservedInformation` refusal, and the outer eval must price it as
@@ -104,8 +231,7 @@ pub(crate) fn e_attributable_ard_saddle_prices_finite_2336() {
 /// half is `e_attributable_ard_saddle_prices_finite_2336`.
 #[test]
 fn genuine_saddle_is_infeasible_probe_not_fatal_2336() {
-    let (mut term, target, rho) =
-        super::tests_logdet_adjoint_780::obb_patchd_fixture(0.02, -6.0);
+    let (mut term, target, rho) = super::tests_logdet_adjoint_780::obb_patchd_fixture(0.02, -6.0);
     let refusal = term.penalized_quasi_laplace_criterion_with_cache(
         target.view(),
         &rho,
@@ -124,8 +250,7 @@ fn genuine_saddle_is_infeasible_probe_not_fatal_2336() {
         refusal.map(|(value, _, _)| value)
     );
 
-    let (term, target, rho) =
-        super::tests_logdet_adjoint_780::obb_patchd_fixture(0.02, -6.0);
+    let (term, target, rho) = super::tests_logdet_adjoint_780::obb_patchd_fixture(0.02, -6.0);
     let rho_flat = rho.to_flat();
     let mut objective =
         SaeManifoldOuterObjective::new(term, target, None, rho, 40, 0.4, 1.0e-6, 1.0e-6);
@@ -143,14 +268,35 @@ fn genuine_saddle_is_infeasible_probe_not_fatal_2336() {
 }
 
 /// #2228 MEASUREMENT (zz_measure) — with the certify-at-best-seen fix (½λ²/scale-min
-/// keyed, band unchanged), run the criterion on ard_saddle_state. Ok ⇒ the best-seen
-/// certificate cleared the 1e-8 band and A is materialized at that certified mode
-/// (report min_eig — PD ⇒ genuine convergence, retires the #2336 escape). Err ⇒ the
-/// best-achievable ½λ²/scale plateaus above the band (a solver stall at a saddle-
-/// adjacent mode), honestly reported at the best-seen ‖g‖.
+/// keyed, band unchanged), run the criterion on ard_saddle_state.
+///
+/// **`min_eig` alone does not decide anything here, and reading it as if it did is
+/// how this probe misled two readers into filing a correctness alarm against
+/// designed behaviour.** Since #2330/#2336 the exact-`A` gate is not a PSD test: a
+/// negative eigendirection is refused only when the ARD concave clamp cannot
+/// account for its negativity. Per direction `v` with eigenvalue `λ < −floor`, the
+/// gate forms
+///
+/// ```text
+/// floor = SAE_EXACT_A_PD_FLOOR_REL · max(max_eig, 1)
+/// basin = λ + vᵀEv        (E = the ARD concave-clamp diagonal, zero on the β border)
+/// basin < −floor  ⇒  genuine saddle, typed IndefiniteObservedInformation refusal
+/// basin ≥ −floor  ⇒  clamp-attributable, PRICED at the basin curvature
+/// ```
+///
+/// So `A` being indefinite is expected and by itself proves nothing; the deciding
+/// quantity is `basin`, and `min_eig` and `basin` differ by exactly the `vᵀEv` this
+/// probe used to omit. Report all four — `λ`, `vᵀEv`, `basin`, `floor` — for every
+/// direction the gate actually examined, using the SAME `cluster_stable_eigh` the
+/// gate uses so degenerate clusters resolve identically rather than to whatever a
+/// plain decomposition happens to return.
+///
+/// `Ok` ⇒ every negative direction was clamp-attributable and priced at its basin
+/// curvature. `Err` ⇒ either a direction the clamp cannot explain (a genuine
+/// saddle) or the best-achievable ½λ²/scale plateauing above the band (a solver
+/// stall), honestly reported at the best-seen ‖g‖.
 #[test]
 fn zz_measure_best_seen_classification_2228() {
-    use super::{FaerEigh, Side};
     let (mut term, target, rho) = ard_saddle_state();
     let result = term.penalized_quasi_laplace_criterion_with_cache(
         target.view(),
@@ -166,12 +312,39 @@ fn zz_measure_best_seen_classification_2228() {
             let a = term
                 .materialize_exact_hessian_dense(&rho, target.view(), &cache)
                 .expect("materialize A at certified best-seen mode");
-            let (eigs, _) = a.eigh(Side::Lower).expect("A eigendecomposition");
+            let e_diag = term
+                .materialize_ard_concave_clamp_diagonal(&rho, &cache)
+                .expect("ARD concave-clamp diagonal at the certified mode");
+            let total_t = cache.delta_t_len();
+            let (eigs, vecs) = SaeManifoldTerm::cluster_stable_eigh(&a, &e_diag, total_t)
+                .expect("A eigendecomposition (gate-identical clustering)");
             let min_eig = eigs.iter().copied().fold(f64::INFINITY, f64::min);
             let max_eig = eigs.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+            let floor = SaeManifoldTerm::SAE_EXACT_A_PD_FLOOR_REL * max_eig.max(1.0);
             eprintln!(
-                "2228-MEASURE: Ok(value={value:.9e}) certified; min_eig={min_eig:.6e} max_eig={max_eig:.6e}"
+                "2228-MEASURE: Ok(value={value:.9e}) certified; min_eig={min_eig:.6e} \
+                 max_eig={max_eig:.6e} floor={floor:.6e}"
             );
+            // Every direction the gate examined, with the quantity it decided on.
+            for (idx, &lambda) in eigs.iter().enumerate() {
+                if lambda >= -floor {
+                    continue;
+                }
+                let v = vecs.column(idx);
+                let limit = total_t.min(v.len());
+                let e_v: f64 = (0..limit).map(|j| e_diag[j] * v[j] * v[j]).sum();
+                let basin = lambda + e_v;
+                eprintln!(
+                    "2228-MEASURE:   dir {idx}: lambda={lambda:.6e} vEv={e_v:.6e} \
+                     basin={basin:.6e} vs -floor={:.6e} => {}",
+                    -floor,
+                    if basin < -floor {
+                        "GENUINE SADDLE (would refuse)"
+                    } else {
+                        "clamp-attributable (priced at basin)"
+                    }
+                );
+            }
         }
         Err(err) => eprintln!("2228-MEASURE: Err({err:?}) => plateau above band (solver stall)"),
     }
@@ -264,7 +437,9 @@ fn zz_measure_saddle_escape_linesearch_reconverge_2336() {
         );
         let floor = 1.0e-9 * max_eig.max(1.0);
         if min_eig >= -floor {
-            eprintln!("2336-ITER{iter}: ACCEPTED — exact A is PD within the criterion floor; escaped");
+            eprintln!(
+                "2336-ITER{iter}: ACCEPTED — exact A is PD within the criterion floor; escaped"
+            );
             break;
         }
 
@@ -381,7 +556,13 @@ fn zz_measure_saddle_gate_desync_2336() {
     let reach_saddle = |term: &mut SaeManifoldTerm,
                         target: &Array2<f64>,
                         rho: &SaeManifoldRho|
-     -> (ArrowFactorCache, SaeManifoldRho, SaeManifoldLoss, bool, ArrowSolveOptions) {
+     -> (
+        ArrowFactorCache,
+        SaeManifoldRho,
+        SaeManifoldLoss,
+        bool,
+        ArrowSolveOptions,
+    ) {
         let mut rho_fixed = rho.clone();
         let initial = term
             .run_joint_fit_arrow_schur_for_quasi_laplace(
@@ -460,7 +641,8 @@ fn zz_measure_saddle_gate_desync_2336() {
             let db = if negate { -dir_beta } else { dir_beta.clone() };
             let mut s = 1.0e-3;
             while s <= 0.6 {
-                term.apply_newton_step(dt.view(), db.view(), s).expect("trial");
+                term.apply_newton_step(dt.view(), db.view(), s)
+                    .expect("trial");
                 let cand = term
                     .penalized_objective_total(target.view(), rho, None, 1.0)
                     .expect("trial obj");
@@ -486,10 +668,12 @@ fn zz_measure_saddle_gate_desync_2336() {
         let obj_saddle = term
             .penalized_objective_total(target.view(), &rho, None, 1.0)
             .expect("obj saddle frozen");
-        let (obj_min, s_min, negate) = line_search(&mut term, &target, &rho, &dir_t, &dir_beta, obj_saddle);
+        let (obj_min, s_min, negate) =
+            line_search(&mut term, &target, &rho, &dir_t, &dir_beta, obj_saddle);
         let dt = if negate { -&dir_t } else { dir_t.clone() };
         let db = if negate { -&dir_beta } else { dir_beta.clone() };
-        term.apply_newton_step(dt.view(), db.view(), s_min).expect("step");
+        term.apply_newton_step(dt.view(), db.view(), s_min)
+            .expect("step");
         // Objective at the stepped point under the SADDLE-frozen gates (probe view).
         let obj_stepped_frozen = term
             .penalized_objective_total(target.view(), &rho, None, 1.0)
@@ -524,10 +708,12 @@ fn zz_measure_saddle_gate_desync_2336() {
         let obj_saddle = term
             .penalized_objective_total(target.view(), &rho, None, 1.0)
             .expect("obj saddle frozen B");
-        let (_om, s_min, negate) = line_search(&mut term, &target, &rho, &dir_t, &dir_beta, obj_saddle);
+        let (_om, s_min, negate) =
+            line_search(&mut term, &target, &rho, &dir_t, &dir_beta, obj_saddle);
         let dt = if negate { -&dir_t } else { dir_t.clone() };
         let db = if negate { -&dir_beta } else { dir_beta.clone() };
-        term.apply_newton_step(dt.view(), db.view(), s_min).expect("step B");
+        term.apply_newton_step(dt.view(), db.view(), s_min)
+            .expect("step B");
         let obj_stepped = term
             .penalized_objective_total(target.view(), &rho, None, 1.0)
             .expect("obj stepped B");
@@ -670,7 +856,10 @@ fn zz_measure_e_attributability_2336() {
                 &rho,
                 target.view(),
                 &cache,
-                &SaeArrowVector { t: v_t.clone(), beta: v_beta.clone() },
+                &SaeArrowVector {
+                    t: v_t.clone(),
+                    beta: v_beta.clone(),
+                },
             )
             .expect("apply ΔC");
         let vt_dc = v_t.dot(&dc.t) + v_beta.dot(&dc.beta);
@@ -691,6 +880,10 @@ fn zz_measure_e_attributability_2336() {
     eprintln!(
         "2336-EATTR: VERDICT n_neg={n_neg} all_attributable={all_attributable} \
          => fixture criterion would be {}",
-        if all_attributable { "FINITE (priced)" } else { "STILL REFUSED (genuine saddle remains)" }
+        if all_attributable {
+            "FINITE (priced)"
+        } else {
+            "STILL REFUSED (genuine saddle remains)"
+        }
     );
 }

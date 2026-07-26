@@ -40,16 +40,35 @@ impl ExactJointModeCurvatureCertificate {
 /// Whether the constrained candidate, rather than an ambient unconstrained
 /// spectrum step, owns trust-region globalization.
 ///
-/// A reduced-face candidate already resolved negative curvature inside the
-/// only accessible space, `null(A_active)`. Ambient negative curvature cannot
-/// invalidate that direction: substituting an unconstrained trust step moves
-/// off the certified face while incorrectly retaining its endpoint row ids.
+/// A reduced-face candidate is the exact positive-curvature Newton direction,
+/// a generalized reduced spectral completion, or (at a fully pinned face) the
+/// cone-projected gradient. Every variant is already defined on the feasible
+/// face. Replacing it with an ambient unconstrained spectrum step moves off that
+/// face while incorrectly retaining its endpoint row ids.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ReducedFaceCandidateKind {
+    /// The original, unmodified reduced Hessian and final constraint cone
+    /// certify the constrained Newton equation.
+    ExactNewton,
+    /// The reduced Hessian is positive definite, but a changed endpoint face
+    /// prevents an exact original-H KKT certificate.
+    ReducedNewton,
+    /// The reduced Hessian is singular or indefinite. Positive generalized
+    /// eigenmodes retain their exact Newton curvature; only nonpositive/
+    /// numerically-null modes use the trust metric's unit curvature.
+    RegularizedNewton,
+    /// The reduced Hessian is singular or indefinite, so the step is the
+    /// metric-projected negative gradient. This is used when the current active
+    /// rows leave no tangent space to regularize.
+    ProjectedGradient,
+}
+
 fn constrained_search_delta_owns_trust_step(
-    exact_face_kind: Option<bool>,
+    reduced_face_kind: Option<ReducedFaceCandidateKind>,
     has_active_set: bool,
     ambient_spectrum_has_negative_curvature: Option<bool>,
 ) -> bool {
-    exact_face_kind.is_some()
+    reduced_face_kind.is_some()
         || (has_active_set && ambient_spectrum_has_negative_curvature == Some(false))
 }
 
@@ -96,216 +115,420 @@ fn self_concordant_damped_step_alpha(newton_decrement: f64) -> Option<f64> {
     Some(1.0 / (1.0 + lambda_n))
 }
 
+/// Trust-region-shifted reduced metric from the generalized eigensystem `(H, D)`.
+///
+/// `D` is the existing affine-covariant trust/preconditioner metric. Whitening
+/// by `D` makes the curvature classification and radius invariant to coefficient
+/// units. Positive-definite interior Newton uses `λ=0` and leaves `H` unchanged.
+/// Otherwise the shared Moré–Sorensen secular solver chooses the unique
+/// `λ >= max(0, -gamma_min)` for the supplied trust radius:
+///
+/// ```text
+/// B = D^(-1/2) H D^(-1/2) = V diag(gamma) V'
+/// c = V' D^(-1/2) rhs
+/// eta(lambda) = c / (gamma + lambda)
+/// ||eta(lambda)||₂ <= trust_radius
+/// M = D^(1/2) V diag(gamma + lambda) V' D^(1/2).
+/// ```
+///
+/// Thus an identified negative mode reaches the finite-radius boundary instead
+/// of receiving an arbitrary unit curvature that can collapse its step under an
+/// anisotropic `D`. Genuine numerical-null modes retain unit `D` curvature: the
+/// secular solver deliberately drops those gauge directions, so they need a
+/// unique neutral metric in the downstream constrained projection. The caller's
+/// exact-objective trust ratio remains the nonlinear acceptance authority.
+fn generalized_trust_region_reduced_metric(
+    reduced_hessian: &Array2<f64>,
+    reduced_trust_metric: &Array2<f64>,
+    reduced_rhs: &Array1<f64>,
+    trust_radius: f64,
+) -> Result<(Array2<f64>, bool), String> {
+    let dimension = reduced_hessian.nrows();
+    if dimension == 0
+        || reduced_hessian.ncols() != dimension
+        || reduced_trust_metric.nrows() != dimension
+        || reduced_trust_metric.ncols() != dimension
+        || reduced_rhs.len() != dimension
+    {
+        return Err(
+            "generalized reduced trust region requires equal matrix/vector dimensions".into(),
+        );
+    }
+    if !(trust_radius.is_finite() && trust_radius > 0.0) {
+        return Err("generalized reduced trust region requires a finite positive radius".into());
+    }
+
+    let mut trust_metric = reduced_trust_metric.clone();
+    symmetrize_dense_in_place(&mut trust_metric);
+    let (metric_eigenvalues, metric_eigenvectors) =
+        FaerEigh::eigh(&trust_metric, faer::Side::Lower).map_err(|error| {
+            format!("reduced trust-metric eigendecomposition failed: {error:?}")
+        })?;
+    if metric_eigenvalues
+        .iter()
+        .any(|value| !value.is_finite() || *value <= 0.0)
+    {
+        return Err("reduced trust metric is not positive definite".into());
+    }
+
+    let mut metric_sqrt_columns = metric_eigenvectors.clone();
+    let mut metric_inv_sqrt_columns = metric_eigenvectors.clone();
+    for (column, eigenvalue) in metric_eigenvalues.iter().enumerate() {
+        let sqrt = eigenvalue.sqrt();
+        let inverse_sqrt = sqrt.recip();
+        for row in 0..dimension {
+            metric_sqrt_columns[[row, column]] *= sqrt;
+            metric_inv_sqrt_columns[[row, column]] *= inverse_sqrt;
+        }
+    }
+    let metric_sqrt = metric_sqrt_columns.dot(&metric_eigenvectors.t());
+    let metric_inv_sqrt = metric_inv_sqrt_columns.dot(&metric_eigenvectors.t());
+
+    let mut whitened_hessian = metric_inv_sqrt
+        .dot(reduced_hessian)
+        .dot(&metric_inv_sqrt);
+    symmetrize_dense_in_place(&mut whitened_hessian);
+    let (generalized_eigenvalues, generalized_eigenvectors) =
+        FaerEigh::eigh(&whitened_hessian, faer::Side::Lower).map_err(|error| {
+            format!("whitened reduced-Hessian eigendecomposition failed: {error:?}")
+        })?;
+    if generalized_eigenvalues
+        .iter()
+        .any(|value| !value.is_finite())
+    {
+        return Err("whitened reduced Hessian contains non-finite curvature".into());
+    }
+    let whitened_rhs = metric_inv_sqrt.dot(reduced_rhs);
+    let spectral_rhs = generalized_eigenvectors.t().dot(&whitened_rhs);
+    if spectral_rhs.iter().any(|value| !value.is_finite()) {
+        return Err("whitened reduced trust-region rhs is non-finite".into());
+    }
+    let lambda_max_abs = generalized_eigenvalues
+        .iter()
+        .map(|value| value.abs())
+        .fold(0.0_f64, f64::max);
+    let numerical_floor =
+        joint_hessian_numerical_eigenvalue_floor(lambda_max_abs, dimension);
+    let null_cutoff = (KKT_REFUSAL_RANK_TOL * lambda_max_abs).max(numerical_floor);
+    let spectrum = whitened_spectrum::WhitenedHessianSpectrum {
+        gamma: generalized_eigenvalues.clone(),
+        evecs: generalized_eigenvectors.clone(),
+        c: spectral_rhs,
+        d_inv_sqrt: Array1::ones(dimension),
+        lambda_max_abs,
+        null_cutoff,
+        numerical_floor,
+    };
+    let trust_step = spectrum.trust_region_step(trust_radius);
+    let Some(trust_shift) = trust_step.trust_region_shift else {
+        return Err(
+            "generalized reduced trust region unexpectedly selected reflected fallback".into(),
+        );
+    };
+    if !(trust_shift.is_finite() && trust_shift >= 0.0) {
+        return Err("generalized reduced trust-region shift is invalid".into());
+    }
+    let exact_positive_curvature = trust_shift == 0.0
+        && !trust_step.trust_region_hard_case
+        && generalized_eigenvalues
+            .iter()
+            .all(|value| *value > numerical_floor);
+
+    let mut shifted_columns = generalized_eigenvectors.clone();
+    for (column, eigenvalue) in generalized_eigenvalues.iter().enumerate() {
+        let curvature = if eigenvalue.abs() <= numerical_floor {
+            // The shared spectral step drops genuine numerical gauges. Give
+            // only those modes neutral unit D curvature so the constrained QP
+            // remains unique without inventing motion in an unidentified mode.
+            1.0
+        } else {
+            (*eigenvalue + trust_shift).max(numerical_floor)
+        };
+        for row in 0..dimension {
+            shifted_columns[[row, column]] *= curvature;
+        }
+    }
+    let whitened_shifted = shifted_columns.dot(&generalized_eigenvectors.t());
+    let mut metric = metric_sqrt
+        .dot(&whitened_shifted)
+        .dot(&metric_sqrt);
+    symmetrize_dense_in_place(&mut metric);
+    if metric.iter().any(|value| !value.is_finite()) {
+        return Err("generalized trust-region reduced metric is non-finite".into());
+    }
+    Ok((metric, exact_positive_curvature))
+}
+
 /// Reduced-space Newton candidate on a certified current inequality face.
 ///
 /// The global constrained step uses a convex model to discover the active
 /// face. Once that face is known, convexifying the Hessian in ambient
 /// coefficient space is mathematically wrong: curvature normal to the face is
 /// inaccessible, and reflecting it can perturb the tangent Newton equation.
-/// This routine instead works in the reduced system
+/// When the accessible Hessian is positive definite, this routine works in the
+/// reduced system
 ///
 ///     (Z' H Z) delta_z = Z' r,   delta = Z delta_z,
 ///
-/// where `Z` spans `null(A_active)`. Negative tangent curvature is reflected
-/// only as a globalization direction and the step is truncated at the first
-/// inactive blocker. When reduced curvature is positive and no blocker is
-/// crossed, the returned step is the exact fixed-face Newton step and also
-/// requires a nonnegative multiplier certificate.
-fn certified_reduced_face_newton_candidate(
+/// where `Z` spans `null(A_active)`. If the reduced Hessian is singular or
+/// indefinite, there is no unconstrained Newton minimizer on that face. Ambient
+/// eigenvalue reflection is not a substitute: it changes inaccessible normal
+/// curvature and can cycle among unrelated faces (#979). Instead, this routine
+/// solves the generalized Moré–Sorensen problem on the face tangent, choosing
+/// the self-vanishing shift `λ` from the current trust radius. The resulting
+/// positive metric `M = H_face + λD_face` defines the constraint-aware map
+///
+///     beta_next = argmin_{x in C} 1/2 ||x-beta||_M^2 - r' (x-beta)
+///               = P_C^M(beta + M^-1 r).
+///
+/// The projection variational inequality
+/// certifies
+///
+///     r' delta >= ||delta||_M^2 > 0
+///
+/// for every nonzero step, so the exact-objective trust loop receives a genuine
+/// first-order descent direction. Strict hard-case saddles at zero projected
+/// gradient are handled separately by the reduced-curvature certificate/escape
+/// machinery. A
+/// fully pinned current face has no tangent system to regularize; there the
+/// routine uses the original `D`-metric projected gradient so invalid active
+/// rows can still release.
+///
+/// In either branch the constraint solver resolves every blocker entry/release
+/// in one model; it never returns to the nonlinear loop after only the first
+/// wall. An exact label is issued only after the original quadratic KKT equation
+/// certifies on the final face.
+fn certified_reduced_face_candidate(
     exact_hessian: &Array2<f64>,
     rhs: &Array1<f64>,
     beta: &Array1<f64>,
     constraints: &ConstraintSet,
     active_rows: &[usize],
-) -> Result<Option<(Array1<f64>, Vec<usize>, bool)>, String> {
+    trust_metric_diag: &Array1<f64>,
+    trust_radius: f64,
+) -> Result<Option<(Array1<f64>, Vec<usize>, ReducedFaceCandidateKind)>, String> {
     let p = beta.len();
-    if active_rows.is_empty()
-        || rhs.len() != p
+    if active_rows.is_empty() {
+        return Ok(None);
+    }
+    if rhs.len() != p
         || exact_hessian.nrows() != p
         || exact_hessian.ncols() != p
         || constraints.ncols() != p
+        || trust_metric_diag.len() != p
+        || trust_metric_diag
+            .iter()
+            .any(|value| !value.is_finite() || *value <= 0.0)
     {
-        return Ok(None);
+        return Err(format!(
+            "reduced-face candidate dimension/metric contract failed \
+             (p={p}, rhs={}, hessian={}x{}, constraints={}x{}, trust_metric={})",
+            rhs.len(),
+            exact_hessian.nrows(),
+            exact_hessian.ncols(),
+            constraints.nrows(),
+            constraints.ncols(),
+            trust_metric_diag.len(),
+        ));
     }
+    let geometry_started = std::time::Instant::now();
+    let geometry_scope = gam_runtime::process_monitor::track_scope(format!(
+        "reduced face tangent geometry p={p} active_rows={}",
+        active_rows.len(),
+    ));
     let gathered = constraints
         .gather_rows(active_rows)
         .map_err(|error| format!("exact active-face row gather failed: {error}"))?;
     let tangent = match active_constraint_tangent_geometry(&gathered.a)? {
-        ActiveConstraintTangentGeometry::FullyPinned => return Ok(None),
-        ActiveConstraintTangentGeometry::Tangent(tangent) => tangent,
+        ActiveConstraintTangentGeometry::FullyPinned => None,
+        ActiveConstraintTangentGeometry::Tangent(tangent) => Some(tangent),
     };
-    let mut reduced_hessian = tangent.t().dot(exact_hessian).dot(&tangent);
-    symmetrize_dense_in_place(&mut reduced_hessian);
-    let (eigenvalues, eigenvectors) =
-        FaerEigh::eigh(&reduced_hessian, faer::Side::Lower).map_err(|error| {
-            format!("exact active-face Hessian eigendecomposition failed: {error:?}")
+    drop(geometry_scope);
+    let geometry_elapsed = geometry_started.elapsed();
+    if geometry_elapsed >= std::time::Duration::from_secs(1) {
+        log::warn!(
+            "[gam#979 reduced-face phase] phase=tangent-geometry elapsed_s={:.3} p={p} active_rows={}",
+            geometry_elapsed.as_secs_f64(),
+            active_rows.len(),
+        );
+    }
+    let metric_started = std::time::Instant::now();
+    let metric_scope = gam_runtime::process_monitor::track_scope(format!(
+        "reduced face metric construction p={p} tangent_dim={}",
+        tangent.as_ref().map_or(0, |basis| basis.ncols()),
+    ));
+    let mut trust_metric = Array2::<f64>::zeros((p, p));
+    for index in 0..p {
+        trust_metric[[index, index]] = trust_metric_diag[index];
+    }
+    let (mut face_metric, exact_positive_curvature, candidate_kind) =
+        if let Some(tangent) = tangent.as_ref() {
+            let mut reduced_hessian = tangent.t().dot(exact_hessian).dot(tangent);
+            symmetrize_dense_in_place(&mut reduced_hessian);
+            let mut reduced_trust_metric = tangent.t().dot(&trust_metric).dot(tangent);
+            symmetrize_dense_in_place(&mut reduced_trust_metric);
+            let reduced_rhs = tangent.t().dot(rhs);
+            let (trust_region_reduced_metric, exact_positive_curvature) =
+                generalized_trust_region_reduced_metric(
+                    &reduced_hessian,
+                    &reduced_trust_metric,
+                    &reduced_rhs,
+                    trust_radius,
+                )
+                .map_err(|error| {
+                    format!(
+                        "reduced-face generalized trust-region metric failed \
+                         (ambient_dim={p}, tangent_dim={}): {error}",
+                        tangent.ncols(),
+                    )
+                })?;
+
+            // Lift the completed reduced metric into the accessible tangent.
+            // Add N D N only on the inaccessible Euclidean-normal subspace so
+            // the ambient QP is unique without changing a single tangent mode.
+            let tangent_projector = tangent.dot(&tangent.t());
+            let mut normal_projector = Array2::<f64>::eye(p) - &tangent_projector;
+            symmetrize_dense_in_place(&mut normal_projector);
+            let normal_metric = normal_projector
+                .dot(&trust_metric)
+                .dot(&normal_projector);
+            let metric = tangent
+                .dot(&trust_region_reduced_metric)
+                .dot(&tangent.t())
+                + normal_metric;
+            let kind = if exact_positive_curvature {
+                ReducedFaceCandidateKind::ReducedNewton
+            } else {
+                ReducedFaceCandidateKind::RegularizedNewton
+            };
+            (metric, exact_positive_curvature, kind)
+        } else {
+            // With no tangent space, D-projection is the only face-aware
+            // first-order step and can release active rows with invalid
+            // multipliers.
+            (
+                trust_metric,
+                false,
+                ReducedFaceCandidateKind::ProjectedGradient,
+            )
+        };
+    symmetrize_dense_in_place(&mut face_metric);
+    drop(metric_scope);
+    let metric_elapsed = metric_started.elapsed();
+    if metric_elapsed >= std::time::Duration::from_secs(1) {
+        log::warn!(
+            "[gam#979 reduced-face phase] phase=metric-construction elapsed_s={:.3} p={p} tangent_dim={}",
+            metric_elapsed.as_secs_f64(),
+            tangent.as_ref().map_or(0, |basis| basis.ncols()),
+        );
+    }
+    if face_metric.iter().any(|value| !value.is_finite()) {
+        return Err("reduced-face lifted metric is non-finite".into());
+    }
+    let rhs_beta = face_metric.dot(beta) + rhs;
+    let projection_started = std::time::Instant::now();
+    let projection_scope = gam_runtime::process_monitor::track_scope(format!(
+        "reduced face operator projection p={p} warm_rows={} constraint_rows={}",
+        active_rows.len(),
+        constraints.nrows(),
+    ));
+    let (candidate, next_active) =
+        gam_solve::active_set::solve_quadratic_with_constraint_set(
+            &face_metric,
+            &rhs_beta,
+            beta,
+            constraints,
+            Some(active_rows),
+        )
+        .map_err(|error| {
+            format!(
+                "reduced-face constrained metric projection failed \
+                 (ambient_dim={p}, warm_active_rows={}, constraint_rows={}): {error}",
+                active_rows.len(),
+                constraints.nrows(),
+            )
         })?;
-    let curvature_scale = eigenvalues
-        .iter()
-        .map(|value| value.abs())
-        .fold(0.0_f64, f64::max);
-    if !(curvature_scale.is_finite() && curvature_scale > 0.0) {
-        return Ok(None);
+    drop(projection_scope);
+    let projection_elapsed = projection_started.elapsed();
+    if projection_elapsed >= std::time::Duration::from_secs(1) {
+        log::warn!(
+            "[gam#979 reduced-face phase] phase=operator-projection elapsed_s={:.3} p={p} warm_rows={} constraint_rows={}",
+            projection_elapsed.as_secs_f64(),
+            active_rows.len(),
+            constraints.nrows(),
+        );
     }
-    let positive_floor = KKT_REFUSAL_RANK_TOL * curvature_scale;
-    if eigenvalues
-        .iter()
-        .any(|value| !value.is_finite() || value.abs() <= positive_floor)
-    {
-        return Ok(None);
-    }
-    let exact_positive_curvature = eigenvalues.iter().all(|value| *value > positive_floor);
-    let reduced_rhs = tangent.t().dot(rhs);
-    let mut spectral_step = eigenvectors.t().dot(&reduced_rhs);
-    for (coefficient, eigenvalue) in spectral_step.iter_mut().zip(eigenvalues.iter()) {
-        // Away from a local mode, reflect negative curvature only in the
-        // accessible tangent. This is a strict-descent modified-Newton
-        // globalization, not an estimator change; as soon as the reduced
-        // Hessian is positive it becomes the exact Newton equation above.
-        *coefficient /= eigenvalue.abs();
-    }
-    let mut delta = tangent.dot(&eigenvectors.dot(&spectral_step));
-    if delta.iter().any(|value| !value.is_finite()) {
-        return Ok(None);
-    }
+    let delta = &candidate - beta;
     let directional_descent = rhs.dot(&delta);
-    if !(directional_descent.is_finite() && directional_descent > 0.0) {
-        return Ok(None);
+    let metric_delta = face_metric.dot(&delta);
+    let metric_norm_squared = delta.dot(&metric_delta);
+    // Relative to the feasible base point `beta`, the projected quadratic is
+    //
+    //   q(delta) - q(0) = 0.5 * delta' M delta - rhs' delta.
+    //
+    // Therefore the solver-independent descent certificate is
+    // `rhs' delta >= 0.5 * delta' M delta`. Requiring the full metric norm
+    // assumes an exact KKT variational identity; it spuriously rejects a
+    // certified finite-tolerance solution when the stationarity residual has
+    // the opposite rounding sign. Solver-level primal/dual/stationarity gates
+    // already certify optimality, while this gate independently ensures the
+    // returned point actually improves the quadratic over the feasible seed.
+    let model_decrease = directional_descent - 0.5 * metric_norm_squared;
+    let projection_tolerance = 1.0e-8
+        * (1.0 + directional_descent.abs().max(metric_norm_squared.abs()));
+    if !(directional_descent.is_finite()
+        && metric_norm_squared.is_finite()
+        && model_decrease.is_finite()
+        && directional_descent > 0.0
+        && metric_norm_squared > 0.0
+        && model_decrease + projection_tolerance >= 0.0)
+    {
+        let (base_violation, base_worst_row) = constraints
+            .max_scaled_violation(beta.view())
+            .unwrap_or((f64::NAN, None));
+        let (candidate_violation, candidate_worst_row) = constraints
+            .max_scaled_violation(candidate.view())
+            .unwrap_or((f64::NAN, None));
+        return Err(format!(
+            "reduced-face metric projection failed its descent certificate \
+             (directional_descent={directional_descent:.6e}, \
+             metric_norm_squared={metric_norm_squared:.6e}, \
+             model_decrease={model_decrease:.6e}, \
+             tolerance={projection_tolerance:.6e}, \
+             step_inf={:.6e}, active_rows={}, \
+             base_scaled_violation={base_violation:.6e}@{base_worst_row:?}, \
+             candidate_scaled_violation={candidate_violation:.6e}@{candidate_worst_row:?})",
+            delta.iter().map(|value| value.abs()).fold(0.0_f64, f64::max),
+            next_active.len(),
+        ));
     }
 
-    // The tangent step can meet a previously inactive inequality. Truncate at
-    // the first blocker and carry that row into the returned face so the next
-    // cycle solves the exchanged face directly — standard gradient-projection
-    // globalization, and the reduced tangent curvature stays exact where the
-    // ambient-convex QP would reflect it into a slow crawl (measured on the
-    // #2301 n=80 CTN fit: routing every blocker cycle to the full reflected
-    // QP marched at ~0.989×/cycle and exhausted the 184-cycle budget with the
-    // residual at 0.82 vs tol 1.3e-4).
-    //
-    // CRITICAL: the truncated chord must land inside the ACCEPTED-FACE WORKING
-    // BAND, not merely inside the looser primal-feasibility band. Two tolerances
-    // govern this seam and they differ by 100×:
-    //   * the trial-feasibility gate accepts a step whose worst scaled violation
-    //     is ≤ ACTIVE_SET_PRIMAL_FEASIBILITY_TOL (1e-8) — "still feasible";
-    //   * the accepted-face filter (`constraint_set_rows_tight_at_point`, the
-    //     caller's line ~4279) classifies a row TIGHT only when its scaled slack
-    //     is ≤ ACTIVE_SET_WORKING_FACE_TOL (1e-10) — "on the face".
-    // The carry (returning the blocker in `next_active`) is honored only if the
-    // accepted β lands inside the *working* band; otherwise the filter drops the
-    // blocker and the exchange the truncation exists to complete never records.
-    //
-    // The prior code shaved inward by a RELATIVE 1e-12 (`alpha *= 1 - 1e-12`),
-    // landing the blocker at scaled slack `≈ 1e-12 · original_slack`. That is
-    // inside the working band ONLY while the original scaled slack is ≲ 100.
-    // Above that — routine for the #2298 competing-risks fit, whose derivative-
-    // guard cone rows carry O(10–100) coefficients and thus O(10²–10⁴) scaled
-    // slacks — the landing point sits in the 1e-10 … 1e-8 gap: feasible, so the
-    // trial gate accepts the step and β advances, but NOT tight, so the filter
-    // drops the carried blocker. The warm face never grows, the reduced-face
-    // fast path re-proposes the identical blocker-bound chord every cycle, the
-    // inner joint-Newton never lands a cleanly-projected stationary point, and
-    // the outer ρ-loop evaluates its gradient at a non-stationary inner mode and
-    // wanders (measured: 60 outer iters, |Pg|=0.398 vs bound 0.021, PSD/un-
-    // railed — #2298 last convergence blocker, #2301 exchange stall).
-    //
-    // Fix: target an ABSOLUTE inward scaled slack `τ = min(½·WORKING_FACE_TOL,
-    // ½·slack)`, independent of the original slack magnitude. `τ > 0` clears the
-    // trial gate with a ~200 000× margin; `τ ≤ WORKING_FACE_TOL` guarantees the
-    // accepted-face filter classifies the blocker tight, so the carry completes
-    // in one cycle whenever the full chord is accepted. The `½·slack` cap keeps
-    // τ below the current slack (strictly positive shaved length, real inward
-    // progress) when the iterate already presses within the band. A zero
-    // feasible length along the tangent (`alpha == 0`) still declines to the
-    // full QP.
-    let values_beta = constraints
-        .values(beta.view())
-        .map_err(|error| format!("exact active-face value evaluation failed: {error}"))?;
-    let values_delta = constraints
-        .values(delta.view())
-        .map_err(|error| format!("exact active-face direction evaluation failed: {error}"))?;
-    let mut alpha = 1.0_f64;
-    let mut blocking_row = None;
-    let mut blocker_slack = 0.0_f64;
-    let mut blocker_rate = 0.0_f64;
-    for row in 0..constraints.nrows() {
-        if active_rows.contains(&row) {
-            continue;
-        }
-        let norm = constraints
-            .row_norm(row)
-            .map_err(|error| format!("exact active-face row norm failed: {error}"))?;
-        if !(norm.is_finite() && norm > 0.0) {
-            continue;
-        }
-        let bound = constraints
-            .bound(row)
-            .map_err(|error| format!("exact active-face row bound failed: {error}"))?;
-        if bound == f64::NEG_INFINITY {
-            continue;
-        }
-        let scaled_slack = (values_beta[row] - bound) / norm;
-        let scaled_rate = values_delta[row] / norm;
-        if scaled_rate < 0.0 {
-            let fraction = scaled_slack / -scaled_rate;
-            if fraction.is_finite() && fraction >= 0.0 && fraction < alpha {
-                alpha = fraction;
-                blocking_row = Some(row);
-                blocker_slack = scaled_slack;
-                blocker_rate = scaled_rate;
-            }
-        }
-    }
-    if !(alpha.is_finite() && alpha > 0.0) {
-        // The iterate already presses against an unlisted blocker (zero
-        // feasible length along the tangent direction): the working face is a
-        // lie and the full QP owns the resolution.
-        return Ok(None);
-    }
-    if alpha < 1.0 {
-        // Land the blocker at scaled slack τ inside the working band (see above).
-        // `blocker_slack > 0` here (a slack ≤ 0 gives `alpha ≈ 0`, caught above),
-        // so `blocker_rate < 0` and the shaved fraction is well defined.
-        let target_slack = (0.5 * gam_solve::active_set::ACTIVE_SET_WORKING_FACE_TOL)
-            .min(0.5 * blocker_slack);
-        let shaved = (blocker_slack - target_slack) / -blocker_rate;
-        alpha = shaved.clamp(0.0, alpha);
-        if !(alpha.is_finite() && alpha > 0.0) {
-            return Ok(None);
-        }
-        delta *= alpha;
-    }
-    let candidate = beta + &delta;
-    let candidate_values = constraints
-        .values(candidate.view())
-        .map_err(|error| format!("reduced active-face candidate evaluation failed: {error}"))?;
-    for row in 0..constraints.nrows() {
-        let norm = constraints
-            .row_norm(row)
-            .map_err(|error| format!("reduced active-face candidate row norm failed: {error}"))?;
-        if !(norm.is_finite() && norm > 0.0) {
-            continue;
-        }
-        let bound = constraints
-            .bound(row)
-            .map_err(|error| format!("reduced active-face candidate bound failed: {error}"))?;
-        if bound != f64::NEG_INFINITY
-            && (candidate_values[row] - bound) / norm
-                < -gam_solve::active_set::ACTIVE_SET_PRIMAL_FEASIBILITY_TOL
-        {
-            return Ok(None);
-        }
-    }
-
-    let exact_newton = exact_positive_curvature && alpha >= 1.0;
-    if exact_newton {
-        // The full reduced Newton solve certifies tangent stationarity. Certify
-        // the other KKT half as well: its remaining quadratic gradient must be
-        // representable by nonnegative multipliers on this face.
+    // A positive original tangent Hessian can mint an exact Newton step only if
+    // the returned point also satisfies the ORIGINAL quadratic KKT equation.
+    // The stabilized normal metric is globalization machinery, never an
+    // estimator: exactness is recomputed from H, rhs, and the final face.
+    let mut exact_newton = false;
+    if exact_positive_curvature {
         let quadratic_gradient = exact_hessian.dot(&delta) - rhs;
-        let Some((projected, _multipliers)) =
-            project_stationarity_residual_on_constraint_cone(&quadratic_gradient, &gathered.a)
-        else {
-            return Ok(None);
+        let projected = if next_active.is_empty() {
+            quadratic_gradient.clone()
+        } else {
+            let final_rows = constraints
+                .gather_rows(&next_active)
+                .map_err(|error| format!("final active-face row gather failed: {error}"))?;
+            let Some((projected, _multipliers)) =
+                project_stationarity_residual_on_constraint_cone(
+                    &quadratic_gradient,
+                    &final_rows.a,
+                )
+            else {
+                return Err(format!(
+                    "reduced-face original-Hessian KKT projection failed \
+                     on {} terminal active rows",
+                    next_active.len(),
+                ));
+            };
+            projected
         };
         let residual_inf = projected
             .iter()
@@ -316,23 +539,110 @@ fn certified_reduced_face_newton_candidate(
             .chain(rhs.iter())
             .map(|value| value.abs())
             .fold(1.0_f64, f64::max);
-        if residual_inf > 1e-8 * gradient_scale {
-            return Ok(None);
-        }
+        exact_newton = residual_inf <= 1e-8 * gradient_scale;
     }
-    let mut next_active = active_rows.to_vec();
-    if let Some(row) = blocking_row
-        && !next_active.contains(&row)
-    {
-        next_active.push(row);
-    }
-    Ok(Some((candidate, next_active, exact_newton)))
+    let kind = if exact_newton {
+        ReducedFaceCandidateKind::ExactNewton
+    } else {
+        candidate_kind
+    };
+    Ok(Some((candidate, next_active, kind)))
+}
+
+/// Canonical constraint face at an accepted nonlinear iterate.
+///
+/// `endpoint_active` is the sparse working-set provenance returned by the local
+/// QP. It is authoritative only when there is no constraint carrier. With a
+/// carrier, the accepted point itself determines the face: reduce its complete
+/// tight set to deterministic independent representatives so equivalent QP
+/// paths cannot seed different warm faces.
+fn canonical_accepted_active_rows(
+    constraints: Option<&ConstraintSet>,
+    accepted_beta: &Array1<f64>,
+    endpoint_active: &[usize],
+) -> Result<Vec<usize>, String> {
+    let Some(constraints) = constraints else {
+        return Ok(endpoint_active.to_vec());
+    };
+    gam_solve::active_set::ConstraintSetReducedFace::reduced_face(
+        constraints,
+        accepted_beta.view(),
+        gam_solve::active_set::ACTIVE_SET_WORKING_FACE_TOL,
+    )
+    .map(|face| {
+        face.representatives
+            .into_iter()
+            .map(|row| row.index())
+            .collect()
+    })
+    .map_err(|error| {
+        format!("accepted constrained-Newton canonical face reduction failed: {error}")
+    })
 }
 
 #[cfg(test)]
 mod exact_face_newton_tests {
     use super::*;
     use ndarray::array;
+
+    #[test]
+    fn reduced_face_contract_violation_is_an_error_not_a_fallback() {
+        let hessian = Array2::<f64>::eye(2);
+        let rhs = array![1.0_f64];
+        let beta = array![0.0_f64, 0.0];
+        let constraints = ConstraintSet::Dense(
+            LinearInequalityConstraints::new(array![[1.0_f64, 0.0]], array![0.0])
+                .expect("x>=0 half-space"),
+        );
+        let metric = Array1::<f64>::ones(2);
+
+        let error = certified_reduced_face_candidate(
+            &hessian,
+            &rhs,
+            &beta,
+            &constraints,
+            &[0],
+            &metric,
+            1.0,
+        )
+        .expect_err("an attempted reduced-face solve must never silently change models");
+
+        assert!(
+            error.contains("dimension/metric contract failed"),
+            "unexpected reduced-face diagnostic: {error}"
+        );
+    }
+
+    #[test]
+    fn accepted_face_is_canonical_across_degenerate_qp_row_bases() {
+        // Every row is tight at the vertex. Rows 0/1 are parallel, while row 3
+        // is a general-position dependent of independent rows 0/2. Different
+        // QP paths can therefore report different sparse bases for the same
+        // geometric face; the accepted handoff must not preserve that history.
+        let constraints = ConstraintSet::Dense(
+            LinearInequalityConstraints::new(
+                array![
+                    [1.0_f64, 0.0],
+                    [2.0_f64, 0.0],
+                    [0.0_f64, 1.0],
+                    [1.0_f64, 1.0]
+                ],
+                array![0.0, 0.0, 0.0, 0.0],
+            )
+            .expect("degenerate vertex"),
+        );
+        let beta = array![0.0_f64, 0.0];
+
+        let from_parallel_and_oblique =
+            canonical_accepted_active_rows(Some(&constraints), &beta, &[1, 3])
+                .expect("canonical face");
+        let from_coordinate_rows =
+            canonical_accepted_active_rows(Some(&constraints), &beta, &[0, 2])
+                .expect("canonical face");
+
+        assert_eq!(from_parallel_and_oblique, vec![0, 2]);
+        assert_eq!(from_coordinate_rows, vec![0, 2]);
+    }
 
     #[test]
     fn exact_face_newton_uses_tangent_curvature_not_ambient_reflection() {
@@ -348,26 +658,29 @@ mod exact_face_newton_tests {
             LinearInequalityConstraints::new(array![[1.0_f64, 0.0]], array![0.0])
                 .expect("x>=0 half-space"),
         );
-        let (candidate, active, exact) =
-            certified_reduced_face_newton_candidate(&hessian, &rhs, &beta, &constraints, &[0])
-                .expect("exact face classification")
-                .expect("positive reduced curvature and nonnegative multiplier");
+        let metric = array![1.0_f64, 1.0];
+        let (candidate, active, kind) = certified_reduced_face_candidate(
+            &hessian,
+            &rhs,
+            &beta,
+            &constraints,
+            &[0],
+            &metric,
+            1.0e6,
+        )
+        .expect("exact face classification")
+        .expect("positive reduced curvature and nonnegative multiplier");
         assert_eq!(active, vec![0]);
-        assert!(exact);
+        assert_eq!(kind, ReducedFaceCandidateKind::ExactNewton);
         assert!(candidate[0].abs() <= 1e-12);
         assert!((candidate[1] - 1.0).abs() <= 1e-12);
     }
 
     #[test]
-    fn reduced_face_truncates_strictly_inside_the_blocker_and_carries_it() {
+    fn reduced_face_qp_enters_the_blocker_without_crossing_it() {
         // x>=0 is the current face. The reduced tangent direction meets the
-        // inactive y<=0.5 row at half its length. The candidate must stop
-        // STRICTLY INSIDE that boundary (never past it — the old
-        // +PRIMAL_FEASIBILITY_TOL overshoot collided with the trial
-        // feasibility gate at the same tolerance and produced the #2301
-        // silent-reject/half-step fixed point), land inside the working-face
-        // band so the row classifies tight, and carry the blocker in the
-        // returned face so the next cycle solves the exchanged face directly.
+        // inactive y<=0.5 row at half its length. The face-preserving QP must
+        // resolve the blocker in this solve and never cross the boundary.
         let hessian = array![[1.0_f64, 0.0], [0.0, -2.0]];
         let rhs = array![0.0_f64, 2.0];
         let beta = array![0.0_f64, 0.0];
@@ -378,48 +691,46 @@ mod exact_face_newton_tests {
             )
             .expect("x>=0 and y<=0.5"),
         );
-        let (candidate, active, exact) =
-            certified_reduced_face_newton_candidate(&hessian, &rhs, &beta, &constraints, &[0])
-                .expect("reduced face classification")
-                .expect("strict tangent descent truncated at the first blocker");
+        let metric = array![1.0_f64, 2.0];
+        let (candidate, active, kind) = certified_reduced_face_candidate(
+            &hessian,
+            &rhs,
+            &beta,
+            &constraints,
+            &[0],
+            &metric,
+            1.0,
+        )
+        .expect("reduced face classification")
+        .expect("regularized reduced QP resolves the blocker");
         assert!(candidate[0].abs() <= 1e-12);
         assert!(
             candidate[1] <= 0.5,
             "candidate must never overstep the blocker boundary (y={})",
             candidate[1]
         );
-        // Lands inside the working-face band (scaled slack ≤ WORKING_FACE_TOL),
+        // Lands in the working-face band (scaled |slack| ≤ WORKING_FACE_TOL),
         // not merely inside the looser feasibility band.
         assert!(
-            (0.5 - candidate[1]) > 0.0
-                && (0.5 - candidate[1])
-                    <= gam_solve::active_set::ACTIVE_SET_WORKING_FACE_TOL,
+            (0.5 - candidate[1]).abs()
+                <= gam_solve::active_set::ACTIVE_SET_WORKING_FACE_TOL,
             "candidate must land inside the working-face band (y={})",
             candidate[1]
         );
         assert_eq!(active, vec![0, 1]);
-        assert!(!exact);
+        assert_eq!(kind, ReducedFaceCandidateKind::RegularizedNewton);
     }
 
     #[test]
     fn reduced_face_blocker_carry_survives_the_accepted_face_filter_at_large_slack() {
         // #2298/#2301 exchange stall. The blocker is approached from a LARGE
         // scaled slack (here 1e5, the magnitude the competing-risks derivative-
-        // guard cone rows reach). The relative 1e-12 inward shave used to land
-        // the truncated chord at scaled slack ≈ 1e5·1e-12 = 1e-7 — feasible
-        // (passes the 1e-8 trial gate, so the step is accepted and β advances),
-        // but ABOVE the 1e-10 working-face tolerance, so the caller's accepted-
-        // face filter (`constraint_set_rows_tight_at_point`) dropped the carried
-        // blocker. The warm face never grew, the fast path re-proposed the same
-        // blocker-bound chord every cycle, and the exchange never completed.
-        //
-        // Drive the candidate through that exact filter (the caller's line
-        // ~4279): the blocker MUST survive it. Before the absolute-band shave
-        // this assertion fails (the filter returns an empty tight set); after it
-        // the blocker lands at scaled slack ½·WORKING_FACE_TOL and is retained.
+        // guard cone rows reach). The face-preserving QP owns the boundary
+        // exactly, so the accepted-face filter and returned active provenance
+        // must agree independently of the original slack magnitude.
         let hessian = array![[1.0_f64, 0.0], [0.0, 1.0]];
         // Tangent (y-axis) Newton step is g/h = 2e5, overshooting the y<=1e5
-        // blocker at half its length: a genuine blocker truncation.
+        // blocker at half its length.
         let rhs = array![0.0_f64, 2.0e5];
         let beta = array![0.0_f64, 0.0];
         let constraints = ConstraintSet::Dense(
@@ -429,17 +740,24 @@ mod exact_face_newton_tests {
             )
             .expect("x>=0 and y<=1e5"),
         );
-        let (candidate, active, exact) =
-            certified_reduced_face_newton_candidate(&hessian, &rhs, &beta, &constraints, &[0])
-                .expect("reduced face classification")
-                .expect("strict tangent descent truncated at the far blocker");
-        // The fast path claims to carry the blocker (row 1) into the returned
-        // face...
+        let metric = array![1.0_f64, 1.0];
+        let (candidate, active, kind) = certified_reduced_face_candidate(
+            &hessian,
+            &rhs,
+            &beta,
+            &constraints,
+            &[0],
+            &metric,
+            1.0e6,
+        )
+        .expect("reduced face classification")
+        .expect("face-preserving QP resolves the far blocker");
+        // The QP carries the blocker (row 1) into the returned face.
         assert_eq!(active, vec![0, 1]);
-        assert!(!exact);
-        // ...and the accepted-face filter, applied at the candidate exactly as
+        assert_eq!(kind, ReducedFaceCandidateKind::ExactNewton);
+        // The accepted-face filter, applied at the candidate exactly as
         // the caller applies it at the accepted β, must AGREE — row 1 stays
-        // tight. This is the assertion that fails before the fix.
+        // tight.
         let tight = gam_solve::active_set::constraint_set_rows_tight_at_point(
             &constraints,
             &candidate,
@@ -453,45 +771,180 @@ mod exact_face_newton_tests {
             candidate[1],
             1.0e5 - candidate[1],
         );
-        // And it stays strictly feasible under the primal-feasibility gate.
-        assert!(candidate[1] < 1.0e5);
+        assert!(
+            candidate[1] <= 1.0e5 + gam_solve::active_set::ACTIVE_SET_WORKING_FACE_TOL
+        );
     }
 
     #[test]
-    fn reduced_face_full_step_with_negative_tangent_curvature_stays_available() {
-        // Same negative accessible curvature, but the blocker sits beyond the
-        // unit step (y<=5), so the full reflected tangent step is feasible:
-        // the fast path keeps owning the globalization direction and reports
-        // it as non-exact (no fixed-face Newton certificate).
+    fn reduced_face_qp_batches_independent_blockers_in_one_solve_979() {
+        // The old reduced-face chord returned after the FIRST blocker (x1=.25),
+        // so these three independent walls required three nonlinear cycles.
+        // The lifted face metric is the identity here; one QP must discover the
+        // complete vertex and certify it against the original Hessian.
+        let hessian = Array2::<f64>::eye(4);
+        let rhs = array![0.0_f64, 1.0, 1.0, 1.0];
+        let beta = array![0.0_f64, 0.0, 0.0, 0.0];
+        let constraints = ConstraintSet::Dense(
+            LinearInequalityConstraints::new(
+                array![
+                    [1.0_f64, 0.0, 0.0, 0.0],
+                    [0.0, -1.0, 0.0, 0.0],
+                    [0.0, 0.0, -1.0, 0.0],
+                    [0.0, 0.0, 0.0, -1.0]
+                ],
+                array![0.0, -0.25, -0.5, -0.75],
+            )
+            .expect("one current face and three independent upper blockers"),
+        );
+        let metric = Array1::<f64>::ones(4);
+        let (candidate, active, kind) = certified_reduced_face_candidate(
+            &hessian,
+            &rhs,
+            &beta,
+            &constraints,
+            &[0],
+            &metric,
+            1.0e6,
+        )
+        .expect("face classification")
+        .expect("batched face QP");
+        assert_eq!(
+            kind,
+            ReducedFaceCandidateKind::ExactNewton,
+            "positive original curvature must certify"
+        );
+        assert_eq!(active, vec![0, 1, 2, 3]);
+        assert!(candidate[0].abs() <= 1e-12);
+        assert!((candidate[1] - 0.25).abs() <= 1e-10);
+        assert!((candidate[2] - 0.5).abs() <= 1e-10);
+        assert!((candidate[3] - 0.75).abs() <= 1e-10);
+    }
+
+    #[test]
+    fn indefinite_reduced_face_uses_trust_curvature_instead_of_reflecting() {
+        // Negative accessible curvature has no Newton minimizer. Its
+        // generalized mode receives trust curvature rather than |gamma| or an
+        // almost-singular numerical floor. Both Hessians therefore head
+        // toward the same constrained endpoint instead of turning strong
+        // negative curvature into a tiny surrogate-Newton step.
         let hessian = array![[1.0_f64, 0.0], [0.0, -2.0]];
+        let strongly_indefinite_hessian = array![[1.0_f64, 0.0], [0.0, -2.0e6]];
         let rhs = array![0.0_f64, 2.0];
         let beta = array![0.0_f64, 0.0];
+        let metric = array![1.0_f64, 2.0];
         let constraints = ConstraintSet::Dense(
             LinearInequalityConstraints::new(
                 array![[1.0_f64, 0.0], [0.0, -1.0]],
-                array![0.0, -5.0],
+                array![0.0, -1.0],
             )
-            .expect("x>=0 and y<=5"),
+            .expect("x>=0 and y<=1"),
         );
-        let (candidate, active, exact) =
-            certified_reduced_face_newton_candidate(&hessian, &rhs, &beta, &constraints, &[0])
-                .expect("reduced face classification")
-                .expect("full-length reflected tangent step is feasible");
+        let (candidate, active, kind) = certified_reduced_face_candidate(
+            &hessian,
+            &rhs,
+            &beta,
+            &constraints,
+            &[0],
+            &metric,
+            2.0,
+        )
+        .expect("reduced face classification")
+        .expect("regularized reduced step is feasible");
+        let (strong_candidate, strong_active, strong_kind) =
+            certified_reduced_face_candidate(
+                &strongly_indefinite_hessian,
+                &rhs,
+                &beta,
+                &constraints,
+                &[0],
+                &metric,
+                2.0,
+            )
+            .expect("strongly indefinite face classification")
+            .expect("regularized reduced step reaches the same endpoint");
         assert!(candidate[0].abs() <= 1e-12);
         assert!((candidate[1] - 1.0).abs() <= 1e-12);
-        assert_eq!(active, vec![0]);
+        assert_eq!(active, vec![0, 1]);
+        assert_eq!(strong_active, active);
+        assert!((&strong_candidate - &candidate)
+            .iter()
+            .all(|difference| difference.abs() <= 1e-12));
+        assert_eq!(kind, ReducedFaceCandidateKind::RegularizedNewton);
+        assert_eq!(strong_kind, ReducedFaceCandidateKind::RegularizedNewton);
+    }
+
+    #[test]
+    fn indefinite_reduced_metric_uses_more_sorensen_radius_not_unit_curvature() {
+        // In one dimension D=2, H=-2, rhs=2 and radius=1. The exact generalized
+        // trust solution has whitened step eta=1, hence delta=1/sqrt(2).
+        // Therefore H+lambda*D must be 2*sqrt(2), not the old arbitrary D=2
+        // completion (whose delta=1 violates the radius).
+        let reduced_hessian = array![[-2.0_f64]];
+        let reduced_trust = array![[2.0_f64]];
+        let reduced_rhs = array![2.0_f64];
+        let (metric, exact) = generalized_trust_region_reduced_metric(
+            &reduced_hessian,
+            &reduced_trust,
+            &reduced_rhs,
+            1.0,
+        )
+        .expect("generalized Moré-Sorensen metric");
+
         assert!(!exact);
+        assert!((metric[[0, 0]] - 2.0 * 2.0_f64.sqrt()).abs() <= 1e-10);
+        let delta = reduced_rhs[0] / metric[[0, 0]];
+        assert!(((2.0 * delta * delta).sqrt() - 1.0).abs() <= 1e-10);
+    }
+
+    #[test]
+    fn fully_pinned_vertex_can_release_through_projected_gradient_979() {
+        // x>=0 and y>=0 make the origin's active tangent zero-dimensional.
+        // "Fully pinned" is geometry at the current point, not proof that the
+        // active rows have valid KKT multipliers. A positive rhs must release
+        // both walls and move to the metric projection (1,2); falling back to a
+        // reflected Hessian QP here recreates the face-thrashing path.
+        let hessian = array![[-1.0_f64, 0.0], [0.0, -1.0]];
+        let rhs = array![1.0_f64, 2.0];
+        let beta = array![0.0_f64, 0.0];
+        let metric = array![1.0_f64, 1.0];
+        let constraints = ConstraintSet::Dense(
+            LinearInequalityConstraints::new(
+                array![[1.0_f64, 0.0], [0.0, 1.0]],
+                array![0.0, 0.0],
+            )
+            .expect("nonnegative quadrant"),
+        );
+        let (candidate, active, kind) = certified_reduced_face_candidate(
+            &hessian,
+            &rhs,
+            &beta,
+            &constraints,
+            &[0, 1],
+            &metric,
+            1.0,
+        )
+        .expect("fully pinned face classification")
+        .expect("projected gradient releases invalid active walls");
+        assert_eq!(candidate, array![1.0_f64, 2.0]);
+        assert!(active.is_empty());
+        assert_eq!(kind, ReducedFaceCandidateKind::ProjectedGradient);
     }
 
     #[test]
     fn ambient_negative_curvature_cannot_replace_a_reduced_face_direction() {
         assert!(constrained_search_delta_owns_trust_step(
-            Some(false),
+            Some(ReducedFaceCandidateKind::ProjectedGradient),
             true,
             Some(true),
         ));
         assert!(constrained_search_delta_owns_trust_step(
+            Some(ReducedFaceCandidateKind::RegularizedNewton),
+            true,
             Some(true),
+        ));
+        assert!(constrained_search_delta_owns_trust_step(
+            Some(ReducedFaceCandidateKind::ExactNewton),
             true,
             Some(true),
         ));
@@ -1962,6 +2415,42 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 .as_ref()
                 .and_then(|c| extract_simple_lower_bounds(c, total_p).ok().flatten())
                 .map(|b| b.lower_bounds);
+
+            // Every convergence exit from this loop routes through here. The
+            // definition must sit AFTER `joint_constraints` is bound (macro_rules
+            // hygiene resolves free locals in the DEFINITION scope, not at the call
+            // site) and BEFORE the first call site — which since #2485 is the
+            // stall-guard certificate below, earlier in the body than the post-step
+            // sites this used to sit beside.
+            //
+            // Note it does not simply `break`: for an unconstrained, non-Jeffreys
+            // fit, first-order convergence is TENTATIVE. The macro hands control
+            // back to the next cycle head to certify the returned mode's curvature
+            // and, on a strict saddle, escape along it (gam#979). Anything that
+            // certifies convergence must inherit that — which is exactly why the
+            // stall-guard site calls this instead of assigning `converged` itself.
+            macro_rules! finish_post_step_convergence {
+                () => {{
+                    converged = true;
+                    if joint_constraints.is_none() && joint_jeffreys_subspace.is_none() {
+                        returned_mode_curvature_pending = true;
+                        returned_mode_curvature_certified = false;
+                        continue 'joint_newton_cycles;
+                    }
+                    // Constrained (non-Jeffreys) first-order convergence is
+                    // tentative until the next cycle head certifies the
+                    // active-face-tangent curvature and, on a strict saddle,
+                    // escapes along it (gam#979). Jeffreys-augmented families keep
+                    // their first-order contract and their own augmented-objective
+                    // certificate, so they still break straight to the post-loop.
+                    if joint_jeffreys_subspace.is_none() {
+                        returned_constrained_mode_pending = true;
+                        returned_mode_curvature_certified = false;
+                        continue 'joint_newton_cycles;
+                    }
+                    break;
+                }};
+            }
             if cycle_log && cycle == 0 {
                 log::info!(
                     "[STAGE] PIRLS/inner step=cycle0 block+joint constraints elapsed={:.3}s n={} p={}",
@@ -2515,6 +3004,10 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 // `lhs` is the right input) and the augmented stationarity RHS, so
                 // the decrement read is consistent with the dense path. Diagnostic
                 // only for the convergence test — it does NOT change the QP step.
+                let spectrum_started = std::time::Instant::now();
+                let spectrum_scope = gam_runtime::process_monitor::track_scope(format!(
+                    "joint Newton ambient spectrum cycle={cycle} p={total_p}"
+                ));
                 if let Ok(spectrum) = whitened_spectrum::WhitenedHessianSpectrum::decompose(
                     &lhs,
                     &rhs_step,
@@ -2523,11 +3016,31 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 ) {
                     joint_spectrum = Some(spectrum);
                 }
+                drop(spectrum_scope);
+                let spectrum_elapsed = spectrum_started.elapsed();
+                if spectrum_elapsed >= std::time::Duration::from_secs(1) {
+                    log::warn!(
+                        "[gam#979 constrained-QP phase] cycle={cycle} phase=ambient-spectrum elapsed_s={:.3}",
+                        spectrum_elapsed.as_secs_f64(),
+                    );
+                }
+                let convexification_started = std::time::Instant::now();
+                let convexification_scope = gam_runtime::process_monitor::track_scope(format!(
+                    "joint Newton convexification cycle={cycle} p={total_p}"
+                ));
                 let constrained_geometry = symmetric_constrained_hessian_geometry(
                     &lhs,
                     constrained_levenberg_mu,
                     family.levenberg_on_ill_conditioning(),
                 )?;
+                drop(convexification_scope);
+                let convexification_elapsed = convexification_started.elapsed();
+                if convexification_elapsed >= std::time::Duration::from_secs(1) {
+                    log::warn!(
+                        "[gam#979 constrained-QP phase] cycle={cycle} phase=convexification elapsed_s={:.3}",
+                        convexification_elapsed.as_secs_f64(),
+                    );
+                }
                 if cycle <= 2 {
                     let min_eval_raw = constrained_geometry.raw_min_eigenvalue;
                     let min_eval_refl = constrained_geometry.stabilized_min_eigenvalue;
@@ -2550,20 +3063,44 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 let rhs_beta = &lhs.dot(&beta_joint) + &rhs_step;
                 let exact_face_candidate = if lower_bounds.is_none() {
                     if let Some(active_rows) = warm_joint_active.as_deref() {
-                        certified_reduced_face_newton_candidate(
+                        let reduced_face_started = std::time::Instant::now();
+                        let reduced_face_scope =
+                            gam_runtime::process_monitor::track_scope(format!(
+                                "joint Newton reduced face cycle={cycle} p={total_p} warm_rows={}",
+                                active_rows.len(),
+                            ));
+                        let result = certified_reduced_face_candidate(
                             &exact_lhs,
                             &rhs_step,
                             &beta_joint,
                             constraints,
                             active_rows,
-                        )?
+                            &joint_trust_metric_diag,
+                            joint_trust_radius,
+                        );
+                        drop(reduced_face_scope);
+                        let reduced_face_elapsed = reduced_face_started.elapsed();
+                        if reduced_face_elapsed >= std::time::Duration::from_secs(1) {
+                            log::warn!(
+                                "[gam#979 constrained-QP phase] cycle={cycle} phase=reduced-face elapsed_s={:.3} warm_rows={}",
+                                reduced_face_elapsed.as_secs_f64(),
+                                active_rows.len(),
+                            );
+                        }
+                        result?
                     } else {
                         None
                     }
                 } else {
                     None
                 };
-                let exact_face_kind = exact_face_candidate.as_ref().map(|(_, _, exact)| *exact);
+                let reduced_face_kind =
+                    exact_face_candidate.as_ref().map(|(_, _, kind)| *kind);
+                let metric_projection_started = std::time::Instant::now();
+                let metric_projection_scope =
+                    gam_runtime::process_monitor::track_scope(format!(
+                        "joint Newton metric projection cycle={cycle} p={total_p}"
+                    ));
                 let solve_result = if let Some((candidate, active, _)) = exact_face_candidate {
                     Ok((candidate, active))
                 } else if let Some(bounds) = lower_bounds.as_ref() {
@@ -2584,33 +3121,42 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                     )
                     .map_err(|e| e.to_string())
                 };
+                drop(metric_projection_scope);
+                let metric_projection_elapsed = metric_projection_started.elapsed();
+                if metric_projection_elapsed >= std::time::Duration::from_secs(1) {
+                    log::warn!(
+                        "[gam#979 constrained-QP phase] cycle={cycle} phase=metric-projection elapsed_s={:.3}",
+                        metric_projection_elapsed.as_secs_f64(),
+                    );
+                }
                 match solve_result {
                     Ok((beta_new, active_set)) => {
-                        // gam#979 constrained-QP probe (temporary): per-cycle
-                        // active-set size + ‖β‖∞ so the failing survival pytest's
-                        // captured WARN output distinguishes (a) a THRASHING active
-                        // set (rows change every cycle → the QP never settles) from
-                        // (c) a STABLE set with a blowing-up free direction
-                        // (near-separation: ‖β‖∞ grows unbounded). WARN reaches the
-                        // failing-test capture; the cond/nullity/diagnosis come from
-                        // the existing `format_structured_log` at the refused exit.
+                        // Durable constrained-QP liveness: per-cycle active-face
+                        // size + ‖β‖∞ distinguishes a changing working set from a
+                        // stable face with a blowing-up free direction
+                        // (near-separation). WARN reaches bounded workflow captures;
+                        // cond/nullity/diagnosis come from `format_structured_log`
+                        // at any refused exit.
                         log::warn!(
                             "[gam#979 constrained-QP] cycle={} path={} warm_rows={} active_set_rows={} beta_inf={:.4e}",
                             cycle,
-                            if exact_face_kind == Some(true) {
-                                "exact-face"
-                            } else if exact_face_kind == Some(false) {
-                                "tangent-face"
-                            } else if lower_bounds.is_some() {
-                                "simple"
-                            } else {
-                                "linear"
+                            match reduced_face_kind {
+                                Some(ReducedFaceCandidateKind::ExactNewton) => "exact-face",
+                                Some(ReducedFaceCandidateKind::ReducedNewton) => "reduced-newton",
+                                Some(ReducedFaceCandidateKind::RegularizedNewton) => {
+                                    "regularized-newton"
+                                }
+                                Some(ReducedFaceCandidateKind::ProjectedGradient) => {
+                                    "projected-gradient"
+                                }
+                                None if lower_bounds.is_some() => "simple",
+                                None => "linear",
                             },
                             warm_joint_active.as_ref().map_or(0, |v| v.len()),
                             active_set.len(),
                             beta_new.iter().map(|v| v.abs()).fold(0.0_f64, f64::max),
                         );
-                        (beta_new, Some(active_set), 0usize, exact_face_kind)
+                        (beta_new, Some(active_set), 0usize, reduced_face_kind)
                     }
                     Err(error) => {
                         return Err(format!(
@@ -3516,24 +4062,25 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                     None
                 };
                 let mut block_step_norms = if let Some(spectrum) = joint_spectrum.as_ref() {
-                    // POSITIVE-DEFINITE CONSTRAINED PATH (gam#979 CTN).
+                    // FACE-AWARE CONSTRAINED PATH (gam#979 CTN).
                     //
-                    // `search_delta` is the authoritative active-set QP Newton
-                    // step. When the true penalized Hessian has no negative
-                    // curvature, the reflected QP matrix is identical to that
-                    // Hessian, so replacing this step with an unconstrained
-                    // More-Sorensen step changes both the critical cone and the
-                    // local quadratic problem. That replacement used to happen
-                    // whenever the QP step exceeded the trust radius. On the
-                    // 4,800-row Duchon CTN it converted a feasible O(1e-2) QP
-                    // proposal into an O(1e-4) projected step, repeatedly changed
-                    // the active face, and left the KKT residual near 20--30.
+                    // `search_delta` is authoritative when it is an exact/reduced
+                    // positive-curvature Newton step, a reduced spectral
+                    // completion, or the D-metric projected gradient selected at
+                    // a fully pinned face. Replacing any of these with an
+                    // unconstrained Moré-Sorensen step changes the critical cone.
+                    // That replacement used to happen whenever the QP step
+                    // exceeded the trust radius. On the 4,800-row Duchon CTN it
+                    // converted a feasible O(1e-2) proposal into an O(1e-4)
+                    // projected step, repeatedly changed the active face, and
+                    // left the KKT residual near 20--30.
                     //
                     // Global scaling by one alpha is the correct globalization
                     // for this case. Both beta and beta + search_delta are cone-
                     // feasible, so every point on their convex segment remains
-                    // feasible. The QP objective is convex and no larger at its
-                    // minimizer than at zero, so the same segment is descending.
+                    // feasible. The projected-gradient variational inequality (or
+                    // the positive-curvature QP optimality condition) certifies
+                    // `rhs' delta > 0`, so the same segment is first-order descent.
                     // Use one alpha across every block (per-block clipping would
                     // change direction and can leave the cone). The ordinary
                     // family feasibility limiter still runs below for any
@@ -4460,31 +5007,29 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                         }
                     }
                     if let Some(joint_active_set) = search_joint_active_set.as_ref() {
-                        // The QP reports the face at its full candidate endpoint,
-                        // but globalization may accept only a strict subsegment of
-                        // that feasible chord. Endpoint-only rows are then still
-                        // slack at `states` and cannot own either the next warm
-                        // KKT system or terminal tangent-space evidence. Filter the
-                        // sparse candidate face against the actual accepted beta;
-                        // the active-set ratio test rediscovers a discarded row
-                        // exactly when a later iterate reaches it.
+                        // Face provenance belongs to the ACCEPTED estimator state,
+                        // not to the path the local QP took to its full endpoint.
+                        // Globalization may accept only a strict subsegment of that
+                        // chord, so endpoint-only rows can still be slack. More
+                        // subtly, a degenerate cone face has many sparse row bases:
+                        // filtering only the QP's endpoint basis makes the warm
+                        // face depend on active-set history even when two accepted
+                        // betas lie on the same geometric face (#979).
+                        //
+                        // Reclassify the complete tight face at the actual accepted
+                        // beta, then retain its deterministic lowest-row independent
+                        // representatives. The reduced-face carrier performs this
+                        // operator-natively for factored cones, without materializing
+                        // a dense n×p constraint matrix. Warm starts and terminal
+                        // tangent certificates are therefore functions of beta
+                        // alone, while redundant co-tight observation rows never
+                        // enter the cached equality system.
                         let accepted_beta = flatten_state_betas(&states, specs);
-                        let accepted_joint_active = if let Some(constraints) =
-                            joint_constraints.as_ref()
-                        {
-                            gam_solve::active_set::constraint_set_rows_tight_at_point(
-                                constraints,
-                                &accepted_beta,
-                                joint_active_set,
-                            )
-                            .map_err(|error| {
-                                format!(
-                                    "accepted constrained-Newton face classification failed: {error}"
-                                )
-                            })?
-                        } else {
-                            joint_active_set.clone()
-                        };
+                        let accepted_joint_active = canonical_accepted_active_rows(
+                            joint_constraints.as_ref(),
+                            &accepted_beta,
+                            joint_active_set,
+                        )?;
                         let accepted_face = if accepted_joint_active.is_empty() {
                             None
                         } else {
@@ -4721,6 +5266,81 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                     || consecutive_identical_rejected_cycles >= IDENTICAL_REJECTED_STALL_MAX_CYCLES
                     || collapsed_floor_exit
                 {
+                    // #2485. "Every trust-region attempt was rejected" and "no
+                    // model-resolvable step lowers the objective by more than
+                    // tolerance" are the SAME observation, and the second one is a
+                    // convergence CERTIFICATE (Conn–Gould–Toint 6.4.6) — the very
+                    // certificate this loop already issues ~600 lines below. This
+                    // guard used to `break` with `converged = false` before that
+                    // code could run, so on an iterate that has descended to the
+                    // floating-point noise floor the certificate never fired: β is
+                    // reverted every attempt precisely BECAUSE there is nothing
+                    // left to descend. Measured on the by-group location-scale fit
+                    // that motivated this: predicted decrease 1e-23, objective
+                    // change ±1e-13 with an oscillating sign, |∇Φ|∞ = 0, zero
+                    // nullity, and a strict residual 1.56× over a tolerance that
+                    // no representable step could close.
+                    //
+                    // So ask the shared stopping rule BEFORE conceding. Where the
+                    // decrement is genuinely large — a fit one resolvable step from
+                    // the optimum, or one whose local model disagrees with the
+                    // objective — the predicate is false and this guard returns
+                    // non-converged exactly as before, so a stuck solve cannot be
+                    // laundered into a certificate by stalling.
+                    //
+                    // `objective_tol` is rebuilt from `lastobjective` with the same
+                    // formula the certificate site uses. On a fully-rejected cycle β
+                    // is reverted and `lastobjective` is unchanged by construction,
+                    // so both sites are evaluating the tolerance at the same iterate.
+                    let stall_objective_tol = inner_tol * (1.0 + lastobjective.abs());
+                    let stall_decrement = joint_spectrum
+                        .as_ref()
+                        .map(|spectrum| spectrum.newton_decrement());
+                    let stall_weak_decrement = joint_spectrum
+                        .as_ref()
+                        .map(|spectrum| spectrum.weakly_identified_decrement());
+                    // Why the certificate did NOT fire is as diagnosable as why it
+                    // did: without a spectrum there is no decrement to test, and a
+                    // decrement above tolerance is a genuinely reducible iterate.
+                    // Both cases fall through to the refusal below, whose message
+                    // carries `last_newton_math`; this line names the missing input.
+                    log::debug!(
+                        "[PIRLS/joint-Newton convergence] cycle {cycle:>3} | #2485 stall-certificate \
+                         inputs: spectrum={} decrement={:?} weak_decrement={:?} \
+                         objective_tol={stall_objective_tol:.3e}",
+                        joint_spectrum.is_some(),
+                        stall_decrement,
+                        stall_weak_decrement,
+                    );
+                    if let (Some(decrement), Some(weak_decrement)) =
+                        (stall_decrement, stall_weak_decrement)
+                        && joint_newton_decrement_certifies(
+                            decrement,
+                            weak_decrement,
+                            stall_objective_tol,
+                        )
+                    {
+                        log::info!(
+                            "[PIRLS/joint-Newton convergence] cycle {cycle:>3} | fully-rejected \
+                             stall CERTIFIED (#2485): every trust-region attempt was rejected at \
+                             joint trust radius {joint_trust_radius:.3e}, and the unconstrained \
+                             modified-Newton step's predicted objective decrease (Newton decrement \
+                             ½gᵀH⁻¹g over identified modes)={decrement:.3e} — with the \
+                             weakly-identified-band decrement {weak_decrement:.3e} — is within \
+                             objective_tol={stall_objective_tol:.3e}. No model-resolvable step \
+                             lowers the penalized objective by more than tolerance, so the rejected \
+                             steps mean this iterate IS the optimum on the identifiable subspace \
+                             (Conn–Gould–Toint Thm 6.4.6), not that the solve is stuck. Returning \
+                             CONVERGED rather than treating an exhausted descent search as failure."
+                        );
+                        // Same exit every other certificate takes — so this one is
+                        // ALSO tentative until the next cycle head has certified the
+                        // returned mode's curvature. On a strict saddle that head
+                        // revokes it and resets every stall counter, so certifying
+                        // here cannot short-circuit the gam#979 escape and cannot
+                        // spin: the guard's streak starts over.
+                        finish_post_step_convergence!();
+                    }
                     let last_math_summary = last_joint_math
                         .as_ref()
                         .map(|math| {
@@ -4891,28 +5511,6 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 .fold(0.0_f64, f64::max);
             cycles_done = cycle + 1;
 
-            macro_rules! finish_post_step_convergence {
-                () => {{
-                    converged = true;
-                    if joint_constraints.is_none() && joint_jeffreys_subspace.is_none() {
-                        returned_mode_curvature_pending = true;
-                        returned_mode_curvature_certified = false;
-                        continue 'joint_newton_cycles;
-                    }
-                    // Constrained (non-Jeffreys) first-order convergence is
-                    // tentative until the next cycle head certifies the
-                    // active-face-tangent curvature and, on a strict saddle,
-                    // escapes along it (gam#979). Jeffreys-augmented families keep
-                    // their first-order contract and their own augmented-objective
-                    // certificate, so they still break straight to the post-loop.
-                    if joint_jeffreys_subspace.is_none() {
-                        returned_constrained_mode_pending = true;
-                        returned_mode_curvature_certified = false;
-                        continue 'joint_newton_cycles;
-                    }
-                    break;
-                }};
-            }
 
             // Check convergence via joint stationarity. When the family-general
             // Firth/Jeffreys term is armed, the penalized objective the inner
@@ -5366,30 +5964,18 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
             const DECREMENT_STALL_WINDOW: usize = 3;
             let decrement_precondition = cycles_since_residual_improved >= DECREMENT_STALL_WINDOW
                 || objective_change <= objective_tol;
+            // Conditioning-robust safety (gam#1449) and the raw decrement bound are
+            // BOTH in `joint_newton_decrement_certifies`, which is also what the
+            // fully-rejected stall guard consults before conceding (#2485) — one
+            // stopping rule, one place, so the two sites cannot disagree again.
             if decrement_precondition
                 && let Some(decrement) = joint_spectrum
                     .as_ref()
                     .map(|spectrum| spectrum.newton_decrement())
-                && decrement.is_finite()
-                && decrement <= objective_tol
-                // Conditioning-robust safety (gam#1449): the raw decrement above
-                // excludes every `|γ_k| ≤ null_cutoff = max(rank_tol·λ_max,
-                // numerical_floor)` mode. On a badly-scaled penalized Hessian
-                // `rank_tol·λ_max` can swallow a mode with small-but-REAL curvature
-                // AND real signal — a weakly-identified direction, not gauge —
-                // whose achievable improvement `c²/(2|γ|)` the raw decrement then
-                // silently ignores. Require that improvement, measured over the
-                // genuinely-curved band (above the machine-rank `numerical_floor`,
-                // a conditioning-robust cutoff that does NOT scale with λ_max), to
-                // ALSO be within tolerance before certifying. The genuine numerical
-                // null space (below `numerical_floor`) still contributes nothing,
-                // and the step is unchanged; this only HARDENS the stopping test so
-                // a weakly-identified real mode blocks premature certification.
                 && let Some(weak_decrement) = joint_spectrum
                     .as_ref()
                     .map(|spectrum| spectrum.weakly_identified_decrement())
-                && weak_decrement.is_finite()
-                && weak_decrement <= objective_tol
+                && joint_newton_decrement_certifies(decrement, weak_decrement, objective_tol)
             {
                 // Audit witness (#1082): the residual mass this certificate
                 // EXCLUDES as gauge-null. The decrement bound is sound only when

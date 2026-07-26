@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyairtable
-Version: 3.4.0
+Version: 3.4.2
 Summary: Python Client for the Airtable API
 Home-page: https://github.com/gtalarico/pyairtable
 Author: Gui Talarico

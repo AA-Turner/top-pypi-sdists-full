@@ -377,7 +377,7 @@ class PawchiveAPI():
 
     def creator_posts(self, service, creator_id,
                       offset=0, query=None, tags=None):
-        endpoint = f"/v1/{service}/user/{creator_id}/posts"
+        endpoint = f"/v1/{service}/user/{creator_id}"
         params = {"o": offset, "tag": tags, "q": query}
         return self._pagination(endpoint, params, 50)
 

@@ -27,12 +27,13 @@ class CaraExtractor(Extractor):
         for post in self.posts():
             imgs = [img for img in post.pop("images", ())
                     if img.get("order", 0) >= 0]
+            imgs.sort(key=lambda img: img.get("order", 0))
+
             post["count"] = len(imgs)
             post["date"] = self.parse_datetime_iso(post["createdAt"])
             yield Message.Directory, "", post
 
-            for img in imgs:
-                img["num"] = img.get("order") + 1
+            for post["num"], img in enumerate(imgs, 1):
                 img["file_id"] = img.pop("id", None)
                 src = img["src"]
                 post.update(img)

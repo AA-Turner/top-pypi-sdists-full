@@ -212,8 +212,18 @@ fn wps_correction_term(
     let mut normalized =
         gam_solve::pirls::stable_finite_signed_sum(&normalized_terms, "WPS normalized trace")?;
     let absolute_sum: f64 = normalized_terms.iter().map(|value| value.abs()).sum();
-    let operations = normalized_terms.len() as f64;
-    let roundoff = operations * f64::EPSILON * absolute_sum;
+    // `stable_finite_signed_sum` is Neumaier-compensated, so its forward error
+    // is `2u·Σ|x|` regardless of how many terms it was given; scaling the band
+    // by the term count applies the naive-summation model to the very algorithm
+    // chosen to defeat it, and was `k²/5` too wide (4000× at k = 100). Each
+    // term above costs three roundings to build — two divisions and a multiply.
+    //
+    // Widening does not make a valid input safer: `X'WX` and `C` are PSD, so
+    // `tr(X'WX·C) ≥ 0` exactly, and the computed value therefore cannot fall
+    // below `-roundoff` for any admissible input. All the extra width did was
+    // suppress the report below when one of the two is genuinely indefinite,
+    // silently returning a zero correction in place of an error.
+    let roundoff = gam_linalg::roundoff::compensated_band(3, absolute_sum);
     if normalized < 0.0 {
         if normalized >= -roundoff {
             normalized = 0.0;
@@ -958,7 +968,12 @@ mod tests {
             covariance_conditional: Some(array![[1.0, 0.1], [0.1, 2.0]]),
             covariance_corrected: None,
             inference: Some(FitInference {
-                edf_by_block: vec![0.6, 0.9],
+                // One fitted smoothing parameter means one retained EDF
+                // contribution. The previous two-entry vector disagreed with
+                // both `lambdas` and the sole fitted block, so the typed fit
+                // constructor correctly rejected the fixture before the
+                // corrected-EDF path under test could run.
+                edf_by_block: vec![1.5],
                 penalty_block_trace: vec![],
                 edf_total: 1.5,
                 // PRIMARY: escalated to a cubature upgrade.

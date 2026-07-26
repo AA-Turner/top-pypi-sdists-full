@@ -495,6 +495,14 @@ class Type(google.protobuf.message.Message):
         def ClearField(self, field_name: typing.Literal["key", b"key", "nullability", b"nullability", "type_variation_reference", b"type_variation_reference", "value", b"value"]) -> None: ...
 
     @typing.final
+    class Unbound(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        def __init__(
+            self,
+        ) -> None: ...
+
+    @typing.final
     class Func(google.protobuf.message.Message):
         """A function type for higher-order functions.
         Represents a function that takes parameters of specified types and
@@ -636,6 +644,7 @@ class Type(google.protobuf.message.Message):
     LIST_FIELD_NUMBER: builtins.int
     MAP_FIELD_NUMBER: builtins.int
     FUNC_FIELD_NUMBER: builtins.int
+    UNBOUND_FIELD_NUMBER: builtins.int
     USER_DEFINED_FIELD_NUMBER: builtins.int
     ALIAS_FIELD_NUMBER: builtins.int
     @property
@@ -691,6 +700,15 @@ class Type(google.protobuf.message.Message):
     @property
     def func(self) -> Global___Type.Func: ...
     @property
+    def unbound(self) -> Global___Type.Unbound:
+        """A placeholder type whose concrete type has not yet been bound.
+        Unbound may be used where a concrete type would normally appear in
+        partially bound plans and expressions, and must be bound to a
+        concrete type before execution. Substrait defines no runtime semantics
+        for values whose type is unbound.
+        """
+
+    @property
     def user_defined(self) -> Global___Type.UserDefined: ...
     @property
     def alias(self) -> Global___Type.TypeAliasReference:
@@ -724,12 +742,13 @@ class Type(google.protobuf.message.Message):
         list: Global___Type.List | None = ...,
         map: Global___Type.Map | None = ...,
         func: Global___Type.Func | None = ...,
+        unbound: Global___Type.Unbound | None = ...,
         user_defined: Global___Type.UserDefined | None = ...,
         alias: Global___Type.TypeAliasReference | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["alias", b"alias", "binary", b"binary", "bool", b"bool", "date", b"date", "decimal", b"decimal", "fixed_binary", b"fixed_binary", "fixed_char", b"fixed_char", "fp32", b"fp32", "fp64", b"fp64", "func", b"func", "i16", b"i16", "i32", b"i32", "i64", b"i64", "i8", b"i8", "interval_compound", b"interval_compound", "interval_day", b"interval_day", "interval_year", b"interval_year", "kind", b"kind", "list", b"list", "map", b"map", "precision_time", b"precision_time", "precision_timestamp", b"precision_timestamp", "precision_timestamp_tz", b"precision_timestamp_tz", "string", b"string", "struct", b"struct", "user_defined", b"user_defined", "uuid", b"uuid", "varchar", b"varchar"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["alias", b"alias", "binary", b"binary", "bool", b"bool", "date", b"date", "decimal", b"decimal", "fixed_binary", b"fixed_binary", "fixed_char", b"fixed_char", "fp32", b"fp32", "fp64", b"fp64", "func", b"func", "i16", b"i16", "i32", b"i32", "i64", b"i64", "i8", b"i8", "interval_compound", b"interval_compound", "interval_day", b"interval_day", "interval_year", b"interval_year", "kind", b"kind", "list", b"list", "map", b"map", "precision_time", b"precision_time", "precision_timestamp", b"precision_timestamp", "precision_timestamp_tz", b"precision_timestamp_tz", "string", b"string", "struct", b"struct", "user_defined", b"user_defined", "uuid", b"uuid", "varchar", b"varchar"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing.Literal["kind", b"kind"]) -> typing.Literal["bool", "i8", "i16", "i32", "i64", "fp32", "fp64", "string", "binary", "date", "interval_year", "interval_day", "interval_compound", "uuid", "fixed_char", "varchar", "fixed_binary", "decimal", "precision_time", "precision_timestamp", "precision_timestamp_tz", "struct", "list", "map", "func", "user_defined", "alias"] | None: ...
+    def HasField(self, field_name: typing.Literal["alias", b"alias", "binary", b"binary", "bool", b"bool", "date", b"date", "decimal", b"decimal", "fixed_binary", b"fixed_binary", "fixed_char", b"fixed_char", "fp32", b"fp32", "fp64", b"fp64", "func", b"func", "i16", b"i16", "i32", b"i32", "i64", b"i64", "i8", b"i8", "interval_compound", b"interval_compound", "interval_day", b"interval_day", "interval_year", b"interval_year", "kind", b"kind", "list", b"list", "map", b"map", "precision_time", b"precision_time", "precision_timestamp", b"precision_timestamp", "precision_timestamp_tz", b"precision_timestamp_tz", "string", b"string", "struct", b"struct", "unbound", b"unbound", "user_defined", b"user_defined", "uuid", b"uuid", "varchar", b"varchar"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["alias", b"alias", "binary", b"binary", "bool", b"bool", "date", b"date", "decimal", b"decimal", "fixed_binary", b"fixed_binary", "fixed_char", b"fixed_char", "fp32", b"fp32", "fp64", b"fp64", "func", b"func", "i16", b"i16", "i32", b"i32", "i64", b"i64", "i8", b"i8", "interval_compound", b"interval_compound", "interval_day", b"interval_day", "interval_year", b"interval_year", "kind", b"kind", "list", b"list", "map", b"map", "precision_time", b"precision_time", "precision_timestamp", b"precision_timestamp", "precision_timestamp_tz", b"precision_timestamp_tz", "string", b"string", "struct", b"struct", "unbound", b"unbound", "user_defined", b"user_defined", "uuid", b"uuid", "varchar", b"varchar"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["kind", b"kind"]) -> typing.Literal["bool", "i8", "i16", "i32", "i64", "fp32", "fp64", "string", "binary", "date", "interval_year", "interval_day", "interval_compound", "uuid", "fixed_char", "varchar", "fixed_binary", "decimal", "precision_time", "precision_timestamp", "precision_timestamp_tz", "struct", "list", "map", "func", "unbound", "user_defined", "alias"] | None: ...
 
 Global___Type: typing_extensions.TypeAlias = Type
 

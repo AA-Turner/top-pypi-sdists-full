@@ -18,8 +18,10 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt
+from datetime import datetime
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
+from typing_extensions import Annotated
 from rxfoundry.clients.swifty_api.models.patient import Patient
 from typing import Optional, Set
 from typing_extensions import Self
@@ -29,9 +31,12 @@ class PatientPossibleMatch(BaseModel):
     A possible match for a patient
     """ # noqa: E501
     possible_matched_patient: Patient
-    similarity: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="The similarity score of the possible match")
+    similarity: Optional[Union[Annotated[float, Field(multiple_of=0.01, strict=True)], Annotated[int, Field(strict=True)]]] = Field(default=None, description="The similarity score of the possible match")
     match_info: Optional[Dict[str, Any]] = Field(default=None, description="Additional information about the match")
-    __properties: ClassVar[List[str]] = ["possible_matched_patient", "similarity", "match_info"]
+    reviewed_on: Optional[datetime] = None
+    reviewed_by: Optional[StrictStr] = Field(default=None, description="The user who reviewed the match")
+    review_note: Optional[StrictStr] = Field(default=None, description="The note associated with the review")
+    __properties: ClassVar[List[str]] = ["possible_matched_patient", "similarity", "match_info", "reviewed_on", "reviewed_by", "review_note"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -89,7 +94,10 @@ class PatientPossibleMatch(BaseModel):
         _obj = cls.model_validate({
             "possible_matched_patient": Patient.from_dict(obj["possible_matched_patient"]) if obj.get("possible_matched_patient") is not None else None,
             "similarity": obj.get("similarity"),
-            "match_info": obj.get("match_info")
+            "match_info": obj.get("match_info"),
+            "reviewed_on": obj.get("reviewed_on"),
+            "reviewed_by": obj.get("reviewed_by"),
+            "review_note": obj.get("review_note")
         })
         return _obj
 

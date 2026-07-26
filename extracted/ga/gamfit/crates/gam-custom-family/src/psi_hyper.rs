@@ -254,10 +254,51 @@ pub fn build_psi_hyper_coords<F: CustomFamily + Clone + Send + Sync + 'static>(
             _ => 0.0,
         };
 
+        // Explicit ψ motion of the Jeffreys curvature. This is a dense
+        // correction even when the likelihood's ψ Hessian drift is carried by
+        // an operator, so build it from the unpenalized information derivative
+        // and compose it onto either representation below. The old code formed
+        // this only in the dense branch and used the penalty-augmented `dense_b`
+        // as ∂ψH_info; operator-backed spatial axes therefore omitted the term
+        // entirely, while dense axes could contaminate it with ∂ψS.
+        let explicit_jeffreys_hphi =
+            if let (Some((z_j, h_joint)), Some(pert_info)) = (
+                jeffreys_hphi_ctx
+                    .as_ref()
+                    .filter(|_| jeffreys_info_depends_on_psi),
+                firth_pert_info.as_ref(),
+            ) {
+                Some(
+                    gam_solve::estimate::reml::jeffreys_subspace::joint_jeffreys_hphi_explicit_param_derivative(
+                        h_joint.view(),
+                        z_j.view(),
+                        pert_info,
+                        |dir: &Array1<f64>| {
+                            family.joint_jeffreys_information_directional_derivative_with_specs(
+                                synced_states,
+                                specs,
+                                dir,
+                            )
+                        },
+                        |dir: &Array1<f64>| {
+                            family.exact_newton_joint_psihessian_directional_derivative(
+                                synced_states,
+                                specs,
+                                hyper_layout,
+                                psi_global,
+                                dir,
+                            )
+                        },
+                    )?,
+                )
+            } else {
+                None
+            };
+
         // Build drift: use block-local representation when possible to avoid
         // materializing full p×p dense matrices.
         let drift = if let Some(operator) = psi_terms.hessian_psi_operator {
-            if let Some((_, start, end, s_psi_local)) = penalty_motion {
+            let mut drift = if let Some((_, start, end, s_psi_local)) = penalty_motion {
                 // No dense Hessian contribution — penalty is block-local, operator
                 // (if present) handles the likelihood part. O(p_block²) fast path.
                 HyperCoordDrift::from_block_local_and_operator(
@@ -269,7 +310,9 @@ pub fn build_psi_hyper_coords<F: CustomFamily + Clone + Send + Sync + 'static>(
                 )
             } else {
                 HyperCoordDrift::from_parts(None, Some(operator))
-            }
+            };
+            drift.dense = explicit_jeffreys_hphi;
+            drift
         } else {
             // Dense Hessian term exists (e.g., from non-implicit family).
             // Add block-local penalty motion only for DesignPenalty axes.
@@ -279,41 +322,9 @@ pub fn build_psi_hyper_coords<F: CustomFamily + Clone + Send + Sync + 'static>(
                     .slice_mut(ndarray::s![start..end, start..end])
                     .scaled_add(1.0, &s_psi_local);
             }
-                // `dense_b` is now `∂_ρ_i H_joint|_β`. Add the explicit Jeffreys term
-                // `∂_ρ_i H_Φ|_β` (gam#854) using it as the H_joint perturbation, the
-                // family's base directional Hessian derivative `Hdot[e_a]`, and the
-                // ψ-Hessian directional derivative `∂_ρ_i Hdot[e_a]|_β`. The helper
-                // returns zeros when the conditioning gate skips the term or the
-                // family lacks the exact directional derivatives, so a clean /
-                // well-conditioned fit is byte-unchanged.
-                if let Some((z_j, h_joint)) = jeffreys_hphi_ctx
-                    .as_ref()
-                    .filter(|_| jeffreys_info_depends_on_psi)
-                {
-                    let explicit_hphi =
-                        gam_solve::estimate::reml::jeffreys_subspace::joint_jeffreys_hphi_explicit_param_derivative(
-                            h_joint.view(),
-                            z_j.view(),
-                            &dense_b,
-                            |dir: &Array1<f64>| {
-                                family.joint_jeffreys_information_directional_derivative_with_specs(
-                                    synced_states,
-                                    specs,
-                                    dir,
-                                )
-                            },
-                            |dir: &Array1<f64>| {
-                                family.exact_newton_joint_psihessian_directional_derivative(
-                                    synced_states,
-                                    specs,
-                                    hyper_layout,
-                                    psi_global,
-                                    dir,
-                                )
-                            },
-                        )?;
-                    dense_b += &explicit_hphi;
-                }
+            if let Some(explicit_hphi) = explicit_jeffreys_hphi {
+                dense_b += &explicit_hphi;
+            }
             HyperCoordDrift::from_parts(Some(dense_b), None)
         };
 
@@ -1468,9 +1479,9 @@ fn evaluate_custom_family_hyper_internal_shared<F: CustomFamily + Clone + Send +
     // `inner_quality_mode`, so the objective winner is solved once at the exact
     // quality its derivatives require and that owned mode can be reused below.
     // Restricted to the ρ-only joint path (`psi_dim == 0`): ψ-bearing
-    // evaluations already have their inner tolerance managed deliberately by
-    // `derivative_quality_options_and_warm_start` (which intentionally LOOSENS
-    // it for large-scale ψ fits), and must not be re-tightened here.
+    // evaluations already pass through the monotone caller-authority rule in
+    // `derivative_quality_options_and_warm_start`; this local branch must not
+    // impose a second, competing coefficient-quality policy.
     const JOINT_LAML_DERIV_INNER_TOL_FLOOR: f64 = 1e-11;
     let tighten_inner_for_deriv = psi_dim == 0
         && include_logdet_h
@@ -1519,7 +1530,6 @@ fn evaluate_custom_family_hyper_internal_shared<F: CustomFamily + Clone + Send +
     refresh_all_block_etas(family, specs, &mut inner.block_states)?;
     let ranges = block_param_ranges(specs);
     let total = ranges.last().map(|(_, e)| *e).unwrap_or(0);
-
     // ── Try to obtain a joint Hessian and route through the unified evaluator ──
     //
     // When psi_dim > 0, exact Newton is required because the ψ derivative
@@ -1646,13 +1656,7 @@ fn evaluate_custom_family_hyper_internal_shared<F: CustomFamily + Clone + Send +
         };
 
         let robust_jeffreys_hphi =
-            custom_family_outer_jeffreys_hphi(
-                family,
-                &inner.block_states,
-                specs,
-                &ranges,
-                eval_mode,
-            )?;
+            custom_family_outer_jeffreys_hphi(family, &inner.block_states, specs, &ranges)?;
         let has_configured_rho_prior = !matches!(rho_prior, gam_problem::RhoPrior::Flat);
         let batched_gradient_contract_allows_override =
             batched_outer_gradient_contract_allows_override(
@@ -1776,11 +1780,13 @@ fn evaluate_custom_family_hyper_internal_shared<F: CustomFamily + Clone + Send +
                     )?;
                     return Ok(OuterObjectiveEvalResult {
                         objective: value_only.objective,
+                        criterion_components: value_only.criterion_components,
                         gradient,
                         outer_hessian: gam_problem::HessianValue::Unavailable,
                         warm_start: value_only.warm_start,
                         inner_converged: inner.converged,
                         hyper_values: hyper_layout.values().clone(),
+                        ext_mode_response_cols: None,
                         inner: inner.clone(),
                     });
                 }
@@ -2039,7 +2045,6 @@ fn evaluate_custom_family_hyper_internal_shared<F: CustomFamily + Clone + Send +
                 &inner.block_states,
                 specs,
                 &ranges,
-                eval_mode,
             )?,
         )?;
         if let Some(gradient) = batched_gradient_override {
@@ -2071,13 +2076,7 @@ fn evaluate_custom_family_hyper_internal_shared<F: CustomFamily + Clone + Send +
     // curvature is nonzero, the unified H_phi-aware evaluator owns the gradient.
     let has_configured_rho_prior = !matches!(rho_prior, gam_problem::RhoPrior::Flat);
     let robust_jeffreys_hphi =
-        custom_family_outer_jeffreys_hphi(
-            family,
-            &inner.block_states,
-            specs,
-            &ranges,
-            eval_mode,
-        )?;
+        custom_family_outer_jeffreys_hphi(family, &inner.block_states, specs, &ranges)?;
     let batched_gradient_contract_allows_override = batched_outer_gradient_contract_allows_override(
         robust_jeffreys_hphi
             .as_ref()
@@ -2218,11 +2217,13 @@ fn evaluate_custom_family_hyper_internal_shared<F: CustomFamily + Clone + Send +
                     )?;
                     return Ok(OuterObjectiveEvalResult {
                         objective: value_only.objective,
+                        criterion_components: value_only.criterion_components,
                         gradient,
                         outer_hessian: gam_problem::HessianValue::Unavailable,
                         warm_start: value_only.warm_start,
                         inner_converged: inner.converged,
                         hyper_values: hyper_layout.values().clone(),
+                        ext_mode_response_cols: None,
                         inner: inner.clone(),
                     });
                 }
@@ -2319,7 +2320,6 @@ fn evaluate_custom_family_hyper_internal_shared<F: CustomFamily + Clone + Send +
                 &inner.block_states,
                 specs,
                 &ranges,
-                eval_mode,
             )?,
         )?;
 
@@ -2638,7 +2638,6 @@ fn evaluate_custom_family_hyper_internal_shared<F: CustomFamily + Clone + Send +
             &inner.block_states,
             specs,
             &ranges,
-            eval_mode,
         )?,
     )?;
 
@@ -2776,6 +2775,39 @@ pub struct CustomFamilyJointHyperModeSelection {
     pub(crate) mode: CustomFamilyOwnedMode,
 }
 
+/// Preserve the scalar value that ranked a coefficient-mode candidate while
+/// proving that derivative assembly still describes that same objective.
+///
+/// Value-only and derivative-bearing paths can legitimately use different
+/// reduction trees, so bitwise equality is not a valid identity test. The
+/// outer optimizer already owns the canonical roundoff envelope for two
+/// independently assembled values at the same point; mode selection uses that
+/// same contract and retains the screened value as the scalar authority.
+fn canonicalize_screened_objective(
+    screened: f64,
+    derivative_sample: f64,
+    selected_candidate: usize,
+) -> Result<f64, CustomFamilyError> {
+    let bound =
+        gam_solve::rho_optimizer::outer_value_agreement_bound(screened, derivative_sample);
+    let disagreement = (screened - derivative_sample).abs();
+    if !screened.is_finite()
+        || !derivative_sample.is_finite()
+        || !disagreement.is_finite()
+        || disagreement > bound
+    {
+        return Err(CustomFamilyError::UnsupportedConfiguration {
+            reason: format!(
+                "best coefficient-mode candidate {selected_candidate} changed profile objective \
+                 between value screening and derivative assembly: screened={screened:.16e}, \
+                 derivative={derivative_sample:.16e}, disagreement={disagreement:.3e}, \
+                 roundoff bound={bound:.3e}"
+            ),
+        });
+    }
+    Ok(screened)
+}
+
 /// Profile a nonconvex coefficient mode without assembling expensive outer
 /// derivatives for every candidate.
 ///
@@ -2904,11 +2936,11 @@ pub fn evaluate_custom_family_joint_hyper_best_mode_shared<
     let screened_winner = screened_results[selected_candidate]
         .take()
         .expect("ranked candidate retains its screened result");
-    let screened_objective_bits = screened_winner.objective.to_bits();
+    let screened_objective = screened_winner.objective;
     let selected_inner = screened_winner.inner;
     let (eval_options, _) =
         derivative_quality_options_and_warm_start(options, None, has_psi_derivatives);
-    let derivative_eval = evaluate_custom_family_hyper_internal_shared(
+    let mut derivative_eval = evaluate_custom_family_hyper_internal_shared(
         family,
         specs,
         &eval_options,
@@ -2926,13 +2958,14 @@ pub fn evaluate_custom_family_joint_hyper_best_mode_shared<
             "best coefficient-mode candidate {selected_candidate} failed requested derivative assembly: {error}"
         ),
     })?;
-    if derivative_eval.objective.to_bits() != screened_objective_bits {
-        return Err(CustomFamilyError::UnsupportedConfiguration {
-            reason: format!(
-                "best coefficient-mode candidate {selected_candidate} changed profile objective between value screening and derivative assembly"
-            ),
-        });
-    }
+    let derivative_objective = derivative_eval.objective;
+    derivative_eval.objective = canonicalize_screened_objective(
+        screened_objective,
+        derivative_objective,
+        selected_candidate,
+    )?;
+    derivative_eval.criterion_components[0] +=
+        derivative_eval.objective - derivative_objective;
     validate_requested_best_mode_derivatives(
         &derivative_eval,
         eval_mode,
@@ -2947,6 +2980,27 @@ pub fn evaluate_custom_family_joint_hyper_best_mode_shared<
         rejected_candidates,
         mode: owned.mode,
     })
+}
+
+#[cfg(test)]
+mod mode_selection_value_tests {
+    use super::*;
+
+    #[test]
+    fn screened_objective_is_canonical_within_shared_roundoff_envelope() {
+        let screened = 100.0;
+        let bound = gam_solve::rho_optimizer::outer_value_agreement_bound(screened, screened);
+        let derivative_sample = screened + 0.25 * bound;
+        let canonical =
+            canonicalize_screened_objective(screened, derivative_sample, 0).expect("same value");
+        assert_eq!(canonical.to_bits(), screened.to_bits());
+
+        let inconsistent_sample = screened + 2.0 * bound;
+        assert!(
+            canonicalize_screened_objective(screened, inconsistent_sample, 0).is_err(),
+            "a derivative lane outside the shared roundoff envelope must be rejected"
+        );
+    }
 }
 
 fn validate_requested_best_mode_derivatives(
@@ -3007,53 +3061,43 @@ pub(crate) fn derivative_quality_options_and_warm_start(
     warm_start: Option<&CustomFamilyWarmStart>,
     has_psi_derivatives: bool,
 ) -> (BlockwiseFitOptions, Option<CustomFamilyWarmStart>) {
-    const DIRECT_JOINT_HYPER_INNER_TOL_FLOOR: f64 = 1e-10;
     const DIRECT_JOINT_HYPER_MIN_CYCLES: usize = 200;
 
     let mut eval_options = options.clone();
-    // The alignment exists so exact joint-hyper evaluations with real ψ
-    // coordinates resolve the inner solve at the outer optimizer's requested
-    // derivative scale. With zero ψ-derivative blocks this API is just the
-    // rho-only outer surface; mutating its inner tolerance makes the direct
-    // joint-hyper path evaluate a different function than the rho-only path.
+    // With zero ψ coordinates this API is the rho-only outer surface. Preserve
+    // its coefficient-solve contract exactly.
     if !has_psi_derivatives {
         return (eval_options, None);
     }
+
+    // A profiled ψ derivative differentiates F_β(β̂, θ) = 0. Its coefficient
+    // mode therefore cannot be certified LESS accurately than the caller asked:
+    // replacing a tight inner tolerance with a looser outer tolerance changes
+    // β̂(θ), while the IFT still treats the selected mode as stationary. That
+    // silently made the analytic response disagree with finite differences on
+    // the selected Matérn profile (#2460).
     //
-    // Do not hard-force f64-precision KKT solves for every ψ-bearing model:
-    // large-scale survival marginal-slope fits have row-summed objectives
-    // around 1e5-1e6, so `1e-10 * objective` asks the inner loop to resolve
-    // gradient components far below the outer optimizer's own `outer_tol`.
-    // Matching the inner target to the outer target keeps the IFT gradient
-    // noise below the requested optimization accuracy without rejecting all
-    // startup seeds after hundreds of accepted but numerically flat Newton
-    // steps.
-    let default_inner_tol = BlockwiseFitOptions::default().inner_tol;
-    let requested_tighter_than_default = eval_options.inner_tol < default_inner_tol;
-    let direct_joint_hyper_inner_tol = if requested_tighter_than_default {
-        eval_options.inner_tol.max(1.0e-12)
-    } else {
-        eval_options
-            .outer_tol
-            .max(DIRECT_JOINT_HYPER_INNER_TOL_FLOOR)
-    };
-    let tolerance_differs = eval_options.inner_tol != direct_joint_hyper_inner_tol;
-    let tightening = eval_options.inner_tol > direct_joint_hyper_inner_tol;
-    let align = eval_options.inner_max_cycles > 1 && tolerance_differs;
+    // The relation is one-way. A stricter outer target may require a tighter
+    // coefficient solve, but a looser outer target grants no authority to relax
+    // the inner stationarity equation. No scale floor or size-dependent escape
+    // belongs here: if the requested inner contract cannot be reached, the inner
+    // solve must report that honestly instead of returning derivatives of a
+    // different profiled objective.
+    let derivative_inner_tol = eval_options.inner_tol.min(eval_options.outer_tol);
+    let tighten =
+        eval_options.inner_max_cycles > 1 && derivative_inner_tol < eval_options.inner_tol;
     let psi_safe_warm_start = warm_start_without_cached_inner_for_psi_derivatives(
         warm_start.map(|warm| &warm.inner),
         true,
     )
     .map(|inner| CustomFamilyWarmStart { inner });
-    if !align {
+    if !tighten {
         return (eval_options, psi_safe_warm_start);
     }
-    eval_options.inner_tol = direct_joint_hyper_inner_tol;
-    if tightening {
-        eval_options.inner_max_cycles = eval_options
-            .inner_max_cycles
-            .max(DIRECT_JOINT_HYPER_MIN_CYCLES);
-    }
+    eval_options.inner_tol = derivative_inner_tol;
+    eval_options.inner_max_cycles = eval_options
+        .inner_max_cycles
+        .max(DIRECT_JOINT_HYPER_MIN_CYCLES);
     (eval_options, psi_safe_warm_start)
 }
 

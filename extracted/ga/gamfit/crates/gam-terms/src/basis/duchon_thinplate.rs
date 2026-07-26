@@ -1,5 +1,7 @@
 use super::*;
 
+use super::invariant_tie_break::resolve_sorted_profile_tie;
+
 /// Cross-disease Duchon basis cache.
 ///
 /// The biobank workload fits many models (e.g. 17 diseases) over the SAME base
@@ -1320,10 +1322,44 @@ const KNOT_MAXIMIN_TIE_REL_TOL: f64 = 1e-9;
 /// Deterministically selects thin-plate knots via farthest-point sampling.
 ///
 /// This produces a space-filling subset without introducing RNG/state coupling.
+///
+/// Each step minimizes its composite key in extremum-then-refine order rather
+/// than by carrying a running incumbent: the two `O(1)` keys first, then — only
+/// over the rows that attain them, and only if there is more than one — the
+/// `O(n·d + n log n)` sorted support-distance profile. Lexicographic
+/// minimization is associative, so this is the same total preorder the incumbent
+/// scan applied; what changes is that the profile key is charged where it can
+/// still decide something instead of four times per outer iteration whether or
+/// not anything is tied. On data with no exact symmetry it is never built at all
+/// (#2420, Euclidean twin of the spherical selector's fix).
 pub fn select_thin_plate_knots(
     data: ArrayView2<f64>,
     num_knots: usize,
 ) -> Result<Array2<f64>, BasisError> {
+    let d = data.ncols();
+    let selected = select_thin_plate_knot_rows_with_observer(data, num_knots, |_| {})?;
+    let mut knots = Array2::<f64>::zeros((selected.len(), d));
+    for (r, &idx) in selected.iter().enumerate() {
+        knots.row_mut(r).assign(&data.row(idx));
+    }
+    Ok(knots)
+}
+
+/// [`select_thin_plate_knots`] as the row indices it selects, with an observer on
+/// the number of `O(n·d + n log n)` support-distance profiles the shared
+/// tie-break actually builds.
+///
+/// Production callers pass a zero-sized no-op that optimizes away; tests use the
+/// same production path to state the tie-break's cost contract in operation
+/// counts rather than in wall-clock noise.
+fn select_thin_plate_knot_rows_with_observer<F>(
+    data: ArrayView2<f64>,
+    num_knots: usize,
+    mut on_profile_builds: F,
+) -> Result<Vec<usize>, BasisError>
+where
+    F: FnMut(usize),
+{
     let n = data.nrows();
     let d = data.ncols();
     if d == 0 {
@@ -1419,31 +1455,27 @@ pub fn select_thin_plate_knots(
     // deterministically rather than refusing the fit (see the seed/loop notes).
     // Only coincident rows are collapsed, because they generate the same kernel
     // column.
-    let distance_profile_cmp = |i: usize, j: usize| -> std::cmp::Ordering {
-        let mut profile_i = Vec::with_capacity(n);
-        let mut profile_j = Vec::with_capacity(n);
-        for row in 0..n {
-            let mut d2_i = 0.0;
-            let mut d2_j = 0.0;
-            for c in 0..d {
-                let delta_i = data[[i, c]] - data[[row, c]];
-                let delta_j = data[[j, c]] - data[[row, c]];
-                d2_i += delta_i * delta_i;
-                d2_j += delta_j * delta_j;
-            }
-            profile_i.push(d2_i);
-            profile_j.push(d2_j);
+    // The profile's pairwise scalar: the squared Euclidean distance between two
+    // rows. It is a pure function of the unordered geometry, so the multiset it
+    // generates over the whole support survives both a rigid motion and a row
+    // permutation.
+    let pair_dist2 = |i: usize, j: usize| -> f64 {
+        let mut distance2 = 0.0;
+        for c in 0..d {
+            let delta = data[[i, c]] - data[[j, c]];
+            distance2 += delta * delta;
         }
-        profile_i.sort_by(|a, b| a.total_cmp(b));
-        profile_j.sort_by(|a, b| a.total_cmp(b));
-        for (&di, &dj) in profile_i.iter().zip(profile_j.iter()) {
-            match di.total_cmp(&dj) {
-                std::cmp::Ordering::Less => return std::cmp::Ordering::Less,
-                std::cmp::Ordering::Greater => return std::cmp::Ordering::Greater,
-                std::cmp::Ordering::Equal => {}
-            }
-        }
-        std::cmp::Ordering::Equal
+        distance2
+    };
+    // Reduce an already-`O(1)`-tied candidate list to the rows attaining the
+    // lexicographically least sorted support-distance profile. The `O(n log n)`
+    // key is built once per candidate and serves both the choice and the class
+    // filter; a lone candidate — the common case, and every case on data without
+    // an exact symmetry — builds none at all. See
+    // [`crate::basis::invariant_tie_break`] for why this is the same total
+    // preorder the two-profile comparator scan applied.
+    let resolve_profile_tie = |tied: &[usize], observer: &mut F| -> Vec<usize> {
+        resolve_sorted_profile_tie(n, tied, &pair_dist2, observer)
     };
 
     let distinct_orbit = |candidates: &[usize], already_selected: &[usize]| -> Vec<usize> {
@@ -1486,22 +1518,10 @@ pub fn select_thin_plate_knots(
         .iter()
         .copied()
         .fold(f64::INFINITY, f64::min);
-    let seed_idx = (0..n)
+    let seed_tied: Vec<usize> = (0..n)
         .filter(|&i| dist2_to_centroid[i] <= seed_min + tie_tol)
-        .reduce(|a, b| {
-            if distance_profile_cmp(a, b).is_lt() {
-                a
-            } else {
-                b
-            }
-        })
-        .unwrap_or(0);
-
-    let seed_class: Vec<usize> = (0..n)
-        .filter(|&i| {
-            dist2_to_centroid[i] <= seed_min + tie_tol && distance_profile_cmp(i, seed_idx).is_eq()
-        })
         .collect();
+    let seed_class = resolve_profile_tie(&seed_tied, &mut on_profile_builds);
     // When an indivisible symmetry orbit is larger than the entire knot budget,
     // no rule can pick an *equivariant* strict subset of it — the orbit's members
     // are interchangeable under the data's symmetry group (#2319). The previous
@@ -1583,19 +1603,10 @@ pub fn select_thin_plate_knots(
             .fold(f64::NEG_INFINITY, f64::max);
         candidates.retain(|&i| dist2_to_centroid[i] >= cand_max_centroid - tie_tol);
         // Tertiary invariant key: smallest support-distance profile. A tie
-        // after every intrinsic key is an indivisible symmetry orbit.
-        let next_idx = candidates
-            .iter()
-            .copied()
-            .reduce(|a, b| {
-                if distance_profile_cmp(a, b).is_lt() {
-                    a
-                } else {
-                    b
-                }
-            })
-            .expect("candidate set is non-empty");
-        candidates.retain(|&i| distance_profile_cmp(i, next_idx).is_eq());
+        // after every intrinsic key is an indivisible symmetry orbit. A single
+        // surviving candidate has already won every refinement of the keys it
+        // attained, so the profile is not built at all there.
+        let candidates = resolve_profile_tie(&candidates, &mut on_profile_builds);
         let remaining = num_knots - selected.len();
         // Cap an oversized indivisible orbit to the remaining budget rather than
         // refusing the fit (see the seed-orbit note above): take its lowest-row
@@ -1639,11 +1650,7 @@ pub fn select_thin_plate_knots(
         );
     }
 
-    let mut knots = Array2::<f64>::zeros((selected.len(), d));
-    for (r, &idx) in selected.iter().enumerate() {
-        knots.row_mut(r).assign(&data.row(idx));
-    }
-    Ok(knots)
+    Ok(selected)
 }
 
 #[inline(always)]
@@ -1900,6 +1907,37 @@ pub fn create_thin_plate_spline_basiswithworkspace(
     workspace: &mut BasisWorkspace,
 ) -> Result<ThinPlateSplineBasis, BasisError> {
     create_thin_plate_spline_basis_scaledwithworkspace(data, knots, 1.0, None, workspace)
+}
+
+/// Evaluates a thin-plate basis at `data` in a radial chart supplied by the
+/// caller, rather than one chosen from `data` itself.
+///
+/// [`create_thin_plate_spline_basis`] selects its radial chart `V` from the rows
+/// it is handed: since #1347 the reparameterization is taken in the *realized
+/// data metric* `G_c = (K Z)ᵀ (K Z)`, so two different row sets over the same
+/// knots yield two different `V`, and the design columns `Φ Z V` are two
+/// different coordinate systems for the same model space. A coefficient vector
+/// fitted against one therefore does not describe the same function against the
+/// other — silently, since both designs have the same shape.
+///
+/// Scoring a fit on rows it was not fitted to must consequently replay the
+/// training chart: pass the [`ThinPlateSplineBasis::radial_reparam`] of the
+/// basis the coefficients were fitted against. The knots must be the same ones,
+/// as usual; the chart is checked against the side-constrained radial dimension
+/// and a mismatch is a typed error rather than a wrong answer.
+pub fn create_thin_plate_spline_basis_in_chart(
+    data: ArrayView2<f64>,
+    knots: ArrayView2<f64>,
+    radial_reparam: &Array2<f64>,
+) -> Result<ThinPlateSplineBasis, BasisError> {
+    let mut workspace = BasisWorkspace::default();
+    create_thin_plate_spline_basis_scaledwithworkspace(
+        data,
+        knots,
+        1.0,
+        Some(radial_reparam),
+        &mut workspace,
+    )
 }
 
 pub(crate) fn create_thin_plate_spline_basis_scaledwithworkspace(
@@ -3186,6 +3224,159 @@ pub fn auto_centers_1d_equal_mass(
 }
 
 #[cfg(test)]
+mod knot_selection_tie_break_cost_tests {
+    use super::{select_thin_plate_knot_rows_with_observer, select_thin_plate_knots};
+    use ndarray::Array2;
+
+    /// The knot rows the production selector picks, together with the number of
+    /// `O(n·d + n log n)` support-distance profiles the shared invariant
+    /// tie-break built getting there.
+    struct KnotSelection {
+        rows: Vec<usize>,
+        profile_builds: usize,
+    }
+
+    fn select_with_profile_count(data: &Array2<f64>, num_knots: usize) -> KnotSelection {
+        let mut profile_builds = 0usize;
+        let rows = select_thin_plate_knot_rows_with_observer(data.view(), num_knots, |built| {
+            profile_builds += built
+        })
+        .expect("fixture admits the requested knot budget");
+        KnotSelection {
+            rows,
+            profile_builds,
+        }
+    }
+
+    /// Deterministic unit draws (SplitMix64 finalizer): no RNG state, no seed
+    /// coupling between rows.
+    fn hashed_unit(index: u64) -> f64 {
+        let mut z = index.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        ((z ^ (z >> 31)) >> 11) as f64 / (1u64 << 53) as f64
+    }
+
+    /// A cloud with no exact symmetry: no two rows can tie the maximin key.
+    fn asymmetric_cloud(n: usize, d: usize) -> Array2<f64> {
+        Array2::from_shape_fn((n, d), |(row, col)| hashed_unit((row * d + col) as u64))
+    }
+
+    /// An exactly-representable integer lattice — the canonical gridded spatial
+    /// input, whose corner and edge classes tie every `O(1)` key exactly.
+    fn integer_grid(side: usize) -> Array2<f64> {
+        Array2::from_shape_fn((side * side, 2), |(row, col)| {
+            if col == 0 {
+                (row / side) as f64
+            } else {
+                (row % side) as f64
+            }
+        })
+    }
+
+    /// The sorted support-distance profile is a tie-break, and a tie-break must
+    /// only be paid for where something is actually tied. A cloud with no exact
+    /// symmetry has a unique maximin winner at every step, so the selection must
+    /// complete having built NO profile at all — at any `n`, any dimension, and
+    /// any knot budget.
+    ///
+    /// The two-profile comparator scan this replaced (#2420) built exactly
+    /// `2·num_knots` profiles on precisely this input: the `reduce` over a
+    /// one-element candidate list compares nothing, and the `retain` that follows
+    /// it still sorted two length-`n` profiles to establish that a row equals
+    /// itself. At `n = 200_000`, `d = 8`, `k = 300` that is ~3e9 wasted
+    /// single-threaded operations before any knot is chosen.
+    #[test]
+    fn thin_plate_knots_cost_no_profile_without_an_exact_tie() {
+        for (n, d) in [(2_000_usize, 2_usize), (2_000, 8), (8_000, 3)] {
+            for k in [20_usize, 100] {
+                let data = asymmetric_cloud(n, d);
+                let chosen = select_with_profile_count(&data, k);
+                assert_eq!(chosen.rows.len(), k, "knot budget (n={n}, d={d}, k={k})");
+                assert_eq!(
+                    chosen.profile_builds, 0,
+                    "no row ties the maximin key on an asymmetric cloud, so the profile \
+                     tie-break must never be built (n={n}, d={d}, k={k}); the replaced \
+                     comparator scan built {}",
+                    2 * k
+                );
+            }
+        }
+    }
+
+    /// On an exact integer lattice the tie-break IS reached — a corner class is
+    /// genuinely related by a symmetry of the square. The cost of reaching it
+    /// must still be a property of the symmetry, not of the row count: the
+    /// profile key may only be built for rows that tie every `O(1)` key at the
+    /// maximin extremum, so the count stays at one profile per selected knot even
+    /// as `n` grows nine-fold.
+    #[test]
+    fn thin_plate_knot_profile_cost_does_not_scale_with_the_row_count() {
+        for side in [20_usize, 60] {
+            for k in [20_usize, 100] {
+                let data = integer_grid(side);
+                let n = data.nrows();
+                let chosen = select_with_profile_count(&data, k);
+                assert_eq!(chosen.rows.len(), k, "knot budget (n={n}, k={k})");
+                assert!(
+                    chosen.profile_builds <= 2 * k,
+                    "profile-key builds must stay proportional to the knot budget, not to \
+                     the row count; got {} at n={n} k={k}",
+                    chosen.profile_builds
+                );
+            }
+        }
+    }
+
+    /// The gate above must not be satisfiable by deleting the tie-break. On a
+    /// square's four corners plus its center, the corner class is an indivisible
+    /// symmetry orbit, and the profile key is what proves it — so it must
+    /// genuinely be built there.
+    #[test]
+    fn thin_plate_knot_profile_key_is_still_built_where_it_decides_an_orbit() {
+        let data = ndarray::array![
+            [-1.0_f64, -1.0],
+            [-1.0, 1.0],
+            [1.0, -1.0],
+            [1.0, 1.0],
+            [0.0, 0.0]
+        ];
+        let chosen = select_with_profile_count(&data, 5);
+        assert_eq!(chosen.rows.len(), 5);
+        assert!(
+            chosen.profile_builds > 0,
+            "the four-corner orbit is only provable through the invariant profile key"
+        );
+    }
+
+    /// The public `Array2` surface must be exactly the rows the observer-carrying
+    /// path selects, in the same order — the observer variant is the production
+    /// code, not a parallel implementation.
+    #[test]
+    fn the_public_knot_matrix_is_the_selected_rows_verbatim() {
+        for (n, d, k) in [(500_usize, 2_usize, 17_usize), (441, 2, 40)] {
+            let data = if d == 2 && n == 441 {
+                integer_grid(21)
+            } else {
+                asymmetric_cloud(n, d)
+            };
+            let chosen = select_with_profile_count(&data, k);
+            let knots = select_thin_plate_knots(data.view(), k).expect("same budget");
+            assert_eq!(knots.nrows(), chosen.rows.len());
+            for (r, &row) in chosen.rows.iter().enumerate() {
+                for c in 0..d {
+                    assert_eq!(
+                        knots[[r, c]].to_bits(),
+                        data[[row, c]].to_bits(),
+                        "knot {r} column {c} is not data row {row} verbatim"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
 mod knot_selection_invariance_tests {
     // Regression tests for the knot-selector invariance defects fixed by the
     // rotation-equivariant maximin seed (gam#1456 rotation, gam#1378 row
@@ -3694,7 +3885,9 @@ mod range_floor_psi_jet_tests {
     fn omega_at(psi: f64) -> (Array2<f64>, Array2<f64>, Array2<f64>) {
         let n = 5usize;
         let seed = sym_from(
-            &[1.0, 0.3, 0.9, -0.2, 0.4, 1.1, 0.15, -0.25, 0.35, 0.8, 0.05, 0.2, -0.1, 0.3, 0.95],
+            &[
+                1.0, 0.3, 0.9, -0.2, 0.4, 1.1, 0.15, -0.25, 0.35, 0.8, 0.05, 0.2, -0.1, 0.3, 0.95,
+            ],
             n,
         );
         let (_evals, u) = FaerEigh::eigh(&seed, Side::Lower).expect("seed eigh");
@@ -3713,12 +3906,18 @@ mod range_floor_psi_jet_tests {
         }
         let scale = 1.0e-3;
         let b = sym_from(
-            &[0.7, -0.2, 0.5, 0.1, -0.3, 0.4, 0.05, 0.2, -0.1, 0.6, 0.02, -0.04, 0.03, 0.08, -0.05],
+            &[
+                0.7, -0.2, 0.5, 0.1, -0.3, 0.4, 0.05, 0.2, -0.1, 0.6, 0.02, -0.04, 0.03, 0.08,
+                -0.05,
+            ],
             n,
         )
         .mapv(|v| v * scale);
         let c = sym_from(
-            &[0.2, 0.1, -0.15, 0.05, 0.2, -0.1, 0.03, -0.02, 0.04, 0.1, 0.01, 0.02, -0.03, 0.05, 0.02],
+            &[
+                0.2, 0.1, -0.15, 0.05, 0.2, -0.1, 0.03, -0.02, 0.04, 0.1, 0.01, 0.02, -0.03, 0.05,
+                0.02,
+            ],
             n,
         )
         .mapv(|v| v * scale);
@@ -3731,12 +3930,16 @@ mod range_floor_psi_jet_tests {
     fn range_floor_psi_jet_matches_central_differences() {
         let dim = 8usize; // embedded_penalty_dim > n so the floor is active
         let (o0, b0, c0) = omega_at(0.0);
-        let jet = duchon_range_floor_curvature_psi_jet(&o0, &b0, &c0, dim)
-            .expect("range-floor psi jet");
+        let jet =
+            duchon_range_floor_curvature_psi_jet(&o0, &b0, &c0, dim).expect("range-floor psi jet");
 
         // The floored value must equal the standalone range-floor.
         let direct = duchon_range_floor_curvature(&o0, dim).expect("range floor");
-        let val_err = (&jet.value - &direct).iter().map(|v| v * v).sum::<f64>().sqrt();
+        let val_err = (&jet.value - &direct)
+            .iter()
+            .map(|v| v * v)
+            .sum::<f64>()
+            .sqrt();
         assert!(
             val_err < 1e-10,
             "range-floor value mismatch vs standalone: {val_err:.3e}"
@@ -3746,16 +3949,33 @@ mod range_floor_psi_jet_tests {
             .iter()
             .map(|v| v.abs())
             .fold(0.0_f64, f64::max);
-        assert!(floor_gap > 0.0, "range floor is not active — test is vacuous");
+        assert!(
+            floor_gap > 0.0,
+            "range floor is not active — test is vacuous"
+        );
 
         let eps = 1e-6;
         let (op, _, _) = omega_at(eps);
         let (om, _, _) = omega_at(-eps);
-        let vp = duchon_range_floor_curvature_psi_jet(&op, &b0, &c0, dim).unwrap().value;
-        let vm = duchon_range_floor_curvature_psi_jet(&om, &b0, &c0, dim).unwrap().value;
+        let vp = duchon_range_floor_curvature_psi_jet(&op, &b0, &c0, dim)
+            .unwrap()
+            .value;
+        let vm = duchon_range_floor_curvature_psi_jet(&om, &b0, &c0, dim)
+            .unwrap()
+            .value;
         let fd_first = (&vp - &vm).mapv(|v| v / (2.0 * eps));
-        let first_err = (&jet.first - &fd_first).iter().map(|v| v * v).sum::<f64>().sqrt();
-        let first_scale = jet.first.iter().map(|v| v * v).sum::<f64>().sqrt().max(1e-9);
+        let first_err = (&jet.first - &fd_first)
+            .iter()
+            .map(|v| v * v)
+            .sum::<f64>()
+            .sqrt();
+        let first_scale = jet
+            .first
+            .iter()
+            .map(|v| v * v)
+            .sum::<f64>()
+            .sqrt()
+            .max(1e-9);
         assert!(
             first_err / first_scale < 1e-4,
             "range-floor first derivative mismatch: rel={:.3e} (err={first_err:.3e})",
@@ -3765,11 +3985,25 @@ mod range_floor_psi_jet_tests {
         // FD of the analytic FIRST derivative gives the second.
         let (op2, bp2, cp2) = omega_at(eps);
         let (om2, bm2, cm2) = omega_at(-eps);
-        let fp = duchon_range_floor_curvature_psi_jet(&op2, &bp2, &cp2, dim).unwrap().first;
-        let fm = duchon_range_floor_curvature_psi_jet(&om2, &bm2, &cm2, dim).unwrap().first;
+        let fp = duchon_range_floor_curvature_psi_jet(&op2, &bp2, &cp2, dim)
+            .unwrap()
+            .first;
+        let fm = duchon_range_floor_curvature_psi_jet(&om2, &bm2, &cm2, dim)
+            .unwrap()
+            .first;
         let fd_second = (&fp - &fm).mapv(|v| v / (2.0 * eps));
-        let second_err = (&jet.second - &fd_second).iter().map(|v| v * v).sum::<f64>().sqrt();
-        let second_scale = jet.second.iter().map(|v| v * v).sum::<f64>().sqrt().max(1e-9);
+        let second_err = (&jet.second - &fd_second)
+            .iter()
+            .map(|v| v * v)
+            .sum::<f64>()
+            .sqrt();
+        let second_scale = jet
+            .second
+            .iter()
+            .map(|v| v * v)
+            .sum::<f64>()
+            .sqrt()
+            .max(1e-9);
         assert!(
             second_err / second_scale < 1e-3,
             "range-floor second derivative mismatch: rel={:.3e} (err={second_err:.3e})",

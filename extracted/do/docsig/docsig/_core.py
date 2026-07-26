@@ -7,6 +7,7 @@ Entry point and orchestration for running docstring/signature checks.
 
 import logging as _logging
 import sys as _sys
+import typing as _t
 import warnings as _warnings
 from pathlib import Path as _Path
 from pprint import pformat as _pformat
@@ -22,9 +23,9 @@ from ._diagnostic import RetCode as _RetCode
 from ._files import Files as _Files
 from ._parsers import parse_from_file as _parse_from_file
 from ._parsers import parse_from_string as _parse_from_string
+from ._report import print_checks as _print_checks
 from ._report import report as _report
 from ._traverse import run_checks as _run_checks
-from ._utils import print_checks as _print_checks
 from .messages import E as _E
 from .messages import Messages as _Messages
 
@@ -77,6 +78,21 @@ def runner(file: _Path, config: _Config) -> _Failures:
     return _run_checks(module, config)
 
 
+def _check_string(string: str, config: _Config) -> int:
+    module = _parse_from_string(string, config)
+    failures = _run_checks(module, config)
+    return _report(failures, config)
+
+
+def _check_files(paths: tuple[str | _Path, ...], config: _Config) -> int:
+    retcodes = _RetCode()
+    for file in _Files(paths, config.filters):
+        failures = runner(file, config)
+        retcodes.add(_report(failures, config, str(file)))
+
+    return retcodes.result
+
+
 @_decorators.parse_msgs
 @_decorators.validate_args
 def docsig(  # pylint: disable=too-many-locals,too-many-arguments
@@ -98,8 +114,8 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
     ignore_typechecker: bool = False,  # deprecated
     no_ansi: bool = False,
     verbose: bool = False,
-    target: _Messages | None = None,
-    disable: _Messages | None = None,
+    target: list[str] | None = None,
+    disable: list[str] | None = None,
     exclude: str | list[str] | None = None,
     excludes: list[str] | None = None,
 ) -> int:
@@ -139,10 +155,12 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
     :param excludes: Files or dirs to exclude from checks.
     :return: Exit code (non-zero if any check failed).
     """
-    disable = disable or _Messages()
+    # the annotations describe the caller's interface; _parse_msgs has
+    # already converted these to Messages by the time they land
+    disabled = _t.cast("_Messages | None", disable) or _Messages()
     handle_deprecations(
         ignore_typechecker,
-        disable,
+        disabled,
         [
             _E[501],
             _E[502],
@@ -189,26 +207,16 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
         filters=filters,
         no_ansi=no_ansi,
         verbose=verbose,
-        target=target or _Messages(),
-        disable=disable,
+        target=_t.cast("_Messages | None", target) or _Messages(),
+        disable=disabled,
     )
     setup_logger(config.verbose)
-    logger = _logging.getLogger(__package__)
-    logger.debug(_pformat(config))
+    _logging.getLogger(__package__).debug(_pformat(config))
     if config.list_checks:
         # noinspection PyNoneFunctionAssignment
         return int(bool(_print_checks()))  # type: ignore
 
     if string:
-        module = _parse_from_string(string, config)
-        failures = _run_checks(module, config)
-        return _report(failures, config)
+        return _check_string(string, config)
 
-    retcodes = _RetCode()
-    files = _Files(path, config.filters)
-    for file in files:
-        failures = runner(file, config)
-        retcode = _report(failures, config, str(file))
-        retcodes.add(retcode)
-
-    return retcodes.result
+    return _check_files(path, config)

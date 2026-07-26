@@ -11,6 +11,29 @@ const DEFAULT_TOLERANCE: f64 = 1.0e-7;
 const INACTIVE_LAMBDA: f64 = 1.0e30;
 const MIN_NORM2: f64 = 1.0e-24;
 
+// --- Safeguarded geometric acceleration of the atom trajectory (#2372). ---------
+// The alternating atom-sweep ↔ reroute map converges LINEARLY: near the solution
+// the atom matrix moves along one dominant slow mode `Aₖ ≈ A* + c·rᵏ·V` with ratio
+// `r` set by the coupling of the atoms that share rows. On the planted 2-sparse
+// ring fixture `r ≈ 0.9985`, so reaching a `1e-9` fixed-point residual takes ~2500
+// plain sweeps — orders of magnitude past any reasonable `max_iter`, which is why
+// the fixed-point contract never closed. When two consecutive atom steps are
+// collinear (`cos ≥ GEOM_COS_MIN`) and contracting (`r ∈ (GEOM_R_MIN, 1)`) the
+// sequence is in that single-mode geometric tail, and the sum of the remaining
+// steps is `Δₖ·r/(1−r)`. Jumping there collapses the tail in one step. The jump is
+// a SAFEGUARDED proposal: it is adopted only when its rerouted EV strictly beats
+// the plain step's, so it can never degrade the fit (monotonicity preserved) — the
+// only risk of a bad `r` estimate is a rejected proposal, never a worse model.
+const GEOM_R_MIN: f64 = 0.1;
+const GEOM_R_EPS: f64 = 1.0e-12;
+const GEOM_COS_MIN: f64 = 0.9;
+const GEOM_FACTOR_CAP: f64 = 1.0e6;
+// Line-search ladder over the extrapolation step length: the spiral's straight-line
+// tangent is closest to the fixed point at an interior factor, so probe a geometric
+// ladder from `BASE` up to the geometric-sum bound `r/(1−r)` and keep the best.
+const GEOM_LADDER_BASE: f64 = 1.3;
+const GEOM_LADDER_STEP: f64 = 1.3;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LinearDictionaryAssignment {
     TopK,
@@ -204,6 +227,67 @@ pub fn fit_linear_dictionary(
     fit_multi_atom_dictionary(x, config)
 }
 
+/// One plain alternating step: a full per-atom penalized-LS sweep followed by a
+/// fresh global reroute, committing the rerouted assignment and fitted values into
+/// `assignments`/`fitted`. Reseeded atoms (#1500) whose reroute column stays empty
+/// are the rejected redundant proposals — they are zeroed here so a held-out
+/// transform cannot expose a direction absent from the certified model; a reseed
+/// the reroute actually uses counts as an `accepted_births`. Returns the sweep EV
+/// (pre-reroute), the rerouted EV, and the accepted-birth count so the caller can
+/// form the fixed-point residuals and drive the geometric acceleration.
+fn plain_atom_step(
+    x: ArrayView2<'_, f64>,
+    atoms: &mut Array2<f64>,
+    assignments: &mut Array2<f64>,
+    fitted: &mut Array2<f64>,
+    lambdas: &mut Array1<f64>,
+    reml_scores: &mut Array1<f64>,
+    top_k: usize,
+    config: &LinearDictionaryConfig,
+) -> Result<(f64, f64, usize), LinearDictionaryError> {
+    let n_atoms = atoms.nrows();
+    let mut reseeded = vec![false; n_atoms];
+    for atom_idx in 0..n_atoms {
+        reseeded[atom_idx] = fit_one_atom_penalized_ls(
+            x,
+            atoms,
+            assignments,
+            fitted,
+            lambdas,
+            reml_scores,
+            atom_idx,
+            config.code_ridge,
+        )?;
+    }
+
+    let sweep_ev = explained_variance(x, fitted.view());
+    let rerouted = reroute_against_atoms(x, atoms.view(), top_k, config)?;
+    let rerouted_fitted = rerouted.dot(&*atoms);
+    let rerouted_ev = explained_variance(x, rerouted_fitted.view());
+
+    let mut accepted_births = 0usize;
+    for atom_idx in 0..n_atoms {
+        if !reseeded[atom_idx] {
+            continue;
+        }
+        let accepted = rerouted
+            .column(atom_idx)
+            .iter()
+            .any(|coefficient| *coefficient != 0.0);
+        if accepted {
+            accepted_births += 1;
+        } else {
+            atoms.row_mut(atom_idx).fill(0.0);
+            lambdas[atom_idx] = INACTIVE_LAMBDA;
+            reml_scores[atom_idx] = 0.0;
+        }
+    }
+
+    *assignments = rerouted;
+    *fitted = rerouted_fitted;
+    Ok((sweep_ev, rerouted_ev, accepted_births))
+}
+
 fn fit_multi_atom_dictionary(
     x: ArrayView2<'_, f64>,
     config: &LinearDictionaryConfig,
@@ -220,56 +304,96 @@ fn fit_multi_atom_dictionary(
     let mut ev_residual = f64::INFINITY;
     let mut routing_residual = f64::INFINITY;
     let mut accepted_births = 0usize;
+    // History of the atom trajectory for the safeguarded geometric acceleration:
+    // `prev_atoms` is the previous iteration's canonical dictionary and `prev_delta`
+    // the previous atom step, so a collinear pair of steps exposes the dominant
+    // slow mode to extrapolate along.
+    let mut prev_atoms: Option<Array2<f64>> = None;
+    let mut prev_delta: Option<Array2<f64>> = None;
 
     for iteration in 0..config.max_iter {
-        let mut reseeded = vec![false; config.n_atoms];
-        for atom_idx in 0..config.n_atoms {
-            reseeded[atom_idx] = fit_one_atom_penalized_ls(
-                x,
-                &mut atoms,
-                &mut assignments,
-                &mut fitted,
-                &mut lambdas,
-                &mut reml_scores,
-                atom_idx,
-                config.code_ridge,
-            )?;
-        }
+        let (mut sweep_ev, mut rerouted_ev, mut births) = plain_atom_step(
+            x,
+            &mut atoms,
+            &mut assignments,
+            &mut fitted,
+            &mut lambdas,
+            &mut reml_scores,
+            top_k,
+            config,
+        )?;
 
-        let sweep_ev = explained_variance(x, fitted.view());
-        let rerouted = reroute_against_atoms(x, atoms.view(), top_k, config)?;
-        let rerouted_fitted = rerouted.dot(&atoms);
-        let rerouted_ev = explained_variance(x, rerouted_fitted.view());
-
-        // A reseed is only an unsettled birth when the canonical routing actually
-        // uses it. Overcomplete dictionaries necessarily propose redundant atoms;
-        // rejected proposals are null capacity, not perpetual non-convergence.
-        // Zero them immediately so held-out transforms cannot expose an arbitrary
-        // residual direction that was absent from the certified training model.
-        accepted_births = 0;
-        for atom_idx in 0..config.n_atoms {
-            if !reseeded[atom_idx] {
-                continue;
-            }
-            let accepted = rerouted
-                .column(atom_idx)
-                .iter()
-                .any(|coefficient| *coefficient != 0.0);
-            if accepted {
-                accepted_births += 1;
-            } else {
-                atoms.row_mut(atom_idx).fill(0.0);
-                lambdas[atom_idx] = INACTIVE_LAMBDA;
-                reml_scores[atom_idx] = 0.0;
+        // Safeguarded geometric acceleration. `atoms` is now the canonical
+        // dictionary this sweep converged to; its step from the previous one is
+        // `this_delta`. When that step is collinear with the last (and the support
+        // is settled — no births) the trajectory is in its dominant-mode geometric
+        // tail, and a line-searched extrapolation along it lands near the fixed
+        // point. A jump is a big non-plain step that breaks the collinear pair the
+        // next jump needs, so after adopting one we REBUILD the geometric history
+        // with two more plain steps INLINE — keeping the acceleration firing every
+        // outer iteration rather than stalling two sweeps between jumps. The jump is
+        // adopted only when it strictly beats the plain EV, so it never degrades the
+        // fit; a broken sequence (fresh births, a support flip, a non-contracting
+        // ratio) is simply left to plain alternation.
+        let this_delta = prev_atoms.as_ref().map(|previous| &atoms - previous);
+        let mut jumped = false;
+        if births == 0 {
+            if let (Some(delta), Some(previous_delta)) = (this_delta.as_ref(), prev_delta.as_ref())
+            {
+                if let Some((cand_atoms, cand_route, cand_fitted)) = try_geometric_extrapolation(
+                    atoms.view(),
+                    delta.view(),
+                    previous_delta.view(),
+                    x,
+                    top_k,
+                    config,
+                    rerouted_ev,
+                ) {
+                    atoms = cand_atoms;
+                    assignments = cand_route;
+                    fitted = cand_fitted;
+                    jumped = true;
+                    // Rebuild the geometric history from the jumped point with two
+                    // inline plain steps so the next outer iteration can jump again.
+                    let (_, _, rebuild_births_1) = plain_atom_step(
+                        x,
+                        &mut atoms,
+                        &mut assignments,
+                        &mut fitted,
+                        &mut lambdas,
+                        &mut reml_scores,
+                        top_k,
+                        config,
+                    )?;
+                    let rebuilt_prev = atoms.clone();
+                    let (rebuild_sweep_ev, rebuild_ev, rebuild_births_2) = plain_atom_step(
+                        x,
+                        &mut atoms,
+                        &mut assignments,
+                        &mut fitted,
+                        &mut lambdas,
+                        &mut reml_scores,
+                        top_k,
+                        config,
+                    )?;
+                    prev_delta = Some(&atoms - &rebuilt_prev);
+                    prev_atoms = Some(atoms.clone());
+                    sweep_ev = rebuild_sweep_ev;
+                    rerouted_ev = rebuild_ev;
+                    births = rebuild_births_1.max(rebuild_births_2);
+                }
             }
         }
+        if !jumped {
+            prev_atoms = Some(atoms.clone());
+            prev_delta = this_delta;
+        }
+        accepted_births = births;
 
         completed_iterations = iteration + 1;
         ev_residual = (rerouted_ev - previous_ev).abs();
         routing_residual = (rerouted_ev - sweep_ev).abs();
         last_ev = rerouted_ev;
-        assignments = rerouted;
-        fitted = rerouted_fitted;
 
         if accepted_births == 0
             && ev_residual <= config.tolerance
@@ -324,6 +448,82 @@ fn fit_multi_atom_dictionary(
         accepted_births,
         tolerance: config.tolerance,
     })
+}
+
+/// Safeguarded extrapolation of the atom trajectory (#2372). Given the current
+/// dictionary `atoms = Aₖ`, this sweep's step `delta = Aₖ − Aₖ₋₁`, and the previous
+/// step `prev_delta = Aₖ₋₁ − Aₖ₋₂`, decide whether the trajectory is in its slow
+/// single-mode tail and, if so, propose a dictionary further along that mode.
+///
+/// The atom trajectory does not decay along a fixed straight line — it SPIRALS: the
+/// dominant mode is a nearly-real eigenvalue `λ = ρ·e^{iθ}` with `ρ ≈ 0.9985` and a
+/// tiny per-step angle `θ`, so consecutive steps are collinear to six digits
+/// (`cos ≈ 1`) yet accumulate a large arc over the `r/(1−r) ≈ 1600` steps that
+/// remain. Extrapolating the full geometric sum in a straight line therefore
+/// OVERSHOOTS the limit badly (it leaves the sphere-product the atoms live on). So
+/// instead of one fixed jump we LINE-SEARCH the step length: walk a geometric ladder
+/// of factors up to the geometric-sum bound `r/(1−r)`, reroute each candidate, and
+/// keep the one with the highest EV that strictly beats the plain step. The tangent
+/// from `Aₖ` heads toward the limit and only later curves away, so a well-defined
+/// interior factor gets closest — the ladder finds it, and the strict-improvement
+/// guard means a bad estimate costs at most a rejected proposal, never a worse fit.
+fn try_geometric_extrapolation(
+    atoms: ArrayView2<'_, f64>,
+    delta: ArrayView2<'_, f64>,
+    prev_delta: ArrayView2<'_, f64>,
+    x: ArrayView2<'_, f64>,
+    top_k: usize,
+    config: &LinearDictionaryConfig,
+    current_ev: f64,
+) -> Option<(Array2<f64>, Array2<f64>, Array2<f64>)> {
+    let cross: f64 = delta
+        .iter()
+        .zip(prev_delta.iter())
+        .map(|(a, b)| a * b)
+        .sum();
+    let prev_norm2: f64 = prev_delta.iter().map(|v| v * v).sum();
+    let delta_norm2: f64 = delta.iter().map(|v| v * v).sum();
+    if !(prev_norm2 > 0.0 && delta_norm2 > 0.0) {
+        return None;
+    }
+    let ratio = cross / prev_norm2;
+    if !(ratio > GEOM_R_MIN && ratio < 1.0 - GEOM_R_EPS) {
+        return None;
+    }
+    // Collinearity of the two steps — the single-dominant-mode assumption. A
+    // support flip or a two-mode transient makes the steps non-parallel; skip it.
+    let cosine = cross / (delta_norm2.sqrt() * prev_norm2.sqrt());
+    if !(cosine > GEOM_COS_MIN) {
+        return None;
+    }
+    let max_factor = (ratio / (1.0 - ratio)).min(GEOM_FACTOR_CAP);
+    if !(max_factor.is_finite() && max_factor > 1.0) {
+        return None;
+    }
+    let delta_owned = delta.to_owned();
+    let atoms_owned = atoms.to_owned();
+    let mut best: Option<(Array2<f64>, Array2<f64>, Array2<f64>)> = None;
+    let mut best_ev = current_ev;
+    let mut factor = GEOM_LADDER_BASE;
+    loop {
+        let mut candidate = &atoms_owned + &(factor * &delta_owned);
+        for atom_idx in 0..candidate.nrows() {
+            normalize_row(candidate.slice_mut(s![atom_idx, ..]));
+        }
+        if let Ok(route) = reroute_against_atoms(x, candidate.view(), top_k, config) {
+            let fitted = route.dot(&candidate);
+            let ev = explained_variance(x, fitted.view());
+            if ev > best_ev {
+                best_ev = ev;
+                best = Some((candidate, route, fitted));
+            }
+        }
+        if factor >= max_factor {
+            break;
+        }
+        factor = (factor * GEOM_LADDER_STEP).min(max_factor);
+    }
+    best
 }
 
 /// Fresh global routing of every row against `atoms` using the configured
@@ -970,6 +1170,92 @@ mod tests {
     }
 
     #[test]
+    fn coupled_topk_dictionary_reaches_fixed_point_under_small_budget_2372() {
+        // A DIFFERENT coupled fixture from the planted 4-atom ring: three
+        // orthonormal but NON-axis-aligned directions in R^6, each row loading a
+        // cyclic pair (dominant on atom k, secondary on (k+1)%3). The data is
+        // exactly representable, so the alternating-LS fixed point is EV = 1, but
+        // the two shared atoms per row give the map a dominant slow mode whose
+        // ratio (~0.99) needs THOUSANDS of plain sweeps to close a 1e-9 fixed-point
+        // residual. This pins, from a different geometry than
+        // `planted_sparse_linear_dictionary_reaches_high_explained_variance`, that
+        // the safeguarded geometric acceleration drives the certified fixed point
+        // inside a small iteration budget instead of grinding to `max_iter` and
+        // raising `NonConvergence` (#2372).
+        let truth = array![
+            [
+                std::f64::consts::FRAC_1_SQRT_2,
+                std::f64::consts::FRAC_1_SQRT_2,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            [
+                std::f64::consts::FRAC_1_SQRT_2,
+                -std::f64::consts::FRAC_1_SQRT_2,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            [
+                0.0,
+                0.0,
+                std::f64::consts::FRAC_1_SQRT_2,
+                std::f64::consts::FRAC_1_SQRT_2,
+                0.0,
+                0.0
+            ],
+        ];
+        let mut codes = Array2::<f64>::zeros((120, 3));
+        for row in 0..120 {
+            let atom = row % 3;
+            codes[[row, atom]] = 0.6 + 0.02 * ((row / 3) as f64);
+            codes[[row, (atom + 1) % 3]] = 0.3;
+        }
+        let x = codes.dot(&truth);
+        let config = LinearDictionaryConfig {
+            n_atoms: 3,
+            max_iter: 80,
+            top_k: 2,
+            assignment: LinearDictionaryAssignment::TopK,
+            temperature: DEFAULT_TEMPERATURE,
+            code_ridge: DEFAULT_CODE_RIDGE,
+            tolerance: 1.0e-9,
+            center_rank_one: false,
+        };
+
+        let fit = fit_linear_dictionary(x.view(), &config)
+            .expect("acceleration must reach the fixed point within the budget");
+        assert!(
+            fit.explained_variance > 0.999,
+            "coupled data must reconstruct well at the converged fixed point, got EV {}",
+            fit.explained_variance
+        );
+        assert!(
+            fit.convergence.ev_residual <= fit.convergence.tolerance,
+            "ev_residual {} must close the {} contract",
+            fit.convergence.ev_residual,
+            fit.convergence.tolerance
+        );
+        assert!(
+            fit.convergence.routing_residual <= fit.convergence.tolerance,
+            "routing_residual {} must close the {} contract",
+            fit.convergence.routing_residual,
+            fit.convergence.tolerance
+        );
+        assert_eq!(fit.convergence.accepted_births, 0);
+        // The returned assignments must be exactly the canonical reroute against the
+        // final atoms (the acceleration must leave the model self-consistent).
+        let canonical = reroute_against_atoms(x.view(), fit.atoms.view(), fit.top_k, &config)
+            .expect("canonical reroute");
+        for (returned, rerouted) in fit.assignments.iter().zip(canonical.iter()) {
+            assert_abs_diff_eq!(*returned, *rerouted, epsilon = 1.0e-12);
+        }
+    }
+
+    #[test]
     fn single_atom_matches_penalized_pca_oracle() {
         let mut x = Array2::<f64>::zeros((80, 3));
         for row in 0..80 {
@@ -1211,14 +1497,118 @@ mod tests {
 
     #[test]
     fn nonconverged_multi_atom_fit_is_an_error_not_a_model() {
-        // SPEC 20: this problem moves on its first full sweep, so a one-sweep
-        // budget cannot satisfy the canonical fixed-point certificate. The solver
-        // must return finite numerical evidence instead of a partial model.
+        // SPEC 20: an iterate that has not closed the fixed-point certificate is
+        // numerical evidence, never a model.
+        //
+        // The fixture is the coupled cyclic-pair geometry of
+        // `coupled_topk_dictionary_reaches_fixed_point_under_small_budget_2372`:
+        // every row loads two shared atoms, so the sweep+reroute map has a dominant
+        // slow mode (ratio ~0.99) that needs thousands of plain sweeps to close the
+        // residual contract. The budget is two sweeps — the smallest budget the
+        // two-sweep sequence rule can evaluate at all, and one short of the first
+        // iteration at which the safeguarded geometric acceleration has a collinear
+        // step pair to extrapolate along (it needs both `prev_delta` and
+        // `this_delta`, which first coexist at iteration 2). The fit is therefore
+        // still genuinely MOVING when the budget ends, which is what makes the
+        // refusal residual-driven rather than an artifact of the budget: the
+        // returned evidence must itself violate the fixed-point contract. The
+        // independent sequence-rule law — that one agreeing pair is not a plateau
+        // even when the residuals are zero — is pinned by
+        // `single_sweep_cannot_certify_an_initialization_already_at_the_fixed_point`.
+        let truth = array![
+            [
+                std::f64::consts::FRAC_1_SQRT_2,
+                std::f64::consts::FRAC_1_SQRT_2,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            [
+                std::f64::consts::FRAC_1_SQRT_2,
+                -std::f64::consts::FRAC_1_SQRT_2,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            [
+                0.0,
+                0.0,
+                std::f64::consts::FRAC_1_SQRT_2,
+                std::f64::consts::FRAC_1_SQRT_2,
+                0.0,
+                0.0
+            ],
+        ];
+        let mut codes = Array2::<f64>::zeros((120, 3));
+        for row in 0..120 {
+            let atom = row % 3;
+            codes[[row, atom]] = 0.6 + 0.02 * ((row / 3) as f64);
+            codes[[row, (atom + 1) % 3]] = 0.3;
+        }
+        let x = codes.dot(&truth);
+        let config = LinearDictionaryConfig {
+            n_atoms: 3,
+            max_iter: 2,
+            top_k: 2,
+            assignment: LinearDictionaryAssignment::TopK,
+            temperature: DEFAULT_TEMPERATURE,
+            code_ridge: DEFAULT_CODE_RIDGE,
+            tolerance: DEFAULT_TOLERANCE,
+            center_rank_one: false,
+        };
+        let err = fit_linear_dictionary(x.view(), &config)
+            .expect_err("a still-moving iterate cannot certify an EV plateau");
+        match err {
+            LinearDictionaryError::NonConvergence {
+                iterations,
+                explained_variance,
+                ev_residual,
+                routing_residual,
+                accepted_births,
+                tolerance,
+            } => {
+                assert_eq!(iterations, 2);
+                assert!(explained_variance.is_finite());
+                assert!(ev_residual.is_finite());
+                assert!(routing_residual.is_finite());
+                // The premise: this fixture is genuinely non-converged at its
+                // budget end, so the refusal is attributable to the numerical
+                // evidence the error carries and not to the budget alone.
+                assert!(
+                    ev_residual > tolerance || routing_residual > tolerance || accepted_births > 0,
+                    "fixture must still be moving: ev_residual {ev_residual:.3e}, \
+                     routing_residual {routing_residual:.3e}, births {accepted_births} \
+                     against tolerance {tolerance:.3e}"
+                );
+                assert_eq!(tolerance, DEFAULT_TOLERANCE);
+            }
+            other => panic!("expected typed non-convergence evidence, got: {other}"),
+        }
+    }
+
+    #[test]
+    fn single_sweep_cannot_certify_an_initialization_already_at_the_fixed_point() {
+        // The complement of the test above: a plateau is a SEQUENCE property, so a
+        // one-sweep budget must be refused EVEN WHEN that single sweep's residual
+        // pair already agrees to machine precision. An initialization that happens
+        // to sit at the fixed point must not self-certify without the solver ever
+        // demonstrating stability.
+        //
+        // The fixture makes that situation exact rather than incidental. Rows are
+        // the axis directions e_{i mod 3} scaled by 1 + 0.01·i, so `initialize_atoms`
+        // seeds atom 0 from the max-norm row (row 23, direction e2) and atom 1 from
+        // the row farthest from it (row 22, direction e1). Under top-1 routing each
+        // e1/e2 row carries its own norm into its own atom and the e0 rows project
+        // to zero, so the per-atom penalized-LS sweep reproduces {e2, e1} exactly:
+        // the seeded dictionary IS a fixed point of the sweep+reroute map, and both
+        // residuals are zero on the only sweep the budget allows.
         let mut x = Array2::<f64>::zeros((24, 3));
         for row in 0..24 {
             x[[row, row % 3]] = 1.0 + 0.01 * row as f64;
         }
-        let config = LinearDictionaryConfig {
+        let mut config = LinearDictionaryConfig {
             n_atoms: 2,
             max_iter: 1,
             top_k: 1,
@@ -1229,7 +1619,7 @@ mod tests {
             center_rank_one: false,
         };
         let err = fit_linear_dictionary(x.view(), &config)
-            .expect_err("one sweep cannot certify an EV plateau");
+            .expect_err("a single sweep is one data point, not a plateau");
         match err {
             LinearDictionaryError::NonConvergence {
                 iterations,
@@ -1241,15 +1631,36 @@ mod tests {
             } => {
                 assert_eq!(iterations, 1);
                 assert!(explained_variance.is_finite());
-                assert!(ev_residual.is_finite());
-                assert!(routing_residual.is_finite());
+                // The point of this fixture: the residual contract is ALREADY met on
+                // the one sweep, and the fit is refused anyway. If these ever start
+                // exceeding the tolerance the fixture has stopped witnessing the
+                // sequence rule and this test would silently become a duplicate of
+                // `nonconverged_multi_atom_fit_is_an_error_not_a_model`.
                 assert!(
-                    ev_residual > tolerance || routing_residual > tolerance || accepted_births > 0
+                    ev_residual <= tolerance,
+                    "seeded fixed point must agree on the first sweep, got ev_residual \
+                     {ev_residual:.3e} against tolerance {tolerance:.3e}"
                 );
+                assert!(
+                    routing_residual <= tolerance,
+                    "seeded fixed point must survive its own reroute, got routing_residual \
+                     {routing_residual:.3e} against tolerance {tolerance:.3e}"
+                );
+                assert_eq!(accepted_births, 0);
                 assert_eq!(tolerance, DEFAULT_TOLERANCE);
             }
             other => panic!("expected typed non-convergence evidence, got: {other}"),
         }
+
+        // The same problem with a budget that can complete the second sweep does
+        // certify — so the refusal above is the sequence rule and nothing else.
+        config.max_iter = 2;
+        let fit = fit_linear_dictionary(x.view(), &config)
+            .expect("two agreeing sweeps certify the plateau");
+        assert_eq!(fit.iterations, 2);
+        assert!(fit.convergence.ev_residual <= fit.convergence.tolerance);
+        assert!(fit.convergence.routing_residual <= fit.convergence.tolerance);
+        assert_eq!(fit.convergence.accepted_births, 0);
     }
 
     #[test]
@@ -1394,5 +1805,4 @@ mod tests {
 
         (x, config)
     }
-
 }

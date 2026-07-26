@@ -4,7 +4,10 @@ use referencing::Draft;
 use serde_json::{json, Map, Value};
 
 use crate::{
-    canonical::ir::{CanonicalJson, IntegerBounds, Schema, SchemaKind, StringLeaf},
+    canonical::ir::{
+        ArrayLeaf, BoundCardinality, CanonicalJson, ContainsFacet, Divisors, IntegerLeaf,
+        NumberLeaf, ObjectLeaf, Schema, SchemaKind, StringLeaf,
+    },
     JsonTypeSet,
 };
 
@@ -31,22 +34,30 @@ fn emit(kind: &SchemaKind, draft: Draft) -> Value {
             json!({"enum": [value.to_value()]})
         }
         SchemaKind::Const(value) => json!({"const": value.to_value()}),
-        SchemaKind::Enum(values) => emit_enum(values),
-        SchemaKind::String(leaf) => emit_string(leaf),
-        SchemaKind::Integer(leaf) => emit_integer(leaf),
+        SchemaKind::Enum(values) => emit_enum(values.as_slice()),
+        SchemaKind::String(leaf) => emit_string(leaf.get()),
+        SchemaKind::Integer(leaf) => emit_integer(leaf.get()),
+        SchemaKind::Number(leaf) => emit_number(leaf.get(), draft),
+        SchemaKind::Array(leaf) => emit_array(leaf.get(), draft),
+        SchemaKind::Object(leaf) => emit_object(leaf.get(), draft),
         SchemaKind::MultiType(set) => emit_multi_type(*set),
         // The body emits a `const`/`enum` object without a `type` key, so adding `type` beside it
         // expresses "both must hold" and re-parses to the same IR.
         SchemaKind::TypedGroup { ty, body } => {
             let mut map = match emit(body.kind(), draft) {
                 Value::Object(map) => map,
-                other => unreachable!("value-set body emits an object: {other:?}"),
+                other @ (Value::Null
+                | Value::Bool(_)
+                | Value::Number(_)
+                | Value::String(_)
+                | Value::Array(_)) => unreachable!("value-set body emits an object: {other:?}"),
             };
             map.insert("type".into(), Value::String(ty.to_string()));
             Value::Object(map)
         }
         SchemaKind::AnyOf(branches) => json!({
             "anyOf": branches
+                .as_slice()
                 .iter()
                 .map(|branch| emit(branch.kind(), draft))
                 .collect::<Vec<_>>()
@@ -66,33 +77,301 @@ fn emit_string(leaf: &StringLeaf) -> Value {
     if let Some(max) = &leaf.lengths.maximum {
         map.insert("maxLength".into(), Value::Number(max.to_number()));
     }
+    let mut conjuncts: Vec<Value> = Vec::new();
     match leaf.patterns.as_slice() {
         [] => {}
         [pattern] => {
             map.insert("pattern".into(), Value::String(pattern.to_string()));
         }
-        patterns => {
-            let conjuncts = patterns
+        patterns => conjuncts.extend(
+            patterns
                 .iter()
-                .map(|pattern| json!({ "pattern": pattern.as_ref() }))
-                .collect();
-            map.insert("allOf".into(), Value::Array(conjuncts));
+                .map(|pattern| json!({ "pattern": pattern.as_ref() })),
+        ),
+    }
+    match leaf.formats.as_slice() {
+        [] => {}
+        [format] => {
+            map.insert("format".into(), Value::String(format.to_string()));
         }
+        formats => conjuncts.extend(
+            formats
+                .iter()
+                .map(|format| json!({ "format": format.as_ref() })),
+        ),
+    }
+    // A media type and an encoding sharing one schema object decode-then-check under the runtime
+    // dispatch (`compile_media_type` reads its sibling `contentEncoding`), which would silently
+    // recompose two facets this leaf keeps independent - so whenever both are present, every value
+    // of either goes into its own `allOf` branch instead of beside `type` on the main object.
+    let both_content_facets_present =
+        !leaf.content_media_types.is_empty() && !leaf.content_encodings.is_empty();
+    match leaf.content_media_types.as_slice() {
+        [] => {}
+        [media_type] if !both_content_facets_present => {
+            map.insert(
+                "contentMediaType".into(),
+                Value::String(media_type.to_string()),
+            );
+        }
+        media_types => conjuncts.extend(
+            media_types
+                .iter()
+                .map(|media_type| json!({ "contentMediaType": media_type.as_ref() })),
+        ),
+    }
+    match leaf.content_encodings.as_slice() {
+        [] => {}
+        [encoding] if !both_content_facets_present => {
+            map.insert(
+                "contentEncoding".into(),
+                Value::String(encoding.to_string()),
+            );
+        }
+        encodings => conjuncts.extend(
+            encodings
+                .iter()
+                .map(|encoding| json!({ "contentEncoding": encoding.as_ref() })),
+        ),
+    }
+    if !conjuncts.is_empty() {
+        map.insert("allOf".into(), Value::Array(conjuncts));
     }
     Value::Object(map)
 }
 
-/// Emit an integer leaf as `{"type":"integer"}` plus its interval bounds.
-fn emit_integer(bounds: &IntegerBounds) -> Value {
+/// Emit a number leaf as `{"type":"number"}` plus its interval bounds, using the exclusive spelling
+/// for an endpoint the interval does not admit.
+fn emit_number(leaf: &NumberLeaf, draft: Draft) -> Value {
     let mut map = Map::new();
-    map.insert("type".into(), Value::String("integer".into()));
-    if let Some(min) = &bounds.minimum {
-        map.insert("minimum".into(), Value::Number(min.to_number()));
+    map.insert("type".into(), Value::String("number".into()));
+    // Draft 4 spells exclusivity as a boolean flag beside the bound; later drafts give it its own
+    // numeric keyword.
+    let draft4 = matches!(draft, Draft::Draft4);
+    for (bound, inclusive_key, exclusive_key) in [
+        (leaf.minimum.as_ref(), "minimum", "exclusiveMinimum"),
+        (leaf.maximum.as_ref(), "maximum", "exclusiveMaximum"),
+    ] {
+        let Some(bound) = bound else {
+            continue;
+        };
+        let limit = Value::Number(bound.to_number());
+        if bound.is_inclusive() {
+            map.insert(inclusive_key.into(), limit);
+        } else if draft4 {
+            map.insert(inclusive_key.into(), limit);
+            map.insert(exclusive_key.into(), Value::Bool(true));
+        } else {
+            map.insert(exclusive_key.into(), limit);
+        }
     }
-    if let Some(max) = &bounds.maximum {
-        map.insert("maximum".into(), Value::Number(max.to_number()));
+    emit_divisors(&mut map, &leaf.multiple_of);
+    Value::Object(map)
+}
+
+/// Emit an array leaf as `{"type":"array"}` plus its length bounds, uniqueness and element schemas.
+/// A tuple prefix is spelled `prefixItems` with an `items` tail in 2020-12, and array-form `items`
+/// with an `additionalItems` tail in 2019-09 and earlier.
+fn emit_array(leaf: &ArrayLeaf, draft: Draft) -> Value {
+    let mut map = Map::new();
+    map.insert("type".into(), Value::String("array".into()));
+    let tuple_draft = matches!(draft, Draft::Draft202012 | Draft::Unknown);
+    if !leaf.prefix.is_empty() {
+        let prefix: Vec<Value> = leaf
+            .prefix
+            .iter()
+            .map(|schema| emit(schema.kind(), draft))
+            .collect();
+        let key = if tuple_draft { "prefixItems" } else { "items" };
+        map.insert(key.into(), Value::Array(prefix));
+    }
+    if let Some(items) = &leaf.items {
+        let key = if leaf.prefix.is_empty() || tuple_draft {
+            "items"
+        } else {
+            "additionalItems"
+        };
+        map.insert(key.into(), emit(items.kind(), draft));
+    }
+    // One `contains` demand sits inline; the keyword is single-valued, so the rest conjoin as
+    // single-demand `allOf` branches.
+    debug_assert!(
+        leaf.contains
+            .windows(2)
+            .all(|pair| pair[0].schema < pair[1].schema),
+        "contains demands are sorted and schema-deduplicated"
+    );
+    debug_assert!(
+        !leaf
+            .contains
+            .iter()
+            .any(|facet| facet.minimum.as_ref() == Some(&BoundCardinality::from(1))),
+        "a default contains minimum is spelled as absent"
+    );
+    let mut facets = leaf.contains.iter();
+    if let Some(facet) = facets.next() {
+        insert_contains(&mut map, facet, draft);
+        let rest: Vec<Value> = facets
+            .map(|facet| {
+                let mut entry = Map::new();
+                insert_contains(&mut entry, facet, draft);
+                Value::Object(entry)
+            })
+            .collect();
+        if !rest.is_empty() {
+            map.insert("allOf".into(), Value::Array(rest));
+        }
+    }
+    if leaf.unique {
+        map.insert("uniqueItems".into(), Value::Bool(true));
+    }
+    if let Some(min) = &leaf.lengths.minimum {
+        map.insert("minItems".into(), Value::Number(min.to_number()));
+    }
+    if let Some(max) = &leaf.lengths.maximum {
+        map.insert("maxItems".into(), Value::Number(max.to_number()));
     }
     Value::Object(map)
+}
+
+/// Emit one `contains` demand into `map`; the count window keys appear only where a draft put them.
+fn insert_contains(map: &mut Map<String, Value>, facet: &ContainsFacet, draft: Draft) {
+    map.insert("contains".into(), emit(facet.schema.kind(), draft));
+    if let Some(minimum) = &facet.minimum {
+        map.insert("minContains".into(), Value::Number(minimum.to_number()));
+    }
+    if let Some(maximum) = &facet.maximum {
+        map.insert("maxContains".into(), Value::Number(maximum.to_number()));
+    }
+}
+
+/// Emit an object leaf as `{"type":"object"}` plus its key constraint, required keys and bounds.
+fn emit_object(leaf: &ObjectLeaf, draft: Draft) -> Value {
+    let mut map = Map::new();
+    map.insert("type".into(), Value::String("object".into()));
+    // Draft 4 has no `propertyNames`; a finite key constraint - the only shape reachable there -
+    // is spelled as the closed property map it was parsed from, with an entry restored for each
+    // allowed key normalization dropped as unconstrained.
+    let closed_keys = if matches!(draft, Draft::Draft4) {
+        leaf.property_names.as_ref().and_then(finite_keys)
+    } else {
+        None
+    };
+    if let Some(names) = &leaf.property_names {
+        if closed_keys.is_none() {
+            map.insert("propertyNames".into(), emit(names.kind(), draft));
+        }
+    }
+    if let Some(keys) = &closed_keys {
+        let mut entries = Map::new();
+        for key in keys {
+            let entry = match leaf.properties.get(key.as_str()) {
+                Some(schema) => emit(schema.kind(), draft),
+                None => Value::Object(Map::new()),
+            };
+            entries.insert(key.clone(), entry);
+        }
+        map.insert("properties".into(), Value::Object(entries));
+        map.insert("additionalProperties".into(), Value::Bool(false));
+    } else if !leaf.properties.is_empty() {
+        let entries: Map<String, Value> = leaf
+            .properties
+            .iter()
+            .map(|(key, schema)| (key.to_string(), emit(schema.kind(), draft)))
+            .collect();
+        map.insert("properties".into(), Value::Object(entries));
+    }
+    if !leaf.pattern_properties.is_empty() {
+        let entries: Map<String, Value> = leaf
+            .pattern_properties
+            .iter()
+            .map(|(pattern, schema)| (pattern.to_string(), emit(schema.kind(), draft)))
+            .collect();
+        map.insert("patternProperties".into(), Value::Object(entries));
+    }
+    if let Some(additional) = &leaf.additional {
+        map.insert(
+            "additionalProperties".into(),
+            emit(additional.kind(), draft),
+        );
+    }
+    if !leaf.required.is_empty() {
+        map.insert(
+            "required".into(),
+            Value::Array(
+                leaf.required
+                    .iter()
+                    .map(|key| Value::String(key.to_string()))
+                    .collect(),
+            ),
+        );
+    }
+    if let Some(min) = &leaf.sizes.minimum {
+        map.insert("minProperties".into(), Value::Number(min.to_number()));
+    }
+    if let Some(max) = &leaf.sizes.maximum {
+        map.insert("maxProperties".into(), Value::Number(max.to_number()));
+    }
+    Value::Object(map)
+}
+
+/// The exact key strings a finite key constraint admits; `None` for any other shape.
+fn finite_keys(names: &Schema) -> Option<Vec<String>> {
+    match names.kind() {
+        SchemaKind::Const(value) => Some(vec![value.as_value().as_str()?.to_string()]),
+        SchemaKind::Enum(values) => values
+            .as_slice()
+            .iter()
+            .map(|value| value.as_value().as_str().map(str::to_string))
+            .collect(),
+        SchemaKind::True
+        | SchemaKind::False
+        | SchemaKind::MultiType(_)
+        | SchemaKind::TypedGroup { .. }
+        | SchemaKind::String(_)
+        | SchemaKind::Integer(_)
+        | SchemaKind::Number(_)
+        | SchemaKind::Array(_)
+        | SchemaKind::Object(_)
+        | SchemaKind::AnyOf(_)
+        | SchemaKind::Raw(_) => None,
+    }
+}
+
+/// Emit an integer leaf as `{"type":"integer"}` plus its interval bounds.
+fn emit_integer(leaf: &IntegerLeaf) -> Value {
+    let mut map = Map::new();
+    map.insert("type".into(), Value::String("integer".into()));
+    if let Some(min) = &leaf.bounds.minimum {
+        map.insert("minimum".into(), Value::Number(min.to_number()));
+    }
+    if let Some(max) = &leaf.bounds.maximum {
+        map.insert("maximum".into(), Value::Number(max.to_number()));
+    }
+    emit_divisors(&mut map, &leaf.multiple_of);
+    Value::Object(map)
+}
+
+/// A lone divisor sits beside the other facets; several are spelled as an `allOf`, since one
+/// `multipleOf` cannot carry them.
+fn emit_divisors(map: &mut Map<String, Value>, divisors: &Divisors) {
+    match divisors.as_slice() {
+        [] => {}
+        [step] => {
+            map.insert("multipleOf".into(), Value::Number(step.to_number()));
+        }
+        steps => {
+            let conjuncts = steps
+                .iter()
+                .map(|step| {
+                    let mut object = Map::new();
+                    object.insert("multipleOf".into(), Value::Number(step.to_number()));
+                    Value::Object(object)
+                })
+                .collect();
+            map.insert("allOf".into(), Value::Array(conjuncts));
+        }
+    }
 }
 
 /// Emit a standalone `Enum`; collapse to `type:[...]` when the value set saturates one or more JSON types.
@@ -145,7 +424,9 @@ fn with_schema_uri(value: Value, uri: &'static str) -> Value {
             map.insert("not".into(), Value::Object(Map::new()));
             map
         }
-        other => unreachable!("emit yields only objects or booleans: {other:?}"),
+        other @ (Value::Null | Value::Number(_) | Value::String(_) | Value::Array(_)) => {
+            unreachable!("emit yields only objects or booleans: {other:?}")
+        }
     };
     map.insert("$schema".into(), Value::String(uri.into()));
     Value::Object(map)

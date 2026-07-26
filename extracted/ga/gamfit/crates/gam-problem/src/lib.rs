@@ -57,6 +57,10 @@ pub mod schedule;
 pub mod laplace_sampler_contract;
 mod seeding;
 pub mod solver_contract;
+// Fixtures that build `ParameterBlockSpec`s live with the type they build, so
+// downstream crates' test builds reach them through a leaf dependency instead of
+// the model-layer `gam-test-support` crate.
+pub mod test_support;
 pub mod topology_certificates;
 pub mod types;
 
@@ -82,7 +86,7 @@ pub use dispersion_cov::{
 };
 pub use estimation_error::{
     EstimationError, FixedLambdaCheckpoint, FixedLambdaResidualKind, FixedLambdaSolverStage,
-    FixedLambdaStallReason, FixedLambdaStationarityEvidence,
+    FixedLambdaStallReason, FixedLambdaStationarityEvidence, StationarityRung,
 };
 pub use execution_path::ExecutionPath;
 pub use family_options::{ExactNewtonOuterObjective, ExactOuterDerivativeOrder};
@@ -97,7 +101,8 @@ use gam_linalg::dense;
 pub use gam_linalg::faer_ndarray::{in_nested_parallel_region, with_nested_parallel};
 pub use gauge::Gauge;
 pub use identifiability_audit::{
-    AliasedPair, BlockIdentity, DroppedColumn, IdentifiabilityAudit, MapUniquenessError,
+    AliasedPair, BlockIdentity, DroppedColumn, IdentifiabilityAudit, JointRankCertificate,
+    MapUniquenessError,
 };
 pub use joint_penalty::{JointPenaltyBundle, JointPenaltyError, JointPenaltySpec};
 pub use constraint_set::{

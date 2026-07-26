@@ -496,11 +496,10 @@ pub fn projected_linear_constraint_stationarity_vector(
         return None;
     }
     if let Some(hint) = known_active_rows {
-        // The QP face is the sparse seed, not necessarily the complete normal
-        // cone: an omitted factored row may be tight and cut off the negative
-        // projected residual at zero step. Use the same separation oracle as
-        // the operator QP cycle escape so step, convergence certificate,
-        // covariance, and return all certify against one cone geometry.
+        // QP provenance selects the strict point-local tangent-face contract.
+        // The operator-native Moreau solve discovers its complete multiplier
+        // support deterministically; the historical warm row ids no longer
+        // alter generator selection or the projected stationarity vector.
         return gam_solve::active_set::project_stationarity_residual_on_constraint_set(
             residual,
             beta,
@@ -1307,7 +1306,7 @@ pub(crate) fn materialize_owned_terminal_unpenalized_hessian<
         // likelihood Hessian at the FROZEN converged mode: a deterministic
         // re-evaluation at fixed beta that cannot move the mode or perturb a
         // stateful augmentation, and the exact same source
-        // `compute_joint_covariance_required` consumes. This restores terminal
+        // `compute_joint_posterior` consumes. This restores terminal
         // curvature ownership for coupled Jeffreys families that #979
         // `da5fd654b` + #2298 `ab6752762` together left unable to assemble a
         // terminal Hessian.
@@ -1399,16 +1398,12 @@ pub(crate) fn materialize_owned_terminal_unpenalized_hessian<
 
 /// Positive-definite gate + exact inverse of a converged posterior precision.
 ///
-/// Factored out of [`compute_joint_covariance`] so the identical gam#748
-/// spectral certificate runs on EITHER the full precision `H + S_λ` (an
-/// unconstrained mode) OR its active-face tangent restriction
-/// `Zᵀ(H + S_λ)Z` (a mode sitting on active inequality constraints).
-/// `dim_for_tol` is the dimension whose `dim²·ε` factor sets the definiteness
-/// tolerance — the ambient `p` for the full matrix, the tangent dimension `r`
-/// for a reduced face. `face` names the geometry in the refusal diagnostic.
-///
-/// The gate is unchanged from the historical inline form for the full-space
-/// call (`dim_for_tol == p`), so unconstrained fits are byte-identical.
+/// Inequality constraints restrict support; they do not remove coefficient
+/// directions. Their Laplace posterior therefore needs a proper ambient
+/// Gaussian before it can be truncated. An indefinite or singular ambient
+/// precision cannot be rescued by projecting onto the optimizer's active face:
+/// that projection changes an inequality into an equality and manufactures
+/// zero variance in every constraint-normal direction.
 fn spd_covariance_from_precision(
     precision: &Array2<f64>,
     dim_for_tol: usize,
@@ -1461,223 +1456,126 @@ fn spd_covariance_from_precision(
     Ok(cov)
 }
 
-pub(crate) fn compute_joint_covariance<F: CustomFamily + Clone + Send + Sync + 'static>(
-    family: &F,
+/// `Debug` is derived because the assembly is named in test panic messages that
+/// report which variant a refusal produced; every field already derives it.
+#[derive(Debug)]
+pub(crate) struct JointPosteriorAssembly {
+    pub(crate) covariance_conditional: Option<Array2<f64>>,
+    pub(crate) geometry: FitGeometry,
+    pub(crate) reported_beta: Option<Array1<f64>>,
+}
+
+fn terminal_score_from_working_sets(
+    working_sets: &[BlockWorkingSet],
     specs: &[ParameterBlockSpec],
     states: &[ParameterBlockState],
-    per_block_log_lambdas: &[Array1<f64>],
-    options: &BlockwiseFitOptions,
-    preferred_unpenalized_hessian: Option<&Array2<f64>>,
-) -> Result<Array2<f64>, String> {
-    let total = specs.iter().map(|spec| spec.design.ncols()).sum();
-    let unpenalized_hessian = if let Some(hessian) = preferred_unpenalized_hessian {
-        hessian.clone()
-    } else {
-        let Some(hessian) = exact_newton_joint_hessian_symmetrized(
-            family,
-            states,
-            specs,
-            total,
-            "joint exact-newton Hessian shape mismatch in covariance",
-        )?
-        else {
-            return Err(
-                "joint covariance requires an exact analytic Hessian; objective perturbation is forbidden"
-                    .to_string(),
-            );
-        };
-        hessian
-    };
-    let mut h = penalized_hessian_from_owned_mode(
-        specs,
-        per_block_log_lambdas,
-        options,
-        &unpenalized_hessian,
-    )?;
-    // #2387: fold the Jeffreys/Firth curvature H_Φ into the posterior precision
-    // for Jeffreys-armed families. Such a family (Gaussian/binomial
-    // location-scale, the dispersion GLMs, the location-scale AFT survival path)
-    // certifies its converged mode NOT on the plain active-face second-order
-    // check — that check is "deliberately skipped for Jeffreys-armed families
-    // (their definiteness is certified on the joint Jeffreys subspace instead)"
-    // — but on the AUGMENTED objective `-logL + penalty - Φ`, whose curvature is
-    // `H + Sλ + H_Φ` with H_Φ the PSD Firth/Jeffreys information curvature. The
-    // outer REML LAML value and its analytic trace kernel already run on exactly
-    // this augmented operator `(H + Sλ + H_Φ)⁺` (see `scaled_jeffreys_hphi` in
-    // `joint_penalty_subspace_trace_parts`). The terminal Laplace covariance is
-    // the inverse of that SAME operator; inverting the bare `H + Sλ` instead
-    // drops the σ-stabilizing Jeffreys curvature and can read a
-    // structurally-indefinite observed-information direction (Gaussian
-    // location-scale per-row info `[[κ,2rκ],[2rκ,2r²κ]]`, det −2r²κ² < 0) as a
-    // non-PD "saddle" at a mode the augmented objective certifies as a strict
-    // maximum — the byte-for-byte cause of the location-scale link-wiggle
-    // covariance refusal on near-interpolating (σ→floor) data. Folding H_Φ in
-    // makes the covariance consistent with the operator the mode lives on.
-    // `joint_jeffreys_term_required()` is `false` for every flat-prior
-    // exact-Newton family, so those stay byte-identical.
-    if family.joint_jeffreys_term_required() {
-        let jeffreys_ranges = block_param_ranges(specs);
-        if let Some(z_joint) =
-            crate::jeffreys::build_joint_jeffreys_subspace(specs, &jeffreys_ranges)?
-            && let Some((_, _, hphi)) = crate::jeffreys::custom_family_joint_jeffreys_term(
-                family,
-                states,
-                specs,
-                &jeffreys_ranges,
-                &z_joint,
-            )?
-            && hphi.dim() == h.dim()
-        {
-            h += &hphi;
-            symmetrize_dense_in_place(&mut h);
-        }
+) -> Result<Array1<f64>, String> {
+    if working_sets.len() != specs.len() || states.len() != specs.len() {
+        return Err(format!(
+            "terminal score ownership mismatch: working sets={}, specs={}, states={}",
+            working_sets.len(),
+            specs.len(),
+            states.len(),
+        ));
     }
-    // #748 + audit-41: a Laplace posterior covariance exists only when the
-    // posterior precision `H + S_λ` is strictly positive definite AT THE
-    // CONVERGED OPTIMUM. Indefinite means the mode is not a maximum;
-    // singular means the posterior is IMPROPER along every flat direction
-    // (unbounded variance). Neither can be repaired at reporting time: a
-    // δ-ridge inverse `(H + S_λ + δI)⁻¹` reports an arbitrary ridge-bounded
-    // variance, and a positive-eigenspace pseudo-inverse reports exactly
-    // ZERO variance for the very direction the model does not identify
-    // (H = diag(1,0) → Σ = diag(1,0)). Both fabrications bias every
-    // downstream standard error, so both regimes surface as errors with the
-    // spectrum diagnostics; the remedy is at the model (constraint, penalty,
-    // canonicalisation), not in the covariance report.
-    //
-    // #2387: this definiteness gate must run in the SAME coefficient geometry
-    // the inner solve certified the mode on. When the converged mode sits on
-    // active inequality constraints (e.g. a monotone I-spline link-wiggle with
-    // tight γ≥0 rows), the inner solve certifies it a strict posterior maximum
-    // on the active-face TANGENT `null(A_act)` — curvature NORMAL to the face
-    // is neither part of the Laplace posterior nor differentiated by the
-    // constrained outer kernel (identical reasoning to the terminal
-    // `active_face_logdet_with_ridge_policy` and the fresh joint-mode curvature
-    // certificate). The Gaussian location-scale observed information is
-    // STRUCTURALLY indefinite (its per-row info `[[κ, 2rκ],[2rκ, 2r²κ]]` has
-    // determinant `−2r²κ² < 0`), so at a constrained optimum the negative
-    // curvature blocked by the active bounds routinely leaks into the
-    // constraint-normal space. Running the SPD gate on the FULL `H + S_λ` there
-    // wrongly refuses a genuinely-converged constrained fit; the gate and the
-    // inverse must both run on the reduced tangent. The reported covariance
-    // `Z (ZᵀHZ)⁻¹ Zᵀ` then carries zero variance in the constraint-normal
-    // directions — which is HONEST, not a #748-style fabrication: a coefficient
-    // pinned at a hard bound (with a nonnegative KKT multiplier) genuinely has
-    // no free posterior variance there, unlike an UNIDENTIFIED flat direction
-    // the model cannot resolve. With no active constraint the tangent is all of
-    // coefficient space and this reduces byte-identically to the full-space gate.
-    let p = h.nrows();
-    let block_constraints = collect_block_linear_constraints(family, states, specs)?;
-    let ranges = block_param_ranges(specs);
-    let mut block_active_sets: Vec<Option<Vec<usize>>> = Vec::with_capacity(specs.len());
-    for (b, constraints_opt) in block_constraints.iter().enumerate() {
-        match constraints_opt {
-            Some(constraints) => {
-                if constraints.ncols() != states[b].beta.len() {
+    let total: usize = specs.iter().map(|spec| spec.design.ncols()).sum();
+    let mut score = Array1::<f64>::zeros(total);
+    let mut offset = 0usize;
+    for (block_idx, ((work, spec), state)) in working_sets
+        .iter()
+        .zip(specs.iter())
+        .zip(states.iter())
+        .enumerate()
+    {
+        let width = spec.design.ncols();
+        let block_score = match work {
+            BlockWorkingSet::ExactNewton { gradient, .. } => {
+                if gradient.len() != width {
                     return Err(format!(
-                        "covariance active-face probe: block {b} has {} constraint columns but \
-                         {} coefficients",
-                        constraints.ncols(),
-                        states[b].beta.len(),
+                        "terminal score block {block_idx} has gradient length {}, expected {width}",
+                        gradient.len(),
                     ));
                 }
-                let candidate_rows: Vec<usize> = (0..constraints.nrows()).collect();
-                let tight = gam_solve::active_set::constraint_set_rows_tight_at_point(
-                    constraints,
-                    &states[b].beta,
-                    &candidate_rows,
-                )
-                .map_err(|e| {
-                    format!("covariance active-face tightness probe failed for block {b}: {e}")
-                })?;
-                block_active_sets.push((!tight.is_empty()).then_some(tight));
+                gradient.clone()
             }
-            None => block_active_sets.push(None),
-        }
-    }
-    let active_block = crate::blockwise_solve::assemble_active_constraint_block(
-        &block_constraints,
-        &block_active_sets,
-        &ranges,
-        p,
-    );
-    match active_block {
-        None => spd_covariance_from_precision(&h, p, "full posterior precision H + S_λ"),
-        Some(active) => match active_constraint_tangent_geometry(&active.a)? {
-            ActiveConstraintTangentGeometry::FullyPinned => {
-                // Every coefficient sits on an active bound: the constrained
-                // posterior has no free direction, so its variance is exactly
-                // zero everywhere. Report the zero covariance rather than
-                // refuse — a fully-pinned mode IS a valid (degenerate) fit.
-                log::warn!(
-                    "[custom-family covariance] converged mode is fully pinned by active \
-                     constraints ({} active row(s), p={p}); reporting a zero covariance (no \
-                     free posterior direction)",
-                    active.a.nrows(),
+            BlockWorkingSet::Diagonal {
+                working_response,
+                working_weights,
+            } => {
+                let design = spec.solver_design();
+                let n = design.nrows();
+                if working_response.len() != n
+                    || working_weights.len() != n
+                    || state.eta.len() != n
+                {
+                    return Err(format!(
+                        "terminal score block {block_idx} has z/w/eta lengths {}/{}/{}, expected {n}",
+                        working_response.len(),
+                        working_weights.len(),
+                        state.eta.len(),
+                    ));
+                }
+                let weighted_score = Array1::from_iter(
+                    working_weights
+                        .iter()
+                        .zip(working_response.iter())
+                        .zip(state.eta.iter())
+                        .map(|((&weight, &response), &eta)| weight * (response - eta)),
                 );
-                Ok(Array2::<f64>::zeros((p, p)))
+                <DesignMatrix as LinearOperator>::apply_transpose(design, &weighted_score)
             }
-            ActiveConstraintTangentGeometry::Tangent(z) => {
-                let mut reduced = z.t().dot(&h).dot(&z);
-                symmetrize_dense_in_place(&mut reduced);
-                let reduced_cov = spd_covariance_from_precision(
-                    &reduced,
-                    z.ncols(),
-                    "active-face tangent Zᵀ(H + S_λ)Z",
-                )?;
-                // Lift the reduced covariance back to the full coefficient
-                // layout: Σ = Z Σ_z Zᵀ, zero in the pinned constraint-normal
-                // directions.
-                let mut cov = z.dot(&reduced_cov).dot(&z.t());
-                symmetrize_dense_in_place(&mut cov);
-                Ok(cov)
-            }
-        },
+        };
+        score
+            .slice_mut(ndarray::s![offset..offset + width])
+            .assign(&block_score);
+        offset += width;
     }
+    Ok(score)
 }
 
-pub(crate) fn compute_joint_covariance_required<F: CustomFamily + Clone + Send + Sync + 'static>(
-    family: &F,
+fn terminal_likelihood_score(
+    workspace: Option<&Arc<dyn ExactNewtonJointHessianWorkspace>>,
+    working_sets: Option<&[BlockWorkingSet]>,
     specs: &[ParameterBlockSpec],
     states: &[ParameterBlockState],
-    per_block_log_lambdas: &[Array1<f64>],
-    options: &BlockwiseFitOptions,
-    preferred_unpenalized_hessian: Option<&Array2<f64>>,
-) -> Result<Option<Array2<f64>>, CustomFamilyError> {
-    if !options.compute_covariance {
-        return Ok(None);
+) -> Result<Array1<f64>, String> {
+    if let Some(working_sets) = working_sets {
+        return terminal_score_from_working_sets(working_sets, specs, states);
     }
-    match compute_joint_covariance(
-        family,
-        specs,
-        states,
-        per_block_log_lambdas,
-        options,
-        preferred_unpenalized_hessian,
-    ) {
-        Ok(covariance) => Ok(Some(covariance)),
-        // A converged fit with a PSD penalized Hessian is a VALID fit even when
-        // the covariance cannot be factorized; escalating that into a whole-fit
-        // failure would discard usable coefficients and point predictions. When
-        // the consumer opted into best-effort covariance, downgrade to a typed
-        // absence (covariance `None`, reason logged) so the fit is still minted
-        // and inference simply reports itself unavailable (#2299).
-        Err(e) if options.covariance_best_effort => {
-            log::warn!(
-                "[custom-family covariance] joint covariance unavailable for a converged fit; minting the fit without it: {e}"
-            );
-            Ok(None)
-        }
-        Err(e) => Err(CustomFamilyError::InvalidInput {
-            context: "compute_joint_covariance_required",
-            reason: format!("joint covariance computation failed: {e}"),
-        }),
+    let workspace = workspace.ok_or_else(|| {
+        "constrained posterior requires the exact terminal likelihood score, but the certified \
+         mode retained neither working sets nor a joint workspace"
+            .to_string()
+    })?;
+    let evaluation = workspace.joint_gradient_evaluation()?.ok_or_else(|| {
+        "constrained posterior requires the exact terminal likelihood score, but the sole \
+         retained joint workspace exposes no gradient evaluation"
+            .to_string()
+    })?;
+    let total = specs.iter().map(|spec| spec.design.ncols()).sum::<usize>();
+    if evaluation.gradient.len() != total
+        || evaluation.gradient.iter().any(|value| !value.is_finite())
+    {
+        return Err(format!(
+            "terminal workspace gradient has length {} with finite={}, expected {total}",
+            evaluation.gradient.len(),
+            evaluation.gradient.iter().all(|value| value.is_finite()),
+        ));
     }
+    Ok(evaluation.gradient)
 }
 
-/// Compute terminal coefficient geometry, with optional single-diagonal row
-/// evidence for consumers such as ALO.
-pub(crate) fn compute_joint_geometry<F: CustomFamily + Clone + Send + Sync + 'static>(
+/// Assemble the one terminal posterior identity consumed by reporting,
+/// prediction, sampling, EDF, and saved-model replay.
+///
+/// The accepted Hessian, Jeffreys augmentation, likelihood score, penalty
+/// score, inequality system, ambient centre, truncated moments, and optional
+/// dense covariance are computed once in the same active coefficient frame.
+/// This prevents the former split path from certifying one operator for
+/// geometry while inverting a different active-face operator for covariance.
+pub(crate) fn compute_joint_posterior<
+    F: CustomFamily + Clone + Send + Sync + 'static,
+>(
     family: &F,
     specs: &[ParameterBlockSpec],
     states: &[ParameterBlockState],
@@ -1685,10 +1583,11 @@ pub(crate) fn compute_joint_geometry<F: CustomFamily + Clone + Send + Sync + 'st
     options: &BlockwiseFitOptions,
     preferred_unpenalized_hessian: Option<&Array2<f64>>,
     preferred_working_sets: Option<&[BlockWorkingSet]>,
-) -> Result<FitGeometry, String> {
+    preferred_workspace: Option<&Arc<dyn ExactNewtonJointHessianWorkspace>>,
+) -> Result<JointPosteriorAssembly, String> {
     if specs.len() != per_block_log_lambdas.len() {
         return Err(format!(
-            "terminal geometry has {} parameter blocks but {} per-block smoothing vectors",
+            "terminal posterior has {} parameter blocks but {} per-block smoothing vectors",
             specs.len(),
             per_block_log_lambdas.len(),
         ));
@@ -1697,70 +1596,72 @@ pub(crate) fn compute_joint_geometry<F: CustomFamily + Clone + Send + Sync + 'st
         && working_sets.len() != specs.len()
     {
         return Err(format!(
-            "terminal geometry has {} parameter blocks but {} owned working sets",
+            "terminal posterior has {} parameter blocks but {} owned working sets",
             specs.len(),
             working_sets.len(),
         ));
     }
 
-    let total = specs.iter().map(|spec| spec.design.ncols()).sum::<usize>();
-    let unpenalized_hessian = if let Some(hessian) = preferred_unpenalized_hessian {
-        hessian.clone()
-    } else {
-        exact_newton_joint_hessian_symmetrized(
-            family,
-            states,
-            specs,
-            total,
-            "terminal coefficient geometry Hessian shape mismatch",
-        )?
+    let total = specs.iter().map(|spec| spec.design.ncols()).sum();
+    let unpenalized_hessian = preferred_unpenalized_hessian
         .ok_or_else(|| {
-            "terminal coefficient geometry requires an exact analytic Hessian; objective perturbation and placeholder geometry are forbidden"
+            "terminal posterior requires the exact Hessian owned by the certified mode; \
+             re-evaluating a possibly stateful family at assembly is forbidden"
                 .to_string()
         })?
-    };
-    let penalized_hessian = penalized_hessian_from_owned_mode(
+        .clone();
+    let mut precision = penalized_hessian_from_owned_mode(
         specs,
         per_block_log_lambdas,
         options,
         &unpenalized_hessian,
     )?;
+    let mode = flatten_state_betas(states, specs);
+    let penalty_score = (&precision - &unpenalized_hessian).dot(&mode);
+    let mut jeffreys_gradient = Array1::<f64>::zeros(total);
+    if family.joint_jeffreys_term_required() {
+        let jeffreys_ranges = block_param_ranges(specs);
+        if let Some(z_joint) =
+            crate::jeffreys::build_joint_jeffreys_subspace(specs, &jeffreys_ranges)?
+            && let Some((_, gradient, hphi)) =
+                crate::jeffreys::custom_family_joint_jeffreys_term(
+                family,
+                states,
+                specs,
+                &jeffreys_ranges,
+                &z_joint,
+            )?
+        {
+            if gradient.len() != total || hphi.dim() != (total, total) {
+                return Err(format!(
+                    "terminal Jeffreys geometry has gradient/Hessian shapes {}/{:?}, expected {total}/({total}, {total})",
+                    gradient.len(),
+                    hphi.dim(),
+                ));
+            }
+            jeffreys_gradient = gradient;
+            precision += &hphi;
+            symmetrize_dense_in_place(&mut precision);
+        }
+    }
 
     // A single diagonal working set is the only live row-wise contract. A
     // multi-block fit has several distinct row measures, and Exact-Newton
-    // curvature lives in coefficient space; both therefore retain `None`
-    // rather than fabricated empty/zero vectors or an unused stacked variant.
+    // curvature lives in coefficient space.
     let working = if specs.len() == 1 {
-        let evaluated;
-        let working_sets = match preferred_working_sets {
-            Some(working_sets) => working_sets,
-            None => {
-                evaluated = family.evaluate(states)?;
-                evaluated.blockworking_sets.as_slice()
-            }
-        };
-        match working_sets {
-            [BlockWorkingSet::Diagonal {
-                working_response,
-                working_weights,
-            }] => {
-                let expected_rows = specs[0].design.nrows();
-                if working_weights.len() != expected_rows
-                    || working_response.len() != expected_rows
-                {
-                    return Err(format!(
-                        "single-diagonal terminal working geometry has weights/response lengths {}/{}, expected {expected_rows}",
-                        working_weights.len(),
-                        working_response.len(),
-                    ));
-                }
-                Some(WorkingGeometry {
-                    weights: working_weights.clone(),
-                    response: working_response.clone(),
-                })
-            }
-            [BlockWorkingSet::ExactNewton { .. }] => None,
-            _ => {
+        match preferred_working_sets {
+            None => None,
+            Some(
+                [BlockWorkingSet::Diagonal {
+                    working_response,
+                    working_weights,
+                }],
+            ) => Some(WorkingGeometry {
+                weights: working_weights.clone(),
+                response: working_response.clone(),
+            }),
+            Some([BlockWorkingSet::ExactNewton { .. }]) => None,
+            Some(working_sets) => {
                 return Err(format!(
                     "single-block terminal geometry requires exactly one owned working set, got {}",
                     working_sets.len(),
@@ -1771,15 +1672,161 @@ pub(crate) fn compute_joint_geometry<F: CustomFamily + Clone + Send + Sync + 'st
         None
     };
 
+    let p = precision.nrows();
+    let block_constraints = collect_block_linear_constraints(family, states, specs)?;
+    let ranges = block_param_ranges(specs);
+    let joint_constraints = crate::blockwise_solve::assemble_joint_linear_constraints(
+        &block_constraints,
+        &ranges,
+        p,
+    )?;
+
     let block_widths = specs
         .iter()
         .map(|spec| spec.design.ncols())
         .collect::<Vec<_>>();
-    Ok(FitGeometry {
-        coefficient_gauge: gam_problem::gauge::Gauge::identity(&block_widths),
-        penalized_hessian: penalized_hessian.into(),
-        working,
+    let (covariance_conditional, constrained_posterior, reported_beta) =
+        match joint_constraints {
+            None => {
+                let covariance = options
+                    .compute_covariance
+                    .then(|| {
+                        spd_covariance_from_precision(
+                            &precision,
+                            p,
+                            "full posterior precision H + S_λ + H_Φ",
+                        )
+                    })
+                    .transpose()?;
+                (covariance, None, None)
+            }
+            Some(constraints) => {
+                let constraints = constraints.to_dense()?;
+                // #2442: this route reaches the truncated posterior only through
+                // `Σ = (H + S_λ + H_Φ)⁻¹`, so it needs a PROPER ambient Gaussian.
+                // A constrained mode is not obliged to supply one. Constrained
+                // optimality requires `dᵀHd > 0` only along the FEASIBLE cone —
+                // copositivity — and the Gaussian location-scale observed
+                // information is structurally indefinite off it (its per-row
+                // block `[[κ, 2rκ],[2rκ, 2r²κ]]` has determinant `−2r²κ² < 0`,
+                // the case #2387 documents). There the cone-truncated posterior
+                // still EXISTS and is proper; this decomposition simply cannot
+                // reach its moments.
+                //
+                // So decline the COVARIANCE CHANNEL, not the fit. The
+                // optimization converged and its coefficients are honest; a
+                // derived quantity being unreachable by one particular route is
+                // not a fit-quality failure, and promoting it to one deletes a
+                // converged model.
+                //
+                // Do NOT substitute the active-face reduction here. It is the
+                // `λ → ∞` endpoint of the very formula below and reports exactly
+                // zero variance in every constraint-normal direction — the #748
+                // fabrication this path exists to remove. A visible decline
+                // beats a silent wrong number.
+                let ambient = match spd_covariance_from_precision(
+                    &precision,
+                    p,
+                    "ambient constrained-posterior precision H + S_λ + H_Φ",
+                ) {
+                    Ok(ambient) => ambient,
+                    Err(reason) => {
+                        log::warn!(
+                            "[custom-family covariance] constrained fit converged, but its \
+                             ambient posterior precision is not positive definite, so the \
+                             inequality-truncated covariance is unreachable by this route \
+                             ({reason}); reporting the fit WITHOUT a posterior covariance \
+                             rather than refusing the fit or substituting the zero-variance \
+                             active-face answer (#2442)"
+                        );
+                        // KNOWN GAP (#2442): a consumer cannot tell this state
+                        // apart from an unconstrained fit — both carry
+                        // `constrained_posterior: None` — and here the caller
+                        // keeps the constrained MODE as its coefficient vector
+                        // because the posterior mean is a function of the same
+                        // unreachable covariance. That is the mode/mean
+                        // conflation `FitGeometry` warns about, reachable only
+                        // on this decline. Distinguishing it properly needs a
+                        // typed decline on the wire schema rather than a third
+                        // meaning for `None`; recorded rather than papered over.
+                        return Ok(JointPosteriorAssembly {
+                            covariance_conditional: None,
+                            geometry: FitGeometry {
+                                coefficient_gauge: gam_problem::gauge::Gauge::identity(
+                                    &block_widths,
+                                ),
+                                penalized_hessian: precision.into(),
+                                constrained_posterior: None,
+                                working,
+                            },
+                            reported_beta: None,
+                        });
+                    }
+                };
+                let likelihood_score = terminal_likelihood_score(
+                    preferred_workspace,
+                    preferred_working_sets,
+                    specs,
+                    states,
+                )?;
+                let penalized_gradient =
+                    &penalty_score - &likelihood_score - &jeffreys_gradient;
+                let unconstrained_center = &mode - &ambient.dot(&penalized_gradient);
+                let correction =
+                    gam_solve::constrained_posterior::constrained_posterior_correction_from_covariance(
+                        &ambient,
+                        &unconstrained_center,
+                        &constraints,
+                    )?;
+                let constrained =
+                    gam_solve::constrained_posterior::ConstrainedPosteriorGeometry {
+                        constraints,
+                        mode,
+                        unconstrained_center,
+                        correction,
+                    };
+                constrained.validate_for_dimension(p)?;
+                let reported = constrained.posterior_mean();
+                let covariance = if options.compute_covariance {
+                    Some(
+                        constrained
+                            .correction
+                            .as_ref()
+                            .map(|value| value.apply_to_covariance(&ambient))
+                            .unwrap_or(ambient),
+                    )
+                } else {
+                    None
+                };
+                (covariance, Some(constrained), Some(reported))
+            }
+        };
+
+    Ok(JointPosteriorAssembly {
+        covariance_conditional,
+        geometry: FitGeometry {
+            coefficient_gauge: gam_problem::gauge::Gauge::identity(&block_widths),
+            penalized_hessian: precision.into(),
+            constrained_posterior,
+            working,
+        },
+        reported_beta,
     })
+}
+
+pub(crate) fn install_reported_posterior_mean<
+    F: CustomFamily + Clone + Send + Sync + 'static,
+>(
+    family: &F,
+    specs: &[ParameterBlockSpec],
+    states: &mut [ParameterBlockState],
+    reported_beta: Option<&Array1<f64>>,
+) -> Result<(), String> {
+    let Some(reported_beta) = reported_beta else {
+        return Ok(());
+    };
+    set_states_from_flat_beta(states, specs, reported_beta)?;
+    refresh_all_block_etas(family, specs, states)
 }
 
 pub(crate) fn joint_penalty_subspace_trace_parts(
@@ -2092,16 +2139,13 @@ pub(crate) fn joint_smoothing_correction(
 }
 
 #[cfg(test)]
-mod best_effort_covariance_tests {
-    //! Pins the #2299 `covariance_best_effort` downgrade at its production seam.
-    //! A converged fit whose joint posterior precision `M = H + S_λ` is singular
-    //! cannot produce a Laplace covariance; `compute_joint_covariance_required`
-    //! must return that as a typed absence (`Ok(None)`) when the consumer opted
-    //! into best-effort, and as an error otherwise. This is exercised with a
-    //! genuinely singular `M` (not a marginal knife-edge) so the assertion is
-    //! deterministic and load-independent -- the marginal fit that reaches this
-    //! path from Python is nondeterministic (rayon-fold-order-sensitive at the
-    //! tolerance) and is guarded upstream by the gauge + REML anyway (#2299).
+mod required_covariance_tests {
+    //! Pins the #2299 posterior-completeness invariant at its production seam.
+    //! A converged mode whose joint posterior precision `M = H + S_λ` is
+    //! singular cannot define the required posterior mean. Covariance
+    //! factorization must therefore refuse fit assembly, never mint a
+    //! mode-only artifact. The fixture is genuinely singular (not a marginal
+    //! knife-edge), so the assertion is deterministic and load-independent.
     use super::*;
     use ndarray::array;
 
@@ -2114,6 +2158,38 @@ mod best_effort_covariance_tests {
                 log_likelihood: 0.0,
                 blockworking_sets: vec![],
             })
+        }
+    }
+
+    #[derive(Clone)]
+    struct LowerBoundedQuadratic;
+
+    impl CustomFamily for LowerBoundedQuadratic {
+        fn evaluate(
+            &self,
+            states: &[ParameterBlockState],
+        ) -> Result<FamilyEvaluation, String> {
+            let beta = states[0].beta[0];
+            Ok(FamilyEvaluation {
+                log_likelihood: -0.5 * (beta + 1.0).powi(2),
+                blockworking_sets: vec![BlockWorkingSet::ExactNewton {
+                    gradient: array![-1.0 - beta],
+                    hessian: SymmetricMatrix::Dense(array![[1.0]]),
+                }],
+            })
+        }
+
+        fn block_linear_constraints(
+            &self,
+            _: &[ParameterBlockState],
+            block_idx: usize,
+            _: &ParameterBlockSpec,
+        ) -> Result<Option<ConstraintSet>, String> {
+            assert_eq!(block_idx, 0);
+            Ok(Some(ConstraintSet::Dense(LinearInequalityConstraints {
+                a: array![[1.0]],
+                b: array![0.0],
+            })))
         }
     }
 
@@ -2152,47 +2228,157 @@ mod best_effort_covariance_tests {
         (vec![spec], vec![state], vec![array![0.0]], unpenalized)
     }
 
+    /// One 2-coefficient block with a lower bound on the first coordinate and an
+    /// unpenalized Hessian whose ambient form is INDEFINITE. `H + S_λ` is
+    /// `[[1, 0], [0, -2]]`: strictly positive along the constrained coordinate
+    /// and negative along the free one, which is the shape a constrained
+    /// optimum takes when curvature is blocked by an active bound (#2387's
+    /// Gaussian location-scale case, whose per-row information has determinant
+    /// `−2r²κ² < 0`).
+    fn indefinite_ambient_constrained_fixture() -> (
+        Vec<ParameterBlockSpec>,
+        Vec<ParameterBlockState>,
+        Vec<Array1<f64>>,
+        Array2<f64>,
+    ) {
+        let unpenalized = array![[1.0, 0.0], [0.0, -2.0]];
+        let beta = array![0.0, 0.5];
+        let spec = ParameterBlockSpec {
+            name: "indefinite-ambient".to_string(),
+            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
+                Array2::zeros((1, 2)),
+            )),
+            offset: Array1::zeros(1),
+            penalties: vec![PenaltyMatrix::Dense(Array2::zeros((2, 2)))],
+            nullspace_dims: vec![2],
+            initial_log_lambdas: array![0.0],
+            initial_beta: Some(beta.clone()),
+            gauge_priority: 100,
+            jacobian_callback: None,
+            stacked_design: None,
+            stacked_offset: None,
+        };
+        let state = ParameterBlockState {
+            beta,
+            eta: Array1::zeros(1),
+        };
+        (vec![spec], vec![state], vec![array![0.0]], unpenalized)
+    }
+
+    #[derive(Clone)]
+    struct TwoCoefficientLowerBounded;
+
+    impl CustomFamily for TwoCoefficientLowerBounded {
+        fn evaluate(&self, states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
+            let beta = states[0].beta.clone();
+            Ok(FamilyEvaluation {
+                log_likelihood: 0.0,
+                blockworking_sets: vec![BlockWorkingSet::ExactNewton {
+                    gradient: array![-beta[0], 2.0 * beta[1]],
+                    hessian: SymmetricMatrix::Dense(array![[1.0, 0.0], [0.0, -2.0]]),
+                }],
+            })
+        }
+
+        fn block_linear_constraints(
+            &self,
+            _: &[ParameterBlockState],
+            block_idx: usize,
+            _: &ParameterBlockSpec,
+        ) -> Result<Option<ConstraintSet>, String> {
+            assert_eq!(block_idx, 0);
+            Ok(Some(ConstraintSet::Dense(LinearInequalityConstraints {
+                a: array![[1.0, 0.0]],
+                b: array![0.0],
+            })))
+        }
+    }
+
+    /// #2442, and the executable form of a boundary that a comment could not
+    /// hold: an indefinite AMBIENT precision must cost the covariance channel
+    /// and nothing else.
+    ///
+    /// Two ways to break this, and the test fails on both.
+    ///
+    /// * Propagate the SPD refusal (a bare `?` on the ambient inverse) and the
+    ///   whole fit disappears. The optimization converged; a derived quantity
+    ///   being unreachable by one route is not a fit-quality failure, and
+    ///   #2387 already showed what refusing here costs — one Gaussian
+    ///   location-scale wiggle configuration stopped assembling.
+    /// * Substitute the active-face reduction and a covariance comes back that
+    ///   reports exactly zero variance in every constraint-normal direction.
+    ///   That is the `λ → ∞` endpoint of the truncated formula and the #748
+    ///   fabrication this path exists to remove.
+    ///
+    /// The honest answer is neither: report the fit, decline the covariance,
+    /// and leave the estimand gap visible until the cone-truncated moments can
+    /// be reached without inverting an indefinite `H`.
     #[test]
-    fn best_effort_downgrades_singular_covariance_to_typed_absence() {
-        let (specs, states, per_block, unpenalized) = singular_joint_fixture();
+    fn indefinite_ambient_precision_declines_the_covariance_and_keeps_the_fit() {
+        let (specs, states, per_block, unpenalized) = indefinite_ambient_constrained_fixture();
         let options = BlockwiseFitOptions {
             compute_covariance: true,
-            covariance_best_effort: true,
             ..BlockwiseFitOptions::default()
         };
-        let result = compute_joint_covariance_required(
-            &TrivialFamily,
+        let assembly = compute_joint_posterior(
+            &TwoCoefficientLowerBounded,
             &specs,
             &states,
             &per_block,
             &options,
             Some(&unpenalized),
+            None,
+            None,
+        )
+        .expect(
+            "a converged constrained fit whose ambient precision is indefinite must still \
+             assemble: the posterior is proper on the feasible cone and only this ROUTE to \
+             its moments is unavailable",
         );
         assert!(
-            matches!(result, Ok(None)),
-            "best-effort must downgrade an unfactorizable covariance to Ok(None); got {result:?}"
+            assembly.covariance_conditional.is_none(),
+            "the covariance channel must be declined, not filled with the active-face \
+             answer: a zero-variance constraint-normal direction is the #748 fabrication, \
+             got {:?}",
+            assembly.covariance_conditional,
+        );
+        assert!(
+            assembly.geometry.constrained_posterior.is_none(),
+            "no truncated law was computed, so none may be persisted as though it had been",
+        );
+        assert!(
+            assembly.reported_beta.is_none(),
+            "the posterior mean is a function of the same unreachable ambient covariance, so \
+             the caller must keep the converged mode rather than receive a fabricated centre",
+        );
+        assert_eq!(
+            assembly.geometry.penalized_hessian.as_array(),
+            &array![[1.0, 0.0], [0.0, -2.0]],
+            "the full-space precision is still the honest curvature of the fit and must be \
+             reported unchanged",
         );
     }
 
     #[test]
-    fn covariance_required_without_best_effort_errors_on_singular() {
+    fn required_covariance_errors_on_singular_posterior_precision() {
         let (specs, states, per_block, unpenalized) = singular_joint_fixture();
         let options = BlockwiseFitOptions {
             compute_covariance: true,
-            covariance_best_effort: false,
             ..BlockwiseFitOptions::default()
         };
-        let result = compute_joint_covariance_required(
+        let result = compute_joint_posterior(
             &TrivialFamily,
             &specs,
             &states,
             &per_block,
             &options,
             Some(&unpenalized),
+            None,
+            None,
         );
         assert!(
             result.is_err(),
-            "without best-effort a singular joint covariance must surface as an error; got {result:?}"
+            "a singular joint posterior must refuse fit assembly; got {result:?}"
         );
     }
 
@@ -2226,19 +2412,23 @@ mod best_effort_covariance_tests {
         }];
         let options = BlockwiseFitOptions {
             compute_covariance: true,
-            covariance_best_effort: true,
             ..BlockwiseFitOptions::default()
         };
-        let result = compute_joint_covariance_required(
+        let result = compute_joint_posterior(
             &TrivialFamily,
             &vec![spec],
             &states,
             &vec![array![0.0]],
             &options,
             Some(&unpenalized),
+            None,
+            None,
         );
         match result {
-            Ok(Some(cov)) => {
+            Ok(JointPosteriorAssembly {
+                covariance_conditional: Some(cov),
+                ..
+            }) => {
                 assert_eq!(cov.dim(), (3, 3));
                 assert!(cov.iter().all(|v| v.is_finite()));
                 // Σ = M⁻¹ = diag(1/5, 1/11, 1/4).
@@ -2254,17 +2444,86 @@ mod best_effort_covariance_tests {
         let (specs, states, per_block, unpenalized) = singular_joint_fixture();
         let options = BlockwiseFitOptions {
             compute_covariance: false,
-            covariance_best_effort: true,
             ..BlockwiseFitOptions::default()
         };
-        let result = compute_joint_covariance_required(
+        let result = compute_joint_posterior(
             &TrivialFamily,
             &specs,
             &states,
             &per_block,
             &options,
             Some(&unpenalized),
+            None,
+            None,
         );
-        assert!(matches!(result, Ok(None)));
+        assert!(matches!(
+            result,
+            Ok(JointPosteriorAssembly {
+                covariance_conditional: None,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn inequality_reports_the_truncated_mean_and_nonzero_normal_variance() {
+        let spec = ParameterBlockSpec {
+            name: "lower-bounded".to_string(),
+            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
+                Array2::zeros((1, 1)),
+            )),
+            offset: Array1::zeros(1),
+            penalties: vec![],
+            nullspace_dims: vec![],
+            initial_log_lambdas: array![],
+            initial_beta: Some(array![0.0]),
+            gauge_priority: 100,
+            jacobian_callback: None,
+            stacked_design: None,
+            stacked_offset: None,
+        };
+        let states = vec![ParameterBlockState {
+            beta: array![0.0],
+            eta: array![0.0],
+        }];
+        let working_sets = vec![BlockWorkingSet::ExactNewton {
+            gradient: array![-1.0],
+            hessian: SymmetricMatrix::Dense(array![[1.0]]),
+        }];
+        let posterior = compute_joint_posterior(
+            &LowerBoundedQuadratic,
+            &[spec],
+            &states,
+            &[Array1::<f64>::zeros(0)],
+            &BlockwiseFitOptions {
+                compute_covariance: true,
+                ..BlockwiseFitOptions::default()
+            },
+            Some(&array![[1.0]]),
+            Some(working_sets.as_slice()),
+            None,
+        )
+        .expect("proper lower-truncated Gaussian posterior");
+        let constrained = posterior
+            .geometry
+            .constrained_posterior
+            .as_ref()
+            .expect("exact inequality geometry");
+        assert_eq!(constrained.mode, array![0.0]);
+        assert_eq!(constrained.unconstrained_center, array![-1.0]);
+        let reported = posterior.reported_beta.expect("posterior mean");
+        assert!(
+            reported[0] > 0.0,
+            "posterior mean must lie strictly inside the half-line, got {}",
+            reported[0],
+        );
+        let variance = posterior
+            .covariance_conditional
+            .expect("requested truncated covariance")[[0, 0]];
+        assert!(
+            variance > 0.0 && variance < 1.0,
+            "finite inequality multiplier must leave variance strictly between the active-face \
+             zero and the ambient variance one, got {variance}",
+        );
     }
 }

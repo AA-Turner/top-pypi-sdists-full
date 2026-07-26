@@ -1797,6 +1797,82 @@ pub(crate) fn oos_linear_images_drive_collapsed_reconstruction() {
     );
 }
 
+/// #2394 — the fit-free collapse VERDICT is observable through the public
+/// accessor `hybrid_collapse_verdict_from_assignments`, agrees with the slots
+/// the reconstruction actually substitutes, and is read WITHOUT differencing
+/// reconstructions (the round-off-fragile proxy the issue pins). Exercises the
+/// three policy sources: no-policy fit-free (declines on genuine curves),
+/// attached OOS images (reported and value-visible), and clearing back to
+/// fit-free.
+#[test]
+pub(crate) fn hybrid_collapse_verdict_accessor_reports_collapsed_slots_2394() {
+    let (mut term, _t, _rho) = small_two_atom_periodic_term();
+    let n = term.n_obs();
+    let k = term.k_atoms();
+    let p = term.output_dim();
+    // Explicit, nonzero, row-varying masses over both atoms.
+    let amps = Array2::<f64>::from_shape_fn((n, k), |(i, j)| 0.5 + 0.1 * i as f64 + 0.2 * j as f64);
+
+    // (1) No collapse policy and genuinely curved atoms (nonzero sin AND cos
+    // decoder rows) → the fit-free adjudication declines: empty verdict.
+    let empty = term
+        .hybrid_collapse_verdict_from_assignments(amps.view())
+        .unwrap();
+    assert!(
+        empty.is_empty(),
+        "genuinely curved atoms with no policy must not collapse; got {empty:?}"
+    );
+
+    // (2) Attach an OOS straight image for atom 0 only, with a genuine SLOPE so
+    // the substituted decode differs from the curve (the collapse is value-
+    // visible here, cross-checking that the reported slot is the substituted one).
+    let image = crate::hybrid_split::AtomLinearImage {
+        atom_idx: 0,
+        t_bar: 0.3,
+        b0: ndarray::Array1::from_elem(p, 0.05),
+        b1: ndarray::Array1::from_elem(p, 0.4),
+        v: None,
+    };
+    term.set_hybrid_linear_images(vec![image]).unwrap();
+
+    let verdict = term
+        .hybrid_collapse_verdict_from_assignments(amps.view())
+        .unwrap();
+    assert_eq!(
+        verdict,
+        vec![0usize],
+        "only the attached slot collapses; got {verdict:?}"
+    );
+
+    // The reconstruction substitutes exactly slot 0: collapsed and uncollapsed
+    // differ by a real amount (a sloped image is not the curve).
+    let collapsed = term
+        .reconstruct_from_assignments(amps.view(), true)
+        .unwrap();
+    let uncollapsed = term
+        .reconstruct_from_assignments(amps.view(), false)
+        .unwrap();
+    let gap = (&collapsed - &uncollapsed)
+        .iter()
+        .fold(0.0_f64, |m, d| m.max(d.abs()));
+    assert!(
+        gap > 1e-6,
+        "a sloped OOS image must change the reconstruction; gap {gap:e}"
+    );
+
+    // (3) The accessor DEFERS to the attached policy (fit-free is not consulted
+    // while an OOS policy exists); clearing it returns to the fit-free verdict,
+    // which is empty for these curved atoms.
+    term.set_hybrid_linear_images(Vec::new()).unwrap();
+    let cleared = term
+        .hybrid_collapse_verdict_from_assignments(amps.view())
+        .unwrap();
+    assert!(
+        cleared.is_empty(),
+        "clearing the OOS policy returns to no-collapse; got {cleared:?}"
+    );
+}
+
 /// Shared builder for the Jeffreys barrier tests: a K=2
 /// periodic term over `n` rows with explicit single-row decoders and a routing
 /// where BOTH atoms carry non-negligible mass on every row (so the pair
@@ -2147,7 +2223,11 @@ fn repulsion_is_radially_inert_net_radial_is_analytic_barrier_2343() {
     // Zero target so the data-fit gradient on the ≈0 decoder is itself O(ε): the
     // dominant radial force on atom 1's block is the collapse-prevention stack.
     let target = Array2::<f64>::zeros(target0.raw_dim());
-    let rho = SaeManifoldRho::new((1.0e-4_f64).ln(), (1.0e-4_f64).ln(), vec![array![0.0], array![0.0]]);
+    let rho = SaeManifoldRho::new(
+        (1.0e-4_f64).ln(),
+        (1.0e-4_f64).ln(),
+        vec![array![0.0], array![0.0]],
+    );
     let sys = term
         .assemble_arrow_schur(target.view(), &rho, None)
         .expect("assembly must succeed at the collapse point");
@@ -2181,7 +2261,10 @@ fn repulsion_is_radially_inert_net_radial_is_analytic_barrier_2343() {
         .collect();
     let f = SaeManifoldTerm::barrier_norm_floor_sq(&norm_sq);
     let mu = SAE_AMPLITUDE_BARRIER_STRENGTH;
-    assert!(u < f, "atom 1 must sit inside the barrier turn-on radius: u={u:e} f={f:e}");
+    assert!(
+        u < f,
+        "atom 1 must sit inside the barrier turn-on radius: u={u:e} f={f:e}"
+    );
     let g_coef = -2.0 * mu * f / (u * (u + f));
     let expected = g_coef * s; // barrier radial force (outward, < 0)
     assert!(expected < 0.0, "barrier radial force must be outward");
@@ -2222,7 +2305,6 @@ fn repulsion_is_radially_inert_net_radial_is_analytic_barrier_2343() {
     );
 }
 
-
 // #2253 co-collapse instrumentation (diagnostic; zz_measure). Sweep the 2-atom
 // alignment c2 toward collapse and report the separation-barrier restoring force
 // (grad norm) + value. If the force PLATEAUS at O(1) as c2->1, the tiny fixture
@@ -2237,7 +2319,6 @@ fn zz_measure_separation_force_vs_c2_2253() {
         eprintln!("SEPFORCE c2={c2:.6} value={v:.6e} force_gradnorm={fnorm:.6e}");
     }
 }
-
 
 // #2253 co-collapse — confirm the gate-inside defect on the REAL failing
 // fixtures: report the co-firing weight q, the decoder coherence o=c2, and the
@@ -2290,9 +2371,9 @@ fn zz_measure_real_fixture_barrier_q_2253() {
 // barrier or solver failure.
 #[test]
 fn zz_measure_tiny_fixture_target_rank_2253() {
-    use gam_linalg::faer_ndarray::FaerSvd;
     use crate::manifold::tests::small_two_atom_periodic_term;
     use crate::manifold::tests_recovery_split_780::gamma_fd_tiny_fixture;
+    use gam_linalg::faer_ndarray::FaerSvd;
     let svd_report = |tag: &str, target: &Array2<f64>| {
         let (_u, sv, _vt) = target.svd(false, false).expect("svd");
         let s: Vec<f64> = sv.iter().copied().collect();
@@ -2310,4 +2391,166 @@ fn zz_measure_tiny_fixture_target_rank_2253() {
     svd_report("recompute_gamma_fd_tiny", &tgt_r);
     let (_t2, tgt_h, _r2) = small_two_atom_periodic_term();
     svd_report("hutchinson_small_two_atom", &tgt_h);
+}
+
+/// #2253/#2089 — the co-collapse verdict is ONE predicate, and reconstruction EV
+/// alone cannot be it.
+///
+/// Two reconstructions of the same target with the *identical* explained
+/// variance: one is the target's own column mean (the decoders produced
+/// nothing), the other is twice the centered target (the decoders are alive and
+/// overshooting). They are different states with different remedies, and
+/// [`SaeManifoldTerm::enforce_decoder_norm_guard`] says so in its own comment —
+/// "a present-decoder fit that merely reconstructs poorly keeps output energy
+/// and is left to the optimizer". The #2089 budget-exhaustion refusal used to
+/// decide on `ev <= ev_floor` alone, which cannot separate them, so it could
+/// raise "every atom's decoder co-vanished" on the second one while printing the
+/// non-zero norms that refute it.
+///
+/// Both arms are pinned, in both directions: the genuine co-vanish must still be
+/// a verdict, and the live-decoder arm must not be.
+#[test]
+pub(crate) fn ev_at_the_null_floor_alone_is_not_a_co_collapse_verdict_2253() {
+    // Ten rows against three M=3 periodic atoms: the concatenated chart design has
+    // rank well under n, so the signal-free floor renders a verdict at all (at
+    // rank q >= n it is NaN by the saturated-cover convention and there is
+    // nothing to test).
+    let coords0 = array![[0.05], [0.20], [0.55], [0.80], [0.35], [0.65], [0.12], [0.48], [0.72], [0.93]];
+    let coords1 = array![[0.15], [0.30], [0.65], [0.90], [0.45], [0.10], [0.28], [0.58], [0.83], [0.02]];
+    let coords2 = array![[0.25], [0.40], [0.75], [0.05], [0.60], [0.85], [0.38], [0.68], [0.18], [0.52]];
+    let (phi0, jet0) = periodic_basis(&coords0);
+    let (phi1, jet1) = periodic_basis(&coords1);
+    let (phi2, jet2) = periodic_basis(&coords2);
+    // Each atom decodes onto its OWN output axis, so the union decoder span has
+    // rank 3 = K and the #2362 structural arm short-circuits. This isolates the
+    // co-vanish arm, which is the one under test.
+    let axis_decoder = |axis: usize| {
+        Array2::<f64>::from_shape_fn((3, 3), |(_, col)| if col == axis { 0.30 } else { 0.0 })
+    };
+    let make_atom = |name: &str, phi: Array2<f64>, jet: Array3<f64>, axis: usize| {
+        SaeManifoldAtom::new_with_provided_function_gram(
+            name,
+            SaeAtomBasisKind::Periodic,
+            1,
+            phi,
+            jet,
+            axis_decoder(axis),
+            Array2::<f64>::eye(3),
+        )
+        .unwrap()
+        .with_basis_evaluator(Arc::new(TestPeriodicEvaluator))
+    };
+    let logits = array![
+        [0.7, -0.2, 0.3],
+        [0.1, 0.4, -0.1],
+        [-0.3, 0.5, 0.2],
+        [0.6, -0.1, 0.4],
+        [0.2, 0.3, -0.2],
+        [0.4, 0.1, 0.5],
+        [0.5, 0.2, -0.3],
+        [-0.1, 0.6, 0.1],
+        [0.3, -0.4, 0.2],
+        [0.0, 0.2, 0.6]
+    ];
+    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+        logits,
+        vec![coords0, coords1, coords2],
+        vec![
+            LatentManifold::Circle { period: 1.0 },
+            LatentManifold::Circle { period: 1.0 },
+            LatentManifold::Circle { period: 1.0 },
+        ],
+        AssignmentMode::softmax(0.8),
+    )
+    .unwrap();
+    let term = SaeManifoldTerm::new(
+        vec![
+            make_atom("periodic0", phi0, jet0, 0),
+            make_atom("periodic1", phi1, jet1, 1),
+            make_atom("periodic2", phi2, jet2, 2),
+        ],
+        assignment,
+    )
+    .unwrap();
+    let target = array![
+        [0.40, -0.10, 0.05],
+        [-0.20, 0.35, -0.15],
+        [0.10, 0.05, 0.30],
+        [0.25, -0.30, -0.05],
+        [-0.15, 0.20, 0.18],
+        [0.30, 0.12, -0.22],
+        [0.05, 0.28, 0.11],
+        [-0.32, -0.08, 0.24],
+        [0.18, 0.22, -0.30],
+        [-0.06, -0.25, 0.14]
+    ];
+
+    let mut col_means = vec![0.0_f64; target.ncols()];
+    for (col, mean) in col_means.iter_mut().enumerate() {
+        *mean = target.column(col).iter().sum::<f64>() / target.nrows() as f64;
+    }
+    // Arm A — the reconstruction IS the column mean: residual = centered target,
+    // so EV = 0 and the output carries no centered energy at all.
+    let vanished_fit =
+        Array2::<f64>::from_shape_fn(target.dim(), |(_, col)| col_means[col]);
+    // Arm B — twice the centered target: residual is again exactly the centered
+    // target, so EV is the SAME 0, while the output carries 4x the total
+    // centered variance. Live decoders, aimed wrong.
+    let overshooting_fit = Array2::<f64>::from_shape_fn(target.dim(), |(row, col)| {
+        col_means[col] + 2.0 * (target[[row, col]] - col_means[col])
+    });
+
+    let vanished = term
+        .absolute_co_collapse_verdict(&vanished_fit, target.view(), None)
+        .expect("verdict evaluates on the mean reconstruction");
+    let overshooting = term
+        .absolute_co_collapse_verdict(&overshooting_fit, target.view(), None)
+        .expect("verdict evaluates on the overshooting reconstruction");
+
+    assert!(
+        vanished.ev_floor.is_finite(),
+        "fixture must render a verdict: reachable rank q={} against n={} left the floor at {}",
+        vanished.dictionary_rank,
+        target.nrows(),
+        vanished.ev_floor
+    );
+    assert!(
+        (vanished.explained_variance - overshooting.explained_variance).abs() < 1e-12,
+        "the two arms must be indistinguishable BY EV — that is the whole point: {} vs {}",
+        vanished.explained_variance,
+        overshooting.explained_variance
+    );
+    assert!(
+        vanished.explained_variance <= vanished.ev_floor,
+        "both arms must sit at or below the signal-free null floor: EV={} floor={}",
+        vanished.explained_variance,
+        vanished.ev_floor
+    );
+    assert!(
+        !vanished.structurally_collapsed && !overshooting.structurally_collapsed,
+        "axis-disjoint decoders span rank K, so the structural arm must stand down"
+    );
+
+    assert!(
+        vanished.co_vanished && vanished.degenerate(),
+        "a reconstruction that is the bare column mean IS a co-vanish: \
+         out_energy={} floor={}",
+        vanished.output_energy_ratio,
+        vanished.ev_floor
+    );
+    assert!(
+        overshooting.output_energy_ratio > overshooting.ev_floor,
+        "precondition: the overshooting fit must keep output energy above the null level; \
+         got {} vs {}",
+        overshooting.output_energy_ratio,
+        overshooting.ev_floor
+    );
+    assert!(
+        !overshooting.co_vanished && !overshooting.degenerate(),
+        "a present-decoder fit that merely reconstructs poorly is not a co-collapse; \
+         EV={} floor={} out_energy={}",
+        overshooting.explained_variance,
+        overshooting.ev_floor,
+        overshooting.output_energy_ratio
+    );
 }

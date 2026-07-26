@@ -69,6 +69,7 @@ format. The projection refuses an unverified chain.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import posixpath
@@ -96,6 +97,8 @@ from bernstein.core.security.agent_card_signer import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from bernstein.core.security.audit import AuditEvent
     from bernstein.core.security.audit_chain import AuditChainStore
 
@@ -109,12 +112,18 @@ __all__ = [
     "ChainVerification",
     "HopVerification",
     "TokenVerificationError",
+    "allowlist_narrows",
     "attenuate",
+    "bound_narrows",
     "caveats_for_scope",
     "mint_root",
+    "narrowing_violations",
+    "path_covered_by",
+    "prefixes_narrow",
     "scope_permissions",
     "sign_token",
     "to_actor_claims",
+    "uses_narrows",
     "verify_chain",
 ]
 
@@ -203,7 +212,7 @@ def _normalize_path(path: str) -> str:
     return posixpath.normpath(path)
 
 
-def _path_covered_by(child: str, parent: str) -> bool:
+def path_covered_by(child: str, parent: str) -> bool:
     """Return True iff *parent* is an ancestor-or-equal of *child* (POSIX).
 
     Coverage is component-wise, not string-prefix: ``/a/b`` covers ``/a/b`` and
@@ -218,7 +227,7 @@ def _path_covered_by(child: str, parent: str) -> bool:
     return c.startswith(boundary)
 
 
-def _allowlist_narrows(child: frozenset[str] | None, parent: frozenset[str] | None) -> bool:
+def allowlist_narrows(child: frozenset[str] | None, parent: frozenset[str] | None) -> bool:
     """Subset for allowlists where ``None`` is the universal (widest) set."""
     if parent is None:
         return True
@@ -227,22 +236,70 @@ def _allowlist_narrows(child: frozenset[str] | None, parent: frozenset[str] | No
     return child <= parent
 
 
-def _prefixes_narrow(child: frozenset[str] | None, parent: frozenset[str] | None) -> bool:
+def prefixes_narrow(child: frozenset[str] | None, parent: frozenset[str] | None) -> bool:
     """Every child prefix must be covered by some parent prefix (``None`` = all)."""
     if parent is None:
         return True
     if child is None:
         return False
-    return all(any(_path_covered_by(c, p) for p in parent) for c in child)
+    return all(any(path_covered_by(c, p) for p in parent) for c in child)
 
 
-def _uses_narrows(child: int | None, parent: int | None) -> bool:
+def uses_narrows(child: int | None, parent: int | None) -> bool:
     """``max_uses`` subset where ``None`` means unlimited (widest)."""
     if parent is None:
         return True
     if child is None:
         return False
     return child <= parent
+
+
+def bound_narrows(child: float | int | None, parent: float | int | None) -> bool:
+    """Upper-bound subset where ``None`` means unbounded (widest).
+
+    Used for ceilings such as ``not_after`` and depth budgets: the child may
+    only carry a bound no greater than its parent's, and may not drop a bound
+    the parent imposed.
+    """
+    if parent is None:
+        return True
+    if child is None:
+        return False
+    return child <= parent
+
+
+#: Private aliases retained so the module body reads the same as before the
+#: primitives were promoted to the public surface for reuse by the
+#: delegation-receipt narrowing verifier.
+_path_covered_by = path_covered_by
+_allowlist_narrows = allowlist_narrows
+_prefixes_narrow = prefixes_narrow
+_uses_narrows = uses_narrows
+
+
+def narrowing_violations(child: Caveats, parent: Caveats) -> tuple[str, ...]:
+    """Return the caveat axes on which ``child`` widens ``parent``.
+
+    An empty tuple means the child is a strict attenuation of the parent. The
+    axis names are stable identifiers (``permissions``, ``task_ids``,
+    ``path_prefixes``, ``not_after``, ``max_uses``, ``remaining_depth``) so a
+    verifier can name the offending axis rather than reporting a bare
+    pass/fail.
+    """
+    axes: list[str] = []
+    if not child.permissions <= parent.permissions:
+        axes.append("permissions")
+    if not allowlist_narrows(child.task_ids, parent.task_ids):
+        axes.append("task_ids")
+    if not prefixes_narrow(child.path_prefixes, parent.path_prefixes):
+        axes.append("path_prefixes")
+    if child.not_after > parent.not_after:
+        axes.append("not_after")
+    if not uses_narrows(child.max_uses, parent.max_uses):
+        axes.append("max_uses")
+    if not 0 <= child.remaining_depth < parent.remaining_depth:
+        axes.append("remaining_depth")
+    return tuple(axes)
 
 
 # ---------------------------------------------------------------------------
@@ -273,18 +330,10 @@ class Caveats:
         Enforces set-subset over permissions and task-ids, ancestor-or-equal
         prefix coverage, ``not_after <=``, ``max_uses <=``, and the
         ``max_depth`` rule ``0 <= remaining_depth < parent.remaining_depth``.
+        Delegates to :func:`narrowing_violations` so the boolean verdict and
+        the per-axis diagnosis can never disagree.
         """
-        if not self.permissions <= parent.permissions:
-            return False
-        if not _allowlist_narrows(self.task_ids, parent.task_ids):
-            return False
-        if not _prefixes_narrow(self.path_prefixes, parent.path_prefixes):
-            return False
-        if self.not_after > parent.not_after:
-            return False
-        if not _uses_narrows(self.max_uses, parent.max_uses):
-            return False
-        return 0 <= self.remaining_depth < parent.remaining_depth
+        return not narrowing_violations(self, parent)
 
     def to_body(self) -> dict[str, Any]:
         """Return a JSON/JCS-ready dict (sets rendered as sorted lists)."""
@@ -490,10 +539,27 @@ def _anchor_and_head(
     audit_chain: AuditChainStore | None,
     default_head: str,
 ) -> str:
-    """Return the audit head to bind into a mint (the chain tip, or default)."""
+    """Return the audit head to bind into a mint (the chain tip, or default).
+
+    Read from disk, not from the store's cache, and only meaningful inside the
+    :meth:`AuditChainStore.chain_transaction` that also records the mint: the
+    head is signed into the token and ``_audit_head_matches`` compares it back
+    against the mint record, so a head that moves in between turns a valid token
+    into one that fails its own anchor check.
+    """
     if audit_chain is None:
         return default_head
-    return audit_chain.prev_chain_digest
+    return audit_chain.resync_head()
+
+
+@contextlib.contextmanager
+def _mint_section(audit_chain: AuditChainStore | None) -> Iterator[None]:
+    """Hold the chain across capture-head -> sign -> record, when one is wired."""
+    if audit_chain is None:
+        yield
+        return
+    with audit_chain.chain_transaction():
+        yield
 
 
 def _record_mint(audit_chain: AuditChainStore | None, token: CapabilityToken) -> AuditEvent | None:
@@ -534,19 +600,20 @@ def mint_root(
     audit event is emitted whose ``token_hash`` and ``prev_chain_digest``
     cross-reference this token.
     """
-    head = _anchor_and_head(audit_chain, audit_head)
-    token = sign_token(
-        token_id=token_id or uuid.uuid4().hex,
-        issuer_identity_id=issuer_identity_id,
-        issuer_private_key=issuer_private_key,
-        subject_identity_id=subject_identity_id,
-        subject_pubkey=subject_pubkey,
-        caveats=caveats,
-        parent_token_hash=GENESIS_PARENT,
-        audit_head=head,
-        granted_at=granted_at if granted_at is not None else time.time(),
-    )
-    _record_mint(audit_chain, token)
+    with _mint_section(audit_chain):
+        head = _anchor_and_head(audit_chain, audit_head)
+        token = sign_token(
+            token_id=token_id or uuid.uuid4().hex,
+            issuer_identity_id=issuer_identity_id,
+            issuer_private_key=issuer_private_key,
+            subject_identity_id=subject_identity_id,
+            subject_pubkey=subject_pubkey,
+            caveats=caveats,
+            parent_token_hash=GENESIS_PARENT,
+            audit_head=head,
+            granted_at=granted_at if granted_at is not None else time.time(),
+        )
+        _record_mint(audit_chain, token)
     return token
 
 
@@ -580,19 +647,20 @@ def attenuate(
             "child caveats widen the parent (permissions, task_ids, path_prefixes, "
             "expiry, max_uses, or remaining_depth); tokens may only narrow"
         )
-    head = _anchor_and_head(audit_chain, audit_head if audit_head is not None else parent.audit_head)
-    token = sign_token(
-        token_id=token_id or uuid.uuid4().hex,
-        issuer_identity_id=parent.subject_identity_id,
-        issuer_private_key=issuer_private_key,
-        subject_identity_id=subject_identity_id,
-        subject_pubkey=subject_pubkey,
-        caveats=caveats,
-        parent_token_hash=parent.token_hash(),
-        audit_head=head,
-        granted_at=granted_at if granted_at is not None else time.time(),
-    )
-    _record_mint(audit_chain, token)
+    with _mint_section(audit_chain):
+        head = _anchor_and_head(audit_chain, audit_head if audit_head is not None else parent.audit_head)
+        token = sign_token(
+            token_id=token_id or uuid.uuid4().hex,
+            issuer_identity_id=parent.subject_identity_id,
+            issuer_private_key=issuer_private_key,
+            subject_identity_id=subject_identity_id,
+            subject_pubkey=subject_pubkey,
+            caveats=caveats,
+            parent_token_hash=parent.token_hash(),
+            audit_head=head,
+            granted_at=granted_at if granted_at is not None else time.time(),
+        )
+        _record_mint(audit_chain, token)
     return token
 
 
@@ -681,8 +749,12 @@ def verify_chain(
                 hop_errors.append("identity discontinuity: issuer is not the subject of the hop above")
             if prev_subject_pubkey is None or _raw_pub(token.issuer_pubkey) != _raw_pub(prev_subject_pubkey):
                 hop_errors.append("pubkey discontinuity: issuer_pubkey is not the subject_pubkey above")
-            if prev_caveats is not None and not token.caveats.is_narrowing_of(prev_caveats):
-                hop_errors.append("attenuation violated: caveats widen the parent (tokens may only narrow)")
+            widened = narrowing_violations(token.caveats, prev_caveats) if prev_caveats is not None else ()
+            if widened:
+                hop_errors.append(
+                    "attenuation violated: caveats widen the parent (tokens may only narrow); "
+                    f"offending axes: {', '.join(widened)}"
+                )
 
         if audit_events is not None and not _audit_head_matches(token, audit_events):
             hop_errors.append("audit anchor missing: no delegation_minted event cross-references this token")

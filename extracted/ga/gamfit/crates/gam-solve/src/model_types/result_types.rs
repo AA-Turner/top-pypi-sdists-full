@@ -639,14 +639,21 @@ pub struct RailCoordinate {
     pub index: usize,
     /// Which rail (`λ → ∞` upper, `λ → 0` lower) it is approaching.
     pub side: crate::rho_optimizer::asymptote_certificate::AsymptoteSide,
-    /// The observed pencil constant `ĉ` (window mean) confirming the tail.
+    /// The pencil constant `ĉ` of the tail law `∂V/∂ρ = −ĉ·e^{−ρ}`: either the
+    /// window mean measured by probing back from the rail, or — when the
+    /// objective can form its λ=∞ limit exactly — the analytic constant
+    /// `½tr((QᵀS_kQ)⁻¹QᵀCQ)` of the face proof (#2348 Inc 5). A face
+    /// coordinate the rest of the face has already pinned reports `0`: the
+    /// criterion does not depend on its smoothing parameter at all.
     pub tail_constant: f64,
-    /// The exact remaining criterion value-gap to the rail, `|∂V/∂ρ|`.
+    /// The exact remaining criterion value-gap to the rail, `|∂V/∂ρ| = ĉ·e^{−ρ}`.
     pub value_gap: f64,
     /// The bound on remaining coefficient travel to the rail limit.
     pub estimand_travel_bound: f64,
-    /// The pencil-constant noise floor the tail cleared to be confirmed (the
-    /// `ĉ > noise_margin` self-protection against the finite-difference floor).
+    /// The floor the evidence cleared: the pencil-constant noise floor for a
+    /// measured tail (`ĉ > noise_margin`, the self-protection against the
+    /// finite-difference floor), or the eigen-backward-error margin the
+    /// analytic face form's smallest curvature cleared.
     pub noise_margin: f64,
 }
 
@@ -752,6 +759,35 @@ impl OuterStationarityCertificate {
 /// to a box bound (`lambdas_railed`). A failed certificate REJECTS the fit as
 /// typed non-convergence in `run_outer`; it is never a warn-and-continue
 /// diagnostic.
+/// The gradient-residue floor's verdict on the interior curvature, recorded
+/// BESIDE the raw [`OuterCriterionCertificate::hessian_psd`] measurement rather
+/// than replacing it.
+///
+/// Two different questions are being asked of the same matrix, and they have
+/// different right answers:
+///
+/// * *is the interior sub-block positive semidefinite as assembled?* — the
+///   measured fact, which reporting surfaces and any consumer demanding a
+///   genuine PSD certificate (`OwnedModeCurvatureRequirement::CertifiedLocalMinimum`)
+///   must keep receiving unchanged;
+/// * *is its most negative direction distinguishable from zero by the
+///   instrument that produced it?* — the verdict, which is what may admit a
+///   minted optimum.
+///
+/// Collapsing them into one flag would leave every consumer asking the first
+/// question and silently receiving an answer to the second.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct CurvatureFloorClearance {
+    /// Smallest eigenvalue of the interior (un-railed) sub-block, as assembled.
+    pub interior_min_eigenvalue: f64,
+    /// `max_k |g_k|` over the JUDGED coordinates. By Weyl this is the most
+    /// negative curvature the floor can absorb:
+    /// `λ_min(H) + min|g| ≤ λ_min(H + diag|g|) ≤ λ_min(H) + max|g|`.
+    pub gradient_floor: f64,
+    /// Whether `H + diag(|g|)` is positive semidefinite on that sub-block.
+    pub cleared: bool,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OuterCriterionCertificate {
     pub stationarity: OuterStationarityCertificate,
@@ -762,6 +798,12 @@ pub struct OuterCriterionCertificate {
     /// Leading smoothing coordinates (ρ block) pinned within
     /// [`CERTIFICATE_RAIL_MARGIN`] of either box bound at the optimum.
     pub lambdas_railed: Vec<usize>,
+    /// The gradient-residue floor's verdict on that same curvature, when it was
+    /// computed. `hessian_psd` above stays the raw measurement; this records
+    /// whether the most negative interior direction is below the instrument's
+    /// own resolution, and by how much.
+    #[serde(default)]
+    pub curvature_floor: Option<CurvatureFloorClearance>,
 }
 
 impl OuterCriterionCertificate {
@@ -778,7 +820,13 @@ impl OuterCriterionCertificate {
     /// directions. If a future certificate projects onto the exact critical
     /// cone, that projected result can be recorded here instead.
     pub fn curvature_admissible(&self) -> bool {
+        // The raw measurement decides it whenever it is not a refusal. Only a
+        // measured `false` consults the floor, and then only to ask whether
+        // that negative direction was distinguishable from zero at all.
         self.hessian_psd != Some(false)
+            || self
+                .curvature_floor
+                .is_some_and(|clearance| clearance.cleared)
     }
 
     /// Whether the certificate accepts the returned point as a constrained
@@ -1069,6 +1117,105 @@ impl Default for FitOptions {
             kronecker_factored: None,
             persist_warm_start_disk: false,
         }
+    }
+}
+
+/// SPEC's criterion contract, stated executably.
+///
+/// SPEC: *"REML (or LAML) always used for fitting, never GCV"* and *"posterior
+/// mean must always be the default (never MAP)"*. Those are boundaries on what
+/// the shipped deterministic criterion IS, and a boundary stated only in prose
+/// is not stated. `FitOptions::default()` is the single seam every
+/// `gam-models`, CLI and Python fit passes through, so it is where the contract
+/// is checkable.
+///
+/// #2450 is what happens without this gate: `RhoPrior::default()` was
+/// `Normal { mean: 0, sd: 3 }`, so the shipped criterion was `REML + Σρ²/18` —
+/// MAP in ρ, with an underived `sd = 3.0` — for as long as nobody re-read the
+/// `Default` impl. The damage was not only statistical: a prior whose gradient
+/// survives into the λ→∞ tail makes `ĉ = −e^ρ ∂V/∂ρ` divergent, and all three
+/// rail-reasoning paths (`try_certify_asymptote_rail`, `try_tail_snap_to_rail`,
+/// `detect_wrong_rail_pullback`) decide by testing that `ĉ` is CONSTANT. One
+/// `Default` disabled the face certificate, the tail snap, and the repair path
+/// for a coordinate stuck on the wrong bound.
+#[cfg(test)]
+mod shipped_criterion_identity_tests {
+    use super::FitOptions;
+
+    /// The default deterministic criterion is prior-free in the λ→∞ tail — i.e.
+    /// it is REML/LAML, not REML + a ρ-prior.
+    #[test]
+    fn shipped_default_criterion_is_reml_not_map_in_rho_2450() {
+        let prior = FitOptions::default().rho_prior;
+        for coordinate in 0..8 {
+            assert!(
+                prior.upper_tail_gradient_vanishes(coordinate),
+                "FitOptions::default() ships {prior:?}, whose rho-gradient survives into the \
+                 lambda -> infinity tail on coordinate {coordinate}. The shipped deterministic \
+                 criterion is then REML + a rho-prior (MAP in rho), which SPEC forbids, and no \
+                 lambda = infinity face exists for any rail certificate to prove. A caller that \
+                 wants a prior passes one explicitly; joint HMC gets a proper prior from \
+                 resolve_effective_rho_prior, which fills unset coordinates without touching the \
+                 criterion."
+            );
+        }
+    }
+
+    /// The three spellings of "no prior on this coordinate" must agree, because
+    /// consumers branch on the answer and a family-name test misclassifies two
+    /// of them.
+    #[test]
+    fn every_spelling_of_an_unset_coordinate_answers_the_same_2450() {
+        use gam_problem::RhoPrior;
+        assert!(RhoPrior::Flat.upper_tail_gradient_vanishes(0));
+        assert!(
+            RhoPrior::GammaPrecision {
+                shape: 1.0,
+                rate: 0.0
+            }
+            .upper_tail_gradient_vanishes(0),
+            "Gamma(1, 0) is exactly flat in the MAP-in-lambda convention"
+        );
+        // ...and every configured family is correctly excluded, each because
+        // its own gradient has a nonzero limit as rho -> +infinity.
+        assert!(
+            !RhoPrior::Normal {
+                mean: 0.0,
+                sd: 3.0
+            }
+            .upper_tail_gradient_vanishes(0),
+            "Normal leaves (rho - mean)/sd^2, which diverges"
+        );
+        assert!(
+            !RhoPrior::PenalizedComplexity {
+                upper: 10.0,
+                tail_prob: 0.01
+            }
+            .upper_tail_gradient_vanishes(0),
+            "PC leaves its persistent +1/2 Occam pull"
+        );
+        assert!(
+            !RhoPrior::GammaPrecision {
+                shape: 1.0,
+                rate: 0.5
+            }
+            .upper_tail_gradient_vanishes(0),
+            "rate > 0 leaves rate*exp(rho), which diverges faster than the law's own scale"
+        );
+        // An Independent prior answers PER COORDINATE: a face can be
+        // certifiable on one coordinate and not on its neighbour.
+        let mixed = RhoPrior::Independent(vec![
+            RhoPrior::Flat,
+            RhoPrior::Normal {
+                mean: 0.0,
+                sd: 3.0,
+            },
+        ]);
+        assert!(mixed.upper_tail_gradient_vanishes(0));
+        assert!(!mixed.upper_tail_gradient_vanishes(1));
+        assert!(!mixed.upper_tail_gradient_vanishes_everywhere(2));
+        // Out of range is malformed, not flat.
+        assert!(!mixed.upper_tail_gradient_vanishes(2));
     }
 }
 
@@ -1465,6 +1612,14 @@ pub struct FitGeometry {
     /// Stored as [`UnscaledPrecision`] so the dispersion-ownership invariant
     /// (this matrix is *not* φ-scaled) is enforced at the type level.
     pub penalized_hessian: gam_problem::dispersion_cov::UnscaledPrecision,
+    /// Exact inequality-truncated posterior identity in the active coefficient
+    /// frame, when linear inequality constraints are part of the fitted model.
+    ///
+    /// This is deliberately part of the required wire schema: old constrained
+    /// models must be regenerated rather than silently treating their reported
+    /// coefficient vector as both a posterior mean and an optimizer mode.
+    pub constrained_posterior:
+        Option<crate::constrained_posterior::ConstrainedPosteriorGeometry>,
     /// Optional owned row-wise diagonal IRLS evidence. `None` is a typed
     /// statement that the terminal solver geometry has no single diagonal
     /// row representation; it is never represented by empty or zero-filled
@@ -1530,23 +1685,15 @@ impl FitConvergenceEvidence {
 
     fn try_from_parts(parts: &UnifiedFitResultParts) -> Result<Self, EstimationError> {
         // Inner and outer stationarity are independent obligations. An outer
-        // envelope certificate cannot prove that the coefficient mode is
-        // stationary, so diagnostic stalled checkpoints never mint fits. The
-        // inner obligation is discharged by a *certified minimum*: either a
-        // strict-KKT `Converged` mode, or a `StalledAtValidMinimum` — a point
-        // that the PIRLS final-state gate already cleared against the
-        // near-stationary soft-acceptance band (KKT-tolerance-gated plateau /
-        // boundary saturation / exact decrement) but reached only after the
-        // iteration/LM budget ran out. Both are stationary modes; the only
-        // difference is whether the certificate is strict-KKT or plateau. A
-        // bare `MaxIterationsReached` / `LmStepSearchExhausted` (never cleared
-        // that band) and `Unstable` (separation) stay rejected. Keeping this
-        // predicate the single authority makes live construction and
-        // deserialization enforce one contract.
-        if !parts.pirls_status.is_certified_minimum() {
+        // envelope certificate cannot prove that the coefficient mode
+        // converged, so every diagnostic stalled/exhausted checkpoint remains
+        // non-minting. A final-state gate that truly discharges convergence
+        // must promote the status to `Converged` before assembly; constructors
+        // never reinterpret a non-converged status as a model (SPEC rule 20).
+        if !parts.pirls_status.is_converged() {
             return Err(Self::assembly_error(
                 parts,
-                "outer evidence was not considered because the inner mode is uncertified"
+                "outer evidence was not considered because the inner mode did not report convergence"
                     .to_string(),
             ));
         }
@@ -1557,28 +1704,40 @@ impl FitConvergenceEvidence {
             ));
         }
 
-        let outer = match parts.artifacts.criterion_certificate.as_ref() {
-            Some(certificate) if certificate.certifies() => {
-                FitOuterConvergenceEvidence::Analytic(certificate.clone())
-            }
-            Some(certificate) => {
-                return Err(Self::assembly_error(
-                    parts,
-                    format!("analytic certificate failed: {}", certificate.summary()),
-                ));
-            }
-            None if parts.outer_iterations == 0 => FitOuterConvergenceEvidence::Fixed,
-            None => {
-                return Err(Self::assembly_error(
-                    parts,
-                    "outer iterations ran without an analytic stationarity certificate".to_string(),
-                ));
-            }
+        let (outer_iterations, outer) = if parts.log_lambdas.is_empty() {
+            // A zero-dimensional analytic certificate (|g|=|Pg|=bound=0)
+            // proves no equation: there was no smoothing coordinate to
+            // optimize. Some orchestration paths still report one
+            // administrative pass through the outer driver; dimensionality,
+            // not that implementation counter, is the semantic authority.
+            // Canonicalize both artifacts to the exact `Fixed` representation.
+            (0, FitOuterConvergenceEvidence::Fixed)
+        } else {
+            let outer = match parts.artifacts.criterion_certificate.as_ref() {
+                Some(certificate) if certificate.certifies() => {
+                    FitOuterConvergenceEvidence::Analytic(certificate.clone())
+                }
+                Some(certificate) => {
+                    return Err(Self::assembly_error(
+                        parts,
+                        format!("analytic certificate failed: {}", certificate.summary()),
+                    ));
+                }
+                None if parts.outer_iterations == 0 => FitOuterConvergenceEvidence::Fixed,
+                None => {
+                    return Err(Self::assembly_error(
+                        parts,
+                        "outer iterations ran without an analytic stationarity certificate"
+                            .to_string(),
+                    ));
+                }
+            };
+            (parts.outer_iterations, outer)
         };
 
         Ok(Self {
             inner_status: parts.pirls_status,
-            outer_iterations: parts.outer_iterations,
+            outer_iterations,
             outer,
         })
     }
@@ -1593,15 +1752,13 @@ mod assembly_inner_status_gate_tests {
     /// PIRLS status. `outer_iterations = 0` routes the outer obligation through
     /// the `Fixed` evidence branch (no criterion certificate needed), so the
     /// pass/fail turns entirely on the inner-status gate under test.
-    fn assemble_with_inner_status(
-        status: PirlsStatus,
-    ) -> Result<UnifiedFitResult, EstimationError> {
+    fn parts_with_inner_status(status: PirlsStatus) -> UnifiedFitResultParts {
         let p = 2usize;
         let mut hessian = Array2::<f64>::zeros((p, p));
         for j in 0..p {
             hessian[[j, j]] = 1.0;
         }
-        UnifiedFitResult::try_from_parts(UnifiedFitResultParts {
+        UnifiedFitResultParts {
             blocks: vec![FittedBlock {
                 beta: Array1::zeros(p),
                 role: BlockRole::Mean,
@@ -1654,44 +1811,94 @@ mod assembly_inner_status_gate_tests {
             constraint_kkt: None,
             artifacts: FitArtifacts::default(),
             inner_cycles: 0,
-        })
+        }
     }
 
-    /// `StalledAtValidMinimum` is a certified valid minimum (the iteration
-    /// budget ran out at a point already cleared against the near-stationary
-    /// soft-acceptance band), so it mints a fit exactly like `Converged`. This
-    /// is the poisson/beta tensor-te regression (#1561): the outer REML search
-    /// certified `|Pg|` within its bound while the stiff reparameterized tensor
-    /// basis left the inner P-IRLS one status short of strict `Converged`.
+    fn assemble_with_inner_status(
+        status: PirlsStatus,
+    ) -> Result<UnifiedFitResult, EstimationError> {
+        UnifiedFitResult::try_from_parts(parts_with_inner_status(status))
+    }
+
+    /// SPEC rule 20 is deliberately status-exact: only a `Converged` inner
+    /// optimization may mint. Stalled, exhausted, and unstable states remain
+    /// checkpoints even when separate diagnostics describe a promising point.
     #[test]
-    fn stalled_at_valid_minimum_mints_a_fit_like_converged() {
+    fn only_converged_inner_status_mints_a_fit() {
         assert!(
             assemble_with_inner_status(PirlsStatus::Converged).is_ok(),
             "a strictly converged inner mode must mint a fit"
         );
-        assert!(
-            assemble_with_inner_status(PirlsStatus::StalledAtValidMinimum).is_ok(),
-            "a stalled-at-valid-minimum inner mode carries valid-minimum KKT \
-             evidence and must mint a fit"
-        );
-    }
-
-    /// The non-certified inner exits stay rejected: they never cleared the
-    /// near-stationary band, so no fit may be minted from them.
-    #[test]
-    fn uncertified_inner_exits_are_still_refused() {
         for status in [
+            PirlsStatus::StalledAtValidMinimum,
             PirlsStatus::MaxIterationsReached,
             PirlsStatus::LmStepSearchExhausted,
             PirlsStatus::Unstable,
         ] {
             let err = assemble_with_inner_status(status)
-                .expect_err("uncertified inner status must not mint a fit");
+                .expect_err("a non-converged inner status must not mint a fit");
             assert!(
                 matches!(err, EstimationError::FitDidNotConverge { .. }),
                 "expected a non-convergence assembly error for {status:?}, got {err:?}"
             );
         }
+    }
+
+    #[test]
+    fn zero_dimensional_outer_artifacts_canonicalize_to_fixed_evidence() {
+        let mut parts = parts_with_inner_status(PirlsStatus::Converged);
+        parts.blocks[0].lambdas = Array1::zeros(0);
+        parts.log_lambdas = Array1::zeros(0);
+        parts.lambdas = Array1::zeros(0);
+        parts.covariance_conditional = Some(Array2::from_diag(&Array1::from_vec(vec![2.0, 3.0])));
+        if let Some(inference) = parts.inference.as_mut() {
+            inference.edf_by_block.clear();
+            inference.penalty_block_trace.clear();
+        }
+        parts.artifacts.criterion_certificate = Some(OuterCriterionCertificate {
+            stationarity: OuterStationarityCertificate::AnalyticGradient {
+                grad_norm: 0.0,
+                projected_grad_norm: 0.0,
+                bound: 0.0,
+            },
+            hessian_psd: None,
+            lambdas_railed: Vec::new(),
+            curvature_floor: None,
+        });
+        parts.outer_gradient_norm = Some(0.0);
+        parts.outer_iterations = 1;
+
+        let fit = UnifiedFitResult::try_from_parts(parts)
+            .expect("a converged fit with no outer coordinate must mint");
+        assert!(
+            fit.convergence_evidence().outer_certificate().is_none(),
+            "no smoothing coordinate means no outer stationarity equation"
+        );
+        assert!(
+            fit.artifacts.criterion_certificate.is_none(),
+            "the vacuous zero-dimensional certificate must not survive as an artifact"
+        );
+        assert!(
+            fit.outer_gradient_norm.is_none(),
+            "a zero-length gradient is absence, not a measured zero norm"
+        );
+        assert_eq!(
+            fit.outer_iterations, 0,
+            "an administrative outer-driver pass is not an optimized coordinate"
+        );
+        assert_eq!(
+            fit.convergence_evidence().outer_iterations(),
+            0,
+            "sealed fixed-outer evidence must use the canonical zero count"
+        );
+        assert_eq!(
+            fit.beta_covariance_corrected(),
+            fit.beta_covariance(),
+            concat!(
+                "with no smoothing coordinate Vp = Vb exactly; corrected prediction must consume ",
+                "the persisted conditional covariance rather than refusing an algebraically complete fit",
+            )
+        );
     }
 }
 
@@ -1901,6 +2108,15 @@ impl FitGeometry {
             "fit_result.geometry.penalized_hessian",
             self.penalized_hessian.iter().copied(),
         )?;
+        if let Some(constrained) = self.constrained_posterior.as_ref() {
+            constrained
+                .validate_for_dimension(self.coefficient_gauge.reduced_total())
+                .map_err(|reason| {
+                    EstimationError::InvalidInput(format!(
+                        "fit_result.geometry.constrained_posterior is invalid: {reason}"
+                    ))
+                })?;
+        }
         if let Some(working) = self.working.as_ref() {
             working.validate_numeric_finiteness()?;
         }
@@ -2161,6 +2377,21 @@ impl UnifiedFitResult {
             artifacts,
             inner_cycles,
         } = parts;
+        let mut artifacts = artifacts;
+        let outer_iterations = if log_lambdas.is_empty() {
+            0
+        } else {
+            outer_iterations
+        };
+        let outer_gradient_norm = if log_lambdas.is_empty() {
+            // Keep the stored artifacts in the same semantic frame as the
+            // sealed evidence. A zero-length gradient/certificate is vacuous,
+            // not a measured stationary outer equation.
+            artifacts.criterion_certificate = None;
+            None
+        } else {
+            outer_gradient_norm
+        };
 
         if blocks.is_empty() {
             crate::bail_invalid_estim!("UnifiedFitResult requires at least one coefficient block");
@@ -2488,7 +2719,7 @@ impl UnifiedFitResult {
             crate::bail_invalid_estim!("UnifiedFitResult decoded beta must match coefficient blocks concatenated in block order"
                     .to_string(),);
         }
-        Self::try_from_parts(UnifiedFitResultParts {
+        let reconstructed = Self::try_from_parts(UnifiedFitResultParts {
             blocks: self.blocks.clone(),
             log_lambdas: self.log_lambdas.clone(),
             lambdas: self.lambdas.clone(),
@@ -2516,8 +2747,15 @@ impl UnifiedFitResult {
             constraint_kkt: self.constraint_kkt.clone(),
             artifacts: self.artifacts.clone(),
             inner_cycles: self.inner_cycles,
-        })
-        .map(|_| ())
+        })?;
+        if self.convergence.outer_certificate().is_some()
+            != reconstructed.convergence.outer_certificate().is_some()
+        {
+            crate::bail_invalid_estim!(
+                "UnifiedFitResult convergence evidence kind does not match its smoothing-coordinate geometry"
+            );
+        }
+        Ok(())
     }
 }
 
@@ -2799,12 +3037,20 @@ impl UnifiedFitResult {
     /// Get the smoothing-parameter-corrected beta covariance (`Vp`) if available.
     ///
     /// Wood/mgcv name for the smoothing-parameter-corrected covariance `Vp`.
+    /// When there are no smoothing coordinates, `Var(rho)` has dimension zero
+    /// and the correction `J Var(rho) Jᵀ` is identically zero. In that exact
+    /// case the persisted conditional covariance is already `Vp`; requiring a
+    /// duplicate corrected matrix would make ordinary parametric models lose
+    /// posterior-mean intervals after serialization.
     pub fn beta_covariance_corrected(&self) -> Option<&Array2<f64>> {
-        self.covariance_corrected.as_ref().or_else(|| {
-            self.inference
-                .as_ref()
-                .and_then(|inf| inf.beta_covariance_corrected.as_ref())
-        })
+        self.covariance_corrected
+            .as_ref()
+            .or_else(|| {
+                self.inference
+                    .as_ref()
+                    .and_then(|inf| inf.beta_covariance_corrected.as_ref())
+            })
+            .or_else(|| self.lambdas.is_empty().then(|| self.beta_covariance()).flatten())
     }
 
     /// Get beta standard errors (conditional) if available.

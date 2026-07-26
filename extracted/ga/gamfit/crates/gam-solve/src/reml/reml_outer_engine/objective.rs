@@ -407,6 +407,23 @@ pub fn reml_laml_evaluate(
             ..
         } => (*include_logdet_h, *include_logdet_s),
     };
+    let logdet_h_component = if incl_logdet_h {
+        0.5 * log_det_h
+    } else {
+        0.0
+    };
+    let logdet_s_component = if incl_logdet_s {
+        -0.5 * log_det_s
+    } else {
+        0.0
+    };
+    let kkt_component = ift_residual_energy.map_or(0.0, |energy| -energy);
+    let criterion_components = RemlCriterionComponents {
+        fixed_beta: cost - logdet_h_component - logdet_s_component - kkt_component,
+        logdet_h: logdet_h_component,
+        logdet_s: logdet_s_component,
+        kkt: kkt_component,
+    };
 
     if !cost.is_finite() {
         return Err(RemlError::NonFiniteValue {
@@ -420,6 +437,7 @@ pub fn reml_laml_evaluate(
     if mode == EvalMode::ValueOnly {
         return Ok(RemlLamlResult {
             cost,
+            criterion_components,
             ift_residual_energy,
             inner_polish_step,
             gradient: None,
@@ -721,6 +739,13 @@ pub fn reml_laml_evaluate(
     // assembled drift (base coordinate plus SCOP/family correction) before
     // deciding dense vs operator; checking only the base coordinate misses
     // matrix-free derivative corrections and silently densifies them.
+    //
+    // Set when every ρ target in the stochastic batch carries its penalty-logdet
+    // control variate, i.e. when each probe already averages the FUSED difference
+    // `zᵀ(H⁻¹Ḣ_k − S_λ⁺A_k)z`. Only then may the gradient loop drop the separate
+    // `−first[idx]` subtraction; when the chart is unavailable the batch estimates
+    // the unfused `tr(H⁻¹Ḣ_k)` and the exact det derivative must still be paired.
+    let mut stochastic_rho_det_fused = false;
     let stochastic_trace_values: Option<Vec<f64>> = if use_stochastic_traces {
         let mut dense_matrices: Vec<Array2<f64>> = Vec::with_capacity(k + ext_dim);
         let mut operators: Vec<Arc<dyn HyperOperator>> = Vec::new();
@@ -765,6 +790,52 @@ pub fn reml_laml_evaluate(
             .iter()
             .filter_map(|op| as_implicit(op.as_ref()))
             .collect();
+        let n_dense_total = coord_has_operator.iter().filter(|&&b| !b).count();
+        let mut dense_cursor = 0usize;
+        let mut operator_cursor = n_dense_total;
+        let mut original_to_raw = Vec::with_capacity(k + ext_dim);
+        for &has_operator in &coord_has_operator {
+            if has_operator {
+                original_to_raw.push(operator_cursor);
+                operator_cursor += 1;
+            } else {
+                original_to_raw.push(dense_cursor);
+                dense_cursor += 1;
+            }
+        }
+        // Same-probe penalty-logdet control variates (#2354 Gap 1). Both routes
+        // are UNBIASED estimators of the same fused target — `E[zᵀMz] = tr(M)`
+        // for Rademacher probes, and expectation is linear, so subtracting
+        // `zᵀS_λ⁺A_k z` inside the probe changes the VARIANCE and the
+        // floating-point cancellation, never the mean. A chart that cannot be
+        // built, or whose `tr(S_λ⁺A_k)` disagrees with the cost's own `det1[k]`,
+        // is therefore a variance problem and not a correctness one: keep the
+        // retained naive backstop for this evaluation rather than failing the
+        // whole outer objective. This mirrors the exact-dense fused path's own
+        // precedent (`weight_sum` self-consistency mismatch ⇒ `None` ⇒ naive
+        // pairing) instead of introducing a second, harder failure mode.
+        let control_variates = if incl_logdet_s {
+            match StochasticTraceControlVariates::from_penalty_coordinates(
+                &solution.penalty_coords,
+                &curvature_lambdas,
+                &solution.penalty_logdet.first,
+                k + ext_dim,
+                &original_to_raw[..k],
+            ) {
+                Ok(controls) => Some(controls),
+                Err(reason) => {
+                    log::warn!(
+                        "[RHO-GRAD] stochastic penalty control chart unavailable ({reason}); \
+                         falling back to the unfused trace − det pairing (same expectation, \
+                         higher variance) for this evaluation"
+                    );
+                    None
+                }
+            }
+        } else {
+            None
+        };
+        stochastic_rho_det_fused = control_variates.is_some();
 
         // ── Block 2.5: GPU-adaptive Hutchinson bypass.
         //
@@ -787,7 +858,8 @@ pub fn reml_laml_evaluate(
         // itself falls back to the SplitMix CPU reference when the CUDA
         // runtime is absent — so non-GPU hosts keep the existing
         // estimator behaviour even with the gate set.
-        let gpu_bypass_raw_traces: Option<Vec<f64>> = if operators.is_empty()
+        let gpu_bypass_raw_traces: Option<Vec<f64>> = if control_variates.is_none()
+            && operators.is_empty()
             && crate::gpu_kernels::reml_trace::should_bypass_cpu_with_gpu_adaptive(
                 total_p,
                 hop.as_exact_dense_spectral().is_some(),
@@ -852,6 +924,7 @@ pub fn reml_laml_evaluate(
                 hop,
                 StochasticTraceTargets::Dense(&dense_refs),
                 Some(Arc::clone(&solution.stochastic_trace_state)),
+                control_variates.as_ref(),
             )
         } else if generic_ops.len() == implicit_ops.len() {
             stochastic_trace_hinv_products_with_floor(
@@ -861,6 +934,7 @@ pub fn reml_laml_evaluate(
                     implicit_ops: &implicit_ops,
                 },
                 Some(Arc::clone(&solution.stochastic_trace_state)),
+                control_variates.as_ref(),
             )
         } else {
             stochastic_trace_hinv_products_with_floor(
@@ -870,21 +944,13 @@ pub fn reml_laml_evaluate(
                     operators: &generic_ops,
                 },
                 Some(Arc::clone(&solution.stochastic_trace_state)),
+                control_variates.as_ref(),
             )
         };
 
         let mut result = Vec::with_capacity(k + ext_dim);
-        let n_dense_total = coord_has_operator.iter().filter(|&&b| !b).count();
-        let mut dense_cursor = 0usize;
-        let mut operator_cursor = n_dense_total;
-        for &has_operator in &coord_has_operator {
-            if has_operator {
-                result.push(raw_traces[operator_cursor]);
-                operator_cursor += 1;
-            } else {
-                result.push(raw_traces[dense_cursor]);
-                dense_cursor += 1;
-            }
+        for &raw_index in &original_to_raw {
+            result.push(raw_traces[raw_index]);
         }
         Some(result)
     } else {
@@ -967,9 +1033,9 @@ pub fn reml_laml_evaluate(
     // the active pairs `scale·s_term_j − share_j` stay O(1/λ_k) as in the
     // full-rank rail derivation, and each masked pair contributes only the
     // non-negative lump `0 − share_j` (no large-minus-large).
-    // The stochastic-SLQ branch stays on the naive pairing at this seam and is
-    // instead fused inside its Hutchinson estimator via a common-random-numbers
-    // control variate (#2354, `stochastic_trace_control_variates`).
+    // The stochastic-SLQ branch is fused at the probe seam instead: each rho
+    // sample subtracts `zᵀ S_λ⁺ A_k z` from `zᵀ H⁻¹ Ḣ_k z` before averaging
+    // through `StochasticTraceControlVariates` (#2354).
     let fused_logdet_minus_rank: Vec<Option<f64>> = if incl_logdet_h
         && incl_logdet_s
         && stochastic_trace_values.is_none()
@@ -1046,8 +1112,25 @@ pub fn reml_laml_evaluate(
                                     curvature_lambdas[idx],
                                 )
                             } else {
-                                ds.fused_logdet_gradient_minus_rank_deficient_block(
+                                let (range_root, root_start, root_end) =
+                                    coord.block_local_root()?;
+                                // The root chart's span must be the span this
+                                // coordinate is being evaluated over, or the fused
+                                // gradient below reads the wrong block. Checked
+                                // unconditionally: a `debug_assert` states an
+                                // invariant that then vanishes from every shipped
+                                // build, which is where a mismatch would actually
+                                // do its damage. Two usize comparisons on a path
+                                // that follows a Cholesky are free.
+                                assert_eq!(
+                                    (root_start, root_end),
+                                    (start, end),
+                                    "block-local root chart span ({root_start}, {root_end}) \
+                                     must match the coordinate's evaluated span ({start}, {end})"
+                                );
+                                ds.fused_logdet_gradient_minus_rank_from_root_chart(
                                     &s_block,
+                                    range_root,
                                     start,
                                     end,
                                     curvature_lambdas[idx],
@@ -1221,7 +1304,16 @@ pub fn reml_laml_evaluate(
                     )
                     .trace_logdet(hop)
                 };
-                (trace, solution.penalty_logdet.first[idx])
+                // The stochastic batch already averaged the fused per-probe
+                // difference ONLY when its control chart was built; otherwise it
+                // estimated the unfused `tr(H⁻¹Ḣ_k)` and still owes the exact
+                // det derivative (both routes share the same expectation).
+                let penalty_logdet_trace = if stochastic_rho_det_fused && incl_logdet_s {
+                    0.0
+                } else {
+                    solution.penalty_logdet.first[idx]
+                };
+                (trace, penalty_logdet_trace)
             };
             let value = outer_gradient_entry(
                 a_i,
@@ -1372,7 +1464,23 @@ pub fn reml_laml_evaluate(
     // All extended coordinates store canonical fixed-β stationarity
     // derivatives g_i = F_{βi}. IFT gives β_i = -H^{-1}g_i, exactly like
     // the ρ block.
-    let ext_grad_entries: Result<Vec<(usize, f64)>, String> = (0..ext_dim)
+    let trace_logdet_drift = |drift: &DriftDerivResult| match (
+        &solution.penalty_subspace_trace,
+        drift,
+    ) {
+        (Some(kernel), DriftDerivResult::Dense(matrix)) => {
+            kernel.trace_projected_logdet(matrix)
+        }
+        (Some(kernel), DriftDerivResult::Operator(op)) => {
+            kernel.trace_operator(op.as_ref())
+        }
+        (None, DriftDerivResult::Dense(matrix)) => hop.trace_logdet_h_k(matrix, None),
+        (None, DriftDerivResult::Operator(op)) => hop.trace_logdet_operator(op.as_ref()),
+    };
+    let capture_logdet_trace_parts =
+        crate::estimate::outer_eval_capture::outer_gradient_component_capture_enabled();
+    type ExtGradientParts = (usize, f64, f64, f64, f64, f64, f64);
+    let ext_grad_entries: Result<Vec<ExtGradientParts>, String> = (0..ext_dim)
         .into_par_iter()
         .map(|ext_idx| {
             let coord = &solution.ext_coords[ext_idx];
@@ -1429,6 +1537,37 @@ pub fn reml_laml_evaluate(
                 }
             };
 
+            let fixed_beta_component = outer_gradient_entry(
+                coord.a,
+                0.0,
+                0.0,
+                &solution.dispersion,
+                dp_cgrad,
+                profiled_scale,
+                false,
+                false,
+            );
+            let logdet_h_component = if incl_logdet_h {
+                0.5 * trace_logdet_i
+            } else {
+                0.0
+            };
+            let (frozen_logdet_h_component, mode_response_logdet_h_component) =
+                if incl_logdet_h && capture_logdet_trace_parts {
+                    let frozen = hyper_coord_total_drift_result(&coord.drift, None, hop.dim());
+                    let frozen_trace = trace_logdet_drift(&frozen);
+                    let mode_response_trace = ext_corrections[ext_idx]
+                        .as_ref()
+                        .map_or(0.0, |drift| trace_logdet_drift(drift));
+                    (0.5 * frozen_trace, 0.5 * mode_response_trace)
+                } else {
+                    (0.0, 0.0)
+                };
+            let logdet_s_component = if incl_logdet_s {
+                -0.5 * coord.ld_s
+            } else {
+                0.0
+            };
             let value = outer_gradient_entry(
                 coord.a,
                 trace_logdet_i,
@@ -1448,10 +1587,27 @@ pub fn reml_laml_evaluate(
                 ext_idx,
                 ext_coord_start.elapsed().as_secs_f64(),
             );
-            Ok((grad_idx, value))
+            Ok((
+                grad_idx,
+                value,
+                fixed_beta_component,
+                logdet_h_component,
+                frozen_logdet_h_component,
+                mode_response_logdet_h_component,
+                logdet_s_component,
+            ))
         })
         .collect();
-    for (idx, value) in ext_grad_entries? {
+    for (
+        idx,
+        value,
+        fixed_beta,
+        logdet_h,
+        frozen_logdet_h,
+        mode_response_logdet_h,
+        logdet_s,
+    ) in ext_grad_entries?
+    {
         // ACCUMULATE, do not overwrite: the unified `kkt_theta_corrections`
         // block above already folded the ψ/ext KKT-residual correction
         // `−coord.gᵀH⁻¹r + ½(H⁻¹r)ᵀB(H⁻¹r)` into `grad[k + ext_idx]`. A plain
@@ -1462,6 +1618,15 @@ pub fn reml_laml_evaluate(
         // from the true stationary ≈−9 to ≈−0.02 and stalling recovery (#1876).
         // `grad[k + ext_idx]` holds 0 when no correction is active (the fold is
         // skipped), so `+=` is byte-identical to the old assignment there.
+        let kkt = grad[idx];
+        crate::estimate::outer_eval_capture::record_outer_gradient_component(
+            fixed_beta,
+            logdet_h,
+            frozen_logdet_h,
+            mode_response_logdet_h,
+            logdet_s,
+            kkt,
+        );
         grad[idx] += value;
     }
 
@@ -1602,6 +1767,7 @@ pub fn reml_laml_evaluate(
             );
             return Ok(RemlLamlResult {
                 cost,
+                criterion_components,
                 ift_residual_energy,
                 inner_polish_step,
                 gradient: Some(grad),
@@ -1827,6 +1993,7 @@ pub fn reml_laml_evaluate(
 
     Ok(RemlLamlResult {
         cost,
+        criterion_components,
         ift_residual_energy,
         inner_polish_step,
         gradient: gradient_out,

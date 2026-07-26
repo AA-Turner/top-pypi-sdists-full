@@ -47,15 +47,24 @@ use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 pub mod asymptote_certificate;
 mod bridges;
 mod capability;
+#[cfg(test)]
+#[path = "rho_optimizer/efs_fallback_routing_tests.rs"]
+mod efs_fallback_routing_tests;
 mod hessian_operator;
 pub mod kl_certificate;
 mod objective;
+pub mod rail_face;
+#[cfg(test)]
+#[path = "rho_optimizer/rail_projection_tests.rs"]
+mod rail_projection_tests;
 mod run;
 mod run_plan;
 mod seed_screening;
 
 pub(crate) use crate::model_types::CERTIFICATE_RAIL_MARGIN;
-pub use crate::model_types::{OuterCriterionCertificate, OuterStationarityCertificate, RailCoordinate};
+pub use crate::model_types::{
+    CurvatureFloorClearance, OuterCriterionCertificate, OuterStationarityCertificate, RailCoordinate,
+};
 pub(crate) use bridges::*;
 pub use capability::*;
 pub use gam_problem::{DeclaredHessianForm, Derivative, HessianValue, OuterEval};
@@ -73,6 +82,8 @@ pub use run::{CertifiedOuterResult, OuterResult};
 // that thread the termination verdict into their own payloads (gam-sae's
 // SaeOuterTermination) can name the variants.
 pub use run::OuterConvergedVia;
-pub use run::{OuterStationaryPointRejection, audit_stationary_point};
+pub use run::{
+    OuterStationaryPointRejection, audit_stationary_point, outer_value_agreement_bound,
+};
 pub(crate) use run_plan::*;
 pub(crate) use seed_screening::*;

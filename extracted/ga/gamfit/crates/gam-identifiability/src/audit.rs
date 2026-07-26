@@ -91,7 +91,10 @@ use ndarray::{Array1, Array2};
 use gam_linalg::faer_ndarray::{
     FaerEigh, default_rrqr_rank_alpha, fast_atb, rrqr_with_permutation,
 };
-use gam_problem::{EstimationError, FamilyLinearizationState, ParameterBlockSpec};
+use crate::families::compiler::RANK_DECISION_GAP;
+use gam_problem::{
+    EstimationError, FamilyLinearizationState, JointRankCertificate, ParameterBlockSpec,
+};
 use gam_runtime::loop_progress::LoopProgress;
 
 const DEFAULT_GAUGE_PRIORITY: u8 = 100;
@@ -777,6 +780,7 @@ fn audit_identifiability_impl(
             dropped_columns: Vec::new(),
             fatal: false,
             summary: "identifiability audit: no blocks supplied".to_string(),
+            joint_rank_certificate: None,
         });
     }
 
@@ -956,6 +960,7 @@ fn audit_identifiability_impl(
             dropped_columns: Vec::new(),
             fatal: false,
             summary: "identifiability audit: every block is empty".to_string(),
+            joint_rank_certificate: None,
         });
     }
 
@@ -1909,6 +1914,10 @@ fn audit_identifiability_impl(
         dropped_columns,
         fatal,
         summary,
+        // The flat path decides rank by per-block QR + joint RRQR, not by a
+        // two-sided cut on an equilibrated joint spectrum, so it has no margin
+        // to publish. `None` says exactly that.
+        joint_rank_certificate: None,
     })
 }
 
@@ -2092,6 +2101,7 @@ pub fn audit_identifiability_channel_aware(
             dropped_columns: Vec::new(),
             fatal: false,
             summary: "identifiability audit (channel-aware): no blocks supplied".to_string(),
+            joint_rank_certificate: None,
         });
     }
     if specs.len() != operators.len() {
@@ -2390,7 +2400,7 @@ pub fn audit_identifiability_channel_aware(
     // `check_map_uniqueness` (run in `canonicalize_for_identifiability_inner`)
     // remains the precise gate for the genuinely fatal `ker(JᵀWJ) ∩ ker(S) ≠ {0}`
     // case; this only stops the structural-rank gate from shadowing it.
-    let penalty_aware_joint_rank =
+    let (penalty_aware_joint_rank, joint_rank_certificate) =
         channel_aware_penalty_aware_joint_rank(&geometry.gram_struct, &col_offsets, specs, n * k)?;
     let penalty_covers_rank_deficiency =
         joint_rank_deficient && penalty_aware_joint_rank >= p_total;
@@ -2655,6 +2665,7 @@ pub fn audit_identifiability_channel_aware(
         dropped_columns,
         fatal,
         summary,
+        joint_rank_certificate: Some(joint_rank_certificate),
     })
 }
 
@@ -2769,10 +2780,17 @@ fn channel_aware_penalty_aware_joint_rank(
     col_offsets: &[usize],
     specs: &[ParameterBlockSpec],
     n_design_rows: usize,
-) -> Result<usize, EstimationError> {
+) -> Result<(usize, JointRankCertificate), EstimationError> {
     let p_total = *col_offsets.last().unwrap_or(&0);
     if p_total == 0 || n_design_rows == 0 {
-        return Ok(0);
+        return Ok((
+            0,
+            JointRankCertificate {
+                spectrum: Vec::new(),
+                tol: 0.0,
+                gap: RANK_DECISION_GAP,
+            },
+        ));
     }
 
     // Per-block structural penalties, parallel to `specs` (None ⇒ no penalty
@@ -2828,7 +2846,54 @@ fn channel_aware_penalty_aware_joint_rank(
     // check; reuses `gam_linalg::decision::equilibrate_gram`, whose own test
     // certifies exactly this strand-vs-equilibrate case (#2337 §3.2).
     let (equilibrated, _) = gam_linalg::decision::equilibrate_gram(&aug_gram);
-    rank_of_gram(&equilibrated, n_design_rows + n_penalty_rows)
+    let rank = rank_of_gram(&equilibrated, n_design_rows + n_penalty_rows)?;
+
+    // #2360 (#2337 §8 Thm 8.3) — take the SAME decision a second way, two-sided,
+    // and keep its margin.
+    //
+    // `rank_of_gram` decides against a one-sided cutoff, which is a decision on
+    // a POINT: it yields an integer and no indication of how far the operating
+    // point may move before that integer changes. The audit's operating point
+    // DOES move — the pilot linearizes at the family's warm-start scalars and
+    // the fit walks away from them — so a later audit comparing bare integers
+    // can only ever report that two endpoints agreed, never that the verdict
+    // held along the path between them.
+    //
+    // `certified_rank` on the same equilibrated spectrum at the same tolerance
+    // returns the same rank whenever the guard band is clean (no σ in
+    // `(τ/(1+gap), τ(1+gap))` ⇒ `#{σ ≥ high} = #{σ > τ}`), so this adds a
+    // margin without touching the decision the pipeline acts on: `rank` above
+    // is still what is returned and still what gates the fit. `Ambiguous`
+    // reports honestly that there is no margin to carry.
+    let spectrum = descending_singular_values_of_gram(&equilibrated)?;
+    let sigma_max = spectrum.first().copied().unwrap_or(0.0);
+    let tol = default_rrqr_rank_alpha()
+        * f64::EPSILON
+        * ((n_design_rows + n_penalty_rows).max(equilibrated.ncols()).max(1) as f64)
+        * sigma_max.max(1.0);
+    Ok((
+        rank,
+        JointRankCertificate {
+            spectrum,
+            tol,
+            gap: RANK_DECISION_GAP,
+        },
+    ))
+}
+
+/// Descending singular values of a design given its Gram — the spectrum
+/// [`rank_of_gram`] counts, exposed so the two-sided certificate is taken on
+/// exactly the same numbers as the one-sided count.
+fn descending_singular_values_of_gram(gram: &Array2<f64>) -> Result<Vec<f64>, EstimationError> {
+    if gram.ncols() == 0 {
+        return Ok(Vec::new());
+    }
+    let (evals, _evecs) = gram
+        .eigh(Side::Lower)
+        .map_err(EstimationError::EigendecompositionFailed)?;
+    let mut singular: Vec<f64> = evals.iter().map(|&lambda| lambda.max(0.0).sqrt()).collect();
+    singular.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+    Ok(singular)
 }
 
 /// Pairwise overlap scan on the channel-weighted joint design
@@ -2947,6 +3012,29 @@ pub struct AuditDriftSummary {
     pub newly_dropped: Vec<DroppedColumn>,
     /// Columns dropped in the pilot that are no longer dropped (recovered).
     pub recovered: Vec<String>,
+    /// #2360 (#2337 §8 Thm 8.3) — did the PILOT's rank certificate survive the
+    /// move to this operating point, or did the path exhaust its margin?
+    ///
+    /// `Some(true)`: the realized spectral excursion is inside the pilot's
+    /// transport radius, so the pilot verdict provably still holds here — the
+    /// endpoints do not merely coincide, the certificate carried.
+    /// `Some(false)`: the excursion has PROVABLY exhausted the pilot's margin
+    /// (the Weyl lower bound alone already exceeds the radius), so the pilot
+    /// certificate is void at this point and the current-state verdict is the
+    /// only one standing, whatever the two ranks happen to be.
+    /// `None`: no certificate to transport — the pilot was `Ambiguous`, or ran
+    /// on an audit path that publishes no joint-rank margin.
+    ///
+    /// NOTE the asymmetry. `spectral_excursion_lower_bound` is a LOWER bound on
+    /// `‖ΔA‖₂`, so `Some(false)` is a proof and `Some(true)` is the honest
+    /// reading of "no evidence the margin was spent" — spectra cannot upper-
+    /// bound an operator excursion, and pretending otherwise would be the one
+    /// way this could report a false reassurance.
+    pub pilot_certificate_transported: Option<bool>,
+    /// Realized Weyl lower bound on the operator excursion between the pilot
+    /// and current joint spectra, and the pilot's transport radius it is priced
+    /// against. `None` alongside a `None` verdict.
+    pub excursion_vs_radius: Option<(f64, f64)>,
 }
 
 /// Run the structural audit at `beta_current`, refreshing each effective
@@ -3130,6 +3218,46 @@ pub fn maybe_log_audit_drift(
         );
     }
 
+    // #2360 — price the realized path against the PILOT's margin, not against
+    // the other endpoint's integer. Both audits already computed their joint
+    // spectra, so this costs a max-abs sweep and nothing else.
+    let (pilot_certificate_transported, excursion_vs_radius) = match (
+        pilot_audit.joint_rank_certificate.as_ref(),
+        current_audit.joint_rank_certificate.as_ref(),
+    ) {
+        (Some(pilot_cert), Some(current_cert)) => {
+            let decision = gam_linalg::decision::certified_rank(
+                &pilot_cert.spectrum,
+                pilot_cert.tol,
+                pilot_cert.gap,
+            );
+            match gam_linalg::decision::rank_transport_radius(&decision) {
+                Some(radius) => {
+                    let excursion = gam_linalg::decision::spectral_excursion_lower_bound(
+                        &pilot_cert.spectrum,
+                        &current_cert.spectrum,
+                    );
+                    let transported = matches!(
+                        gam_linalg::decision::transport_certified_rank(&decision, excursion),
+                        gam_linalg::decision::RankTransport::Transported { .. }
+                    );
+                    if !transported {
+                        log::info!(
+                            "[AUDIT-TRANSPORT] pilot rank certificate VOID at the current \
+                             operating point: excursion lower bound {excursion:.3e} exceeds the \
+                             pilot transport radius {radius:.3e} (outer_iter={outer_iter}); the \
+                             endpoint ranks agreeing is not a path guarantee here"
+                        );
+                    }
+                    (Some(transported), Some((excursion, radius)))
+                }
+                // Ambiguous pilot: no margin exists to transport.
+                None => (None, None),
+            }
+        }
+        _ => (None, None),
+    };
+
     Ok(Some(AuditDriftSummary {
         pilot_rank,
         current_rank,
@@ -3138,6 +3266,8 @@ pub fn maybe_log_audit_drift(
         beta_relative_change,
         newly_dropped,
         recovered,
+        pilot_certificate_transported,
+        excursion_vs_radius,
     }))
 }
 
@@ -3502,7 +3632,7 @@ fn dominant_block_for_direction(
 mod tests {
     use super::*;
 
-    use gam_test_support::{spec_from_dense, spec_from_dense_with_priority};
+    use gam_problem::test_support::{spec_from_dense, spec_from_dense_with_priority};
     use linspace as linspace_minus_one_to_one;
     use ndarray::Array2;
 
@@ -3997,21 +4127,27 @@ mod tests {
         }
     }
 
-    fn spec_with_callback(
+    fn penalized_spec_with_callback(
         name: &str,
-        n: usize,
-        p: usize,
+        design: Array2<f64>,
         cb: Arc<dyn BlockEffectiveJacobian>,
     ) -> ParameterBlockSpec {
+        let n = design.nrows();
+        let p = design.ncols();
         ParameterBlockSpec {
             name: name.to_string(),
             design: gam_linalg::matrix::DesignMatrix::Dense(
-                gam_linalg::matrix::DenseDesignMatrix::from(Array2::<f64>::zeros((n, p))),
+                gam_linalg::matrix::DenseDesignMatrix::from(design),
             ),
             offset: ndarray::Array1::<f64>::zeros(n),
-            penalties: Vec::new(),
-            nullspace_dims: Vec::new(),
-            initial_log_lambdas: ndarray::Array1::<f64>::zeros(0),
+            // The fixture isolates structural column selection, so make the
+            // synthetic posterior proper without changing its Jacobian
+            // geometry. Leaving S=0 makes the later MAP-uniqueness gate
+            // correctly refuse the intentionally rank-deficient raw carrier
+            // before the test can inspect the canonical gauge.
+            penalties: vec![gam_problem::PenaltyMatrix::Dense(Array2::eye(p))],
+            nullspace_dims: vec![0],
+            initial_log_lambdas: ndarray::Array1::<f64>::zeros(1),
             initial_beta: None,
             gauge_priority: 100,
             jacobian_callback: Some(cb),
@@ -4032,25 +4168,23 @@ mod tests {
             .unwrap_or_else(|error| panic!("RRQR rank oracle failed: {error}"))
     }
 
-    /// Regression for gam#1590: competing-risks (cause-specific, k=2) survival
-    /// fits aborted in identifiability canonicalisation with
-    /// "post-T rank invariant violated — J_can is rank-deficient", because the
-    /// channel-aware per-block column-selection T dropped a genuinely-independent
-    /// cause-specific direction while KEEPING a baseline component that is
-    /// redundant ACROSS the two cause channels.
+    /// Regression for gam#1590: a penalty-covered competing-risks
+    /// (cause-specific, k=2) redundancy must canonicalise without dropping a
+    /// genuine data direction or failing MAP uniqueness.
     ///
     /// We build two k=2 cause-time blocks (p_raw=8 total, true joint rank 6) that
-    /// reproduce the cross-channel redundancy exactly: each block carries an
-    /// intra-block redundancy AND block 2 carries a large-norm SHARED baseline
-    /// column (`a+b+c`) that lies wholly in span(block 1). The block-local pivot
-    /// kept that large-norm shared column and shed a real direction, so the kept
-    /// 6 columns spanned only rank 4 — the bug.
+    /// reproduce the cross-channel redundancy exactly: block 1 carries an
+    /// intra-block redundancy and block 2 carries a large-norm SHARED baseline
+    /// column (`a+b+c`) that lies wholly in span(block 1).
     ///
-    /// After the joint-rank-aware (cross-block residual) selection, the shared
-    /// column is the one dropped, so `canonicalize_for_identifiability` SUCCEEDS
-    /// and the reduced design reaches the full joint rank.
+    /// Each synthetic block carries `S=I`, so the posterior criterion is
+    /// `ker(J) ∩ ker(S) = {0}` rather than `p == rank(J)`: the canonical section
+    /// may retain one penalty-covered coefficient direction beyond the six
+    /// data-supported directions. The executable contract is therefore that
+    /// `J_can` retains all six genuine directions and every retained null
+    /// direction remains covered by the pulled-back positive-definite penalty.
     #[test]
-    fn competing_risks_cross_channel_redundancy_canonicalises_cleanly_1590() {
+    fn penalty_covered_competing_risks_redundancy_canonicalises_cleanly_1590() {
         let n = 64;
         let x = linspace(n);
         // Mutually orthogonal Legendre directions so every "independent" direction
@@ -4078,10 +4212,9 @@ mod tests {
         }
         // Block 2 (cause 2): three genuinely-new cause-specific directions
         // d1,d2,d3 and a LARGE-norm SHARED baseline combination a+b+c that lies
-        // wholly in span(block 1). Isolation rank 4, but its residual against
-        // block 1 is only 3-D ({d1,d2,d3}), so the compiler keeps 3. The shared
-        // column's large norm previously fooled the block-local pivot into keeping
-        // it and dropping a real cause direction (the gam#1590 bug).
+        // wholly in span(block 1). Its data residual against block 1 is only
+        // 3-D ({d1,d2,d3}); the penalty makes the remaining coefficient
+        // difference estimable without pretending it has likelihood curvature.
         let shared = (&(&a + &b) + &c).mapv(|v| v * 50.0);
         let mut full2 = Array2::<f64>::zeros((k * n, p));
         for ch in 0..k {
@@ -4106,8 +4239,16 @@ mod tests {
             p,
         });
         let specs = vec![
-            spec_with_callback("time_cause_1", n, p, cb1),
-            spec_with_callback("time_cause_2", n, p, cb2),
+            penalized_spec_with_callback(
+                "time_cause_1",
+                full1.slice(ndarray::s![..n, ..]).to_owned(),
+                cb1,
+            ),
+            penalized_spec_with_callback(
+                "time_cause_2",
+                full2.slice(ndarray::s![..n, ..]).to_owned(),
+                cb2,
+            ),
         ];
 
         // The true joint rank of the channel-major stacked design [J1 | J2].
@@ -4135,15 +4276,16 @@ mod tests {
             "the multi-cause (k=2) design must route through the channel-aware audit",
         );
 
-        // The reduced specs must have total width == true joint rank, and the
-        // reduced design (raw J · block-diagonal T) must ACTUALLY reach that rank —
-        // i.e. the kept columns are jointly independent, no redundant column kept
-        // and no independent direction dropped.
+        // Current penalty-aware canonicalisation removes the intra-block
+        // redundancy and retains one penalty-covered cross-block direction.
+        // Coefficient width therefore exceeds data rank by exactly one; equating
+        // these would incorrectly discard a direction identified by S.
         let total_reduced: usize = canon.reduced_specs.iter().map(|s| s.design.ncols()).sum();
         assert_eq!(
-            total_reduced, joint_rank,
-            "reduced total width must equal the true joint rank {joint_rank}; got \
-             {total_reduced}",
+            total_reduced,
+            joint_rank + 1,
+            "penalty-aware section must retain exactly one coefficient beyond \
+             the true data rank {joint_rank}; got {total_reduced}",
         );
 
         // Materialise the reduced channel-major joint Jacobian J_can and certify
@@ -4174,7 +4316,32 @@ mod tests {
         assert_eq!(
             rank_j_can, joint_rank,
             "reduced design J_can must reach the true joint rank {joint_rank} \
-             (the kept columns must be jointly independent); got {rank_j_can}",
+             (no genuine cause direction may be dropped); got {rank_j_can}",
         );
+
+        // Pulling S=I through a column-selection gauge must leave an identity
+        // penalty on every retained block coordinate. This is the direct
+        // certificate that the one data-null coefficient direction is not
+        // posterior-null.
+        for (block_idx, spec) in canon.reduced_specs.iter().enumerate() {
+            assert_eq!(
+                spec.penalties.len(),
+                1,
+                "reduced block {block_idx} must retain its propriety penalty"
+            );
+            let penalty = spec.penalties[0].as_dense_cow();
+            let width = spec.design.ncols();
+            assert_eq!(penalty.dim(), (width, width));
+            for row in 0..width {
+                for col in 0..width {
+                    let expected = if row == col { 1.0 } else { 0.0 };
+                    assert_eq!(
+                        penalty[[row, col]],
+                        expected,
+                        "pulled-back identity penalty changed at block {block_idx}, ({row},{col})"
+                    );
+                }
+            }
+        }
     }
 }

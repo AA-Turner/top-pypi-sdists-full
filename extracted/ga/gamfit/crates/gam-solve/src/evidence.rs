@@ -811,10 +811,11 @@ pub struct GaussianMixtureConfig {
     pub max_iter: usize,
     /// Relative mean-log-likelihood improvement tolerance for EM stopping.
     pub loglik_tol: f64,
-    /// Relative max-norm tolerance for the EM map in identifiable
-    /// predictive-density coordinates. Free mixtures use labeled component
-    /// measures `(w, w μ, w(Σ + μμᵀ))`; ring mixtures use mass-weighted,
-    /// noise-standardized component means plus their shared variance.
+    /// Max-norm tolerance for the EM map in empirical predictive-density
+    /// coordinates: the largest absolute change in any training row's log
+    /// density. This quotients component permutations, duplicate-component
+    /// mass exchange, and non-identifiable ring factorizations while retaining
+    /// sensitivity to likelihood changes that cancel in the mean objective.
     pub parameter_tol: f64,
     /// Lower eigenvalue constraint for every component covariance. The M-step
     /// solves this constrained likelihood problem exactly by spectral clipping;
@@ -852,6 +853,68 @@ pub struct GaussianMixtureCertificate {
     pub objective_tolerance: f64,
     pub parameter_residual: f64,
     pub parameter_tolerance: f64,
+    /// Measured per-iteration contraction rate `ρ` of the parameter residual
+    /// over the trailing [`EM_RATE_WINDOW`], or `None` before a full window has
+    /// accumulated. `ρ < 1` is the evidence that the iterate is still
+    /// descending; `ρ ≥ 1` is the evidence that it has stalled.
+    pub contraction_rate: Option<f64>,
+    /// Iterations still required to reach `parameter_tolerance` at the measured
+    /// `contraction_rate`, or `None` when no rate is available, the rate does
+    /// not contract, or the tolerance is already met. This is what makes a
+    /// refusal PRICEABLE: a caller can see whether it was interrupted mid-
+    /// descent and by how much.
+    pub projected_iterations_to_tolerance: Option<usize>,
+}
+
+/// Trailing window, in EM updates, over which the parameter residual's
+/// contraction rate is measured.
+///
+/// DERIVATION. A single step ratio `r_t / r_{t-1}` carries the full relative
+/// noise of both residuals, and near a fixed point that noise is comparable to
+/// the step itself — one ratio cannot distinguish descent from a stall. The
+/// geometric mean over `W` steps averages `W` independent log-ratios, so its
+/// log-jitter falls as `1/√W`: `W = 64` suppresses per-step jitter eightfold
+/// while costing 6.4% of the base update budget to establish. It is also the
+/// re-validation cadence during an extension, so a stall is caught within one
+/// window of appearing rather than at the end of the projection.
+const EM_RATE_WINDOW: usize = 64;
+
+/// Geometric per-iteration contraction rate of the parameter residual across
+/// the window: `ρ = (r_last / r_first)^{1/(W)}`.
+///
+/// `None` until the window is full, or when either endpoint is not strictly
+/// positive and finite — a zero residual is convergence, not a rate, and the
+/// caller's tolerance test has already handled it.
+fn em_contraction_rate(window: &std::collections::VecDeque<f64>) -> Option<f64> {
+    if window.len() < EM_RATE_WINDOW + 1 {
+        return None;
+    }
+    let first = *window.front()?;
+    let last = *window.back()?;
+    if !(first.is_finite() && last.is_finite() && first > 0.0 && last > 0.0) {
+        return None;
+    }
+    let steps = (window.len() - 1) as f64;
+    let rate = (last / first).powf(1.0 / steps);
+    rate.is_finite().then_some(rate)
+}
+
+/// Iterations still required to bring `residual` to `tolerance` at contraction
+/// rate `rate`, i.e. the `N*` solving `residual·ρ^{N*} = tolerance`.
+///
+/// `None` when the rate does not contract (`ρ ∉ (0, 1)`), when the tolerance is
+/// already met, or when the inputs are not finite — in every one of those cases
+/// there is no projection to make, and inventing one would be the fabrication
+/// this certificate exists to prevent.
+fn em_projected_iterations(residual: f64, tolerance: f64, rate: f64) -> Option<usize> {
+    if !(residual.is_finite() && tolerance.is_finite() && rate.is_finite()) {
+        return None;
+    }
+    if !(rate > 0.0 && rate < 1.0) || !(residual > tolerance) || tolerance <= 0.0 {
+        return None;
+    }
+    let steps = (tolerance / residual).ln() / rate.ln();
+    (steps.is_finite() && steps >= 0.0).then(|| steps.ceil() as usize)
 }
 
 /// Exact parameter state carried across an EM exhaustion boundary.
@@ -920,14 +983,22 @@ impl std::fmt::Display for GaussianMixtureError {
                 checkpoint,
             } => write!(
                 f,
-                "Gaussian-mixture EM did not certify after {max_iterations} additional iterations (total {}): signed mean-log-likelihood gain {:.6e} (numerical uncertainty {:.3e}), objective residual {:.6e}/{:.3e}, parameter-map residual {:.6e}/{:.3e}; resume from the carried checkpoint, which is not comparable evidence",
+                "Gaussian-mixture EM did not certify after {max_iterations} additional iterations (total {}): signed mean-log-likelihood gain {:.6e} (numerical uncertainty {:.3e}), objective residual {:.6e}/{:.3e}, parameter-map residual {:.6e}/{:.3e}, contraction rate {} per iteration, projected iterations to tolerance {}; resume from the carried checkpoint, which is not comparable evidence",
                 checkpoint.completed_iterations,
                 certificate.mean_log_likelihood_gain,
                 certificate.monotonicity_uncertainty,
                 certificate.objective_residual,
                 certificate.objective_tolerance,
                 certificate.parameter_residual,
-                certificate.parameter_tolerance
+                certificate.parameter_tolerance,
+                match certificate.contraction_rate {
+                    Some(rate) => format!("{rate:.6}"),
+                    None => "unmeasured".to_string(),
+                },
+                match certificate.projected_iterations_to_tolerance {
+                    Some(steps) => steps.to_string(),
+                    None => "none (not contracting)".to_string(),
+                }
             ),
         }
     }
@@ -1387,7 +1458,16 @@ fn run_gaussian_mixture_em(
     // success and every exhaustion pairs its certificate with the exact same
     // parameter state; a certificate for theta_t can never be attached to
     // theta_{t+1} merely because the work boundary was reached.
-    for additional_updates in 0..=config.max_iter {
+    // The base cap means "give up when not progressing", not "interrupt provable
+    // progress". `budget` therefore starts at `max_iter` and may be extended
+    // ONCE, by the iterate's OWN projection, and only while the residual is
+    // measurably contracting. See the gate at the bottom of the loop.
+    let mut budget = config.max_iter;
+    let mut extension: Option<usize> = None;
+    let mut residual_window: std::collections::VecDeque<f64> =
+        std::collections::VecDeque::with_capacity(EM_RATE_WINDOW + 1);
+    let mut additional_updates = 0usize;
+    loop {
         let current = mixture_e_step(
             data,
             &checkpoint.weights,
@@ -1434,19 +1514,26 @@ fn run_gaussian_mixture_em(
             .max(1.0);
         let objective_step = next.mean_log_likelihood - current.mean_log_likelihood;
         let objective_residual = objective_step.abs() / objective_scale;
-        let parameter_residual = mixture_parameter_residual(
-            &checkpoint.weights,
-            &checkpoint.means,
-            &checkpoint.covariances,
-            &next_weights,
-            &next_means,
-            &next_covariances,
-        );
+        let parameter_residual = empirical_predictive_density_residual(
+            &current.row_log_likelihoods,
+            &next.row_log_likelihoods,
+        )
+        .map_err(|message| GaussianMixtureError::NumericalFailure {
+            message,
+            checkpoint: Some(checkpoint.clone()),
+        })?;
         let monotonicity_uncertainty = gaussian_mixture_monotonicity_uncertainty(
             objective_scale,
             current.mean_log_likelihood_roundoff,
             next.mean_log_likelihood_roundoff,
         );
+        residual_window.push_back(parameter_residual);
+        if residual_window.len() > EM_RATE_WINDOW + 1 {
+            residual_window.pop_front();
+        }
+        let contraction_rate = em_contraction_rate(&residual_window);
+        let projected_iterations_to_tolerance = contraction_rate
+            .and_then(|rate| em_projected_iterations(parameter_residual, config.parameter_tol, rate));
         let certificate = GaussianMixtureCertificate {
             mean_log_likelihood: current.mean_log_likelihood,
             mean_log_likelihood_gain: objective_step,
@@ -1455,6 +1542,8 @@ fn run_gaussian_mixture_em(
             objective_tolerance: config.loglik_tol,
             parameter_residual,
             parameter_tolerance: config.parameter_tol,
+            contraction_rate,
+            projected_iterations_to_tolerance,
         };
         if objective_step < -monotonicity_uncertainty {
             return Err(GaussianMixtureError::MonotonicityViolation {
@@ -1485,12 +1574,54 @@ fn run_gaussian_mixture_em(
                 certificate,
             });
         }
-        if additional_updates == config.max_iter {
-            return Err(GaussianMixtureError::DidNotConverge {
-                max_iterations: config.max_iter,
-                certificate,
-                checkpoint,
-            });
+        if additional_updates >= budget {
+            // At the budget the question is NOT "have we run long enough?" but
+            // "is this iterate stuck, or was it interrupted mid-descent?" — and
+            // the residual window answers it. A rate at or above 1 is a genuine
+            // stall and refuses exactly as before, now with the evidence
+            // attached. A contracting rate earns ONE extension, bounded by the
+            // iterate's own projection `N*`: if it cannot meet the deadline it
+            // set for itself, that failure is the honest verdict, and the
+            // certificate reports the rate and projection that priced it.
+            let extend = match (contraction_rate, projected_iterations_to_tolerance) {
+                (Some(rate), Some(steps)) if rate < 1.0 && extension.is_none() => Some(steps),
+                _ => None,
+            };
+            match extend {
+                Some(steps) => {
+                    // Hard secondary ceiling, derived from the caller's own
+                    // budget rather than picked: the extension may not exceed
+                    // the work already authorized. `max_iter` IS the caller's
+                    // stated work tolerance, so spending at most that much
+                    // again to finish a provably-converging descent is
+                    // proportionate, while an iterate whose own projection
+                    // exceeds it is not "nearly there" and its refusal is
+                    // honest. Without this a rate of 0.9999 would project six
+                    // figures of iterations and silently convert a refusal into
+                    // a hang.
+                    let steps = steps.min(config.max_iter);
+                    budget = budget.saturating_add(steps);
+                    extension = Some(steps);
+                }
+                None => {
+                    return Err(GaussianMixtureError::DidNotConverge {
+                        max_iterations: budget,
+                        certificate,
+                        checkpoint,
+                    });
+                }
+            }
+        } else if extension.is_some() && additional_updates.is_multiple_of(EM_RATE_WINDOW) {
+            // Re-validate on the window cadence so a stall inside the extension
+            // is caught within one window of appearing, not at the projection's
+            // end. Progress that stops being progress ends the extension.
+            if !matches!(contraction_rate, Some(rate) if rate < 1.0) {
+                return Err(GaussianMixtureError::DidNotConverge {
+                    max_iterations: budget,
+                    certificate,
+                    checkpoint,
+                });
+            }
         }
         checkpoint = GaussianMixtureCheckpoint {
             weights: next_weights,
@@ -1501,19 +1632,13 @@ fn run_gaussian_mixture_em(
             data_fingerprint,
             covariance_floor: config.covariance_floor,
         };
+        additional_updates += 1;
     }
-    Err(GaussianMixtureError::NumericalFailure {
-        message: format!(
-            "EM refinement exhausted its inclusive update budget ({}) without producing a \
-             terminal verdict",
-            config.max_iter
-        ),
-        checkpoint: Some(checkpoint),
-    })
 }
 
 struct GaussianMixtureEStep {
     responsibilities: Array2<f64>,
+    row_log_likelihoods: Vec<f64>,
     mean_log_likelihood: f64,
     mean_log_likelihood_roundoff: f64,
 }
@@ -1553,15 +1678,13 @@ fn pairwise_sum_max_depth(term_count: usize) -> usize {
     within_block.saturating_add(tree_levels)
 }
 
-fn pairwise_mean_with_roundoff(mut values: Vec<f64>) -> Result<(f64, f64), String> {
+fn pairwise_mean_with_roundoff(values: &[f64]) -> Result<(f64, f64), String> {
     if values.is_empty() || values.iter().any(|value| !value.is_finite()) {
         return Err("mean log-likelihood terms must be nonempty and finite".to_string());
     }
-    let sum = pairwise_sum(&values);
-    for value in &mut values {
-        *value = value.abs();
-    }
-    let magnitude_sum = pairwise_sum(&values);
+    let sum = pairwise_sum(values);
+    let magnitudes: Vec<f64> = values.iter().map(|value| value.abs()).collect();
+    let magnitude_sum = pairwise_sum(&magnitudes);
     let unit_roundoff = 0.5 * f64::EPSILON;
     let accumulated = pairwise_sum_max_depth(values.len()) as f64 * unit_roundoff;
     let addition_bound = if accumulated < 1.0 {
@@ -1626,9 +1749,10 @@ fn mixture_e_step(
         }
     }
     let (mean_log_likelihood, mean_log_likelihood_roundoff) =
-        pairwise_mean_with_roundoff(row_log_likelihoods)?;
+        pairwise_mean_with_roundoff(&row_log_likelihoods)?;
     Ok(GaussianMixtureEStep {
         responsibilities,
+        row_log_likelihoods,
         mean_log_likelihood,
         mean_log_likelihood_roundoff,
     })
@@ -1695,69 +1819,39 @@ fn relative_parameter_step(previous: f64, next: f64) -> f64 {
     (next - previous).abs() / previous.abs().max(next.abs()).max(1.0)
 }
 
-/// Distance between two label-aligned Gaussian-mixture states in identifiable
-/// component-measure coordinates.
+/// Distance between two EM states in the quotient space the empirical
+/// likelihood can identify.
 ///
-/// Raw `(μ, Σ)` coordinates cease to identify the density as a component mass
-/// tends to zero: an arbitrarily large raw update can then have arbitrarily
-/// small predictive effect. The finite measures
-///
-/// `w`, `w μ`, and `w (Σ + μμᵀ)`
-///
-/// are respectively each labeled component's mass and first two raw moments.
-/// For positive mass they are a bijection with `(w, μ, Σ)`; at zero mass they
-/// correctly collapse all inert component parameters to the same zero measure.
-/// EM preserves responsibility-column labels, so no relabeling alignment is
-/// needed between consecutive states.
-fn labeled_gaussian_component_measure_residual(
-    previous_weights: &Array1<f64>,
-    previous_means: &Array2<f64>,
-    previous_covariance: impl Fn(usize, usize, usize) -> f64,
-    next_weights: &Array1<f64>,
-    next_means: &Array2<f64>,
-    next_covariance: impl Fn(usize, usize, usize) -> f64,
-) -> f64 {
-    let k = previous_weights.len();
-    let d = previous_means.ncols();
-    let mut residual = 0.0_f64;
-    for component in 0..k {
-        let previous_weight = previous_weights[component];
-        let next_weight = next_weights[component];
-        residual = residual.max(relative_parameter_step(previous_weight, next_weight));
-        for left in 0..d {
-            let previous_first = previous_weight * previous_means[[component, left]];
-            let next_first = next_weight * next_means[[component, left]];
-            residual = residual.max(relative_parameter_step(previous_first, next_first));
-            for right in 0..d {
-                let previous_second = previous_weight
-                    * (previous_covariance(component, left, right)
-                        + previous_means[[component, left]] * previous_means[[component, right]]);
-                let next_second = next_weight
-                    * (next_covariance(component, left, right)
-                        + next_means[[component, left]] * next_means[[component, right]]);
-                residual = residual.max(relative_parameter_step(previous_second, next_second));
-            }
-        }
+/// A finite mixture density is invariant to component relabeling and to
+/// exchanging mass among duplicate components. Ring center/radius/direction
+/// tuples have additional factorizations of the same component means. No
+/// component-coordinate norm can therefore be a necessary convergence
+/// condition. The likelihood sees the vector `(log p(y_i))`; its max-norm
+/// change is the exact empirical predictive-density residual. Taking the
+/// maximum (rather than only the mean objective gain) detects row-wise changes
+/// that cancel, while identical fitted densities have residual zero regardless
+/// of their internal representation.
+fn empirical_predictive_density_residual(
+    previous_row_log_density: &[f64],
+    next_row_log_density: &[f64],
+) -> Result<f64, String> {
+    if previous_row_log_density.is_empty()
+        || previous_row_log_density.len() != next_row_log_density.len()
+        || previous_row_log_density
+            .iter()
+            .chain(next_row_log_density)
+            .any(|value| !value.is_finite())
+    {
+        return Err(
+            "predictive-density residual requires equal, nonempty, finite log-density vectors"
+                .to_string(),
+        );
     }
-    residual
-}
-
-fn mixture_parameter_residual(
-    previous_weights: &Array1<f64>,
-    previous_means: &Array2<f64>,
-    previous_covariances: &[Array2<f64>],
-    next_weights: &Array1<f64>,
-    next_means: &Array2<f64>,
-    next_covariances: &[Array2<f64>],
-) -> f64 {
-    labeled_gaussian_component_measure_residual(
-        previous_weights,
-        previous_means,
-        |component, left, right| previous_covariances[component][[left, right]],
-        next_weights,
-        next_means,
-        |component, left, right| next_covariances[component][[left, right]],
-    )
+    Ok(previous_row_log_density
+        .iter()
+        .zip(next_row_log_density)
+        .map(|(&previous, &next)| (next - previous).abs())
+        .fold(0.0_f64, f64::max))
 }
 
 fn constrain_covariance(covariance: Array2<f64>, floor: f64) -> Result<Array2<f64>, String> {
@@ -1974,7 +2068,7 @@ fn ring_mixture_log_terms(
 fn ring_mixture_e_step(
     data: ArrayView2<'_, f64>,
     state: &RingMixtureState,
-) -> Result<(Array2<f64>, f64, f64), String> {
+) -> Result<GaussianMixtureEStep, String> {
     let (terms, row_log_likelihoods) = ring_mixture_log_terms(
         data,
         &state.weights,
@@ -1990,8 +2084,14 @@ fn ring_mixture_e_step(
                 (terms[[row, component]] - row_log_likelihoods[row]).exp();
         }
     }
-    let (mean, roundoff) = pairwise_mean_with_roundoff(row_log_likelihoods)?;
-    Ok((responsibilities, mean, roundoff))
+    let (mean_log_likelihood, mean_log_likelihood_roundoff) =
+        pairwise_mean_with_roundoff(&row_log_likelihoods)?;
+    Ok(GaussianMixtureEStep {
+        responsibilities,
+        row_log_likelihoods,
+        mean_log_likelihood,
+        mean_log_likelihood_roundoff,
+    })
 }
 
 fn ring_mixture_log_density(
@@ -2005,48 +2105,6 @@ fn ring_mixture_log_density(
     let (_, row_log_likelihoods) =
         ring_mixture_log_terms(data, weights, center, radius, directions, variance)?;
     Ok(Array1::from_vec(row_log_likelihoods))
-}
-
-/// Distance between two ring-mixture states in identifiable density space.
-///
-/// `center`, `radius`, and `directions` are only a factorization of the actual
-/// component means `m_j = center + radius * direction_j`. We map those means
-/// and the shared isotropic variance into density coordinates. Component-mean
-/// movement is standardized by the common noise scale and weighted by the
-/// component's predictive mass; the shared variance remains unweighted because
-/// it changes every component. Thus factorization drift and vanishing-component
-/// motion cannot block certification, while a resolved change in the fitted
-/// density still does.
-fn ring_identifiable_parameter_residual(
-    previous: &RingMixtureState,
-    next: &RingMixtureState,
-) -> f64 {
-    let previous_means =
-        ring_component_means(&previous.center, previous.radius, &previous.directions);
-    let next_means = ring_component_means(&next.center, next.radius, &next.directions);
-    let noise_scale = previous
-        .variance
-        .sqrt()
-        .max(next.variance.sqrt())
-        .max(f64::MIN_POSITIVE);
-    let weight_residual = previous
-        .weights
-        .iter()
-        .zip(next.weights.iter())
-        .map(|(&left, &right)| (right - left).abs())
-        .fold(0.0, f64::max);
-    let mean_residual = previous_means
-        .rows()
-        .into_iter()
-        .zip(next_means.rows())
-        .zip(previous.weights.iter().zip(next.weights.iter()))
-        .map(|((left, right), (&previous_weight, &next_weight))| {
-            previous_weight.max(next_weight) * (right[0] - left[0]).hypot(right[1] - left[1])
-                / noise_scale
-        })
-        .fold(0.0, f64::max);
-    let variance_residual = (next.variance / previous.variance).ln().abs();
-    weight_residual.max(mean_residual).max(variance_residual)
 }
 
 fn fit_weighted_component_circle(
@@ -2292,19 +2350,25 @@ pub fn fit_ring_gaussian_mixture(
         completed_iterations: 0,
     };
     for additional_updates in 0..=config.max_iter {
-        let (responsibilities, current_mean, current_roundoff) = ring_mixture_e_step(data, &state)?;
-        state.mean_log_likelihood = current_mean;
-        let mut next = ring_mixture_m_step(data, responsibilities.view(), &state, config)?;
-        let (_, next_mean, next_roundoff) = ring_mixture_e_step(data, &next)?;
-        next.mean_log_likelihood = next_mean;
+        let current = ring_mixture_e_step(data, &state)?;
+        state.mean_log_likelihood = current.mean_log_likelihood;
+        let mut next =
+            ring_mixture_m_step(data, current.responsibilities.view(), &state, config)?;
+        let next_e_step = ring_mixture_e_step(data, &next)?;
+        next.mean_log_likelihood = next_e_step.mean_log_likelihood;
+        let current_mean = current.mean_log_likelihood;
+        let next_mean = next_e_step.mean_log_likelihood;
         let objective_scale = current_mean.abs().max(next_mean.abs()).max(1.0);
         let objective_step = next_mean - current_mean;
         let objective_residual = objective_step.abs() / objective_scale;
-        let parameter_residual = ring_identifiable_parameter_residual(&state, &next);
+        let parameter_residual = empirical_predictive_density_residual(
+            &current.row_log_likelihoods,
+            &next_e_step.row_log_likelihoods,
+        )?;
         let monotonicity_uncertainty = gaussian_mixture_monotonicity_uncertainty(
             objective_scale,
-            current_roundoff,
-            next_roundoff,
+            current.mean_log_likelihood_roundoff,
+            next_e_step.mean_log_likelihood_roundoff,
         );
         let certificate = GaussianMixtureCertificate {
             mean_log_likelihood: current_mean,
@@ -2314,6 +2378,12 @@ pub fn fit_ring_gaussian_mixture(
             objective_tolerance: config.loglik_tol,
             parameter_residual,
             parameter_tolerance: config.parameter_tol,
+            // The ring-of-clusters rung does not yet measure a contraction rate,
+            // so its exhaustion stays un-priced. Reporting `None` says exactly
+            // that; fabricating a rate here would be the invention the rest of
+            // this certificate exists to prevent.
+            contraction_rate: None,
+            projected_iterations_to_tolerance: None,
         };
         if objective_step < -monotonicity_uncertainty {
             return Err(format!(
@@ -5003,6 +5073,58 @@ mod tests {
         inv
     }
 
+    /// The rate is what separates "interrupted mid-descent" from "stuck", so it
+    /// must read a clean geometric decay exactly and refuse to speak before it
+    /// has a full window.
+    #[test]
+    fn em_contraction_rate_recovers_a_planted_geometric_decay() {
+        let planted = 0.98_f64;
+        let mut window = std::collections::VecDeque::new();
+        let mut residual = 1.0_f64;
+        for _ in 0..EM_RATE_WINDOW {
+            window.push_back(residual);
+            residual *= planted;
+        }
+        // One short of a full window: no rate may be claimed yet.
+        assert_eq!(em_contraction_rate(&window), None);
+        window.push_back(residual);
+        let measured = em_contraction_rate(&window).expect("a full window yields a rate");
+        assert!(
+            (measured - planted).abs() < 1e-12,
+            "measured {measured} should recover the planted {planted}"
+        );
+    }
+
+    /// A residual that is flat or growing must NOT produce a rate below 1, or a
+    /// stalled iterate would earn an extension it cannot use.
+    #[test]
+    fn em_contraction_rate_does_not_contract_on_a_flat_or_growing_residual() {
+        let flat: std::collections::VecDeque<f64> =
+            std::iter::repeat_n(1e-6, EM_RATE_WINDOW + 1).collect();
+        let rate = em_contraction_rate(&flat).expect("a full window yields a rate");
+        assert!(rate >= 1.0, "a flat residual must not look like contraction");
+        let growing: std::collections::VecDeque<f64> = (0..=EM_RATE_WINDOW)
+            .map(|i| 1e-6 * 1.01_f64.powi(i as i32))
+            .collect();
+        let rate = em_contraction_rate(&growing).expect("a full window yields a rate");
+        assert!(rate > 1.0, "a growing residual must not look like contraction");
+    }
+
+    /// The projection is the deadline an extension is held to, so it must invert
+    /// the decay exactly and decline to exist when there is nothing to project.
+    #[test]
+    fn em_projected_iterations_inverts_the_decay_and_declines_otherwise() {
+        // 1.0 -> 1e-8 at rate 0.98 needs ln(1e-8)/ln(0.98) = 911.6 -> 912.
+        let steps = em_projected_iterations(1.0, 1e-8, 0.98).expect("a contracting rate projects");
+        assert_eq!(steps, 912);
+        // Applying the rate for that many steps must actually reach tolerance.
+        assert!(0.98_f64.powi(steps as i32) <= 1e-8);
+        // No projection without contraction, or when already inside tolerance.
+        assert_eq!(em_projected_iterations(1.0, 1e-8, 1.0), None);
+        assert_eq!(em_projected_iterations(1.0, 1e-8, 1.05), None);
+        assert_eq!(em_projected_iterations(1e-9, 1e-8, 0.98), None);
+    }
+
     #[test]
     fn coupling_components_block_diagonal_is_all_singletons_by_block() {
         // Two decoupled 2x2 blocks: {0,1} and {2,3}.
@@ -5727,6 +5849,8 @@ mod tests {
             objective_tolerance: f64::EPSILON.sqrt(),
             parameter_residual: 0.0,
             parameter_tolerance: f64::EPSILON.sqrt(),
+            contraction_rate: None,
+            projected_iterations_to_tolerance: None,
         };
 
         assert_eq!(
@@ -5764,6 +5888,8 @@ mod tests {
             objective_tolerance,
             parameter_residual: 0.5 * parameter_tolerance,
             parameter_tolerance,
+            contraction_rate: None,
+            projected_iterations_to_tolerance: None,
         };
 
         assert_eq!(
@@ -5777,45 +5903,37 @@ mod tests {
     }
 
     #[test]
-    fn gaussian_mixture_parameter_map_uses_component_measure_geometry_2324() {
-        // Recorded #2324 scale: a raw mean-coordinate update of 4.6e-8 sat
-        // just above sqrt(epsilon) and refused every adjudication even though
-        // the component carries only one quarter of the predictive measure.
-        // The stopping rule must measure the density parameter, not an inert
-        // conditional coordinate whose meaning disappears with component mass.
-        let tolerance = f64::EPSILON.sqrt();
-        let raw_coordinate_step: f64 = 4.6e-8;
-        assert!(raw_coordinate_step > tolerance);
-        let weights = array![0.25, 0.75];
-        let previous_means = array![[0.0], [2.0]];
-        let next_means = array![[raw_coordinate_step], [2.0]];
+    fn gaussian_mixture_certificate_quotients_duplicate_component_mass_exchange_2324() {
+        // Two identical components can exchange arbitrary mass without
+        // changing the mixture density. Labeled component measures are
+        // therefore not identifiable even when every component has positive
+        // mass; the empirical predictive-density certificate must quotient
+        // this singular direction exactly.
+        let data = array![[-1.0], [0.0], [2.0]];
+        let means = array![[0.0], [0.0]];
         let covariance = vec![array![[1.0]], array![[1.0]]];
-        let residual = mixture_parameter_residual(
-            &weights,
-            &previous_means,
-            &covariance,
-            &weights,
-            &next_means,
-            &covariance,
-        );
-        assert_eq!(residual, weights[0] * raw_coordinate_step);
-        assert!(residual <= tolerance);
+        let weights = array![0.25, 0.75];
+        let redistributed_weights = array![0.5, 0.5];
+        let previous = mixture_e_step(data.view(), &weights, &means, &covariance).unwrap();
+        let redistributed =
+            mixture_e_step(data.view(), &redistributed_weights, &means, &covariance).unwrap();
+        let residual = empirical_predictive_density_residual(
+            &previous.row_log_likelihoods,
+            &redistributed.row_log_likelihoods,
+        )
+        .unwrap();
+        assert!(residual <= 4.0 * f64::EPSILON);
 
-        // Component mass itself is an identifiable density coordinate and is
-        // therefore never discounted by the component's old mass.
-        let next_weights = array![
-            weights[0] + raw_coordinate_step,
-            weights[1] - raw_coordinate_step
-        ];
-        let mass_residual = mixture_parameter_residual(
-            &weights,
-            &previous_means,
-            &covariance,
-            &next_weights,
-            &previous_means,
-            &covariance,
-        );
-        assert!(mass_residual > tolerance);
+        // A resolved change in the represented density remains visible.
+        let shifted_means = array![[0.01], [0.0]];
+        let shifted =
+            mixture_e_step(data.view(), &weights, &shifted_means, &covariance).unwrap();
+        let shifted_residual = empirical_predictive_density_residual(
+            &previous.row_log_likelihoods,
+            &shifted.row_log_likelihoods,
+        )
+        .unwrap();
+        assert!(shifted_residual > f64::EPSILON.sqrt());
     }
 
     #[test]
@@ -5849,15 +5967,12 @@ mod tests {
             config.covariance_floor,
         )
         .unwrap();
-        let residual = mixture_parameter_residual(
-            &checkpoint.weights,
-            &checkpoint.means,
-            &checkpoint.covariances,
-            &weights,
-            &means,
-            &covariances,
-        );
         let next = mixture_e_step(data.view(), &weights, &means, &covariances).unwrap();
+        let residual = empirical_predictive_density_residual(
+            &current.row_log_likelihoods,
+            &next.row_log_likelihoods,
+        )
+        .unwrap();
         assert!(residual <= config.parameter_tol);
         assert_eq!(certificate.mean_log_likelihood, current.mean_log_likelihood);
         assert_eq!(
@@ -6315,34 +6430,46 @@ mod tests {
             completed_iterations: 11,
         };
         assert!(relative_parameter_step(previous.center[0], next.center[0]) > 0.5);
-        assert_eq!(ring_identifiable_parameter_residual(&previous, &next), 0.0);
+        let data = array![[0.3, y], [0.3, -y], [1.0, 0.0]];
+        let previous_e_step = ring_mixture_e_step(data.view(), &previous).unwrap();
+        let next_e_step = ring_mixture_e_step(data.view(), &next).unwrap();
+        let residual = empirical_predictive_density_residual(
+            &previous_e_step.row_log_likelihoods,
+            &next_e_step.row_log_likelihoods,
+        )
+        .unwrap();
+        assert_eq!(residual, 0.0);
     }
 
     #[test]
-    fn ring_parameter_map_weights_component_motion_by_predictive_mass_2324() {
-        let raw_coordinate_step: f64 = 4.6e-8;
-        let (next_y, next_x) = raw_coordinate_step.sin_cos();
+    fn ring_certificate_quotients_duplicate_component_mass_exchange_2324() {
         let previous = RingMixtureState {
-            weights: array![0.25, 0.75],
+            weights: array![0.2, 0.3, 0.5],
             center: array![0.0, 0.0],
             radius: 1.0,
-            directions: array![[1.0, 0.0], [0.0, 1.0]],
+            directions: array![[1.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
             variance: 1.0,
             mean_log_likelihood: -1.0,
             completed_iterations: 10,
         };
         let next = RingMixtureState {
-            weights: previous.weights.clone(),
+            weights: array![0.4, 0.1, 0.5],
             center: previous.center.clone(),
             radius: previous.radius,
-            directions: array![[next_x, next_y], [0.0, 1.0]],
+            directions: previous.directions.clone(),
             variance: previous.variance,
             mean_log_likelihood: -1.0,
             completed_iterations: 11,
         };
-        let raw_mean_step = (next_x - 1.0).hypot(next_y);
-        assert!(raw_mean_step > f64::EPSILON.sqrt());
-        assert!(ring_identifiable_parameter_residual(&previous, &next) <= f64::EPSILON.sqrt());
+        let data = array![[1.0, 0.0], [0.0, 1.0], [-1.0, 0.0]];
+        let previous_e_step = ring_mixture_e_step(data.view(), &previous).unwrap();
+        let next_e_step = ring_mixture_e_step(data.view(), &next).unwrap();
+        let residual = empirical_predictive_density_residual(
+            &previous_e_step.row_log_likelihoods,
+            &next_e_step.row_log_likelihoods,
+        )
+        .unwrap();
+        assert!(residual <= 4.0 * f64::EPSILON);
     }
 
     #[test]

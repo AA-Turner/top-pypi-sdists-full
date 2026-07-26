@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 from collections.abc import Mapping
 
 from markdown_it import MarkdownIt
@@ -9,6 +10,25 @@ from mdformat.renderer import RenderContext, RenderTreeNode
 from mdformat.renderer.typing import Render
 
 from .mdit_plugins import GFM_ALERTS_PREFIX, gfm_alerts_plugin
+
+
+def add_cli_argument_group(group: argparse._ArgumentGroup) -> None:
+    """Add options to the mdformat CLI.
+
+    Stored in `mdit.options["mdformat"]["plugin"]["gfm_alerts"]`
+
+    """
+    group.add_argument(
+        "--custom-title",
+        action="store_const",
+        const=True,
+        help=(
+            "Preserve an inline custom title on the canonical `[!TYPE]` line. "
+            "This convention comes from Obsidian's callout spec (Hugo's alert "
+            "syntax mirrors it). It's not part of GitHub's own GFM alerts spec, "
+            "so it's off by default."
+        ),
+    )
 
 
 def update_mdit(mdit: MarkdownIt) -> None:
@@ -22,6 +42,10 @@ def _render_alert(node: RenderTreeNode, context: RenderContext) -> str:
         close_token = node.nester_tokens.closing
 
         result = f"> [!{open_token.meta['title'].upper()}]"
+
+        inline_title = open_token.meta.get("inline_title", "")
+        if inline_title:
+            result += f" {inline_title}"
 
         open_token.type = "blockquote_open"
         open_token.tag = "blockquote"

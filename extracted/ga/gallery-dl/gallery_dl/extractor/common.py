@@ -50,6 +50,7 @@ class Extractor():
     browser = None
     useragent = util.USERAGENT_FIREFOX
     geobypass = None
+    download_interval = 0.0
     request_interval = 0.0
     request_interval_min = 0.0
     request_interval_429 = 60.0
@@ -1246,6 +1247,27 @@ CACHE_UTILS = {}
 CATEGORY_MAP = ()
 
 
+HEADERS_FIREFOX_153 = (
+    ("User-Agent", "Mozilla/5.0 ({}; rv:153.0) Gecko/20100101 Firefox/153.0"),
+    ("Accept", "text/html,application/xhtml+xml,"
+               "application/xml;q=0.9,*/*;q=0.8"),
+    ("Accept-Language", "en-US,en;q=0.9"),
+    ("Accept-Encoding", None),
+    ("Referer", None),
+    ("Content-Type", None),
+    ("Content-Length", None),
+    ("Origin", None),
+    ("Alt-Used", None),
+    ("Connection", "keep-alive"),
+    ("Cookie", None),
+    ("Upgrade-Insecure-Requests", "1"),
+    ("Sec-Fetch-Dest", "document"),
+    ("Sec-Fetch-Mode", "navigate"),
+    ("Sec-Fetch-Site", "same-site"),
+    #  ("Sec-Fetch-User", "?1"),
+    ("Priority", "u=0, i"),
+    ("TE", "trailers"),
+)
 HEADERS_FIREFOX_140 = (
     ("User-Agent", "Mozilla/5.0 ({}; rv:140.0) Gecko/20100101 Firefox/140.0"),
     ("Accept", "text/html,application/xhtml+xml,"
@@ -1277,6 +1299,24 @@ HEADERS_FIREFOX_128 = (
     ("Sec-Fetch-Mode", "no-cors"),
     ("Sec-Fetch-Site", "same-origin"),
     ("TE", "trailers"),
+)
+HEADERS_CHROMIUM_150 = (
+    ("Connection", "keep-alive"),
+    ("sec-ch-ua", '"Not;A=Brand";v="8", "Chromium";v="150"'),
+    ("sec-ch-ua-mobile", "?0"),
+    ("sec-ch-ua-platform", '"Windows"'),
+    ("Upgrade-Insecure-Requests", "1"),
+    ("User-Agent", "Mozilla/5.0 ({}) AppleWebKit/537.36 (KHTML, "
+                   "like Gecko) Chrome/150.0.0.0 Safari/537.36"),
+    ("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,"
+               "image/avif,image/webp,image/apng,*/*;q=0.8,"
+               "application/signed-exchange;v=b3;q=0.7"),
+    ("Sec-Fetch-Site", "none"),
+    ("Sec-Fetch-Mode", "navigate"),
+    #  ("Sec-Fetch-User", "?1"),
+    ("Sec-Fetch-Dest", "document"),
+    ("Accept-Encoding", None),
+    ("Accept-Language", "en-US,en;q=0.9"),
 )
 HEADERS_CHROMIUM_138 = (
     ("Connection", "keep-alive"),
@@ -1315,15 +1355,35 @@ HEADERS_CHROMIUM_111 = (
     ("content-length", None),
 )
 HEADERS = {
-    "firefox"    : HEADERS_FIREFOX_140,
+    "firefox"    : HEADERS_FIREFOX_153,
+    "firefox/153": HEADERS_FIREFOX_153,
     "firefox/140": HEADERS_FIREFOX_140,
     "firefox/128": HEADERS_FIREFOX_128,
-    "chrome"     : HEADERS_CHROMIUM_138,
+    "chrome"     : HEADERS_CHROMIUM_150,
+    "chrome/150" : HEADERS_CHROMIUM_150,
     "chrome/138" : HEADERS_CHROMIUM_138,
     "chrome/111" : HEADERS_CHROMIUM_111,
 }
 
-CIPHERS_FIREFOX = (
+CIPHERS_FIREFOX_153 = (
+    "TLS_AES_128_GCM_SHA256:"
+    "TLS_CHACHA20_POLY1305_SHA256:"
+    "TLS_AES_256_GCM_SHA384:"
+    "ECDHE-ECDSA-AES128-GCM-SHA256:"
+    "ECDHE-RSA-AES128-GCM-SHA256:"
+    "ECDHE-ECDSA-CHACHA20-POLY1305:"
+    "ECDHE-RSA-CHACHA20-POLY1305:"
+    "ECDHE-ECDSA-AES256-GCM-SHA384:"
+    "ECDHE-RSA-AES256-GCM-SHA384:"
+    "ECDHE-ECDSA-AES256-SHA:"
+    "ECDHE-RSA-AES128-SHA:"
+    "ECDHE-RSA-AES256-SHA:"
+    "AES128-GCM-SHA256:"
+    "AES256-GCM-SHA384:"
+    "AES128-SHA:"
+    "AES256-SHA"
+)
+CIPHERS_FIREFOX_140 = (
     "TLS_AES_128_GCM_SHA256:"
     "TLS_CHACHA20_POLY1305_SHA256:"
     "TLS_AES_256_GCM_SHA384:"
@@ -1360,10 +1420,12 @@ CIPHERS_CHROMIUM = (
     "AES256-SHA"
 )
 CIPHERS = {
-    "firefox"    : CIPHERS_FIREFOX,
-    "firefox/140": CIPHERS_FIREFOX,
-    "firefox/128": CIPHERS_FIREFOX,
+    "firefox"    : CIPHERS_FIREFOX_153,
+    "firefox/153": CIPHERS_FIREFOX_153,
+    "firefox/140": CIPHERS_FIREFOX_140,
+    "firefox/128": CIPHERS_FIREFOX_140,
     "chrome"     : CIPHERS_CHROMIUM,
+    "chrome/150" : CIPHERS_CHROMIUM,
     "chrome/138" : CIPHERS_CHROMIUM,
     "chrome/111" : CIPHERS_CHROMIUM,
 }

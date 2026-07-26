@@ -152,6 +152,9 @@ pub(crate) struct SparseDictIterate {
     decoder_fixed_point_residual: f64,
     routing_residual: f64,
     inner_tolerance: f64,
+    accepted_births: usize,
+    live_atom_high_water: usize,
+    support_saturated: bool,
     /// Whether the decoder AND routing fixed-point residuals ALSO closed to
     /// `inner_tolerance` (arm 1). `false` marks a **best-effort** iterate returned
     /// at `K` above the intrinsic rank, where the `>rank` spurious support
@@ -408,6 +411,146 @@ const LINEAR_EV_PLATEAU_MIN_ROUNDS: usize = 3;
 /// (whose rounds are non-stationary and never fill the window), and keeps the
 /// confirmation horizon (a budget shorter than the window cannot confirm).
 const LINEAR_EV_PLATEAU_WINDOW: usize = LINEAR_EV_PLATEAU_MIN_ROUNDS + 1;
+/// Consecutive rounds without a new high-water mark in the number of live atoms
+/// before fixed-cardinality birth swaps are treated as saturated support.
+///
+/// A residual-row proposal firing on the same row that seeded it is not evidence
+/// of structural progress. Progress means expanding the live support; once its
+/// cardinality has set no new high for this whole window, accepted proposals are
+/// replacements on the current support manifold. They may still improve the
+/// objective, so saturation alone never exits: the independent EV-plateau window
+/// must also confirm. Matching that window gives both signals the same minimum
+/// observation horizon and avoids any guessed `K/N` capacity threshold (#2400).
+const LINEAR_SUPPORT_SATURATION_ROUNDS: usize = LINEAR_EV_PLATEAU_WINDOW;
+
+/// Captured-fraction EV-plateau detector for the best-effort/open arm (#2396).
+///
+/// At `K >> rank` the alternation need not converge at all: the discrete routing
+/// puts it in a LIMIT CYCLE whose objective oscillates at a fixed amplitude
+/// forever, so `|ΔEV|` does not tend to zero and no round-to-round smallness test
+/// can hold. What is nevertheless true, and is what the open arm certifies, is
+/// that the ACHIEVABLE objective has stopped improving: the running best over the
+/// returnable iterates sets no further high. That statement is about a monotone
+/// non-decreasing sequence, so it cannot be confused by the sign of any
+/// individual round — and it is scored against the climb achieved since entry,
+/// which keeps it scale-free (it fires wherever the plateau sits, ~1e-6
+/// well-posed, ~1e-4 over-complete) with no absolute threshold to tune.
+///
+/// Reading it off the round-to-round change instead is what made the earlier form
+/// unsound. It scored the UPWARD share `max(ΔEV, 0)` against `next_ev − entry_ev`,
+/// and both halves fail on a descent: the numerator is identically zero for any
+/// round that moved downhill, and the denominator is `≤ 0` for any round sitting
+/// below where the fit entered, which took the "no climb to divide by" branch.
+/// A fit that was monotonically getting WORSE therefore reported a plateau on
+/// every round and was returned on the first window it filled.
+///
+/// The other half of making this honest is [`BestOpenIterate`]: certifying that
+/// the achievable objective stopped improving obliges the return to hand back the
+/// iterate that ATTAINS it, not whichever point of the cycle the confirming round
+/// happened to land on. With no climb at all to measure against — the fit never
+/// once beat the state it entered with — only a genuine numerical standstill
+/// counts, which is arm 1's own test; a fit still moving below its entry EV has
+/// nothing to hand back and stays a typed non-convergence.
+#[derive(Clone, Copy, Debug)]
+struct EvPlateau {
+    entry_ev: f64,
+    best_ev: f64,
+}
+
+impl EvPlateau {
+    fn new(entry_ev: f64) -> Self {
+        Self {
+            entry_ev,
+            best_ev: entry_ev,
+        }
+    }
+
+    /// Record the EV of this round's returnable iterate and report whether the
+    /// achievable objective has stopped improving at it. `ev_residual` is
+    /// `|EV(T(z)) − EV(z)|`, the magnitude of the move the round made.
+    fn observe(&mut self, candidate_ev: f64, ev_residual: f64, fixed_point_tol: f64) -> bool {
+        let improvement = (candidate_ev - self.best_ev).max(0.0);
+        if candidate_ev > self.best_ev {
+            self.best_ev = candidate_ev;
+        }
+        if ev_residual <= fixed_point_tol {
+            return true;
+        }
+        let climb = self.best_ev - self.entry_ev;
+        climb > f64::MIN_POSITIVE && improvement / climb < LINEAR_EV_PLATEAU_FRACTION
+    }
+}
+
+/// The best returnable iterate seen so far, and the fixed-point evidence measured
+/// AT it (#2396).
+///
+/// [`EvPlateau`] certifies that the achievable objective stopped improving. That
+/// is a claim about the running maximum, so the object handed back has to be the
+/// one attaining that maximum: returning the confirming round's own iterate would
+/// certify a level the returned model does not have, and on a descending
+/// trajectory it would hand back a strictly degraded state. Each field is the
+/// evidence recorded for THIS state's own transition, so the certificate travels
+/// with the model rather than describing some later round.
+struct BestOpenIterate {
+    decoder: Array2<f32>,
+    codes: Vec<SparseCode>,
+    explained_variance: f64,
+    ev_residual: f64,
+    decoder_residual: f64,
+    routing_residual: f64,
+    accepted_births: usize,
+    support_saturated: bool,
+    decoder_solve_stats: DecoderSolveStats,
+}
+
+/// Arm-2 verdict for one round: may the open arm count this round toward a
+/// confirmed plateau? (#2396/#2400)
+///
+/// An ABSOLUTE certificate still requires zero accepted births — that is arm 1's
+/// own test and this predicate is not consulted for it. The open arm additionally
+/// admits fixed-cardinality birth SWAPS, but only once live support has stopped
+/// setting new highs for a full confirmation window: a residual-row proposal that
+/// fires on the same row that seeded it says nothing about structural progress,
+/// whereas a support cardinality that is still growing says the fit has not
+/// finished recruiting. Saturation alone never admits anything — the independent
+/// objective test must plateau too — and `epoch > 0` skips the first post-entry
+/// round, whose climb denominator is still forming.
+fn open_round_is_stationary(
+    epoch: usize,
+    accepted_births: usize,
+    support_saturated: bool,
+    numerically_sound: bool,
+    objective_plateaued: bool,
+) -> bool {
+    let structure_stationary = accepted_births == 0 || support_saturated;
+    epoch > 0 && structure_stationary && numerically_sound && objective_plateaued
+}
+
+#[derive(Clone, Copy, Debug)]
+struct LiveSupportGrowth {
+    high_water: usize,
+    rounds_without_growth: usize,
+}
+
+impl LiveSupportGrowth {
+    fn new(initial_live_atoms: usize) -> Self {
+        Self {
+            high_water: initial_live_atoms,
+            rounds_without_growth: 0,
+        }
+    }
+
+    fn observe(&mut self, live_atoms: usize) -> bool {
+        if live_atoms > self.high_water {
+            self.high_water = live_atoms;
+            self.rounds_without_growth = 0;
+        } else {
+            self.rounds_without_growth = self.rounds_without_growth.saturating_add(1);
+        }
+        self.rounds_without_growth >= LINEAR_SUPPORT_SATURATION_ROUNDS
+    }
+}
+
 /// Per-term rounding scale for the fixed-point convergence floor (#2396).
 ///
 /// The certified arm compares three O(1)-normalized residuals — the EV change
@@ -484,23 +627,28 @@ pub(super) fn run(
         fit_start.elapsed().as_secs_f64(),
     );
     let mut current_ev = explained_variance(x, &codes, decoder.view());
+    let mut live_support = LiveSupportGrowth::new(live_atom_count(&codes, k));
     // Effective fixed-point tolerance: never demand tighter closure than the
     // arithmetic can express (#2396). A `config.tolerance` of `0.0` asks for the
     // tightest achievable fixed point, which in floating point is the rounding
     // floor of the residual reductions, not literal zero.
     let fixed_point_tol =
         config.tolerance.max(SPARSE_DICT_FIXED_POINT_ROUNDING * (n.max(k).max(p) as f64));
-    // Anchor for the captured-fraction EV-plateau detector (arm 2 best-effort):
-    // the denominator of "how much of the total climb since entry did this round
-    // capture". Stationary rounds within a trailing window mark the achievable
-    // plateau; the window (not a strict consecutive run) is what makes the signal
-    // robust to the K>>rank routing limit cycle (#2396).
-    let entry_ev = current_ev;
+    // Captured-fraction EV-plateau detector (arm 2 best-effort): "how big was
+    // this round's move against the climb achieved since entry". Stationary
+    // rounds within a trailing window mark the achievable plateau; the window
+    // (not a strict consecutive run) is what makes the signal robust to the
+    // K>>rank routing limit cycle (#2396).
+    let mut ev_plateau = EvPlateau::new(current_ev);
     // Trailing window of per-round stationary flags; a majority-with-one-tolerance
     // of these confirms a best-effort plateau, robust to the K>>rank routing limit
     // cycle (#2396). See [`LINEAR_EV_PLATEAU_WINDOW`].
     let mut plateau_flags: std::collections::VecDeque<bool> =
         std::collections::VecDeque::with_capacity(LINEAR_EV_PLATEAU_WINDOW);
+    // The iterate the open arm will hand back if it confirms a plateau: the best
+    // returnable state seen, carrying the evidence measured at it (see
+    // [`BestOpenIterate`]).
+    let mut best_open: Option<BestOpenIterate> = None;
 
     for epoch in 0..config.max_epochs {
         epochs_run = epoch + 1;
@@ -578,15 +726,22 @@ pub(super) fn run(
             revived_mask[atom] = true;
         }
         let mut accepted_mask = vec![false; k];
+        let mut next_alive = vec![false; k];
         for code in &next_codes {
             for (slot, &atom) in code.indices.iter().enumerate() {
                 let atom = atom as usize;
-                if code.codes[slot] != 0.0 && revived_mask[atom] {
+                if code.codes[slot] == 0.0 {
+                    continue;
+                }
+                next_alive[atom] = true;
+                if revived_mask[atom] {
                     accepted_mask[atom] = true;
                 }
             }
         }
         accepted_births = accepted_mask.iter().filter(|accepted| **accepted).count();
+        let next_live_atoms = next_alive.iter().filter(|&&alive| alive).count();
+        let support_saturated = live_support.observe(next_live_atoms);
 
         // Rejected residual-row proposals are dormant capacity, not trained
         // model parameters. Null them before measuring/adopting the next state so
@@ -617,8 +772,10 @@ pub(super) fn run(
         // any typed non-convergence) is on the same line.
         log::warn!(
             "[SAE epoch {}/{}] ev={:.6} improve={:.3e} ev_resid={:.3e} decoder_resid={:.3e} \
-             routing_resid={:.3e} births={} revived={} refresh_s={:.2} \
-             route_s={:.2} elapsed_s={:.1} max_component={} cg_columns={} device_cols={} \
+             routing_resid={:.3e} births={} revived={} live={}/{} no_growth={} \
+             support_saturated={} refresh_s={:.2} route_s={:.2} elapsed_s={:.1} \
+             mean_degree={:.1} giant_fraction={:.4} max_component={} \
+             cg_columns={} cg_iterations={} device_cols={} \
              cg_nonconverged={} cg_kappa_bound={:?} cg_relative_residual={:.3e}",
             epochs_run,
             config.max_epochs,
@@ -629,11 +786,18 @@ pub(super) fn run(
             routing_residual,
             accepted_births,
             revived_atoms.len(),
+            next_live_atoms,
+            live_support.high_water,
+            live_support.rounds_without_growth,
+            support_saturated,
             refresh_secs,
             route_secs,
             fit_start.elapsed().as_secs_f64(),
+            decoder_solve_stats.mean_cofiring_degree,
+            decoder_solve_stats.giant_component_fraction,
             decoder_solve_stats.max_component_size,
             decoder_solve_stats.cg_columns,
+            decoder_solve_stats.cg_iterations,
             decoder_solve_stats.device_refresh_columns,
             decoder_solve_stats.cg_nonconverged_columns,
             decoder_solve_stats.cg_kappa_bound,
@@ -646,10 +810,12 @@ pub(super) fn run(
         // still-climbing objective — or a failed linear subsolve — is a genuine
         // non-convergence error (arm 3, below).
         //
-        // Structure must be settled and the subsolve sound for BOTH arms: a
-        // proposed dead-atom birth is work only when it entered the canonical
-        // routing, and raw normal-equation convergence alone cannot certify a
-        // model because unit projection and rerouting happen afterward.
+        // An absolute certificate still requires zero accepted births. The open
+        // arm additionally admits fixed-cardinality birth swaps only after live
+        // support has stopped setting new highs for a full confirmation window;
+        // the independent objective window below must plateau too. Raw
+        // normal-equation convergence alone cannot certify a model because unit
+        // projection and rerouting happen afterward.
         let numerically_sound = decoder_solve_stats.cg_nonconverged_columns == 0
             && decoder_solve_stats.dense_factorization_failures == 0
             && decoder_solve_stats.cg_relative_residual
@@ -664,40 +830,9 @@ pub(super) fn run(
             && decoder_residual <= fixed_point_tol
             && routing_residual <= fixed_point_tol;
 
-        // Arm 2 book-keeping: captured-fraction EV plateau. A round is stationary
-        // when it captured a negligible fraction of the total EV climb since entry
-        // (scale-free, so it fires wherever the achievable plateau sits). The
-        // gauge-invariant OBJECTIVE is the convergence criterion; the decoder-gauge
-        // and routing residuals are recorded, not gated on — at K >> rank the
-        // spurious support directions rotate freely and the routing residual
-        // legitimately cannot close. Reset on any non-stationary / unsettled /
-        // numerically-unsound round so a still-climbing objective can never be
-        // laundered as a plateau.
-        let round_improvement = improve.max(0.0);
-        let total_improvement = (next_ev - entry_ev).max(0.0);
-        let captured_fraction = if total_improvement > f64::MIN_POSITIVE {
-            round_improvement / total_improvement
-        } else {
-            0.0
-        };
-        let objective_plateaued = ev_residual <= fixed_point_tol
-            || captured_fraction < LINEAR_EV_PLATEAU_FRACTION;
-        // A round is STATIONARY when the structure is settled, the subsolve sound,
-        // and the objective plateaued. Confirm a best-effort plateau on MIN_ROUNDS
-        // stationary rounds within the trailing window (tolerating one up-swing of
-        // the routing limit cycle; see LINEAR_EV_PLATEAU_WINDOW). `epoch > 0` skips
-        // the first post-entry round, whose captured fraction is against a
-        // still-forming denominator.
-        let stationary =
-            epoch > 0 && structure_settled && numerically_sound && objective_plateaued;
-        plateau_flags.push_back(stationary);
-        while plateau_flags.len() > LINEAR_EV_PLATEAU_WINDOW {
-            plateau_flags.pop_front();
-        }
-        let best_effort_open =
-            plateau_flags.iter().filter(|&&s| s).count() >= LINEAR_EV_PLATEAU_MIN_ROUNDS;
-
-        if certified_fixed_point || best_effort_open {
+        // Arm 1 returns the state it just certified: every residual closed, so it
+        // IS the fixed point and there is nothing better to look for.
+        if certified_fixed_point {
             let (indices, code_mat) = pack_codes(&certified_codes, n, s);
             return Ok(SparseDictIterate {
                 decoder: certified_decoder,
@@ -711,7 +846,77 @@ pub(super) fn run(
                 decoder_fixed_point_residual: decoder_residual,
                 routing_residual,
                 inner_tolerance: config.tolerance,
-                certified: certified_fixed_point,
+                accepted_births,
+                live_atom_high_water: live_support.high_water,
+                support_saturated,
+                certified: true,
+            });
+        }
+
+        // Arm 2 book-keeping. The state whose transition was just measured is the
+        // candidate the open arm would hand back, so record it whenever it is the
+        // best one seen and score the plateau on that running best (see
+        // [`EvPlateau`] / [`BestOpenIterate`]). The gauge-invariant OBJECTIVE is
+        // the convergence criterion; the decoder-gauge and routing residuals are
+        // recorded, not gated on — at K >> rank the spurious support directions
+        // rotate freely and the routing residual legitimately cannot close.
+        if best_open
+            .as_ref()
+            .is_none_or(|best| certified_ev > best.explained_variance)
+        {
+            best_open = Some(BestOpenIterate {
+                decoder: certified_decoder,
+                codes: certified_codes,
+                explained_variance: certified_ev,
+                ev_residual,
+                decoder_residual,
+                routing_residual,
+                accepted_births,
+                support_saturated,
+                decoder_solve_stats,
+            });
+        }
+        let objective_plateaued = ev_plateau.observe(certified_ev, ev_residual, fixed_point_tol);
+        // A round is STATIONARY when the structure is settled, the subsolve sound,
+        // and the achievable objective stopped improving. Confirm a best-effort
+        // plateau on MIN_ROUNDS stationary rounds within the trailing window
+        // (tolerating one up-swing of the routing limit cycle; see
+        // LINEAR_EV_PLATEAU_WINDOW). `epoch > 0` skips the first post-entry round,
+        // whose climb denominator is still forming.
+        let stationary = open_round_is_stationary(
+            epoch,
+            accepted_births,
+            support_saturated,
+            numerically_sound,
+            objective_plateaued,
+        );
+        plateau_flags.push_back(stationary);
+        while plateau_flags.len() > LINEAR_EV_PLATEAU_WINDOW {
+            plateau_flags.pop_front();
+        }
+        let best_effort_open =
+            plateau_flags.iter().filter(|&&s| s).count() >= LINEAR_EV_PLATEAU_MIN_ROUNDS;
+
+        if best_effort_open {
+            let best = best_open
+                .expect("a confirmed plateau has observed at least one returnable round");
+            let (indices, code_mat) = pack_codes(&best.codes, n, s);
+            return Ok(SparseDictIterate {
+                decoder: best.decoder,
+                indices,
+                codes: code_mat,
+                epochs: epochs_run,
+                active: s,
+                score_route_stats,
+                decoder_solve_stats: best.decoder_solve_stats,
+                inner_ev_residual: best.ev_residual,
+                decoder_fixed_point_residual: best.decoder_residual,
+                routing_residual: best.routing_residual,
+                inner_tolerance: config.tolerance,
+                accepted_births: best.accepted_births,
+                live_atom_high_water: live_support.high_water,
+                support_saturated: best.support_saturated,
+                certified: false,
             });
         }
         codes = std::mem::take(&mut next_codes);
@@ -731,6 +936,18 @@ pub(super) fn run(
         decoder_nonconverged_columns: decoder_solve_stats.cg_nonconverged_columns,
         decoder_factorization_failures: decoder_solve_stats.dense_factorization_failures,
     })
+}
+
+fn live_atom_count(codes: &[SparseCode], k: usize) -> usize {
+    let mut alive = vec![false; k];
+    for code in codes {
+        for (slot, &atom) in code.indices.iter().enumerate() {
+            if code.codes[slot] != 0.0 {
+                alive[atom as usize] = true;
+            }
+        }
+    }
+    alive.iter().filter(|&&is_alive| is_alive).count()
 }
 
 /// The unified **linear fast kernel** (design gam#2232, Increment 2, plug points
@@ -1226,6 +1443,9 @@ pub fn run_linear_reml_schedule(
                 outer_tolerance: tolerance,
                 selected_rho: f64::INFINITY,
                 outer_iterations: 0,
+                accepted_births: 0,
+                live_atom_high_water: 0,
+                support_saturated: false,
                 certified: true,
             },
             active,
@@ -1414,6 +1634,7 @@ fn schedule_fit_from_iterate(
         None,
     )?;
     let final_ev = explained_variance(x, &final_codes, fit.decoder.view());
+    let final_live_atoms = live_atom_count(&final_codes, config.n_atoms);
     let (indices, codes) = pack_codes(&final_codes, n, s);
     Ok(SparseDictFit {
         convergence: SparseDictConvergence {
@@ -1427,6 +1648,9 @@ fn schedule_fit_from_iterate(
             outer_tolerance,
             selected_rho,
             outer_iterations,
+            accepted_births: fit.accepted_births,
+            live_atom_high_water: fit.live_atom_high_water.max(final_live_atoms),
+            support_saturated: fit.support_saturated,
             certified,
         },
         decoder: fit.decoder,
@@ -2203,9 +2427,9 @@ pub(super) fn solve_decoder(
 /// serial refresh next to 13.9 s of routed device compute, #1017). The block
 /// solve advances all columns together off one CSR traversal per iteration
 /// ([`pcg_multi_core`]), each column keeping its own `alpha`/`beta`/stopping
-/// state, and each column's iterates are BIT-IDENTICAL to the historical
-/// per-column `cg_solve` (same summation order everywhere; pinned in
-/// `gam_linalg::pcg` and by the block tests below).
+/// state. The CPU and device backends are bit-identical to one another from the
+/// same cached decoder seed; both use the same Jacobi-preconditioned recurrence
+/// and unchanged residual certificate.
 fn solve_component(
     decoder: &mut Array2<f32>,
     eq: &DecoderNormalEq,
@@ -2279,27 +2503,32 @@ fn solve_component(
     let diag_ridge: Vec<f64> = comp.iter().map(|&a| eq.diag[a] + ridge).collect();
     let residual_tolerance = decoder_solve_relative_tolerance();
 
-    // A-priori spectral bounds of the component operator M = A_sub + ρI via
-    // Gershgorin discs over the stored (in-component) co-firing entries. M is SPD
-    // with M ⪰ ρI, so the true smallest eigenvalue is at least the regularisation
-    // floor; Gershgorin caps the largest. Their ratio is a rigorous condition
-    // bound κ̂ ≥ κ(M) that sets a DERIVED iteration cap, so CG cannot spin
-    // unbounded on a near-singular giant block (near-duplicate atoms in an
-    // overcomplete dictionary over a low-dim post-peel space).
+    // A-priori spectral bounds of the symmetrically Jacobi-scaled operator
+    // D⁻¹/² M D⁻¹/², where M = A_sub + ρI and D = diag(M). This is the SPD
+    // operator whose spectrum controls the PCG recurrence below. Gershgorin
+    // bounds its largest eigenvalue. The smallest eigenvalue is bounded both
+    // by Gershgorin and by M ⪰ ρI ⇒ D⁻¹/²MD⁻¹/² ⪰ ρ/max(D) I. Their ratio is
+    // therefore a genuine upper condition bound for the actual recurrence,
+    // not the stale unpreconditioned bound.
     let mut lambda_max_bound = 0.0f64;
     let mut lambda_min_bound = f64::INFINITY;
-    for &a in comp {
+    let max_diagonal = diag_ridge.iter().copied().fold(0.0f64, f64::max);
+    for (i, &a) in comp.iter().enumerate() {
         let mut off_abs = 0.0f64;
         for &(nb, val) in &neigh[a] {
-            if local.contains_key(&(nb as usize)) {
-                off_abs += val.abs();
+            if let Some(&j) = local.get(&(nb as usize)) {
+                off_abs += val.abs() / (diag_ridge[i] * diag_ridge[j]).sqrt();
             }
         }
-        let center = eq.diag[a] + ridge;
-        lambda_max_bound = lambda_max_bound.max(center + off_abs);
-        lambda_min_bound = lambda_min_bound.min(center - off_abs);
+        lambda_max_bound = lambda_max_bound.max(1.0 + off_abs);
+        lambda_min_bound = lambda_min_bound.min(1.0 - off_abs);
     }
-    let lambda_min = lambda_min_bound.max(ridge).max(DEAD_DENOM);
+    let ridge_floor = if max_diagonal > 0.0 {
+        ridge / max_diagonal
+    } else {
+        0.0
+    };
+    let lambda_min = lambda_min_bound.max(ridge_floor).max(DEAD_DENOM);
     let kappa_bound = (lambda_max_bound / lambda_min).max(1.0);
     stats.record_kappa_bound(kappa_bound);
     let root = kappa_bound.sqrt();
@@ -2345,28 +2574,34 @@ fn solve_component(
             .collect()
     };
 
-    // Column-tile width: the block CG holds four dense `m × tile` f64 buffers
-    // (`X`, `R`, `P`, `AP`), so cap the tile at the footprint of the caller's
+    // Column-tile width: the block PCG holds five dense `m × tile` f64 buffers
+    // (`X`, `R`, `Z`, `P`, `AP`), so cap the tile at the footprint of the caller's
     // own `K × P` normal-equation right-hand side — the refresh never
     // allocates beyond the memory scale the accumulated normal equations
     // already committed to (SPEC: never OOM on reasonably-resourced machines).
     let k_total = eq.diag.len();
-    let tile_columns = ((k_total * p) / (4 * m)).max(1);
+    let tile_columns = ((k_total * p) / (5 * m)).max(1);
 
     for tile in live_columns.chunks(tile_columns) {
         let t = tile.len();
         let mut rhs_block = Array2::<f64>::zeros((m, t));
+        let mut initial_block = Array2::<f64>::zeros((m, t));
         {
             let rhs_slice = rhs_block
                 .as_slice_mut()
                 .expect("freshly allocated block is standard layout");
+            let initial_slice = initial_block
+                .as_slice_mut()
+                .expect("freshly allocated block is standard layout");
             rhs_slice
                 .par_chunks_mut(t)
+                .zip(initial_slice.par_chunks_mut(t))
                 .enumerate()
-                .for_each(|(i, row)| {
+                .for_each(|(i, (rhs_row, initial_row))| {
                     let a = comp[i];
                     for (j, &c) in tile.iter().enumerate() {
-                        row[j] = eq.b[[a, c]];
+                        rhs_row[j] = eq.b[[a, c]];
+                        initial_row[j] = decoder[[a, c]] as f64;
                     }
                 });
         }
@@ -2378,6 +2613,7 @@ fn solve_component(
             &csr_vals,
             &diag_ridge,
             rhs_block,
+            initial_block,
             residual_tolerance,
             cap,
         )?;
@@ -2438,9 +2674,11 @@ fn solve_block_cg(
     csr_vals: &[f64],
     diag_ridge: &[f64],
     rhs_block: Array2<f64>,
+    initial_block: Array2<f64>,
     residual_tolerance: f64,
     cap: usize,
 ) -> Result<(Vec<PcgCoreResult>, Array2<f64>, bool), String> {
+    let inverse_diagonal: Vec<f64> = diag_ridge.iter().map(|&d| d.recip()).collect();
     #[cfg(target_os = "linux")]
     {
         if let Some(mut device) = super::decoder_gpu::DeviceBlockCgBackend::try_new(
@@ -2450,6 +2688,8 @@ fn solve_block_cg(
             csr_vals,
             diag_ridge,
             &rhs_block,
+            &initial_block,
+            &inverse_diagonal,
         )? {
             let results = pcg_multi_core(&mut device, residual_tolerance, cap, true);
             let solution = device.take_solution()?;
@@ -2488,7 +2728,8 @@ fn solve_block_cg(
             }
         });
     };
-    let mut backend = CpuPcgBlockBackend::new(rhs_block, apply);
+    let mut backend =
+        CpuPcgBlockBackend::new(rhs_block, initial_block, inverse_diagonal, apply);
     let results = pcg_multi_core(&mut backend, residual_tolerance, cap, true);
     let solution = backend.into_solution();
     Ok((results, solution, false))
@@ -2796,14 +3037,346 @@ fn pack_codes(codes: &[SparseCode], n: usize, s: usize) -> (Array2<u32>, Array2<
 #[cfg(test)]
 mod exact_solve_tests {
     use super::{
-        CgStop, DecoderNormalEq, cg_solve, explained_variance, kappa_from_cg_tridiagonal,
-        pcg_multi_core, route_and_code_all, solve_decoder, solve_decoder_with_routability_gate,
+        CgStop, DecoderNormalEq, EvPlateau, LINEAR_EV_PLATEAU_FRACTION,
+        LINEAR_SUPPORT_SATURATION_ROUNDS, LiveSupportGrowth, SparseDictionaryError, cg_solve,
+        explained_variance, kappa_from_cg_tridiagonal, open_round_is_stationary, pcg_multi_core,
+        route_and_code_all, run, solve_decoder, solve_decoder_with_routability_gate,
     };
     use crate::sparse_dict::codes::SparseCode;
     use crate::sparse_dict::scoring::TileScorer;
     use crate::sparse_dict::{SparseDictConfig, fit_sparse_dictionary};
     use ndarray::{Array2, ArrayView2};
     use std::collections::HashMap;
+
+    /// The plateau detector decides whether a still-open fit may be returned at
+    /// all, so its failure mode is a model minted from a non-converged iterate.
+    /// Drive it directly over the trajectory shapes that separate "the achievable
+    /// objective stopped improving" from "the objective is still moving".
+    ///
+    /// The detector is only half the contract: because it certifies the running
+    /// MAXIMUM, `run` must hand back the iterate attaining that maximum. That
+    /// coupling is what makes the limit-cycle case below sound rather than a
+    /// licence to return an arbitrary cycle point.
+    #[test]
+    fn ev_plateau_certifies_the_achievable_objective_not_a_round_2396() {
+        // No climb at all and a trajectory that falls hard every round. This is
+        // exactly the pair of conditions a per-round upward-share ratio reads as
+        // "settled" — the upward share is identically zero and the current EV sits
+        // below entry — and it is the one case where there is nothing better than
+        // the entry state to hand back, so it must stay a non-convergence.
+        let mut falling = EvPlateau::new(0.90);
+        for candidate_ev in [0.85_f64, 0.80, 0.75, 0.70] {
+            assert!(
+                !falling.observe(candidate_ev, 0.05, 1.0e-12),
+                "a fit that never beat its entry EV and is still moving has nothing \
+                 to return (ev={candidate_ev})"
+            );
+        }
+
+        // The limit cycle: the fit climbs, then oscillates. The down-swing IS a
+        // plateau of the achievable objective — no further high is being set — and
+        // the iterate handed back is the 0.90 one that attained it, not the 0.80
+        // the confirming round happens to sit on.
+        let mut cycling = EvPlateau::new(0.50);
+        assert!(!cycling.observe(0.90, 0.40, 1.0e-12), "the climb itself");
+        assert!(
+            cycling.observe(0.80, 0.10, 1.0e-12),
+            "a cycle that sets no new high has exhausted the achievable objective"
+        );
+        assert_eq!(cycling.best_ev, 0.90, "the running max never regresses");
+
+        // A new high that is negligible against the climb already achieved is a
+        // plateau; the detector is scale-free, not thresholded on an absolute EV.
+        let mut settled = EvPlateau::new(0.50);
+        assert!(!settled.observe(0.90, 0.40, 1.0e-12), "the climb itself");
+        let negligible = 0.40 * LINEAR_EV_PLATEAU_FRACTION / 10.0;
+        assert!(
+            settled.observe(0.90 + negligible, negligible, 1.0e-12),
+            "a new high negligible against the climb is a plateau"
+        );
+
+        // A still-climbing fit is never a plateau, which is the property the
+        // detector existed for in the first place.
+        let mut climbing = EvPlateau::new(0.10);
+        assert!(!climbing.observe(0.40, 0.30, 1.0e-12));
+        assert!(!climbing.observe(0.60, 0.20, 1.0e-12));
+        assert!(!climbing.observe(0.75, 0.15, 1.0e-12));
+
+        // With no climb to divide by, only a genuine numerical standstill counts —
+        // and that standstill is arm 1's own test, so the open arm adds nothing
+        // unsound there.
+        let mut flat = EvPlateau::new(0.30);
+        assert!(flat.observe(0.30, 0.0, 1.0e-12), "an exact standstill");
+        assert!(
+            !flat.observe(0.29, 1.0e-2, 1.0e-12),
+            "no climb to compare against means a moving round is not a plateau"
+        );
+    }
+
+    /// Over-complete rows that no finite unit-atom dictionary reproduces exactly:
+    /// each row mixes two of the `p` axes at a ratio that advances deterministically
+    /// row to row, so the top-`s` routing keeps re-partitioning a continuum of
+    /// directions and the alternation churns instead of landing on a fixed point.
+    fn over_complete_rows(n: usize, p: usize) -> Array2<f32> {
+        let mut x = Array2::<f32>::zeros((n, p));
+        for row in 0..n {
+            let first = row % p;
+            let second = (row * 5 + 3) % p;
+            let share = ((row * 37) % 101) as f32 / 101.0;
+            x[[row, first]] += 1.0 - share;
+            x[[row, second]] += share;
+        }
+        x
+    }
+
+    /// #2396 instrument: the production budget→EV trace of the over-complete inner
+    /// alternation, which is the data behind the trajectory plot on the issue.
+    ///
+    /// Each epoch budget too short to confirm a plateau reports, in its typed
+    /// non-convergence, the EV its trajectory had reached and the three
+    /// fixed-point residuals at that point — so sweeping the budget enumerates the
+    /// trajectory itself. The budget that confirms reports the EV of the model
+    /// actually returned. The contract this data supports is asserted by
+    /// `open_arm_returns_the_best_iterate_its_trajectory_reached_2396`; this test
+    /// only prints, so the numbers in the write-up can be reproduced exactly.
+    #[test]
+    fn zz_measure_2396_open_arm_budget_ev_trace() {
+        let (k, p, n, s) = (64usize, 16usize, 400usize, 2usize);
+        let x = over_complete_rows(n, p);
+        for max_epochs in 2..=14usize {
+            let config = SparseDictConfig {
+                n_atoms: k,
+                active: s,
+                minibatch: 128,
+                max_epochs,
+                score_tile: 16,
+                code_ridge: 1.0e-6,
+                decoder_ridge: 1.0e-6,
+                tolerance: 1.0e-9,
+                score_mode: gam_gpu::GpuPolicy::Off,
+            };
+            match run(x.view(), &config) {
+                Err(SparseDictionaryError::InnerNonConvergence {
+                    explained_variance,
+                    ev_residual,
+                    decoder_fixed_point_residual,
+                    routing_residual,
+                    ..
+                }) => eprintln!(
+                    "[#2396 trace] budget={max_epochs} status=open_unconfirmed \
+                     ev={explained_variance:.12} ev_resid={ev_residual:.6e} \
+                     decoder_resid={decoder_fixed_point_residual:.6e} \
+                     routing_resid={routing_residual:.6e}"
+                ),
+                Err(other) => panic!("unexpected typed failure at budget {max_epochs}: {other}"),
+                Ok(iterate) => {
+                    let scorer = TileScorer::new(iterate.active, config.score_tile);
+                    let codes = route_and_code_all(
+                        x.view(),
+                        iterate.decoder.view(),
+                        &scorer,
+                        iterate.active,
+                        config.code_ridge,
+                        config.minibatch,
+                        config.score_mode,
+                        None,
+                    )
+                    .expect("re-route the returned decoder");
+                    eprintln!(
+                        "[#2396 trace] budget={max_epochs} status=returned certified={} \
+                         ev={:.12} ev_resid={:.6e} decoder_resid={:.6e} routing_resid={:.6e} \
+                         births={} saturated={}",
+                        iterate.certified,
+                        explained_variance(x.view(), &codes, iterate.decoder.view()),
+                        iterate.inner_ev_residual,
+                        iterate.decoder_fixed_point_residual,
+                        iterate.routing_residual,
+                        iterate.accepted_births,
+                        iterate.support_saturated,
+                    );
+                    break;
+                }
+            }
+        }
+    }
+
+    /// #2396 — the other half of the open-arm contract. [`EvPlateau`] certifies
+    /// that the ACHIEVABLE objective stopped improving, which is a claim about the
+    /// running maximum, so the model returned has to ATTAIN that maximum.
+    ///
+    /// Sweep the epoch budget on an over-complete fit. Every budget too short to
+    /// confirm a plateau reports, in its typed non-convergence, the EV its
+    /// trajectory had reached — so the sweep enumerates points the trajectory
+    /// actually passed through. The budget that does confirm must then return a
+    /// model no worse than any of them. Handing back the confirming round's own
+    /// iterate fails this exactly when the limit cycle confirms on a down-swing,
+    /// which is the case the plateau rule is there to admit.
+    #[test]
+    fn open_arm_returns_the_best_iterate_its_trajectory_reached_2396() {
+        let (k, p, n, s) = (64usize, 16usize, 400usize, 2usize);
+        let x = over_complete_rows(n, p);
+        let mut trajectory: Vec<(usize, f64)> = Vec::new();
+        let mut returned: Option<(usize, f64, bool)> = None;
+
+        for max_epochs in 2..=14usize {
+            let config = SparseDictConfig {
+                n_atoms: k,
+                active: s,
+                minibatch: 128,
+                max_epochs,
+                score_tile: 16,
+                code_ridge: 1.0e-6,
+                decoder_ridge: 1.0e-6,
+                tolerance: 1.0e-9,
+                score_mode: gam_gpu::GpuPolicy::Off,
+            };
+            match run(x.view(), &config) {
+                Err(SparseDictionaryError::InnerNonConvergence {
+                    explained_variance: reached,
+                    ..
+                }) => trajectory.push((max_epochs, reached)),
+                Err(other) => panic!("unexpected typed failure at budget {max_epochs}: {other}"),
+                Ok(iterate) => {
+                    // Re-route against the returned decoder, exactly as the public
+                    // entry scores a fit, so this is the EV of the returned MODEL
+                    // rather than a number the optimizer carried along.
+                    let scorer = TileScorer::new(iterate.active, config.score_tile);
+                    let codes = route_and_code_all(
+                        x.view(),
+                        iterate.decoder.view(),
+                        &scorer,
+                        iterate.active,
+                        config.code_ridge,
+                        config.minibatch,
+                        config.score_mode,
+                        None,
+                    )
+                    .expect("re-route the returned decoder");
+                    let ev = explained_variance(x.view(), &codes, iterate.decoder.view());
+                    returned = Some((max_epochs, ev, iterate.certified));
+                    break;
+                }
+            }
+        }
+
+        let (budget, returned_ev, certified) =
+            returned.expect("the over-complete fit must confirm a plateau within the sweep");
+        assert!(
+            !trajectory.is_empty(),
+            "no budget was too short to confirm, so the sweep never observed the \
+             trajectory it is comparing against (returned at budget {budget})"
+        );
+        for &(short_budget, reached) in &trajectory {
+            assert!(
+                returned_ev >= reached,
+                "the returned model (EV {returned_ev:.9}, budget {budget}, \
+                 certified={certified}) is worse than a state its own trajectory \
+                 passed through (EV {reached:.9} at budget {short_budget}); a \
+                 plateau certified on the running maximum must return the iterate \
+                 that attains it"
+            );
+        }
+    }
+
+    /// #2400 — the churning-structure arm, driven through the production decision
+    /// rather than replayed. A dictionary at `K ≫ N·s` accepts residual-row births
+    /// every single round forever, so `accepted_births == 0` never arrives and the
+    /// open arm would otherwise be unreachable no matter how settled the objective
+    /// is. `LiveSupportGrowth` is what separates that from real recruitment, and
+    /// `open_round_is_stationary` is where the two meet.
+    ///
+    /// Feed it a fixed-cardinality swap sequence — positive births, constant live
+    /// support, objective plateaued — and require that the round is refused for the
+    /// entire confirmation window and admitted only after it, and that a single
+    /// genuinely new live atom withdraws the admission again.
+    #[test]
+    fn churning_births_are_admitted_only_after_the_support_saturates_2400() {
+        const LIVE: usize = 40;
+        let mut support = LiveSupportGrowth::new(LIVE);
+
+        // Fixed-cardinality swaps: three proposals fire every round, live support
+        // never moves. Structure is NOT settled, so admission rests entirely on
+        // saturation — and saturation must take the full window.
+        for round in 1..LINEAR_SUPPORT_SATURATION_ROUNDS {
+            let saturated = support.observe(LIVE);
+            assert!(
+                !open_round_is_stationary(round, 3, saturated, true, true),
+                "births are still churning and support has not saturated at round \
+                 {round}; admitting here would mint a model from structure the fit \
+                 has not finished recruiting"
+            );
+        }
+        let saturated = support.observe(LIVE);
+        assert!(
+            saturated,
+            "the full window of fixed-cardinality swaps must saturate the support"
+        );
+        assert!(
+            open_round_is_stationary(LINEAR_SUPPORT_SATURATION_ROUNDS, 3, saturated, true, true),
+            "once support has set no new high for the full window the swaps are \
+             replacements on a fixed support, and a plateaued objective is admissible"
+        );
+
+        // Real recruitment withdraws it immediately: one new live atom resets the
+        // window, so the very next churning round is refused again.
+        let after_growth = support.observe(LIVE + 1);
+        assert!(
+            !after_growth,
+            "a genuinely new live atom resets saturation immediately"
+        );
+        assert!(
+            !open_round_is_stationary(
+                LINEAR_SUPPORT_SATURATION_ROUNDS + 1,
+                3,
+                after_growth,
+                true,
+                true
+            ),
+            "recruitment restarts the confirmation window; the open arm must refuse \
+             until the support has been quiet for a full window again"
+        );
+
+        // Saturation alone is never enough: the objective test and the subsolve
+        // are independent and each can veto on its own.
+        assert!(
+            !open_round_is_stationary(9, 3, true, true, false),
+            "a still-improving objective is never stationary, saturated or not"
+        );
+        assert!(
+            !open_round_is_stationary(9, 3, true, false, true),
+            "an unsound linear subsolve is never stationary"
+        );
+        // ...and the first post-entry round is skipped regardless, since its climb
+        // denominator has not formed yet.
+        assert!(
+            !open_round_is_stationary(0, 0, true, true, true),
+            "the entry round cannot be evidence of a plateau"
+        );
+    }
+
+    #[test]
+    fn live_support_growth_distinguishes_recruitment_from_fixed_cardinality_swaps_2400() {
+        let mut support = LiveSupportGrowth::new(12);
+
+        for stalled_round in 1..LINEAR_SUPPORT_SATURATION_ROUNDS {
+            assert!(
+                !support.observe(12),
+                "support must not saturate before the full confirmation window; \
+                 stalled_round={stalled_round}"
+            );
+        }
+        assert!(
+            support.observe(12),
+            "fixed-cardinality birth swaps must saturate after the full window"
+        );
+
+        assert!(
+            !support.observe(13),
+            "a genuinely new live atom must reset saturation immediately"
+        );
+        assert_eq!(support.high_water, 13);
+        assert_eq!(support.rounds_without_growth, 0);
+    }
 
     /// Full-batch reference assembly of the sparse decoder normal equations
     /// `(A + ρI) D = B` from the fixed codes/supports (`ρ` is applied at solve
@@ -3195,6 +3768,34 @@ mod exact_solve_tests {
     }
 
     #[test]
+    fn retained_decoder_seed_removes_repeated_refresh_work() {
+        let (k, p) = (64usize, 8usize);
+        let ridge = 1.0e-5f64;
+        let eq = connected_tridiagonal_eq(k, p);
+        let mut decoder = Array2::<f32>::zeros((k, p));
+
+        let cold = solve_decoder(&mut decoder, &eq, ridge, gam_gpu::GpuPolicy::Off)
+            .expect("cold decoder refresh");
+        let warm = solve_decoder(&mut decoder, &eq, ridge, gam_gpu::GpuPolicy::Off)
+            .expect("warm decoder refresh");
+
+        assert_eq!(cold.cg_nonconverged_columns, 0);
+        assert_eq!(warm.cg_nonconverged_columns, 0);
+        assert!(
+            warm.cg_iterations < cold.cg_iterations,
+            "the retained decoder must reduce exact repeated-system work: cold={} warm={}",
+            cold.cg_iterations,
+            warm.cg_iterations
+        );
+        assert!(
+            warm.cg_relative_residual <= warm.cg_residual_stop,
+            "the warm solve must satisfy the same residual certificate: residual={:.3e} stop={:.3e}",
+            warm.cg_relative_residual,
+            warm.cg_residual_stop
+        );
+    }
+
+    #[test]
     fn direct_solve_threshold_tracks_percolation_scale_not_a_constant() {
         use super::direct_solve_size_threshold;
         // The exact-solve ceiling is the Erdős–Rényi critical-component scale
@@ -3233,6 +3834,8 @@ mod exact_solve_tests {
         }
         let mut backend = gam_linalg::pcg::CpuPcgBlockBackend::new(
             rhs,
+            Array2::<f64>::zeros((eigenvalues.len(), 1)),
+            vec![1.0; eigenvalues.len()],
             |pblk: &Array2<f64>, apblk: &mut Array2<f64>| {
                 let out = matvec(pblk.column(0).to_owned().as_slice().expect("contiguous"));
                 for (i, slot) in apblk.column_mut(0).iter_mut().enumerate() {

@@ -1,20 +1,18 @@
 [project]
 name = "garminconnect"
-version = "0.3.6"
+version = "0.3.7"
 description = "Python 3 API wrapper for Garmin Connect"
 authors = [
     { name = "Ron Klinkien", email = "ron@cyberjunky.nl" },
 ]
 dependencies = [
-    "curl_cffi>=0.6",
-    "requests>=2.28",
+    "curl_cffi>=0.15.0",
+    "requests>=2.33.0",
     "ua-generator>=1.0",
 ]
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: MIT License",
@@ -47,10 +45,14 @@ dev = [
     "matplotlib",
 ]
 workout = [
-    "pydantic>=2.0.0",
+    "pydantic>=2.4.0",
 ]
 typed = [
-    "pydantic>=2.0.0",
+    "pydantic>=2.4.0",
+]
+security = [
+    "bandit[toml]",
+    "pip-audit",
 ]
 linting = [
     "black[jupyter]",
@@ -78,7 +80,10 @@ requires = [
 build-backend = "pdm.backend"
 
 [tool.pytest.ini_options]
-addopts = "--ignore=__pypackages__ --ignore-glob=*.yaml"
+addopts = "--ignore=__pypackages__ --ignore-glob=*.yaml -m 'not integration'"
+markers = [
+    "integration: requires a real Garmin account or a private VCR recording",
+]
 
 [tool.mypy]
 ignore_missing_imports = true
@@ -92,6 +97,7 @@ module = [
     "test_garmin_unit",
     "test_retry_decorator",
     "test_workout_constants",
+    "test_strength_workout",
     "test_login_recovery",
     "test_token_permissions",
     "test_widget_mfa",
@@ -259,6 +265,7 @@ ignore = [
     "D203",
     "D213",
     "PLR0913",
+    "PLR0917",
     "PLR2004",
     "PLR0912",
     "PLR0915",
@@ -311,6 +318,10 @@ unfixable = []
     "PERF203",
 ]
 "test_strategy.py" = [
+    "T20",
+    "D103",
+]
+"scripts/*" = [
     "T20",
     "D103",
 ]

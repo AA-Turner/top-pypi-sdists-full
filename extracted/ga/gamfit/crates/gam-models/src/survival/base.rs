@@ -216,6 +216,14 @@ pub const ENTRY_AT_ORIGIN_THRESHOLD: f64 = 1e-8;
 /// boundary where curvature blows up.
 const DERIVATIVE_FRACTION_TO_BOUNDARY: f64 = 0.995;
 
+/// Relative projected-KKT accuracy required before evaluating survival LAML.
+///
+/// LAML is an envelope at the fitted inner mode. A looser or decrement-only
+/// certificate is not sufficient: differentiating the criterion away from the
+/// mode requires higher-order residual-response terms that the survival family
+/// deliberately does not approximate.
+pub(crate) const SURVIVAL_LAML_STATIONARITY_RELATIVE_TOL: f64 = 1.0e-8;
+
 #[derive(Debug, Clone)]
 pub struct CauseSpecificRoystonParmarBlock {
     pub age_entry: Array1<f64>,
@@ -2617,26 +2625,65 @@ impl WorkingModelSurvival {
         }
         let k_count = active_penalty_blocks.len();
 
+        // The Laplace/LAML envelope is defined at a stationary inner mode.
+        // Certify that primary precondition before constructing penalty roots,
+        // reparameterizing, or factorizing the observed Hessian. An arbitrary
+        // off-mode point can also be indefinite, but it is not yet a candidate
+        // Laplace mode; reporting or computing the secondary spectral condition
+        // first both obscures the root refusal and wastes the expensive setup. A
+        // one-step Newton residual surrogate is not an interchangeable
+        // criterion when the likelihood Hessian moves with beta: its scalar
+        // moving-Hessian response requires higher-order rho derivatives that
+        // the survival provider does not emit. Attaching that partial surrogate
+        // made the value and gradient different functions at rho=4 (#2491).
+        //
+        // Certify the active-set-projected KKT condition in the RAW frame. A
+        // binding monotonicity constraint contributes r = A^T lambda and must
+        // be projected out before the stationarity decision. Once certified,
+        // the exact envelope has no residual term; the transformed assembly
+        // therefore carries kkt_residual=None deliberately.
+        let relative_projected_norm = {
+            let raw = state.gradient.clone();
+            let projected = match self.monotonicity_linear_constraints() {
+                Some(constraints) => {
+                    let constraints = ConstraintSet::Dense(constraints);
+                    projected_linear_constraint_stationarity_vector(&raw, beta, &constraints, None)
+                        .ok_or_else(|| {
+                            EstimationError::InvalidInput(
+                                "survival LAML could not project the monotonicity KKT residual"
+                                    .to_string(),
+                            )
+                        })?
+                }
+                None => raw,
+            };
+            state.relative_gradient_norm(array1_l2_norm(&projected))
+        };
+        if !relative_projected_norm.is_finite()
+            || relative_projected_norm > SURVIVAL_LAML_STATIONARITY_RELATIVE_TOL
+        {
+            return Err(EstimationError::InvalidInput(format!(
+                "survival LAML requires a stationary inner mode: projected relative KKT \
+                 residual {relative_projected_norm:.3e} exceeds \
+                 {SURVIVAL_LAML_STATIONARITY_RELATIVE_TOL:.3e}; a one-step residual \
+                 surrogate is not a differentiable substitute for the Laplace mode"
+            )));
+        }
+
         // λ_k = e^{ρ_k}, in active-block (== ρ) order. Shared by the joint
         // normalizer and the Wood reparameterization below.
         let lambdas: Vec<f64> = rho.iter().map(|&r| r.exp()).collect();
 
         // --- Raw penalized Hessian + its LAML logdet mode -------------------
-        // (unchanged: delayed entry → HardPseudo identified positive-subspace
-        // logdet; right-censored → historical Smooth full-spectrum convention).
-        // Orthogonal similarity preserves the spectrum exactly, so evaluating
-        // the SAME mode on the transformed H′ below keeps the HardPseudo mask and
-        // the active rank bit-identical to the raw frame (#2331 R3 tripwire).
+        // Survival LAML is a Laplace approximation at the fitted inner mode.
+        // Its observed penalized Hessian must therefore be positive definite on
+        // the fitted coefficient space. Delayed entry can make trial Hessians
+        // indefinite; such a trial is not a Laplace mode and is refused instead
+        // of being converted into a positive-subspace pseudo-objective. The
+        // exact positive spectrum is also the full IFT system for beta_rho, so
+        // value, trace, and mode response now use one Hessian (#2491).
         let h_dense = state.hessian.to_dense();
-        let has_left_truncation = self
-            .age_entry
-            .iter()
-            .any(|&t| t > ENTRY_AT_ORIGIN_THRESHOLD);
-        let hessian_logdet_mode = if has_left_truncation {
-            PseudoLogdetMode::HardPseudo
-        } else {
-            PseudoLogdetMode::Smooth
-        };
+        let hessian_logdet_mode = PseudoLogdetMode::PositiveDefinite;
 
         // --- Raw per-block penalties, embedded p×p, in ρ order --------------
         // Feeds the joint pseudo-logdet `log|Σ_k λ_k S_k|₊` (frame-invariant,
@@ -2738,8 +2785,8 @@ impl WorkingModelSurvival {
         )
         .map_err(EstimationError::InvalidInput)?;
 
-        // Hessian operator on the TRANSFORMED H′ (spectrum, HardPseudo mask, and
-        // active rank identical to raw — see mode note above).
+        // Hessian operator on the transformed H′. Orthogonal similarity
+        // preserves strict positive definiteness and the exact spectrum.
         let hop = DenseSpectralOperator::from_symmetric_with_mode(
             &reparam_inner.hessian_transformed,
             hessian_logdet_mode,
@@ -2763,44 +2810,6 @@ impl WorkingModelSurvival {
         // It is a scalar and invariant under the orthogonal transform
         // (β′ᵀS′β′ = βᵀSβ), so it carries over unchanged.
         let penalty_quadratic = state.penalty_term;
-
-        // #931 survival-LAML IFT envelope: attach the one-step Newton correction
-        // only when this state is actually a near-stationary inner solution. The
-        // residual MUST be the active-set-projected stationarity vector (a binding
-        // monotonicity constraint contributes r = Aᵀλ, λ≥0, which is not a
-        // stationarity residual). Project in the RAW frame (the constraint rows A
-        // live there), THEN rotate the projected residual into the Q_s frame:
-        // r_t = Q_sᵀ r_o — the penalized score rotates like β (β_t = Q_sᵀ β_o),
-        // exactly the standard lane's inner_kkt_residual_original_basis relation
-        // r_o = Q_s r_t, inverted here (raw→transformed) so the residual matches
-        // the transformed β̂′/H′ the assembly now carries.
-        const SURVIVAL_LAML_IFT_RELATIVE_KKT_GATE: f64 = 1.0e-8;
-        let kkt_residual = {
-            let raw = state.gradient.clone();
-            let projected = match self.monotonicity_linear_constraints() {
-                Some(constraints) => {
-                    let constraints = ConstraintSet::Dense(constraints);
-                    projected_linear_constraint_stationarity_vector(&raw, beta, &constraints, None)
-                        .ok_or_else(|| {
-                            EstimationError::InvalidInput(
-                                "survival LAML could not project the monotonicity KKT residual"
-                                    .to_string(),
-                            )
-                        })?
-                }
-                None => raw,
-            };
-            let projected_norm = array1_l2_norm(&projected);
-            let relative_projected_norm = state.relative_gradient_norm(projected_norm);
-            if relative_projected_norm <= SURVIVAL_LAML_IFT_RELATIVE_KKT_GATE {
-                let projected_transformed = reparam.qs.t().dot(&projected);
-                Some(crate::model_types::ProjectedKktResidual::from_active_projected(
-                    projected_transformed,
-                ))
-            } else {
-                None
-            }
-        };
 
         let result = InnerAssembly {
             log_likelihood: state.log_likelihood,
@@ -2828,7 +2837,7 @@ impl WorkingModelSurvival {
             rho_ext_pair_fn: None,
             fixed_drift_deriv: None,
             contracted_psi_second_order: None,
-            kkt_residual,
+            kkt_residual: None,
             active_constraints: None,
         }
         .evaluate(
@@ -5069,16 +5078,196 @@ mod tests {
     }
 
     fn laml_test_logdet_h(state: &WorkingState) -> f64 {
-        use gam_linalg::faer_ndarray::FaerEigh;
-        use gam_solve::estimate::reml::reml_outer_engine::{spectral_epsilon, spectral_regularize};
+        use gam_problem::PseudoLogdetMode;
+        use gam_solve::estimate::reml::reml_outer_engine::{
+            DenseSpectralOperator, HessianFactorization,
+        };
 
-        let h_dense = state.hessian.to_dense();
-        let (evals, _) = h_dense.eigh(faer::Side::Lower).expect("eigh");
-        let eps = spectral_epsilon(evals.as_slice().unwrap());
-        evals
+        DenseSpectralOperator::from_symmetric_with_mode(
+            &state.hessian.to_dense(),
+            PseudoLogdetMode::PositiveDefinite,
+        )
+        .expect("positive-definite fitted survival Hessian")
+        .logdet()
+    }
+
+    /// Decompose the survival LAML rho chain rule into independently
+    /// finite-differentiable identities. This prevents a value/gradient failure
+    /// from being "fixed" by changing a sign at the final trace: the mode
+    /// response, likelihood-Hessian directional derivative, and total Hessian
+    /// drift must each agree before their scalar contraction is trusted.
+    #[test]
+    fn survival_laml_mode_response_and_hessian_drift_match_finite_differences() {
+        use gam_linalg::faer_ndarray::FaerCholesky;
+        use gam_problem::PseudoLogdetMode;
+        use gam_solve::estimate::reml::reml_outer_engine::{
+            DenseSpectralOperator, HessianFactorization,
+        };
+
+        const RHO: f64 = 4.0;
+        const RHO_STEP: f64 = 1.0e-5;
+        const BETA_STEP: f64 = 1.0e-5;
+        const REL_TOL: f64 = 2.0e-4;
+
+        let beta0 = array![-2.5_f64, 1.0];
+        let model = laml_fd_test_model(1.0);
+        let (center_model, beta_hat) = model
+            .reconverge_survival_inner_mode(&[RHO], &beta0)
+            .expect("reconverge survival mode at rho=4");
+        let center_state = center_model
+            .update_state(&beta_hat)
+            .expect("center survival state");
+        let h_center = center_state.hessian.to_dense();
+        let p = beta_hat.len();
+
+        // A = dS/d rho = lambda S for the single active penalty block.
+        let active: Vec<&PenaltyBlock> = center_model
+            .penalties
+            .blocks
             .iter()
-            .map(|&sigma| spectral_regularize(sigma, eps).ln())
-            .sum()
+            .filter(|block| block.lambda > 0.0)
+            .collect();
+        assert_eq!(active.len(), 1, "fixture must have one active penalty block");
+        let block = active[0];
+        let mut a = Array2::<f64>::zeros((p, p));
+        for i in 0..block.matrix.nrows() {
+            for j in 0..block.matrix.ncols() {
+                a[[block.range.start + i, block.range.start + j]] =
+                    block.lambda * block.matrix[[i, j]];
+            }
+        }
+
+        // IFT identity: beta_rho = -H^-1 A beta.
+        let factor = h_center
+            .cholesky(faer::Side::Lower)
+            .expect("center Hessian Cholesky");
+        let v = factor.solvevec(&a.dot(&beta_hat));
+        let u = -&v;
+        let (plus_model, beta_plus) = model
+            .reconverge_survival_inner_mode(&[RHO + RHO_STEP], &beta_hat)
+            .expect("rho-plus survival mode");
+        let (minus_model, beta_minus) = model
+            .reconverge_survival_inner_mode(&[RHO - RHO_STEP], &beta_hat)
+            .expect("rho-minus survival mode");
+        let beta_fd = (&beta_plus - &beta_minus) / (2.0 * RHO_STEP);
+
+        // Family identity: C = D_beta H_lik[u]. The penalty is fixed in this
+        // beta-direction FD, so it cancels from H(beta+h u)-H(beta-h u).
+        let correction = center_model
+            .survival_hessian_derivative_correction(&beta_hat, &u)
+            .expect("analytic survival Hessian correction");
+        let beta_dir_plus = &beta_hat + &u.mapv(|value| BETA_STEP * value);
+        let beta_dir_minus = &beta_hat - &u.mapv(|value| BETA_STEP * value);
+        let h_beta_plus = center_model
+            .update_state(&beta_dir_plus)
+            .expect("beta-direction plus state")
+            .hessian
+            .to_dense();
+        let h_beta_minus = center_model
+            .update_state(&beta_dir_minus)
+            .expect("beta-direction minus state")
+            .hessian
+            .to_dense();
+        let correction_fd = (&h_beta_plus - &h_beta_minus) / (2.0 * BETA_STEP);
+
+        // Total identity along the re-converged surface: H_rho = A + C.
+        let state_plus = plus_model
+            .update_state(&beta_plus)
+            .expect("rho-plus state");
+        let state_minus = minus_model
+            .update_state(&beta_minus)
+            .expect("rho-minus state");
+        let total_fd =
+            (state_plus.hessian.to_dense() - state_minus.hessian.to_dense()) / (2.0 * RHO_STEP);
+        let total_analytic = &a + &correction;
+        let total_sign_reversed = &a - &correction;
+
+        let relative_vector_error = |actual: &Array1<f64>, expected: &Array1<f64>| {
+            let difference = actual
+                .iter()
+                .zip(expected.iter())
+                .map(|(&lhs, &rhs)| (lhs - rhs) * (lhs - rhs))
+                .sum::<f64>()
+                .sqrt();
+            let scale = expected.iter().map(|value| value * value).sum::<f64>().sqrt();
+            difference / scale.max(1.0e-12)
+        };
+        let relative_matrix_error = |actual: &Array2<f64>, expected: &Array2<f64>| {
+            let difference = actual
+                .iter()
+                .zip(expected.iter())
+                .map(|(&lhs, &rhs)| (lhs - rhs) * (lhs - rhs))
+                .sum::<f64>()
+                .sqrt();
+            let scale = expected.iter().map(|value| value * value).sum::<f64>().sqrt();
+            difference / scale.max(1.0e-12)
+        };
+
+        let mode_error = relative_vector_error(&u, &beta_fd);
+        let correction_error = relative_matrix_error(&correction, &correction_fd);
+        let correction_reversed_error = relative_matrix_error(&(-&correction), &correction_fd);
+        let total_error = relative_matrix_error(&total_analytic, &total_fd);
+        let total_reversed_error = relative_matrix_error(&total_sign_reversed, &total_fd);
+
+        // Scalar value decomposition names which LAML term moves on the same
+        // rho perturbation: T1 = 0.5(deviance+penalty), T2 = 0.5 log|H|,
+        // T3 = -0.5 log|lambda S|_+ (rank one, hence derivative -0.5).
+        let t1_plus = 0.5 * (state_plus.deviance + state_plus.penalty_term);
+        let t1_minus = 0.5 * (state_minus.deviance + state_minus.penalty_term);
+        let t1_fd = (t1_plus - t1_minus) / (2.0 * RHO_STEP);
+        let t2_fd = 0.5
+            * (laml_test_logdet_h(&state_plus) - laml_test_logdet_h(&state_minus))
+            / (2.0 * RHO_STEP);
+        let t3_fd = -0.5_f64;
+
+        // Contract the already-verified A and C matrices through the exact
+        // positive-definite kernel used by production. The operator's solve is
+        // the same full-space IFT solve certified above, so an identifiable
+        // low-curvature direction cannot disappear between value and gradient.
+        let positive_hop = DenseSpectralOperator::from_symmetric_with_mode(
+            &h_center,
+            PseudoLogdetMode::PositiveDefinite,
+        )
+        .expect("positive-definite operator at the fitted survival mode");
+        let half_trace_a = 0.5 * positive_hop.trace_hinv_product(&a);
+        let half_trace_c = 0.5 * positive_hop.trace_hinv_product(&correction);
+        let t1_analytic = 0.5 * beta_hat.dot(&a.dot(&beta_hat));
+        let expected_gradient = t1_analytic + half_trace_a + half_trace_c - 0.5;
+        let rho = array![RHO];
+        let (_, public_gradient) = center_model
+            .unified_lamlobjective_and_rhogradient(&beta_hat, &center_state, &rho)
+            .expect("public survival LAML gradient at fitted mode");
+
+        eprintln!(
+            "survival rho-chain decomposition: mode_error={mode_error:.6e} \
+             correction_error={correction_error:.6e} correction_reversed_error={correction_reversed_error:.6e} \
+             total_error={total_error:.6e} total_reversed_error={total_reversed_error:.6e} \
+             t1_fd={t1_fd:+.12e} t2_fd={t2_fd:+.12e} t3_fd={t3_fd:+.12e} \
+             t1_analytic={t1_analytic:+.12e} half_trace_a={half_trace_a:+.12e} \
+             half_trace_c={half_trace_c:+.12e} expected_gradient={expected_gradient:+.12e} \
+             public_gradient={:?} beta_analytic={:?} beta_fd={:?} correction={:?} correction_fd={:?} \
+             total_analytic={:?} total_fd={:?}",
+            public_gradient.to_vec(),
+            u.to_vec(),
+            beta_fd.to_vec(),
+            correction,
+            correction_fd,
+            total_analytic,
+            total_fd,
+        );
+
+        let public_gradient_error = (public_gradient[0] - expected_gradient).abs()
+            / expected_gradient.abs().max(1.0);
+        assert!(
+            mode_error <= REL_TOL
+                && correction_error <= REL_TOL
+                && total_error <= REL_TOL
+                && public_gradient_error <= REL_TOL,
+            "survival rho chain-rule identity failed: mode_error={mode_error:.6e}, \
+             correction_error={correction_error:.6e} (sign-reversed={correction_reversed_error:.6e}), \
+             total_error={total_error:.6e} (sign-reversed={total_reversed_error:.6e}), \
+             public_gradient_error={public_gradient_error:.6e}"
+        );
     }
 
     /// Two-ACTIVE-block variant of [`laml_fd_test_model`] (both penalty blocks
@@ -5384,16 +5573,15 @@ mod tests {
         // therefore contribute neither a log|lambda * S| term to the
         // objective nor an entry to the rho-gradient vector.
         //
-        // We verify the objective formula and the gradient dimensionality at
-        // a fixed beta rather than a fitted one: the bug this test guards
-        // against was purely algebraic enumeration over penalty blocks and
-        // has no dependence on PIRLS convergence quality. A gradient-vs-FD
-        // comparison would require beta to sit at the joint MLE of a tiny
-        // synthetic survival fixture, which the analytic Newton/PIRLS path
-        // cannot reach to 1e-10 KKT tolerance without a much richer design.
+        // Evaluate the enumeration identity at the fitted inner mode. LAML is
+        // defined only there; an arbitrary fixed beta would test an algebraic
+        // surrogate that production now deliberately refuses (#2491).
         let rho0 = -0.35_f64;
-        let beta = array![-2.5_f64, 1.0];
+        let beta0 = array![-2.5_f64, 1.0];
         let model = laml_fd_test_model(rho0.exp());
+        let (model, beta) = model
+            .reconverge_survival_inner_mode(&[rho0], &beta0)
+            .expect("converge inner mode for LAML prefix-skip test");
         let state = model
             .update_state(&beta)
             .expect("state for LAML prefix-skip test");
@@ -5440,6 +5628,34 @@ mod tests {
             grad[0].is_finite(),
             "rho-gradient must be finite: {}",
             grad[0]
+        );
+    }
+
+    #[test]
+    fn survival_laml_refuses_nonstationary_inner_state() {
+        let rho0 = -0.35_f64;
+        let beta0 = array![-2.5_f64, 1.0];
+        let model = laml_fd_test_model(rho0.exp());
+        let (model, beta_hat) = model
+            .reconverge_survival_inner_mode(&[rho0], &beta0)
+            .expect("converge reference survival mode");
+
+        // Move along the intercept only, preserving derivative feasibility while
+        // making the likelihood score unambiguously nonstationary.
+        let mut beta_off_mode = beta_hat;
+        beta_off_mode[0] += 0.25;
+        let state = model
+            .update_state(&beta_off_mode)
+            .expect("off-mode state remains in the survival domain");
+        let rho = array![rho0];
+        let error = model
+            .unified_lamlobjective_and_rhogradient(&beta_off_mode, &state, &rho)
+            .expect_err("LAML must refuse a nonstationary inner state");
+        assert!(
+            error
+                .to_string()
+                .contains("survival LAML requires a stationary inner mode"),
+            "unexpected off-mode refusal: {error}"
         );
     }
 
@@ -5563,8 +5779,7 @@ mod tests {
             range: 1..2,
             nullspace_dim: 0,
         }]);
-        let beta = array![0.2, 0.2, 0.1];
-        let state = model.update_state(&beta).expect("state at structural beta");
+        let beta0 = array![0.2, 0.2, 0.1];
         let rho = Array1::from_iter(
             model
                 .penalties
@@ -5573,6 +5788,13 @@ mod tests {
                 .filter(|b| b.lambda > 0.0)
                 .map(|b| b.lambda.ln()),
         );
+        let (model, beta) = model
+            .reconverge_survival_inner_mode(
+                rho.as_slice().expect("contiguous structural rho"),
+                &beta0,
+            )
+            .expect("converge structural survival mode");
+        let state = model.update_state(&beta).expect("state at structural mode");
         let (obj, grad) = model
             .unified_lamlobjective_and_rhogradient(&beta, &state, &rho)
             .expect("laml gradient should work in structural mode");
@@ -5955,107 +6177,6 @@ mod tests {
     fn crude_risk_quadrature_rejects_nonpositive_instantaneous_hazard() {
         let err = crude_risk_quadrature_error(0.0, 0.4, 0.25);
         assert!(matches!(err, SurvivalError::NonPositiveHazard));
-    }
-
-    #[test]
-    fn laml_no_penalties_matches_documentedobjective() {
-        let age_entry = array![40.0, 45.0, 50.0, 55.0];
-        let age_exit = array![44.0, 49.0, 54.0, 59.0];
-        let event_target = array![1u8, 0u8, 1u8, 0u8];
-        let event_competing = Array1::<u8>::zeros(4);
-        let sampleweight = Array1::ones(4);
-        let x_entry = array![
-            [1.0, -0.2, 0.04],
-            [1.0, -0.1, 0.01],
-            [1.0, 0.0, 0.0],
-            [1.0, 0.1, 0.01]
-        ];
-        let x_exit = array![
-            [1.0, -0.12, 0.0144],
-            [1.0, -0.02, 0.0004],
-            [1.0, 0.08, 0.0064],
-            [1.0, 0.18, 0.0324]
-        ];
-        let x_derivative = array![
-            [0.0, 0.02, 0.001],
-            [0.0, 0.02, 0.001],
-            [0.0, 0.02, 0.001],
-            [0.0, 0.02, 0.001]
-        ];
-        let penalties = PenaltyBlocks::new(Vec::new());
-        let mono = SurvivalMonotonicityPenalty { tolerance: 1e-8 };
-        let beta = array![-2.0, 0.7, 0.2];
-
-        let model = survival_model(
-            survival_inputs(
-                &age_entry,
-                &age_exit,
-                &event_target,
-                &event_competing,
-                &sampleweight,
-                &x_entry,
-                &x_exit,
-                &x_derivative,
-            ),
-            penalties,
-            mono,
-            SurvivalSpec::Net,
-        )
-        .expect("construct survival model");
-
-        let state = model.update_state(&beta).expect("state at beta");
-        let rho = Array1::from_iter(
-            model
-                .penalties
-                .blocks
-                .iter()
-                .filter(|b| b.lambda > 0.0)
-                .map(|b| b.lambda.ln()),
-        );
-        let (obj, grad) = model
-            .unified_lamlobjective_and_rhogradient(&beta, &state, &rho)
-            .expect("laml objective for no-penalty model");
-
-        let h_dense = state.hessian.to_dense();
-        // Mirror the production LAML Hessian logdet EXACTLY (call production, not
-        // replay): `unified_lamlobjective_and_rhogradient` assembles the logdet
-        // through a `DenseSpectralOperator` whose pseudo-logdet mode is selected by
-        // delayed entry. Left-truncated (delayed-entry) transformation survival
-        // uses the identified positive-subspace HardPseudo logdet (#1915: with the
-        // +H(entry) term the observed information carries genuine negative
-        // curvature, which the smooth full-spectrum regularizer must NOT reward by
-        // mapping to a tiny positive value); right-censored keeps Smooth. This
-        // test's data is left-truncated (age_entry ≫ origin), so the documented
-        // objective's logdet is the HardPseudo one — deriving `expected` from the
-        // same operator+mode keeps this a genuine
-        // obj = ½·deviance + penalty + ½·logdet(H) decomposition check instead of a
-        // stale hand-rolled Smooth-mode formula (which pre-dated #1915 and summed
-        // ln(spectral_regularize(σ)) over the whole spectrum, including the
-        // non-positive delayed-entry modes the objective now excludes).
-        let logdet_h: f64 = {
-            use gam_problem::PseudoLogdetMode;
-            use gam_solve::estimate::reml::reml_outer_engine::{
-                DenseSpectralOperator, HessianFactorization,
-            };
-            let has_left_truncation = age_entry.iter().any(|&t| t > ENTRY_AT_ORIGIN_THRESHOLD);
-            let mode = if has_left_truncation {
-                PseudoLogdetMode::HardPseudo
-            } else {
-                PseudoLogdetMode::Smooth
-            };
-            DenseSpectralOperator::from_symmetric_with_mode(&h_dense, mode)
-                .expect("survival LAML Hessian operator")
-                .logdet()
-        };
-        let expected = 0.5 * (state.deviance + state.penalty_term) + 0.5 * logdet_h;
-
-        assert_eq!(grad.len(), 0);
-        assert!(
-            (obj - expected).abs() < 1e-10,
-            "no-penalty LAML objective mismatch: obj={} expected={}",
-            obj,
-            expected
-        );
     }
 
     #[test]

@@ -488,22 +488,31 @@ pub fn draw_batch_cpu(input: &PolyaGammaBatchInput<'_>) -> Result<Array1<f64>, S
     Ok(out)
 }
 
-/// Top-level entry point: dispatches to GPU when enabled and available,
-/// otherwise CPU.
+/// Top-level entry point: dispatches to GPU when enabled, available, and
+/// admitted by the calibrated fused-batch crossover; otherwise CPU.
 /// Both paths are deterministic for a fixed seed. The CPU path delegates to
 /// the upstream sampler while the CUDA path is independently validated against
 /// it in distribution. CUDA probe and execution faults are returned; only a
-/// lossless `Ok(None)` availability result selects the CPU implementation.
+/// size-policy refusal or lossless `Ok(None)` availability result selects the
+/// CPU implementation.
 pub fn draw_batch(input: PolyaGammaBatchInput<'_>) -> Result<Array1<f64>, String> {
     input.validate()?;
 
     #[cfg(target_os = "linux")]
     {
-        if gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::global_policy())
+        if let Some(runtime) =
+            gam_gpu::device_runtime::GpuRuntime::resolve_if_fused_batch_exceeds_floor(
+                gam_gpu::global_policy(),
+                input.rows(),
+            )
             .map_err(String::from)?
-            .is_some()
         {
-            return linux_cuda::draw_batch_gpu(&input).map_err(String::from);
+            if runtime
+                .policy()
+                .polya_gamma_batch_target_is_gpu(input.rows())
+            {
+                return linux_cuda::draw_batch_gpu(&input).map_err(String::from);
+            }
         }
     }
 
@@ -1289,6 +1298,203 @@ mod tests {
         }
     }
 
+    /// #2422 device-free half, shared by the three CUDA-gated tests below: with
+    /// no CUDA runtime the production entry [`draw_batch`] must take the CPU
+    /// path and return EXACTLY what [`draw_batch_cpu`] returns — bit for bit,
+    /// both being deterministic in the seed. A dispatcher that returns anything
+    /// else on a device-free host is the #1551 silent-fallback class, and it is
+    /// precisely what a `return` before the first assertion could never see.
+    #[cfg(target_os = "linux")]
+    fn assert_draw_batch_declines_to_cpu(
+        shapes: &Array1<u32>,
+        tilts: &Array1<f64>,
+        seed: PgSeed,
+    ) -> Array1<f64> {
+        let dispatched = draw_batch(PolyaGammaBatchInput {
+            shapes: shapes.view(),
+            tilts: tilts.view(),
+            seed,
+        })
+        .expect("the production PG draw entry must succeed on every host");
+        let cpu = draw_batch_cpu(&PolyaGammaBatchInput {
+            shapes: shapes.view(),
+            tilts: tilts.view(),
+            seed,
+        })
+        .expect("CPU PG draw");
+        assert_eq!(dispatched.len(), cpu.len());
+        for (i, (a, b)) in dispatched.iter().zip(cpu.iter()).enumerate() {
+            assert_eq!(
+                a.to_bits(),
+                b.to_bits(),
+                "row {i}: no CUDA runtime on this host, yet the production PG dispatcher did \
+                 not return the CPU path's draw bit-for-bit"
+            );
+        }
+        dispatched
+    }
+
+    /// #2504 production seam: a batch below the smallest crossover any
+    /// calibrated device can carry must take the host path on every machine,
+    /// including CUDA hosts. Fixed-seed bitwise equality proves which path the
+    /// public dispatcher actually selected; a distributional comparison would
+    /// not distinguish the two valid samplers.
+    #[test]
+    fn sub_crossover_batch_routes_to_cpu_bitwise_on_every_host() {
+        const N: usize = 16;
+        assert!(
+            N < gam_gpu::policy::GpuDispatchPolicy::MIN_CALIBRATABLE_FUSED_KERNEL_N,
+            "the fixture must remain below every reachable fused-kernel crossover"
+        );
+        let shapes = Array1::from_iter((0..N).map(|i| 1 + (i % 4) as u32));
+        let tilts = Array1::from_iter((0..N).map(|i| (i as f64 - 7.5) / 3.0));
+        let seed = PgSeed(0x2504_2504_2504_2504);
+        let dispatched = draw_batch(PolyaGammaBatchInput {
+            shapes: shapes.view(),
+            tilts: tilts.view(),
+            seed,
+        })
+        .expect("the production PG dispatcher must accept the small batch");
+        let cpu = draw_batch_cpu(&PolyaGammaBatchInput {
+            shapes: shapes.view(),
+            tilts: tilts.view(),
+            seed,
+        })
+        .expect("the CPU PG oracle must accept the small batch");
+
+        assert_eq!(dispatched.len(), cpu.len());
+        for (row, (actual, expected)) in dispatched.iter().zip(cpu.iter()).enumerate() {
+            assert_eq!(
+                actual.to_bits(),
+                expected.to_bits(),
+                "row {row}: a sub-crossover batch did not use the deterministic CPU path"
+            );
+        }
+    }
+
+    /// Assert the dispatch-worthiness claim these gates exist to make, and
+    /// record the timings without asserting on them (#2487, SPEC rule 19).
+    ///
+    /// The claim is "this shape belongs on the device". That is a property of
+    /// the workload and the calibrated policy, so it is decided by
+    /// [`GpuDispatchPolicy::polya_gamma_batch_target_is_gpu`] — a pure function
+    /// of the row count against a per-device *measured* crossover. It was
+    /// previously asserted as `cpu_elapsed / gpu_elapsed >= 3.0`, which is a
+    /// different claim: the ratio of two `Instant::elapsed()` readings measures
+    /// whoever else is on the box. Under co-tenancy the device arm degrades far
+    /// harder than the host arm (measured on a loaded A10: GPU 0.004s → 0.067s,
+    /// a 17× hit, against the CPU's 4×), so the ratio collapses toward 1
+    /// precisely when the fleet is busiest and the failure gets read as a code
+    /// regression.
+    ///
+    /// The correctness half of the gate is not weakened by this: both arms
+    /// still owe the PG(b, c) moment contract, asserted by the callers on the
+    /// draws that were actually timed.
+    ///
+    /// The medians stay in the output as the hill-climbing perf record, which
+    /// is where a timing belongs — a trend line, not a pass/fail.
+    #[cfg(target_os = "linux")]
+    fn assert_dispatch_worthy_and_report(
+        label: &str,
+        policy: &gam_gpu::policy::GpuDispatchPolicy,
+        n: usize,
+        dt_cpu: f64,
+        dt_gpu: f64,
+    ) {
+        let speedup = dt_cpu / dt_gpu;
+        println!(
+            "{label}: n={n} cpu={dt_cpu:.3}s gpu={dt_gpu:.3}s speedup={speedup:.1}× \
+             (perf record; the gate is the policy decision below)"
+        );
+        assert!(
+            policy.polya_gamma_batch_target_is_gpu(n),
+            "{label}: n={n} rows is below this device's calibrated fused-kernel \
+             crossover ({}), so the fixture no longer exercises a shape the \
+             dispatch policy would send to the device — grow the fixture rather \
+             than lowering the crossover",
+            policy.fused_kernel_min_n
+        );
+        assert!(
+            !policy.polya_gamma_batch_target_is_gpu(0),
+            "{label}: the dispatch predicate admitted an empty batch, so the \
+             assertion above proves nothing about n={n}"
+        );
+    }
+
+    /// The PG(b, c) first-moment contract, asserted on whatever the PRODUCTION
+    /// entry produced — the device's draws on a CUDA host, the CPU fallback's
+    /// otherwise. Rows are drawn independently, so the batch mean concentrates
+    /// on the mean of the per-row theoretical means with standard deviation
+    /// `sqrt(Σ Var_i)/n`; a `6σ` band is a fixed-seed deterministic check, not a
+    /// flaky one. This is the customer-visible claim and it needs no device.
+    fn assert_pg_batch_mean_matches_theory(
+        draws: &Array1<f64>,
+        shapes: &Array1<u32>,
+        tilts: &Array1<f64>,
+        label: &str,
+    ) {
+        let n = draws.len();
+        assert!(n > 0, "{label}: empty PG batch");
+        let empirical = draws.iter().sum::<f64>() / n as f64;
+        let theory = (0..n)
+            .map(|i| pg_mean(f64::from(shapes[i]), tilts[i]))
+            .sum::<f64>()
+            / n as f64;
+        let sigma = ((0..n)
+            .map(|i| pg_variance(f64::from(shapes[i]), tilts[i]))
+            .sum::<f64>())
+        .sqrt()
+            / n as f64;
+        let band = 6.0 * sigma;
+        assert!(
+            (empirical - theory).abs() <= band,
+            "{label}: PG batch mean {empirical:.6e} departs from theory {theory:.6e} by \
+             {:.3e} (6σ band {band:.3e}, n={n})",
+            (empirical - theory).abs()
+        );
+    }
+
+    /// The PG(b, c) first-moment contract on the PRODUCTION entry, on EVERY host.
+    ///
+    /// The helper above states the claim "needs no device" — and it does not —
+    /// but until now every caller sat inside a `#[cfg(target_os = "linux")]`
+    /// test, so the contract was checked only where CUDA might exist. Two
+    /// things followed. The customer-visible claim went unverified on Windows
+    /// and macOS entirely; and the helper, being unreachable off Linux, tripped
+    /// `-D dead-code` and turned the non-Linux cross-check red on every commit
+    /// to main. Silencing the lint or narrowing the helper to Linux would fix
+    /// the build by deleting the coverage. This restores it instead: the
+    /// production dispatcher is exercised on whatever host runs the suite, and
+    /// its draws must satisfy the moment contract there.
+    ///
+    /// Deterministic, not flaky: the seed is fixed and the tolerance is a `6σ`
+    /// band derived from the per-row theoretical variances, so the pass/fail
+    /// verdict is a fixed function of the code under test.
+    #[test]
+    fn pg_batch_mean_matches_theory_on_every_host() {
+        // Mixed shapes and both signs of tilt, so this exercises general
+        // PG(b, c) rather than only the PG(1, 0) special case.
+        let n = 20_000usize;
+        let shapes = Array1::<u32>::from_shape_fn(n, |i| 1 + (i % 4) as u32);
+        let tilts = Array1::<f64>::from_shape_fn(n, |i| ((i as f64) / (n as f64)) * 6.0 - 3.0);
+        let seed = PgSeed(0x9E_37_79_B9_7F_4A_7C_15);
+
+        let draws = draw_batch(PolyaGammaBatchInput {
+            shapes: shapes.view(),
+            tilts: tilts.view(),
+            seed,
+        })
+        .expect("the production PG draw entry must succeed on every host");
+
+        assert_eq!(draws.len(), n, "production PG entry returned a short batch");
+        assert!(
+            draws.iter().all(|d| d.is_finite() && *d > 0.0),
+            "a Polya-Gamma draw is supported on (0, inf); the batch contains a \
+             non-positive or non-finite value"
+        );
+        assert_pg_batch_mean_matches_theory(&draws, &shapes, &tilts, "production entry");
+    }
+
     fn theoretical_mean(b: f64, c: f64) -> f64 {
         pg_mean(b, c)
     }
@@ -1724,23 +1930,22 @@ mod tests {
 
     // ────────────────────────────────────────────────────────────────────
     // Charter §7 dispatch-worthiness gates (Linux-only, executed whenever the
-    // test host has a CUDA runtime). The ratios compare CPU vs GPU draws built
-    // in the same mode; the NVRTC kernel runs at device speed regardless of
-    // host opt level, so the ratio is meaningful at any host build mode.
+    // test host has a CUDA runtime). Each asserts that the calibrated policy
+    // would route its fixture's shape to the device, and that the draws it
+    // timed satisfy the PG(b, c) moment contract. The measured CPU/GPU times
+    // are printed as a perf record and are not asserted on: a ratio of two
+    // wall-clock readings measures the box's other tenants (#2487, SPEC 19).
     // ────────────────────────────────────────────────────────────────────
 
-    /// Dispatch-worthiness gate: pure Bernoulli (b = 1) at n = 200 000 must
-    /// run on the GPU at ≥ 3× the CPU oracle's draw rate. This is the dominant
-    /// large-scale PG draw shape (one PG variate per data row per Gibbs
-    /// iteration). The calibrated dispatch policy owns the hardware-specific
-    /// crossover; this test proves only that the device path is materially
-    /// worthwhile.
+    /// Dispatch-worthiness gate: pure Bernoulli (b = 1) at n = 200 000, the
+    /// dominant large-scale PG draw shape (one PG variate per data row per
+    /// Gibbs iteration). The gate is the calibrated policy's decision that this
+    /// shape belongs on the device, plus the PG(1, c) moment contract on the
+    /// draws that were actually timed; the medians are a printed perf record.
+    /// It asserted a wall-clock ratio until #2487.
     #[test]
     #[cfg(target_os = "linux")]
-    fn polya_gamma_dispatch_worthiness_pg1_3x() {
-        if cuda_runtime_for_test("polya_gamma_dispatch_worthiness_pg1_3x").is_none() {
-            return;
-        }
+    fn polya_gamma_dispatch_worthiness_pg1() {
         let n = 200_000usize;
         let shapes = Array1::<u32>::from_elem(n, 1);
         let mut tilts = Array1::<f64>::zeros(n);
@@ -1748,6 +1953,17 @@ mod tests {
             tilts[i] = ((i as f64) / (n as f64)) * 6.0 - 3.0;
         }
         let seed = PgSeed(0x50_4F_4C_59_47_41_4D_41);
+
+        let Some(runtime) = cuda_runtime_for_test("polya_gamma_dispatch_worthiness_pg1") else {
+            // #2422: the wall-clock ratio needs a device and gets no host-side
+            // stand-in. What IS checkable here is the dispatch seam at this
+            // gate's own fixture — the production entry must decline to the CPU
+            // path bit-for-bit, and its draws must still satisfy the PG(1, c)
+            // moment contract.
+            let cpu_draws = assert_draw_batch_declines_to_cpu(&shapes, &tilts, seed);
+            assert_pg_batch_mean_matches_theory(&cpu_draws, &shapes, &tilts, "pg1 CPU fallback");
+            return;
+        };
 
         // Warm the device module (NVRTC compile, allocator priming) so the
         // first kernel launch's compile time doesn't pollute the timing.
@@ -1763,7 +1979,7 @@ mod tests {
         }
 
         let t_gpu_start = std::time::Instant::now();
-        linux_cuda::draw_batch_gpu(&PolyaGammaBatchInput {
+        let gpu_draws = linux_cuda::draw_batch_gpu(&PolyaGammaBatchInput {
             shapes: shapes.view(),
             tilts: tilts.view(),
             seed,
@@ -1772,7 +1988,7 @@ mod tests {
         let dt_gpu = t_gpu_start.elapsed().as_secs_f64();
 
         let t_cpu_start = std::time::Instant::now();
-        draw_batch_cpu(&PolyaGammaBatchInput {
+        let cpu_draws = draw_batch_cpu(&PolyaGammaBatchInput {
             shapes: shapes.view(),
             tilts: tilts.view(),
             seed,
@@ -1780,36 +1996,32 @@ mod tests {
         .expect("CPU draw_batch");
         let dt_cpu = t_cpu_start.elapsed().as_secs_f64();
 
-        let speedup = dt_cpu / dt_gpu;
-        println!(
-            "polya_gamma_hill_climb_pg1: n={n} cpu={dt_cpu:.3}s gpu={dt_gpu:.3}s speedup={speedup:.1}×"
-        );
-        assert!(
-            // Dispatch-worthiness gate, not a hardware bet: the property
-            // the kernel must keep is "comfortably faster than the CPU path
-            // on the same box" (a serialized/faked device path shows ~1×).
-            // The previous fixed 50× ratio asserted the CALIBRATION BOX's
-            // CPU: on a modern EPYC the single-threaded CPU oracle reaches
-            // ~4M draws/s and a healthy A10 measured 7.4× here — the CPU got
-            // faster, not the GPU slower. The calibrated GpuDispatchPolicy
-            // owns the real dispatch decision; this gate only proves the
-            // device path earns its keep.
-            speedup >= 3.0,
-            "PG(1) GPU speedup {speedup:.1}× < 3× dispatch-worthiness gate (cpu={dt_cpu:.3}s, gpu={dt_gpu:.3}s)"
+        // #2422: grade the ANSWER, not just the clock. The timed device draws
+        // were previously discarded, so this gate could have clocked a kernel
+        // that emitted garbage. Both sides owe the PG(1, c) moment contract;
+        // asserted outside the timed regions so it cannot affect the ratio.
+        assert_pg_batch_mean_matches_theory(&gpu_draws, &shapes, &tilts, "pg1 device");
+        assert_pg_batch_mean_matches_theory(&cpu_draws, &shapes, &tilts, "pg1 CPU baseline");
+
+        assert_dispatch_worthy_and_report(
+            "polya_gamma_hill_climb_pg1",
+            runtime.policy(),
+            n,
+            dt_cpu,
+            dt_gpu,
         );
     }
 
     /// Hill-climb gate: mixed negative-binomial style workload — 80 % of rows
     /// at b ≥ 200 (normal-approx regime), 20 % at b = 1 (pg1 regime), 0 % at
     /// the placeholder saddlepoint band so the throughput claim is not
-    /// dependent on the unfinished sp_kernel. 200 000 rows total; gate is
-    /// ≥ 3× CPU, with the calibrated policy again owning the real crossover.
+    /// dependent on the unfinished sp_kernel. 200 000 rows total. Same contract
+    /// as the PG(1) gate: the calibrated policy's dispatch decision plus the
+    /// mixed-regime moment contract, with the medians as a printed record. It
+    /// asserted a wall-clock ratio until #2487.
     #[test]
     #[cfg(target_os = "linux")]
-    fn polya_gamma_dispatch_worthiness_mixed_nb_3x() {
-        if cuda_runtime_for_test("polya_gamma_dispatch_worthiness_mixed_nb_3x").is_none() {
-            return;
-        }
+    fn polya_gamma_dispatch_worthiness_mixed_nb() {
         let n = 200_000usize;
         let mut shapes = Array1::<u32>::zeros(n);
         let mut tilts = Array1::<f64>::zeros(n);
@@ -1819,6 +2031,19 @@ mod tests {
             tilts[i] = ((i as f64) / (n as f64)) * 4.0 - 2.0;
         }
         let seed = PgSeed(0xDEAD_BEEF_CAFE_BABE);
+
+        let Some(runtime) = cuda_runtime_for_test("polya_gamma_dispatch_worthiness_mixed_nb") else {
+            // #2422: same split as the PG(1) gate — the ratio is device-only,
+            // the decline contract and the mixed-regime moment contract are not.
+            let cpu_draws = assert_draw_batch_declines_to_cpu(&shapes, &tilts, seed);
+            assert_pg_batch_mean_matches_theory(
+                &cpu_draws,
+                &shapes,
+                &tilts,
+                "mixed-NB CPU fallback",
+            );
+            return;
+        };
 
         // Warm
         let warm_shapes = Array1::<u32>::from_elem(16, 250);
@@ -1831,7 +2056,7 @@ mod tests {
         .expect("warm");
 
         let t_gpu = std::time::Instant::now();
-        linux_cuda::draw_batch_gpu(&PolyaGammaBatchInput {
+        let gpu_draws = linux_cuda::draw_batch_gpu(&PolyaGammaBatchInput {
             shapes: shapes.view(),
             tilts: tilts.view(),
             seed,
@@ -1840,7 +2065,7 @@ mod tests {
         let dt_gpu = t_gpu.elapsed().as_secs_f64();
 
         let t_cpu = std::time::Instant::now();
-        draw_batch_cpu(&PolyaGammaBatchInput {
+        let cpu_draws = draw_batch_cpu(&PolyaGammaBatchInput {
             shapes: shapes.view(),
             tilts: tilts.view(),
             seed,
@@ -1848,15 +2073,18 @@ mod tests {
         .expect("CPU mixed");
         let dt_cpu = t_cpu.elapsed().as_secs_f64();
 
-        let speedup = dt_cpu / dt_gpu;
-        println!(
-            "polya_gamma_hill_climb_mixed: n={n} cpu={dt_cpu:.3}s gpu={dt_gpu:.3}s speedup={speedup:.1}×"
-        );
-        assert!(
-            // Same dispatch-worthiness contract as the PG(1) gate above
-            // (previously a 20× calibration-box ratio).
-            speedup >= 3.0,
-            "Mixed NB GPU speedup {speedup:.1}× < 3× dispatch-worthiness gate (cpu={dt_cpu:.3}s, gpu={dt_gpu:.3}s)"
+        // #2422: the timed draws were discarded, so this gate could have clocked
+        // a kernel emitting garbage in either regime. Asserted outside the timed
+        // regions.
+        assert_pg_batch_mean_matches_theory(&gpu_draws, &shapes, &tilts, "mixed-NB device");
+        assert_pg_batch_mean_matches_theory(&cpu_draws, &shapes, &tilts, "mixed-NB CPU baseline");
+
+        assert_dispatch_worthy_and_report(
+            "polya_gamma_hill_climb_mixed",
+            runtime.policy(),
+            n,
+            dt_cpu,
+            dt_gpu,
         );
     }
 
@@ -1866,13 +2094,31 @@ mod tests {
     #[test]
     #[cfg(target_os = "linux")]
     fn pg1_gpu_matches_cpu_oracle_when_runtime_available() {
-        if cuda_runtime_for_test("pg1_gpu_matches_cpu_oracle_when_runtime_available").is_none() {
-            return;
-        }
+        let on_cuda =
+            cuda_runtime_for_test("pg1_gpu_matches_cpu_oracle_when_runtime_available").is_some();
         let sample_count = 4_096usize;
         let shapes = Array1::<u32>::from_elem(sample_count, 1);
         for &tilt in &[0.0_f64, 1.5, 4.0] {
             let tilts = Array1::<f64>::from_elem(sample_count, tilt);
+            if !on_cuda {
+                // #2422: no device to compare against, but the production
+                // dispatcher must still decline to the CPU path bit-for-bit and
+                // the draws it returns must satisfy PG(1, tilt)'s moments — the
+                // same distributional claim the KS branch makes below, checked
+                // against theory instead of against a second sample.
+                let cpu_draws = assert_draw_batch_declines_to_cpu(
+                    &shapes,
+                    &tilts,
+                    PgSeed(0x9E37_79B9_7F4A_7C15 ^ tilt.to_bits()),
+                );
+                assert_pg_batch_mean_matches_theory(
+                    &cpu_draws,
+                    &shapes,
+                    &tilts,
+                    "pg1 CPU fallback parity",
+                );
+                continue;
+            }
             let mut gpu = linux_cuda::draw_batch_gpu(&PolyaGammaBatchInput {
                 shapes: shapes.view(),
                 tilts: tilts.view(),

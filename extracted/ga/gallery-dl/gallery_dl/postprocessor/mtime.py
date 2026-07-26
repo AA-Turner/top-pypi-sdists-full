@@ -16,15 +16,19 @@ class MtimePP(PostProcessor):
 
     def __init__(self, job, options):
         PostProcessor.__init__(self, job)
+
+        target = options.get("target") or options.get("mode")
+        self._file = (target not in {"dir", "directory"})
+
         if value := options.get("value"):
             self._get = formatter.parse(value, None, util.identity).format_map
         else:
-            key = options.get("mode") or options.get("key", "date")
+            key = options.get("key", "date")
             self._get = lambda kwdict: kwdict.get(key)
 
         events = options.get("event")
         if events is None:
-            events = ("file",)
+            events = ("file",) if self._file else ("post-after",)
         elif isinstance(events, str):
             events = events.split(",")
         job.register_hooks({event: self.run for event in events}, options)
@@ -37,7 +41,11 @@ class MtimePP(PostProcessor):
                 mtime = text.parse_int(mtime)
         else:
             mtime = None
-        pathfmt.kwdict["_mtime_meta"] = mtime
+
+        if self._file:
+            pathfmt.kwdict["_mtime_meta"] = mtime
+        elif mtime:
+            util.set_mtime(pathfmt.realdirectory, mtime)
 
 
 __postprocessor__ = MtimePP

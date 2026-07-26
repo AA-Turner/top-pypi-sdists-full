@@ -1,4 +1,4 @@
-"""CLI entry point for Bernstein -- deterministic, verifiable orchestration for CLI coding agents.
+"""CLI entry point for Bernstein -- deterministic orchestrator for CLI coding agents.
 
 This module defines the top-level click group and registers all
 subcommand modules from:
@@ -19,6 +19,7 @@ And existing subcommand modules:
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import click
@@ -32,7 +33,6 @@ from bernstein.cli.advanced_cmd import (
     doctor,
     github_group,
     help_all,
-    ideate,
     install_hooks,
     live,
     mcp_server,
@@ -150,6 +150,7 @@ from bernstein.cli.workspace_cmd import config_group, workspace_group
 from bernstein.cli.worktrees_cmd import worktrees_group
 from bernstein.cli.wrap_up_cmd import wrap_up
 from bernstein.core.json_logging import setup_json_logging
+from bernstein.eval.bench.bench_cli import bench_group
 
 # ---------------------------------------------------------------------------
 # Re-export shared state so existing imports like
@@ -200,7 +201,6 @@ __all__ = [
     "hard_stop",
     "help_all",
     "history_cmd",
-    "ideate",
     "install_hooks",
     "is_alive",
     "is_process_alive",
@@ -231,6 +231,7 @@ __all__ = [
     "run_changelog_cmd",
     "save_session_on_stop",
     "scaffold_cmd",
+    "security_review_cmd",
     "server_get",
     "server_post",
     "setup_demo_project",
@@ -264,6 +265,7 @@ from bernstein.cli.commands.remote_cmd import remote_group
 from bernstein.cli.commands.review_responder_cmd import review_responder_group
 from bernstein.cli.commands.sandbox_cmd import sandbox_group
 from bernstein.cli.commands.schedule_cmd import schedule_group
+from bernstein.cli.commands.security_review_cmd import security_review_cmd
 from bernstein.cli.commands.ticket_cmd import from_ticket, ticket_group
 from bernstein.cli.commands.tunnel_cmd import tunnel_group
 from bernstein.cli.helpers import (
@@ -386,8 +388,9 @@ def print_rich_help() -> None:
     c.print()
     c.print(
         Panel(
-            "[bold]bernstein[/bold]  deterministic Python scheduler for CLI coding agents.\n"
-            "  40+ adapters, parallel git worktrees, opt-in HMAC-SHA256 audit chain (RFC 2104).",
+            "[bold]bernstein[/bold]  deterministic orchestrator for CLI coding agents.\n"
+            "  No model in the coordination loop, so runs replay byte-identically.\n"
+            "  40+ adapters, per-task git worktrees, opt-in HMAC-SHA256 audit chain (RFC 2104).",
             border_style="blue",
             padding=(0, 2),
             expand=False,
@@ -736,7 +739,12 @@ def cli(
     refine_spec: str | None,
     unsafe_allow_unicode_tags: bool,
 ) -> None:
-    """Deterministic, verifiable orchestration for CLI coding agents."""
+    """Deterministic orchestrator for CLI coding agents.
+
+    Parallel runs in per-task git worktrees, byte-identical replay, signed
+    lineage that checks offline from the artefacts. Replaying the HMAC audit
+    chain additionally needs the install audit key.
+    """
     # The skill-pack invisible-Unicode sanitizer reads its opt-out from this
     # env var; set it as early as possible so any later import that triggers a
     # SkillLoader sees the operator's choice. Default is OFF (sanitize on).
@@ -883,6 +891,55 @@ def cli(
 
 
 # ---------------------------------------------------------------------------
+# Contextual tips
+# ---------------------------------------------------------------------------
+
+#: Opt-out switch for the post-command tip line.
+TIPS_OPT_OUT_ENV_VAR = "BERNSTEIN_NO_TIPS"
+
+
+def tips_enabled(ctx: click.Context) -> bool:
+    """Return True when a contextual tip may be printed for this invocation.
+
+    Tips are suppressed for machine-readable output (``--json`` / ``--output
+    json``), for ``--quiet``, when stdout is not a TTY (pipes, CI logs), when
+    the operator sets ``BERNSTEIN_NO_TIPS``, and outside an initialised
+    workspace (no ``.sdd/`` to hold the cooldown marker).
+    """
+    import os
+
+    if os.environ.get(TIPS_OPT_OUT_ENV_VAR):
+        return False
+    obj = ctx.obj or {}
+    if obj.get("JSON"):
+        return False
+    if not sys.stdout.isatty():
+        return False
+    return Path(".sdd").is_dir()
+
+
+@cli.result_callback()
+@click.pass_context
+def _emit_contextual_tip(ctx: click.Context, _result: object, **_params: object) -> None:
+    """Print at most one contextual tip after a subcommand finishes."""
+    command = ctx.invoked_subcommand
+    if not command or not tips_enabled(ctx):
+        return
+    try:
+        from bernstein.cli.utils.tip_integration import get_tip_for_command, mark_tip_shown, should_show_tip
+
+        if not should_show_tip():
+            return
+        tip = get_tip_for_command(command)
+        if not tip:
+            return
+        console.print(f"[dim]{tip}[/dim]")
+        mark_tip_shown()
+    except Exception:  # pragma: no cover - a tip must never break a command
+        return
+
+
+# ---------------------------------------------------------------------------
 # Register commands and groups with main CLI
 # ---------------------------------------------------------------------------
 
@@ -904,6 +961,7 @@ cli.add_command(plan)
 cli.add_command(plan, "tasks")
 cli.add_command(spec_group)
 cli.add_command(backlog_group, "backlog")
+cli.add_command(bench_group)
 cli.add_command(logs_group, "logs")
 cli.add_command(decisions_group, "decisions")
 cli.add_command(consensus_group, "consensus")
@@ -944,7 +1002,6 @@ from bernstein.cli.commands.mcp_catalog_cmd import catalog_group as _catalog_gro
 mcp_server.add_command(_catalog_group, "catalog")
 cli.add_command(completions)
 cli.add_command(quarantine_group)
-cli.add_command(ideate)
 cli.add_command(install_hooks, "install-hooks")
 cli.add_command(plugins_cmd, "plugins")
 cli.add_command(doctor)
@@ -980,6 +1037,7 @@ cli.add_command(hooks_group, "hooks")
 cli.add_command(tunnel_group, "tunnel")
 cli.add_command(preview_group, "preview")
 cli.add_command(sandbox_group, "sandbox")
+cli.add_command(security_review_cmd, "security-review")
 cli.add_command(daemon_group, "daemon")
 cli.add_command(autofix_group, "autofix")
 cli.add_command(pipeline_group, "pipeline")
@@ -1067,6 +1125,12 @@ cli.add_command(watch_cmd, "watch")
 cli.add_command(wiki_group, "wiki")
 cli.add_command(listen_cmd, "listen")
 cli.add_command(self_update_cmd, "self-update")
+
+# Provenance-verified update lifecycle: check, update, pin, rollback (#2942)
+from bernstein.cli.commands.self_update_cmd import self_group  # noqa: E402
+
+cli.add_command(self_group, "self")
+
 cli.add_command(undo_cmd, "undo")
 cli.add_command(worker, "worker")
 cli.add_command(worktrees_group, "worktrees")

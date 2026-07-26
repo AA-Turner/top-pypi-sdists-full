@@ -432,6 +432,40 @@ def _normalize_evidence_producers(raw: object) -> list[dict[str, Any]]:
     return producers
 
 
+def _normalize_declared_outputs(raw: object) -> list[str]:
+    """Coerce a ``declared_outputs`` payload into canonical artifact keys.
+
+    Each entry is an artifact URI or a repo-relative path, optionally carrying
+    ``*`` / ``**`` / ``?`` to declare a set (``dist/*.whl``). Entries are
+    canonicalised through
+    :func:`bernstein.core.lineage.artifact_uri.canonical_artifact_pattern`, then
+    deduplicated and sorted so the field is a pure function of the *set* the
+    operator declared: two spellings of one artifact, or the same artifacts
+    listed in a different order, produce the identical stored value and
+    therefore the identical completion diff (issue #2559).
+
+    A malformed entry raises at task construction rather than silently
+    degrading into "declared nothing" at completion time -- a declaration that
+    quietly disappears is worse than no declaration, because the missing-output
+    finding it was supposed to produce also disappears.
+    """
+    if raw is None:
+        return []
+    if isinstance(raw, str | bytes):
+        raise TypeError("Task.declared_outputs must be a list of artifact keys, got a single string")
+    if not isinstance(raw, list | tuple):
+        raise TypeError(f"Task.declared_outputs must be a list, got {type(raw).__name__}")
+
+    from bernstein.core.lineage.artifact_uri import canonical_artifact_pattern
+
+    canonical: set[str] = set()
+    for entry in raw:
+        if not isinstance(entry, str):
+            raise TypeError(f"each declared output must be a string, got {type(entry).__name__}")
+        canonical.add(canonical_artifact_pattern(entry))
+    return sorted(canonical)
+
+
 @dataclass
 class Task:
     """A unit of work for an agent."""
@@ -550,6 +584,15 @@ class Task:
     # list = no evidence bundle is sealed for this task. Parsed by
     # ``bernstein.core.evidence.bundle.parse_producers``.
     evidence_producers: list[dict[str, Any]] = field(default_factory=list[dict[str, Any]])
+    # Issue #2559: the artifacts this task intends to produce, as canonical
+    # artifact keys or patterns (``dist/*.whl``, ``pkg://pypi/bernstein/3.9.0``,
+    # ``pr://github.com/acme/widget/2559``). Where ``evidence_producers``
+    # declares how the work is *verified*, this declares what the work is
+    # supposed to *leave behind*, which is what makes "attempted and failed"
+    # distinguishable from "nothing was scheduled" at completion. Normalised by
+    # ``_normalize_declared_outputs`` into a sorted, deduplicated list. Empty
+    # list = the task declares no outputs and the completion diff is skipped.
+    declared_outputs: list[str] = field(default_factory=list[str])
     # Explicit override for compute_max_turns()'s complexity-based auto-computation
     # (see bernstein.core.agents.claude_max_turns.compute_max_turns). When set,
     # this value is used verbatim for the Claude adapter's --max-turns flag,
@@ -627,6 +670,7 @@ class Task:
             "story_id": self.story_id,
             "attachments": list(self.attachments),
             "evidence_producers": [dict(p) for p in self.evidence_producers],
+            "declared_outputs": list(self.declared_outputs),
             "max_turns": self.max_turns,
         }
 
@@ -746,6 +790,7 @@ class Task:
             story_id=(str(raw["story_id"]) if raw.get("story_id") else None),
             attachments=_normalize_attachments(raw.get("attachments")),
             evidence_producers=_normalize_evidence_producers(raw.get("evidence_producers")),
+            declared_outputs=_normalize_declared_outputs(raw.get("declared_outputs")),
             max_turns=(lambda v: None if v is None else int(v))(raw.get("max_turns")),
         )
 
@@ -1137,6 +1182,42 @@ class IsolationMode(StrEnum):
     CONTAINER = "container"
 
 
+@dataclass(frozen=True, slots=True)
+class IsolationDowngrade:
+    """A requested isolation boundary that could not be provided.
+
+    Issue #3014: when a spawn is routed to container isolation - via the
+    ``sandbox:`` config, ``--sandbox docker``, or ``BERNSTEIN_SANDBOX_RUNTIME``
+    - but no container runtime is available, the spawn falls back to a weaker
+    boundary (worktree, or none). Left as a bare log WARNING, that downgrade is
+    invisible to the operator who asked for the stronger boundary. Recording it
+    as a typed value lets the run summary and the HMAC-chained audit log both
+    surface requested-vs-actual isolation, so the weaker posture is an auditable
+    decision rather than a silent substitution.
+
+    Attributes:
+        session_id: Agent session whose isolation was downgraded.
+        requested: The isolation mode that was requested (an
+            :class:`IsolationMode` value, e.g. ``"container"``).
+        actual: The isolation mode actually provided (e.g. ``"worktree"``).
+        reason: Human-readable cause (typically the container-runtime error).
+    """
+
+    session_id: str
+    requested: str
+    actual: str
+    reason: str
+
+    def as_dict(self) -> dict[str, str]:
+        """Return a JSON-serialisable mapping for run-summary rendering."""
+        return {
+            "session_id": self.session_id,
+            "requested": self.requested,
+            "actual": self.actual,
+            "reason": self.reason,
+        }
+
+
 class AgentBackend(StrEnum):
     """Agent execution backend.
 
@@ -1445,6 +1526,12 @@ class OrchestratorConfig:
     # Unified with AGENT.heartbeat_stale_s. Previously 900s; now defaults to 120s.
     # Deployments that explicitly relied on the 900s value must set this field explicitly.
     heartbeat_timeout_s: int = field(default_factory=lambda: int(AGENT.heartbeat_stale_s))
+    # Time-to-first-turn cap for agents still in the `starting` phase. Kept
+    # separate from (and larger than) ``heartbeat_timeout_s`` so a slow/free
+    # model that takes >120s to its first turn is not reaped mid-work while a
+    # non-heartbeat adapter has only its spawn-time heartbeat on disk (issue
+    # #3012). Overridable via ``tuning.agent.heartbeat_starting_timeout_s``.
+    heartbeat_starting_timeout_s: int = field(default_factory=lambda: int(AGENT.heartbeat_starting_timeout_s))
     heartbeat_enabled: bool = True
     # Derived from ORCHESTRATOR.max_agent_runtime_s (canonical) so
     # ``tuning.orchestrator.max_agent_runtime_s`` overrides the starting
@@ -1518,6 +1605,15 @@ class OrchestratorConfig:
     drain_timeout_s: float = field(
         default_factory=lambda: _defaults.ORCHESTRATOR.drain_timeout_s,
     )  # Seconds to wait for agents during drain before cleanup
+    # Terminal state for a quiescent run that produced zero terminal tasks
+    # (issue #3010). See ``core.orchestration.run_stall`` for the criterion
+    # and ``defaults.OrchestratorDefaults`` for why the grace is 1800s.
+    stalled_run_grace_s: float = field(
+        default_factory=lambda: _defaults.ORCHESTRATOR.stalled_run_grace_s,
+    )  # Seconds of unchanged task state before a zero-terminal run is stopped
+    stalled_run_ticks: int = field(
+        default_factory=lambda: _defaults.ORCHESTRATOR.stalled_run_ticks,
+    )  # Consecutive no-progress quiescent ticks required alongside the grace
     # Priority-aging janitor: boost long-waiting low-priority tasks
     # so they do not starve behind a steady stream of P1 work.  Default off
     # until run data confirms behaviour; interval is measured in orchestrator ticks.
@@ -1728,6 +1824,117 @@ class NodeInfo:
 
 
 @dataclass(frozen=True)
+class MeshPeerKey:
+    """A gossip peer's pinned identity: its ``node_id`` and its public key.
+
+    A MESH ``node_id`` is not an operator-chosen label -- it is the RFC 7638
+    thumbprint of the node's Ed25519 claim-signing key, so the identity and the
+    key are the same fact. Pinning therefore has a checkable form: the
+    thumbprint of ``public_key_x`` must reproduce ``node_id``, which is what
+    :meth:`node_id_from_key` computes and the seed loader asserts. A pin that
+    does not verify is a typo, not a policy, and is rejected before a node
+    boots with it.
+
+    Attributes:
+        node_id: The peer's install identity id, as it appears in the
+            ``node_id`` field of every receipt that peer signs.
+        public_key_x: Base64url (unpadded) encoding of the peer's raw 32-byte
+            Ed25519 public key -- the JWK ``x`` member per RFC 8037.
+    """
+
+    node_id: str
+    public_key_x: str
+
+    def to_jwk(self) -> dict[str, str]:
+        """Return this key as an RFC 8037 OKP JWK."""
+        return {"kty": "OKP", "crv": "Ed25519", "alg": "EdDSA", "x": self.public_key_x}
+
+    def node_id_from_key(self) -> str:
+        """Return the RFC 7638 thumbprint of :attr:`public_key_x`.
+
+        Equals :attr:`node_id` for a correctly pinned peer; the seed loader
+        compares the two so a pin cannot name a node whose key it does not
+        carry.
+        """
+        import base64
+        import hashlib
+        import json
+
+        canonical = json.dumps(
+            {"crv": "Ed25519", "kty": "OKP", "x": self.public_key_x},
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("ascii")
+        digest = hashlib.sha256(canonical).digest()
+        return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+    @classmethod
+    def from_material(cls, node_id: str, material: object) -> MeshPeerKey:
+        """Build a pin from the key material an operator can paste into YAML.
+
+        Three forms are accepted, all normalising to the same JWK ``x``:
+
+        * The SPKI PEM a peer publishes at
+          ``.sdd/cluster/identity/claim_signing.pub``.
+        * A JWK mapping (``kty``/``crv`` must be ``OKP``/``Ed25519``).
+        * The bare base64url ``x`` member.
+
+        Args:
+            node_id: The peer's install identity id.
+            material: The key material in one of the three forms above.
+
+        Returns:
+            The normalised :class:`MeshPeerKey`.
+
+        Raises:
+            ValueError: When the material is not a usable Ed25519 public key.
+                The message names the accepted forms so a bad paste is
+                actionable at seed load.
+        """
+        import base64
+
+        if isinstance(material, dict):
+            jwk: dict[str, object] = material
+            if jwk.get("kty") != "OKP" or jwk.get("crv") != "Ed25519":
+                raise ValueError("JWK must have kty='OKP' and crv='Ed25519'")
+            x_member = jwk.get("x")
+            if not isinstance(x_member, str) or not x_member.strip():
+                raise ValueError("JWK is missing a non-empty 'x' member")
+            x = x_member.strip()
+        elif isinstance(material, str) and material.strip():
+            text = material.strip()
+            if "-----BEGIN" in text:
+                from cryptography.hazmat.primitives import serialization
+                from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+                try:
+                    loaded = serialization.load_pem_public_key(text.encode("ascii"))
+                except Exception as exc:
+                    raise ValueError(f"not a readable PEM public key: {exc}") from exc
+                if not isinstance(loaded, Ed25519PublicKey):
+                    raise ValueError("PEM public key is not Ed25519")
+                raw = loaded.public_bytes(
+                    serialization.Encoding.Raw,
+                    serialization.PublicFormat.Raw,
+                )
+                x = base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+            else:
+                x = text
+        else:
+            raise ValueError(
+                "must be an Ed25519 public key: SPKI PEM text, an OKP JWK mapping, or the base64url 'x' member",
+            )
+
+        try:
+            raw_key = base64.urlsafe_b64decode(x + "=" * (-len(x) % 4))
+        except Exception as exc:
+            raise ValueError(f"public key is not valid base64url: {exc}") from exc
+        if len(raw_key) != 32:
+            raise ValueError(f"Ed25519 public key must decode to 32 bytes, got {len(raw_key)}")
+        return cls(node_id=node_id, public_key_x=x)
+
+
+@dataclass(frozen=True)
 class ClusterConfig:
     """Configuration for distributed cluster mode.
 
@@ -1743,6 +1950,18 @@ class ClusterConfig:
             When set, the central server serves over HTTPS with the supplied
             cert chain and worker httpx clients present a client cert.
             See :mod:`bernstein.core.protocols.cluster.cluster_tls`.
+        gossip_peers: MESH only. Peer base URLs this node gossips claim
+            receipts to. Empty on STAR, where coordination is central.
+        claim_lease_ttl_s: MESH only. Lease duration granted to a self-claim
+            in the signed claim journal.
+        claim_journal_path: MESH only. Explicit path to the signed claim
+            journal. ``None`` uses the conventional
+            ``.sdd/cluster/claim_journal.jsonl``.
+        gossip_peer_keys: MESH only. The peers whose gossiped receipts this
+            node will fold, each pinned to the Ed25519 key that must have
+            signed them. Empty means no peer is trusted: a MESH node folds
+            only receipts signed by a pinned key, so gossip is closed until
+            the operator opens it deliberately (#2997).
     """
 
     enabled: bool = False
@@ -1753,6 +1972,17 @@ class ClusterConfig:
     server_url: str | None = None  # Central server URL (worker nodes connect here)
     bind_host: str = "127.0.0.1"  # Default: localhost only
     tls: TLSConfig | None = None
+    # MESH-only keys (issue #2558). Unused on STAR, whose behaviour is
+    # unchanged by their presence.
+    gossip_peers: tuple[str, ...] = ()
+    claim_lease_ttl_s: int = 300
+    claim_journal_path: str | None = None
+    gossip_peer_keys: tuple[MeshPeerKey, ...] = ()
+
+    @property
+    def is_mesh(self) -> bool:
+        """``True`` when this config selects the leaderless MESH topology."""
+        return self.topology is ClusterTopology.MESH
 
     @property
     def cluster_url_scheme(self) -> str:

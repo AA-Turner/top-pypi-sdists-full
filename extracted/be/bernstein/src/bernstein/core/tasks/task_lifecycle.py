@@ -39,7 +39,7 @@ from bernstein.core.fast_path import (
     try_fast_path_batch,
 )
 from bernstein.core.hook_events import HookEvent
-from bernstein.core.janitor import run_janitor, verify_task
+from bernstein.core.janitor import run_janitor
 from bernstein.core.metrics import get_collector
 from bernstein.core.replay.review_board import (
     record_task_diff_captured,
@@ -49,6 +49,7 @@ from bernstein.core.replay.review_board import (
 from bernstein.core.router import RouterError
 from bernstein.core.rule_enforcer import RulesConfig, load_rules_config, run_rule_enforcement
 from bernstein.core.spawn_analyzer import SpawnAnalyzer, SpawnFailureAnalysis
+from bernstein.core.tasks.artifact_completion import is_artifact_mode, verify_task_completion
 from bernstein.core.tasks.auto_spawn_guard import AutoSpawnGuard, meta_task_kind
 from bernstein.core.tasks.lifecycle import transition_agent
 from bernstein.core.tasks.models import (
@@ -3064,6 +3065,13 @@ def _reap_and_cleanup_session(
         # side inference. No-op when the orchestrator has no recorder.
         record_task_merged(getattr(orch, "_recorder", None), task_id=task.id, agent_id=session.id)
 
+    # issue #2559: reconcile what the task declared it would produce against what
+    # this run's spine actually carries, and record an artifact-keyed attempt for
+    # anything missing. Runs for delivered and undelivered tasks alike: a declared
+    # output that is absent is a finding either way, and only the recorded outcome
+    # differs. Fail-open; never blocks completion.
+    _reconcile_declared_outputs(orch, task, session, delivered=bool(janitor_passed and not skip_merge and merge_ok))
+
     # issue #2365: capture the task diff as a content-addressed review artifact
     # (the bytes a reviewer inspects on the board) before the worktree is
     # reclaimed, for merged and unmerged tasks alike. Chained into the run
@@ -3126,6 +3134,77 @@ def _capture_review_diff(orch: Any, task: Task, session: AgentSession) -> None:
         record_task_diff_captured(recorder, task_id=task.id, summary=summary)
     except Exception as exc:
         logger.debug("review diff capture failed for task %s: %s", task.id, exc)
+
+
+def _reconcile_declared_outputs(orch: Any, task: Task, session: AgentSession, *, delivered: bool) -> None:
+    """Record an artifact-keyed attempt for each declared output that did not land.
+
+    ``Task.declared_outputs`` says what the task meant to leave behind. Whether it
+    did is answered per URI against this run's spine -- the chain is already keyed
+    by artifact, so the lookup is exact and needs no attribution of individual
+    writes to individual tasks.
+
+    Without this, a task that declared an output and died left nothing under that
+    key, so the artifact side could not tell it apart from a URI nothing was ever
+    scheduled to produce (issue #2559). With it, the failure is a chain fact:
+    HMAC-tagged, replayable, and answerable by ``bernstein artifact health``.
+
+    Fail-open, twice over: the whole body is guarded, and
+    :func:`~bernstein.core.lineage.artifact_attempt.reconcile_declared_outputs`
+    never raises on its own. The task has already finished by the time this runs,
+    and nothing about describing it may change that outcome.
+
+    Args:
+        orch: The orchestrator; supplies the workdir and the run recorder.
+        task: The completing task.
+        session: The agent session that ran it; supplies the acting identity.
+        delivered: Whether the task reached a merged, janitor-accepted completion.
+            Drives the recorded outcome, not whether a record is written: a task
+            that was accepted while a declared output is missing is a finding in
+            its own right.
+    """
+    try:
+        # Read through ``getattr``, and inside the guard: this seam is duck-typed
+        # (``orch`` is ``Any``, and callers pass task-shaped objects that need not
+        # carry every field), so a task without the attribute is a shape to skip,
+        # not a completion to fail.
+        declared = getattr(task, "declared_outputs", None)
+        if not declared:
+            # Zero-touch: tasks that never declared an output pay nothing and
+            # leave the chain byte-for-byte as it was.
+            return
+        from bernstein.core.lineage.artifact_attempt import (
+            ATTEMPT_OUTCOME_FAILED,
+            ATTEMPT_OUTCOME_INCOMPLETE,
+            reconcile_declared_outputs,
+        )
+        from bernstein.core.security.audit import load_or_create_audit_key
+
+        run_id = getattr(getattr(orch, "_recorder", None), "run_id", "")
+        if not run_id:
+            return
+        missing = reconcile_declared_outputs(
+            orch._workdir / ".sdd" / "lineage",
+            run_id=run_id,
+            declared=declared,
+            task_id=task.id,
+            actor=session.id,
+            model=task.model or "",
+            hmac_key=load_or_create_audit_key(),
+            # The spine write boundary stamps ``time.time_ns()``; an attempt has
+            # to share that unit or it would sort against productions wrongly.
+            timestamp=time.time_ns(),
+            outcome=ATTEMPT_OUTCOME_INCOMPLETE if delivered else ATTEMPT_OUTCOME_FAILED,
+            reason="task completed without the declared output" if delivered else "task did not complete",
+        )
+        if missing:
+            logger.info(
+                "task %s declared %d output(s) that did not land; attempt record(s) written",
+                task.id,
+                len(missing),
+            )
+    except Exception as exc:
+        logger.debug("declared-output reconciliation failed for task %s: %s", task.id, exc)
 
 
 def _cleanup_batch_session(orch: Any, session: AgentSession) -> None:
@@ -3695,7 +3774,7 @@ def _enqueue_alive_exit_janitor_pass(
 
     Mirrors the dead-exit scheduling in
     ``bernstein.core.agents.agent_lifecycle.handle_orphaned_task``: that path
-    runs ``verify_task`` synchronously, then issues ``POST /complete`` or
+    runs ``verify_task_completion`` synchronously, then issues ``POST /complete`` or
     ``retry_or_fail_task``. The alive-exit path has been wired through
     ``process_completed_tasks`` + ``_process_single_completed_task`` for
     months, but in practice it can be skipped when the orchestrator
@@ -3717,12 +3796,16 @@ def _enqueue_alive_exit_janitor_pass(
             scheduled (e.g. ``"alive_exit_tick"``, ``"alive_exit_drain"``).
 
     Returns:
-        The future tracking the verify_task result, or None if the
+        The future tracking the verification result, or None if the
         task has no completion signals (a no-op enqueue; a subsequent
         process_completed_tasks iteration can still process it as
         auto-verified).
     """
-    if not task.completion_signals:
+    # An artifact-mode task is enqueued even with no declared signals: its
+    # completion identity *is* the signed receipt this pass records, so
+    # skipping the pass would leave the task with nothing to complete on
+    # (issue #2608). A signal-less coding task keeps the auto-verify default.
+    if not task.completion_signals and not is_artifact_mode(task):
         logger.info(
             "janitor: enqueued pass task=%s session=%s role=%s reason=%s "
             "no_completion_signals=true (will be marked verified by default)",
@@ -3760,7 +3843,7 @@ def _enqueue_alive_exit_janitor_pass(
         # Defensive: if the orchestrator has no executor we still want a
         # synchronous verify so the task does not silently vanish.
         try:
-            return _JanitorSyncFuture(verify_task(task, orch._workdir))
+            return _JanitorSyncFuture(verify_task_completion(task, orch._workdir))
         except Exception as exc:  # pragma: no cover - defensive only
             logger.warning(
                 "janitor: sync-verify failed for task=%s reason=%s exc=%s",
@@ -3779,13 +3862,13 @@ def _enqueue_alive_exit_janitor_pass(
             judge_model,
             judge_provider,
         )
-    return executor.submit(verify_task, task, orch._workdir)
+    return executor.submit(verify_task_completion, task, orch._workdir)
 
 
 class _JanitorSyncFuture:
     """Backport of ``concurrent.futures.Future``-like used when no executor exists.
 
-    Holds a pre-computed verify_task result and exposes ``result()`` /
+    Holds a pre-computed verification result and exposes ``result()`` /
     ``done()`` to look like a Future, so the rest of the pipeline can
     treat it uniformly.
     """
@@ -3814,9 +3897,12 @@ def process_completed_tasks(
 
     Tasks whose completion signals include any ``llm_judge`` entry dispatch
     to the async ``run_janitor`` pipeline (wrapped via ``asyncio.run`` in a
-    worker thread), since ``verify_task`` is sync-only and rejects
+    worker thread), since the sync path is sync-only and rejects
     ``llm_judge`` signals outright. All other tasks keep the sync
-    ``verify_task`` fast path.
+    ``verify_task_completion`` fast path, which dispatches on the task's
+    declared output mode: an artifact-mode task (issue #2608) is verified
+    against its produced artifact and completes on a signed lineage receipt,
+    every other task on the filesystem/git signals it has always used.
 
     Args:
         orch: Orchestrator instance.
@@ -3835,7 +3921,8 @@ def process_completed_tasks(
         return
 
     # Fan-out: submit verification calls in parallel. llm_judge signals need
-    # the async run_janitor pipeline; everything else uses verify_task.
+    # the async run_janitor pipeline; everything else uses
+    # verify_task_completion.
     #
     # DEFECT 30 FIX: previously the alive-exit janitor enqueue was implicit
     # in the executor.submit() call below; an ops decision (premature

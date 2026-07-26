@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: parsedmarc
-Version: 10.2.4
+Version: 10.3.0
 Summary: A Python package and CLI for parsing aggregate, failure, and SMTP TLS DMARC reports
 Project-URL: Homepage, https://domainaware.github.io/parsedmarc
 Author-email: Sean Whalen <whalenster@gmail.com>
@@ -44,11 +44,11 @@ Requires-Dist: ddgs>=9.0.0; extra == 'build'
 Requires-Dist: hatch>=1.14.0; extra == 'build'
 Requires-Dist: myst-parser[linkify]; extra == 'build'
 Requires-Dist: nose; extra == 'build'
-Requires-Dist: pyright==1.1.410; extra == 'build'
+Requires-Dist: pyright==1.1.411; extra == 'build'
 Requires-Dist: pytest; extra == 'build'
 Requires-Dist: pytest-cov; extra == 'build'
 Requires-Dist: requests>=2.22.0; extra == 'build'
-Requires-Dist: ruff; extra == 'build'
+Requires-Dist: ruff==0.16.0; extra == 'build'
 Requires-Dist: sphinx; extra == 'build'
 Requires-Dist: sphinx-rtd-theme; extra == 'build'
 Provides-Extra: postgresql

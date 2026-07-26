@@ -35,11 +35,6 @@ impl<'a> RemlState<'a> {
         }
     }
 
-    /// Coefficient count below which a problem is considered "small" for the
-    /// dense fast-path: at this width a dense p×p Gram/Hessian is at most a few
-    /// hundred KB, so the sparse machinery's overhead is not worth paying.
-    pub(crate) const SMALL_P_DENSE_THRESHOLD: usize = 256;
-
     /// Upper-triangle density of the penalized Hessian above which the sparse
     /// exact-SPD backend loses its advantage and we fall back to dense: once
     /// >10% of entries are nonzero, sparse factorization fill-in and bookkeeping
@@ -110,18 +105,6 @@ impl<'a> RemlState<'a> {
         let Some(block_count) = self.sparse_penalty_block_count else {
             return Ok(dense_backend("penalty_blocks_not_separable", None, None));
         };
-        // Small-problem dense fast-path: the previous heuristic densified
-        // unconditionally on `p < SMALL_P_DENSE_THRESHOLD`, which is wrong when
-        // `n` is large (a sparse 320k×101 design has the dense Gram path consume
-        // O(n p²) bytes per assembled block — exact-Hessian REML can
-        // accumulate many such blocks and OOM).  Restrict the early-out
-        // to truly small problems: `p` below threshold AND `n·p` small enough
-        // that one dense `n×p` block is in the few-tens-of-MB range.
-        const SMALL_NP_DENSE_BUDGET: usize = 4_000_000;
-        let n_obs = self.y.len();
-        if p < Self::SMALL_P_DENSE_THRESHOLD && n_obs.saturating_mul(p) < SMALL_NP_DENSE_BUDGET {
-            return Ok(dense_backend("p_below_threshold_and_small", None, None));
-        }
 
         let mut s_lambda = Array2::<f64>::zeros((self.p, self.p));
         for (k, cp) in self.canonical_penalties.iter().enumerate() {
@@ -153,5 +136,67 @@ impl<'a> RemlState<'a> {
                 Err(_) => dense_backend("sparse_stats_failed", None, None),
             },
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    // The canonical Gaussian-identity fixture spec is owned by the REML module's
+    // own test tree. `use super::*` reaches the REML module itself, which does
+    // not re-export its `#[cfg(test)] mod tests` items, so the helper has to be
+    // named explicitly — by relative path, because this file is `#[path]`-
+    // included and therefore has no stable absolute module path.
+    use super::super::tests::gaussian_identity_glm_spec;
+    use faer::sparse::{SparseColMat, Triplet};
+    use ndarray::{Array1, Array2, array};
+
+    #[test]
+    fn small_sparse_design_routes_by_penalized_hessian_structure_2413() {
+        let n = 8;
+        let p = 4;
+        let triplets: Vec<_> = (0..n)
+            .flat_map(|row| {
+                (0..p)
+                    .filter(move |&col| col != row % p)
+                    .map(move |col| Triplet::new(row, col, 1.0))
+            })
+            .collect();
+        let x = SparseColMat::try_new_from_triplets(n, p, &triplets)
+            .expect("sparse design should build");
+        let y = Array1::<f64>::zeros(n);
+        let weights = Array1::<f64>::ones(n);
+        let offset = Array1::<f64>::zeros(n);
+        let config = RemlConfig::external(gaussian_identity_glm_spec(), 1e-8, false);
+        let penalty =
+            gam_terms::construction::CanonicalPenalty::from_dense_root(Array2::eye(p), p);
+        let state = RemlState::newwith_offset(
+            y.view(),
+            x,
+            weights.view(),
+            offset.view(),
+            vec![penalty],
+            p,
+            &config,
+            Some(vec![0]),
+            None,
+            None,
+        )
+        .expect("REML state should build");
+
+        let decision = state
+            .select_reml_geometry(&array![0.0])
+            .expect("geometry decision should succeed");
+
+        assert!(matches!(decision.geometry, RemlGeometry::DenseSpectral));
+        assert_eq!(decision.reason, "penalized_hessian_too_dense");
+        assert_eq!(decision.nnz_x, triplets.len());
+        assert!(
+            decision
+                .density_h_upper_est
+                .is_some_and(|density| density > RemlState::SPARSE_HESSIAN_MAX_DENSITY),
+            "the decision must come from measured Hessian structure"
+        );
+        assert!(decision.nnz_h_upper_est.is_some());
     }
 }

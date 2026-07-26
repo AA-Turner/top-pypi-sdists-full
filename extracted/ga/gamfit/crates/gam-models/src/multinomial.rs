@@ -608,7 +608,7 @@ pub fn fit_penalized_multinomial(
     // The shared engine re-validates the geometry common to every vector-GLM
     // (nonempty design, penalty shape, λ finiteness/non-negativity, override
     // `(N, M, M)` shape, finite design). The multinomial family owns the
-    // class-count contract (`K ≥ 2`, λ length `K − 1`), the per-row simplex
+    // class-count contract (`K ≥ 2`, λ length `K`), the per-row simplex
     // precondition under which the softmax residual/Fisher are the exact
     // derivatives of `Σ_c y_c log p_c`, and the row-weight check the likelihood
     // adapter consumes.
@@ -4723,13 +4723,20 @@ mod reference_class_invariance_tests {
                 .clone()
                 .with_joint_initial_log_lambdas(rho_star.to_vec());
             let eval_at = |rho_vec: &[f64]| -> (f64, ndarray::Array1<f64>, bool) {
-                crate::custom_family::evaluate_labeled_outer_criterion_for_diagnostics(
-                    &fam,
-                    &parts.blocks,
-                    &probe_options,
-                    &ndarray::Array1::from(rho_vec.to_vec()),
+                let diagnostics =
+                    crate::custom_family::evaluate_labeled_outer_criterion_for_diagnostics(
+                        &fam,
+                        &parts.blocks,
+                        &probe_options,
+                        &ndarray::Array1::from(rho_vec.to_vec()),
+                        gam_problem::EvalMode::ValueAndGradient,
+                    )
+                    .expect("labeled outer evaluation at the checkpoint");
+                (
+                    diagnostics.objective,
+                    diagnostics.gradient,
+                    diagnostics.inner_converged,
                 )
-                .expect("labeled outer evaluation at the checkpoint")
             };
             let (v0, g0, conv0) = eval_at(&rho_star);
             eprintln!(

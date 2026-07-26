@@ -3,7 +3,9 @@ use super::evaluation::{
     sas_log_delta_edge_barriercostgradhess,
 };
 use super::external_options::resolve_external_family;
-use super::optimizer::external_reml_seed_config;
+use super::optimizer::{
+    external_reml_seed_config, freeze_lambda_search_nuisance_at_canonical_anchor,
+};
 use super::penalty::REML_SEED_SCREENING_RHO_CAP;
 use super::prefit::{
     PrefitRegularityDiagnostic, detect_prefit_binomial_single_column_separation_in_design,
@@ -22,6 +24,7 @@ use gam_problem::{
 use ndarray::{Array1, Array2, array};
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
+use std::sync::atomic::Ordering;
 
 #[test]
 fn gaussian_external_reml_seeds_over_smoothing_safety_net() {
@@ -704,7 +707,19 @@ fn decode_invariant_test_parts() -> UnifiedFitResultParts {
             ),
             penalized_hessian: array![[2.0, 0.1], [0.1, 3.0]].into(),
             reparam_qs: Some(array![[1.0, 0.0], [0.0, 1.0]]),
-            dispersion: Dispersion::UNIT,
+            // Coherent with this fixture's own scale: the family is
+            // Gaussian/identity with `likelihood_scale: ProfiledGaussian` and
+            // `standard_deviation: 1.1`, so the dispersion IS the profiled
+            // estimate phi-hat = sigma-hat^2 = 1.21. `Dispersion::UNIT` here was
+            // a `Known 1.0` placeholder that contradicted both, and production
+            // refuses the pair on sight ("cached inference dispersion
+            // Dispersion { source: Known, phi: 1.0 } disagrees with
+            // family-resolved dispersion Dispersion { source: Estimated,
+            // phi: 1.2100000000000002 }") — correctly, since a cached phi that
+            // disagrees with the family is exactly the divergence the cache
+            // exists to prevent.
+            dispersion: Dispersion::estimated(1.1 * 1.1)
+                .expect("profiled Gaussian phi-hat = sigma-hat^2 is a valid estimate"),
             beta_covariance: Some(array![[1.0, 0.1], [0.1, 2.0]].into()),
             beta_standard_errors: Some(array![1.0, 2.0_f64.sqrt()]),
             beta_covariance_corrected: Some(array![[1.2, 0.1], [0.1, 2.2]]),
@@ -719,6 +734,7 @@ fn decode_invariant_test_parts() -> UnifiedFitResultParts {
         geometry: Some(FitGeometry {
             coefficient_gauge: gam_problem::Gauge::identity(&[2]),
             penalized_hessian: array![[2.0, 0.1], [0.1, 3.0]].into(),
+            constrained_posterior: None,
             working: Some(crate::model_types::WorkingGeometry {
                 weights: array![1.0, 0.5, 0.75],
                 response: array![0.1, 0.2, 0.3],
@@ -737,6 +753,7 @@ fn decode_invariant_test_parts() -> UnifiedFitResultParts {
                 },
                 hessian_psd: Some(true),
                 lambdas_railed: Vec::new(),
+                curvature_floor: None,
             }),
             ..Default::default()
         },
@@ -828,14 +845,20 @@ fn dispersion_phi_prefers_inference_then_falls_back_to_standard_deviation() {
     // the stored dispersion verbatim so it can never diverge from the φ̂
     // that scaled the covariances at fit time.
     let fit = decode_invariant_test_fit();
-    assert_eq!(fit.dispersion(), Some(Dispersion::UNIT));
-    assert_eq!(fit.dispersion_phi().unwrap(), 1.0);
+    let expected_cached = Dispersion::estimated(1.1 * 1.1).expect("valid phi-hat");
+    assert_eq!(fit.dispersion(), Some(expected_cached));
+    assert_eq!(fit.dispersion_phi().unwrap(), 1.1 * 1.1);
 
     // Deployment-saved models drop `inference` (see `core_saved_fit_result`,
     // which stores `inference: None`). `dispersion()` is then `None`, but
     // `dispersion_phi()` must still recover the Gaussian scale φ̂ = σ̂² from
     // the always-serialized `standard_deviation`. This is the code path the
     // unseen-level prior variance (#674) relies on.
+    // The cached and fallback routes now agree numerically, because coherence
+    // requires it — a cached phi that the family would not reproduce is exactly
+    // what production refuses. What still distinguishes them, and what this
+    // half of the test owns, is that `dispersion()` (the cached BLOCK) vanishes
+    // with `inference` while `dispersion_phi()` (the recovered SCALE) does not.
     let mut stripped = fit.clone();
     stripped.inference = None;
     assert!(stripped.dispersion().is_none());
@@ -854,6 +877,14 @@ fn dispersion_phi_prefers_inference_then_falls_back_to_standard_deviation() {
         ResponseFamily::Poisson,
         InverseLink::Standard(StandardLink::Log),
     ));
+    // The scale metadata has to move WITH the family. Cloning the Gaussian
+    // fixture and swapping only `likelihood_family` left `ProfiledGaussian`
+    // beside a Poisson response, and the resolver refuses that pair on sight —
+    // "family poisson requires exact FixedDispersion { phi: 1.0 } metadata, got
+    // ProfiledGaussian" — so the `unwrap` below blew up before the assertion it
+    // guards was ever reached. Poisson is a fixed-scale family; its metadata
+    // says so.
+    poisson.likelihood_scale = LikelihoodScaleMetadata::FixedDispersion { phi: 1.0 };
     poisson.standard_deviation = 2.7;
     assert_eq!(poisson.dispersion_phi().unwrap(), 1.0);
 }
@@ -1203,7 +1234,7 @@ fn sas_beta_raw_epsilon_sensitivity_matchesfd_at_seed19() {
     // noise floor. The two agree to ~1e-8; a 1e-5 bound is a meaningful guard
     // (still ~1000× the observed residual) that would catch a dropped ε-jet
     // channel without flaking (gam#855).
-    gam_test_support::assert_matrix_derivativefd(
+    gam_linalg::test_support::fd_checker::assert_matrix_derivativefd(
         &fd_du_raw.insert_axis(Axis(1)),
         &du_raw.insert_axis(Axis(1)),
         1e-5,
@@ -1303,7 +1334,7 @@ fn sas_beta_raw_epsilon_sensitivity_matchesfd_at_seed19() {
          a nonzero ridge would mean the IFT Jacobian and the FD re-solve no \
          longer linearize the same system (gam#855)"
     );
-    gam_test_support::assert_matrix_derivativefd(
+    gam_linalg::test_support::fd_checker::assert_matrix_derivativefd(
         &fd_beta.insert_axis(Axis(1)),
         &dbeta_exact.insert_axis(Axis(1)),
         1e-5,
@@ -1481,7 +1512,7 @@ fn sas_true_score_beta_jacobian_matchesfd_at_seed19() {
         fd_j.column_mut(j).assign(&fd_col);
     }
 
-    gam_test_support::assert_matrix_derivativefd(
+    gam_linalg::test_support::fd_checker::assert_matrix_derivativefd(
         &fd_j,
         &analytic_j,
         2e-3,
@@ -1691,4 +1722,421 @@ fn link_binomial_aux_carries_sas_complement_and_zero_weights_saturated_rows() {
             "inconsistent saturated SAS row must be a typed refusal at eta={eta}; got {res:?}"
         );
     }
+}
+
+/// Build a Beta-precision (φ estimated) outer state on a deterministic
+/// fixture: `logit(μ) = 1.6·(x − ½)`, three design columns `[1, x, x²]`, one
+/// dense penalty on the two non-intercept columns.
+fn beta_precision_anchor_state<'a>(
+    y: &'a Array1<f64>,
+    w: &'a Array1<f64>,
+    x: &Array2<f64>,
+    cfg: &'a RemlConfig,
+) -> RemlState<'a> {
+    let p = x.ncols();
+    let offset = Array1::<f64>::zeros(y.len());
+    let mut s = Array2::<f64>::zeros((p, p));
+    s[[1, 1]] = 1.0;
+    s[[2, 2]] = 1.0;
+    let canonical = gam_terms::construction::canonicalize_penalty_specs(
+        &[crate::estimate::PenaltySpec::Dense(s)],
+        &[1],
+        p,
+        "beta_precision_anchor_state",
+    )
+    .map(|(canonical, _)| canonical)
+    .expect("canonicalize the anchor fixture penalty");
+    RemlState::newwith_offset(
+        y.view(),
+        x.clone(),
+        w.view(),
+        offset.view(),
+        canonical,
+        p,
+        cfg,
+        Some(vec![1]),
+        None,
+        None,
+    )
+    .expect("build the Beta-precision anchor state")
+}
+
+fn beta_precision_anchor_fixture() -> (Array1<f64>, Array1<f64>, Array2<f64>, RemlConfig) {
+    let n = 60usize;
+    let mut y = Array1::<f64>::zeros(n);
+    let mut x = Array2::<f64>::zeros((n, 3));
+    for i in 0..n {
+        let xi = i as f64 / (n as f64 - 1.0);
+        let eta = 1.6 * (xi - 0.5);
+        let mu = 1.0 / (1.0 + (-eta).exp());
+        // Deterministic alternating perturbation: enough conditional spread for
+        // the Pearson precision to be a genuinely data-driven quantity.
+        let wiggle = if i % 2 == 0 { 0.06 } else { -0.06 };
+        y[i] = (mu + wiggle).clamp(0.02, 0.98);
+        x[[i, 0]] = 1.0;
+        x[[i, 1]] = xi;
+        x[[i, 2]] = xi * xi;
+    }
+    let w = Array1::<f64>::ones(n);
+    let phi = 8.0;
+    let likelihood = GlmLikelihoodSpec {
+        spec: LikelihoodSpec::new(
+            ResponseFamily::Beta { phi },
+            InverseLink::Standard(StandardLink::Logit),
+        ),
+        scale: gam_problem::LikelihoodScaleMetadata::EstimatedBetaPhi { phi },
+    };
+    (y, w, x, RemlConfig::external(likelihood, 1e-8, false))
+}
+
+#[test]
+fn lambda_search_nuisance_freeze_is_a_function_of_data_and_spec_alone_2363() {
+    // #2363. The λ-search holds the estimated nuisance ψ fixed so that
+    // `F(ρ) = REML(ρ, ψ)` is stationary in ρ (#1074 / #1477 / #2369). Which
+    // value gets frozen therefore DEFINES the criterion the outer search
+    // minimizes — so if it is captured at whatever solve the persistent
+    // warm-start cache happened to steer the search into first, a cold machine
+    // and a warm machine minimize different criteria and legitimately report
+    // different fits (measured: the same Beta fit at REML −6.382e2 cold and
+    // −7.408e2 warm).
+    //
+    // The contract this pins is the repair: ψ is anchored at the symmetric
+    // reference ρ = 0 on a state with no warm start attached, so it is a
+    // function of (data, model spec) alone — BITWISE identical no matter what
+    // seed β or heuristic λ a caller (or a cache) supplies.
+    let (y, w, x, cfg) = beta_precision_anchor_fixture();
+    let resolved = cfg
+        .likelihood
+        .resolved_scale()
+        .expect("the fixture declares an estimated Beta precision");
+    assert!(
+        matches!(
+            resolved,
+            gam_problem::ResolvedLikelihoodScale::BetaPrecision {
+                estimated: true,
+                ..
+            }
+        ),
+        "fixture precondition: the freeze under test only exists for an ESTIMATED Beta precision"
+    );
+    let seed_config = external_reml_seed_config(1, LinkFunction::Logit);
+
+    let pristine = beta_precision_anchor_state(&y, &w, &x, &cfg);
+    freeze_lambda_search_nuisance_at_canonical_anchor(&pristine, &resolved, 1, None, &seed_config)
+        .expect("the anchor must succeed on a pristine state");
+    let anchored_bits = pristine.frozen_beta_phi.load(Ordering::Relaxed);
+    assert_ne!(
+        anchored_bits, 0,
+        "the anchor must actually freeze a precision; an unfrozen λ-search re-profiles φ from \
+         every trial's warm-start η and the outer criterion drifts with ρ"
+    );
+    let anchored_phi = f64::from_bits(anchored_bits);
+    assert!(
+        anchored_phi.is_finite() && anchored_phi > 0.0,
+        "the anchored Beta precision must be a finite positive value; got {anchored_phi}"
+    );
+
+    // A caller-supplied warm β and a different heuristic λ are exactly what the
+    // persistent cache donates. Neither may move the frozen value by one ulp.
+    let seeded = beta_precision_anchor_state(&y, &w, &x, &cfg);
+    let donated_beta = array![0.35, -1.7, 2.4];
+    seeded.setwarm_start_original_beta(Some(donated_beta.view()));
+    assert!(
+        seeded.current_original_basis_beta().is_some(),
+        "precondition: the donated warm β is installed before the anchor runs"
+    );
+    freeze_lambda_search_nuisance_at_canonical_anchor(
+        &seeded,
+        &resolved,
+        1,
+        Some(&[3.0]),
+        &seed_config,
+    )
+    .expect("the anchor must succeed regardless of what a caller donated");
+    assert_eq!(
+        seeded.frozen_beta_phi.load(Ordering::Relaxed),
+        anchored_bits,
+        "the λ-search nuisance freeze must be BITWISE independent of the donated warm β and \
+         heuristic λ: it defines the outer criterion, and a criterion that moves with cache \
+         state is the #2363 defect"
+    );
+
+    // The predictor the anchor hands the search must be invariant too. It is
+    // deliberately left in place (it is what suppresses the cache-dependent
+    // persistent β restore), so it has to be the SAME β on both machines.
+    let pristine_seed = pristine
+        .current_original_basis_beta()
+        .expect("the anchor leaves its own β as the search's warm start");
+    let seeded_seed = seeded
+        .current_original_basis_beta()
+        .expect("the anchor leaves its own β as the search's warm start");
+    assert_eq!(
+        pristine_seed
+            .iter()
+            .map(|value| value.to_bits())
+            .collect::<Vec<_>>(),
+        seeded_seed
+            .iter()
+            .map(|value| value.to_bits())
+            .collect::<Vec<_>>(),
+        "the predictor the anchor hands the search must not depend on the donated warm β either"
+    );
+
+    // And it must refuse to run at all once the on-disk session is open: from
+    // that point the inner solve reloads the cached β, so an anchor taken there
+    // would be cache-dependent again.
+    let attached = beta_precision_anchor_state(&y, &w, &x, &cfg);
+    attached.enable_persistent_warm_start_disk();
+    let refusal = freeze_lambda_search_nuisance_at_canonical_anchor(
+        &attached,
+        &resolved,
+        1,
+        None,
+        &seed_config,
+    );
+    assert!(
+        matches!(refusal, Err(EstimationError::InvalidInput(_))),
+        "anchoring after the persistent layer is attached must be a typed refusal, not a \
+         silently cache-dependent freeze; got {refusal:?}"
+    );
+    assert_eq!(
+        attached.frozen_beta_phi.load(Ordering::Relaxed),
+        0,
+        "a refused anchor must not leave a partially-established freeze behind"
+    );
+}
+
+/// One arm of the cold/prime/warm cache-invariance matrix: a complete
+/// production fit through the external-design entry point, with the on-disk
+/// persistent warm-start layer either structurally disabled or engaged.
+fn cache_invariance_arm(
+    family: &LikelihoodSpec,
+    y: &Array1<f64>,
+    w: &Array1<f64>,
+    x: &Array2<f64>,
+    persist_warm_start_disk: bool,
+) -> ExternalOptimResult {
+    let offset = Array1::<f64>::zeros(y.len());
+    let s_list: Vec<PenaltySpec> = one_penalty_non_intercept(x.ncols())
+        .into_iter()
+        .map(PenaltySpec::Dense)
+        .collect();
+    let opts = ExternalOptimOptions {
+        family: family.clone(),
+        latent_cloglog: None,
+        mixture_link: None,
+        optimize_mixture: false,
+        sas_link: None,
+        optimize_sas: false,
+        compute_inference: false,
+        skip_rho_posterior_inference: true,
+        max_iter: 80,
+        tol: 1e-7,
+        nullspace_dims: vec![1],
+        linear_constraints: None,
+        firth_bias_reduction: None,
+        penalty_shrinkage_floor: None,
+        rho_prior: Default::default(),
+        kronecker_penalty_system: None,
+        kronecker_factored: None,
+        persist_warm_start_disk,
+    };
+    optimize_external_designwith_heuristic_lambdas_andwarm_start(
+        y.view(),
+        w.view(),
+        x.clone(),
+        offset.view(),
+        s_list,
+        None,
+        None,
+        &opts,
+    )
+    .unwrap_or_else(|error| {
+        panic!(
+            "a fit must succeed regardless of cache state (persist={persist_warm_start_disk}): \
+             {error:?}"
+        )
+    })
+}
+
+/// Signed ulp distance between two finite `f64`s, using the standard
+/// monotone-ordering trick so the count is meaningful across zero.
+fn ulp_distance(left: f64, right: f64) -> i128 {
+    let order = |value: f64| -> i128 {
+        let bits = value.to_bits() as i64;
+        if bits < 0 {
+            (i64::MIN - bits) as i128
+        } else {
+            bits as i128
+        }
+    };
+    order(left) - order(right)
+}
+
+/// Describe the first coordinate at which two arms disagree BITWISE, or `None`
+/// when every coordinate is bit-identical. The description carries the ulp
+/// distance so a regression report says how far the value moved, not just that
+/// it moved.
+fn first_bitwise_gap(cold: &[f64], warm: &[f64]) -> Option<String> {
+    if cold.len() != warm.len() {
+        return Some(format!(
+            "layout differs: cold len={} warm len={}",
+            cold.len(),
+            warm.len()
+        ));
+    }
+    cold.iter()
+        .zip(warm.iter())
+        .enumerate()
+        .find(|(_, (a, b))| a.to_bits() != b.to_bits())
+        .map(|(index, (a, b))| {
+            format!(
+                "coordinate {index}: cold={a:.17e} warm={b:.17e} ulps={} |Δ|={:.3e}",
+                ulp_distance(*a, *b),
+                (a - b).abs()
+            )
+        })
+}
+
+/// Deterministic `n`-row covariate grid shared by the estimated-nuisance
+/// cache-invariance fixtures.
+fn nuisance_invariance_design(n: usize) -> (Array2<f64>, Vec<f64>) {
+    let mut x = Array2::<f64>::zeros((n, 4));
+    let mut grid = Vec::with_capacity(n);
+    for i in 0..n {
+        let t = (i as f64 + 0.5) / n as f64;
+        x[[i, 0]] = 1.0;
+        x[[i, 1]] = 2.0 * t - 1.0;
+        x[[i, 2]] = (2.0 * std::f64::consts::PI * t).sin();
+        x[[i, 3]] = (2.0 * std::f64::consts::PI * t).cos();
+        grid.push(t);
+    }
+    (x, grid)
+}
+
+#[test]
+fn estimated_nuisance_fits_land_in_the_same_place_cold_and_warm_2363() {
+    // #2363, the OUTCOME half of the contract the mechanism test above pins:
+    // a fit must be a function of (data, model spec) alone. The persistent
+    // warm-start cache may change how fast the search gets there — it donates a
+    // ρ seed and a warm β — but never where it lands.
+    //
+    // The three families here are the ones whose outer criterion carries an
+    // ESTIMATED nuisance frozen across the λ-search (Gamma shape, Tweedie φ,
+    // Beta precision). Freezing a value the cache had steered the search into
+    // made cold and warm machines minimize different criteria; this asserts
+    // they now minimize the same one and report the same fit.
+    //
+    // Each family runs three arms in one process: a cold arm whose persistent
+    // reads are STRUCTURALLY disabled (`persist_warm_start_disk = false`), a
+    // priming arm that completes the same fit with persistence engaged, and a
+    // warm arm that therefore starts from a populated cache. Disabling the reads
+    // is what makes the cold arm cold — the store root is resolved once per
+    // process and memoized, so repointing it cannot prove coldness from inside a
+    // running test binary.
+    //
+    // The comparison is BITWISE on the criterion, on β and on the certified
+    // log-λ. Approximate agreement is the wrong contract here: the defect this
+    // guards agreed to three or four digits on two of the three families and was
+    // still a different objective, so any tolerance wide enough to absorb solver
+    // wobble is also wide enough to absorb the next instance of the bug.
+    let n = 160usize;
+    let (x, grid) = nuisance_invariance_design(n);
+    let w = Array1::<f64>::ones(n);
+
+    let gamma_y = Array1::from_iter(grid.iter().enumerate().map(|(i, t)| {
+        let mu = (0.3 + 0.9 * (2.0 * std::f64::consts::PI * t).sin()).exp();
+        mu * if i % 3 == 0 { 0.72 } else { 1.18 }
+    }));
+    let tweedie_y = Array1::from_iter(grid.iter().enumerate().map(|(i, t)| {
+        let mu = (0.1 + 1.1 * (2.0 * std::f64::consts::PI * t).sin()).exp();
+        if i % 5 == 0 {
+            0.0
+        } else {
+            mu * if i % 2 == 0 { 0.62 } else { 1.31 }
+        }
+    }));
+    let beta_y = Array1::from_iter(grid.iter().enumerate().map(|(i, t)| {
+        let eta = 1.8 * (2.0 * std::f64::consts::PI * t).sin();
+        let mu = 1.0 / (1.0 + (-eta).exp());
+        (mu + if i % 2 == 0 { 0.07 } else { -0.07 }).clamp(0.02, 0.98)
+    }));
+
+    let cases: [(&str, LikelihoodSpec, &Array1<f64>); 3] = [
+        (
+            "gamma_estimated_shape",
+            LikelihoodSpec::new(
+                ResponseFamily::Gamma,
+                InverseLink::Standard(StandardLink::Log),
+            ),
+            &gamma_y,
+        ),
+        (
+            "tweedie_estimated_phi",
+            LikelihoodSpec::new(
+                ResponseFamily::Tweedie { p: 1.5 },
+                InverseLink::Standard(StandardLink::Log),
+            ),
+            &tweedie_y,
+        ),
+        (
+            "beta_estimated_precision",
+            LikelihoodSpec::new(
+                ResponseFamily::Beta { phi: 8.0 },
+                InverseLink::Standard(StandardLink::Logit),
+            ),
+            &beta_y,
+        ),
+    ];
+
+    let mut failures: Vec<String> = Vec::new();
+    for (name, family, y) in &cases {
+        let cold = cache_invariance_arm(family, y, &w, &x, false);
+        drop(cache_invariance_arm(family, y, &w, &x, true));
+        let warm = cache_invariance_arm(family, y, &w, &x, true);
+
+        if cold.outer_converged != warm.outer_converged {
+            failures.push(format!(
+                "[{name}] the convergence verdict depends on cache state: cold={} warm={}",
+                cold.outer_converged, warm.outer_converged
+            ));
+        }
+        // BITWISE, not "close". Numerically close state is not interchangeable
+        // provenance for a profiled objective: the whole failure mode this issue
+        // documents is two runs that agreed to several digits and still sat on
+        // different criteria. An approximate bound would have to be set above
+        // whatever wobble the current solver happens to produce, and would then
+        // stop measuring the invariant and start measuring the wobble. The
+        // reports carry the ulp distance so a regression says how far it moved.
+        if let Some(gap) = first_bitwise_gap(
+            std::slice::from_ref(&cold.reml_score),
+            std::slice::from_ref(&warm.reml_score),
+        ) {
+            failures.push(format!(
+                "[{name}] the outer criterion depends on cache state: {gap}"
+            ));
+        }
+        if let Some(gap) = first_bitwise_gap(
+            cold.beta.as_slice().expect("contiguous cold β"),
+            warm.beta.as_slice().expect("contiguous warm β"),
+        ) {
+            failures.push(format!(
+                "[{name}] the coefficients depend on cache state: {gap}"
+            ));
+        }
+        if let Some(gap) = first_bitwise_gap(
+            cold.log_lambdas.as_slice().expect("contiguous cold log-λ"),
+            warm.log_lambdas.as_slice().expect("contiguous warm log-λ"),
+        ) {
+            failures.push(format!(
+                "[{name}] the certified log-λ depends on cache state: {gap}"
+            ));
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "a warm cache changed WHERE the fit landed, not just how fast it got there:\n{}",
+        failures.join("\n")
+    );
 }

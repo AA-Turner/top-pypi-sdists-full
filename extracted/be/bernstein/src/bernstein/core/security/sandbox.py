@@ -5,7 +5,7 @@ from __future__ import annotations
 import dataclasses
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Literal, cast, get_args
 
 from bernstein.core.container import (
     ContainerConfig,
@@ -23,9 +23,19 @@ if TYPE_CHECKING:
 
 _AGENT_IMAGE = "bernstein-agent:latest"
 
+#: The one place a container runtime name is written down. Every other
+#: runtime check in the codebase derives from this via
+#: :data:`CONTAINER_RUNTIME_NAMES` rather than repeating the literals
+#: (issue #3039): a hand-maintained second copy is how ``podman`` ended up
+#: accepted by configuration while failing open at the explicit-intent gate.
 SandboxRuntime = Literal["docker", "podman"]
 
-_VALID_RUNTIMES = {"docker", "podman"}
+#: Every accepted container runtime name, derived from :data:`SandboxRuntime`.
+#: Adding a runtime to the type above extends config validation, the MCP
+#: server sandbox validator, the CLI's container-implies flag, and the
+#: explicit-intent gates in one edit.
+CONTAINER_RUNTIME_NAMES: frozenset[str] = frozenset(get_args(SandboxRuntime))
+
 _VALID_NETWORKS = {"none", "bridge", "host"}
 
 
@@ -139,14 +149,27 @@ def parse_docker_sandbox(raw: object | None) -> DockerSandbox | None:
     """
     if raw is None:
         return None
+    if isinstance(raw, str):
+        runtime_shorthand = raw.strip()
+        if runtime_shorthand not in CONTAINER_RUNTIME_NAMES:
+            valid = ", ".join(sorted(CONTAINER_RUNTIME_NAMES))
+            raise ValueError(
+                f"sandbox: {raw!r} is not a valid runtime shorthand. "
+                f"Use one of {valid} (matching --sandbox), "
+                f"or the mapping form, e.g. sandbox: {{runtime: docker}}"
+            )
+        raw = {"runtime": runtime_shorthand}
     if not isinstance(raw, Mapping):
-        raise ValueError("sandbox must be a mapping")
+        raise ValueError(
+            "sandbox must be a mapping (e.g. sandbox: {runtime: docker}) "
+            "or a runtime name string (e.g. sandbox: docker)"
+        )
 
     data = cast("Mapping[str, object]", raw)
     enabled = _parse_bool(data.get("enabled", True), "sandbox.enabled")
     runtime_raw = data.get("runtime", "docker")
-    if not isinstance(runtime_raw, str) or runtime_raw not in _VALID_RUNTIMES:
-        raise ValueError("sandbox.runtime must be one of docker, podman")
+    if not isinstance(runtime_raw, str) or runtime_raw not in CONTAINER_RUNTIME_NAMES:
+        raise ValueError(f"sandbox.runtime must be one of {', '.join(sorted(CONTAINER_RUNTIME_NAMES))}")
 
     network_raw = data.get("network_mode", "none")
     if not isinstance(network_raw, str) or network_raw not in _VALID_NETWORKS:

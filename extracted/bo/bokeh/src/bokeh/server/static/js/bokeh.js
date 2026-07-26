@@ -736,7 +736,7 @@
 },
 /* version.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    exports.version = "3.9.1";
+    exports.version = "3.9.2";
 },
 /* embed/index.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
@@ -13758,7 +13758,8 @@
             return signal.connect(new_slot, this);
         }
         disconnect(signal, slot) {
-            return signal.disconnect(slot, this);
+            const new_slot = this._slots.get(slot);
+            return new_slot != null ? signal.disconnect(new_slot, this) : false;
         }
         constructor(options) {
             this.removed = new signaling_1.Signal0(this, "removed");
@@ -13863,18 +13864,19 @@
             }
         }
         on_transitive_change(property, fn, { recursive = false, signal = (obj) => obj.change } = {}) {
+            const slot = () => fn();
             const collect = () => {
                 const value = property.is_unset ? [] : property.get_value();
                 return has_props_1.HasProps.references(value, { recursive });
             };
             const connect = (models) => {
                 for (const model of models) {
-                    this.connect(signal(model), () => fn());
+                    this.connect(signal(model), slot);
                 }
             };
             const disconnect = (models) => {
                 for (const model of models) {
-                    this.disconnect(signal(model), () => fn());
+                    this.disconnect(signal(model), slot);
                 }
             };
             let models = collect();
@@ -21461,6 +21463,7 @@
                 p.flow_mode, p.sizing_mode,
                 p.aspect_ratio,
                 p.visible,
+                p.resizable,
             ], () => this.invalidate_layout());
         }
         children_views() {
@@ -23406,6 +23409,15 @@
             this.start?.remove();
             this.end?.remove();
             super.remove();
+        }
+        connect_signals() {
+            super.connect_signals();
+            const update = () => {
+                this.set_data(this.model.source);
+                this.request_paint();
+            };
+            this.on_transitive_change(this.model.properties.start, update);
+            this.on_transitive_change(this.model.properties.end, update);
         }
         map_data() {
             const { frame } = this.plot_view;
@@ -27831,6 +27843,12 @@
                     align: _align_lookup[side][orient],
                 };
             }
+            else if (orient === 0) {
+                return {
+                    vertical_align: _vertical_align_lookup[side].horizontal,
+                    align: _align_lookup[side].horizontal,
+                };
+            }
             else {
                 return {
                     vertical_align: "center",
@@ -29596,7 +29614,7 @@
     const factor_range_1 = require(121) /* ../ranges/factor_range */;
     const base_text_1 = require(188) /* ../text/base_text */;
     const build_views_1 = require(69) /* ../../core/build_views */;
-    const assert_1 = require(12) /* ../../core/util/assert */;
+    const logging_1 = require(20) /* ../../core/logging */;
     const types_3 = require(8) /* ../../core/util/types */;
     const bbox_1 = require(62) /* ../../core/util/bbox */;
     const utils_1 = require(189) /* ../text/utils */;
@@ -29608,6 +29626,7 @@
             super(...arguments);
             /*private*/ this._axis_label_view = null;
             /*private*/ this._major_label_views = new Map();
+            this._warned_bad_loc = false;
         }
         get panel() {
             return this._panel;
@@ -29693,7 +29712,7 @@
         }
         get is_renderable() {
             const [range, cross_range] = this.ranges;
-            return super.is_renderable && range.is_valid && cross_range.is_valid && range.span > 0 && cross_range.span > 0;
+            return super.is_renderable && range.is_valid && cross_range.is_valid && range.span > 0 && cross_range.span > 0 && !isNaN(this.loc);
         }
         interactive_hit(sx, sy) {
             return this.bbox.contains(sx, sy);
@@ -29730,6 +29749,7 @@
             });
             this.connect(this.model.change, () => this.plot_view.request_layout());
             this.connect(this.model.ticker.change, () => this.plot_view.request_layout());
+            this.connect(this.model.formatter.change, () => this.plot_view.request_layout());
         }
         get needs_clip() {
             return this.model.fixed_location != null;
@@ -30152,7 +30172,11 @@
                 if (cross_range instanceof factor_range_1.FactorRange) {
                     return cross_range.synthetic(fixed_location);
                 }
-                (0, assert_1.unreachable)();
+                if (!this._warned_bad_loc) {
+                    this._warned_bad_loc = true;
+                    logging_1.logger.warn("cannot determine location of axis based on its fixed_location");
+                }
+                return NaN;
             }
             const [, cross_range] = this.ranges;
             switch (this.panel.side) {
@@ -30480,7 +30504,6 @@
     class BasicTickFormatter extends tick_formatter_1.TickFormatter {
         constructor(attrs) {
             super(attrs);
-            this.last_precision = 3;
         }
         get scientific_limit_low() {
             return 10.0 ** this.power_limit_low;
@@ -30516,16 +30539,18 @@
         }
         _auto_precision(ticks, need_sci) {
             const labels = new Array(ticks.length);
-            const asc = this.last_precision <= 15;
-            outer: for (let x = this.last_precision; asc ? x <= 15 : x >= 1; asc ? x++ : x--) {
+            let last_precision = 3;
+            const asc = last_precision <= 15;
+            outer: for (let x = last_precision; asc ? x <= 15 : x >= 1; asc ? x++ : x--) {
                 if (need_sci) {
                     labels[0] = ticks[0].toExponential(x);
                     for (let i = 1; i < ticks.length; i++) {
+                        labels[i] = ticks[i].toExponential(x);
                         if (labels[i] == labels[i - 1]) {
                             continue outer;
                         }
                     }
-                    this.last_precision = x;
+                    last_precision = x;
                     break;
                 }
                 else {
@@ -30536,11 +30561,11 @@
                             continue outer;
                         }
                     }
-                    this.last_precision = x;
+                    last_precision = x;
                     break;
                 }
             }
-            return this.last_precision;
+            return last_precision;
         }
         doFormat(ticks, _opts) {
             if (ticks.length == 0) {
@@ -36785,6 +36810,10 @@
     const basic_tick_formatter_1 = require(209) /* ./basic_tick_formatter */;
     const enums_1 = require(21) /* ../../core/enums */;
     const projections_1 = require(148) /* ../../core/util/projections */;
+    const zero_threshold = 1e-12; // degrees; about 0.1 micrometers at the equator
+    function normalize_zeroish(value) {
+        return Math.abs(value) < zero_threshold ? 0 : value;
+    }
     class MercatorTickFormatter extends basic_tick_formatter_1.BasicTickFormatter {
         constructor(attrs) {
             super(attrs);
@@ -36801,13 +36830,13 @@
             if (this.dimension == "lon") {
                 for (let i = 0; i < n; i++) {
                     const [lon] = projections_1.wgs84_mercator.invert(ticks[i], opts.loc);
-                    proj_ticks[i] = lon;
+                    proj_ticks[i] = normalize_zeroish(lon);
                 }
             }
             else {
                 for (let i = 0; i < n; i++) {
                     const [, lat] = projections_1.wgs84_mercator.invert(opts.loc, ticks[i]);
-                    proj_ticks[i] = lat;
+                    proj_ticks[i] = normalize_zeroish(lat);
                 }
             }
             return super.doFormat(proj_ticks, opts);
@@ -45213,7 +45242,7 @@
         _update_attribution() {
             const attribution = [
                 ...this.model.attribution,
-                ...this.computed_renderer_views.map((rv) => rv.attribution),
+                ...this.computed_renderer_views.filter((rv) => rv.displayed).map((rv) => rv.attribution),
             ].filter((rv) => rv != null);
             const elements = attribution.map((attrib) => (0, types_1.isString)(attrib) ? new elements_1.Div({ children: [attrib] }) : attrib);
             this._attribution.elements = elements;
@@ -45222,6 +45251,9 @@
         async _build_renderers() {
             this.computed_renderers = [...this._compute_renderers()];
             const result = await (0, build_views_1.build_views)(this.renderer_views, this.computed_renderers, { parent: (model) => model instanceof layout_dom_1.LayoutDOM ? null : this });
+            for (const renderer_view of result.created) {
+                this.on_change(renderer_view.model.properties.visible, () => this._update_attribution());
+            }
             this._update_attribution();
             return result;
         }
@@ -45283,16 +45315,23 @@
             this.on_change([frame_width, frame_height, frame_align], () => this.invalidate_layout());
             const { min_border, min_border_top, min_border_bottom, min_border_left, min_border_right } = this.model.properties;
             this.on_change([min_border, min_border_top, min_border_bottom, min_border_left, min_border_right], () => this.invalidate_layout());
+            const connect_range = (range) => {
+                this.connect(range.change, () => {
+                    this.request_repaint();
+                });
+                this.connect(range.properties.min_interval.change, () => {
+                    this._constrain_range_interval(range);
+                });
+                this.connect(range.properties.max_interval.change, () => {
+                    this._constrain_range_interval(range);
+                });
+            };
             const { x_ranges, y_ranges } = this.frame;
             for (const [, range] of x_ranges) {
-                this.connect(range.change, () => {
-                    this.request_repaint();
-                });
+                connect_range(range);
             }
             for (const [, range] of y_ranges) {
-                this.connect(range.change, () => {
-                    this.request_repaint();
-                });
+                connect_range(range);
             }
             this.connect(this.model.change, () => this.request_repaint());
             this.connect(this.model.reset, () => this.reset());
@@ -45332,6 +45371,12 @@
                         this.request_repaint();
                     }
                 });
+            }
+        }
+        _constrain_range_interval(range) {
+            const range_info = this._range_manager.constrain_interval(range);
+            if (range_info != null) {
+                this.update_range(range_info);
             }
         }
         _update_touch_action() {
@@ -46979,6 +47024,7 @@
     __esModule();
     const data_range1d_1 = require(118) /* ../ranges/data_range1d */;
     const logging_1 = require(20) /* ../../core/logging */;
+    const math_1 = require(11) /* ../../core/util/math */;
     class RangeManager {
         constructor(parent) {
             this.warn_initial_ranges = true;
@@ -47113,6 +47159,22 @@
                 this.invalidate_dataranges = false;
             }
         }
+        constrain_interval(rng) {
+            const range_info = this._constrain_interval(rng);
+            if (range_info == null) {
+                return null;
+            }
+            const { x_ranges, y_ranges } = this.ranges();
+            const xrs = new Map();
+            const yrs = new Map();
+            if (x_ranges.includes(rng)) {
+                xrs.set(rng, range_info);
+            }
+            if (y_ranges.includes(rng)) {
+                yrs.set(rng, range_info);
+            }
+            return { xrs, yrs };
+        }
         compute_initial() {
             // check for good values for ranges before setting initial range
             let good_vals = true;
@@ -47146,6 +47208,31 @@
                 }
                 return null;
             }
+        }
+        _constrain_interval(rng) {
+            const old_interval = Math.abs(rng.end - rng.start);
+            const min_interval = rng.min_interval ?? 0;
+            let max_interval = rng.max_interval ?? Infinity;
+            const [min_bound, max_bound] = rng.computed_bounds;
+            if (rng.bounds != null) {
+                if (isFinite(min_bound) && isFinite(max_bound)) {
+                    max_interval = Math.min(max_interval, Math.abs(max_bound - min_bound));
+                }
+            }
+            const new_interval = (0, math_1.clamp)(old_interval, Math.min(min_interval, max_interval), max_interval);
+            if (new_interval == old_interval) {
+                return null;
+            }
+            const half_interval = new_interval / 2;
+            let center = (rng.start + rng.end) / 2;
+            if (rng.bounds != null) {
+                center = (0, math_1.clamp)(center, min_bound + half_interval, max_bound - half_interval);
+            }
+            const sign = rng.is_reversed ? -1 : 1;
+            return {
+                start: center - sign * half_interval,
+                end: center + sign * half_interval,
+            };
         }
         _update_ranges_together(range_state) {
             // Get weight needed to scale the diff of the range to honor interval limits

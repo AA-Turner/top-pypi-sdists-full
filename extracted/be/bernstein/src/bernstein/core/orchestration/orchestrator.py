@@ -92,6 +92,14 @@ from bernstein.core.models import (
 from bernstein.core.notifications import NotificationManager, NotificationPayload, NotificationTarget
 from bernstein.core.orchestration.adaptive_parallelism import AdaptiveParallelism
 from bernstein.core.orchestration.evolution import EvolutionCoordinator
+from bernstein.core.orchestration.run_stall import (
+    ACTIVE_UNFINISHED_STATUSES,
+    STUCK_TASK_FAIL_REASON,
+    RunStallState,
+    evaluate_run_stall,
+    resolve_grace_s,
+    resolve_min_ticks,
+)
 from bernstein.core.orchestration.tick_pipeline import (
     CompletionData,
     RuffViolation,
@@ -164,11 +172,66 @@ if TYPE_CHECKING:
     from bernstein.core.backlog_parser import ParsedBacklogTask
     from bernstein.core.container import ContainerConfig
     from bernstein.core.permission_mode import PermissionMode
+    from bernstein.core.protocols.cluster.mesh_coordinator import MeshCoordinator
     from bernstein.core.quality_gates import QualityGatesConfig
+    from bernstein.core.security.sandbox import SandboxRuntime
     from bernstein.core.spawner import AgentSpawner
     from bernstein.evolution.loop import EvolutionLoop
 
 logger = logging.getLogger(__name__)
+
+
+def start_cluster_coordinator(
+    cluster_cfg: ClusterConfig | None,
+    *,
+    sdd_dir: Path,
+) -> MeshCoordinator | None:
+    """Start the coordination path this cluster topology selects (#2558).
+
+    ``ClusterTopology.MESH`` was declared in the enum and accepted by config
+    but nothing ever branched on it, so a ``topology: mesh`` deployment silently
+    ran STAR. This is that branch.
+
+    * **STAR** (and ``hierarchical``, and cluster mode off) -> ``None``. The
+      central ``NodeRegistry`` and ``POST /cluster/steal`` remain the arbiter
+      and nothing about that path changes.
+    * **MESH** -> a :class:`MeshCoordinator` over the signed, Merkle-chained
+      claim journal. There is no central arbiter to consult: nodes self-claim
+      against the journal and converge by the deterministic ``entry_hash``
+      rule.
+
+    Provisioning the journal and the node signing identity happens here, at
+    startup, so a misconfigured MESH deployment fails at boot with one loud log
+    line rather than mid-run on the first claim.
+
+    Args:
+        cluster_cfg: The resolved cluster config, or ``None`` when cluster mode
+            is off.
+        sdd_dir: The project ``.sdd`` directory holding the journal and the
+            node signing identity.
+
+    Returns:
+        The MESH coordinator, or ``None`` for every non-MESH topology.
+    """
+    if cluster_cfg is None or cluster_cfg.topology is not ClusterTopology.MESH:
+        return None
+    from bernstein.core.protocols.cluster.mesh_coordinator import build_mesh_coordinator
+
+    coordinator = build_mesh_coordinator(cluster_cfg, sdd_dir=sdd_dir)
+    if coordinator is None:
+        logger.error(
+            "cluster.topology is 'mesh' but the claim journal could not be provisioned; "
+            "leaderless coordination is disabled",
+        )
+        return None
+    logger.info(
+        "MESH topology: leaderless claim journal at %s (node %s, %d gossip peer(s)); "
+        "the central node registry and /cluster/steal are not used",
+        coordinator.journal.path,
+        coordinator.node_id,
+        len(coordinator.peers),
+    )
+    return coordinator
 
 
 def _build_container_config(iso: ContainerIsolationConfig) -> ContainerConfig | None:
@@ -337,6 +400,11 @@ class Orchestrator:
         self._running = False
         self._tick_count = 0
         self._consecutive_server_failures: int = 0
+        # No-progress window for a quiescent run that produced zero terminal
+        # tasks (issue #3010). Carried across ticks by
+        # ``_check_zero_terminal_stall``; see core.orchestration.run_stall.
+        self._run_stall_state = RunStallState()
+        self._run_stall_stopped: bool = False
         self._cached_critical_path_ids: set[str] = set()
         self._dependency_scanner = DependencyVulnerabilityScanner(
             workdir,
@@ -2043,7 +2111,11 @@ class Orchestrator:
                     self._summary_written,
                     _action,
                 )
-                self._generate_run_summary(refreshed_tasks_by_status["done"], refreshed_tasks_by_status["failed"])
+                self._generate_run_summary(
+                    refreshed_tasks_by_status["done"],
+                    refreshed_tasks_by_status["failed"],
+                    full_status_counts={status: len(tasks) for status, tasks in refreshed_tasks_by_status.items()},
+                )
             else:
                 _action = "summary_already_written"
                 logger.info(
@@ -2073,6 +2145,19 @@ class Orchestrator:
                     "for self-stop yet (nothing has actually run)",
                     self._tick_count,
                 )
+                # ...but "not yet" must not mean "never". The self-stop below
+                # is gated on a terminal task existing, so a run that reaches
+                # quiescence having finished nothing has no exit at all and
+                # idles until the container tears it down, reporting HEALTHY
+                # and exit 0 for a goal it never met (issue #3010). The stall
+                # backstop supplies that missing terminal state, and only
+                # after the run has demonstrably stopped moving - see
+                # core.orchestration.run_stall for the criterion.
+                self._check_zero_terminal_stall(refreshed_tasks_by_status, base)
+            else:
+                # Real work finished, so any accumulated no-progress window is
+                # stale: the normal self-stop path below owns this run's end.
+                self._run_stall_state = RunStallState()
 
             # Confirm this quiescence is real rather than a momentary gap
             # before more child tasks appear (see the A5 stale-retrospective
@@ -2292,6 +2377,183 @@ class Orchestrator:
                 reason=reason,
             )
             logger.info("Workflow approval granted for phase %r via file", phase_name)
+
+    def _check_zero_terminal_stall(
+        self,
+        refreshed_tasks_by_status: dict[str, list[Task]],
+        base: str,
+    ) -> None:
+        """Give a quiescent run that finished nothing a terminal state (#3010).
+
+        Called from the tick's step-8b quiescence handling, on the branch
+        where ``open_tasks == active_agents == 0`` **and** no task reached
+        ``done`` or ``failed``. That branch previously only logged: the
+        self-stop next to it is gated on a terminal task existing, so this
+        exact shape - the one where nothing ever finished, which is the one
+        an operator most needs terminated and reported - was the single case
+        with no exit from the tick loop.
+
+        The decision itself lives in
+        :func:`~bernstein.core.orchestration.run_stall.evaluate_run_stall`
+        (pure, unit-testable, documents which way it errs). This method owns
+        only the IO around it: the settle-window confirmation, the holds
+        check, failing the stuck tasks so the run's own reporting is honest,
+        and clearing ``_running``.
+
+        A stall is confirmed the same way an ordinary quiescence is - sleep
+        the settle window, refetch, and require the world to be unchanged -
+        so a momentary gap before more work appears can never be mistaken
+        for a dead run.
+
+        Args:
+            refreshed_tasks_by_status: Post-reap task snapshot for this tick.
+            base: Task-server base URL.
+
+        Side effects:
+            On a confirmed stall: fails every actively-unfinished task with
+            :data:`~bernstein.core.orchestration.run_stall.STUCK_TASK_FAIL_REASON`,
+            regenerates the final retrospective, and sets ``_running`` False.
+            Never raises - a backstop that can crash the tick loop is worse
+            than the idling it prevents.
+        """
+        if self._run_stall_stopped:
+            return
+
+        grace_s = resolve_grace_s(self._config.stalled_run_grace_s)
+        min_ticks = resolve_min_ticks(self._config.stalled_run_ticks)
+
+        self._run_stall_state, verdict = evaluate_run_stall(
+            self._run_stall_state,
+            refreshed_tasks_by_status,
+            now=time.time(),
+            grace_s=grace_s,
+            min_ticks=min_ticks,
+        )
+        if not verdict.stalled:
+            logger.debug(
+                "run_stall_check: tick=#%d -> continue (%s)",
+                self._tick_count,
+                verdict.reason,
+            )
+            return
+
+        # Confirmation pass. The cheap evaluation above runs against the
+        # snapshot this tick already fetched; before ending a run we pay for
+        # the same settle window the healthy self-stop uses, so a task that
+        # lands during the window aborts the stop.
+        _settle_s = float(os.environ.get("BERNSTEIN_QUIESCENCE_SETTLE_S", "2.0"))
+        if _settle_s > 0:
+            time.sleep(_settle_s)
+        try:
+            settled = fetch_all_tasks(self._client, base)
+        except httpx.HTTPError:
+            logger.exception(
+                "run_stall_check: settle re-check failed (tick #%d) - not stopping; "
+                "an unreachable server is the server-failure path's business, not a stall",
+                self._tick_count,
+            )
+            self._run_stall_state = RunStallState()
+            return
+
+        settled_agents = sum(1 for a in self._agents.values() if a.status != "dead")
+        if settled["done"] or settled["failed"] or len(settled["open"]) or settled_agents:
+            logger.info(
+                "run_stall_check: NOT confirmed after %.1fs settle window (tick #%d): "
+                "open=%d agents=%d done=%d failed=%d - run continues",
+                _settle_s,
+                self._tick_count,
+                len(settled["open"]),
+                settled_agents,
+                len(settled["done"]),
+                len(settled["failed"]),
+            )
+            self._run_stall_state = RunStallState()
+            return
+
+        # Take the tasks to fail from the POST-settle snapshot rather than
+        # the verdict's pre-settle one, so the run is only ever judged on
+        # the state it actually ends in.
+        _stuck_ids = sorted(
+            str(task.id) for status, tasks in settled.items() if status in ACTIVE_UNFINISHED_STATUSES for task in tasks
+        )
+        if not _stuck_ids:
+            logger.info(
+                "run_stall_check: no actively-unfinished task left after the %.1fs settle "
+                "window (tick #%d) - run continues",
+                _settle_s,
+                self._tick_count,
+            )
+            self._run_stall_state = RunStallState()
+            return
+
+        # Holds are an explicit "stay alive" from an external caller (a
+        # dashboard mid-review, a scheduler about to enqueue follow-ups).
+        # They outrank the stall backstop exactly as they outrank the
+        # ordinary self-stop.
+        try:
+            _active_holds = fetch_active_holds(self._client, base)
+        except Exception as exc:  # intentional-broad-except: must never crash the tick loop
+            logger.warning(
+                "fetch_active_holds raised during stall check (tick #%d): %s - treating as no active holds",
+                self._tick_count,
+                exc,
+            )
+            _active_holds = []
+        if _active_holds:
+            logger.info(
+                "run_stall_check: %d active hold(s) present (tick #%d) - not stopping: %s",
+                len(_active_holds),
+                self._tick_count,
+                [sanitize_log(str(h.get("reason", "<no reason>"))) for h in _active_holds],
+            )
+            return
+
+        logger.error(
+            "run_stall_check: STALLED (tick #%d) - %s. Stopping the run and reporting it as not having met its goal.",
+            self._tick_count,
+            verdict.reason,
+        )
+
+        # Fail the stuck tasks before writing the report. A task that will
+        # never run again must not be left frozen mid-flight: leaving it
+        # there is what let the run tally 0 done / 0 failed and read
+        # HEALTHY. Failing it here is both true and what makes every
+        # downstream surface - the retrospective's health verdict,
+        # `bernstein status`, the audit chain - say the same thing.
+        _failed_ids: list[str] = []
+        for task_id in _stuck_ids:
+            try:
+                fail_task(self._client, base, task_id, reason=STUCK_TASK_FAIL_REASON)
+                _failed_ids.append(task_id)
+            except Exception as exc:  # intentional-broad-except: keep stopping regardless
+                logger.warning(
+                    "run_stall_check: could not fail stuck task %s: %s",
+                    task_id,
+                    sanitize_log(str(exc)),
+                )
+        logger.error(
+            "run_stall_check: marked %d of %d unfinished task(s) failed: %s",
+            len(_failed_ids),
+            len(_stuck_ids),
+            ", ".join(_failed_ids) or "<none>",
+        )
+
+        with contextlib.suppress(Exception):
+            self._post_bulletin("alert", f"run_stalled: {verdict.reason}")
+        with contextlib.suppress(Exception):
+            self._recorder.record(
+                "run_stalled",
+                run_id=self._run_id,
+                tick=self._tick_count,
+                quiet_for_s=round(verdict.quiet_for_s, 3),
+                observed_ticks=verdict.observed_ticks,
+                stuck_task_ids=_stuck_ids,
+                failed_task_ids=_failed_ids,
+            )
+
+        self._run_stall_stopped = True
+        self._regenerate_final_retrospective(trigger_path="tick-stalled-run-self-stop")
+        self._running = False
 
     def _regenerate_final_retrospective(self, trigger_path: str) -> None:
         """Regenerate the FINAL retrospective by re-reading final event state.
@@ -4442,8 +4704,18 @@ class Orchestrator:
         self,
         done_tasks: list[Task],
         failed_tasks: list[Task],
+        *,
+        full_status_counts: dict[str, int] | None = None,
     ) -> None:
-        """Write a run completion summary to .sdd/runtime/summary.md."""
+        """Write a run completion summary to .sdd/runtime/summary.md.
+
+        ``full_status_counts`` is the per-status task histogram at this moment.
+        Without it the interim retrospective sees only done and failed, so a run
+        whose tasks are all still open/claimed/in-progress/orphaned reports
+        ``0/0`` and HEALTHY (issue #3010): ``count_incomplete_declared(None)``
+        is 0, and nothing else in the report can tell "no tasks finished
+        because there were none" from "no tasks finished at all".
+        """
         runtime_dir = self._workdir / ".sdd" / "runtime"
         runtime_dir.mkdir(parents=True, exist_ok=True)
         summary_path = runtime_dir / "summary.md"
@@ -4539,6 +4811,14 @@ class Orchestrator:
         # etc.). Mark this retrospective INTERIM; run() re-generates the
         # FINAL retrospective, unconditionally overwriting this one, once the
         # tick loop actually exits (see A5 stale-retrospective bug).
+        #
+        # The histogram has to be threaded through even though this report is
+        # interim: when quiescence holds with zero terminal tasks the tick loop
+        # never exits (the self-stop block at 8b is nested under
+        # `_had_any_terminal_task`), so the FINAL regeneration never runs and
+        # this interim report is the only retrospective the run ever writes.
+        # Giving the orchestrator a terminal state for that case is a separate
+        # change to the main loop, tracked apart from this PR.
         generate_retrospective(
             done_tasks=done_tasks,
             failed_tasks=failed_tasks,
@@ -4546,6 +4826,7 @@ class Orchestrator:
             runtime_dir=runtime_dir,
             run_start_ts=self._run_start_ts,
             trigger_reason="mid-run",
+            full_status_counts=full_status_counts,
         )
 
         # Auto-PR: create a GitHub PR if BERNSTEIN_AUTO_PR is set
@@ -4780,6 +5061,21 @@ class Orchestrator:
             )
         return ""
 
+    def _collect_isolation_downgrades(self) -> list[dict[str, str]]:
+        """Return requested-vs-actual isolation downgrades from the spawner.
+
+        Issue #3014: when a container isolation request cannot be honoured, the
+        spawn falls back to a weaker boundary and records the downgrade.
+        Draining it into the run summary makes the downgrade visible in the run
+        outcome.
+        Guarded so an older or stubbed spawner without the attribute never
+        breaks summary emission.
+        """
+        downgrades = getattr(self._spawner, "isolation_downgrades", None)
+        if not isinstance(downgrades, list):
+            return []
+        return [d.as_dict() for d in downgrades]
+
     def _emit_summary_card(
         self,
         done_tasks: list[Task],
@@ -4818,6 +5114,7 @@ class Orchestrator:
             wall_clock_seconds=wall_clock_s,
             total_cost_usd=total_cost,
             quality_score=quality_score,
+            isolation_downgrades=self._collect_isolation_downgrades(),
         )
 
         sdd_dir = self._workdir / ".sdd"
@@ -5735,16 +6032,33 @@ if __name__ == "__main__":
         _container_image = os.environ.get("BERNSTEIN_CONTAINER_IMAGE", "bernstein-agent:latest")
         _two_phase = os.environ.get("BERNSTEIN_TWO_PHASE_SANDBOX", "0").strip() in ("1", "true", "yes")
         _sandbox_runtime = os.environ.get("BERNSTEIN_SANDBOX_RUNTIME", "").strip().lower()
+        # Issue #3039: the explicit-attach gate below keys on "a container
+        # runtime was named", so podman gets the same wiring-time probe -
+        # and the same refusal - as docker.
+        from bernstein.core.sandbox.explicit_attach import (
+            is_container_runtime as _is_container_runtime,
+        )
+
         sandbox_config = (
             seed.sandbox if seed is not None and seed.sandbox is not None and seed.sandbox.enabled else None
         )
         if _sandbox_runtime:
+            from typing import cast
+
             from bernstein.core.sandbox import DockerSandbox
 
             base_sandbox = sandbox_config or DockerSandbox(enabled=True)
+            # Issue #3039: carry through whichever container runtime the
+            # operator named rather than mapping everything but one literal
+            # onto docker. Non-container names (worktree, the cloud
+            # backends) keep the historical docker default - they are
+            # executed by their own path, not by this config.
+            _cfg_runtime: SandboxRuntime = (
+                cast("SandboxRuntime", _sandbox_runtime) if _is_container_runtime(_sandbox_runtime) else "docker"
+            )
             sandbox_config = DockerSandbox(
                 enabled=True,
-                runtime="podman" if _sandbox_runtime == "podman" else "docker",
+                runtime=_cfg_runtime,
                 default_image=_container_image or base_sandbox.default_image,
                 adapter_images=base_sandbox.adapter_images,
                 cpu_cores=base_sandbox.cpu_cores,
@@ -5778,17 +6092,26 @@ if __name__ == "__main__":
         #
         # BERNSTEIN_SANDBOX_RUNTIME is only ever set by an explicit
         # ``--sandbox`` flag, so reaching this block always means the
-        # operator explicitly requested container isolation. A missing
-        # Docker SDK or dead daemon is therefore a loud failure
-        # (SandboxSelectionError) rather than a silent degrade to legacy
-        # container / host worktree execution, which would drop the
-        # isolation boundary without a console signal (issue #2809).
+        # operator explicitly requested container isolation. An unusable
+        # runtime is therefore a loud failure (SandboxSelectionError)
+        # rather than a silent degrade to legacy container / host worktree
+        # execution, which would drop the isolation boundary without a
+        # console signal (issue #2809).
+        #
+        # The gate keys on "the operator named a container runtime", not on
+        # the literal string "docker" (issue #3039): a docker-only gate let
+        # ``--sandbox podman`` skip the wiring-time probe entirely and fall
+        # through to worktree execution with no refusal, so the one runtime
+        # that failed closed was the one the gate happened to name. Runtimes
+        # without a first-party SandboxBackend (podman) are verified here and
+        # then keep the CLI-driven sandbox path; the probe exists so an
+        # explicit request fails closed, not to change how they execute.
         _docker_sandbox_backend = None
         _docker_manifest_factory = None
-        if _sandbox_runtime == "docker":
+        if _is_container_runtime(_sandbox_runtime):
             import subprocess as _subprocess
 
-            from bernstein.core.sandbox.explicit_attach import attach_docker_backend
+            from bernstein.core.sandbox.explicit_attach import attach_container_backend
             from bernstein.core.sandbox.manifest import GitRepoEntry, WorkspaceManifest
 
             _branch_result = _subprocess.run(
@@ -5807,16 +6130,26 @@ if __name__ == "__main__":
                     repo=GitRepoEntry(src_path=_src, branch=_branch),
                 )
 
-            # Fail fast at wiring time so a dead daemon surfaces before
-            # any spawn. ``explicit=True`` turns an unavailable backend
-            # into a raised SandboxSelectionError instead of a silent
-            # host fallback.
-            _docker_sandbox_backend = attach_docker_backend(explicit=True)
-            _docker_manifest_factory = _make_docker_manifest
-            logger.info(
-                "Docker sandbox backend attached; one session per agent spawn (branch=%s)",
-                _current_branch,
-            )
+            # Fail fast at wiring time so an unusable runtime surfaces
+            # before any spawn. ``explicit=True`` turns an unavailable
+            # runtime into a raised SandboxSelectionError instead of a
+            # silent host fallback, for whichever runtime was named.
+            _docker_sandbox_backend = attach_container_backend(_sandbox_runtime, explicit=True)
+            if _docker_sandbox_backend is not None:
+                _docker_manifest_factory = _make_docker_manifest
+                logger.info(
+                    "Docker sandbox backend attached; one session per agent spawn (branch=%s)",
+                    _current_branch,
+                )
+            else:
+                # Verified but backend-less (podman): the CLI-driven sandbox
+                # path below runs the agents. Reaching here means the probe
+                # passed - an unavailable runtime raised above.
+                logger.info(
+                    "Container runtime %s verified; agents run through the %s CLI sandbox",
+                    _sandbox_runtime,
+                    _sandbox_runtime,
+                )
 
         def _teardown_docker_sandbox() -> None:
             """Destroy any Docker sandbox sessions the backend still tracks.
@@ -5989,7 +6322,17 @@ if __name__ == "__main__":
                 node_timeout_s=(cluster_cfg.node_timeout_s if cluster_cfg else 60),
                 server_url=os.environ.get("BERNSTEIN_SERVER_URL") or (cluster_cfg.server_url if cluster_cfg else None),
                 bind_host=os.environ.get("BERNSTEIN_BIND_HOST", "127.0.0.1"),
+                gossip_peers=(cluster_cfg.gossip_peers if cluster_cfg else ()),
+                claim_lease_ttl_s=(cluster_cfg.claim_lease_ttl_s if cluster_cfg else 300),
+                claim_journal_path=(cluster_cfg.claim_journal_path if cluster_cfg else None),
+                # Carried through the env override too: dropping the pins here
+                # would leave a MESH node folding nothing from its peers (#2997).
+                gossip_peer_keys=(cluster_cfg.gossip_peer_keys if cluster_cfg else ()),
             )
+
+        # Topology branch (#2558): MESH starts a leaderless coordinator instead
+        # of taking its assignments from the central node registry.
+        start_cluster_coordinator(cluster_cfg, sdd_dir=workdir / ".sdd")
 
         # Resolve compliance can force approval gates
         if compliance_config and compliance_config.approval_gates and approval_mode == "auto":

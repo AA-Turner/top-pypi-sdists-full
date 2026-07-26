@@ -361,6 +361,50 @@ pub fn cofit_composed_via_arrow(
     gamma: f32,
     config: &ArrowCofitConfig,
 ) -> Result<ArrowCofitReport, String> {
+    let composed = build_composed_cofit_term(target, decoder, blocks, codes, gamma, config)?;
+    let ComposedCofitTerm {
+        term,
+        rho,
+        n_curved_atoms,
+        curved_charge,
+    } = composed;
+
+    let (reconstructed, explained_variance) = fit_to_idempotent_reentry_and_read_back(
+        term,
+        rho,
+        target,
+        config,
+        "cofit_composed_via_arrow",
+    )?;
+
+    Ok(ArrowCofitReport {
+        reconstructed,
+        explained_variance,
+        n_curved_atoms,
+        curved_charge,
+    })
+}
+
+/// The mixed linear + curved atom set, its cold ARD seed, and the curved-birth
+/// ledger entries — everything [`cofit_composed_via_arrow`] assembles BEFORE the
+/// joint solve. Split out so the idempotence gate drives the exact production
+/// term rather than a re-implementation of it (the same split
+/// [`build_linear_cofit_term`] gives the linear tier).
+struct ComposedCofitTerm {
+    term: SaeManifoldTerm,
+    rho: SaeManifoldRho,
+    n_curved_atoms: usize,
+    curved_charge: f64,
+}
+
+fn build_composed_cofit_term(
+    target: ArrayView2<'_, f32>,
+    decoder: ArrayView2<'_, f32>,
+    blocks: ArrayView2<'_, u32>,
+    codes: ArrayView3<'_, f32>,
+    gamma: f32,
+    config: &ArrowCofitConfig,
+) -> Result<ComposedCofitTerm, String> {
     require_fitting_iteration("cofit_composed_via_arrow", config.max_iter)?;
     let (n, k_active) = blocks.dim();
     let b = codes.shape()[2];
@@ -477,17 +521,9 @@ pub fn cofit_composed_via_arrow(
         .collect();
     let rho = SaeManifoldRho::new(config.log_lambda_sparse, config.log_lambda_smooth, log_ard);
 
-    let (reconstructed, explained_variance) = fit_to_idempotent_reentry_and_read_back(
+    Ok(ComposedCofitTerm {
         term,
         rho,
-        target,
-        config,
-        "cofit_composed_via_arrow",
-    )?;
-
-    Ok(ArrowCofitReport {
-        reconstructed,
-        explained_variance,
         n_curved_atoms,
         curved_charge,
     })
@@ -532,6 +568,10 @@ fn fit_to_idempotent_reentry_and_read_back(
     const MAX_REENTRIES: usize = 8;
     let target_f64 = target.mapv(|v| v as f64);
     let mut certified = false;
+    // The clause that blocked the LAST re-entry. Reporting "not an idempotent
+    // fixed point" names none of the four, and a re-entry loop that exhausts its
+    // budget is exactly where the reader needs to know which one.
+    let mut last_gap = "no pass ran";
     for _ in 0..MAX_REENTRIES {
         let outcome = term.run_joint_fit_arrow_schur_for_quasi_laplace(
             target_f64.view(),
@@ -542,12 +582,13 @@ fn fit_to_idempotent_reentry_and_read_back(
             config.ridge_ext_coord,
             config.ridge_beta,
         )?;
+        last_gap = outcome.gap.as_str();
         if outcome.fixed_point {
             certified = true;
             break;
         }
     }
-    require_idempotent_fixed_point(certified, entry, config.max_iter)?;
+    require_idempotent_fixed_point(certified, entry, MAX_REENTRIES, config.max_iter, last_gap)?;
 
     let recon_f64 = term.try_fitted_for_rho(&rho)?;
     let reconstructed = recon_f64.mapv(|v| v as f32);
@@ -555,16 +596,24 @@ fn fit_to_idempotent_reentry_and_read_back(
     Ok((reconstructed, explained_variance))
 }
 
+/// The budget this refusal reports is the RE-ENTRY count, which is what the loop
+/// above exhausts. It previously reported `max_iter` — the per-pass inner Newton
+/// budget — so a reader chasing "within 256 iterations" was chasing a number no
+/// loop here counts to, and the per-pass budget looked like the thing to raise.
 fn require_idempotent_fixed_point(
     fixed_point: bool,
     entry: &str,
-    max_iter: usize,
+    max_reentries: usize,
+    inner_max_iter: usize,
+    gap: &str,
 ) -> Result<(), String> {
     if fixed_point {
         Ok(())
     } else {
         Err(format!(
-            "{entry}: deterministic joint-solver re-entry did not reach an idempotent fixed point within {max_iter} iterations"
+            "{entry}: deterministic joint-solver re-entry did not reach an idempotent fixed \
+             point within {max_reentries} re-entries of {inner_max_iter} inner iterations each; \
+             the last pass was blocked by: {gap}"
         ))
     }
 }
@@ -890,6 +939,214 @@ mod tests {
             error.contains("not an idempotent fitted fixed point"),
             "unexpected non-convergence error: {error}"
         );
+    }
+
+    /// Re-embed the planted fixture in `p_wide` output dimensions so decoder
+    /// FRAMES auto-activate (they need `p >= SAE_FRAME_MIN_AUTO_OUTPUT_DIM`,
+    /// and a per-atom decoder rank of 2 shrinks a wide border by far more than
+    /// the activation margin). The planted five coordinates keep columns 0..5;
+    /// the added columns carry a small independent deterministic signal so no
+    /// output column is degenerate and the target keeps full-rank variance.
+    /// The decoder is zero on the added columns, so `tied_routing` produces the
+    /// IDENTICAL routing and codes as the narrow fixture.
+    fn widen_planted_fixture(
+        x: &Array2<f32>,
+        decoder: &Array2<f32>,
+        p_wide: usize,
+    ) -> (Array2<f32>, Array2<f32>) {
+        let n = x.nrows();
+        let p0 = x.ncols();
+        assert!(p_wide > p0);
+        let mut x_wide = Array2::<f32>::zeros((n, p_wide));
+        let mut s = 0x2397_0001u64;
+        for i in 0..n {
+            for c in 0..p0 {
+                x_wide[[i, c]] = x[[i, c]];
+            }
+            for c in p0..p_wide {
+                s = s.wrapping_mul(6364136223846793005).wrapping_add(1);
+                x_wide[[i, c]] = 0.01 * ((s >> 33) as f32 / (1u32 << 31) as f32 - 1.0);
+            }
+        }
+        let mut d_wide = Array2::<f32>::zeros((decoder.nrows(), p_wide));
+        for r in 0..decoder.nrows() {
+            for c in 0..p0 {
+                d_wide[[r, c]] = decoder[[r, c]];
+            }
+        }
+        (x_wide, d_wide)
+    }
+
+    /// #2397 — the composed (curved, and at wide `p` FRAMED) cofit tier's
+    /// second pass is a genuine bit-exact no-op, so the whole-pass state
+    /// certificate is SOUND on it and needs no gauge quotient.
+    ///
+    /// #2397 argued the opposite: that `decoder_frame` re-polarization and the
+    /// Circle angle re-seed move the model invisibly at fixed objective, so a
+    /// "state unchanged" certificate could never certify a framed/curved tier
+    /// even at a genuine fixed point — the state would walk the gauge orbit
+    /// while the model stood still. The premise does not survive contact with
+    /// the movers. Every re-gauge in the joint fit is a class-(c) OBJECTIVE-
+    /// GUARDED TRANSACTION over an ALL-OR-NOTHING slice map:
+    /// `canonicalize_atom_unit_speed_chart` commits only when the basis absorbs
+    /// the reparameterized image to within `CHART_RECOMPOSITION_REL_TOL`, and
+    /// REFUSES (`Ok(false)`, atom untouched) otherwise — it never commits the
+    /// ε-reslide that would break byte identity. So at a settled state each
+    /// re-gauge is either an exact no-op or a genuine improvement, and the two
+    /// are distinguishable by the bytes.
+    ///
+    /// This pins both halves of the claim on the exact production term:
+    /// * NARROW (`p = 5`): curved atom, frames off.
+    /// * WIDE (`p = 16`): curved atom AND active decoder frames — the tier the
+    ///   issue names — so the polar refresh is live in the guarded triple.
+    ///
+    /// In both, the certified re-entry must recur the raw model state exactly,
+    /// the unit-speed retraction driven standalone there must be a no-op, and a
+    /// further pass must stay an idempotent no-op with a bit-identical
+    /// reconstruction — the #2023 5a linear-tier contract, unchanged, holding
+    /// on the curved and framed tiers.
+    #[test]
+    fn composed_arrow_second_pass_is_a_noop_on_curved_and_framed_tiers_2397() {
+        let n = 240usize;
+        let b = 2usize;
+        let narrow_decoder = planted_decoder();
+        let narrow_x = planted_data(n);
+        let (wide_x, wide_decoder) = widen_planted_fixture(&narrow_x, &narrow_decoder, 16);
+
+        for (label, x, decoder, expect_frames) in [
+            ("narrow", narrow_x.clone(), narrow_decoder.clone(), false),
+            ("wide", wide_x, wide_decoder, true),
+        ] {
+            let (blocks, codes) = tied_routing(&x, &decoder, b);
+            let cfg = ArrowCofitConfig {
+                max_iter: 256,
+                chart: parity_chart_cfg(),
+                ..ArrowCofitConfig::default()
+            };
+            let ComposedCofitTerm {
+                mut term,
+                mut rho,
+                n_curved_atoms,
+                ..
+            } = build_composed_cofit_term(
+                x.view(),
+                decoder.view(),
+                blocks.view(),
+                codes.view(),
+                1.0,
+                &cfg,
+            )
+            .expect("build the composed cofit term");
+            assert!(
+                n_curved_atoms >= 1,
+                "[{label}] the gate needs a curved atom in the fold; got {n_curved_atoms}"
+            );
+            term.set_guards_enabled(false);
+            let target = x.mapv(|v| v as f64);
+
+            // Drive the exact production re-entry budget.
+            let mut certified_at: Option<usize> = None;
+            let mut raw_recurred_at_certification = false;
+            for pass in 0..8usize {
+                let entry = term.snapshot_mutable_state();
+                let outcome = term
+                    .run_joint_fit_arrow_schur_for_quasi_laplace(
+                        target.view(),
+                        &mut rho,
+                        None,
+                        cfg.max_iter,
+                        cfg.step_size,
+                        cfg.ridge_ext_coord,
+                        cfg.ridge_beta,
+                    )
+                    .expect("composed joint pass runs");
+                let raw_recurred = term.matches_mutable_state(&entry);
+                eprintln!(
+                    "[#2397 {label}] pass={pass} fixed_point={} raw_state_recurred={raw_recurred} \
+                     frames_active={}",
+                    outcome.fixed_point,
+                    term.frames_active()
+                );
+                if outcome.fixed_point {
+                    certified_at = Some(pass);
+                    raw_recurred_at_certification = raw_recurred;
+                    break;
+                }
+            }
+            let certified_at = certified_at.unwrap_or_else(|| {
+                panic!("[{label}] the composed cofit must reach a certified idempotent fixed point")
+            });
+            assert_eq!(
+                term.frames_active(),
+                expect_frames,
+                "[{label}] the fixture must exercise the intended frame regime"
+            );
+
+            // The certificate's own claim: the pass that certified recurred the
+            // RAW model state. This is the assertion #2397 predicted could
+            // never hold on a framed/curved tier.
+            assert!(
+                raw_recurred_at_certification,
+                "[{label}] #2397: the certifying re-entry must recur the raw model state \
+                 exactly — if this fails the gauge orbit really is being walked and the \
+                 certificate needs a quotient (certified at pass {certified_at})"
+            );
+
+            // The class-(c) chart re-gauge, driven STANDALONE at the certified
+            // state: all-or-nothing, so here it must be nothing.
+            let before = term.snapshot_mutable_state();
+            let obj_before = term
+                .penalized_objective_total(target.view(), &rho, None, 1.0)
+                .expect("objective before the standalone retraction");
+            let retracted = term
+                .retract_unit_speed_charts_in_loop()
+                .expect("standalone unit-speed retraction runs");
+            let obj_after = term
+                .penalized_objective_total(target.view(), &rho, None, 1.0)
+                .expect("objective after the standalone retraction");
+            assert_eq!(
+                retracted, 0,
+                "[{label}] #2397: the arc-length slice must be a genuine no-op at the fixed \
+                 point, not an ε-reslide that byte identity would resolve as a state move"
+            );
+            assert!(
+                term.matches_mutable_state(&before),
+                "[{label}] a zero-atom retraction must leave the state byte-identical"
+            );
+            assert_eq!(
+                obj_before.to_bits(),
+                obj_after.to_bits(),
+                "[{label}] a no-op re-gauge must not move the penalized objective by one ulp"
+            );
+
+            // The #2023 5a second-pass contract, on the curved/framed tier.
+            let recon_converged = term
+                .try_fitted_for_rho(&rho)
+                .expect("readback at the certified fixed point");
+            let extra = term
+                .run_joint_fit_arrow_schur_for_quasi_laplace(
+                    target.view(),
+                    &mut rho,
+                    None,
+                    cfg.max_iter,
+                    cfg.step_size,
+                    cfg.ridge_ext_coord,
+                    cfg.ridge_beta,
+                )
+                .expect("the extra composed pass runs");
+            assert!(
+                extra.fixed_point,
+                "[{label}] a second pass over the already-cofit composed tier must stay an \
+                 idempotent no-op"
+            );
+            let recon_extra = term
+                .try_fitted_for_rho(&rho)
+                .expect("readback after the no-op re-entry");
+            assert_eq!(
+                recon_converged, recon_extra,
+                "[{label}] the idempotent re-entry must not move the fitted reconstruction"
+            );
+        }
     }
 
     /// #2023 Increment 5 (the composed cutover): the unified arrow-Schur joint solve

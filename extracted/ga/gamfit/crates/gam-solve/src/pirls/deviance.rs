@@ -162,6 +162,25 @@ fn finite_signed_from_log(
     }
 }
 
+/// A directly-computed half-deviance, or `None` when it is not representable.
+///
+/// The half-deviance branches assemble their value in log space and hand it to
+/// [`finite_signed_from_log`], which exponentiates. That is the right shape when
+/// an intermediate would overflow, and the wrong one when it would not:
+/// `exp(ln x)` does not round-trip, and at the top of the f64 range the two
+/// roundings cost up to ~1.4e-14 relative — six times the 2e-15 bound the
+/// extreme-value contracts hold these channels to. Families that can name their
+/// half-deviance as a plain product of finite factors compute it and pass it
+/// here first.
+///
+/// On every branch that uses this, the exact value is strictly positive, so a
+/// non-finite or zero product means an overflowing intermediate or an
+/// underflowing weight — precisely the case the log assembly exists for, and
+/// the caller falls back to it.
+fn representable_half(direct: f64) -> Option<f64> {
+    (direct.is_finite() && direct > 0.0).then_some(direct)
+}
+
 /// Deterministic signed reduction that cannot overflow on an intermediate
 /// partial sum when the final sum is representable.  Scaling by the largest
 /// magnitude keeps every add bounded; Neumaier compensation retains small
@@ -198,8 +217,25 @@ pub fn stable_finite_signed_sum(
     if normalized == 0.0 {
         return Ok(0.0);
     }
-    let log_abs = max_abs.ln() + normalized.abs().ln();
-    let result = normalized.signum() * log_abs.exp();
+    // Rescale by multiplying, not by a log/exp round-trip. `normalized` is the
+    // sum expressed in units of `max_abs`, so the answer is `normalized *
+    // max_abs` with a SINGLE rounding.
+    //
+    // The previous reconstruction computed `exp(ln(max_abs) + ln|normalized|)`,
+    // which pays two transcendental roundings to recover a magnitude the
+    // scaling above already knows exactly. It bought nothing: dividing by
+    // `max_abs` is what prevents intermediate overflow, and the final magnitude
+    // has to be materialized either way. It also cost real accuracy — on the
+    // `[MAX, MAX, -MAX]` witness, whose exact sum IS representable as
+    // `f64::MAX`, the round-trip returned a value **213 ulps short**, because
+    // `exp(ln(x))` does not round-trip at the top of the range.
+    //
+    // Overflow is still reported, and now for the right reason: `normalized`
+    // is the true sum divided by `max_abs`, so a non-finite product means the
+    // true sum is genuinely outside f64 range — which is exactly what the
+    // error below says. The old form could not distinguish that from its own
+    // transcendental error.
+    let result = normalized * max_abs;
     if result.is_finite() {
         Ok(result)
     } else {
@@ -661,6 +697,13 @@ pub(crate) fn deviance_eta_row_with_log_measure_scale(
         ));
     }
     let log_weight = prior_weight.ln() + log_measure_scale;
+    // `exp(ln x)` does not round-trip at the top of the f64 range: the two
+    // roundings cost up to ~1.4e-14 relative, six times the 2e-15 bound the
+    // extreme-value channel contracts hold this function to. Where a family can
+    // name its half-deviance as a plain product of finite factors, take the
+    // product — one rounding instead of three. This is `log_weight`'s
+    // exponentiated twin, the first of those factors.
+    let weight = prior_weight * log_measure_scale.exp();
     let (half_deviance, eta_score) = match &likelihood.spec.response {
         ResponseFamily::Gaussian => {
             if !y.is_finite() {
@@ -673,27 +716,54 @@ pub(crate) fn deviance_eta_row_with_log_measure_scale(
             // changing the reporting estimand while preserving the scaled
             // Gaussian likelihood geometry.
             let (residual_sign, residual_log_abs) = signed_log_difference(y, eta);
+            // `exp(log_weight + 2·ln|r| − ln 2)` is the worst of the four:
+            // doubling the log DOUBLES its rounding error before the `exp`
+            // adds its own. At `y = 1e200, η = 0, w = 1e-300` the exact
+            // half-deviance is `5e99` and this lands 6.6e-14 above it, against
+            // a 3e-14 bound. Interleave the weight with the square instead —
+            // `0.5·(w·r)·r` — so the product never forms `r²` on its own; when
+            // that still overflows (`y = MAX, η = −MAX`) the log route is
+            // exactly the fallback it was written to be.
+            let direct_half = (residual_sign != 0.0)
+                .then(|| y - eta)
+                .filter(|residual| residual.is_finite())
+                .map(|residual| 0.5 * (weight * residual) * residual)
+                .and_then(representable_half);
             let half = if residual_sign == 0.0 {
                 0.0
             } else {
-                finite_signed_from_log(
-                    row,
-                    "Gaussian half-deviance",
-                    eta,
-                    1.0,
-                    log_weight + 2.0 * residual_log_abs - std::f64::consts::LN_2,
-                )?
+                match direct_half {
+                    Some(value) => value,
+                    None => finite_signed_from_log(
+                        row,
+                        "Gaussian half-deviance",
+                        eta,
+                        1.0,
+                        log_weight + 2.0 * residual_log_abs - std::f64::consts::LN_2,
+                    )?,
+                }
             };
+            // Same treatment for the score channel, `−w·r`: the log route
+            // reaches a two-factor product through three roundings, and the
+            // same fixture contracts it to 3e-14 at `−1e-100`.
+            let direct_score = (residual_sign != 0.0)
+                .then(|| y - eta)
+                .filter(|residual| residual.is_finite())
+                .map(|residual| -(weight * residual))
+                .filter(|value| value.is_finite() && *value != 0.0);
             let score = if residual_sign == 0.0 {
                 0.0
             } else {
-                finite_signed_from_log(
-                    row,
-                    "Gaussian eta score",
-                    eta,
-                    -residual_sign,
-                    log_weight + residual_log_abs,
-                )?
+                match direct_score {
+                    Some(value) => value,
+                    None => finite_signed_from_log(
+                        row,
+                        "Gaussian eta score",
+                        eta,
+                        -residual_sign,
+                        log_weight + residual_log_abs,
+                    )?,
+                }
             };
             (half, score)
         }
@@ -716,7 +786,21 @@ pub(crate) fn deviance_eta_row_with_log_measure_scale(
             } else {
                 log_weight + eta + log_poisson_ratio_deviance(log_r)
             };
-            let half = finite_signed_from_log(row, "Poisson half-deviance", eta, 1.0, log_half)?;
+            // The `log_r >= 1.0` branch above builds
+            // `log(w·[y·(log_r − 1) + exp(η)])` and then exponentiates it, so a
+            // perfectly representable value makes a round trip through `ln` and
+            // `exp`. At `y = 1, η = −1e308` the exact half-deviance is
+            // `1e308 − 1`, which rounds to exactly `1e308`; the log route
+            // returns it 61 ulps (1.4e-14 relative) high.
+            let direct_half = (y > 0.0 && log_r >= 1.0)
+                .then(|| weight * (y * (log_r - 1.0) + eta.exp()))
+                .and_then(representable_half);
+            let half = match direct_half {
+                Some(value) => value,
+                None => {
+                    finite_signed_from_log(row, "Poisson half-deviance", eta, 1.0, log_half)?
+                }
+            };
             let (score_sign, score_log_abs) = if y == 0.0 {
                 (1.0, eta)
             } else {
@@ -814,16 +898,25 @@ pub(crate) fn deviance_eta_row_with_log_measure_scale(
             } else {
                 logaddexp(y.ln(), log_theta)
             };
+            // `w · (y + θ) · KL` is a product of three finite factors; the log
+            // assembly's `exp(log_weight + log_total + ln KL)` costs three
+            // roundings to reach the same number. At `y = 2, θ = 1,
+            // η = −1e308, w = 0.5` the exact half-deviance is `1e308` and the
+            // log route lands 1.4e-14 above it.
+            let total = if y == 0.0 { *theta } else { y + *theta };
             let half = if kl == 0.0 {
                 0.0
             } else {
-                finite_signed_from_log(
-                    row,
-                    "negative-binomial half-deviance",
-                    eta,
-                    1.0,
-                    log_weight + log_total + kl.ln(),
-                )?
+                match representable_half(weight * total * kl) {
+                    Some(value) => value,
+                    None => finite_signed_from_log(
+                        row,
+                        "negative-binomial half-deviance",
+                        eta,
+                        1.0,
+                        log_weight + log_total + kl.ln(),
+                    )?,
+                }
             };
             let log_y = if y == 0.0 { f64::NEG_INFINITY } else { y.ln() };
             let score_sign = if eta >= log_y { 1.0 } else { -1.0 };
@@ -931,16 +1024,23 @@ pub(crate) fn deviance_eta_row_with_log_measure_scale(
                     half_unit,
                 ));
             }
+            // Two finite factors, so `w · half_unit` is one rounding against
+            // the log route's three. At `y = 0.5, η = −1e308, w = 1` the unit
+            // half-deviance is exactly `5e307` and the weight is exactly one,
+            // yet the round trip through `ln`/`exp` still moves the answer.
             let half = if half_unit == 0.0 {
                 0.0
             } else {
-                finite_signed_from_log(
-                    row,
-                    "binomial half-deviance",
-                    eta,
-                    1.0,
-                    log_weight + half_unit.ln(),
-                )?
+                match representable_half(weight * half_unit) {
+                    Some(value) => value,
+                    None => finite_signed_from_log(
+                        row,
+                        "binomial half-deviance",
+                        eta,
+                        1.0,
+                        log_weight + half_unit.ln(),
+                    )?,
+                }
             };
             let (score_sign, score_log_abs) = if is_logit {
                 let (mu, one_minus_mu) = logit_probability_pair(eta);
@@ -1174,6 +1274,109 @@ pub fn calculate_deviance_from_eta(
     } else {
         crate::bail_invalid_estim!("deviance reduction exceeded f64 range")
     }
+}
+
+/// Evaluate the Bernoulli/binomial objective at an already-integrated mean.
+///
+/// Measurement-error PIRLS integrates the inverse link before constructing its
+/// score and Hessian. Its objective must therefore consume that same integrated
+/// probability instead of applying the ordinary inverse link to `eta` again.
+/// Returning deviance and log-kernel together makes their defining identity
+///
+/// `log L = log L_saturated - deviance / 2`
+///
+/// exact at this boundary.
+pub(crate) fn binomial_deviance_and_log_kernel_from_mean(
+    y: ArrayView1<f64>,
+    mu: &Array1<f64>,
+    priorweights: ArrayView1<f64>,
+) -> Result<(f64, f64), EstimationError> {
+    if y.len() != mu.len() || y.len() != priorweights.len() {
+        return Err(EstimationError::InvalidInput(format!(
+            "integrated binomial objective length mismatch: y={}, mu={}, weights={}",
+            y.len(),
+            mu.len(),
+            priorweights.len()
+        )));
+    }
+    let rows: Vec<Result<(f64, f64), EstimationError>> = (0..y.len())
+        .into_par_iter()
+        .map(|row| {
+            let weight = priorweights[row];
+            if !(weight.is_finite() && weight >= 0.0) {
+                return Err(EstimationError::InvalidInput(format!(
+                    "integrated binomial prior weight at row {row} must be finite and non-negative; got {weight}"
+                )));
+            }
+            if weight == 0.0 {
+                return Ok((0.0, 0.0));
+            }
+            let yi = y[row];
+            let mui = mu[row];
+            if !(yi.is_finite() && (0.0..=1.0).contains(&yi)) {
+                return Err(EstimationError::InvalidInput(format!(
+                    "integrated binomial response at row {row} must lie in [0, 1]; got {yi}"
+                )));
+            }
+            if !(mui.is_finite() && (0.0..=1.0).contains(&mui)) {
+                return Err(EstimationError::InvalidInput(format!(
+                    "integrated binomial mean at row {row} must lie in [0, 1]; got {mui}"
+                )));
+            }
+
+            let half_unit = bd0(yi, mui) + bd0(1.0 - yi, 1.0 - mui);
+            if !(half_unit.is_finite() && half_unit >= 0.0) {
+                return Err(EstimationError::InvalidInput(format!(
+                    "integrated binomial half-deviance at row {row} is not representable for y={yi}, mu={mui}: {half_unit}"
+                )));
+            }
+            let half_deviance = if half_unit == 0.0 {
+                0.0
+            } else {
+                match representable_half(weight * half_unit) {
+                    Some(value) => value,
+                    None => finite_signed_from_log(
+                        row,
+                        "integrated binomial half-deviance",
+                        mui,
+                        1.0,
+                        weight.ln() + half_unit.ln(),
+                    )?,
+                }
+            };
+            let saturated_unit = xlogy(yi, yi) + xlogy(1.0 - yi, 1.0 - yi);
+            let saturated_log_kernel = if saturated_unit == 0.0 {
+                0.0
+            } else {
+                finite_signed_from_log(
+                    row,
+                    "integrated binomial saturated log-kernel",
+                    mui,
+                    -1.0,
+                    weight.ln() + (-saturated_unit).ln(),
+                )?
+            };
+            Ok((half_deviance, saturated_log_kernel))
+        })
+        .collect();
+    let rows: Vec<(f64, f64)> = rows.into_iter().collect::<Result<_, _>>()?;
+    let half_values: Vec<f64> = rows.iter().map(|row| row.0).collect();
+    let saturated_values: Vec<f64> = rows.iter().map(|row| row.1).collect();
+    let half_deviance =
+        stable_finite_signed_sum(&half_values, "integrated binomial deviance half-sum")?;
+    let saturated_log_kernel = stable_finite_signed_sum(
+        &saturated_values,
+        "integrated binomial saturated log-kernel reduction",
+    )?;
+    let log_kernel = stable_finite_signed_sum(
+        &[saturated_log_kernel, -half_deviance],
+        "integrated binomial fitted log-kernel",
+    )?;
+    let deviance = 2.0 * half_deviance;
+    if !deviance.is_finite() {
+        crate::bail_invalid_estim!("integrated binomial deviance reduction exceeded f64 range");
+    }
+    Ok((deviance, log_kernel))
 }
 
 /// A signed-log weighted average that never forms `weight * value` in the
@@ -2204,15 +2407,50 @@ pub(crate) fn tweedie_exact_series_loglik_from_eta(
             budget: MAX_EXACT_TERMS,
         };
     let log_term = |k: f64| -> Result<f64, EstimationError> {
-        let components = [
-            -lambda,
-            k * log_lambda,
-            -ln_gamma(k + 1.0),
-            (k * alpha - 1.0) * log_y,
-            -y_over_scale,
-            -k * alpha * log_gamma_scale,
-            -ln_gamma(k * alpha),
-        ];
+        // Evaluate the mixture term as the sum of its Poisson log mass and
+        // Gamma log density. Above the Stirling threshold each factor is
+        // centered at its own mode through bd0, so the O(k log k) pieces cancel
+        // analytically instead of as seven independently rounded f64 values.
+        //
+        //   log Pois(k; lambda)
+        //     = -bd0(k, lambda) - 0.5 log(2 pi k) - stirling_correction(k)
+        //
+        // For a = k alpha and t = y / scale,
+        //
+        //   log GammaDensity(y; a, scale)
+        //     = -bd0(a, t) + 0.5 log(a / 2 pi)
+        //       - stirling_correction(a) - log(y).
+        //
+        // The direct formulas remain preferable below 8, where their inputs
+        // are small and the asymptotic correction is not admissible.
+        let poisson_log_mass = if k >= 8.0 {
+            -bd0(k, lambda)
+                - 0.5 * (LN_2PI + k.ln())
+                - log_gamma_stirling_correction(k)
+        } else {
+            stable_finite_signed_sum(
+                &[-lambda, k * log_lambda, -ln_gamma(k + 1.0)],
+                "exact Tweedie Poisson series factor",
+            )?
+        };
+        let gamma_shape = k * alpha;
+        let gamma_log_density = if gamma_shape >= 8.0 {
+            -bd0(gamma_shape, y_over_scale)
+                + 0.5 * (gamma_shape.ln() - LN_2PI)
+                - log_gamma_stirling_correction(gamma_shape)
+                - log_y
+        } else {
+            stable_finite_signed_sum(
+                &[
+                    gamma_shape * (log_y - log_gamma_scale),
+                    -y_over_scale,
+                    -ln_gamma(gamma_shape),
+                    -log_y,
+                ],
+                "exact Tweedie Gamma series factor",
+            )?
+        };
+        let components = [poisson_log_mass, gamma_log_density];
         let value = stable_finite_signed_sum(&components, "exact Tweedie series term")?;
         let absolute_sum: f64 = components.iter().map(|component| component.abs()).sum();
         let input_roundoff_bound = 16.0 * f64::EPSILON * absolute_sum;

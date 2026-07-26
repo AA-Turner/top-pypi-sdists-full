@@ -12,6 +12,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+from plato.utils.ssh import gateway_proxy_command
 from plato.utils.subprocess import SSH_OPTS
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,7 @@ def get_vm_ssh_options(job_id: str, private_key_path: Path) -> list[tuple[str, s
         List of (option_name, option_value) pairs
     """
     sni = f"{job_id}--22.{GATEWAY_HOST}"
-    proxy_cmd = f"openssl s_client -quiet -connect {GATEWAY_HOST}:443 -servername {sni} 2>/dev/null"
+    proxy_cmd = gateway_proxy_command(GATEWAY_HOST, sni)
 
     return [
         *SSH_OPTS,

@@ -5,13 +5,22 @@
 //! the [`ManifoldSpec`](crate::manifold::ManifoldSpec) builder live one level
 //! up in [`crate::manifold`]; these are the structs it instantiates.
 //!
-//! For backwards compatibility every submodule and its primary public items are
-//! re-exported at the crate root, so `gam_geometry::sphere::SphereManifold` and
-//! `gam_geometry::SphereManifold` both continue to resolve.
+//! Primary manifold types are re-exported at the crate root so callers use one
+//! canonical import surface.
 
 pub mod aitchison_ilr;
 pub mod circle;
+/// Axioms every [`RiemannianManifold`](crate::manifold::RiemannianManifold)
+/// implementation must satisfy, checked against one shared inventory keyed off
+/// [`ManifoldSpec`](crate::manifold::ManifoldSpec).
+#[cfg(test)]
+mod conformance_tests;
 pub mod constant_curvature;
+/// Independent-oracle checks for the κ-stereographic family, which carries a
+/// continuous parameter and so is not a
+/// [`ManifoldSpec`](crate::manifold::ManifoldSpec) variant.
+#[cfg(test)]
+mod constant_curvature_conformance_tests;
 pub mod euclidean;
 pub mod grassmann;
 pub mod lie_so;

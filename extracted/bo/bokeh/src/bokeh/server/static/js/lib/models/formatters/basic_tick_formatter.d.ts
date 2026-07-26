@@ -15,7 +15,6 @@ export interface BasicTickFormatter extends BasicTickFormatter.Attrs {
 export declare class BasicTickFormatter extends TickFormatter {
     properties: BasicTickFormatter.Props;
     constructor(attrs?: Partial<BasicTickFormatter.Attrs>);
-    protected last_precision: number;
     get scientific_limit_low(): number;
     get scientific_limit_high(): number;
     _need_sci(ticks: number[]): boolean;

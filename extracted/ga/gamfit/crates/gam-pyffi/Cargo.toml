@@ -1,8 +1,8 @@
 [package]
 name = "gam-pyffi"
-version = "0.1.259"
+version = "0.1.260"
 edition = "2024"
-rust-version = "1.93"
+rust-version = "1.97"
 publish = false
 description = "PyO3 bindings for the gam crate — backs gamfit's _rust extension."
 license = "AGPL-3.0-or-later"
@@ -34,10 +34,10 @@ csv = "1.4.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 ndarray = "0.17.2"
-arrow = { version = "54", default-features = false, features = ["ffi"] }
+arrow = { version = "59", default-features = false, features = ["ffi"] }
 rayon = "1.12.0"
 faer = "0.24.0"
-statrs = "0.18.0"
+statrs = "0.19.0"
 rand = "0.10.1"
 rand_distr = "0.6.0"
 

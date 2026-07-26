@@ -89,7 +89,6 @@ _STRINGS = {
 /retry                   🔁 마지막 실패 단계만 재실행 (처음부터 재시작 불필요)
 /crack [hash]            해시 크랙 — 온라인 조회 → 오프라인 크랙
 /stop                    실행 중인 작업 중단
-/whitebox <경로|paste>   🔍 소스코드 화이트박스 분석 → 취약점 힌트 추출
 /report [save|clear]     📋 Proof-by-exploitation 리포트
 /load <세션파일경로>      📂 이전 세션 불러오기 + AI 자동 재개 (경로 직접 붙여넣기도 가능)
 /model                   AI 모델 추가/변경
@@ -110,7 +109,6 @@ _STRINGS = {
 /retry                   🔁 仅重试上次失败步骤 (无需从头重新启动)
 /crack [hash]            哈希破解 — 在线查询 → 离线破解
 /stop                    停止正在运行的任务
-/whitebox <路径|paste>   🔍 白盒源码分析 → 提取漏洞提示
 /report [save|clear]     📋 漏洞利用证明报告
 /load <会话文件路径>      📂 加载历史会话 + AI自动续接 (直接粘贴路径也可)
 /model                   添加/切换 AI 模型
@@ -131,7 +129,6 @@ _STRINGS = {
 /retry                   🔁 Retry only the last failed step (no full restart)
 /crack [hash]            Hash crack — online lookup → offline crack
 /stop                    Stop the current task
-/whitebox <path|paste>   🔍 Whitebox source code analysis → extract attack hints
 /report [save|clear]     📋 Proof-by-exploitation report
 /load <session-file>     📂 Load previous session + auto-resume AI (paste path directly too)
 /model                   Add or switch AI model
@@ -926,9 +923,6 @@ _SLASH_DESC = {
                  "zh": "哈希破解  /crack [hash]  (省略则自动提取)",
                  "en": "Hash crack  /crack [hash]  (auto-extract if omitted)"},
     "/stop":    {"ko": "현재 작업 중단",               "zh": "停止当前任务",          "en": "Stop current task"},
-    "/whitebox":{"ko": "소스코드 화이트박스 분석  /whitebox <경로> 또는 /whitebox paste",
-                 "zh": "白盒源码分析  /whitebox <路径> 或 /whitebox paste",
-                 "en": "Whitebox source analysis  /whitebox <path> or /whitebox paste"},
     "/report":  {"ko": "Proof-by-exploitation 리포트  /report [save|clear]",
                  "zh": "漏洞利用证明报告  /report [save|clear]",
                  "en": "Proof-by-exploitation report  /report [save|clear]"},

@@ -22,7 +22,7 @@ use crate::{
     node::SchemaNode,
     paths::{LazyEvaluationPath, LazyLocation, Location, RefTracker},
     validator::{EvaluationResult, Validate, ValidationContext},
-    Json, JsonNode, JsonObjectAccess, SerdeJson, ValidationError,
+    Json, Node, Object, SerdeJson, ValidationError,
 };
 
 use super::CompilationResult;
@@ -147,7 +147,7 @@ impl<F: Json> PropertyValidators<F> {
         // Break cycles from self-referential `$dynamicRef`/`$recursiveRef` where the
         // pending node resolves back to this same validators for the same instance.
         let validators_id = std::ptr::from_ref(self) as usize;
-        let identity = instance.cache_key();
+        let identity = instance.identity();
         if ctx.enter_marking(validators_id, identity) {
             return;
         }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vllm
-Version: 0.25.1
+Version: 0.26.0
 Summary: A high-throughput and memory-efficient inference and serving engine for LLMs
 Author: vLLM Team
 License-Expression: Apache-2.0
@@ -43,9 +43,8 @@ Requires-Dist: pillow
 Requires-Dist: prometheus-fastapi-instrumentator>=8.0.0
 Requires-Dist: tiktoken>=0.6.0
 Requires-Dist: lm-format-enforcer==0.11.3
-Requires-Dist: llguidance<1.8.0,>=1.7.0; platform_machine == "x86_64" or platform_machine == "arm64" or platform_machine == "aarch64" or platform_machine == "ppc64le"
+Requires-Dist: llguidance<1.8.0,>=1.7.0; platform_machine == "x86_64" or platform_machine == "arm64" or platform_machine == "aarch64" or platform_machine == "ppc64le" or platform_machine == "s390x"
 Requires-Dist: outlines_core==0.2.14
-Requires-Dist: diskcache==5.6.3
 Requires-Dist: lark==1.2.2
 Requires-Dist: xgrammar<1.0.0,>=0.2.1; platform_machine == "x86_64" or platform_machine == "aarch64" or platform_machine == "arm64" or platform_machine == "s390x" or platform_machine == "ppc64le"
 Requires-Dist: typing_extensions>=4.10
@@ -84,16 +83,15 @@ Requires-Dist: torchaudio==2.11.0
 Requires-Dist: torchvision==0.26.0
 Requires-Dist: torchcodec>=0.14
 Requires-Dist: PyNvVideoCodec==2.0.4
-Requires-Dist: flashinfer-python==0.6.13
-Requires-Dist: flashinfer-cubin==0.6.13
-Requires-Dist: apache-tvm-ffi==0.1.9
+Requires-Dist: flashinfer-python==0.6.14
+Requires-Dist: apache-tvm-ffi==0.1.10
 Requires-Dist: tilelang==0.1.9
 Requires-Dist: nvidia-cudnn-frontend>=1.19.1
 Requires-Dist: nvtx==0.2.15
 Requires-Dist: fastsafetensors>=0.3.2
-Requires-Dist: nvidia-cutlass-dsl[cu13]==4.5.2
-Requires-Dist: quack-kernels>=0.3.3
-Requires-Dist: tokenspeed-mla==0.1.2; platform_system == "Linux"
+Requires-Dist: nvidia-cutlass-dsl[cu13]==4.6.0
+Requires-Dist: quack-kernels>=0.4.0
+Requires-Dist: tokenspeed-mla==0.1.8; platform_system == "Linux"
 Requires-Dist: humming-kernels[cu13]==0.1.10
 Provides-Extra: zen
 Requires-Dist: zentorch==2.11.0.0; extra == "zen"
@@ -109,7 +107,7 @@ Requires-Dist: tensorizer==2.10.1; extra == "tensorizer"
 Provides-Extra: fastsafetensors
 Requires-Dist: fastsafetensors>=0.3.2; extra == "fastsafetensors"
 Provides-Extra: instanttensor
-Requires-Dist: instanttensor>=0.1.5; extra == "instanttensor"
+Requires-Dist: instanttensor>=0.1.9; extra == "instanttensor"
 Provides-Extra: runai
 Requires-Dist: runai-model-streamer[azure,gcs,s3]>=0.15.7; extra == "runai"
 Provides-Extra: audio
@@ -119,6 +117,8 @@ Requires-Dist: soundfile; extra == "audio"
 Requires-Dist: soxr; extra == "audio"
 Requires-Dist: mistral_common[audio]; extra == "audio"
 Provides-Extra: video
+Provides-Extra: deepstream
+Requires-Dist: nvidia-deepstream-videodecode-cu13>=9.0.2; extra == "deepstream"
 Provides-Extra: flashinfer
 Provides-Extra: helion
 Requires-Dist: helion==1.1.0; extra == "helion"
