@@ -28,7 +28,7 @@ class GLMMEncoder( util.SupervisedTransformerMixin ,util.BaseEncoder):
            Mixed effects models are a mature branch of statistics.
         2. No hyper-parameters to tune. The amount of shrinkage is automatically determined
            through the estimation process. In short, the less observations a category has and/or
-           the more the outcome varies for a category. Then the higher the regularization
+           the more that outcome varies for a category, the higher the regularization
            towards "the prior" or "grand mean".
         3. The technique is applicable for both continuous and binomial targets.
            If the target is continuous, the encoder returns regularized difference of the
@@ -57,8 +57,10 @@ class GLMMEncoder( util.SupervisedTransformerMixin ,util.BaseEncoder):
     handle_unknown: str
         options are 'return_nan', 'error' and 'value', defaults to 'value', which returns 0.
     randomized: bool,
-        adds normal (Gaussian) distribution noise into training data in order to decrease
-        overfitting (testing data are untouched).
+        adds Gaussian regularization noise to the encoded values during fit
+        to decrease overfitting. The noise is multiplicative — encoded values
+        are scaled by ``N(1, sigma)`` — so it is centered on 1, not 0
+        (testing data are untouched).
     sigma: float
         standard deviation (spread or "width") of the normal distribution.
     binomial_target: bool
@@ -216,7 +218,7 @@ class GLMMEncoder( util.SupervisedTransformerMixin ,util.BaseEncoder):
                             md = smf.mixedlm('target ~ 1', data, groups=data['feature']).fit()
                             tmp = {}
                             for key, value in md.random_effects.items():
-                                tmp[key] = value[0]
+                                tmp[key] = value.iloc[0]
                             estimate = pd.Series(tmp)
                 except np.linalg.LinAlgError:
                     # Singular matrix -> just return all zeros

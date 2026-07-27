@@ -36,3 +36,35 @@ class DeviceTaintRule(res.GlobalResource, m_resource_v1alpha3.DeviceTaintRule):
 
     Status: ClassVar = DeviceTaintRuleStatus
 
+
+class ResourcePoolStatusRequestStatus(res.GlobalSubResource, m_resource_v1alpha3.ResourcePoolStatusRequest):
+    """* **Extends**: ``models.resource_v1alpha3.ResourcePoolStatusRequest``
+       * **Type**: Global Resource
+       * **Accepted client methods**: `get`, `patch`, `replace`
+    """
+    _api_info = res.ApiInfo(
+        resource=res.ResourceDef('resource.k8s.io', 'v1alpha3', 'ResourcePoolStatusRequest'),
+        parent=res.ResourceDef('resource.k8s.io', 'v1alpha3', 'ResourcePoolStatusRequest'),
+        plural='resourcepoolstatusrequests',
+        verbs=['get', 'patch', 'put'],
+        action='status',
+    )
+
+
+class ResourcePoolStatusRequest(res.GlobalResource, m_resource_v1alpha3.ResourcePoolStatusRequest):
+    """* **Extends**: ``models.resource_v1alpha3.ResourcePoolStatusRequest``
+       * **Type**: Global Resource
+       * **Accepted client methods**: `delete`, `deletecollection`, `get`, `list`, `patch`, `create`, `replace`, `watch`
+
+       **Subresources**:
+
+       * **Status**: ``ResourcePoolStatusRequestStatus``
+    """
+    _api_info = res.ApiInfo(
+        resource=res.ResourceDef('resource.k8s.io', 'v1alpha3', 'ResourcePoolStatusRequest'),
+        plural='resourcepoolstatusrequests',
+        verbs=['delete', 'deletecollection', 'get', 'list', 'patch', 'post', 'put', 'watch'],
+    )
+
+    Status: ClassVar = ResourcePoolStatusRequestStatus
+

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aioauth
-Version: 2.0.0
+Version: 2.0.1
 Summary: Asynchronous OAuth 2.0 framework for Python 3.
 Author-email: Ali Aliyev <ali@aliev.me>
 Project-URL: homepage, https://github.com/aliev/aioauth

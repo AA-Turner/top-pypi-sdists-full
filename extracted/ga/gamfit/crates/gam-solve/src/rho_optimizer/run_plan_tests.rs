@@ -2279,6 +2279,78 @@ fn hybrid_efs_backtracking_uses_half_step_after_first_rejection() {
 }
 
 #[test]
+fn hybrid_efs_backtracking_propagates_fatal_cost_failure() {
+    const SENTINEL: &str = "#2481 fatal value-probe artifact";
+    let cap = OuterCapability {
+        gradient: Derivative::Analytic,
+        hessian: DeclaredHessianForm::Unavailable,
+        n_params: 1,
+        psi_dim: 0,
+        fixed_point_available: true,
+        barrier_config: None,
+        prefer_gradient_only: false,
+        disable_fixed_point: false,
+    };
+    let mut obj = ClosureObjective {
+        state: (),
+        cap: cap.clone(),
+        cost_fn: |_: &mut (), _: &Array1<f64>| {
+            Err(EstimationError::InvalidInput(SENTINEL.to_string()))
+        },
+        eval_fn: |_: &mut (), theta: &Array1<f64>| {
+            Ok(OuterEval {
+                cost: 1.0,
+                gradient: Array1::zeros(theta.len()),
+                hessian: HessianValue::Unavailable,
+                inner_beta_hint: None,
+            })
+        },
+        eval_order_fn: None::<
+            fn(&mut (), &Array1<f64>, OuterEvalOrder) -> Result<OuterEval, EstimationError>,
+        >,
+        reset_fn: None::<fn(&mut ())>,
+        efs_fn: Some(|_: &mut (), _: &Array1<f64>| {
+            Ok(EfsEval {
+                cost: 1.0,
+                steps: vec![1.0],
+                beta: None,
+                psi_gradient: None,
+                psi_indices: None,
+                inner_hessian_scale: None,
+                logdet_enclosure_gap: None,
+                consecutive_restored_incumbents: None,
+            })
+        }),
+        fixed_point_certificate_fn: None,
+        exact_polish_fn: None,
+        rail_face_limit_fn: None,
+        screening_proxy_fn: None::<fn(&mut (), &Array1<f64>) -> Result<f64, EstimationError>>,
+        seed_fn: None::<fn(&mut (), &Array1<f64>) -> Result<SeedOutcome, EstimationError>>,
+        terminal_eval_order: None,
+    };
+    let mut bridge = OuterFixedPointBridge {
+        obj: &mut obj,
+        layout: cap.theta_layout(),
+        barrier_config: None,
+        fixed_point_tolerance: 1.0e-8,
+        consecutive_psi_zero_iters: 0,
+        last_restored_incumbent_streak: None,
+        recurrent_incumbent_exit: Arc::new(Mutex::new(None)),
+    };
+
+    let error = bridge
+        .eval_step(&array![0.0])
+        .expect_err("a typed value-probe failure must leave EFS backtracking");
+    let message = match error {
+        ObjectiveEvalError::Fatal { message } => message,
+        ObjectiveEvalError::Recoverable { message } => {
+            panic!("typed value-probe failure was downgraded to recoverable: {message}")
+        }
+    };
+    assert!(message.contains(SENTINEL));
+}
+
+#[test]
 fn fixed_point_stops_on_second_consecutive_restored_incumbent_2241() {
     let cap = OuterCapability {
         gradient: Derivative::Analytic,
@@ -6603,8 +6675,14 @@ fn note_persists_inner_beta_hint_from_eval() {
         .expect("eval with finite β must persist a (ρ,β) checkpoint");
     let payload = decode_iterate(&on_disk.payload, 1).expect("payload decodes");
     assert_eq!(payload.beta, vec![1.5, 2.5, 3.5]);
-    let captured = wrapped.last_inner_beta().expect("β was captured");
+    let captured = wrapped
+        .inner_beta_for(&array![0.5])
+        .expect("β was captured at its producing rho");
     assert_eq!(captured.to_vec(), vec![1.5, 2.5, 3.5]);
+    assert!(
+        wrapped.inner_beta_for(&array![0.25]).is_none(),
+        "β from rho=0.5 must not be exposed as state for another outer coordinate",
+    );
 }
 
 #[test]
@@ -6637,8 +6715,8 @@ fn note_rejects_nonfinite_inner_beta() {
         "non-finite β must abort the checkpoint write, not poison the cache",
     );
     assert!(
-        wrapped.last_inner_beta().is_none(),
-        "non-finite β must not be exposed via last_inner_beta()",
+        wrapped.inner_beta_for(&array![0.5]).is_none(),
+        "non-finite β must not be exposed as exact outer/inner state",
     );
 }
 

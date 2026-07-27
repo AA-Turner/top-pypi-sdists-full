@@ -297,13 +297,13 @@ class RoleRef(DictMixin):
 
       **parameters**
 
-      * **apiGroup** ``str`` - APIGroup is the group for the resource being referenced
       * **kind** ``str`` - Kind is the type of resource being referenced
       * **name** ``str`` - Name is the name of resource being referenced
+      * **apiGroup** ``Optional[str]`` - APIGroup is the group for the resource being referenced
     """
-    apiGroup: 'str'
     kind: 'str'
     name: 'str'
+    apiGroup: 'Optional[str]' = None
 
 
 @dataclass

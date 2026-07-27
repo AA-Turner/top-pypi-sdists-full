@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyedb
-Version: 0.80.2
+Version: 0.81.0
 Summary: Higher-Level Pythonic Ansys Electronics Data Base
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: PyEDB developers <simon.vandenbrouck@ansys.com>
@@ -35,7 +35,7 @@ Requires-Dist: shapely ; extra == "all"
 Requires-Dist: pandas>=1.1.0,<2.4 ; extra == "analysis"
 Requires-Dist: scikit-rf ; extra == "analysis"
 Requires-Dist: ansys-pythonnet>=3.1.0rc6 ; extra == "dotnet"
-Requires-Dist: cffi>=1.16.0,<2.1 ; extra == "dotnet" and ( platform_system=='Linux')
+Requires-Dist: cffi>=1.16.0,<2.2 ; extra == "dotnet" and ( platform_system=='Linux')
 Requires-Dist: pywin32>=304 ; extra == "dotnet" and (platform_system=='Windows')
 Requires-Dist: shapely ; extra == "geometry"
 Requires-Dist: ezdxf>=1.4.2 ; extra == "geometry"

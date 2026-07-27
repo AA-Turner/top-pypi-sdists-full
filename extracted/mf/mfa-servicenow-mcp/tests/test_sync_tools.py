@@ -9,6 +9,7 @@ import pytest
 from servicenow_mcp.tools.sync_tools import (
     DiffLocalComponentParams,
     PushLocalComponentParams,
+    _alias_for_instance_url,
     _batch_fetch_updated_on,
     _find_manifest_json,
     _find_settings_json,
@@ -2330,6 +2331,87 @@ class TestOriginProvenance:
 
 
 # ---------------------------------------------------------------------------
+# Wrong-instance routing: the message names the alias when the registry knows
+# it. Sending the caller to list_instances costs a round trip to learn what this
+# process already holds — and the observed failure was the caller re-issuing the
+# same broken call instead of taking that detour.
+# ---------------------------------------------------------------------------
+class TestInstanceAliasInRetryHint:
+    _REGISTRY = json.dumps(
+        {
+            "dev": {"url": "https://dev.service-now.com"},
+            "prod": {"url": "https://prod.service-now.com/"},
+        }
+    )
+
+    def _cfg(self, url):
+        return ServerConfig(
+            instance_url=url,
+            auth={"type": "basic", "basic": {"username": "admin", "password": "password"}},
+        )
+
+    def _tree(self, tmp_path, origin):
+        root = tmp_path / "out"
+        root.mkdir()
+        (root / "_manifest.json").write_text(json.dumps({"instance": origin}), encoding="utf-8")
+        return root
+
+    def test_resolves_alias_by_host(self, monkeypatch):
+        monkeypatch.setenv("SERVICENOW_INSTANCE_CONFIG", self._REGISTRY)
+        # Trailing slash on the registry side, none on the origin side — the host
+        # is what identifies the instance, not the exact string.
+        assert _alias_for_instance_url("https://prod.service-now.com") == "prod"
+        assert _alias_for_instance_url("https://dev.service-now.com/") == "dev"
+
+    def test_unregistered_origin_has_no_alias(self, monkeypatch):
+        monkeypatch.setenv("SERVICENOW_INSTANCE_CONFIG", self._REGISTRY)
+        assert _alias_for_instance_url("https://sandbox.service-now.com") == ""
+
+    def test_malformed_registry_degrades_instead_of_raising(self, monkeypatch):
+        """A diagnostic must never be the thing that raises — a broken config
+        loses the alias, it does not replace a useful error with a parse error."""
+        monkeypatch.setenv("SERVICENOW_INSTANCE_CONFIG", "{not json")
+        assert _alias_for_instance_url("https://prod.service-now.com") == ""
+
+    def test_no_registry_keeps_the_lookup_instruction(self, monkeypatch, tmp_path):
+        monkeypatch.delenv("SERVICENOW_INSTANCE_CONFIG", raising=False)
+        result = _scan_download_root(
+            self._cfg("https://dev.service-now.com"),
+            MagicMock(),
+            self._tree(tmp_path, "https://prod.service-now.com"),
+        )
+        assert "instance=<alias> (run list_instances to find it)" in result["error"]
+
+    def test_scan_names_the_alias(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("SERVICENOW_INSTANCE_CONFIG", self._REGISTRY)
+        result = _scan_download_root(
+            self._cfg("https://dev.service-now.com"),
+            MagicMock(),
+            self._tree(tmp_path, "https://prod.service-now.com"),
+        )
+        assert result["error"].startswith("Retry this diff with instance='prod'.")
+        assert "list_instances" not in result["error"]
+
+    def test_push_gate_names_the_alias_for_both_params(self, monkeypatch, tmp_path):
+        """The push path needs TWO routed params — a caller told only the first
+        comes back for a second failure on confirm_instance."""
+        monkeypatch.setenv("SERVICENOW_INSTANCE_CONFIG", self._REGISTRY)
+        root = self._tree(tmp_path, "https://prod.service-now.com")
+        si = root / "global" / "sys_script_include"
+        si.mkdir(parents=True)
+        (si / "MyUtil.script.js").write_text("var x = 1;", encoding="utf-8")
+        (si / "_map.json").write_text(json.dumps({"MyUtil": "si-1"}), encoding="utf-8")
+
+        resolved = _resolve_local_path(si / "MyUtil.script.js")
+        with pytest.raises(ValueError) as excinfo:
+            _validate_instance_url(resolved, self._cfg("https://dev.service-now.com"))
+        message = str(excinfo.value)
+        assert message.startswith("Retry this call with instance='prod'.")
+        assert "confirm_instance='prod'" in message
+        assert "list_instances" not in message
+
+
+# ---------------------------------------------------------------------------
 # Hardened baseline-drift conflict gate — cross-user overwrite protection.
 # Baseline for "my-widget" in download_root is 2025-01-10 10:00:00; me = admin.
 # ---------------------------------------------------------------------------
@@ -2977,3 +3059,384 @@ class TestContentFirstDriftGate:
         written = mock_write_meta.call_args[0][1]
         assert written["my-widget"]["sys_updated_by"] == "admin"
         assert written["my-widget"]["sys_updated_on"] == "2025-01-16 09:00:00"
+
+
+# ---------------------------------------------------------------------------
+# refresh=True — per-component fast-forward (Feature 2)
+# ---------------------------------------------------------------------------
+class TestDiffRefreshFastForward:
+    """diff_local_component(refresh=True) is the WRITE side of diff: it advances a
+    provably-clean working copy to the live server body while never clobbering an
+    unpushed edit. The safety comes from reconcile_field, so what is pinned here is
+    the wiring — per-FIELD granularity, the two-step anchor advance, and the fact
+    that the diff reported back describes the state AFTER the fast-forward.
+    """
+
+    @staticmethod
+    def _anchor(widget_dir, **field_bodies):
+        """Anchor the component at *field_bodies* (a clean download of that body)."""
+        from servicenow_mcp.utils.sync_anchor import field_sha
+
+        table_dir = widget_dir.parent
+        meta = _read_sync_meta(table_dir)
+        entry = dict(meta.get(widget_dir.name, {"sys_id": "wid-1"}))
+        entry.update({"sys_updated_on": "2025-01-10 10:00:00", "sys_mod_count": "5"})
+        shas = dict(entry.get("field_shas", {}))
+        for filename, body in field_bodies.items():
+            (widget_dir / filename).write_text(body, encoding="utf-8")
+            shas[filename.rsplit(".", 1)[0]] = field_sha(body)
+        entry["field_shas"] = shas
+        meta[widget_dir.name] = entry
+        _write_sync_meta(table_dir, meta)
+
+    @patch("servicenow_mcp.tools.sync_tools.sn_query")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_clean_local_fast_forwards_and_advances_the_anchor(
+        self, mock_fetch, mock_sn_query, mock_config, mock_auth, download_root
+    ):
+        widget_dir = download_root / "global" / "sp_widget" / "my-widget"
+        self._anchor(widget_dir, **{"script.js": "var x = 1;"})
+        mock_fetch.return_value = {
+            "sys_id": "wid-1",
+            "script": "var x = 99; // theirs",
+            "sys_updated_on": "2025-01-20 08:00:00",
+            "sys_updated_by": "gschoi",
+            "sys_mod_count": "9",
+        }
+
+        result = diff_local_component(
+            mock_config,
+            mock_auth,
+            DiffLocalComponentParams(path=str(widget_dir / "script.js"), refresh=True),
+        )
+
+        assert (widget_dir / "script.js").read_text(encoding="utf-8") == "var x = 99; // theirs"
+        assert result["refresh"]["refreshed"] == ["script"]
+        assert result["refresh"]["sync_meta_updated"] is True
+        # The reported diff describes what is LEFT after the fast-forward, not the
+        # state we just replaced.
+        assert result["diffs"][0]["status"] == "unchanged"
+        assert result["conflict_warning"] is None
+        entry = _read_sync_meta(widget_dir.parent)["my-widget"]
+        assert entry["sys_mod_count"] == "9"
+        assert entry["sys_updated_by"] == "gschoi"
+
+    @patch("servicenow_mcp.tools.sync_tools.sn_query")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_unpushed_local_edit_is_never_overwritten(
+        self, mock_fetch, mock_sn_query, mock_config, mock_auth, download_root
+    ):
+        widget_dir = download_root / "global" / "sp_widget" / "my-widget"
+        self._anchor(widget_dir, **{"script.js": "var x = 1;"})
+        (widget_dir / "script.js").write_text("var x = 2; // mine", encoding="utf-8")
+        mock_fetch.return_value = {
+            "sys_id": "wid-1",
+            "script": "var x = 1;",  # server never moved
+            "sys_updated_on": "2025-01-10 10:00:00",
+            "sys_updated_by": "admin",
+            "sys_mod_count": "5",
+        }
+
+        result = diff_local_component(
+            mock_config,
+            mock_auth,
+            DiffLocalComponentParams(path=str(widget_dir / "script.js"), refresh=True),
+        )
+
+        assert (widget_dir / "script.js").read_text(encoding="utf-8") == "var x = 2; // mine"
+        assert result["refresh"]["kept_local_edits"] == ["script"]
+        assert result["diffs"][0]["status"] == "modified"
+        assert result["three_way"]["your_local_edits"] == ["script"]
+
+    @patch("servicenow_mcp.tools.sync_tools.sn_query")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_true_conflict_mirrors_the_server_and_holds_the_watermark(
+        self, mock_fetch, mock_sn_query, mock_config, mock_auth, download_root
+    ):
+        """Both sides moved: keep my file, write the server's CURRENT body beside it,
+        and do NOT advance sys_mod_count — advancing it would tell the next drift
+        gate 'the server never moved' and bury the conflict."""
+        widget_dir = download_root / "global" / "sp_widget" / "my-widget"
+        self._anchor(widget_dir, **{"script.js": "var x = 1;"})
+        (widget_dir / "script.js").write_text("var x = 2; // mine", encoding="utf-8")
+        mock_fetch.return_value = {
+            "sys_id": "wid-1",
+            "script": "var x = 99; // theirs",
+            "sys_updated_on": "2025-01-20 08:00:00",
+            "sys_updated_by": "gschoi",
+            "sys_mod_count": "9",
+        }
+
+        result = diff_local_component(
+            mock_config,
+            mock_auth,
+            DiffLocalComponentParams(path=str(widget_dir / "script.js"), refresh=True),
+        )
+
+        assert (widget_dir / "script.js").read_text(encoding="utf-8") == "var x = 2; // mine"
+        mirror = widget_dir / "script.remote.js"
+        assert mirror.read_text(encoding="utf-8").strip() == "var x = 99; // theirs"
+        assert result["refresh"]["conflicts_mirrored"] == ["script"]
+        assert _read_sync_meta(widget_dir.parent)["my-widget"]["sys_mod_count"] == "5"
+        assert result["three_way"]["diverged_both_changed"] == ["script"]
+        assert "*.remote.*" in result["rebase_guidance"]
+
+    @patch("servicenow_mcp.tools.sync_tools.sn_query")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_mixed_fields_refresh_per_field_without_advancing_the_watermark(
+        self, mock_fetch, mock_sn_query, mock_config, mock_auth, download_root
+    ):
+        """The reason this is per-component rather than a bulk re-download: one
+        edited file and one clean file in the SAME component take different paths.
+        The clean field's new sha is still recorded — omitting it would make the
+        next diff report the SERVER's content as 'your local edit'."""
+        from servicenow_mcp.utils.sync_anchor import field_sha
+
+        widget_dir = download_root / "global" / "sp_widget" / "my-widget"
+        self._anchor(widget_dir, **{"script.js": "var x = 1;", "css.scss": ".a{}"})
+        (widget_dir / "script.js").write_text("var x = 2; // mine", encoding="utf-8")
+        mock_fetch.return_value = {
+            "sys_id": "wid-1",
+            "script": "var x = 1;",
+            "css": ".a{color:red}",  # server moved this one only
+            "sys_updated_on": "2025-01-20 08:00:00",
+            "sys_updated_by": "gschoi",
+            "sys_mod_count": "9",
+        }
+
+        result = diff_local_component(
+            mock_config, mock_auth, DiffLocalComponentParams(path=str(widget_dir), refresh=True)
+        )
+
+        assert (widget_dir / "css.scss").read_text(encoding="utf-8") == ".a{color:red}"
+        assert (widget_dir / "script.js").read_text(encoding="utf-8") == "var x = 2; // mine"
+        assert result["refresh"]["refreshed"] == ["css"]
+        assert result["refresh"]["kept_local_edits"] == ["script"]
+        entry = _read_sync_meta(widget_dir.parent)["my-widget"]
+        assert entry["field_shas"]["css"] == field_sha(".a{color:red}")
+        assert entry["sys_mod_count"] == "5"  # a field still diverges → held back
+
+    def test_refresh_rejected_with_compare_to(self, mock_config, mock_auth, download_root):
+        widget_dir = download_root / "global" / "sp_widget" / "my-widget"
+        result = diff_local_component(
+            mock_config,
+            mock_auth,
+            DiffLocalComponentParams(
+                path=str(widget_dir), compare_to=str(download_root), refresh=True
+            ),
+        )
+        assert "compare_to" in result["error"]
+
+    def test_refresh_rejected_on_a_download_root(self, mock_config, mock_auth, download_root):
+        """A root has no single component to fast-forward — point at download_*
+        instead of half-doing it."""
+        result = diff_local_component(
+            mock_config, mock_auth, DiffLocalComponentParams(path=str(download_root), refresh=True)
+        )
+        assert "download_app_sources" in result["error"]
+
+
+# ---------------------------------------------------------------------------
+# rebase_guidance (Feature 3)
+# ---------------------------------------------------------------------------
+class TestRebaseGuidance:
+    def test_silent_unless_a_field_actually_diverged(self):
+        from servicenow_mcp.tools.sync_tools import _rebase_guidance
+
+        assert _rebase_guidance({}) is None
+        assert _rebase_guidance({"your_local_edits": ["script"]}) is None
+        assert _rebase_guidance({"server_changed_local_untouched": ["script"]}) is None
+
+    def test_points_at_the_sidecar_when_one_is_on_disk(self):
+        from servicenow_mcp.tools.sync_tools import _rebase_guidance
+
+        out = _rebase_guidance(
+            {
+                "diverged_both_changed": ["script"],
+                "conflict_sidecars_on_disk": ["script.remote.js"],
+            }
+        )
+        assert "script.remote.js" not in out  # names the pattern, not the listing
+        assert "*.remote.*" in out
+        assert "never edit or push the sidecar" in out
+
+    def test_tells_you_how_to_materialize_the_sidecar_when_absent(self):
+        """'Merge the .remote file' is a dead end when no .remote file exists."""
+        from servicenow_mcp.tools.sync_tools import _rebase_guidance
+
+        out = _rebase_guidance({"diverged_both_changed": ["script"]})
+        assert "refresh=True" in out
+
+
+# ---------------------------------------------------------------------------
+# Update-set capture warning on push (Feature 1)
+# ---------------------------------------------------------------------------
+class TestPushUpdateSetWarning:
+    """Where is this push captured, and is it where the record was last worked?
+    The push flow surfaces two things and fixes neither by writing a set — an
+    unrequested create/switch is its own accident: (1) 'Default' → won't ship,
+    (2) the session set switched since this record's last capture → confirm intent.
+    """
+
+    @staticmethod
+    def _browser_config():
+        return ServerConfig(
+            instance_url="https://test.service-now.com",
+            auth={
+                "type": "browser",
+                "browser": {
+                    "username": "admin",
+                    "instance_url": "https://test.service-now.com",
+                },
+            },
+        )
+
+    @staticmethod
+    def _push_fetches():
+        return [
+            {
+                "sys_id": "wid-1",
+                "script": "var x = 1;",
+                "sys_updated_on": "2025-01-10 10:00:00",
+                "sys_updated_by": "admin",
+                "sys_created_by": "admin",
+                "sys_scope": "global",
+            },
+            {
+                "sys_id": "wid-1",
+                "script": "var x = 2;",
+                "sys_updated_on": "2025-01-16 09:00:00",
+                "sys_updated_by": "admin",
+            },
+        ]
+
+    @patch("servicenow_mcp.tools.session_context_tools.set_application_scope")
+    @patch("servicenow_mcp.tools.session_context_tools.get_current_update_set")
+    @patch("servicenow_mcp.tools.sync_tools.update_portal_component")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_default_update_set_warns_on_a_successful_push(
+        self, mock_fetch, mock_update, mock_us, mock_scope, mock_auth, download_root
+    ):
+        widget_dir = download_root / "global" / "sp_widget" / "my-widget"
+        (widget_dir / "script.js").write_text("var x = 2;", encoding="utf-8")
+        mock_fetch.side_effect = self._push_fetches()
+        mock_update.return_value = {"message": "Update successful", "sys_id": "wid-1"}
+        mock_scope.return_value = {"success": True}
+        mock_us.return_value = {"sys_id": "us-def", "name": "Default"}
+
+        result = update_remote_from_local(
+            self._browser_config(),
+            mock_auth,
+            PushLocalComponentParams(path=str(widget_dir / "script.js")),
+        )
+
+        assert result["success"] is True  # a warning, never a block
+        assert result["update_set_warning"]["update_set"] == "Default"
+        assert "recommended_action" in result["update_set_warning"]
+        # Read AFTER the scope align: switching the app switches the set with it,
+        # so asking earlier answers about a session state that no longer exists.
+        assert mock_scope.called and mock_us.called
+
+    @patch("servicenow_mcp.tools.session_context_tools.get_last_update_set_for_record")
+    @patch("servicenow_mcp.tools.session_context_tools.set_application_scope")
+    @patch("servicenow_mcp.tools.session_context_tools.get_current_update_set")
+    @patch("servicenow_mcp.tools.sync_tools.update_portal_component")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_current_set_matches_last_worked_set_stays_silent(
+        self, mock_fetch, mock_update, mock_us, mock_scope, mock_last, mock_auth, download_root
+    ):
+        """Same set the record was last captured into → nothing to confirm."""
+        widget_dir = download_root / "global" / "sp_widget" / "my-widget"
+        (widget_dir / "script.js").write_text("var x = 2;", encoding="utf-8")
+        mock_fetch.side_effect = self._push_fetches()
+        mock_update.return_value = {"message": "Update successful", "sys_id": "wid-1"}
+        mock_scope.return_value = {"success": True}
+        mock_us.return_value = {"sys_id": "us-1", "name": "My Feature"}
+        mock_last.return_value = {"sys_id": "us-1", "name": "My Feature"}
+
+        result = update_remote_from_local(
+            self._browser_config(),
+            mock_auth,
+            PushLocalComponentParams(path=str(widget_dir / "script.js")),
+        )
+
+        assert result["success"] is True
+        assert "update_set_warning" not in result
+
+    @patch("servicenow_mcp.tools.session_context_tools.get_last_update_set_for_record")
+    @patch("servicenow_mcp.tools.session_context_tools.set_application_scope")
+    @patch("servicenow_mcp.tools.session_context_tools.get_current_update_set")
+    @patch("servicenow_mcp.tools.sync_tools.update_portal_component")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_first_edit_no_prior_capture_stays_silent(
+        self, mock_fetch, mock_update, mock_us, mock_scope, mock_last, mock_auth, download_root
+    ):
+        """No prior sys_update_xml for this record → nothing to have switched from."""
+        widget_dir = download_root / "global" / "sp_widget" / "my-widget"
+        (widget_dir / "script.js").write_text("var x = 2;", encoding="utf-8")
+        mock_fetch.side_effect = self._push_fetches()
+        mock_update.return_value = {"message": "Update successful", "sys_id": "wid-1"}
+        mock_scope.return_value = {"success": True}
+        mock_us.return_value = {"sys_id": "us-1", "name": "My Feature"}
+        mock_last.return_value = None
+
+        result = update_remote_from_local(
+            self._browser_config(),
+            mock_auth,
+            PushLocalComponentParams(path=str(widget_dir / "script.js")),
+        )
+
+        assert result["success"] is True
+        assert "update_set_warning" not in result
+
+    @patch("servicenow_mcp.tools.session_context_tools.get_last_update_set_for_record")
+    @patch("servicenow_mcp.tools.session_context_tools.set_application_scope")
+    @patch("servicenow_mcp.tools.session_context_tools.get_current_update_set")
+    @patch("servicenow_mcp.tools.sync_tools.update_portal_component")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_switched_away_from_last_worked_set_asks_to_confirm(
+        self, mock_fetch, mock_update, mock_us, mock_scope, mock_last, mock_auth, download_root
+    ):
+        """Current session set differs from where this record was last captured →
+        a confirmation (not a block): switching may be deliberate, but doing it by
+        accident splits one change across two sets."""
+        widget_dir = download_root / "global" / "sp_widget" / "my-widget"
+        (widget_dir / "script.js").write_text("var x = 2;", encoding="utf-8")
+        mock_fetch.side_effect = self._push_fetches()
+        mock_update.return_value = {"message": "Update successful", "sys_id": "wid-1"}
+        mock_scope.return_value = {"success": True}
+        mock_us.return_value = {"sys_id": "us-new", "name": "Other Feature"}
+        mock_last.return_value = {"sys_id": "us-old", "name": "Original Feature"}
+
+        result = update_remote_from_local(
+            self._browser_config(),
+            mock_auth,
+            PushLocalComponentParams(path=str(widget_dir / "script.js")),
+        )
+
+        assert result["success"] is True  # a confirmation, never a block
+        warn = result["update_set_warning"]
+        assert warn["current_update_set"] == "Other Feature"
+        assert warn["last_worked_update_set"] == "Original Feature"
+        assert "Original Feature" in warn["confirm"]
+
+    @patch("servicenow_mcp.tools.sync_tools.update_portal_component")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_basic_auth_push_never_touches_the_session_endpoints(
+        self, mock_fetch, mock_update, mock_config, mock_auth, download_root
+    ):
+        widget_dir = download_root / "global" / "sp_widget" / "my-widget"
+        (widget_dir / "script.js").write_text("var x = 2;", encoding="utf-8")
+        mock_fetch.side_effect = self._push_fetches()
+        mock_update.return_value = {"message": "Update successful", "sys_id": "wid-1"}
+
+        with patch("servicenow_mcp.tools.session_context_tools.get_current_update_set") as mock_us:
+            result = update_remote_from_local(
+                mock_config,
+                mock_auth,
+                PushLocalComponentParams(path=str(widget_dir / "script.js")),
+            )
+
+        assert result["success"] is True
+        assert "update_set_warning" not in result
+        mock_us.assert_not_called()

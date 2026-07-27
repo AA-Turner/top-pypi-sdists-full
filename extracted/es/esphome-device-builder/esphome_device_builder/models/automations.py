@@ -385,13 +385,19 @@ class ActionNode(DashboardModel):
     Control-flow actions carry nested action lists under
     ``children`` (e.g. ``{"then": [...], "else": [...]}`` for
     ``if``). ``conditions`` is the boolean gate, populated only for
-    ``if`` / ``wait_until``.
+    ``if`` / ``wait_until``. ``unknown`` marks an uncatalogued action
+    (an external component's, or a typo): ``raw_body`` holds its body so
+    the emitter re-emits it (YAML tags preserved; comments and exact
+    formatting are not) while its siblings stay editable, and the
+    frontend renders it read-only in place.
     """
 
     action_id: str
     params: dict[str, Any] = field(default_factory=dict)
     children: dict[str, list[ActionNode]] = field(default_factory=dict)
     conditions: list[ConditionNode] = field(default_factory=list)
+    unknown: bool = False
+    raw_body: Any = None
 
 
 @dataclass
@@ -418,8 +424,10 @@ class ParsedAutomation(DashboardModel):
     navigator. ``raw_yaml`` is the verbatim slice — kept as the
     read-only fallback when the structured form is unrecoverable.
     ``error`` is set when this one automation failed to decompose
-    (unknown action/condition id); siblings still parse, and the
-    frontend renders it read-only rather than editing an empty tree.
+    (unknown condition id, or a misrouted / malformed body); siblings
+    still parse, and the frontend renders it read-only rather than
+    editing an empty tree. An uncatalogued *action* no longer faults —
+    it decomposes to an opaque passthrough node (see ``ActionNode``).
     ``unsupported`` narrows that: the failure was a *known* action with
     no structured form (an oversized LVGL ``*.update``), so the frontend
     shows the neutral "edit in YAML" hint rather than an error alert.

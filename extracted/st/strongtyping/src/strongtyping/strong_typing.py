@@ -8,7 +8,7 @@ from functools import wraps
 from string import Template
 from typing import Any, Callable, NotRequired, Required, Type, get_args, get_origin
 
-from strongtyping._utils import _severity_level, action, remove_subclass
+from strongtyping._utils import action, get_severity_level, remove_subclass
 from strongtyping.cached_set import CachedSet
 from strongtyping.config import SEVERITY_LEVEL
 from strongtyping.exceptions import TypeMismatch, UndefinedKey
@@ -60,7 +60,7 @@ def match_typing(
 
         arg_names = [name for name in inspect.signature(func).parameters]
         annotations = func.__annotations__
-        severity_level = _severity_level(severity)
+        severity_level = get_severity_level(severity)
 
         @wraps(func)
         def inner(*args: Any, **kwargs: Any) -> Any:
@@ -295,7 +295,7 @@ def match_class_typing(cls: Type[Any] | None = None, **kwargs: Any) -> Any:
         ]
 
     def __add_decorator(_cls: Type[Any]) -> None:
-        severity_level = _severity_level(severity)
+        severity_level = get_severity_level(severity)
         if severity_level > SEVERITY_LEVEL.DISABLED.value:
             for method in __find_methods(_cls):
                 try:

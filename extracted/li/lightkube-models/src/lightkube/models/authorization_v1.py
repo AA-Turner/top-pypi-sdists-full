@@ -81,7 +81,7 @@ class LocalSubjectAccessReview(DictMixin):
 
       **parameters**
 
-      * **spec** ``SubjectAccessReviewSpec`` - Spec holds information about the request being evaluated.  spec.namespace must
+      * **spec** ``SubjectAccessReviewSpec`` - spec holds information about the request being evaluated.  spec.namespace must
         be equal to the namespace you made the request against.  If empty, it is
         defaulted.
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
@@ -92,9 +92,9 @@ class LocalSubjectAccessReview(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard list metadata. More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard list metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-      * **status** ``Optional[SubjectAccessReviewStatus]`` - Status is filled in by the server and indicates whether the request is allowed
+      * **status** ``Optional[SubjectAccessReviewStatus]`` - status is filled in by the server and indicates whether the request is allowed
         or not
     """
     spec: 'SubjectAccessReviewSpec'
@@ -115,8 +115,8 @@ class NonResourceAttributes(DictMixin):
 
       **parameters**
 
-      * **path** ``Optional[str]`` - Path is the URL path of the request
-      * **verb** ``Optional[str]`` - Verb is the standard HTTP verb
+      * **path** ``Optional[str]`` - path is the URL path of the request
+      * **verb** ``Optional[str]`` - verb is the standard HTTP verb
     """
     path: 'Optional[str]' = None
     verb: 'Optional[str]' = None
@@ -128,9 +128,9 @@ class NonResourceRule(DictMixin):
 
       **parameters**
 
-      * **verbs** ``List[str]`` - Verb is a list of kubernetes non-resource API verbs, like: get, post, put,
+      * **verbs** ``List[str]`` - verbs is a list of kubernetes non-resource API verbs, like: get, post, put,
         delete, patch, head, options.  "*" means all.
-      * **nonResourceURLs** ``Optional[List[str]]`` - NonResourceURLs is a set of partial urls that a user should have access to.
+      * **nonResourceURLs** ``Optional[List[str]]`` - nonResourceURLs is a set of partial urls that a user should have access to.
         *s are allowed, but only as the full, final step in the path.  "*" means all.
     """
     verbs: 'List[str]'
@@ -146,21 +146,21 @@ class ResourceAttributes(DictMixin):
 
       * **fieldSelector** ``Optional[FieldSelectorAttributes]`` - fieldSelector describes the limitation on access based on field.  It can only
         limit access, not broaden it.
-      * **group** ``Optional[str]`` - Group is the API Group of the Resource.  "*" means all.
+      * **group** ``Optional[str]`` - group is the API Group of the Resource.  "*" means all.
       * **labelSelector** ``Optional[LabelSelectorAttributes]`` - labelSelector describes the limitation on access based on labels.  It can only
         limit access, not broaden it.
-      * **name** ``Optional[str]`` - Name is the name of the resource being requested for a "get" or deleted for a
+      * **name** ``Optional[str]`` - name is the name of the resource being requested for a "get" or deleted for a
         "delete". "" (empty) means all.
-      * **namespace** ``Optional[str]`` - Namespace is the namespace of the action being requested.  Currently, there is
+      * **namespace** ``Optional[str]`` - namespace is the namespace of the action being requested.  Currently, there is
         no distinction between no namespace and all namespaces "" (empty) is defaulted
         for LocalSubjectAccessReviews "" (empty) is empty for cluster-scoped resources
         "" (empty) means "all" for namespace scoped resources from a
         SubjectAccessReview or SelfSubjectAccessReview
-      * **resource** ``Optional[str]`` - Resource is one of the existing resource types.  "*" means all.
-      * **subresource** ``Optional[str]`` - Subresource is one of the existing resource types.  "" means none.
-      * **verb** ``Optional[str]`` - Verb is a kubernetes resource API verb, like: get, list, watch, create,
+      * **resource** ``Optional[str]`` - resource is one of the existing resource types.  "*" means all.
+      * **subresource** ``Optional[str]`` - subresource is one of the existing resource types.  "" means none.
+      * **verb** ``Optional[str]`` - verb is a kubernetes resource API verb, like: get, list, watch, create,
         update, delete, proxy.  "*" means all.
-      * **version** ``Optional[str]`` - Version is the API Version of the Resource.  "*" means all.
+      * **version** ``Optional[str]`` - version is the API Version of the Resource.  "*" means all.
     """
     fieldSelector: 'Optional[FieldSelectorAttributes]' = None
     group: 'Optional[str]' = None
@@ -181,14 +181,14 @@ class ResourceRule(DictMixin):
 
       **parameters**
 
-      * **verbs** ``List[str]`` - Verb is a list of kubernetes resource API verbs, like: get, list, watch,
+      * **verbs** ``List[str]`` - verbs is a list of kubernetes resource API verbs, like: get, list, watch,
         create, update, delete, proxy.  "*" means all.
-      * **apiGroups** ``Optional[List[str]]`` - APIGroups is the name of the APIGroup that contains the resources.  If
+      * **apiGroups** ``Optional[List[str]]`` - apiGroups is the name of the APIGroup that contains the resources.  If
         multiple API groups are specified, any action requested against one of the
         enumerated resources in any API group will be allowed.  "*" means all.
-      * **resourceNames** ``Optional[List[str]]`` - ResourceNames is an optional white list of names that the rule applies to.  An
+      * **resourceNames** ``Optional[List[str]]`` - resourceNames is an optional white list of names that the rule applies to.  An
         empty set means that everything is allowed.  "*" means all.
-      * **resources** ``Optional[List[str]]`` - Resources is a list of resources this rule applies to.  "*" means all in the
+      * **resources** ``Optional[List[str]]`` - resources is a list of resources this rule applies to.  "*" means all in the
         specified apiGroups.
          "*/foo" represents the subresource 'foo' for all resources in the specified
         apiGroups.
@@ -208,7 +208,7 @@ class SelfSubjectAccessReview(DictMixin):
 
       **parameters**
 
-      * **spec** ``SelfSubjectAccessReviewSpec`` - Spec holds information about the request being evaluated.  user and groups
+      * **spec** ``SelfSubjectAccessReviewSpec`` - spec holds information about the request being evaluated.  user and groups
         must be empty
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
@@ -218,9 +218,9 @@ class SelfSubjectAccessReview(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard list metadata. More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard list metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-      * **status** ``Optional[SubjectAccessReviewStatus]`` - Status is filled in by the server and indicates whether the request is allowed
+      * **status** ``Optional[SubjectAccessReviewStatus]`` - status is filled in by the server and indicates whether the request is allowed
         or not
     """
     spec: 'SelfSubjectAccessReviewSpec'
@@ -237,14 +237,12 @@ class SelfSubjectAccessReview(DictMixin):
 @dataclass
 class SelfSubjectAccessReviewSpec(DictMixin):
     r"""SelfSubjectAccessReviewSpec is a description of the access request.  Exactly
-      one of ResourceAuthorizationAttributes and NonResourceAuthorizationAttributes
-      must be set
+      one of resourceAttributes and nonResourceAttributes must be set
 
       **parameters**
 
-      * **nonResourceAttributes** ``Optional[NonResourceAttributes]`` - NonResourceAttributes describes information for a non-resource access request
-      * **resourceAttributes** ``Optional[ResourceAttributes]`` - ResourceAuthorizationAttributes describes information for a resource access
-        request
+      * **nonResourceAttributes** ``Optional[NonResourceAttributes]`` - nonResourceAttributes describes information for a non-resource access request
+      * **resourceAttributes** ``Optional[ResourceAttributes]`` - resourceAttributes describes information for a resource access request
     """
     nonResourceAttributes: 'Optional[NonResourceAttributes]' = None
     resourceAttributes: 'Optional[ResourceAttributes]' = None
@@ -264,7 +262,7 @@ class SelfSubjectRulesReview(DictMixin):
 
       **parameters**
 
-      * **spec** ``SelfSubjectRulesReviewSpec`` - Spec holds information about the request being evaluated.
+      * **spec** ``SelfSubjectRulesReviewSpec`` - spec holds information about the request being evaluated.
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
@@ -273,9 +271,9 @@ class SelfSubjectRulesReview(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard list metadata. More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard list metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-      * **status** ``Optional[SubjectRulesReviewStatus]`` - Status is filled in by the server and indicates the set of actions a user can
+      * **status** ``Optional[SubjectRulesReviewStatus]`` - status is filled in by the server and indicates the set of actions a user can
         perform.
     """
     spec: 'SelfSubjectRulesReviewSpec'
@@ -296,7 +294,7 @@ class SelfSubjectRulesReviewSpec(DictMixin):
 
       **parameters**
 
-      * **namespace** ``Optional[str]`` - Namespace to evaluate rules for. Required.
+      * **namespace** ``Optional[str]`` - namespace to evaluate rules for. Required.
     """
     namespace: 'Optional[str]' = None
 
@@ -308,7 +306,7 @@ class SubjectAccessReview(DictMixin):
 
       **parameters**
 
-      * **spec** ``SubjectAccessReviewSpec`` - Spec holds information about the request being evaluated
+      * **spec** ``SubjectAccessReviewSpec`` - spec holds information about the request being evaluated
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
@@ -317,9 +315,9 @@ class SubjectAccessReview(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard list metadata. More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard list metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-      * **status** ``Optional[SubjectAccessReviewStatus]`` - Status is filled in by the server and indicates whether the request is allowed
+      * **status** ``Optional[SubjectAccessReviewStatus]`` - status is filled in by the server and indicates whether the request is allowed
         or not
     """
     spec: 'SubjectAccessReviewSpec'
@@ -336,19 +334,17 @@ class SubjectAccessReview(DictMixin):
 @dataclass
 class SubjectAccessReviewSpec(DictMixin):
     r"""SubjectAccessReviewSpec is a description of the access request.  Exactly one
-      of ResourceAuthorizationAttributes and NonResourceAuthorizationAttributes must
-      be set
+      of resourceAttributes and nonResourceAttributes must be set
 
       **parameters**
 
-      * **extra** ``Optional[dict]`` - Extra corresponds to the user.Info.GetExtra() method from the authenticator.
+      * **extra** ``Optional[dict]`` - extra corresponds to the user.Info.GetExtra() method from the authenticator.
         Since that is input to the authorizer it needs a reflection here.
-      * **groups** ``Optional[List[str]]`` - Groups is the groups you're testing for.
-      * **nonResourceAttributes** ``Optional[NonResourceAttributes]`` - NonResourceAttributes describes information for a non-resource access request
-      * **resourceAttributes** ``Optional[ResourceAttributes]`` - ResourceAuthorizationAttributes describes information for a resource access
-        request
-      * **uid** ``Optional[str]`` - UID information about the requesting user.
-      * **user** ``Optional[str]`` - User is the user you're testing for. If you specify "User" but not "Groups",
+      * **groups** ``Optional[List[str]]`` - groups is the groups you're testing for.
+      * **nonResourceAttributes** ``Optional[NonResourceAttributes]`` - nonResourceAttributes describes information for a non-resource access request
+      * **resourceAttributes** ``Optional[ResourceAttributes]`` - resourceAttributes describes information for a resource access request
+      * **uid** ``Optional[str]`` - uid information about the requesting user.
+      * **user** ``Optional[str]`` - user is the user you're testing for. If you specify "User" but not "Groups",
         then is it interpreted as "What if User were not a member of any groups
     """
     extra: 'Optional[dict]' = None
@@ -365,16 +361,16 @@ class SubjectAccessReviewStatus(DictMixin):
 
       **parameters**
 
-      * **allowed** ``bool`` - Allowed is required. True if the action would be allowed, false otherwise.
-      * **denied** ``Optional[bool]`` - Denied is optional. True if the action would be denied, otherwise false. If
+      * **allowed** ``bool`` - allowed is required. True if the action would be allowed, false otherwise.
+      * **denied** ``Optional[bool]`` - denied is optional. True if the action would be denied, otherwise false. If
         both allowed is false and denied is false, then the authorizer has no opinion
         on whether to authorize the action. Denied may not be true if Allowed is true.
-      * **evaluationError** ``Optional[str]`` - EvaluationError is an indication that some error occurred during the
+      * **evaluationError** ``Optional[str]`` - evaluationError is an indication that some error occurred during the
         authorization check. It is entirely possible to get an error and be able to
         continue determine authorization status in spite of it. For instance, RBAC can
         be missing a role, but enough roles are still present and bound to reason
         about the request.
-      * **reason** ``Optional[str]`` - Reason is optional.  It indicates why a request was allowed or denied.
+      * **reason** ``Optional[str]`` - reason is optional.  It indicates why a request was allowed or denied.
     """
     allowed: 'bool'
     denied: 'Optional[bool]' = None
@@ -392,16 +388,16 @@ class SubjectRulesReviewStatus(DictMixin):
 
       **parameters**
 
-      * **incomplete** ``bool`` - Incomplete is true when the rules returned by this call are incomplete. This
+      * **incomplete** ``bool`` - incomplete is true when the rules returned by this call are incomplete. This
         is most commonly encountered when an authorizer, such as an external
         authorizer, doesn't support rules evaluation.
-      * **nonResourceRules** ``List[NonResourceRule]`` - NonResourceRules is the list of actions the subject is allowed to perform on
+      * **nonResourceRules** ``List[NonResourceRule]`` - nonResourceRules is the list of actions the subject is allowed to perform on
         non-resources. The list ordering isn't significant, may contain duplicates,
         and possibly be incomplete.
-      * **resourceRules** ``List[ResourceRule]`` - ResourceRules is the list of actions the subject is allowed to perform on
+      * **resourceRules** ``List[ResourceRule]`` - resourceRules is the list of actions the subject is allowed to perform on
         resources. The list ordering isn't significant, may contain duplicates, and
         possibly be incomplete.
-      * **evaluationError** ``Optional[str]`` - EvaluationError can appear in combination with Rules. It indicates an error
+      * **evaluationError** ``Optional[str]`` - evaluationError can appear in combination with Rules. It indicates an error
         occurred during rule evaluation, such as an authorizer that doesn't support
         rule evaluation, and that ResourceRules and/or NonResourceRules may be
         incomplete.

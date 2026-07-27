@@ -102,10 +102,100 @@ def test_on_timeout_raw_strings_map_correctly(monkeypatch):
     assert h.evaluate(_evt())["decision"] == "approve"
 
 
+def test_timeout_deny_is_not_blamed_on_the_human(monkeypatch):
+    """A lapsed window must read as a timeout, not 'the human declined' —
+    live confusion 2026-07-26: user never saw the request, agent was told
+    a human said no."""
+    _wire(monkeypatch, "deny")
+    reason = h.evaluate(_evt())["reason"]
+    assert "timed out" in reason
+    assert "declined" not in reason
+    _wire(monkeypatch, "denied")
+    reason = h.evaluate(_evt())["reason"]
+    assert "declined" in reason
+    assert "timed out" not in reason
+
+
 def test_error_and_monitored_have_no_opinion(monkeypatch):
     for decision in ("error", "monitored", "no_policy"):
         _wire(monkeypatch, decision)
         assert h.evaluate(_evt()) is None
+
+
+def test_always_allow_rule_outranks_catchall(monkeypatch):
+    """An action:approve rule beats the catch-all ask rule regardless of
+    list order, and short-circuits with no cloud round-trip."""
+    catchall = ap._compile_policy({"name": "ask-everything", "tool": "exec",
+                                   "pattern_type": "command_regex",
+                                   "pattern": ".*",
+                                   "action": "require_approval"})
+    allow = ap._compile_policy({"name": "always: git ls-files", "tool": "exec",
+                                "pattern_type": "command_regex",
+                                "pattern": r"^git ls-files",
+                                "action": "approve"})
+    # Catch-all FIRST in the list — approve-rule must still win.
+    matched = ap.match_policy([catchall, allow], "Bash",
+                              {"command": "git ls-files | head"})
+    assert matched["name"] == "always: git ls-files"
+
+    def boom(*a, **k):
+        raise AssertionError("auto-approve must not round-trip the cloud")
+
+    monkeypatch.setattr(ap, "_post_approval_request", boom)
+    monkeypatch.setattr(ap, "_poll_decision", boom)
+    result = ap.process_tool_call(
+        api_key="cm_x", node_id="n", session_id="claude_code:s",
+        tool_call_id="t1", tool_name="Bash",
+        args={"command": "git ls-files | head"},
+        policies=[catchall, allow])
+    assert result["decision"] == "approved"
+    assert result["auto"] is True
+
+    # And the hook reports it as an auto-approval.
+    monkeypatch.setattr(h, "_load_api_key", lambda: "cm_x")
+    monkeypatch.setattr(h, "_load_policies_fast",
+                        lambda k: [catchall, allow])
+    monkeypatch.setattr(ap, "process_tool_call",
+                        lambda **kw: {"decision": "approved", "policy":
+                                      "always: git ls-files", "auto": True})
+    p = h.evaluate(_evt(cmd="git ls-files | head"))
+    assert p["hookSpecificOutput"]["permissionDecision"] == "allow"
+    assert "Auto-approved" in p["reason"]
+
+
+def test_autonomous_mode_skips_blanket_ask_but_keeps_risk_gates(monkeypatch):
+    """auto/dontAsk/bypassPermissions sessions must not be nagged by the
+    catch-all ask gates — but targeted risk gates still protect them."""
+    catchall = ap._compile_policy({"name": "Ask my phone before shell commands",
+                                   "tool": "exec", "pattern_type": "command_regex",
+                                   "pattern": ".*", "action": "require_approval"})
+    risk = ap._compile_policy(dict(RAW_POLICY))  # rm -rf gate
+    monkeypatch.setattr(h, "_load_api_key", lambda: "cm_x")
+    monkeypatch.setattr(h, "_load_policies_fast", lambda k: [catchall, risk])
+
+    calls = []
+    monkeypatch.setattr(ap, "process_tool_call", lambda **kw: (
+        calls.append(kw["policies"]),
+        {"decision": "denied", "policy": kw["policies"][0]["name"]})[1])
+
+    # Benign command in auto mode: catch-all filtered out -> no gate at all.
+    evt = _evt(cmd="ls -la")
+    evt["permission_mode"] = "auto"
+    assert h.evaluate(evt) is None
+    assert calls == []
+
+    # Risky command in auto mode: the rm -rf gate still fires.
+    evt = _evt(cmd="rm -rf /tmp/x")
+    evt["permission_mode"] = "bypassPermissions"
+    assert h.evaluate(evt) is not None
+    assert calls and all(p["name"] != "Ask my phone before shell commands"
+                         for p in calls[0])
+
+    # Default mode: catch-all still gates benign commands.
+    calls.clear()
+    evt = _evt(cmd="ls -la")
+    evt["permission_mode"] = "default"
+    assert h.evaluate(evt) is not None
 
 
 def test_engine_exception_fails_open(monkeypatch):
@@ -163,7 +253,7 @@ def test_install_idempotent_and_correct_timeouts(monkeypatch, tmp_path):
     sp = str(tmp_path / "settings.json")
     r1 = h.install(settings_path=sp)
     assert r1["status"] == "installed"
-    assert sorted(r1["added"]) == ["Notification", "PreToolUse"]
+    assert sorted(r1["added"]) == ["Notification", "PreToolUse", "Stop"]
     r2 = h.install(settings_path=sp)
     assert r2["status"] == "already_present"
     s = json.load(open(sp))
@@ -171,9 +261,9 @@ def test_install_idempotent_and_correct_timeouts(monkeypatch, tmp_path):
     assert len(pre) == 1, "must not duplicate on re-install"
     hk = pre[0]["hooks"][0]
     assert hk["command"] == "clawmetry hooks run pretooluse"
-    # Load-bearing: must exceed policy timeouts (presets 60-300s) or Claude
-    # Code times the hook out before the human decides.
-    assert hk["timeout"] == 900
+    # Load-bearing: must exceed the 7-day max policy window or Claude
+    # Code times the hook out (= blocks) before the human decides.
+    assert hk["timeout"] == 605100
     assert s["hooks"]["Notification"][0]["hooks"][0]["command"] == \
         "clawmetry hooks run notification"
     marker = json.load(open(str(tmp_path / "marker.json")))
@@ -216,22 +306,42 @@ def test_uninstall_removes_only_ours(monkeypatch, tmp_path):
 def test_notification_permission_prompt_pushes(monkeypatch):
     calls = []
     monkeypatch.setattr(h, "_load_api_key", lambda: "cm_x")
+    monkeypatch.setattr(h, "_node_id", lambda: "mac")
     monkeypatch.setattr(h, "_push_notify",
-                        lambda k, kind, title, body: calls.append((kind, title, body)))
+                        lambda k, kind, title, body, extra=None:
+                        calls.append((kind, title, body, extra)))
     monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(
         {"hook_event_name": "Notification",
          "notification_type": "permission_prompt",
-         "message": "Claude needs permission to run rm"})))
+         "message": "Claude needs permission to run rm",
+         "session_id": "abc123", "cwd": "/tmp/proj"})))
     assert h.main_notification() == 0
     assert calls and calls[0][0] == "input"
     assert "rm" in calls[0][2]
+    # Session context rides along so the inbox can show WHICH terminal.
+    assert calls[0][3]["session_id"] == "claude_code:abc123"
+    assert calls[0][3]["cwd"] == "/tmp/proj"
+
+
+def test_stop_hook_sends_silent_clear(monkeypatch):
+    calls = []
+    monkeypatch.setattr(h, "_load_api_key", lambda: "cm_x")
+    monkeypatch.setattr(h, "_node_id", lambda: "mac")
+    monkeypatch.setattr(h, "_push_notify",
+                        lambda k, kind, title, body, extra=None:
+                        calls.append((kind, extra)))
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(
+        {"hook_event_name": "Stop", "session_id": "abc123"})))
+    assert h.main_stop() == 0
+    assert calls == [("clear", {"node_id": "mac",
+                                "session_id": "claude_code:abc123"})]
 
 
 def test_notification_idle_prompt_pushes_stop(monkeypatch):
     calls = []
     monkeypatch.setattr(h, "_load_api_key", lambda: "cm_x")
     monkeypatch.setattr(h, "_push_notify",
-                        lambda k, kind, title, body: calls.append(kind))
+                        lambda k, kind, title, body, extra=None: calls.append(kind))
     monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(
         {"notification_type": "idle_prompt", "message": "done"})))
     assert h.main_notification() == 0

@@ -838,6 +838,158 @@ def test_if_emits_condition_before_then_else() -> None:
     assert body.index("condition:") < body.index("then:") < body.index("else:")
 
 
+@pytest.mark.parametrize(
+    ("raw_body", "expected"),
+    [
+        pytest.param(
+            {"path": "/data/x.log", "format": "hi"},
+            "storage.file_append:\n  path: /data/x.log\n  format: hi\n",
+            id="mapping",
+        ),
+        pytest.param("scalar", "storage.file_append: scalar\n", id="scalar"),
+        pytest.param(None, "storage.file_append:\n", id="none"),
+        pytest.param(
+            [{"a": 1}, {"b": 2}],
+            "storage.file_append:\n  - a: 1\n  - b: 2\n",
+            id="list",
+        ),
+        pytest.param(
+            {"fmt": {"_lambda": "return 0;", "_tag": "!lambda"}},
+            "storage.file_append:\n  fmt: !lambda return 0;\n",
+            id="lambda",
+        ),
+        pytest.param(
+            {"token": {"_tagged": "api_token", "_tag": "!secret"}},
+            "storage.file_append:\n  token: !secret api_token\n",
+            id="secret_tag",
+        ),
+    ],
+)
+def test_unknown_action_node_round_trips_its_raw_body(raw_body: object, expected: str) -> None:
+    """An opaque passthrough node re-emits ``{action_id: <raw_body>}`` in full, tags kept."""
+    node = ActionNode(action_id="storage.file_append", unknown=True, raw_body=raw_body)
+    assert dump(emit_action_node(node)) == expected
+
+
+def test_emit_uncatalogued_structured_node_fails_loud() -> None:
+    """A non-``unknown`` node for an uncatalogued id is a lossy echo — refuse it."""
+    node = ActionNode(action_id="ext.action", params={"token": "secret"})
+    with pytest.raises(CommandError, match="uncatalogued action"):
+        emit_action_node(node)
+
+
+def test_passthrough_body_preserves_secret_tag_through_round_trip() -> None:
+    """A ``!secret`` inside an external action survives a sibling edit + re-emit."""
+    text = (
+        "esphome:\n"
+        "  name: x\n"
+        "  on_boot:\n"
+        "    then:\n"
+        "      - logger.log: hi\n"
+        "      - ext.upload:\n"
+        "          token: !secret api_token\n"
+    )
+    parsed = parse_device_yaml(text)[0]
+    assert parsed.error is None
+    assert parsed.automation.actions[1].raw_body == {
+        "token": {"_tagged": "api_token", "_tag": "!secret"}
+    }
+    tree = parsed.automation
+    tree.actions[0].params["format"] = "edited"
+    new_text, _diff = render_upsert(text, tree=tree, location=parsed.location)
+    assert "token: !secret api_token" in new_text
+
+
+def test_passthrough_body_preserves_tagged_collection_through_round_trip() -> None:
+    """A tagged *collection* (``!include {file, vars}``) keeps its tag on re-emit."""
+    text = (
+        "esphome:\n"
+        "  name: x\n"
+        "  on_boot:\n"
+        "    then:\n"
+        "      - logger.log: hi\n"
+        "      - ext.upload: !include {file: body.yaml, vars: {a: 1}}\n"
+    )
+    parsed = parse_device_yaml(text)[0]
+    assert parsed.error is None
+    assert parsed.automation.actions[1].raw_body == {
+        "_tagged": {"file": "body.yaml", "vars": {"a": 1}},
+        "_tag": "!include",
+    }
+    tree = parsed.automation
+    tree.actions[0].params["format"] = "edited"
+    new_text, _diff = render_upsert(text, tree=tree, location=parsed.location)
+    assert "!include" in new_text
+    assert "file: body.yaml" in new_text
+
+
+def test_emit_unknown_flag_on_catalogued_id_fails_loud() -> None:
+    """``unknown`` on a catalogued id is a mislabelled echo — refuse it, not blank the body."""
+    node = ActionNode(action_id="logger.log", unknown=True, raw_body=None)
+    with pytest.raises(CommandError, match="unknown passthrough"):
+        emit_action_node(node)
+
+
+@pytest.mark.parametrize("bad_tag", ["not a tag", "", "noexcl", 5])
+def test_emit_passthrough_body_rejects_a_malformed_tag(bad_tag: object) -> None:
+    """A client-supplied ``_tag`` that isn't a ``!``-prefixed string is refused."""
+    node = ActionNode(
+        action_id="ext.upload",
+        unknown=True,
+        raw_body={"k": {"_tagged": "v", "_tag": bad_tag}},
+    )
+    with pytest.raises(CommandError, match="Invalid YAML tag"):
+        emit_action_node(node)
+
+
+@pytest.mark.parametrize("bad_body", [5, None, True])
+def test_emit_passthrough_body_rejects_a_non_scalar_collection_payload(bad_body: object) -> None:
+    """A ``_tagged`` payload that isn't a str/dict/list is a typed refusal, not INTERNAL_ERROR."""
+    node = ActionNode(
+        action_id="ext.upload",
+        unknown=True,
+        raw_body={"k": {"_tagged": bad_body, "_tag": "!secret"}},
+    )
+    with pytest.raises(CommandError, match="Invalid passthrough body"):
+        emit_action_node(node)
+
+
+def test_emit_passthrough_lambda_sentinel_under_a_tag_does_not_crash() -> None:
+    """A tagged body that collides with the lambda sentinel re-emits without blowing up."""
+    node = ActionNode(
+        action_id="ext.a",
+        unknown=True,
+        raw_body={"_tagged": {"_lambda": "foo"}, "_tag": "!include"},
+    )
+    assert dump(emit_action_node(node)).startswith("ext.a: !include")
+
+
+def test_round_trip_preserves_external_action_while_editing_a_sibling() -> None:
+    """Editing a known sibling keeps the uncatalogued action's body intact."""
+    text = (
+        "esphome:\n"
+        "  name: x\n"
+        "  on_boot:\n"
+        "    then:\n"
+        "      - logger.log: hi\n"
+        "      - storage.file_append:\n"
+        "          path: /data/my.log\n"
+        "          format: hello\n"
+    )
+    parsed = parse_device_yaml(text)[0]
+    assert parsed.error is None
+    tree = parsed.automation
+    tree.actions[0].params["format"] = "edited"
+    new_text, _diff = render_upsert(text, tree=tree, location=parsed.location)
+    assert "storage.file_append:" in new_text
+    assert "path: /data/my.log" in new_text
+    assert "format: hello" in new_text
+    assert "logger.log: edited" in new_text
+    reparsed = parse_device_yaml(new_text)[0]
+    assert reparsed.error is None
+    assert reparsed.automation.actions[1].raw_body == {"path": "/data/my.log", "format": "hello"}
+
+
 def test_while_emits_condition_before_then() -> None:
     """``while`` emits ``condition:`` ahead of its ``then:`` branch."""
     node = ActionNode(

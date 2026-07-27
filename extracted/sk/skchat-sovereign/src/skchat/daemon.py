@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import logging.handlers
 import os
 import signal
 import sys
@@ -37,6 +38,133 @@ except ImportError:  # pragma: no cover
 # Index 0 = 1st failure delay; last entry is the cap applied for all further failures.
 _BACKOFF_DELAYS: tuple = (5, 10, 20, 40, 60)
 _BACKOFF_ERROR_THRESHOLD: int = 5  # emit ERROR after this many consecutive failures
+
+# Logging rotation defaults (env-tunable). The daemon previously used a plain,
+# unbounded FileHandler via logging.basicConfig on the root logger, so daemon.log
+# grew without limit (observed at 3.8 GB/day on .41 — see the log remediation
+# design doc). A RotatingFileHandler caps total on-disk size at
+# ~SKCHAT_LOG_MAX_BYTES * (SKCHAT_LOG_BACKUP_COUNT + 1).
+_DEFAULT_LOG_MAX_BYTES: int = 50_000_000  # 50 MB per file
+_DEFAULT_LOG_BACKUP_COUNT: int = 5  # keep this many rotated files
+# Floor for the rotation size. A RotatingFileHandler treats maxBytes<=0 as
+# "never rotate" (unbounded). Never let the env drop below this.
+_MIN_LOG_MAX_BYTES: int = 1_000_000  # 1 MB
+
+
+class _SkchatLogFilter(logging.Filter):
+    """Restrict the daemon's file handler to the skchat/skcomms logger trees.
+
+    Without this, ``SKCHAT_LOG_LEVEL=DEBUG`` turns the root logger to DEBUG and
+    the shared file handler starts capturing third-party library DEBUG chatter
+    (urllib3, asyncio, pgpy, pydantic, …) — a firehose that drowns daemon.log
+    in noise. This filter passes only records emitted by ``skchat``/``skcomms``
+    (and their sub-loggers), plus records logged directly on the root logger,
+    so raising the level surfaces *our* DEBUG without the library noise.
+    """
+
+    _ALLOWED_ROOTS = ("skchat", "skcomms")
+
+    def filter(self, record: logging.LogRecord) -> bool:  # noqa: A003
+        name = record.name
+        if name in ("root", "__main__"):
+            return True
+        for root_name in self._ALLOWED_ROOTS:
+            if name == root_name or name.startswith(root_name + "."):
+                return True
+        return False
+
+
+def _outbox_summary_level(failed: int) -> str:
+    """Pick the log level for the per-cycle Outbox summary line.
+
+    Demoting the whole line to DEBUG (to cut all-clear per-cycle noise) also
+    hid *chronic delivery failures* at INFO. Split the two: when any delivery
+    failed/retried, surface the summary at INFO so the error signal isn't lost;
+    otherwise keep it at DEBUG.
+
+    Args:
+        failed: Number of messages that failed/were retried this cycle.
+
+    Returns:
+        str: ``"info"`` when ``failed`` > 0, else ``"debug"``.
+    """
+    return "info" if failed > 0 else "debug"
+
+
+def _configure_root_logging(log_file) -> None:
+    """Install a size-capped ``RotatingFileHandler`` on the root logger.
+
+    Replaces the old ``logging.basicConfig(filename=…)`` (an unbounded
+    ``FileHandler``) so ``daemon.log`` can no longer grow without limit. All
+    ``skcomms.*`` transport logs share this root handler, so this bounds the
+    whole file. Idempotent per resolved log path — constructing the daemon more
+    than once (as tests do) will not stack duplicate handlers.
+
+    Env knobs:
+        SKCHAT_LOG_LEVEL: root log level name (default ``INFO``).
+        SKCHAT_LOG_MAX_BYTES: rotation size threshold in bytes (default 50 MB).
+        SKCHAT_LOG_BACKUP_COUNT: number of rotated backups to keep (default 5).
+
+    Args:
+        log_file: Path (or str) to the daemon log file.
+    """
+    level_name = os.environ.get("SKCHAT_LOG_LEVEL", "INFO").upper()
+    level = getattr(logging, level_name, logging.INFO)
+    if not isinstance(level, int):
+        level = logging.INFO
+
+    try:
+        max_bytes = int(os.environ.get("SKCHAT_LOG_MAX_BYTES", str(_DEFAULT_LOG_MAX_BYTES)))
+    except (TypeError, ValueError):
+        max_bytes = _DEFAULT_LOG_MAX_BYTES
+    try:
+        backup_count = int(
+            os.environ.get("SKCHAT_LOG_BACKUP_COUNT", str(_DEFAULT_LOG_BACKUP_COUNT))
+        )
+    except (TypeError, ValueError):
+        backup_count = _DEFAULT_LOG_BACKUP_COUNT
+
+    # Clamp to sane floors. A RotatingFileHandler with maxBytes<=0 NEVER rolls
+    # over (it silently degrades to an unbounded FileHandler — exactly the
+    # runaway-log bug this handler exists to prevent), and backupCount<=0 keeps
+    # zero backups (it truncates on roll instead of retaining history). Reject
+    # both so a hostile/degenerate env can't re-introduce unbounded growth.
+    max_bytes = max(_MIN_LOG_MAX_BYTES, max_bytes)
+    backup_count = max(1, backup_count)
+
+    root = logging.getLogger()
+    root.setLevel(level)
+
+    target = str(Path(log_file).expanduser())
+    target_abs = os.path.abspath(target)
+    for handler in root.handlers:
+        if isinstance(handler, logging.handlers.RotatingFileHandler) and (
+            getattr(handler, "baseFilename", None) == target_abs
+        ):
+            # Already installed for this path — just re-sync the level.
+            handler.setLevel(level)
+            return
+
+    try:
+        file_handler = logging.handlers.RotatingFileHandler(
+            target,
+            maxBytes=max_bytes,
+            backupCount=backup_count,
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        # Non-fatal: a bad/unwritable log path must not stop the daemon from
+        # starting (the old basicConfig was a silent no-op when the root logger
+        # already had handlers). Degrade to whatever handlers exist / stderr.
+        logging.getLogger(__name__).warning(
+            "Could not open log file %s (%s); continuing without file logging", target, exc
+        )
+        return
+    file_handler.setLevel(level)
+    file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    # Keep third-party DEBUG noise out of daemon.log when the level is raised.
+    file_handler.addFilter(_SkchatLogFilter())
+    root.addHandler(file_handler)
 
 
 # Environment variable holding the WebRTC/coturn HMAC shared secret.
@@ -166,7 +294,15 @@ class ChatDaemon:
         self.last_poll_time: Optional[datetime] = None
         self.poll_count = 0
         self._webrtc_active = False
+        # A2 (F3-skchat): remember the last observed WebRTC signaling-health so
+        # _write_daemon_stats only WARNs on a *transition* into a non-ok state,
+        # instead of once per ~30s stats cycle (chronic log-spam when the
+        # signaling broker is simply absent).
+        self._last_signaling_health: Optional[str] = None
         self._transport_ok: bool = False
+        # Live ChatTransport ref, populated once init succeeds, so the health
+        # server can surface transport-level state (e.g. signing_degraded).
+        self._transport: Optional[object] = None
         self._consecutive_failures: int = 0
         self.total_sent: int = 0
         self.start_time: Optional[datetime] = None
@@ -189,11 +325,11 @@ class ChatDaemon:
         self._send_lock = threading.Lock()
 
         if log_file:
-            logging.basicConfig(
-                filename=str(log_file),
-                level=logging.INFO,
-                format="%(asctime)s [%(levelname)s] %(message)s",
-            )
+            _configure_root_logging(log_file)
+            # httpx/httpcore log every health probe at INFO; keep them at
+            # WARNING so 5s polls do not flood the daemon log (card 36450c88).
+            logging.getLogger("httpx").setLevel(logging.WARNING)
+            logging.getLogger("httpcore").setLevel(logging.WARNING)
 
         signal.signal(signal.SIGINT, self._handle_signal)
         signal.signal(signal.SIGTERM, self._handle_signal)
@@ -304,6 +440,15 @@ class ChatDaemon:
             self._log(f"Failed to initialize transport: {exc}", "error")
             raise
 
+        # Expose the transport to the health server (signing_degraded, etc.).
+        self._transport = transport
+        if getattr(transport, "signing_degraded", False):
+            self._log(
+                "PGP signing key unavailable — classical signing DEGRADED; "
+                "DM ratchet confidentiality preserved",
+                "warning",
+            )
+
         # Mark running early so the poll loop can start immediately, before slow
         # subsystem init (SQLite, imports) completes.  All subsystem references
         # are None-checked in the loop so None is always safe until the bg thread
@@ -342,7 +487,10 @@ class ChatDaemon:
                 # None engine simply means "don't advocate" — messages still land
                 # in ChatHistory for the external responder to pick up.
                 if os.environ.get("SKCHAT_ADVOCACY_DISABLED", "").strip().lower() in (
-                    "1", "true", "yes", "on",
+                    "1",
+                    "true",
+                    "yes",
+                    "on",
                 ):
                     engine = None
                     self._log(
@@ -360,9 +508,7 @@ class ChatDaemon:
                 group_cfg = load_group_config(os.environ.get("SKAGENT", "lumina"))
                 if group_cfg.groups:
                     group_responder = GroupResponder(group_cfg)
-                    self._log(
-                        f"GroupResponder ready for groups: {', '.join(group_cfg.groups)}"
-                    )
+                    self._log(f"GroupResponder ready for groups: {', '.join(group_cfg.groups)}")
                 # else: SKCHAT_GROUPS unset/empty — group_responder stays None and
                 # the receive loop's guard (`if group_responder is not None`) is a
                 # complete no-op, so DM advocacy behaviour is unchanged.
@@ -402,6 +548,19 @@ class ChatDaemon:
             plugins). Runs the blocking generate→send→store chain. Captures the
             start()-local subsystems; None-checked so it is safe before bg init
             populates them."""
+            # SEAM 9 control-plane: a typed group-key delivery
+            # (``metadata['group_key_package']``) is NOT a chat turn — apply the
+            # wrapped epoch secret and consume it BEFORE any group/DM/advocacy
+            # handling, so it never lands on a thread or triggers a response.
+            # Fail-closed-readable: apply logs + returns on its own; this never
+            # raises into the poll loop. No-op for a normal message.
+            try:
+                from .daemon_proxy_groups import consume_group_key_message
+
+                if consume_group_key_message(msg, agent=getattr(group_cfg, "agent", None)):
+                    return  # control-plane key delivery; not a chat turn
+            except Exception as exc:
+                logger.warning("group key consume failed: %s", exc)
             sender_short = msg.sender.split("@")[0].replace("capauth:", "")
             preview = msg.content[:60] + ("..." if len(msg.content) > 60 else "")
             try:
@@ -418,6 +577,15 @@ class ChatDaemon:
                 logger.warning("notify-send failed: %s", exc)
             if group_responder is not None and _is_group_message(msg, group_cfg.groups):
                 gid = (msg.thread_id or msg.recipient).replace("group:", "")
+                # SEAM 9 receive-side: if the fan-out delivered a sealed
+                # (``skgseal1:``) body, decrypt it with the group's crypto BEFORE
+                # persisting the canonical thread copy and before the responder
+                # reads it — else the thread + any reply carry ciphertext.
+                # Fail-closed-readable: unseal failure leaves the body sealed, no
+                # crash. No-op when SKCHAT_SEAL_GROUPS is off (bodies are cleartext).
+                from .daemon_proxy_groups import unseal_incoming_group_message
+
+                msg = unseal_incoming_group_message(msg)
                 # Persist a canonical group-thread copy of the INCOMING message
                 # (recipient == "group:<gid>") so the shared thread — what the
                 # webui's GET /api/v1/conversations/<gid> reads, via
@@ -435,29 +603,33 @@ class ChatDaemon:
                     try:
                         history.save(msg.model_copy(update={"recipient": canonical_recipient}))
                     except Exception as exc:
-                        logger.warning(
-                            "group message persist failed for %s: %s", gid, exc
-                        )
+                        logger.warning("group message persist failed for %s: %s", gid, exc)
                 try:
                     reply = group_responder.respond(msg)
                     if reply:
                         _who = group_cfg.agent.capitalize()
-                        if not reply.lstrip().lower().startswith(
-                            (_who.lower(), f"**{_who.lower()}")
+                        if (
+                            not reply.lstrip()
+                            .lower()
+                            .startswith((_who.lower(), f"**{_who.lower()}"))
                         ):
                             reply = f"{_who}: {reply}"
                         from .daemon_proxy_groups import load_group
+
                         grp = load_group(gid)
                         if grp is not None:
                             grp.send(reply, sender=identity, transport=None, history=history)
                             from .daemon_proxy_groups import local_deliver_to_agent
                             from .models import ChatMessage
+
                             for member in grp.members:
                                 if member.identity_uri == identity:
                                     continue
                                 fanout_msg = ChatMessage(
-                                    sender=identity, recipient=member.identity_uri,
-                                    content=reply, thread_id=gid,
+                                    sender=identity,
+                                    recipient=member.identity_uri,
+                                    content=reply,
+                                    thread_id=gid,
                                 )
                                 if local_deliver_to_agent(fanout_msg):
                                     continue
@@ -467,13 +639,12 @@ class ChatDaemon:
                                 except Exception as fanout_exc:
                                     logger.warning(
                                         "group fan-out to %s failed: %s",
-                                        member.identity_uri, fanout_exc,
+                                        member.identity_uri,
+                                        fanout_exc,
                                     )
                             self.advocacy_responses += 1
                         else:
-                            logger.warning(
-                                "group responder: group %s not found for reply", gid
-                            )
+                            logger.warning("group responder: group %s not found for reply", gid)
                 except Exception as exc:
                     logger.warning("group responder failed: %s", exc)
                     self._log(f"Group responder error: {exc}", "warning")
@@ -485,6 +656,7 @@ class ChatDaemon:
                     dm_reply = group_responder.respond_direct(msg)
                     if dm_reply:
                         from .models import ChatMessage
+
                         with self._send_lock:
                             transport.send_message(
                                 ChatMessage(
@@ -584,26 +756,30 @@ class ChatDaemon:
 
                     if messages:
                         self.total_received += len(messages)
+                        # Routine per-cycle receive chatter → DEBUG (A1). Was INFO
+                        # and, via the root FileHandler, a top contributor to the
+                        # runaway daemon.log. Startup lines stay at INFO.
                         self._log(
-                            f"Received {len(messages)} message(s) (total: {self.total_received})"
+                            f"Received {len(messages)} message(s) (total: {self.total_received})",
+                            "debug",
                         )
 
                         for msg in messages:
                             if self._route_file_message(msg):
                                 continue
-                            # Log the arrival synchronously (ops verification via
-                            # daemon.log) before handing off to the generation
-                            # worker — the worker may not drain this for ~10s.
+                            # Log the arrival (ops verification via daemon.log) before
+                            # handing off to the generation worker — the worker may
+                            # not drain this for ~10s. DEBUG so a busy inbox does not
+                            # flood the log (A1).
                             sender_short = msg.sender.split("@")[0].replace("capauth:", "")
-                            preview = msg.content[:60] + (
-                                "..." if len(msg.content) > 60 else ""
-                            )
-                            self._log(f"  [{sender_short}] {preview}")
+                            preview = msg.content[:60] + ("..." if len(msg.content) > 60 else "")
+                            self._log(f"  [{sender_short}] {preview}", "debug")
                             self._genqueue.put(msg)
                     else:
                         if self.poll_count % 12 == 0:
                             self._log(
-                                f"No new messages (polls: {self.poll_count}, uptime: {self._uptime()})"
+                                f"No new messages (polls: {self.poll_count}, uptime: {self._uptime()})",
+                                "debug",
                             )
 
                 except Exception as exc:
@@ -648,8 +824,10 @@ class ChatDaemon:
                     try:
                         result = reaper.sweep(create_tombstones=True)
                         if result.expired > 0:
+                            # Routine per-cycle reaper chatter → DEBUG (A1).
                             self._log(
-                                f"Reaper: {result.expired} expired, {result.active_ephemeral} still active"
+                                f"Reaper: {result.expired} expired, {result.active_ephemeral} still active",
+                                "debug",
                             )
                     except Exception as exc:
                         logger.warning("daemon.py: %s", exc)
@@ -660,7 +838,13 @@ class ChatDaemon:
                     try:
                         delivered, failed = queue.process_pending(self._outbox_messenger)
                         if delivered > 0 or failed > 0:
-                            self._log(f"Outbox: {delivered} delivered, {failed} retried/failed")
+                            # All-clear per-cycle chatter → DEBUG (A1); but if any
+                            # delivery failed, surface at INFO so chronic delivery
+                            # failures aren't hidden below the default level.
+                            self._log(
+                                f"Outbox: {delivered} delivered, {failed} retried/failed",
+                                _outbox_summary_level(failed),
+                            )
                         self.total_sent += delivered
                     except Exception as exc:
                         logger.warning("daemon.py: %s", exc)
@@ -1027,7 +1211,9 @@ class ChatDaemon:
             minutes = (uptime_seconds % 3600) // 60
             return f"{hours}h {minutes}m"
 
-    def _start_health_server(self, port: int = int(os.environ.get("SKCHAT_HEALTH_PORT") or 9385)) -> None:
+    def _start_health_server(
+        self, port: int = int(os.environ.get("SKCHAT_HEALTH_PORT") or 9385)
+    ) -> None:
         """Start a tiny HTTP healthcheck server in a daemon thread.
 
         Serves GET /health → JSON with live daemon metrics.
@@ -1100,24 +1286,36 @@ class ChatDaemon:
                     )
                     return
 
-                if self.path != "/health":
-                    self.send_response(404)
-                    self.end_headers()
-                    return
-
-                last_poll_at = (
-                    daemon_ref.last_poll_time.isoformat() if daemon_ref.last_poll_time else None
-                )
-
-                body = json.dumps(
-                    {
+                def _status_body() -> dict:
+                    last_poll_at = (
+                        daemon_ref.last_poll_time.isoformat()
+                        if daemon_ref.last_poll_time
+                        else None
+                    )
+                    return {
                         "status": "ok" if daemon_ref.running else "stopping",
                         "uptime_s": uptime_s,
                         "messages_received": daemon_ref.total_received,
                         "last_poll_at": last_poll_at,
                         "transport_ok": daemon_ref._transport_ok,
+                        # P0.2: classical PGP signing degraded while ratchet
+                        # confidentiality is preserved (or False when signing
+                        # is healthy / no transport yet).
+                        "signing_degraded": bool(
+                            getattr(daemon_ref._transport, "signing_degraded", False)
+                        ),
                     }
-                ).encode()
+
+                if self.path.split("?", 1)[0] == "/api/v1/status":
+                    self._respond_json(200, _status_body())
+                    return
+
+                if self.path != "/health":
+                    self.send_response(404)
+                    self.end_headers()
+                    return
+
+                body = json.dumps(_status_body()).encode()
 
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
@@ -1264,8 +1462,17 @@ class ChatDaemon:
             webrtc_active=self._webrtc_active,
             signaling_connected=webrtc_signaling_ok,
         )
-        if self._webrtc_active and signaling_health != "ok":
-            logger.warning("WebRTC signaling %s — relayed calls may fall back", signaling_health)
+        # Only warn on a transition into a non-ok state (A2). Steady degraded/down
+        # cycles stay silent; a fresh degrade after a recovery warns again, and
+        # a recovery back to ok logs once at INFO (card 36450c88).
+        if self._webrtc_active:
+            if signaling_health != "ok" and signaling_health != self._last_signaling_health:
+                logger.warning(
+                    "WebRTC signaling %s — relayed calls may fall back", signaling_health
+                )
+            elif signaling_health == "ok" and self._last_signaling_health not in (None, "ok"):
+                logger.info("WebRTC signaling recovered (ok)")
+        self._last_signaling_health = signaling_health
 
         stats = {
             "uptime_seconds": uptime_seconds,

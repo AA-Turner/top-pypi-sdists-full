@@ -157,6 +157,26 @@ def make_agent_alias(display_name: str | None) -> str:
     return f"{slug}-{suffix}"
 
 
+def make_agent_pool_prefix(package: str | None, image: str | None, config: dict | None) -> str:
+    """Readable alias prefix for a warm pool's VMs: ``<harness>-<model>``.
+
+    Warm pools are per agent profile, so the harness package and model are
+    known at pool construction even though the individual agent run isn't.
+    Naming pooled VMs after the profile makes them identifiable in the
+    Chronos session env list instead of the opaque ``warm-pool-<hex>``.
+    """
+    harness = ""
+    if package:
+        harness, _ = parse_package_string(package)
+    elif image:
+        harness, _ = parse_image_url(image)
+    harness = harness or "agent"
+    model = ""
+    if config:
+        model = str(config.get("model_name") or config.get("model") or "")
+    return f"{harness}-{model}" if model else harness
+
+
 async def install_agent_code(
     info: RuntimeInfo,
     ctx: AgentContext,

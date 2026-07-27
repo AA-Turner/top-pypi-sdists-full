@@ -18,11 +18,9 @@
 use std::mem::size_of_val;
 use std::sync::Arc;
 
-use crate::encryption::EncryptionManager;
 use crate::io::FileIO;
 use crate::spec::{
-    FormatVersion, Manifest, ManifestFile, ManifestList, ManifestListReader, SchemaId, SnapshotRef,
-    TableMetadataRef,
+    FormatVersion, Manifest, ManifestFile, ManifestList, SchemaId, SnapshotRef, TableMetadataRef,
 };
 use crate::{Error, ErrorKind, Result};
 
@@ -46,25 +44,20 @@ pub struct ObjectCache {
     cache: moka::future::Cache<CachedObjectKey, CachedItem>,
     file_io: FileIO,
     cache_disabled: bool,
-    encryption_manager: Option<Arc<EncryptionManager>>,
 }
 
 impl ObjectCache {
     /// Creates a new [`ObjectCache`]
     /// with the default cache size
-    pub(crate) fn new(file_io: FileIO, encryption_manager: Option<Arc<EncryptionManager>>) -> Self {
-        Self::new_with_capacity(file_io, DEFAULT_CACHE_SIZE_BYTES, encryption_manager)
+    pub(crate) fn new(file_io: FileIO) -> Self {
+        Self::new_with_capacity(file_io, DEFAULT_CACHE_SIZE_BYTES)
     }
 
     /// Creates a new [`ObjectCache`]
     /// with a specific cache size
-    pub(crate) fn new_with_capacity(
-        file_io: FileIO,
-        cache_size_bytes: u64,
-        encryption_manager: Option<Arc<EncryptionManager>>,
-    ) -> Self {
+    pub(crate) fn new_with_capacity(file_io: FileIO, cache_size_bytes: u64) -> Self {
         if cache_size_bytes == 0 {
-            Self::with_disabled_cache(file_io, encryption_manager)
+            Self::with_disabled_cache(file_io)
         } else {
             Self {
                 cache: moka::future::Cache::builder()
@@ -76,22 +69,17 @@ impl ObjectCache {
                     .build(),
                 file_io,
                 cache_disabled: false,
-                encryption_manager,
             }
         }
     }
 
     /// Creates a new [`ObjectCache`]
     /// with caching disabled
-    pub(crate) fn with_disabled_cache(
-        file_io: FileIO,
-        encryption_manager: Option<Arc<EncryptionManager>>,
-    ) -> Self {
+    pub(crate) fn with_disabled_cache(file_io: FileIO) -> Self {
         Self {
             cache: moka::future::Cache::new(0),
             file_io,
             cache_disabled: true,
-            encryption_manager,
         }
     }
 
@@ -138,15 +126,10 @@ impl ObjectCache {
         table_metadata: &TableMetadataRef,
     ) -> Result<Arc<ManifestList>> {
         if self.cache_disabled {
-            return ManifestListReader::new(
-                snapshot.clone(),
-                self.file_io.clone(),
-                table_metadata.clone(),
-                self.encryption_manager.clone(),
-            )
-            .load()
-            .await
-            .map(Arc::new);
+            return snapshot
+                .load_manifest_list(&self.file_io, table_metadata)
+                .await
+                .map(Arc::new);
         }
 
         let key = CachedObjectKey::ManifestList((
@@ -190,14 +173,9 @@ impl ObjectCache {
         snapshot: &SnapshotRef,
         table_metadata: &TableMetadataRef,
     ) -> Result<CachedItem> {
-        let manifest_list = ManifestListReader::new(
-            snapshot.clone(),
-            self.file_io.clone(),
-            table_metadata.clone(),
-            self.encryption_manager.clone(),
-        )
-        .load()
-        .await?;
+        let manifest_list = snapshot
+            .load_manifest_list(&self.file_io, table_metadata)
+            .await?;
 
         Ok(CachedItem::ManifestList(Arc::new(manifest_list)))
     }
@@ -220,7 +198,6 @@ mod tests {
         ManifestListWriter, ManifestStatus, ManifestWriterBuilder, Struct, TableMetadata,
     };
     use crate::table::Table;
-    use crate::test_utils::test_runtime;
 
     fn render_template(template: &str, ctx: Value) -> String {
         let mut env = Environment::new();
@@ -263,7 +240,6 @@ mod tests {
                 .identifier(TableIdent::from_strs(["db", "table1"]).unwrap())
                 .file_io(file_io.clone())
                 .metadata_location(table_metadata1_location.as_os_str().to_str().unwrap())
-                .runtime(test_runtime())
                 .build()
                 .unwrap();
 
@@ -293,6 +269,7 @@ mod tests {
             let mut writer = ManifestWriterBuilder::new(
                 self.next_manifest_file(),
                 Some(current_snapshot.snapshot_id()),
+                None,
                 current_schema.clone(),
                 current_partition_spec.as_ref().clone(),
             )
@@ -319,16 +296,11 @@ mod tests {
             let data_file_manifest = writer.write_manifest_file().await.unwrap();
 
             // Write to manifest list
-            let manifest_list_writer = self
-                .table
-                .file_io()
-                .new_output(current_snapshot.manifest_list())
-                .unwrap()
-                .writer()
-                .await
-                .unwrap();
             let mut manifest_list_write = ManifestListWriter::v2(
-                manifest_list_writer,
+                self.table
+                    .file_io()
+                    .new_output(current_snapshot.manifest_list())
+                    .unwrap(),
                 current_snapshot.snapshot_id(),
                 current_snapshot.parent_snapshot_id(),
                 current_snapshot.sequence_number(),
@@ -345,7 +317,7 @@ mod tests {
         let mut fixture = TableTestFixture::new();
         fixture.setup_manifest_files().await;
 
-        let object_cache = ObjectCache::with_disabled_cache(fixture.table.file_io().clone(), None);
+        let object_cache = ObjectCache::with_disabled_cache(fixture.table.file_io().clone());
 
         let result_manifest_list = object_cache
             .get_manifest_list(
@@ -378,7 +350,7 @@ mod tests {
         let mut fixture = TableTestFixture::new();
         fixture.setup_manifest_files().await;
 
-        let object_cache = ObjectCache::new(fixture.table.file_io().clone(), None);
+        let object_cache = ObjectCache::new(fixture.table.file_io().clone());
 
         // not in cache
         let result_manifest_list = object_cache

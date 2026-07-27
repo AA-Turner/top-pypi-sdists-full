@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiofastnet
-Version: 0.21.0
+Version: 0.22.0
 Summary: Fast transport/protocol networking for asyncio
 Author-email: Taras Kozlov <tarasko.projects@gmail.com>
 Project-URL: Homepage, https://github.com/tarasko/aiofastnet
@@ -101,6 +101,7 @@ Source: [examples/benchmark_threaded.py](https://github.com/tarasko/aiofastnet/b
 `aiofastnet` provides drop-in, highly efficient C/Cython replacements for asyncio's:
 
 - [`loop.create_connection()`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.create_connection)
+- [`loop.connect_accepted_socket()`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.connect_accepted_socket)
 - [`loop.open_connection()`](https://docs.python.org/3/library/asyncio-stream.html#asyncio.open_connection)
 - [`loop.create_unix_connection()`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.create_unix_connection)
 - [`loop.open_unix_connection()`](https://docs.python.org/3/library/asyncio-stream.html#asyncio.open_unix_connection)
@@ -108,6 +109,7 @@ Source: [examples/benchmark_threaded.py](https://github.com/tarasko/aiofastnet/b
 - [`loop.start_server()`](https://docs.python.org/3/library/asyncio-stream.html#asyncio.start_server)
 - [`loop.create_unix_server()`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.create_unix_server)
 - [`loop.start_unix_server()`](https://docs.python.org/3/library/asyncio-stream.html#asyncio.start_unix_server)
+- [`loop.create_datagram_endpoint()`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.create_datagram_endpoint)
 - [`loop.start_tls()`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.start_tls)
 - [`loop.sendfile()`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.sendfile)
 

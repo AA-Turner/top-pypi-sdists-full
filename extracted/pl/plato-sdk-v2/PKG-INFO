@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plato-sdk-v2
-Version: 2.118.3
+Version: 2.119.0
 Summary: Python SDK for the Plato API
 Author-email: Plato <support@plato.so>
 License-Expression: MIT
@@ -67,17 +67,16 @@ Python SDK for the Plato platform.
 
 ```bash
 pip install plato-sdk-v2
-
-# For agent functionality (requires Python 3.12+)
-pip install 'plato-sdk-v2[agents]'
 ```
 
 Or with uv:
 
 ```bash
 uv add plato-sdk-v2
-uv add 'plato-sdk-v2[agents]'  # for agent support
 ```
+
+Agent support is in the base package — there is no `[agents]` extra. The declared
+extras are `dev`, `segmentation`, `worlds` and `db-cleanup` (see `pyproject.toml`).
 
 ## Configuration
 
@@ -98,16 +97,9 @@ export PLATO_API_KEY=your-api-key
 
 Agents run inside Plato VMs. The first-party agent is `computer-use` (browser
 automation, install: `pip install plato-agent-computer-use`); custom agents
-subclass `plato.agents.BaseAgent`.
-
-### Python Usage
-
-```python
-from plato.agents import BaseAgent, AgentTask, run_agent, get_agent_schema, AGENT_SCHEMAS
-
-# List available agent config schemas
-print(list(AGENT_SCHEMAS.keys()))
-```
+subclass `plato.agents.BaseAgent` — see `plato/agents/base.py` for the interface
+and the module docstring in `plato/agents/__init__.py` for the exported API and
+worked examples.
 
 ### CLI Usage
 
@@ -120,31 +112,6 @@ plato agent schema computer-use
 
 # Publish a custom agent to Plato PyPI
 plato agent publish ./my-agent
-```
-
-### Agent Schemas
-
-Get configuration schemas for any agent:
-
-```python
-from plato.agents import get_agent_schema, AGENT_SCHEMAS
-
-# Get schema for specific agent
-schema = get_agent_schema("claude-code")
-print(schema)
-
-# List all available schemas
-print(list(AGENT_SCHEMAS.keys()))
-```
-
-### Custom Agents
-
-Create a custom agent by subclassing `plato.agents.BaseAgent` (see
-`plato/agents/base.py` for the interface).
-
-Publish to Plato PyPI:
-```bash
-plato agent publish ./my-agent-package
 ```
 
 ---
@@ -191,9 +158,9 @@ async def main():
 asyncio.run(main())
 ```
 
-### Flow 2: Create Session from Task
+### Flow 2: Create Session from Test Case
 
-Use this when running evaluations against predefined tasks. This flow includes task evaluation at the end.
+Use this when running evaluations against predefined test cases. This flow includes evaluation at the end.
 
 ```python
 import asyncio
@@ -202,11 +169,10 @@ from plato.v2 import AsyncPlato
 async def main():
     plato = AsyncPlato()
 
-    # Create session from task ID
-    session = await plato.sessions.create(task=123, timeout=600)
-
-    # Reset environments to initial state
-    await session.reset()
+    # Create session from a test case public ID.
+    # Unlike `envs=`/`artifacts=`, this auto-resets for mutation logging,
+    # so no explicit session.reset() is needed.
+    session = await plato.sessions.create(testcase="tc_abc123", timeout=600)
 
     # Get public URLs for browser access
     public_urls = await session.get_public_url()
@@ -287,17 +253,6 @@ state = session.get_state()
 
 session.close()
 plato.close()
-```
-
-## Architecture
-
-```
-plato/
-├── agents/          # Agent SDK (BaseAgent, AgentTask, run_agent) + schemas
-├── sims/            # Simulator clients (Spree, Firefly, etc.)
-├── world/           # World/environment abstractions
-├── v1/              # Legacy SDK + CLI
-└── v2/              # New API client
 ```
 
 ## Documentation

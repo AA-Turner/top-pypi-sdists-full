@@ -7625,16 +7625,70 @@ def api_features():
 
 @bp_entitlement.route("/api/license/status")
 def api_license_status():
+    """``GET /api/license/status`` -- current install's license state.
+
+    Shape parity across all three branches: whether the healthy path
+    (:func:`clawmetry.license.current_license_info` returns an active /
+    expired / invalid dict), the no-license path, or the introspection-
+    failure path, the response carries the SAME field set so a UI can
+    render every case through one code path without special-casing which
+    keys are present. Two branch-specific keys layer on top:
+
+      * ``plan`` -- ``"oss"`` on the no-license and error branches so a
+        legacy consumer that grew up when those branches returned only
+        ``{"plan": "oss", ...}`` keeps working.
+      * ``error`` -- populated only on the introspection-failure branch;
+        carries ``str(exc)`` so an operator triaging a mixed deploy can
+        see which import / stat went sideways without tailing daemon logs.
+
+    Never 5xxs. If :func:`clawmetry.license.current_license_info` raises
+    (import failure, corrupt install, cryptography-lib mismatch), the
+    endpoint degrades to the no-license-shape envelope with
+    ``status="unknown"`` at HTTP 200 -- matches the "never crash on bad
+    input" posture of :func:`api_entitlement`, :func:`api_features`, and
+    :func:`api_license_pubkey`, so a dashboard tile bound to this URL never
+    breaks on a partial install.
+
+    Trust anchor: ``pubkey_fingerprint_sha256`` populates on every branch
+    where it can be resolved -- including no-license -- so an operator can
+    verify the OSS trust anchor is intact BEFORE they install a key.
+    """
+
+    def _envelope(status, extras=None):
+        pubkey_fp = None
+        try:
+            from clawmetry import license as _lic
+
+            pubkey_fp = _lic.pubkey_fingerprint()
+        except Exception as exc:
+            logger.debug("api_license_status: pubkey fingerprint failed: %s", exc)
+        payload = {
+            "valid": False,
+            "status": status,
+            "plan": "oss",
+            "tier": None,
+            "nodes": None,
+            "sub": None,
+            "exp": None,
+            "days_left": None,
+            "pubkey_fingerprint_sha256": pubkey_fp,
+            "permissions_safe": True,
+            "file_mode": None,
+        }
+        if extras:
+            payload.update(extras)
+        return payload
+
     try:
         from clawmetry import license as _lic
 
         info = _lic.current_license_info()
         if info is None:
-            return jsonify({"plan": "oss", "status": "no_license", "valid": False})
+            return jsonify(_envelope("no_license"))
         return jsonify(info)
     except Exception as exc:
         logger.warning("api_license_status: error: %s", exc)
-        return jsonify({"error": str(exc)}), 500
+        return jsonify(_envelope("unknown", {"error": str(exc)}))
 
 
 @bp_entitlement.route("/api/license/pubkey")
@@ -8163,25 +8217,101 @@ def _route_actor() -> str:
         return ""
 
 
+def _activate_envelope(ok, message, error=None):
+    """Full-shape envelope for ``/api/license/activate``.
+
+    Every branch (missing-key, healthy-success, healthy-failure,
+    introspection-exception) carries the SAME field set so a UI can
+    render `data.ok` + `data.message` uniformly without special-casing
+    which keys are present. ``error`` is populated on the two failure
+    branches for back-compat with the pre-shape-parity consumers that
+    read `data.error`; healthy branches leave it ``None``. Mirrors the
+    parity contract PR #4047 landed for ``/status`` + ``/verify``.
+    """
+    return {"ok": bool(ok), "message": str(message), "error": error}
+
+
 @bp_entitlement.route("/api/license/activate", methods=["POST"])
 def api_license_activate():
+    """``POST /api/license/activate`` -- install a signed license key.
+
+    Shape parity across all four branches (missing-key / healthy-success /
+    healthy-failure / introspection-exception): every branch populates
+    ``{ok, message, error}`` so a UI can bind to ``data.message`` without
+    checking whether it's the missing-key branch (which used to only
+    populate ``error``) or the exception branch (which used to only
+    populate ``error``). ``error`` is a back-compat alias populated on
+    the two failure branches -- pre-parity consumers reading
+    ``data.error`` keep working unchanged.
+
+    Still 4xx / 5xx on the failure branches -- this is a POST mutation
+    and the client legitimately needs to know the write failed. The
+    healthy-failure branch (bad/expired/duplicate-node key) stays 400;
+    the introspection-exception branch (import failure, corrupt install)
+    stays 500. Only the SHAPE of the failure body changes -- the status
+    codes match what shipped before this PR.
+    """
     try:
         body = request.get_json(silent=True) or {}
         key = str(body.get("key", "")).strip()
         if not key:
-            return jsonify({"ok": False, "error": "key is required"}), 400
+            return jsonify(_activate_envelope(False, "key is required", error="key is required")), 400
         from clawmetry import license as _lic
 
         ok, msg = _lic.activate(key, actor=_route_actor())
         status_code = 200 if ok else 400
-        return jsonify({"ok": ok, "message": msg}), status_code
+        return jsonify(_activate_envelope(ok, msg, error=None if ok else msg)), status_code
     except Exception as exc:
         logger.warning("api_license_activate: error: %s", exc)
-        return jsonify({"ok": False, "error": str(exc)}), 500
+        return jsonify(_activate_envelope(False, str(exc), error=str(exc))), 500
 
 
 @bp_entitlement.route("/api/license/verify", methods=["POST"])
 def api_license_verify():
+    """``POST /api/license/verify`` -- dry-run key inspection.
+
+    Verifies ``key`` OFFLINE against the embedded Ed25519 trust anchor
+    and returns what it would unlock, without writing anything to disk.
+    Wrapper around :func:`clawmetry.license.inspect_key`.
+
+    Shape parity across all three branches (valid / invalid signature /
+    introspection failure): every branch carries the SAME field set as
+    :func:`clawmetry.license.inspect_key`'s return so a UI can render the
+    verify card through one code path. The invalid + error branches also
+    populate ``pubkey_fingerprint_sha256`` when the fingerprint helper is
+    reachable, so an operator pasting a bogus key still sees the trust
+    anchor their install would have verified against.
+
+    Never 5xxs: introspection failure degrades to the same shape as an
+    invalid signature at HTTP 200, matching the never-crash posture of
+    :func:`api_license_status`.
+    """
+
+    def _dry_run_envelope(status, extras=None):
+        pubkey_fp = None
+        try:
+            from clawmetry import license as _lic
+
+            pubkey_fp = _lic.pubkey_fingerprint()
+        except Exception as exc:
+            logger.debug("api_license_verify: pubkey fingerprint failed: %s", exc)
+        payload = {
+            "valid": False,
+            "status": status,
+            "tier": None,
+            "nodes": None,
+            "sub": None,
+            "exp": None,
+            "days_left": None,
+            "pubkey_fingerprint_sha256": pubkey_fp,
+            "permissions_safe": None,
+            "file_mode": None,
+            "dry_run": True,
+        }
+        if extras:
+            payload.update(extras)
+        return payload
+
     try:
         body = request.get_json(silent=True) or {}
         key = str(body.get("key", "")).strip()
@@ -8191,29 +8321,64 @@ def api_license_verify():
 
         info = _lic.inspect_key(key)
         if info is None:
-            return jsonify(
-                {"valid": False, "status": "invalid", "dry_run": True}
-            )
+            return jsonify(_dry_run_envelope("invalid"))
         info = dict(info)
         info["dry_run"] = True
         return jsonify(info)
     except Exception as exc:
         logger.warning("api_license_verify: error: %s", exc)
-        return jsonify({"valid": False, "status": "invalid", "dry_run": True})
+        return jsonify(_dry_run_envelope("invalid", {"error": str(exc)}))
+
+
+def _deactivate_envelope(ok, removed, message="", error=None):
+    """Full-shape envelope for ``/api/license/deactivate``.
+
+    Every branch (healthy-noop, healthy-removed, remove-failed,
+    introspection-exception) carries ``{ok, removed, message, error}``
+    so a UI can bind to ``data.removed`` uniformly without checking
+    whether it's the exception branch (which used to drop the field
+    entirely). ``message`` is populated on every branch; ``error`` is
+    populated only on the two failure branches for back-compat.
+    """
+    return {
+        "ok": bool(ok),
+        "removed": bool(removed),
+        "message": str(message),
+        "error": error,
+    }
 
 
 @bp_entitlement.route("/api/license/deactivate", methods=["POST"])
 def api_license_deactivate():
+    """``POST /api/license/deactivate`` -- remove the on-disk license file.
+
+    Shape parity across all four branches (healthy-noop / healthy-removed /
+    remove-failed / introspection-exception): every branch populates
+    ``{ok, removed, message, error}``. ``removed`` no longer disappears
+    on the exception branch, so a UI can bind to ``data.removed`` without
+    a guard. ``error`` is a back-compat alias populated on the two
+    failure branches -- the pre-parity remove-failed shape already
+    carried ``error="remove_failed"`` and that string is preserved.
+
+    Still 5xx on the two failure branches -- deactivation is a mutation
+    and the client legitimately needs to know disk removal or module
+    import failed. Only the SHAPE of the failure body changes.
+    """
     try:
         from clawmetry import license as _lic
 
         ok, removed = _lic.deactivate(actor=_route_actor())
         if not ok:
-            return jsonify({"ok": False, "removed": False, "error": "remove_failed"}), 500
-        return jsonify({"ok": True, "removed": removed})
+            return jsonify(_deactivate_envelope(
+                False, False, message="remove_failed", error="remove_failed",
+            )), 500
+        message = "license file removed" if removed else "no license file to remove"
+        return jsonify(_deactivate_envelope(True, removed, message=message)), 200
     except Exception as exc:
         logger.warning("api_license_deactivate: error: %s", exc)
-        return jsonify({"ok": False, "error": str(exc)}), 500
+        return jsonify(_deactivate_envelope(
+            False, False, message=str(exc), error=str(exc),
+        )), 500
 
 
 @bp_entitlement.route("/api/entitlement/next-tier-unlocks-at")

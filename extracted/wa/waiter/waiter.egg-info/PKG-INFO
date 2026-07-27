@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: waiter
-Version: 1.5.1
+Version: 1.6
 Summary: Delayed iteration for polling and retries.
-Author-email: Aric Coady <aric.coady@gmail.com>
+Author: A. Coady
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/coady/waiter
 Project-URL: Documentation, https://coady.github.io/waiter
@@ -13,14 +13,14 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Dynamic: license-file
@@ -33,7 +33,7 @@ Dynamic: license-file
 [![image](https://codecov.io/gh/coady/waiter/branch/main/graph/badge.svg)](https://codecov.io/gh/coady/waiter/)
 [![CodeQL](https://github.com/coady/waiter/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/coady/waiter/actions/workflows/github-code-scanning/codeql)
 [![image](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![image](https://mypy-lang.org/static/mypy_badge.svg)](https://mypy-lang.org/)
+[![ty](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ty/main/assets/badge/v0.json)](https://github.com/astral-sh/ty)
 
 Does Python need yet another retry / poll library? It needs at least one that isn't coupled to decorators and functions. Decorators prevent the caller from customizing delay options, and organizing the code around functions hinders any custom handling of failures.
 
@@ -46,24 +46,24 @@ Supply a number of seconds to repeat endlessly, or any iterable of seconds.
 ```python
 from waiter import wait
 
-wait(1)                 # 1, 1, 1, 1, ...
-wait([1] * 3)           # 1, 1, 1
-wait([0.5, 0.5, 60])    # circuit breaker
+wait(1)  # 1, 1, 1, 1, ...
+wait([1] * 3)  # 1, 1, 1
+wait([0.5, 0.5, 60])  # circuit breaker
 ```
 
 Iterable delays can express any waiting strategy, and constructors for common algorithms are also provided.
 
 ```python
-wait.count(1)           # incremental backoff 1, 2, 3, 4, 5, ...
-wait(1) + 1             # alternate syntax 1, 2, 3, 4, 5, ...
-wait.fibonacci(1)       # 1, 1, 2, 3, 5, ...
-wait.polynomial(2)      # 0, 1, 4, 9, 16, ...
+wait.count(1)  # incremental backoff 1, 2, 3, 4, 5, ...
+wait(1) + 1  # alternate syntax 1, 2, 3, 4, 5, ...
+wait.fibonacci(1)  # 1, 1, 2, 3, 5, ...
+wait.polynomial(2)  # 0, 1, 4, 9, 16, ...
 
-wait.exponential(2)     # exponential backoff 1, 2, 4, 8, ...
-backoff = wait(1) * 2   # alternate syntax 1, 2, 4, 8, ...
-backoff[:3]             # limit attempt count 1, 2, 4
-backoff <= 5            # set maximum delay   1, 2, 4, 5, 5, 5, ...
-backoff.random(-1, 1)   # add random jitter
+wait.exponential(2)  # exponential backoff 1, 2, 4, 8, ...
+backoff = wait(1) * 2  # alternate syntax 1, 2, 4, 8, ...
+backoff[:3]  # limit attempt count 1, 2, 4
+backoff <= 5  # set maximum delay   1, 2, 4, 5, 5, 5, ...
+backoff.random(-1, 1)  # add random jitter
 ```
 
 ### iteration
@@ -91,9 +91,9 @@ assert any(results)                     # perfect for tests too
 Yes, functional versions are provided, as well as being trivial to implement.
 
 ```python
-wait(...).throttle(iterable)                      # generate items from iterable
-wait(...).repeat(func, *args, **kwargs)           # generate successive results
-wait(...).retry(exception, func, *args, **kwargs) # return first success or re-raise exception
+wait(...).throttle(iterable)  # generate items from iterable
+wait(...).repeat(func, *args, **kwargs)  # generate successive results
+wait(...).retry(exception, func, *args, **kwargs)  # return first success or re-raise exception
 wait(...).poll(predicate, func, *args, **kwargs)  # return first success or raise StopIteration
 ```
 

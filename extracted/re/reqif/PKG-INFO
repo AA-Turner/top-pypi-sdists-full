@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: reqif
-Version: 0.0.52
+Version: 0.0.53
 Summary: Python library for ReqIF format. ReqIF parsing and unparsing.
 Project-URL: Changelog, https://github.com/strictdoc-project/reqif/releases
 Project-URL: Homepage, https://github.com/strictdoc-project/reqif

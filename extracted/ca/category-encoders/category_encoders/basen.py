@@ -107,6 +107,8 @@ class BaseNEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
 
     prefit_ordinal = True
     encoding_relation = util.EncodingRelation.N_TO_M
+    _VALID_HANDLE_MISSING = ('error', 'return_nan', 'value', 'indicator')
+    _VALID_HANDLE_UNKNOWN = ('error', 'return_nan', 'value', 'indicator')
 
     def __init__(
         self,
@@ -187,7 +189,7 @@ class BaseNEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
 
         if self.handle_unknown == 'error':
             if X_out[self.cols].isin([-1]).any().any():
-                raise ValueError('Columns to be encoded can not contain new values')
+                raise ValueError('Columns to be encoded cannot contain new values')
 
         X_out = self.basen_encode(X_out, cols=self.cols)
         return X_out
@@ -213,17 +215,16 @@ class BaseNEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
         # and make a deep copy
         X = util.convert_input(X_in, columns=self.feature_names_out_, deep=True)
 
+        if self.drop_invariant and self.invariant_cols:
+            raise ValueError(
+                f'Unexpected input dimension {X.shape[1]}, the attribute drop_invariant '
+                'should be False when calling inverse_transform'
+            )
+
         X = self.basen_to_integer(X, self.cols, self.base)
 
-        # make sure that it is the right size
         if X.shape[1] != self._dim:
-            if self.drop_invariant:
-                raise ValueError(
-                    f'Unexpected input dimension {X.shape[1]}, the attribute drop_invariant should '
-                    'be False when transforming the data'
-                )
-            else:
-                raise ValueError(f'Unexpected input dimension {X.shape[1]}, expected {self._dim}')
+            raise ValueError(f'Unexpected input dimension {X.shape[1]}, expected {self._dim}')
 
         if not list(self.cols):
             return X if self.return_df else X.to_numpy()

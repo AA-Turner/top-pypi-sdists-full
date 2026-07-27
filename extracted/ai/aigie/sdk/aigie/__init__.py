@@ -320,15 +320,6 @@ __all__ = [
     "StreamedRunResult",
     "UsageInfo",
     "UnifiedError",
-    "Tool",
-    "ToolCall",
-    "ToolResult",
-    "ToolRegistry",
-    "tool",
-    "create_tool_registry",
-    "execute_tool",
-    "tools_to_openai_functions",
-    "tools_to_anthropic_tools",
     "type_to_json_schema",
     "generate_json_schema",
     # Types (trace/span data structures)
@@ -363,7 +354,7 @@ __all__ = [
     "EvalStats",
 ]
 
-__version__ = "0.3.5"
+__version__ = "0.3.6"
 
 
 # Lazy imports for performance
@@ -1482,51 +1473,6 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
         from aigie.result import UnifiedError
 
         return UnifiedError
-
-    if name == "Tool":
-        from aigie.tools import Tool
-
-        return Tool
-
-    if name == "ToolCall":
-        from aigie.tools import ToolCall
-
-        return ToolCall
-
-    if name == "ToolResult":
-        from aigie.tools import ToolResult
-
-        return ToolResult
-
-    if name == "ToolRegistry":
-        from aigie.tools import ToolRegistry
-
-        return ToolRegistry
-
-    if name == "tool":
-        from aigie.tools import tool
-
-        return tool
-
-    if name == "create_tool_registry":
-        from aigie.tools import create_tool_registry
-
-        return create_tool_registry
-
-    if name == "execute_tool":
-        from aigie.tools import execute_tool
-
-        return execute_tool
-
-    if name == "tools_to_openai_functions":
-        from aigie.tools import tools_to_openai_functions
-
-        return tools_to_openai_functions
-
-    if name == "tools_to_anthropic_tools":
-        from aigie.tools import tools_to_anthropic_tools
-
-        return tools_to_anthropic_tools
 
     if name == "type_to_json_schema":
         from aigie.schemas import type_to_json_schema

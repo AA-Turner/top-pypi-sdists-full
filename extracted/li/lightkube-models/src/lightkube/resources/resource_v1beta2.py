@@ -17,6 +17,38 @@ class DeviceClass(res.GlobalResource, m_resource_v1beta2.DeviceClass):
     )
 
 
+class DeviceTaintRuleStatus(res.GlobalSubResource, m_resource_v1beta2.DeviceTaintRule):
+    """* **Extends**: ``models.resource_v1beta2.DeviceTaintRule``
+       * **Type**: Global Resource
+       * **Accepted client methods**: `get`, `patch`, `replace`
+    """
+    _api_info = res.ApiInfo(
+        resource=res.ResourceDef('resource.k8s.io', 'v1beta2', 'DeviceTaintRule'),
+        parent=res.ResourceDef('resource.k8s.io', 'v1beta2', 'DeviceTaintRule'),
+        plural='devicetaintrules',
+        verbs=['get', 'patch', 'put'],
+        action='status',
+    )
+
+
+class DeviceTaintRule(res.GlobalResource, m_resource_v1beta2.DeviceTaintRule):
+    """* **Extends**: ``models.resource_v1beta2.DeviceTaintRule``
+       * **Type**: Global Resource
+       * **Accepted client methods**: `delete`, `deletecollection`, `get`, `list`, `patch`, `create`, `replace`, `watch`
+
+       **Subresources**:
+
+       * **Status**: ``DeviceTaintRuleStatus``
+    """
+    _api_info = res.ApiInfo(
+        resource=res.ResourceDef('resource.k8s.io', 'v1beta2', 'DeviceTaintRule'),
+        plural='devicetaintrules',
+        verbs=['delete', 'deletecollection', 'get', 'list', 'patch', 'post', 'put', 'watch'],
+    )
+
+    Status: ClassVar = DeviceTaintRuleStatus
+
+
 class ResourceClaimStatus(res.NamespacedSubResource, m_resource_v1beta2.ResourceClaim):
     """* **Extends**: ``models.resource_v1beta2.ResourceClaim``
        * **Type**: Namespaced Resource

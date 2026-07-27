@@ -1993,21 +1993,25 @@ impl SingleBlockLatentCoordDesignCache {
     }
 }
 
-/// #1464: the fixed-κ profiled-REML score `V_p(κ)` for a single constant-curvature
-/// term — pin κ on the term, fit with κ-optimisation DISABLED so only the
-/// smoothing parameters ρ are profiled, and return the resulting REML/LAML
-/// negative-log-evidence (the value the outer loop minimises). This is exactly
-/// the criterion the `curvature_inference_forspec` CI oracle evaluates; factoring
-/// it here lets the production joint-fit path reuse the SAME sign-correct profiled
-/// criterion to pick the κ-sign basin before the joint [ρ, ψ] solve, instead of
-/// letting the joint optimiser descend from a single κ seed into the spurious +κ
-/// collapsed-kernel corner (the headline #1464 sign-blindness).
+/// Diagnostic fixed-κ profiled-REML score: pin κ on one constant-curvature
+/// term, disable spatial-hyperparameter optimization, and run the complete
+/// production term-collection fit so only its smoothing parameters are
+/// profiled. The returned value is the fitted model's canonical REML/LAML
+/// negative log evidence.
 ///
-/// `pub` so a regression test can evaluate the EXACT production criterion at two
-/// pinned κ (e.g. +κ vs −κ on a hyperbolic dataset) and settle solver-vs-criterion:
-/// if `V_p(+κ) < V_p(−κ)` for hyperbolic data, the criterion itself prefers the
-/// collapsed +κ corner and the bug is in the constant-curvature REML/Occam term,
-/// not the optimiser.
+/// This deliberately has no basis-local shortcut. Global identifiability,
+/// every active penalty block and penalty chart, weights, offsets, constraints,
+/// persisted rotations, adaptive semantics, priors, and all [`FitOptions`] must
+/// be realized by the same production path as an independently pinned model.
+///
+/// Curvature point estimation and inference use the separate continuously
+/// differentiable curvature-fair response-minus-reference profile. This raw
+/// pinned-fit score is a diagnostic for comparing fixed production fits; it is
+/// not the point-estimation, confidence-interval, or flatness-test objective.
+///
+/// `pub` so diagnostics can compare complete production fits at selected κ and
+/// routing regressions can prove that this helper remains identical to an
+/// independently pinned invocation.
 pub fn fixed_kappa_profiled_reml_score(
     data: ArrayView2<'_, f64>,
     y: ArrayView1<'_, f64>,
@@ -2022,63 +2026,21 @@ pub fn fixed_kappa_profiled_reml_score(
     if !kappa.is_finite() {
         crate::bail_invalid_estim!("fixed-κ profiled score probed a non-finite κ = {kappa}");
     }
-    // Resolve the constant-curvature term's feature columns and base spec so the
-    // criterion is probed on the production constant-curvature design.
-    let (feature_cols, mut probe_basis) =
-        match resolvedspec.smooth_terms.get(term_idx).map(|t| &t.basis) {
-            Some(SmoothBasisSpec::ConstantCurvature {
-                feature_cols, spec, ..
-            }) => (feature_cols.clone(), spec.clone()),
-            _ => {
-                crate::bail_invalid_estim!(
-                    "fixed-κ profiled score: term {term_idx} is not a constant-curvature smooth"
-                )
-            }
-        };
-    probe_basis.kappa = kappa;
-
-    // #1464: the curvature κ criterion the CI/flatness oracle walks (and the
-    // `constant_curvature_profiled_reml_scores` export reports) is the HONEST
-    // fixed-κ profiled REML of the realized constant-curvature design —
-    // `dof·log(rss/dof) + log|H| − log|λS|₊` profiled over λ on `[1|K_κ·z]`
-    // (`constant_curvature_honest_profiled_reml_score`). NOT the production
-    // full-fit `reml_score`: that score heavily SMOOTHS this RKHS kernel, and under
-    // heavy smoothing the +κ chart's geodesic-distance compression makes the
-    // collapsed kernel a uniformly better fit of the over-smoothed target for ANY
-    // data, so it is MONOTONE toward the +chart bound regardless of the true
-    // curvature sign (the #1464 sign-blindness — `bug_hunt_1464_criterion_vs_solver`
-    // shows V_p(+2) < V_p(0) < V_p(−2) on hyperbolic data with the raw score). The
-    // honest profiled REML keeps the curvature-shape signal in the data fit, so its
-    // argmin tracks the planted sign, and as a proper profiled-REML deviance the
-    // CI/flatness LR thresholds stay χ²-calibrated; on constant-mean data it is
-    // ~flat in κ, giving the flatness test correct size. Gaussian-identity is the
-    // only family the curvature-as-estimand path serves; a weighted response, a
-    // non-zero offset, or a non-Gaussian link routes to the production fixed-κ fit
-    // (those configurations are not exercised by curvature inference, and the
-    // fallback keeps their behaviour byte-identical).
-    let is_unweighted = weights.iter().all(|&w| (w - 1.0).abs() <= 1e-12);
-    let is_zero_offset = offset.iter().all(|&o| o.abs() <= 1e-12);
-    if family == LikelihoodSpec::gaussian_identity() && is_unweighted && is_zero_offset {
-        let x_term = select_columns(data, &feature_cols).map_err(EstimationError::from)?;
-        let score = gam_terms::basis::constant_curvature_honest_profiled_reml_score(
-            x_term.view(),
-            y,
-            &probe_basis,
-        )
-        .map_err(|e| {
-            EstimationError::InvalidInput(format!(
-                "fixed-κ honest profiled-REML score at κ={kappa} failed: {e}"
-            ))
-        })?;
-        if !score.is_finite() {
-            crate::bail_invalid_estim!(
-                "fixed-κ honest profiled-REML score at κ={kappa} is non-finite"
-            );
-        }
-        return Ok(score);
+    if y.len() != data.nrows() || weights.len() != data.nrows() || offset.len() != data.nrows() {
+        crate::bail_invalid_estim!(
+            "fixed-κ profiled score row mismatch: data={}, y={}, weights={}, offset={}",
+            data.nrows(),
+            y.len(),
+            weights.len(),
+            offset.len(),
+        );
     }
-
-    // Fallback (weighted / offset / non-Gaussian): the production fixed-κ fit.
+    // Pin only the requested curvature coordinate. Disabling the spatial outer
+    // optimizer below makes this an ordinary production fit of that exact
+    // cloned model; no modeled component is reimplemented or discarded here.
+    // Keep `kappa_fixed` unchanged: it records whether the user pinned the
+    // original model, while `enabled: false` is the production execution
+    // authority that pins this diagnostic invocation.
     let mut probe_spec = resolvedspec.clone();
     match probe_spec
         .smooth_terms
@@ -2106,9 +2068,11 @@ pub fn fixed_kappa_profiled_reml_score(
         options,
         &fixed_kappa_options,
     )?;
-    let score = fit_score(&fit.fit);
+    let score = fit.fit.reml_score;
     if !score.is_finite() {
-        crate::bail_invalid_estim!("fixed-κ profiled fit at κ={kappa} returned a non-finite score");
+        crate::bail_invalid_estim!(
+            "fixed-κ profiled fit at κ={kappa} returned a non-finite REML/LAML score"
+        );
     }
     Ok(score)
 }
@@ -2828,15 +2792,11 @@ struct SpatialJointContext<'d> {
     /// O(outer steps), not O(trials). `None` until the first compute / when no
     /// frozen-W inputs are installed.
     frozen_glm_weight_memo: Option<(Array1<f64>, Array1<f64>)>,
-    /// #2481: value probes that returned `+∞` because the EVALUATOR failed at
-    /// that θ, not because the point is infeasible. `eval_cost` hands the line
-    /// search a bare `f64`, so a realizer or evaluation error is indistinguishable
-    /// from genuine infeasibility once it crosses that boundary — and the gradient
-    /// lane treats the same condition as fatal (`is_recoverable_trial_point_error`
-    /// keeps layout/topology invariants non-recoverable). Counting the two error
-    /// kinds separately is what lets a run's narrative say "the objective is a
-    /// wall here" apart from "N trials never evaluated". Split by kind because
-    /// they fail at different stages and a fix for one does not touch the other.
+    /// #2481: failed value-probe attempts, split by the stage that refused.
+    /// Recoverable trial-point failures remain ordinary `Ok(+∞)` domain refusals;
+    /// every other failure is propagated through the typed outer-objective seam.
+    /// The counters retain stage attribution for successful runs that encountered
+    /// recoverable walls before converging.
     value_realization_failures: usize,
     value_evaluation_failures: usize,
 }
@@ -2886,6 +2846,20 @@ fn nfree_skip_gate_status_from_parts(
         penalty,
         revision,
         second_order: allow_second_order,
+    }
+}
+
+/// Apply the same trial-point classification to the value and derivative lanes.
+/// `Ok(+∞)` means the point is outside the evaluable numerical domain; `Err`
+/// means the evaluation artifact itself could not be constructed and must abort
+/// every outer solver route.
+fn classify_spatial_value_probe_failure(
+    error: EstimationError,
+) -> Result<f64, EstimationError> {
+    if is_recoverable_trial_point_error(&error) {
+        Ok(f64::INFINITY)
+    } else {
+        Err(error)
     }
 }
 
@@ -3336,9 +3310,9 @@ impl<'d> SpatialJointContext<'d> {
     /// `try_build_spatial_log_kappa_hyper_dirs` nor assemble a gradient that
     /// the line search will discard. Split-borrow on `self.cache` +
     /// `self.evaluator` matches the pattern already used by `eval_full`.
-    fn eval_cost(&mut self, theta: &Array1<f64>) -> f64 {
+    fn eval_cost(&mut self, theta: &Array1<f64>) -> Result<f64, EstimationError> {
         if let Some(cost) = self.cache.memoized_cost(theta) {
-            return cost;
+            return Ok(cost);
         }
         // #1029: a BFGS line-search VALUE probe. It converges the inner PIRLS to
         // the SAME tolerance the accepted-point full eval uses (NOT a capped
@@ -3427,40 +3401,27 @@ impl<'d> SpatialJointContext<'d> {
             && !self.evaluator.psi_gram_tensor_covers(theta[self.rho_dim])
         {
             self.cache.store_cost_at(theta, f64::INFINITY);
-            return f64::INFINITY;
+            return Ok(f64::INFINITY);
         }
-        // #2481: `ensure_theta` failing is a statement about the EVALUATOR at this
-        // θ, not about the point. Both are reported to the line search as `+∞`
-        // because that is the only value this signature can carry, but the reason
-        // is no longer destroyed: the first one warns with the θ that produced it,
-        // the rest are counted and reported in `[KAPPA-PHASE-SUMMARY]`. Note the
-        // asymmetry with the coverage refusal above, which memoizes its `∞` — a
-        // point outside the ψ window has that cost, whereas a failed realization
-        // may succeed on a later attempt and must not be cached as a value.
-        if !skip_value_realization && let Err(err) = self.cache.ensure_theta(theta) {
+        // #2481: preserve the derivative-lane contract. A basis or inner-solve
+        // refusal at this trial is a recoverable domain wall; layout, topology,
+        // and arbitrary invalid-input failures are fatal evaluation failures.
+        if !skip_value_realization && let Err(message) = self.cache.ensure_theta(theta) {
             self.value_realization_failures += 1;
+            let error = EstimationError::InvalidInput(message);
             let (theta_norm, log_kappa_norm) = kphase_log_norms(theta, self.rho_dim);
-            if self.value_realization_failures == 1 {
-                log::warn!(
-                    "[STAGE] {} value-probe: design realization FAILED at theta_norm={:.4e} \
-                     log_kappa_norm={:.4e} ({err}); reporting +inf to the line search, which \
-                     cannot distinguish this from genuine infeasibility (#2481). Further \
-                     occurrences are counted, not logged.",
-                    self.kind.label(),
-                    theta_norm,
-                    log_kappa_norm,
+            if is_recoverable_trial_point_error(&error) {
+                log::debug!(
+                    "[STAGE] {} value-probe: design realization makes this trial infeasible at theta_norm={:.4e} log_kappa_norm={:.4e} ({error}); retreating",
+                    self.kind.label(), theta_norm, log_kappa_norm,
                 );
             } else {
-                log::debug!(
-                    "[STAGE] {} value-probe: design realization FAILED (occurrence {}) at \
-                     theta_norm={:.4e} log_kappa_norm={:.4e} ({err})",
-                    self.kind.label(),
-                    self.value_realization_failures,
-                    theta_norm,
-                    log_kappa_norm,
+                log::warn!(
+                    "[STAGE] {} value-probe: design realization FAILED fatally at theta_norm={:.4e} log_kappa_norm={:.4e} ({error}); propagating",
+                    self.kind.label(), theta_norm, log_kappa_norm,
                 );
             }
-            return f64::INFINITY;
+            return classify_spatial_value_probe_failure(error);
         }
         // #1033 penalty lane: stage the EXACT n-free `S(ψ)` for this probe's ψ so
         // the cost-only fast path re-keys the kept surface without `reset_surface`
@@ -3531,32 +3492,23 @@ impl<'d> SpatialJointContext<'d> {
                     probe_start.elapsed().as_secs_f64(),
                 );
                 self.cache.store_cost_at(theta, cost);
-                cost
+                Ok(cost)
             }
-            // #2481: same reasoning as the realization failure above — the
-            // evaluator refused, the line search can only be told `+∞`, so the
-            // reason is logged once and counted rather than discarded. Not
-            // memoized: this is a failure to produce the value, not the value.
-            Err(err) => {
+            // #2481: cost-evaluator failures use the same classifier as
+            // design realization and the derivative-bearing lane.
+            Err(error) => {
                 self.value_evaluation_failures += 1;
                 let (theta_norm, log_kappa_norm) = kphase_log_norms(theta, self.rho_dim);
-                if self.value_evaluation_failures == 1 {
-                    log::warn!(
-                        "[STAGE] {cost_label} value-probe: cost evaluation FAILED at \
-                         theta_norm={theta_norm:.4e} log_kappa_norm={log_kappa_norm:.4e} \
-                         ({err}); reporting +inf to the line search, which cannot distinguish \
-                         this from genuine infeasibility (#2481). Further occurrences are \
-                         counted, not logged.",
+                if is_recoverable_trial_point_error(&error) {
+                    log::debug!(
+                        "[STAGE] {cost_label} value-probe: cost evaluator makes this trial infeasible at theta_norm={theta_norm:.4e} log_kappa_norm={log_kappa_norm:.4e} ({error}); retreating",
                     );
                 } else {
-                    log::debug!(
-                        "[STAGE] {cost_label} value-probe: cost evaluation FAILED (occurrence \
-                         {}) at theta_norm={theta_norm:.4e} log_kappa_norm={log_kappa_norm:.4e} \
-                         ({err})",
-                        self.value_evaluation_failures,
+                    log::warn!(
+                        "[STAGE] {cost_label} value-probe: cost evaluation FAILED fatally at theta_norm={theta_norm:.4e} log_kappa_norm={log_kappa_norm:.4e} ({error}); propagating",
                     );
                 }
-                f64::INFINITY
+                classify_spatial_value_probe_failure(error)
             }
         }
     }
@@ -4219,7 +4171,7 @@ fn run_exact_joint_spatial_optimization(
                 log_kappa_norm,
                 elapsed_s,
             );
-            Ok(cost)
+            cost
         },
         |ctx: &mut &mut SpatialJointContext<'_>, theta: &Array1<f64>| {
             eval_outer(

@@ -595,7 +595,9 @@ def get_ctc_fsa_fast_bw(
     # because invalid seq lens might not directly lead to an error here
     # but it might just return an invalid FSA.
     # An invalid FSA can however later cause a crash in the FastBaumWelchOp.
-    assert_(seq_lens.max() == n_time, "get_ctc_fsa_fast_bw seq_lens invalid")
+    # <= (not ==): a static over-allocated targets buffer (CUDA-graph regime) is wider than the max len;
+    # the op handles shorter lens per seq anyway, only lens beyond the buffer are dangerous
+    assert_(seq_lens.max() <= n_time, "get_ctc_fsa_fast_bw seq_lens invalid")
 
     n_edges = n_batch * (5 * (n_time - 1) + 10)  # see op documentation
     weights = torch.zeros((n_edges,), device=targets.device)
@@ -690,8 +692,13 @@ def ctc_loss_packed(
         targets=targets, seq_lens=targets_seq_lens, blank_idx=blank_index, label_loop=label_loop
     )
     seq_mask = sequence_mask_time_major(logits_seq_lens, maxlen=max_seq_len)  # (time,batch), bool
+    # static state-buffer size, see the construct_kernel state numbering: (2*n_time+3) states per seq.
+    # (the default alloc in fast_baum_welch_packed sizes by start_end_states.max(),
+    # a data-dependent device read -- a sync, and illegal under CUDA-graph capture)
+    n_batch, n_tgt_time = targets.shape
+    state_buffer = torch.zeros((2, n_batch * (2 * n_tgt_time + 3)), device=logits.device)
     loss = _FastBaumWelchScoresPackedAutogradFunc.apply(
-        logits, logits_normalize, seq_starts, seq_mask, edges, weights, start_end_states
+        logits, logits_normalize, seq_starts, seq_mask, edges, weights, start_end_states, state_buffer
     )
     return loss
 
@@ -729,17 +736,13 @@ class _FastBaumWelchScoresPackedAutogradFunc(torch.autograd.Function):
         # nowhere and are masked out of the grad (the native op never writes their fwdbwd).
         total_time = logits.shape[0]
         seq_lens = seq_mask.to(torch.int64).sum(dim=0).to(logits.device)  # (batch,)
-        seq_of_valid = torch.repeat_interleave(
-            torch.arange(seq_lens.shape[0], device=logits.device), seq_lens
-        )  # (sum_lens,) seq index per valid frame, in seq order
-        contig_starts = torch.cumsum(seq_lens, dim=0) - seq_lens  # (batch,) starts in a gap-free layout
-        buf_pos = seq_starts.to(torch.int64)[seq_of_valid] + (
-            torch.arange(seq_of_valid.shape[0], device=logits.device) - contig_starts[seq_of_valid]
-        )  # (sum_lens,) positions of the valid frames in the packed buffer
-        frame_seq_idx = torch.zeros(total_time, dtype=torch.int64, device=logits.device)
-        frame_seq_idx[buf_pos] = seq_of_valid
-        valid_mask = torch.zeros(total_time, dtype=torch.bool, device=logits.device)
-        valid_mask[buf_pos] = True
+        # searchsorted over the ascending seq starts: static shapes, pure device ops
+        # (CUDA-graph capturable; a repeat_interleave over the lens would be data-dependent-shaped).
+        # Gap frames land past their seq's len and are masked; frames past the last seq likewise.
+        rows = torch.arange(total_time, device=logits.device)
+        starts64 = seq_starts.to(torch.int64).contiguous()
+        frame_seq_idx = (torch.searchsorted(starts64, rows, right=True) - 1).clamp(min=0)
+        valid_mask = (rows - starts64[frame_seq_idx]) < seq_lens[frame_seq_idx]
         ctx.grad_wrt_softmax_in = logits_normalize
         if logits_normalize:
             ctx.save_for_backward(log_sm, frame_seq_idx, valid_mask, fwdbwd)

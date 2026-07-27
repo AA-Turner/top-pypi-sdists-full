@@ -30,6 +30,7 @@ import orjson
 import yaml
 
 from ..constants import IMPORT_SOURCE_TYPES
+from ..helpers.chips import normalize_chip_variant
 from ..helpers.lazy_catalog import (
     is_external_image_url,
     is_unsafe_catalog_id,
@@ -46,7 +47,6 @@ from ..models import (
     BoardTag,
     Connectivity,
     DefaultComponent,
-    Esp32Variant,
     FeaturedBundle,
     FeaturedComponent,
     FieldPreset,
@@ -286,11 +286,27 @@ def _load_default_component(entry: object) -> DefaultComponent:
     raise TypeError(msg)
 
 
+@cache
+def _known_esp32_variants() -> frozenset[str]:
+    """Return the normalized snapshot vocabulary; empty when the index is degraded."""
+    return frozenset(
+        normalize_chip_variant(v) for v in load_platform_capabilities_index().esp32_variants
+    )
+
+
 def _load_esphome_config(data: dict, board_id: str) -> BoardEsphomeConfig:
     """Load a BoardEsphomeConfig from a dict."""
     platform = Platform(data["platform"])
     variant_raw = data.get("variant")
-    variant = Esp32Variant(variant_raw) if variant_raw else None
+    variant: str | None = None
+    if platform is Platform.ESP32 and isinstance(variant_raw, str) and variant_raw:
+        variant = normalize_chip_variant(variant_raw)
+        known = _known_esp32_variants()
+        # Fail open on an empty snapshot; a populated one is the loud gate
+        # (the manifest walk skips or aborts per its ``strict`` mode).
+        if known and variant not in known:
+            msg = f"Board {board_id}: unknown esp32 variant {variant!r}"
+            raise ValueError(msg)
     return BoardEsphomeConfig(
         platform=platform,
         board=data["board"],
@@ -363,7 +379,7 @@ def build_board_catalog_from_manifests(*, strict: bool = False) -> BoardCatalogR
             if not images:
                 generic = _generic_image_url(
                     esphome_cfg.platform.value,
-                    esphome_cfg.variant.value if esphome_cfg.variant else None,
+                    esphome_cfg.variant or None,
                 )
                 if generic:
                     images = [generic]
@@ -559,9 +575,19 @@ class PlatformCapabilities(NamedTuple):
     # internals (esp32_ble_client, web_server_base) the schema-driven
     # catalog index can't name. Drives the derived log-tag doc aliases.
     component_names: list[str]
+    # ``{pio_board: variant}`` (variant as esphome spells it, e.g.
+    # ``ESP32C3``) for resolving a device's chip when its YAML names only
+    # the board. Empty until the index is regenerated with the field.
+    esp32_board_variants: dict[str, str]
+    # ``{platform-or-variant: interface}`` — logger's ``hardware_uart``
+    # defaults (``esp32c3`` → ``USB_SERIAL_JTAG``); SDK-runtime rows
+    # (libretiny) are absent as unknowable.
+    logger_interface_defaults: dict[str, str]
+    # The explicit ``hardware_uart`` values the logger accepts.
+    logger_interface_values: list[str]
 
 
-_EMPTY_PLATFORM_CAPABILITIES = PlatformCapabilities([], [], [], [], {}, [])
+EMPTY_PLATFORM_CAPABILITIES = PlatformCapabilities([], [], [], [], {}, [], {}, {}, [])
 
 
 @cache
@@ -581,7 +607,7 @@ def _load_platform_capabilities(path: Path) -> PlatformCapabilities:
     """Parse a platform-capabilities index at *path*; empty on missing / malformed."""
     return _load_json_artifact(
         path,
-        default=_EMPTY_PLATFORM_CAPABILITIES,
+        default=EMPTY_PLATFORM_CAPABILITIES,
         transform=_platform_capabilities_from_payload,
         missing_msg=(
             "platform_capabilities.index.json missing — download routing + wifi "
@@ -595,13 +621,23 @@ def _platform_capabilities_from_payload(payload: Any) -> PlatformCapabilities:
     """Coerce a parsed index payload; empty on a non-mapping."""
     if not isinstance(payload, dict):
         _LOGGER.warning("platform_capabilities.index.json is not a mapping — ignoring.")
-        return _EMPTY_PLATFORM_CAPABILITIES
+        return EMPTY_PLATFORM_CAPABILITIES
 
     def _str_list(key: str) -> list[str]:
         value = payload.get(key)
         if not isinstance(value, list):
             return []
         return [str(item) for item in value if isinstance(item, str)]
+
+    def _str_map(key: str) -> dict[str, str]:
+        value = payload.get(key)
+        if not isinstance(value, dict):
+            return {}
+        return {
+            item: mapped
+            for item, mapped in value.items()
+            if isinstance(item, str) and isinstance(mapped, str)
+        }
 
     return PlatformCapabilities(
         esp32_variants=_str_list("esp32_variants"),
@@ -610,6 +646,9 @@ def _platform_capabilities_from_payload(payload: Any) -> PlatformCapabilities:
         rp2040_no_wifi_boards=_str_list("rp2040_no_wifi_boards"),
         download_types=_parse_download_types(payload.get("download_types")),
         component_names=_str_list("component_names"),
+        esp32_board_variants=_str_map("esp32_board_variants"),
+        logger_interface_defaults=_str_map("logger_interface_defaults"),
+        logger_interface_values=_str_list("logger_interface_values"),
     )
 
 

@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-@created: 20.07.20
-@author: felix
-"""
-
 import logging
 import os
 from types import MethodType
@@ -40,13 +33,14 @@ SEVERITY_CONFIG = {
 }
 
 
-def _severity_level(severity_: Union[str, SEVERITY_LEVEL]) -> int:
+def get_severity_level(severity_: Union[str, SEVERITY_LEVEL]) -> int:
     if severity_ == "env":
         _level = os.environ.get("ST_SEVERITY", "1")
         try:
             return int(_level)
         except (TypeError, ValueError):
-            return int(SEVERITY_CONFIG[_level].value)
+            level = SEVERITY_CONFIG.get(_level, SEVERITY_LEVEL.ENABLED)
+            return level.value
     else:
         return int(severity_.value) if isinstance(severity_, SEVERITY_LEVEL) else int(severity_)
 

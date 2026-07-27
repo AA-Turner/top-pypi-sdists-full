@@ -36,15 +36,14 @@ from milvus_lite.search.filter.ast import (
     LikeOp,
     ListLit,
     MetaAccess,
+    PathAccess,
     Not,
     Or,
     StringLit,
     TimestampLit,
-    JsonAccess,
     TextMatchOp,
     ArrayContainsOp,
     ArrayLengthOp,
-    ArrayAccessOp,
 )
 from milvus_lite.schema.timestamptz import (
     interval_micros_to_timedelta,
@@ -221,8 +220,11 @@ def _eval_row(node, row: dict) -> Any:
         return regex.match(value) is not None
 
     if isinstance(node, IsNullOp):
-        # IS NULL on a missing key in row dict counts as null too.
-        val = row.get(node.field.name)
+        # The operand may be a FieldRef, PathAccess, or MetaAccess; all
+        # three evaluate missing data to None, so a missing column value,
+        # a missing JSON key, and an explicit JSON null all count as
+        # null — matching the server for IS NULL and exists alike.
+        val = _eval_row(node.field, row)
         is_null = val is None
         return (not is_null) if node.negate else is_null
 
@@ -245,24 +247,27 @@ def _eval_row(node, row: dict) -> Any:
             return None
         return d.get(node.key)
 
-    # ── JSON field path access ─────────────────────────────────
-    if isinstance(node, JsonAccess):
-        field_val = row.get(node.field_name)
-        if field_val is None:
-            return None
-        # field_val may be a JSON string or already-parsed dict
-        if isinstance(field_val, str):
+    if isinstance(node, PathAccess):
+        value = _eval_row(node.base, row)
+        if isinstance(value, str):
             try:
-                field_val = json.loads(field_val)
-            except (json.JSONDecodeError, ValueError):
+                value = json.loads(value)
+            except (json.JSONDecodeError, TypeError, ValueError):
                 return None
-        # Walk the keys tuple for chained access: info["a"]["b"]
-        for key in node.keys:
-            if isinstance(field_val, dict):
-                field_val = field_val.get(key)
+        for part in node.path:
+            if isinstance(part, str):
+                if not isinstance(value, dict):
+                    return None
+                value = value.get(part)
             else:
+                if not isinstance(value, (list, tuple)):
+                    return None
+                if part < 0 or part >= len(value):
+                    return None
+                value = value[part]
+            if value is None:
                 return None
-        return field_val
+        return value
 
     # ── Phase 11.6: text_match ──────────────────────────────────
     if isinstance(node, TextMatchOp):
@@ -323,7 +328,12 @@ def _eval_row(node, row: dict) -> Any:
 
     # ── Array functions ─────────────────────────────────────────
     if isinstance(node, ArrayContainsOp):
-        arr = _eval_row(node.field, row)
+        arr = _eval_row(node.value, row)
+        if isinstance(arr, str):
+            try:
+                arr = json.loads(arr)
+            except (json.JSONDecodeError, TypeError, ValueError):
+                return False
         if arr is None or not isinstance(arr, (list, tuple)):
             return False
         if node.mode == "any_one":
@@ -342,18 +352,14 @@ def _eval_row(node, row: dict) -> Any:
         return any(t in arr for t in targets)
 
     if isinstance(node, ArrayLengthOp):
-        arr = row.get(node.field.name)
+        arr = _eval_row(node.value, row)
+        if isinstance(arr, str):
+            try:
+                arr = json.loads(arr)
+            except (json.JSONDecodeError, TypeError, ValueError):
+                return 0
         if arr is None or not isinstance(arr, (list, tuple)):
             return 0
         return len(arr)
-
-    if isinstance(node, ArrayAccessOp):
-        arr = row.get(node.field_name)
-        if arr is None or not isinstance(arr, (list, tuple)):
-            return None
-        idx = node.index
-        if 0 <= idx < len(arr):
-            return arr[idx]
-        return None
 
     raise TypeError(f"unknown AST node: {type(node).__name__}")

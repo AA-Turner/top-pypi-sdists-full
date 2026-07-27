@@ -1,6 +1,7 @@
 import asyncio
 import collections
 import contextlib
+import functools
 import inspect
 import itertools
 import operator
@@ -8,7 +9,7 @@ import random
 import time
 import types
 from collections.abc import AsyncIterable, AsyncIterator, Callable, Iterable, Iterator, Sequence
-from functools import partial, singledispatchmethod
+from typing import Self
 
 
 def fibonacci(x, y):
@@ -19,12 +20,12 @@ def fibonacci(x, y):
 
 
 @contextlib.contextmanager
-def suppress(*exceptions: Exception):
+def suppress(*exceptions: type[Exception]):
     """Variant of `contextlib.suppress`, which also records exception."""
     excs: list = []
     try:
         yield excs
-    except exceptions as exc:  # type: ignore
+    except exceptions as exc:
         excs.append(exc)
 
 
@@ -33,15 +34,13 @@ def first(predicate: Callable, iterable: Iterable, *default):
     return next(filter(predicate, iterable), *default)
 
 
-class reiter(partial):
+class reiter(functools.partial):
     """A partial iterator which is re-iterable."""
 
-    __iter__ = partial.__call__
+    __iter__ = functools.partial.__call__
 
 
-class partialmethod(partial):
-    """Variant of functools.partialmethod."""
-
+class partial(functools.partial):  # <3.14
     def __get__(self, instance, owner):
         return self if instance is None else types.MethodType(self, instance)
 
@@ -73,100 +72,105 @@ class waiter:
 
     Stats = Stats
 
-    def __init__(self, delays, timeout=float('inf')):
-        with suppress(TypeError) as excs:
-            iter(delays)
-        self.delays = itertools.repeat(delays) if excs else delays
+    def __init__(self, delays, timeout=float("inf")):
+        self.delays = delays
+        try:
+            iter(delays)  # custom types with `__getitem__` fail is `Iterable`
+        except TypeError:
+            self.delays = itertools.repeat(delays)
         self.timeout = timeout
         self.stats = self.Stats()
 
     def __iter__(self):
         """Generate a slow loop of elapsed time."""
-        start = time.time()
+        start = time.monotonic()
         yield self.stats.add(0, 0.0)
         for attempt, delay in enumerate(self.delays, 1):
-            remaining = start + self.timeout - time.time()
+            remaining = start + self.timeout - time.monotonic()
             if remaining < 0:
                 break
             time.sleep(min(delay, remaining))
-            yield self.stats.add(attempt, time.time() - start)
+            yield self.stats.add(attempt, time.monotonic() - start)
 
     async def __aiter__(self):
         """Asynchronously generate a slow loop of elapsed time."""
-        start = time.time()
+        start = time.monotonic()
         yield self.stats.add(0, 0.0)
         for attempt, delay in enumerate(self.delays, 1):
-            remaining = start + self.timeout - time.time()
+            remaining = start + self.timeout - time.monotonic()
             if remaining < 0:
                 break
             await asyncio.sleep(min(delay, remaining))
-            yield self.stats.add(attempt, time.time() - start)
+            yield self.stats.add(attempt, time.monotonic() - start)
 
-    def clone(self, func: Callable, *args) -> 'waiter':
+    def clone(self, func: Callable, *args) -> Self:
         return type(self)(reiter(func, *args), self.timeout)
 
-    def map(self, func: Callable, *iterables: Iterable) -> 'waiter':
+    def map(self, func: Callable, *iterables: Iterable) -> Self:
         """Return new waiter with function mapped across delays."""
         return self.clone(map, func, self.delays, *iterables)
 
     @classmethod
-    def fibonacci(cls, delay, **kwargs) -> 'waiter':
+    def fibonacci(cls, delay, **kwargs) -> Self:
         """Create waiter with fibonacci backoff."""
         return cls(reiter(fibonacci, delay, delay), **kwargs)
 
     @classmethod
-    def count(cls, *args, **kwargs) -> 'waiter':
+    def count(cls, *args, **kwargs) -> Self:
         """Create waiter based on `itertools.count`."""
         return cls(reiter(itertools.count, *args), **kwargs)
 
     @classmethod
-    def accumulate(cls, *args, **kwargs) -> 'waiter':
+    def accumulate(cls, *args, **kwargs) -> Self:
         """Create waiter based on `itertools.accumulate`."""
         return cls(reiter(itertools.accumulate, *args), **kwargs)
 
     @classmethod
-    def exponential(cls, base, **kwargs) -> 'waiter':
+    def exponential(cls, base, **kwargs) -> Self:
         """Create waiter with exponential backoff."""
         return cls.count(**kwargs).map(base.__pow__)
 
     @classmethod
-    def polynomial(cls, exp, **kwargs) -> 'waiter':
+    def polynomial(cls, exp, **kwargs) -> Self:
         """Create waiter with polynomial backoff."""
         return cls.count(**kwargs).map(exp.__rpow__)
 
-    def __getitem__(self, slc: slice) -> 'waiter':
+    def __getitem__(self, slc: slice) -> Self:
         """Slice delays, e.g., to limit attempt count."""
         return self.clone(itertools.islice, self.delays, slc.start, slc.stop, slc.step)
 
-    def __le__(self, ceiling) -> 'waiter':
+    def __le__(self, ceiling) -> Self:
         """Limit maximum delay generated."""
-        return self.map(partial(min, ceiling))
+        return self.map(functools.partial(min, ceiling))
 
-    def __ge__(self, floor) -> 'waiter':
+    def __ge__(self, floor) -> Self:
         """Limit minimum delay generated."""
-        return self.map(partial(max, floor))
+        return self.map(functools.partial(max, floor))
 
-    def __add__(self, step) -> 'waiter':
+    def __add__(self, step) -> Self:
         """Generate incremental backoff."""
         return self.map(operator.add, reiter(itertools.count, 0, step))
 
-    def __mul__(self, factor) -> 'waiter':
+    def __mul__(self, factor) -> Self:
         """Generate exponential backoff."""
         return self.map(operator.mul, reiter(map, factor.__pow__, reiter(itertools.count)))
 
-    def random(self, start, stop) -> 'waiter':
+    def random(self, start, stop) -> Self:
         """Add random jitter within given range."""
         return self.map(lambda delay: delay + random.uniform(start, stop))
 
-    @singledispatchmethod
+    @functools.singledispatchmethod
     def throttle(self, iterable: Iterable):
-        """Delay iteration."""
+        """Delay iteration.
+
+        Async version delays the pull is requested.
+        """
         return map(operator.itemgetter(1), zip(self, iterable))
 
     @throttle.register
     async def _(self, iterable: AsyncIterable) -> AsyncIterator:
         anext = iterable.__aiter__().__anext__
-        with suppress(StopAsyncIteration):  # type: ignore
+        with contextlib.suppress(StopAsyncIteration):
             async for _ in self:
                 yield await anext()
 
@@ -210,20 +214,24 @@ class waiter:
         async for _ in self:
             yield await func(*args, **kwargs)
 
-    def retry(self, exception: Exception, func: Callable, *args, **kwargs):
+    def retry(self, exception: type[Exception], func: Callable, *args, **kwargs):
         """Repeat function call until exception isn't raised."""
         if inspect.iscoroutinefunction(func):
             return self.aretry(exception, func, *args, **kwargs)
+        exc = TimeoutError
         for _ in self:
             with suppress(exception) as excs:
                 return func(*args, **kwargs)
-        raise excs[0]
+            (exc,) = excs
+        raise exc
 
-    async def aretry(self, exception: Exception, func: Callable, *args, **kwargs):
+    async def aretry(self, exception: type[Exception], func: Callable, *args, **kwargs):
+        exc = TimeoutError
         async for _ in self:
             with suppress(exception) as excs:
                 return await func(*args, **kwargs)
-        raise excs[0]
+            (exc,) = excs
+        raise exc
 
     def poll(self, predicate: Callable, func: Callable, *args, **kwargs):
         """Repeat function call until predicate evaluates to true."""
@@ -233,21 +241,21 @@ class waiter:
 
     async def apoll(self, predicate: Callable, func: Callable, *args, **kwargs):
         async for result in self.repeat(func, *args, **kwargs):
-            if predicate(result):  # pragma: no branch
+            if predicate(result):
                 return result
         raise StopAsyncIteration
 
     def repeating(self, func: Callable):
         """A decorator for `repeat`."""
-        return partialmethod(self.repeat, func)
+        return partial(self.repeat, func)
 
-    def retrying(self, exception: Exception):
+    def retrying(self, exception: type[Exception]):
         """Return a decorator for `retry`."""
-        return partial(partialmethod, self.retry, exception)
+        return functools.partial(partial, self.retry, exception)
 
     def polling(self, predicate: Callable):
         """Return a decorator for `poll`."""
-        return partial(partialmethod, self.poll, predicate)
+        return functools.partial(partial, self.poll, predicate)
 
 
 wait = waiter

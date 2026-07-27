@@ -146,12 +146,12 @@ class EndpointSlice(DictMixin):
         Represents a Fully Qualified Domain Name. (Deprecated) The EndpointSlice
         controller only generates, and kube-proxy only processes, slices of
         addressType "IPv4" and "IPv6". No semantics are defined for the "FQDN" type.
-      * **endpoints** ``List[Endpoint]`` - endpoints is a list of unique endpoints in this slice. Each slice may include
-        a maximum of 1000 endpoints.
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+      * **endpoints** ``Optional[List[Endpoint]]`` - endpoints is a list of unique endpoints in this slice. Each slice may include
+        a maximum of 1000 endpoints.
       * **kind** ``Optional[str]`` - Kind is a string value representing the REST resource this object represents.
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
@@ -164,8 +164,8 @@ class EndpointSlice(DictMixin):
         EndpointSlices used for other purposes may have an empty ports list.
     """
     addressType: 'str'
-    endpoints: 'List[Endpoint]'
     apiVersion: 'Optional[str]' = None
+    endpoints: 'Optional[List[Endpoint]]' = None
     kind: 'Optional[str]' = None
     metadata: 'Optional[meta_v1.ObjectMeta]' = None
     ports: 'Optional[List[EndpointPort]]' = None

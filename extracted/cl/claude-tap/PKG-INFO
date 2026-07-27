@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: claude-tap
-Version: 0.1.139
+Version: 0.1.140
 Summary: Trace AI CLI API requests via local reverse and forward proxies. Inspect system prompts, messages, tools, and token usage.
 Author: liaohch3
 License-Expression: MIT
@@ -29,6 +29,7 @@ Requires-Dist: pytest-asyncio>=0.23; extra == "dev"
 Requires-Dist: pytest-timeout>=2.3; extra == "dev"
 Requires-Dist: pexpect>=4.9; extra == "dev"
 Requires-Dist: coverage>=7.6; extra == "dev"
+Requires-Dist: matplotlib==3.11.1; extra == "dev"
 Requires-Dist: ruff>=0.11; extra == "dev"
 Dynamic: license-file
 
@@ -695,9 +696,9 @@ The viewer is a single self-contained HTML file (zero external dependencies):
 
 <a href="https://www.star-history.com/?repos=liaohch3%2Fclaude-tap&type=date&legend=bottom-right">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=liaohch3/claude-tap&type=date&theme=dark&legend=top-left" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=liaohch3/claude-tap&type=date&legend=top-left" />
-    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=liaohch3/claude-tap&type=date&legend=top-left" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/liaohch3/claude-tap/star-history-assets/star-history-dark.png" />
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/liaohch3/claude-tap/star-history-assets/star-history-light.png" />
+    <img alt="Star History Chart" src="https://raw.githubusercontent.com/liaohch3/claude-tap/star-history-assets/star-history-light.png" />
   </picture>
 </a>
 

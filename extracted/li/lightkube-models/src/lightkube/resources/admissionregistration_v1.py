@@ -5,6 +5,30 @@ from ..core import resource as res
 from ..models import admissionregistration_v1 as m_admissionregistration_v1
 
 
+class MutatingAdmissionPolicy(res.GlobalResource, m_admissionregistration_v1.MutatingAdmissionPolicy):
+    """* **Extends**: ``models.admissionregistration_v1.MutatingAdmissionPolicy``
+       * **Type**: Global Resource
+       * **Accepted client methods**: `delete`, `deletecollection`, `get`, `list`, `patch`, `create`, `replace`, `watch`
+    """
+    _api_info = res.ApiInfo(
+        resource=res.ResourceDef('admissionregistration.k8s.io', 'v1', 'MutatingAdmissionPolicy'),
+        plural='mutatingadmissionpolicies',
+        verbs=['delete', 'deletecollection', 'get', 'list', 'patch', 'post', 'put', 'watch'],
+    )
+
+
+class MutatingAdmissionPolicyBinding(res.GlobalResource, m_admissionregistration_v1.MutatingAdmissionPolicyBinding):
+    """* **Extends**: ``models.admissionregistration_v1.MutatingAdmissionPolicyBinding``
+       * **Type**: Global Resource
+       * **Accepted client methods**: `delete`, `deletecollection`, `get`, `list`, `patch`, `create`, `replace`, `watch`
+    """
+    _api_info = res.ApiInfo(
+        resource=res.ResourceDef('admissionregistration.k8s.io', 'v1', 'MutatingAdmissionPolicyBinding'),
+        plural='mutatingadmissionpolicybindings',
+        verbs=['delete', 'deletecollection', 'get', 'list', 'patch', 'post', 'put', 'watch'],
+    )
+
+
 class MutatingWebhookConfiguration(res.GlobalResource, m_admissionregistration_v1.MutatingWebhookConfiguration):
     """* **Extends**: ``models.admissionregistration_v1.MutatingWebhookConfiguration``
        * **Type**: Global Resource

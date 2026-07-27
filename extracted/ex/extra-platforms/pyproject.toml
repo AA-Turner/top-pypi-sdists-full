@@ -5,7 +5,7 @@ requires = [ "uv-build>=0.9,<0.12" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "extra-platforms"
-version = "13.3.1"
+version = "13.4.0"
 description = "🔎 Detect architectures, platforms, shells, terminals, CI systems and agents, grouped by family"
 readme = "readme.md"
 keywords = [
@@ -255,7 +255,7 @@ optional-dependencies.pytest = [
 ]
 urls.Changelog = "https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md"
 urls.Documentation = "https://kdeldycke.github.io/extra-platforms"
-urls.Download = "https://github.com/kdeldycke/extra-platforms/releases/tag/v13.3.1"
+urls.Download = "https://github.com/kdeldycke/extra-platforms/releases/tag/v13.4.0"
 urls.Funding = "https://github.com/sponsors/kdeldycke"
 urls.Homepage = "https://github.com/kdeldycke/extra-platforms"
 urls.Issues = "https://github.com/kdeldycke/extra-platforms/issues"
@@ -285,16 +285,16 @@ test = [
 ]
 docs = [
   # Click Extra 8.3 adds the {matrix} directive and refresh-directives command
-  # used to build the Python compatibility table in docs/install.md.
-  "click-extra[sphinx]>=8.3",
+  # used to build the Python compatibility table in docs/install.md. 8.5 moves
+  # in the click_extra.sphinx.myst_docstrings extension (formerly shipped by
+  # repomatic) that converts MyST-flavored docstrings to reST for autodoc.
+  "click-extra[sphinx]>=8.5",
   "furo>=2025.9.25",
   # myst-parser 5.1 adds the "alert" extension that renders GitHub-style
   # callouts (> [!NOTE], …) as admonitions. See docs/conf.py.
   "myst-parser>=5.1",
   # Required so autodoc can import extra_platforms.pytest and document decorators.
   "pytest>=8.2.1",
-  # Provides the repomatic.myst_docstrings Sphinx extension.
-  "repomatic>=6.14",
   # We hard code links with a format that Sphinx only supports from 9.1 onwards.
   "sphinx>=9.1",
   "sphinx-autodoc-typehints>=2.4",
@@ -313,8 +313,30 @@ dependency-groups.docs = { requires-python = ">= 3.12" }
 # Relative dates are fine here because the Renovate lock-maintenance job
 # (sync-uv-lock) reverts uv.lock when the only diff is timestamp noise.
 exclude-newer = "1 week"
+# Cooldown bypass: adopt click-extra 8.5 early for the moved
+# click_extra.sphinx.myst_docstrings extension (see the docs dependency group).
+# sync-uv-lock prunes this once 8.5.0 ages past exclude-newer (~2026-07-29).
+exclude-newer-package = { click-extra = "2026-07-23T00:00:00Z" }
 # Package is at root level, not in "./src/".
 build-backend.module-root = ""
+build-backend.source-exclude = [
+  "**/*.bak",
+  "**/.DS_Store",
+  "**/__pycache__",
+  "docs/_build",
+  "docs/_linkcheck",
+  "docs/html",
+  "tests/.coverage",
+]
+# Ship the test suite and the docs it reads (plus the changelog) in the sdist so
+# distribution packagers can build and test straight from the PyPI sdist instead
+# of fetching a GitHub tag tarball. source-include feeds the sdist only; the
+# wheel stays module-only. Git-ignored build output is pruned via source-exclude.
+build-backend.source-include = [
+  "changelog.md",
+  "docs/**",
+  "tests/**",
+]
 
 # Ruff linter/formatter configuration for Python projects.
 #
@@ -327,7 +349,7 @@ build-backend.module-root = ""
 extend-include = [ "*.{markdown,mdown,mkdn,mdwn,mkd,md,mdtxt,mdtext,mdx}" ]
 preview = true
 fix = true
-unsafe-fixes = true
+unsafe-fixes = false
 show-fixes = true
 # Enable reformatting of code snippets in docstrings.
 # https://docs.astral.sh/ruff/formatter/#docstring-formatting
@@ -399,16 +421,13 @@ pretty = true
 warn_unused_configs = true
 
 [tool.pytest]
-# CI-only flags (--cov-report=xml) are passed by the tests workflow instead,
-# so local runs stay lean. See "Testing guidelines" in claude.md.
+# Coverage and xdist flags (--cov, --cov-report, --numprocesses, --dist) are
+# passed by the tests workflow, not here: keeping them out of addopts lets a
+# from-source build (Guix, Nixpkgs, ...) run a plain `pytest` without having to
+# provide pytest-cov and pytest-xdist just to start. See "Testing guidelines"
+# in claude.md.
 addopts = [
-  "--cov",
-  "--cov-report=term",
-  # Honor xdist_group markers: sphinx tests must share one worker (see
-  # tests/test_sphinx_crossrefs.py).
-  "--dist=loadgroup",
   "--durations=10",
-  "--numprocesses=auto",
 ]
 # https://docs.pytest.org/en/latest/customize.html#pyproject-toml
 markers = [
@@ -424,7 +443,7 @@ run.source = [ "extra_platforms" ]
 report.precision = 2
 
 [tool.bumpversion]
-current_version = "13.3.1"
+current_version = "13.4.0"
 # Parse versions with an optional .devN suffix (PEP 440).
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(\\.dev(?P<dev>\\d+))?"
 serialize = [

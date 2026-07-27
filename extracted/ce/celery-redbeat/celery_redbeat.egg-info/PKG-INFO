@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: celery-redbeat
-Version: 2.4.1
+Version: 2.4.2
 Summary: A Celery Beat Scheduler using Redis for persistent storage
 Home-page: https://github.com/sibson/redbeat
 Author: Marc Sibson

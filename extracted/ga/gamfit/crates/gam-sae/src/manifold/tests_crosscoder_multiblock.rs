@@ -204,6 +204,14 @@ fn bit_identical(a: &Array2<f64>, b: &Array2<f64>) -> bool {
             .all(|(x, y)| x.to_bits() == y.to_bits())
 }
 
+/// #2512 — a joint fit is a function of its inputs, including above the
+/// reported 61→62-row transition. Four independently constructed, concurrently
+/// live terms receive the same finite target, rho, and one-iteration grant; every
+/// fitted decoder coefficient must therefore recur bit-for-bit. Keeping every
+/// term alive is essential: it forces distinct live allocation graphs instead of
+/// letting the allocator recycle the just-dropped predecessor's addresses. This
+/// deliberately exercises the cold-start chart placement and entry block sweep
+/// before Arrow–Schur assembly as well as the Newton step itself.
 /// The `K = 2` special case: the general multi-block driver reproduces the
 /// two-block driver to the last bit — same fitted decoders, same log λ.
 #[test]

@@ -6,8 +6,8 @@ from ._schema import dataclass, field, DictMixin
 if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.com/issue/PY-54560
     from dataclasses import dataclass, field
 
-from . import meta_v1
 from . import util_intstr
+from . import meta_v1
 
 
 @dataclass
@@ -147,10 +147,6 @@ class PodDisruptionBudgetStatus(DictMixin):
 
       **parameters**
 
-      * **currentHealthy** ``int`` - current number of healthy pods
-      * **desiredHealthy** ``int`` - minimum desired number of healthy pods
-      * **disruptionsAllowed** ``int`` - Number of pod disruptions that are currently allowed.
-      * **expectedPods** ``int`` - total number of pods counted by this disruption budget
       * **conditions** ``Optional[List[meta_v1.Condition]]`` - Conditions contain conditions for PDB. The disruption controller sets the
         DisruptionAllowed condition. The following are known values for the reason
         field (additional reasons could be added in the future): - SyncFailed: The
@@ -164,6 +160,8 @@ class PodDisruptionBudgetStatus(DictMixin):
         PodDisruptionBudget.
                           The condition will be True, and the number of allowed
                           disruptions are provided by the disruptionsAllowed property.
+      * **currentHealthy** ``Optional[int]`` - current number of healthy pods
+      * **desiredHealthy** ``Optional[int]`` - minimum desired number of healthy pods
       * **disruptedPods** ``Optional[dict]`` - DisruptedPods contains information about pods whose eviction was processed by
         the API server eviction subresource handler but has not yet been observed by
         the PodDisruptionBudget controller. A pod will be in this map from the time
@@ -175,16 +173,18 @@ class PodDisruptionBudgetStatus(DictMixin):
         by PodDisruptionBudget controller after some time. If everything goes smooth
         this map should be empty for the most of the time. Large number of entries in
         the map may indicate problems with pod deletions.
+      * **disruptionsAllowed** ``Optional[int]`` - Number of pod disruptions that are currently allowed.
+      * **expectedPods** ``Optional[int]`` - total number of pods counted by this disruption budget
       * **observedGeneration** ``Optional[int]`` - Most recent generation observed when updating this PDB status.
         DisruptionsAllowed and other status information is valid only if
         observedGeneration equals to PDB's object generation.
     """
-    currentHealthy: 'int'
-    desiredHealthy: 'int'
-    disruptionsAllowed: 'int'
-    expectedPods: 'int'
     conditions: 'Optional[List[meta_v1.Condition]]' = None
+    currentHealthy: 'Optional[int]' = None
+    desiredHealthy: 'Optional[int]' = None
     disruptedPods: 'Optional[dict]' = None
+    disruptionsAllowed: 'Optional[int]' = None
+    expectedPods: 'Optional[int]' = None
     observedGeneration: 'Optional[int]' = None
 
 

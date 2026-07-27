@@ -22172,6 +22172,27 @@ class ApplyMonitorFindings(sgqlc.types.Type):
     job = sgqlc.types.Field(sgqlc.types.non_null("QueuedJob"), graphql_name="job")
 
 
+class ApplyMonitoringPlan(sgqlc.types.Type):
+    """Apply every staged container of a monitoring plan.  A run that
+    groups its work by database produces one container per database,
+    and each container applies independently — so enabling a whole
+    plan starts one job per staged container. Poll all of them via
+    ``queuedJob``; per-monitor progress is read from each monitor
+    finding's ``proposedMonitor``, as with a single-container apply.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("jobs",)
+    jobs = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("QueuedJob"))),
+        graphql_name="jobs",
+    )
+    """One job per staged container, in plan order. Containers that
+    staged nothing are skipped, so this can be shorter than the plan's
+    `containers`.
+    """
+
+
 class Asset(sgqlc.types.Type):
     """Catalog asset — minimal projection from ``CatalogObjectModel``."""
 
@@ -40908,6 +40929,93 @@ class MonitoredTableRuleObject(sgqlc.types.Type):
     """Monitoring rule type"""
 
 
+class MonitoringPlan(sgqlc.types.Type):
+    """One monitoring run's plan — every top-level container that run
+    produced.  A run that groups its work by database posts one
+    container per database, so a plan renders as one section per
+    container rather than as a single finding.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "plan_uuid",
+        "agentic_scope_uuid",
+        "detection_time",
+        "staged",
+        "containers",
+        "run_status",
+        "run_completed_time",
+    )
+    plan_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="planUuid")
+    """Identifies the run. Use it for the monitoring-plan tab's
+    ?plan=<uuid> deeplink and to re-fetch this plan via
+    monitoringPlan.
+    """
+
+    agentic_scope_uuid = sgqlc.types.Field(
+        sgqlc.types.non_null(UUID), graphql_name="agenticScopeUuid"
+    )
+    """UUID of the domain this run belongs to. A plan resolves to exactly
+    one domain, so a caller holding only a planUuid can route to the
+    owning domain's monitoring-plan tab without fetching containers.
+    """
+
+    detection_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="detectionTime")
+    """When the run started — the earliest detectionTime across its
+    containers.
+    """
+
+    staged = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="staged")
+    """Whether the run staged any monitors, i.e. at least one container
+    has phase children. False means the run suggested nothing and each
+    container's `summary` carries the reason (e.g. the important
+    tables are already adequately covered, or there were no use cases
+    / monitorable assets in scope). A run can be mixed — one container
+    staged, another not — so this is true if ANY container is staged;
+    branch per section on the container's own `staged`, not on this.
+    """
+
+    containers = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("Finding"))),
+        graphql_name="containers",
+    )
+    """The run's top-level MONITORING_GAP containers, in production order
+    (the container the run produced first leads). Usually one; one per
+    database when the run grouped db-centrically. Read each
+    container's phases and staged monitors via
+    getDomainMonitoringPlanChildren, keyed on that container's uuid.
+    """
+
+    run_status = sgqlc.types.Field(AgenticPlatformPipelineStatus, graphql_name="runStatus")
+    """Status of the run that produced this plan. A plan is assembled
+    from whatever the run has persisted so far, so this is what
+    separates a finished run from one still publishing or one that
+    failed part-way. Treat `staged: false` as "nothing to add" only
+    when this is COMPLETED — otherwise the run's suggestions may
+    simply not have arrived yet. Null when no run is recorded.
+    """
+
+    run_completed_time = sgqlc.types.Field(DateTime, graphql_name="runCompletedTime")
+    """When the producing run reached a terminal status. Null while it is
+    still running and when no run is recorded.
+    """
+
+
+class MonitoringPlanAnchor(sgqlc.types.Type):
+    """A monitoring plan plus the container within it to open."""
+
+    __schema__ = schema
+    __field_names__ = ("plan", "container_uuid")
+    plan = sgqlc.types.Field(sgqlc.types.non_null(MonitoringPlan), graphql_name="plan")
+    """The run the monitor was staged from."""
+
+    container_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="containerUuid")
+    """UUID of the container within the run that staged the monitor — the
+    section to expand on arrival, since a run can hold one container
+    per database.
+    """
+
+
 class MonteCarloConfigTemplateConnection(sgqlc.types.relay.Connection):
     __schema__ = schema
     __field_names__ = ("page_info", "edges")
@@ -41489,6 +41597,7 @@ class Mutation(sgqlc.types.Type):
         "submit_finding_feedback",
         "delete_finding",
         "apply_monitor_findings",
+        "apply_monitoring_plan",
         "enable_agent_assistance",
         "disable_agent_assistance",
         "configure_agent_assistance",
@@ -51016,7 +51125,8 @@ class Mutation(sgqlc.types.Type):
     * `dry_run` (`Boolean`): If true, validate the YAML without
       creating the monitor (default: `false`)
     * `is_draft` (`Boolean`): If true (default), create as a draft. If
-      false, create as a production monitor. (default: `true`)
+      false, create as a production monitor. Overrides any is_draft
+      the YAML itself declares. (default: `true`)
     * `yaml_string` (`String!`): YAML string containing monitor
       configuration
     """
@@ -57630,6 +57740,14 @@ class Mutation(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 (
+                    "audience_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="audienceUuids",
+                        default=None,
+                    ),
+                ),
+                (
                     "finding_uuid",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(UUID), graphql_name="findingUuid", default=None
@@ -57649,8 +57767,56 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `audience_uuids` (`[UUID!]`): Audiences to route the created
+      monitors' notifications to, replacing whatever the staged config
+      asked for. Omitted or empty leaves the config's own routing
+      alone. An audience that does not exist in this account rejects
+      the whole request, so nothing is half-applied.
     * `finding_uuid` (`UUID!`)None
     * `mode` (`MonitorApplyMode!`)None
+    """
+
+    apply_monitoring_plan = sgqlc.types.Field(
+        ApplyMonitoringPlan,
+        graphql_name="applyMonitoringPlan",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "audience_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="audienceUuids",
+                        default=None,
+                    ),
+                ),
+                (
+                    "mode",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(MonitorApplyMode), graphql_name="mode", default=None
+                    ),
+                ),
+                (
+                    "plan_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="planUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Apply a whole monitoring plan (dry-run, draft, or
+    live) — one job per staged container, since a plan that grouped by
+    database applies each container independently.
+
+    Arguments:
+
+    * `audience_uuids` (`[UUID!]`): Audiences to route the created
+      monitors' notifications to, replacing whatever the staged config
+      asked for. Omitted or empty leaves the config's own routing
+      alone. An audience that does not exist in this account rejects
+      the whole request, so nothing is half-applied.
+    * `mode` (`MonitorApplyMode!`)None
+    * `plan_uuid` (`UUID!`): planUuid of the monitoring plan to apply.
     """
 
     enable_agent_assistance = sgqlc.types.Field(
@@ -68617,6 +68783,10 @@ class Query(sgqlc.types.Type):
         "active_sso_migration_job",
         "findings",
         "finding",
+        "latest_monitoring_plan",
+        "monitoring_plan",
+        "monitoring_plans",
+        "monitoring_plan_for_monitor",
         "get_domain_monitoring_plan",
         "get_monitoring_plan",
         "get_monitoring_plan_for_monitor",
@@ -83673,6 +83843,128 @@ class Query(sgqlc.types.Type):
     * `id` (`UUID!`)None
     """
 
+    latest_monitoring_plan = sgqlc.types.Field(
+        MonitoringPlan,
+        graphql_name="latestMonitoringPlan",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Returns a domain's most recent monitoring run as
+    one plan, or null when the domain has never run. The plan carries
+    every top-level container the run produced — one per database when
+    the run grouped db-centrically — so the whole run is reachable,
+    not just the container that finished last. Unlike monitoringPlans
+    this is NOT restricted to runs that staged monitors: a run that
+    suggested nothing is still returned with staged=false, so an empty
+    run reads as a real result rather than 'never run'. Monitor-
+    permission-gated (monitors/management write or propose) — NOT
+    alerts/access — so a monitor-only user who ran the plan can read
+    it back.
+
+    Arguments:
+
+    * `domain_uuid` (`UUID!`): UUID of the metadata domain whose
+      latest monitoring plan to fetch.
+    """
+
+    monitoring_plan = sgqlc.types.Field(
+        MonitoringPlan,
+        graphql_name="monitoringPlan",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "plan_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="planUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Fetches one monitoring run's plan by UUID — backing
+    the monitoring-plan tab's ?plan=<uuid> deeplink. Returns null (not
+    an error) for an unknown UUID, one that resolves to something
+    other than a monitoring-plan container, or a run whose containers
+    have since been deleted, so a stale deeplink can degrade to the
+    latest plan. Monitor-permission-gated (monitors/management write
+    or propose) — NOT alerts/access; a plan in a domain the caller
+    can't see is denied.
+
+    Arguments:
+
+    * `plan_uuid` (`UUID!`): A plan's planUuid. A container finding's
+      UUID also resolves to its plan, so links captured before plans
+      were run-keyed keep working.
+    """
+
+    monitoring_plans = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(MonitoringPlan)),
+        graphql_name="monitoringPlans",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Lists a domain's monitoring runs as plans, newest
+    run first — the run switcher for the monitoring-plan tab.
+    Restricted to runs that staged at least one monitor, so a
+    standalone monitoring gap never appears as a plan; use
+    latestMonitoringPlan for the latest outcome whether or not it
+    staged anything. Monitor-permission-gated (monitors/management
+    write or propose) — NOT alerts/access. Domain-scoped: domainUuid
+    is required and data-authorized against the caller's domain
+    restrictions.
+
+    Arguments:
+
+    * `domain_uuid` (`UUID!`): UUID of the metadata domain whose
+      monitoring plans to list.
+    """
+
+    monitoring_plan_for_monitor = sgqlc.types.Field(
+        MonitoringPlanAnchor,
+        graphql_name="monitoringPlanForMonitor",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "monitor_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Returns the monitoring run a monitor was staged
+    from plus the container within that run which staged it, or null
+    when the monitor was not created from a plan. Backs the monitor-
+    details page's plan deeplink — deeplink to
+    ?plan=<planUuid>&container=<containerUuid> so the right section is
+    expanded, since a run can hold one container per database.
+    Monitor-permission-gated (monitors/management write or propose) —
+    NOT alerts/access — so a monitor-only user can discover the plan.
+    A plan in a domain the caller can't see is denied.
+
+    Arguments:
+
+    * `monitor_uuid` (`UUID!`): UUID of a monitor to find the
+      monitoring plan it was staged from.
+    """
+
     get_domain_monitoring_plan = sgqlc.types.Field(
         "Finding",
         graphql_name="getDomainMonitoringPlan",
@@ -83687,10 +83979,10 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Returns a domain's latest top-level MONITORING_GAP
-    finding — the outcome of its most recent monitoring run — or null
-    when the domain has none. The finding is either a staged plan
-    (staged=true; read its phases and staged monitors via
+    """(experimental) DEPRECATED. Returns a domain's latest top-level
+    MONITORING_GAP finding — the outcome of its most recent monitoring
+    run — or null when the domain has none. The finding is either a
+    staged plan (staged=true; read its phases and staged monitors via
     getDomainMonitoringPlanChildren) or a no-suggestion outcome
     (staged=false) whose `summary` explains why the run suggested
     nothing (e.g. the important tables are already adequately covered,
@@ -83719,13 +84011,14 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Fetches a single monitoring-plan container (a top-
-    level MONITORING_GAP finding) by UUID — backing the monitoring-
-    plan tab's ?plan=<uuid> deeplink. Monitor-permission-gated
-    (monitors/management write or propose) — NOT alerts/access. Denies
-    (not found) a non-MONITORING_GAP uuid, a cross-domain plan, or a
-    caller lacking monitor write/propose, so it can never return an
-    alerts finding or a plan for a domain the caller can't see.
+    """(experimental) DEPRECATED. Fetches a single monitoring-plan
+    container (a top-level MONITORING_GAP finding) by UUID — backing
+    the monitoring-plan tab's ?plan=<uuid> deeplink. Monitor-
+    permission-gated (monitors/management write or propose) — NOT
+    alerts/access. Denies (not found) a non-MONITORING_GAP uuid, a
+    cross-domain plan, or a caller lacking monitor write/propose, so
+    it can never return an alerts finding or a plan for a domain the
+    caller can't see.
 
     Arguments:
 
@@ -83747,10 +84040,10 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Returns the monitoring-plan container (top-level
-    MONITORING_GAP finding) a monitor was staged from, or null when
-    the monitor was not created from a plan. Backs the monitor-details
-    page's plan deeplink. Monitor-permission-gated
+    """(experimental) DEPRECATED. Returns the monitoring-plan container
+    (top-level MONITORING_GAP finding) a monitor was staged from, or
+    null when the monitor was not created from a plan. Backs the
+    monitor-details page's plan deeplink. Monitor-permission-gated
     (monitors/management write or propose) — NOT alerts/access — so a
     monitor-only user can discover the plan. A plan in a domain the
     caller can't see is denied.
@@ -83775,13 +84068,13 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Lists all of a domain's top-level MONITORING_GAP
-    monitoring-plan containers (the containers produced by monitoring
-    runs), newest first. Monitor-permission-gated (monitors/management
-    write or propose) — NOT alerts/access. Domain-scoped: domainUuid
-    is required and data-authorized against the caller's domain
-    restrictions. Read each plan's phases and staged monitors via
-    getDomainMonitoringPlanChildren.
+    """(experimental) DEPRECATED. Lists all of a domain's top-level
+    MONITORING_GAP monitoring-plan containers (the containers produced
+    by monitoring runs), newest first. Monitor-permission-gated
+    (monitors/management write or propose) — NOT alerts/access.
+    Domain-scoped: domainUuid is required and data-authorized against
+    the caller's domain restrictions. Read each plan's phases and
+    staged monitors via getDomainMonitoringPlanChildren.
 
     Arguments:
 
@@ -109626,8 +109919,10 @@ class Finding(sgqlc.types.Type, Node):
         "agentic_scope_uuid",
         "agentic_scope",
         "parent_finding_uuid",
+        "pipeline_execution_uuid",
         "stage",
         "staged",
+        "child_findings_count",
         "feedback_action",
         "feedback_at",
         "feedback_by",
@@ -109711,6 +110006,16 @@ class Finding(sgqlc.types.Type, Node):
 
     parent_finding_uuid = sgqlc.types.Field(UUID, graphql_name="parentFindingUuid")
 
+    pipeline_execution_uuid = sgqlc.types.Field(UUID, graphql_name="pipelineExecutionUuid")
+    """UUID of the agent run that produced this finding, letting findings
+    from one run be correlated. Null when no run is recorded — a
+    finding produced outside an agent pipeline, or one written before
+    runs were recorded. Do NOT derive a monitoring-plan deeplink from
+    this: a plan's identity falls back to its container's own UUID
+    when there is no run, so use MonitoringPlan.planUuid (or
+    monitoringPlanForMonitor) which already resolves that.
+    """
+
     stage = sgqlc.types.Field(FindingStage, graphql_name="stage")
     """Set when this finding is one phase of a staged monitoring strategy
     (a suggested, ordered monitor rollout for a use case); null
@@ -109724,6 +110029,16 @@ class Finding(sgqlc.types.Type, Node):
     (no `stage`, but its children are phases). Lets the list
     distinguish a suggested monitoring strategy from a standalone
     monitoring finding. Filterable via `staged`.
+    """
+
+    child_findings_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="childFindingsCount"
+    )
+    """How many direct child findings this finding has. On a monitoring-
+    plan container it separates a run that produced nothing (0) from
+    one whose output is not staged — a container whose children are
+    MONITOR_DEPLOYED leaves already deployed its monitors, so it has
+    content to show even though `staged` is false.
     """
 
     feedback_action = sgqlc.types.Field(FindingFeedbackAction, graphql_name="feedbackAction")

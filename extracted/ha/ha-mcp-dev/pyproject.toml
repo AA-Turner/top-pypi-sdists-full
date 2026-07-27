@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ha-mcp-dev"
-version = "7.14.2.dev2117"
+version = "7.14.2.dev2139"
 description = "Home Assistant MCP Server - Complete control of Home Assistant through MCP"
 readme = "README.md"
 # Upper bound widened to <3.15 so the package installs on Home Assistant's
@@ -57,7 +57,6 @@ ha-mcp-dev = "ha_mcp.__main__:main_dev"
 ha-mcp-smoke-test = "ha_mcp.smoke_test:main"
 hamcp-test-env = "tests.test_env_manager:main"
 ha-mcp-web = "ha_mcp.__main__:main_web"
-ha-mcp-sse = "ha_mcp.__main__:main_sse"
 ha-mcp-oauth = "ha_mcp.__main__:main_oauth"
 ha-mcp-oidc = "ha_mcp.__main__:main_oidc"
 
@@ -200,6 +199,13 @@ asyncio_mode = "auto"
 
 [dependency-groups]
 dev = [
+    # Real aiohttp so tests can pin the ClientTimeout defaults the custom
+    # component's relay and the webhook-proxy addon rely on (both are stubbed
+    # in unit tests; nothing else would catch stub drift). NOT a runtime
+    # dependency — src/ never imports aiohttp; HA core provides it in-process.
+    # Floor = the aiohttp HA core 2026.6 pins (2026.7 pins 3.14.1, 2026.8.dev
+    # pins 3.14.3), so the version tested here is one a supported HA runs.
+    "aiohttp>=3.13.5",
     "build>=1.2.2",
     "docker>=7.1.0",
     "httpx2>=2.4.0",

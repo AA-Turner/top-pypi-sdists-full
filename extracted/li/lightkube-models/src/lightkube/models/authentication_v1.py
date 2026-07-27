@@ -15,10 +15,10 @@ class BoundObjectReference(DictMixin):
 
       **parameters**
 
-      * **apiVersion** ``Optional[str]`` - API version of the referent.
-      * **kind** ``Optional[str]`` - Kind of the referent. Valid kinds are 'Pod' and 'Secret'.
-      * **name** ``Optional[str]`` - Name of the referent.
-      * **uid** ``Optional[str]`` - UID of the referent.
+      * **apiVersion** ``Optional[str]`` - apiVersion is API version of the referent.
+      * **kind** ``Optional[str]`` - kind of the referent. Valid kinds are 'Pod' and 'Secret'.
+      * **name** ``Optional[str]`` - name of the referent.
+      * **uid** ``Optional[str]`` - uid of the referent.
     """
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
@@ -44,9 +44,9 @@ class SelfSubjectReview(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is standard object's metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-      * **status** ``Optional[SelfSubjectReviewStatus]`` - Status is filled in by the server with the user attributes.
+      * **status** ``Optional[SelfSubjectReviewStatus]`` - status is filled in by the server with the user attributes.
     """
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
@@ -65,7 +65,7 @@ class SelfSubjectReviewStatus(DictMixin):
 
       **parameters**
 
-      * **userInfo** ``Optional[UserInfo]`` - User attributes of the user making this request.
+      * **userInfo** ``Optional[UserInfo]`` - userInfo is a set of attributes belonging to the user making this request.
     """
     userInfo: 'Optional[UserInfo]' = None
 
@@ -76,7 +76,6 @@ class TokenRequest(DictMixin):
 
       **parameters**
 
-      * **spec** ``TokenRequestSpec`` - Spec holds information about the request being evaluated
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
@@ -85,15 +84,16 @@ class TokenRequest(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object's metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-      * **status** ``Optional[TokenRequestStatus]`` - Status is filled in by the server and indicates whether the token can be
+      * **spec** ``Optional[TokenRequestSpec]`` - spec holds information about the request being evaluated
+      * **status** ``Optional[TokenRequestStatus]`` - status is filled in by the server and indicates whether the token can be
         authenticated.
     """
-    spec: 'TokenRequestSpec'
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
     metadata: 'Optional[meta_v1.ObjectMeta]' = None
+    spec: 'Optional[TokenRequestSpec]' = None
     status: 'Optional[TokenRequestStatus]' = None
 
     def __post_init__(self):
@@ -107,20 +107,20 @@ class TokenRequestSpec(DictMixin):
 
       **parameters**
 
-      * **audiences** ``List[str]`` - Audiences are the intendend audiences of the token. A recipient of a token
+      * **audiences** ``Optional[List[str]]`` - audiences are the intendend audiences of the token. A recipient of a token
         must identify themself with an identifier in the list of audiences of the
         token, and otherwise should reject the token. A token issued for multiple
         audiences may be used to authenticate against any of the audiences listed but
         implies a high degree of trust between the target audiences.
-      * **boundObjectRef** ``Optional[BoundObjectReference]`` - BoundObjectRef is a reference to an object that the token will be bound to.
+      * **boundObjectRef** ``Optional[BoundObjectReference]`` - boundObjectRef is a reference to an object that the token will be bound to.
         The token will only be valid for as long as the bound object exists. NOTE: The
         API server's TokenReview endpoint will validate the BoundObjectRef, but other
         audiences may not. Keep ExpirationSeconds small if you want prompt revocation.
-      * **expirationSeconds** ``Optional[int]`` - ExpirationSeconds is the requested duration of validity of the request. The
+      * **expirationSeconds** ``Optional[int]`` - expirationSeconds is the requested duration of validity of the request. The
         token issuer may return a token with a different validity duration so a client
         needs to check the 'expiration' field in a response.
     """
-    audiences: 'List[str]'
+    audiences: 'Optional[List[str]]' = None
     boundObjectRef: 'Optional[BoundObjectReference]' = None
     expirationSeconds: 'Optional[int]' = None
 
@@ -131,11 +131,11 @@ class TokenRequestStatus(DictMixin):
 
       **parameters**
 
-      * **expirationTimestamp** ``meta_v1.Time`` - ExpirationTimestamp is the time of expiration of the returned token.
-      * **token** ``str`` - Token is the opaque bearer token.
+      * **expirationTimestamp** ``Optional[meta_v1.Time]`` - expirationTimestamp is the time of expiration of the returned token.
+      * **token** ``Optional[str]`` - token is the opaque bearer token.
     """
-    expirationTimestamp: 'meta_v1.Time'
-    token: 'str'
+    expirationTimestamp: 'Optional[meta_v1.Time]' = None
+    token: 'Optional[str]' = None
 
 
 @dataclass
@@ -146,7 +146,7 @@ class TokenReview(DictMixin):
 
       **parameters**
 
-      * **spec** ``TokenReviewSpec`` - Spec holds information about the request being evaluated
+      * **spec** ``TokenReviewSpec`` - spec holds information about the request being evaluated
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
@@ -155,9 +155,9 @@ class TokenReview(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object's metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-      * **status** ``Optional[TokenReviewStatus]`` - Status is filled in by the server and indicates whether the request can be
+      * **status** ``Optional[TokenReviewStatus]`` - status is filled in by the server and indicates whether the request can be
         authenticated.
     """
     spec: 'TokenReviewSpec'
@@ -177,15 +177,15 @@ class TokenReviewSpec(DictMixin):
 
       **parameters**
 
-      * **audiences** ``Optional[List[str]]`` - Audiences is a list of the identifiers that the resource server presented with
+      * **token** ``str`` - token is the opaque bearer token.
+      * **audiences** ``Optional[List[str]]`` - audiences is a list of the identifiers that the resource server presented with
         the token identifies as. Audience-aware token authenticators will verify that
         the token was intended for at least one of the audiences in this list. If no
         audiences are provided, the audience will default to the audience of the
         Kubernetes apiserver.
-      * **token** ``Optional[str]`` - Token is the opaque bearer token.
     """
+    token: 'str'
     audiences: 'Optional[List[str]]' = None
-    token: 'Optional[str]' = None
 
 
 @dataclass
@@ -194,7 +194,7 @@ class TokenReviewStatus(DictMixin):
 
       **parameters**
 
-      * **audiences** ``Optional[List[str]]`` - Audiences are audience identifiers chosen by the authenticator that are
+      * **audiences** ``Optional[List[str]]`` - audiences are audience identifiers chosen by the authenticator that are
         compatible with both the TokenReview and token. An identifier is any
         identifier in the intersection of the TokenReviewSpec audiences and the
         token's audiences. A client of the TokenReview API that sets the
@@ -203,9 +203,9 @@ class TokenReviewStatus(DictMixin):
         is audience aware. If a TokenReview returns an empty status.audience field
         where status.authenticated is "true", the token is valid against the audience
         of the Kubernetes API server.
-      * **authenticated** ``Optional[bool]`` - Authenticated indicates that the token was associated with a known user.
-      * **error** ``Optional[str]`` - Error indicates that the token couldn't be checked
-      * **user** ``Optional[UserInfo]`` - User is the UserInfo associated with the provided token.
+      * **authenticated** ``Optional[bool]`` - authenticated indicates that the token was associated with a known user.
+      * **error** ``Optional[str]`` - error indicates that the token couldn't be checked
+      * **user** ``Optional[UserInfo]`` - user is the UserInfo associated with the provided token.
     """
     audiences: 'Optional[List[str]]' = None
     authenticated: 'Optional[bool]' = None
@@ -220,11 +220,13 @@ class UserInfo(DictMixin):
 
       **parameters**
 
-      * **extra** ``Optional[dict]`` - Any additional information provided by the authenticator.
-      * **groups** ``Optional[List[str]]`` - The names of groups this user is a part of.
-      * **uid** ``Optional[str]`` - A unique value that identifies this user across time. If this user is deleted
-        and another user by the same name is added, they will have different UIDs.
-      * **username** ``Optional[str]`` - The name that uniquely identifies this user among all active users.
+      * **extra** ``Optional[dict]`` - extra is any additional information provided by the authenticator.
+      * **groups** ``Optional[List[str]]`` - groups is the names of groups this user is a part of.
+      * **uid** ``Optional[str]`` - uid is a unique value that identifies this user across time. If this user is
+        deleted and another user by the same name is added, they will have different
+        UIDs.
+      * **username** ``Optional[str]`` - username is the name that uniquely identifies this user among all active
+        users.
     """
     extra: 'Optional[dict]' = None
     groups: 'Optional[List[str]]' = None

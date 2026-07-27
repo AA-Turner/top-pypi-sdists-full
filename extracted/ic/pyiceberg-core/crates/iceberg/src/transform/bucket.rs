@@ -295,7 +295,7 @@ mod test {
     };
     use crate::spec::Type::{Primitive, Struct};
     use crate::spec::decimal_utils::decimal_new;
-    use crate::spec::{Datum, NestedField, PrimitiveType, StructType, Transform};
+    use crate::spec::{Datum, NestedField, PrimitiveType, StructType, Transform, Type};
     use crate::transform::TransformFunction;
     use crate::transform::test::{TestProjectionFixture, TestTransformFixture};
 
@@ -354,7 +354,7 @@ mod test {
         let fixture = TestProjectionFixture::new(
             Transform::Bucket(10),
             "name",
-            NestedField::required(1, "value", Primitive(Uuid)),
+            NestedField::required(1, "value", Type::Primitive(PrimitiveType::Uuid)),
         );
 
         fixture.assert_projection(
@@ -414,7 +414,11 @@ mod test {
         let fixture = TestProjectionFixture::new(
             Transform::Bucket(10),
             "name",
-            NestedField::required(1, "value", Primitive(Fixed(value.len() as u64))),
+            NestedField::required(
+                1,
+                "value",
+                Type::Primitive(PrimitiveType::Fixed(value.len() as u64)),
+            ),
         );
 
         fixture.assert_projection(
@@ -477,7 +481,7 @@ mod test {
         let fixture = TestProjectionFixture::new(
             Transform::Bucket(10),
             "name",
-            NestedField::required(1, "value", Primitive(PrimitiveType::String)),
+            NestedField::required(1, "value", Type::Primitive(PrimitiveType::String)),
         );
 
         fixture.assert_projection(
@@ -541,7 +545,7 @@ mod test {
             NestedField::required(
                 1,
                 "value",
-                Primitive(Decimal {
+                Type::Primitive(PrimitiveType::Decimal {
                     precision: 9,
                     scale: 2,
                 }),
@@ -613,7 +617,7 @@ mod test {
         let fixture = TestProjectionFixture::new(
             Transform::Bucket(10),
             "name",
-            NestedField::required(1, "value", Primitive(Long)),
+            NestedField::required(1, "value", Type::Primitive(PrimitiveType::Long)),
         );
 
         fixture.assert_projection(
@@ -673,7 +677,7 @@ mod test {
         let fixture = TestProjectionFixture::new(
             Transform::Bucket(10),
             "name",
-            NestedField::required(1, "value", Primitive(Int)),
+            NestedField::required(1, "value", Type::Primitive(PrimitiveType::Int)),
         );
 
         fixture.assert_projection(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skchat-sovereign
-Version: 0.14.16
+Version: 0.14.124
 Summary: AI-native encrypted P2P chat — sovereign communication for humans and AI
 Author-email: smilinTux <admin@smilintux.org>
 License: GPL-3.0-or-later
@@ -27,6 +27,8 @@ Requires-Dist: PGPy>=0.6
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: Pillow>=10.0
 Requires-Dist: filetype>=1.2
+Requires-Dist: fastapi<0.136,>=0.110
+Requires-Dist: uvicorn>=0.29
 Provides-Extra: cli
 Requires-Dist: click>=8.1; extra == "cli"
 Requires-Dist: rich>=13.0; extra == "cli"
@@ -49,6 +51,9 @@ Requires-Dist: httpx>=0.27; extra == "dev"
 Requires-Dist: textual>=0.50; extra == "dev"
 Requires-Dist: skcomms>=0.1.0; extra == "dev"
 Requires-Dist: skmemory>=0.9; extra == "dev"
+Requires-Dist: livekit>=1.0; extra == "dev"
+Requires-Dist: livekit-api>=1.0; extra == "dev"
+Requires-Dist: liboqs-python>=0.10; extra == "dev"
 Dynamic: license-file
 
 # skchat — AI-Native Encrypted Chat 🐧
@@ -213,6 +218,7 @@ flowchart TD
 | Doc | Contents |
 |---|---|
 | **[Architecture](docs/ARCHITECTURE.md)** | inbound/outbound message lifecycle, the @mention advocacy loop, group key state, voice pipeline, source-map, where-it-lives (mermaids) |
+| **[Spaces](docs/SPACES.md)** | sovereign live-audio-rooms SOP: roles, lifecycle, moderation, HTTP API, connectivity, recording, X Spaces parity, and an honest known-gaps section |
 | **[MCP reference](docs/mcp-reference.md)** | every MCP tool, its arguments, and usage from an agent host |
 | **[CLAUDE.md](CLAUDE.md)** | running the daemon, systemd units, identity, troubleshooting |
 | **[Crypto architecture](docs/crypto-architecture.md)** | quantum-resistance: honest claim status, current/future/gaps mermaids, SK-wide identity/key flow, per-surface remediation (S5/S6/S11 → Q2/Q3/Q4) |

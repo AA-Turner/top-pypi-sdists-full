@@ -14,6 +14,7 @@ from .....schema_classes import BrowsePathEntryClass
 from .....schema_classes import BrowsePathsClass
 from .....schema_classes import BrowsePathsV2Class
 from .....schema_classes import ChangeAuditStampsClass
+from .....schema_classes import CompressionTypeClass
 from .....schema_classes import CostClass
 from .....schema_classes import CostCostClass
 from .....schema_classes import CostCostDiscriminatorClass
@@ -48,6 +49,7 @@ from .....schema_classes import InputFieldsClass
 from .....schema_classes import InstitutionalMemoryClass
 from .....schema_classes import InstitutionalMemoryMetadataClass
 from .....schema_classes import InstitutionalMemoryMetadataSettingsClass
+from .....schema_classes import LargeStringClass
 from .....schema_classes import MLFeatureDataTypeClass
 from .....schema_classes import MediaClass
 from .....schema_classes import MediaTypeClass
@@ -84,6 +86,7 @@ BrowsePathEntry = BrowsePathEntryClass
 BrowsePaths = BrowsePathsClass
 BrowsePathsV2 = BrowsePathsV2Class
 ChangeAuditStamps = ChangeAuditStampsClass
+CompressionType = CompressionTypeClass
 Cost = CostClass
 CostCost = CostCostClass
 CostCostDiscriminator = CostCostDiscriminatorClass
@@ -118,6 +121,7 @@ InputFields = InputFieldsClass
 InstitutionalMemory = InstitutionalMemoryClass
 InstitutionalMemoryMetadata = InstitutionalMemoryMetadataClass
 InstitutionalMemoryMetadataSettings = InstitutionalMemoryMetadataSettingsClass
+LargeString = LargeStringClass
 MLFeatureDataType = MLFeatureDataTypeClass
 Media = MediaClass
 MediaType = MediaTypeClass

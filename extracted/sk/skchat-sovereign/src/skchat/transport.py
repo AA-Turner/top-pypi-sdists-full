@@ -24,6 +24,19 @@ from .models import ChatMessage, ContentType, DeliveryStatus
 
 logger = logging.getLogger("skchat.transport")
 
+
+class ConfidentialityError(Exception):
+    """A confidential (ratchet) send could not be sealed — refuse to send.
+
+    Raised by :meth:`ChatTransport.send_message` when a peer has a **live
+    ratchet session** (``mgr.can_ratchet`` is true) but the seal fails to
+    produce a ratchet frame — either by raising, or by returning the body
+    unsealed. Failing closed here prevents the classical fallback from silently
+    handing a **plaintext** envelope to skcomms and downgrading an already
+    established confidential channel (HNDL exposure). See P0.1b.
+    """
+
+
 # Local file outbox that lumina-bridge's poll_outbox_for_lumina() scans.
 _LOCAL_OUTBOX = Path("~/.skcomms/outbox").expanduser()
 
@@ -83,9 +96,7 @@ def _accepts_kwarg(fn: object, name: str) -> bool:
         params = inspect.signature(fn).parameters.values()
     except (TypeError, ValueError):
         return True
-    return any(
-        p.name == name or p.kind == inspect.Parameter.VAR_KEYWORD for p in params
-    )
+    return any(p.name == name or p.kind == inspect.Parameter.VAR_KEYWORD for p in params)
 
 
 def _write_local_loopback(message: ChatMessage) -> None:
@@ -183,6 +194,10 @@ class ChatTransport:
         self._skcomms = skcomms
         self._history = history
         self._crypto = crypto
+        # P0.2: classical PGP signing may be unavailable while ratchet
+        # confidentiality still works (a ratchet-only ChatCrypto — no signing
+        # key). Surfaced by /health + /api/v1/status; NEVER gates the ratchet.
+        self.signing_degraded: bool = self._is_signing_degraded(crypto)
         self._identity = identity
         self._presence_cache = presence_cache  # PresenceCache for typing indicators
         self._fallback_transport = fallback_transport
@@ -200,6 +215,21 @@ class ChatTransport:
         # (SKCOMMS_CONSENT_MODE set); cached None-or-instance so a disabled build
         # never re-pays construction. See skchat.token_wallet.
         self._token_wallet_cached: object = "unset"
+
+    @staticmethod
+    def _is_signing_degraded(crypto: Optional[object]) -> bool:
+        """Whether classical PGP signing is unavailable while confidentiality stands.
+
+        ``True`` only when a crypto engine IS wired but cannot sign (a ratchet-only
+        :class:`~skchat.crypto.ChatCrypto` — see ``ChatCrypto.without_signing_key``):
+        the DM ratchet still provides confidentiality, but classical PGP signatures
+        are degraded. A fully classical deployment with no crypto at all reports
+        ``False`` — nothing is "degraded"; that is the classical baseline. A legacy
+        crypto object predating ``can_sign`` is assumed to sign (no false alarm).
+        """
+        if crypto is None:
+            return False
+        return not bool(getattr(crypto, "can_sign", True))
 
     def _consent_wallet(self):
         """Lazily build the gate-4 :class:`TokenWallet`, or ``None`` when OFF.
@@ -268,8 +298,9 @@ class ChatTransport:
         # Wire the agent's ChatCrypto into the live path if the caller didn't
         # supply one — without this the daemon/CLI/webui built ChatTransport with
         # crypto=None, leaving the DM ratchet inert (RFC-0001 P1) even with
-        # SKCHAT_DM_RATCHET=1. Best-effort: load_agent_crypto returns None on any
-        # failure, preserving the exact prior (classical/skcomms-signed) behaviour.
+        # SKCHAT_DM_RATCHET=1. Best-effort: load_agent_crypto returns a signing
+        # key when present, or a ratchet-only ChatCrypto (signing degraded, ratchet
+        # confidentiality preserved — P0.2) when the PGP key is missing.
         if kwargs.get("crypto") is None:
             from .crypto import load_agent_crypto
 
@@ -420,6 +451,9 @@ class ChatTransport:
             dict: Delivery report with 'delivered' bool and details.
         """
         outbound = message.model_copy()
+        # Authoritative log: record the outbound message once (flag-gated,
+        # idempotent). Delivery status/outcome is separate; this is history.
+        self._history.record_event(message)
 
         # RFC-0001 P1: the Level-3 DM ratchet engages whenever it is enabled and the
         # peer advertises a hybrid prekey — INDEPENDENT of a classical public armor.
@@ -428,18 +462,49 @@ class ChatTransport:
         # so federated DMs silently went out plaintext. Ratchet bodies are AEAD-
         # authenticated and intentionally UNSIGNED (deniable).
         if self._crypto:
-            try:
-                mgr = self._dm_ratchet_manager()
-                if mgr is not None:
-                    if not mgr.can_ratchet(message.recipient):
-                        # First-contact: pull a remote peer's pqdr1 prekey, once.
+            mgr = self._dm_ratchet_manager()
+            if mgr is not None:
+                # Probe ratchet capability tolerantly: a probe error, or a peer
+                # that never resolves a hybrid prekey, means "no live ratchet
+                # session" → the classical/no-ratchet path below stays
+                # byte-for-byte unchanged. First-contact may pull a remote pqdr1
+                # prekey once.
+                ratchet_capable = False
+                try:
+                    ratchet_capable = mgr.can_ratchet(message.recipient)
+                    if not ratchet_capable:
                         self._maybe_fetch_remote_prekey(message.recipient)
-                    if mgr.can_ratchet(message.recipient):
+                        ratchet_capable = mgr.can_ratchet(message.recipient)
+                except Exception as exc:
+                    logger.debug(
+                        "ratchet capability probe failed for %s (classical path): %s",
+                        message.recipient,
+                        exc,
+                    )
+                    ratchet_capable = False
+
+                if ratchet_capable:
+                    # P0.1b FAIL-CLOSED: the peer has a LIVE ratchet session, so a
+                    # classical plaintext envelope would silently downgrade an
+                    # established confidential channel (HNDL exposure). If the seal
+                    # cannot produce a ratchet frame — by raising, or by returning
+                    # the body unsealed — REFUSE the send with ConfidentialityError.
+                    # NO plaintext envelope is ever handed to skcomms.
+                    try:
                         sealed = mgr.seal(outbound)
-                        if self._crypto.is_ratchet_message(sealed):
-                            outbound = sealed  # ratchet-sealed — deniable, no signature
-            except Exception as exc:
-                logger.warning("DM ratchet seal failed (classical fallback): %s", exc)
+                    except ConfidentialityError:
+                        raise
+                    except Exception as exc:
+                        raise ConfidentialityError(
+                            f"refusing to send to {message.recipient}: ratchet seal "
+                            f"failed for a live-ratchet peer ({exc})"
+                        ) from exc
+                    if not self._crypto.is_ratchet_message(sealed):
+                        raise ConfidentialityError(
+                            f"refusing to send to {message.recipient}: ratchet seal "
+                            "produced no confidential frame for a live-ratchet peer"
+                        )
+                    outbound = sealed  # ratchet-sealed — deniable, no signature
 
         # Classical PGP path: only when a recipient public key is available AND the
         # body was not already ratchet-sealed above (unchanged legacy behaviour).
@@ -711,9 +776,7 @@ class ChatTransport:
                     try:
                         msg = _mgr.open(msg)
                     except Exception as exc:
-                        logger.warning(
-                            "Ratchet-decrypt failed for %s: %s", msg.id[:8], exc
-                        )
+                        logger.warning("Ratchet-decrypt failed for %s: %s", msg.id[:8], exc)
                 elif self._crypto and msg.encrypted:
                     try:
                         msg = self._crypto.decrypt_message(msg)
@@ -740,6 +803,7 @@ class ChatTransport:
                 if not (msg.content or "").lstrip().startswith("<event "):
                     try:
                         self._history.save(msg)
+                        self._history.record_event(msg)  # authoritative log
                     except Exception as save_exc:  # noqa: BLE001
                         logger.debug("history.save on receive failed: %s", save_exc)
                 messages.append(msg)
@@ -763,7 +827,9 @@ class ChatTransport:
         messages.extend(file_messages)
 
         if messages:
-            logger.info("Received %d chat message(s)", len(messages))
+            # Routine per-cycle receive chatter → DEBUG (A1). Was INFO and, via
+            # the root FileHandler, a steady contributor to the runaway daemon.log.
+            logger.debug("Received %d chat message(s)", len(messages))
 
         return messages
 
@@ -936,7 +1002,13 @@ class ChatTransport:
                 payload_content = self._extract_payload(envelope)
                 envelope_sender_file = getattr(envelope, "sender", "") or ""
             except Exception as e:
-                logger.warning("transport.py: %s", e)
+                # A full MessageEnvelope parse miss is an EXPECTED fallback here —
+                # file-inbox entries are frequently raw JSON (handled just below)
+                # or CoT/XML beacons, not full wire envelopes. DEBUG, not WARNING,
+                # matching the same expected-fallback demotion on the main receive
+                # path (see the model_validate_json fallback above). Was chronic
+                # log-spam on every raw-JSON / beacon entry.
+                logger.debug("transport.py: %s", e)
                 pass
 
             # Fall back: parse raw JSON and unwrap payload.content or use as-is
@@ -959,6 +1031,28 @@ class ChatTransport:
 
             if payload_content is None:
                 logger.debug("No payload in file inbox entry %s — archiving", env_file.name)
+                self._archive_file_inbox_entry(env_file, archive_dir)
+                continue
+
+            # A3 (F4-skchat): a `<event …>` payload is a TAK/CoT XML presence
+            # beacon riding the same inbox — not a chat message. The main receive
+            # path already skips these at DEBUG (its model_validate_json fallback
+            # + the `<event ` history-skip). Here, without an early skip, such a
+            # beacon gets *wrapped* as a plain-text ChatMessage (via the
+            # envelope-sender fallback below) and floods history + the webui inbox.
+            # Skip it at DEBUG and archive so it is neither surfaced nor
+            # reprocessed every cycle.
+            #
+            # DATA-LOSS fix: match ONLY the narrow beacon prefix `"<event "`,
+            # not any leading `<`. A plain-text message that merely starts with
+            # `<` ("<3", "<div>…", "<-- note") is a real chat message and must
+            # fall through to the wrap+store+return path below, matching the
+            # history-skip on the main receive path (transport.py `"<event "`).
+            if payload_content.lstrip().startswith("<event "):
+                logger.debug(
+                    "File inbox entry %s is an XML/CoT beacon (leading '<') — skipping",
+                    env_file.name,
+                )
                 self._archive_file_inbox_entry(env_file, archive_dir)
                 continue
 
@@ -1055,6 +1149,7 @@ class ChatTransport:
             if not (msg.content or "").lstrip().startswith("<event "):
                 try:
                     self._history.save(msg)
+                    self._history.record_event(msg)  # authoritative log
                 except Exception as save_exc:  # noqa: BLE001
                     logger.debug("history.save on receive failed: %s", save_exc)
             messages.append(msg)
@@ -1063,7 +1158,8 @@ class ChatTransport:
             self._archive_file_inbox_entry(env_file, archive_dir)
 
         if messages:
-            logger.info("File inbox: received %d message(s)", len(messages))
+            # Routine per-cycle receive chatter → DEBUG (A1), matching poll_inbox.
+            logger.debug("File inbox: received %d message(s)", len(messages))
 
         return messages
 

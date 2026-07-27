@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::any::Any;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -71,7 +72,7 @@ impl IcebergCatalogProvider {
 
         let schemas: HashMap<String, Arc<dyn SchemaProvider>> = schema_names
             .into_iter()
-            .zip(providers)
+            .zip(providers.into_iter())
             .map(|(name, provider)| {
                 let provider = Arc::new(provider) as Arc<dyn SchemaProvider>;
                 (name, provider)
@@ -83,6 +84,10 @@ impl IcebergCatalogProvider {
 }
 
 impl CatalogProvider for IcebergCatalogProvider {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn schema_names(&self) -> Vec<String> {
         self.schemas.keys().cloned().collect()
     }

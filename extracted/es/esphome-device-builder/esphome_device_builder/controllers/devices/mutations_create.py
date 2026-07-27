@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, NoReturn
 
+from esphome.const import ALLOWED_NAME_CHARS
 from esphome.storage_json import StorageJSON
 
 from ...helpers.api import CommandError
@@ -16,6 +17,7 @@ from ...helpers.yaml import write_user_yaml
 from ...models import ErrorCode, WizardResponse
 from ..editor import IMPORT_VALIDATE_TIMEOUT
 from .helpers import (
+    _HOSTNAME_MAX_LEN,
     _looks_binary,
     clean_friendly_name,
     slugify_hostname,
@@ -33,11 +35,23 @@ if TYPE_CHECKING:
 # like ``!secretsauce`` or a literal ``!secret `` without a key is left alone.
 _SECRET_TAG_RE = re.compile(r"^\s*!secret\s+\S")
 
+# An explicitly chosen hostname: esphome's ALLOWED_NAME_CHARS within its
+# hostname length cap, minus edge hyphens (RFC 1123 labels can't start or
+# end with one — resolvers may refuse the .local name). Derived from the
+# upstream constant so the class can't drift (mirrors _VALID_ESPHOME_NAME_RE).
+# Checked, never rewritten (see _resolve_names).
+_NAME_CHARS = re.escape(ALLOWED_NAME_CHARS)
+_EDGE_CHARS = re.escape(ALLOWED_NAME_CHARS.replace("-", ""))
+_HOSTNAME_RE = re.compile(
+    rf"[{_EDGE_CHARS}](?:[{_NAME_CHARS}]{{0,{_HOSTNAME_MAX_LEN - 2}}}[{_EDGE_CHARS}])?"
+)
+
 
 async def create_device(  # noqa: C901, PLR0912
     controller: DevicesController,
     *,
     name: str,
+    friendly_name: str | None = None,
     board_id: str | None,
     ssid: str,
     psk: str,
@@ -47,10 +61,12 @@ async def create_device(  # noqa: C901, PLR0912
     """
     Create a new device configuration.
 
-    Three flows decided by which arguments are provided:
-    *file_content* writes user-supplied YAML as-is; *board_id*
-    generates from the board template; neither emits a minimal
-    valid esp32 stub for the wizard's "empty configuration"
+    With *friendly_name*, *name* is the hostname (validated, never
+    rewritten); without it, *name* is the raw display label and both
+    values derive from it. Three flows decided by which
+    arguments are provided: *file_content* writes user-supplied YAML
+    as-is; *board_id* generates from the board template; neither emits
+    a minimal valid esp32 stub for the wizard's "empty configuration"
     button. Generated flows validate before write
     (``INTERNAL_ERROR`` on regression); the user-upload flow
     deliberately skips validation so an existing config from
@@ -64,24 +80,7 @@ async def create_device(  # noqa: C901, PLR0912
     metadata (labels / comment, and its board_id unless a new
     *board_id* is explicitly provided) and StorageJSON.
     """
-    # The wizard passes the user's raw input here — capitalisation,
-    # inter-word spaces, and unicode all stay intact. ``clean_friendly_name``
-    # makes it a valid ``esphome.friendly_name:`` (trims, swaps the
-    # reserved ``/`` for ``⁄`` as ESPHome itself does, drops control
-    # chars, clamps to the byte cap), and ``slugify_hostname`` derives
-    # the canonical lowercase-dashed hostname clamped to ESPHome's name
-    # length cap (mDNS / filename / esphome.name: schema). Centralising
-    # both here keeps the frontend out of the sanitisation business and
-    # avoids two implementations drifting.
-    friendly = clean_friendly_name(name)
-    if not friendly:
-        raise CommandError(ErrorCode.INVALID_ARGS, "name is required")
-    name = slugify_hostname(friendly)
-    if not name:
-        raise CommandError(
-            ErrorCode.INVALID_ARGS,
-            f"name {friendly!r} has no hostname-safe characters",
-        )
+    name, friendly = _resolve_names(name, friendly_name)
 
     # ssid/psk are literal credentials only for the generated flows; the
     # file_content upload writes user YAML as-is and ignores them. Match
@@ -222,3 +221,40 @@ def init_device_storage(filename: str, name: str, friendly_name: str | None, pla
         no_mdns=False,
     )
     save_device_storage(filename, storage)
+
+
+def _resolve_names(name: str, friendly_name: str | None) -> tuple[str, str]:
+    """
+    Resolve the (hostname, friendly) pair from the command's name args.
+
+    With a *friendly_name* that cleans non-empty, *name* is the hostname and
+    is validated, never rewritten — a silent ``slugify_hostname`` here would
+    create a different name than the caller previewed. Otherwise both derive
+    from *name* as the raw display label: ``clean_friendly_name`` makes it a
+    valid ``esphome.friendly_name:`` and ``slugify_hostname`` yields the
+    canonical lowercase-dashed hostname clamped to ESPHome's name length cap
+    (mDNS / filename / ``esphome.name:`` schema).
+    """
+    friendly = clean_friendly_name(friendly_name) if friendly_name else ""
+    if friendly:
+        hostname = name.strip()
+        if not hostname:
+            raise CommandError(ErrorCode.INVALID_ARGS, "name is required")
+        if not _HOSTNAME_RE.fullmatch(hostname):
+            raise CommandError(
+                ErrorCode.INVALID_ARGS,
+                f"name {hostname!r} is not a valid hostname (lowercase letters, "
+                f"digits, hyphens, and underscores; no leading or trailing hyphen; "
+                f"at most {_HOSTNAME_MAX_LEN} chars)",
+            )
+        return hostname, friendly
+    friendly = clean_friendly_name(name)
+    if not friendly:
+        raise CommandError(ErrorCode.INVALID_ARGS, "name is required")
+    hostname = slugify_hostname(friendly)
+    if not hostname:
+        raise CommandError(
+            ErrorCode.INVALID_ARGS,
+            f"name {friendly!r} has no hostname-safe characters",
+        )
+    return hostname, friendly

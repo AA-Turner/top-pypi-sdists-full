@@ -6,10 +6,10 @@ from ._schema import dataclass, field, DictMixin
 if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.com/issue/PY-54560
     from dataclasses import dataclass, field
 
+from . import meta_v1
 from . import core_v1
 from . import runtime
 from . import resource
-from . import meta_v1
 
 
 @dataclass
@@ -58,8 +58,8 @@ class AllocationResult(DictMixin):
 
       * **allocationTimestamp** ``Optional[meta_v1.Time]`` - AllocationTimestamp stores the time when the resources were allocated. This
         field is not guaranteed to be set, in which case that time is unknown.
-        This is an alpha field and requires enabling the DRADeviceBindingConditions
-        and DRAResourceClaimDeviceStatus feature gate.
+        This is a beta field and requires enabling the DRADeviceBindingConditions and
+        DRAResourceClaimDeviceStatus feature gate.
       * **devices** ``Optional[DeviceAllocationResult]`` - Devices is the result of allocating devices.
       * **nodeSelector** ``Optional[core_v1.NodeSelector]`` - NodeSelector defines where the allocated resources are available. If unset,
         they are available everywhere.
@@ -114,6 +114,11 @@ class CELDeviceSelector(DictMixin):
         example:
             cel.bind(dra, device.attributes["dra.example.com"], dra.someBool &&
         dra.anotherBool)
+        When the DRAListTypeAttributes feature gate is enabled, the includes() helper
+        is available and it can work for both scalar and list-type attributes. It was
+        introduced to support smooth migration from scalar attributes to list-type
+        attributes while keeping CEL expressions simple. For example:
+            device.attributes["dra.example.com"].models.includes("some-model")
         The length of the expression must be smaller or equal to 10 Ki. The cost of
         evaluating it is also limited based on the estimated number of logical steps.
     """
@@ -274,22 +279,22 @@ class Device(DictMixin):
         of True to proceed with binding the pod to the node while scheduling the pod.
         The maximum number of binding conditions is 4.
         The conditions must be a valid condition type string.
-        This is an alpha field and requires enabling the DRADeviceBindingConditions
-        and DRAResourceClaimDeviceStatus feature gates.
+        This is a beta field and requires enabling the DRADeviceBindingConditions and
+        DRAResourceClaimDeviceStatus feature gates.
       * **bindingFailureConditions** ``Optional[List[str]]`` - BindingFailureConditions defines the conditions for binding failure. They may
         be set in the per-device status conditions. If any is set to "True", a binding
         failure occurred.
         The maximum number of binding failure conditions is 4.
         The conditions must be a valid condition type string.
-        This is an alpha field and requires enabling the DRADeviceBindingConditions
-        and DRAResourceClaimDeviceStatus feature gates.
+        This is a beta field and requires enabling the DRADeviceBindingConditions and
+        DRAResourceClaimDeviceStatus feature gates.
       * **bindsToNode** ``Optional[bool]`` - BindsToNode indicates if the usage of an allocation involving this device has
         to be limited to exactly the node that was chosen when allocating the claim.
         If set to true, the scheduler will set the
         ResourceClaim.Status.Allocation.NodeSelector to match the node where the
         allocation was made.
-        This is an alpha field and requires enabling the DRADeviceBindingConditions
-        and DRAResourceClaimDeviceStatus feature gates.
+        This is a beta field and requires enabling the DRADeviceBindingConditions and
+        DRAResourceClaimDeviceStatus feature gates.
       * **capacity** ``Optional[dict]`` - Capacity defines the set of capacities for this device. The name of each
         capacity must be unique in that set.
         The maximum number of attributes and capacities combined is 32.
@@ -297,6 +302,18 @@ class Device(DictMixin):
         counters that the device will consume from those counter sets.
         There can only be a single entry per counterSet.
         The maximum number of device counter consumptions per device is 2.
+      * **nodeAllocatableResourceMappings** ``Optional[dict]`` - NodeAllocatableResourceMappings defines the mapping of node resources that are
+        managed by the DRA driver exposing this device. This includes resources
+        currently reported in v1.Node `status.allocatable` that are not extended
+        resources (see
+        https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#extended-resources).
+        Examples include "cpu", "memory", "ephemeral-storage", and hugepages. In
+        addition to standard requests made through the Pod `spec`, these resources can
+        also be requested through claims and allocated by the DRA driver. For example,
+        a CPU DRA driver might allocate exclusive CPUs or auxiliary node memory
+        dependencies of an accelerator device. The keys of this map are the
+        node-allocatable resource names (e.g., "cpu", "memory"). Extended resource
+        names are not permitted as keys.
       * **nodeName** ``Optional[str]`` - NodeName identifies the node where the device is available.
         Must only be set if Spec.PerDeviceNodeSelection is set to true. At most one of
         NodeName, NodeSelector and AllNodes can be set.
@@ -308,7 +325,7 @@ class Device(DictMixin):
         The maximum number of taints is 16. If taints are set for any device in a
         ResourceSlice, then the maximum number of allowed devices per ResourceSlice is
         64 instead of 128.
-        This is an alpha field and requires enabling the DRADeviceTaints feature gate.
+        This is a beta field and requires enabling the DRADeviceTaints feature gate.
     """
     name: 'str'
     allNodes: 'Optional[bool]' = None
@@ -319,6 +336,7 @@ class Device(DictMixin):
     bindsToNode: 'Optional[bool]' = None
     capacity: 'Optional[dict]' = None
     consumesCounters: 'Optional[List[DeviceCounterConsumption]]' = None
+    nodeAllocatableResourceMappings: 'Optional[dict]' = None
     nodeName: 'Optional[str]' = None
     nodeSelector: 'Optional[core_v1.NodeSelector]' = None
     taints: 'Optional[List[DeviceTaint]]' = None
@@ -369,15 +387,31 @@ class DeviceAttribute(DictMixin):
       **parameters**
 
       * **bool** ``Optional[bool]`` - BoolValue is a true/false value.
+      * **bools** ``Optional[List[bool]]`` - BoolValues is a non-empty list of true/false values.
       * **int** ``Optional[int]`` - IntValue is a number.
+      * **ints** ``Optional[List[int]]`` - IntValues is a non-empty list of numbers.
+        This is an alpha field and requires enabling the DRAListTypeAttributes feature
+        gate.
       * **string** ``Optional[str]`` - StringValue is a string. Must not be longer than 64 characters.
+      * **strings** ``Optional[List[str]]`` - StringValues is a non-empty list of strings. Each string must not be longer
+        than 64 characters.
+        This is an alpha field and requires enabling the DRAListTypeAttributes feature
+        gate.
       * **version** ``Optional[str]`` - VersionValue is a semantic version according to semver.org spec 2.0.0. Must
         not be longer than 64 characters.
+      * **versions** ``Optional[List[str]]`` - VersionValues is a non-empty list of semantic versions according to semver.org
+        spec 2.0.0. Each version string must not be longer than 64 characters.
+        This is an alpha field and requires enabling the DRAListTypeAttributes feature
+        gate.
     """
     bool: 'Optional[bool]' = None
+    bools: 'Optional[List[bool]]' = None
     int: 'Optional[int]' = None
+    ints: 'Optional[List[int]]' = None
     string: 'Optional[str]' = None
+    strings: 'Optional[List[str]]' = None
     version: 'Optional[str]' = None
+    versions: 'Optional[List[str]]' = None
 
 
 @dataclass
@@ -442,9 +476,6 @@ class DeviceClass(DictMixin):
     r"""DeviceClass is a vendor- or admin-provided resource that contains device
       configuration and selectors. It can be referenced in the device requests of a
       claim to apply these presets. Cluster scoped.
-      
-      This is an alpha type and requires enabling the DynamicResourceAllocation
-      feature gate.
 
       **parameters**
 
@@ -532,7 +563,7 @@ class DeviceClassSpec(DictMixin):
         to satisfy a pod's extended resource requests. If two classes are created at
         the same time, then the name of the class lexicographically sorted first is
         picked.
-        This is an alpha field.
+        This is a beta field.
       * **selectors** ``Optional[List[DeviceSelector]]`` - Each selector must be satisfied by a device which is claimed via this class.
     """
     config: 'Optional[List[DeviceClassConfiguration]]' = None
@@ -548,6 +579,10 @@ class DeviceConstraint(DictMixin):
 
       * **distinctAttribute** ``Optional[str]`` - DistinctAttribute requires that all devices in question have this attribute
         and that its type and value are unique across those devices.
+        When the DRAListTypeAttributes feature gate is enabled, comparison uses set
+        semantics (i.e., element order and duplicates are ignored): list-valued
+        attributes must be pairwise disjoint across devices. Scalar values are treated
+        as singleton sets for backward compatibility.
         This acts as the inverse of MatchAttribute.
         This constraint is used to avoid allocating multiple requests to the same
         device by ensuring attribute-level differentiation.
@@ -561,6 +596,10 @@ class DeviceConstraint(DictMixin):
         which does not have that attribute will not be chosen. All devices should use
         a value of the same type for this attribute because that is part of its
         specification, but if one device doesn't, then it also will not be chosen.
+        When the DRAListTypeAttributes feature gate is enabled, comparison uses set
+        semantics(i.e., element order and duplicates are ignored): list-valued
+        attributes match when the intersection across all devices is non-empty. Scalar
+        values are treated as single-element lists for backward compatibility.
         Must include the domain qualifier.
       * **requests** ``Optional[List[str]]`` - Requests is a list of the one or more requests in this claim which must
         co-satisfy this constraint. If a request is fulfilled by multiple devices,
@@ -649,17 +688,16 @@ class DeviceRequestAllocationResult(DictMixin):
         Multiple devices may have been allocated per request.
       * **adminAccess** ``Optional[bool]`` - AdminAccess indicates that this device was allocated for administrative
         access. See the corresponding request field for a definition of mode.
-        This is an alpha field and requires enabling the DRAAdminAccess feature gate.
         Admin access is disabled if this field is unset or set to false, otherwise it
         is enabled.
       * **bindingConditions** ``Optional[List[str]]`` - BindingConditions contains a copy of the BindingConditions from the
         corresponding ResourceSlice at the time of allocation.
-        This is an alpha field and requires enabling the DRADeviceBindingConditions
-        and DRAResourceClaimDeviceStatus feature gates.
+        This is a beta field and requires enabling the DRADeviceBindingConditions and
+        DRAResourceClaimDeviceStatus feature gates.
       * **bindingFailureConditions** ``Optional[List[str]]`` - BindingFailureConditions contains a copy of the BindingFailureConditions from
         the corresponding ResourceSlice at the time of allocation.
-        This is an alpha field and requires enabling the DRADeviceBindingConditions
-        and DRAResourceClaimDeviceStatus feature gates.
+        This is a beta field and requires enabling the DRADeviceBindingConditions and
+        DRAResourceClaimDeviceStatus feature gates.
       * **consumedCapacity** ``Optional[dict]`` - ConsumedCapacity tracks the amount of capacity consumed per device as part of
         the claim request. The consumed amount may differ from the requested amount:
         it is rounded up to the nearest valid value based on the device’s
@@ -674,7 +712,7 @@ class DeviceRequestAllocationResult(DictMixin):
       * **tolerations** ``Optional[List[DeviceToleration]]`` - A copy of all tolerations specified in the request at the time when the device
         got allocated.
         The maximum number of tolerations is 16.
-        This is an alpha field and requires enabling the DRADeviceTaints feature gate.
+        This is a beta field and requires enabling the DRADeviceTaints feature gate.
     """
     device: 'str'
     driver: 'str'
@@ -760,7 +798,7 @@ class DeviceSubRequest(DictMixin):
         reserve the claim while it has these tainted devices. Once all pods are
         evicted, the claim will get deallocated.
         The maximum number of tolerations is 16.
-        This is an alpha field and requires enabling the DRADeviceTaints feature gate.
+        This is a beta field and requires enabling the DRADeviceTaints feature gate.
     """
     deviceClassName: 'str'
     name: 'str'
@@ -784,8 +822,15 @@ class DeviceTaint(DictMixin):
         nodes is not valid here. More effects may get added in the future. Consumers
         must treat unknown effects like None.
       * **key** ``str`` - The taint key to be applied to a device. Must be a label name.
-      * **timeAdded** ``Optional[meta_v1.Time]`` - TimeAdded represents the time at which the taint was added. Added
-        automatically during create or update if not set.
+      * **timeAdded** ``Optional[meta_v1.Time]`` - TimeAdded represents the time at which the taint was added or (only in a
+        DeviceTaintRule) the effect was modified. Added automatically during create or
+        update if not set.
+        In addition, in a DeviceTaintRule a value provided during an update gets
+        replaced with the current time if the provided value is the same as the old
+        one and the new effect is different. Changing the key and/or value while
+        keeping the effect unchanged is possible and does not update the time stamp
+        because the eviction which uses it is either already started (NoExecute) or
+        not started yet (NoEffect, NoSchedule).
       * **value** ``Optional[str]`` - The taint value corresponding to the taint key. Must be a label value.
     """
     effect: 'str'
@@ -845,7 +890,6 @@ class ExactDeviceRequest(DictMixin):
         device(s). Claims with AdminAccess are expected to be used for monitoring or
         other management services for a device.  They ignore all ordinary claims to
         the device with respect to access modes and any resource allocations.
-        This is an alpha field and requires enabling the DRAAdminAccess feature gate.
         Admin access is disabled if this field is unset or set to false, otherwise it
         is enabled.
       * **allocationMode** ``Optional[str]`` - AllocationMode and its related fields define how devices are allocated to
@@ -886,7 +930,7 @@ class ExactDeviceRequest(DictMixin):
         reserve the claim while it has these tainted devices. Once all pods are
         evicted, the claim will get deallocated.
         The maximum number of tolerations is 16.
-        This is an alpha field and requires enabling the DRADeviceTaints feature gate.
+        This is a beta field and requires enabling the DRADeviceTaints feature gate.
     """
     deviceClassName: 'str'
     adminAccess: 'Optional[bool]' = None
@@ -907,11 +951,11 @@ class NetworkDeviceData(DictMixin):
 
       * **hardwareAddress** ``Optional[str]`` - HardwareAddress represents the hardware address (e.g. MAC Address) of the
         device's network interface.
-        Must not be longer than 128 characters.
+        Must not be longer than 128 bytes.
       * **interfaceName** ``Optional[str]`` - InterfaceName specifies the name of the network interface associated with the
         allocated device. This might be the name of a physical or virtual network
         interface being configured in the pod.
-        Must not be longer than 256 characters.
+        Must not be longer than 256 bytes.
       * **ips** ``Optional[List[str]]`` - IPs lists the network addresses assigned to the device's network interface.
         This can include both IPv4 and IPv6 addresses. The IPs are in the CIDR
         notation, which includes both the address and the associated subnet mask.
@@ -920,6 +964,55 @@ class NetworkDeviceData(DictMixin):
     hardwareAddress: 'Optional[str]' = None
     interfaceName: 'Optional[str]' = None
     ips: 'Optional[List[str]]' = None
+
+
+@dataclass
+class NodeAllocatableResourceMapping(DictMixin):
+    r"""NodeAllocatableResourceMapping defines the translation between the DRA
+      device/capacity units requested to the corresponding quantity of the node
+      allocatable resource.
+
+      **parameters**
+
+      * **allocationMultiplier** ``Optional[resource.Quantity]`` - AllocationMultiplier is used as a multiplier for the allocated device count or
+        the allocated capacity in the claim. It defaults to 1 if not specified. How
+        the field is used also depends on whether `capacityKey` is set. 1.  If
+        `capacityKey` is NOT set: `allocationMultiplier` multiplies the device count
+        allocated to the claim.
+        	   a. A DRA driver representing each CPU core as a device would have
+               {ResourceName: "cpu", allocationMultiplier: "2"} in its
+               `nodeAllocatableResourceMappings`. If 4 devices are allocated to the
+        claim,
+        		  4 * 2 CPUs would be considered as allocated and subtracted from the node's
+        capacity.
+            b. A GPU device that needs additional node memory per GPU allocation would
+               have {ResourceName: "memory", allocationMultiplier: "2Gi"}.  Each
+        allocated
+        		  GPU device instance of this type will account for 2Gi of memory.
+        2.  If `capacityKey` IS set: `allocationMultiplier` is multiplied by the
+        amount of that capacity consumed.
+        	   The final node allocatable resource amount is
+        `consumedCapacity[capacityKey]` * `allocationMultiplier`.
+            For example, if a Device's capacity "dra.example.com/cores" is consumed,
+            and each "core" provides 2 "cpu"s, the mapping would be:
+            {ResourceName: "cpu", capacityKey: "dra.example.com/cores",
+        allocationMultiplier: "2"}.
+            If a claim consumes 8 "dra.example.com/cores", the CPU footprint is 8 * 2
+        = 16.
+      * **capacityKey** ``Optional[str]`` - CapacityKey references a capacity name defined as a key in the
+        `spec.devices[*].capacity` map. When this field is set, the value associated
+        with this key in the `status.allocation.devices.results[*].consumedCapacity`
+        map (for a specific claim allocation) determines the base quantity for the
+        node allocatable resource. If `allocationMultiplier` is also set, it is
+        multiplied with the base quantity. For example, if `spec.devices[*].capacity`
+        has an entry "dra.example.com/memory": "128Gi", and this field is set to
+        "dra.example.com/memory", then for a claim allocation that consumes {
+        "dra.example.com/memory": "4Gi" } the base quantity for the node allocatable
+        resource mapping will be "4Gi", and `allocationMultiplier` should be omitted
+        or set to "1".
+    """
+    allocationMultiplier: 'Optional[resource.Quantity]' = None
+    capacityKey: 'Optional[str]' = None
 
 
 @dataclass
@@ -952,9 +1045,6 @@ class ResourceClaim(DictMixin):
       specific properties, this is how that request is expressed. The status stanza
       tracks whether this claim has been satisfied and what specific resources have
       been allocated.
-      
-      This is an alpha type and requires enabling the DynamicResourceAllocation
-      feature gate.
 
       **parameters**
 
@@ -1078,9 +1168,6 @@ class ResourceClaimStatus(DictMixin):
 @dataclass
 class ResourceClaimTemplate(DictMixin):
     r"""ResourceClaimTemplate is used to produce ResourceClaim objects.
-      
-      This is an alpha type and requires enabling the DynamicResourceAllocation
-      feature gate.
 
       **parameters**
 
@@ -1207,9 +1294,6 @@ class ResourceSlice(DictMixin):
       
       For resources that are not local to a node, the node name is not set. Instead,
       the driver may use a node selector to specify where the devices are available.
-      
-      This is an alpha type and requires enabling the DynamicResourceAllocation
-      feature gate.
 
       **parameters**
 

@@ -14,6 +14,7 @@ from scramp.core import (
     Nonce,
     SERVER_ERROR_INVALID_PROOF,
     Salt,
+    Username,
     _check_client_key,
     _get_client_final,
     _parse_message,
@@ -53,6 +54,12 @@ from scramp.utils import b64dec, b64enc
             "Malformed trial message. Expected the attribute set to be one of [{c}] "
             "but found {e}: other-error",
         ],
+        [
+            "e=\x00",
+            [{"e"}],
+            "Malformed trial message. Attribute values can't contain the NUL "
+            "character: other-error",
+        ],
     ],
 )
 def test_parse_message_fail(msg, att_sets, error_msg):
@@ -67,8 +74,8 @@ def test_parse_message_fail(msg, att_sets, error_msg):
     [
         ["c=jk,i=kln", [{"c", "i"}], {"c": "jk", "i": "kln"}],
         ["c=jk,i=kln", [{"a", "b", "c"}, {"c", "i"}], {"c": "jk", "i": "kln"}],
-        ["c=", [{"c"}], {"c": ""}],
-        ["k=k,c=", [{"c"}], {"c": ""}],
+        ["c=b", [{"c"}], {"c": "b"}],
+        ["k=k,c=b", [{"c"}], {"c": "b"}],
     ],
 )
 def test_parse_message_succeed(msg, att_sets, result):
@@ -507,7 +514,7 @@ params = [
 def test_get_client_first(x):
     gs2_header = Gs2Header.from_binding(x["c_channel_binding"], x["c_use_binding"])
     cfirst_bare, cfirst = core._get_client_first(
-        x["username"], x["c_nonce"], gs2_header
+        Username(x["username"]), x["c_nonce"], gs2_header
     )
 
     assert cfirst_bare == x["cfirst_bare"]

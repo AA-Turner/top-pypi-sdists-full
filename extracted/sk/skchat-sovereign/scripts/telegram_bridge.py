@@ -12,8 +12,29 @@ Env:
   SKC_BRIDGE_LLM_URL       OpenAI /v1/chat/completions endpoint
   SKC_BRIDGE_LLM_MODEL     model name
   SKC_BRIDGE_AGENT         agent display/persona name (default: Opus)
+  SKCHAT_SRC / SKCOMMS_SRC optional path overrides to a checkout's src/
+                           directory for the skchat / skcomms imports. Only
+                           consulted when the packages are NOT already
+                           pip-installed into the running venv (installed
+                           packages are preferred); the final fallback is
+                           this checkout's own layout (<repo>/src plus the
+                           sibling ../skcomms/src). See scripts/bridge_paths.py.
+  SKC_BRIDGE_POLL_TIMEOUT  seconds to bound one poll cycle (default 20); a
+                           hang past this counts as a poll failure. See
+                           scripts/bridge_watchdog.py.
+  SKC_BRIDGE_WEDGE_THRESHOLD  consecutive poll failures before the bridge
+                           logs, sk-alerts, and exits for systemd to restart
+                           it (default 3).
 
-Run via systemd (skchat-telegram-opus.service); restarts on failure.
+Run `telegram_bridge.py --check` for a dry import check (no token or network
+needed): it prints where skchat/skcomms resolved from and exits.
+
+Run via systemd (skchat-telegram-opus.service); restarts on failure. Under
+the systemd/dropins/telegram-watchdog.conf drop-in (Type=notify) the bridge
+also sends a READY=1 handshake on startup and a WATCHDOG=1 heartbeat after
+each successful poll, and systemd itself restarts the process if it stops
+heartbeating for WatchdogSec (see that file). Both behaviors are a no-op
+when NOTIFY_SOCKET is unset, e.g. running this script directly or in tests.
 """
 from __future__ import annotations
 
@@ -28,11 +49,36 @@ import time
 import urllib.request
 from collections import defaultdict, deque
 
-sys.path.insert(0, "/home/cbrd21/clawd/skcapstone-repos/skcomms/src")
-sys.path.insert(0, "/home/cbrd21/clawd/skcapstone-repos/skchat/src")
+# Portable import-path setup (no hardcoded machine paths): prefer the
+# installed skchat/skcomms packages (pip install -e into the venv); fall back
+# to the SKCHAT_SRC/SKCOMMS_SRC env overrides, then to this checkout's repo
+# layout (<repo>/src and the sibling ../skcomms/src). See scripts/bridge_paths.py.
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if _SCRIPT_DIR not in sys.path:
+    # Sibling script modules (bridge_paths, bridge_consciousness). Already
+    # present when run as a script; needed when imported as a module (tests).
+    sys.path.insert(0, _SCRIPT_DIR)
+
+import bridge_paths as _bridge_paths  # noqa: E402
+import bridge_watchdog as _bw  # noqa: E402
+
+_SRC_PATHS_ADDED = _bridge_paths.ensure_importable()
 
 from skcomms.adapters.telegram import TelegramAdapter  # noqa: E402
 from skchat.adapter_hub import AdapterHub  # noqa: E402
+
+# Dry import check: `telegram_bridge.py --check` proves the skchat/skcomms
+# imports resolve (installed packages or derived paths) and exits BEFORE any
+# token read, network call, or agent state is touched. Safe on the live box.
+if __name__ == "__main__" and "--check" in sys.argv:
+    import skchat as _skchat_pkg
+    import skcomms as _skcomms_pkg
+
+    print(f"skchat  -> {_skchat_pkg.__file__}")
+    print(f"skcomms -> {_skcomms_pkg.__file__}")
+    print(f"src paths added: {_SRC_PATHS_ADDED or 'none (installed packages)'}")
+    print("imports OK")
+    sys.exit(0)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 # Don't let the HTTP client log the bot token (it appears in the getUpdates URL).
@@ -47,6 +93,21 @@ LLM_URL = os.environ.get("SKC_BRIDGE_LLM_URL", "http://192.168.0.100:8082/v1/cha
 _GATEWAY_URL = os.environ.get("SKC_BRIDGE_GATEWAY_URL", "http://127.0.0.1:18780/v1")
 LLM_MODEL = os.environ.get("SKC_BRIDGE_LLM_MODEL", "qwen3.6-27b-abliterated")
 AGENT = os.environ.get("SKC_BRIDGE_AGENT", "Opus")
+
+# ── Wedge detection (sd_notify heartbeat + poll-failure watchdog) ──────────── #
+# The bridge wedges silently when a poll hangs on a Telegram ConnectTimeout: the
+# httpx client itself is bounded (skcomms TelegramAdapter._poll uses a 15s httpx
+# timeout around a 10s getUpdates long-poll, so a normal idle cycle finishes in
+# ~10-15s), but the documented incident is the underlying socket hanging past
+# that. SKC_BRIDGE_POLL_TIMEOUT bounds the whole call from outside via
+# asyncio.wait_for, with margin above the ~15s normal case but tight enough that
+# SKC_BRIDGE_WEDGE_THRESHOLD consecutive timeouts (plus the sk-alert call) still
+# complete comfortably inside the systemd drop-in's WatchdogSec=90 -- so this
+# bridge's own log+alert+exit(1) path wins the race against systemd's blunter
+# watchdog kill (which restarts but cannot alert). See systemd/dropins/
+# telegram-watchdog.conf and tests/test_bridge_watchdog.py.
+POLL_TIMEOUT = int(os.environ.get("SKC_BRIDGE_POLL_TIMEOUT", "20"))
+WEDGE_THRESHOLD = int(os.environ.get("SKC_BRIDGE_WEDGE_THRESHOLD", "3"))
 
 # ── Per-chat model routing (skmodels registry) ─────────────────────────────── #
 # Each Telegram chat can be pinned to a logical role (sk-default/sk-vision/…) with
@@ -1031,13 +1092,33 @@ async def main() -> None:
     hub = AdapterHub(outbound_adapter=adapter, resolve_fqid=lambda ident: "chef@skworld.io")
     _init_brain()
     log.info("Telegram bridge live as %s — polling getUpdates", AGENT)
+    # Tell systemd (Type=notify drop-in) startup is done; a no-op when
+    # NOTIFY_SOCKET is unset (not running under that unit, or in tests).
+    _bw.sd_notify("READY=1")
+    failures = _bw.PollFailureTracker(threshold=WEDGE_THRESHOLD)
     while True:
         try:
             # Seatbelt: a wedged httpx connection pool (observed after a Telegram
             # ConnectTimeout) can make _poll() hang forever, silently killing the
             # bot while systemd still sees it "active". Bound every poll so a hang
             # raises TimeoutError → caught below → loop retries instead of wedging.
-            updates = await asyncio.wait_for(adapter._poll(), timeout=45)
+            updates = await asyncio.wait_for(adapter._poll(), timeout=POLL_TIMEOUT)
+        except Exception:
+            log.exception("poll failed or timed out (consecutive %d/%d)",
+                          failures.consecutive + 1, failures.threshold)
+            if failures.on_failure():
+                msg = (f"telegram bridge {AGENT} wedged after {failures.threshold} "
+                       f"failures, exiting for restart")
+                log.error(msg)
+                _bw.sk_alert(msg)
+                sys.exit(1)
+            await asyncio.sleep(2)
+            continue
+        failures.on_success()
+        # A successful poll cycle -- heartbeat so systemd's WatchdogSec doesn't
+        # kill us; no-op when NOTIFY_SOCKET is unset.
+        _bw.sd_notify("WATCHDOG=1")
+        try:
             for u in updates:
                 # Emoji reaction on a bot image/video → rating loop (no reply).
                 if u.get("message_reaction"):

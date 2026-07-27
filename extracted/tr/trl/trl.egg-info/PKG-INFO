@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trl
-Version: 1.9.0
+Version: 1.9.1
 Summary: Train transformer language models with reinforcement learning.
 Author-email: Leandro von Werra <leandro.vonwerra@gmail.com>
 License-Expression: Apache-2.0
@@ -35,14 +35,14 @@ Provides-Extra: kernels
 Requires-Dist: transformers[kernels]; extra == "kernels"
 Requires-Dist: transformers[hub-kernels]; extra == "kernels"
 Provides-Extra: liger
-Requires-Dist: liger-kernel>=0.8.0; extra == "liger"
+Requires-Dist: liger-kernel!=0.8.1,>=0.8.0; extra == "liger"
 Provides-Extra: peft
 Requires-Dist: peft>=0.8.0; extra == "peft"
 Provides-Extra: quality
 Requires-Dist: pre-commit; extra == "quality"
 Requires-Dist: hf-doc-builder; extra == "quality"
 Provides-Extra: quantization
-Requires-Dist: bitsandbytes; extra == "quantization"
+Requires-Dist: bitsandbytes<0.50.0; extra == "quantization"
 Provides-Extra: scikit
 Requires-Dist: scikit-learn; extra == "scikit"
 Provides-Extra: test
@@ -74,12 +74,12 @@ Requires-Dist: joblib; extra == "dev"
 Requires-Dist: deepspeed>=0.14.4; extra == "dev"
 Requires-Dist: transformers[kernels]; extra == "dev"
 Requires-Dist: transformers[hub-kernels]; extra == "dev"
-Requires-Dist: liger-kernel>=0.8.0; extra == "dev"
+Requires-Dist: liger-kernel!=0.8.1,>=0.8.0; extra == "dev"
 Requires-Dist: openreward>=0.1.109; python_version >= "3.11" and extra == "dev"
 Requires-Dist: peft>=0.8.0; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: hf-doc-builder; extra == "dev"
-Requires-Dist: bitsandbytes; extra == "dev"
+Requires-Dist: bitsandbytes<0.50.0; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest-datadir>=1.7.0; extra == "dev"
 Requires-Dist: pytest-rerunfailures==15.1; extra == "dev"

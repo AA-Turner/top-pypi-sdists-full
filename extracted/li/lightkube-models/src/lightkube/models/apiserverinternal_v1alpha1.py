@@ -17,17 +17,18 @@ class ServerStorageVersion(DictMixin):
 
       **parameters**
 
-      * **apiServerID** ``Optional[str]`` - The ID of the reporting API server.
-      * **decodableVersions** ``Optional[List[str]]`` - The API server can decode objects encoded in these versions. The
+      * **apiServerID** ``str`` - apiServerID is the ID of the reporting API server.
+      * **decodableVersions** ``List[str]`` - decodableVersions are the encoding versions the API server can handle to
+        decode. The API server can decode objects encoded in these versions. The
         encodingVersion must be included in the decodableVersions.
-      * **encodingVersion** ``Optional[str]`` - The API server encodes the object to this version when persisting it in the
+      * **encodingVersion** ``str`` - encodingVersion the API server encodes the object to when persisting it in the
         backend (e.g., etcd).
-      * **servedVersions** ``Optional[List[str]]`` - The API server can serve these versions. DecodableVersions must include all
-        ServedVersions.
+      * **servedVersions** ``Optional[List[str]]`` - servedVersions lists all versions the API server can serve. DecodableVersions
+        must include all ServedVersions.
     """
-    apiServerID: 'Optional[str]' = None
-    decodableVersions: 'Optional[List[str]]' = None
-    encodingVersion: 'Optional[str]' = None
+    apiServerID: 'str'
+    decodableVersions: 'List[str]'
+    encodingVersion: 'str'
     servedVersions: 'Optional[List[str]]' = None
 
 
@@ -37,9 +38,7 @@ class StorageVersion(DictMixin):
 
       **parameters**
 
-      * **spec** ``StorageVersionSpec`` - Spec is an empty spec. It is here to comply with Kubernetes API style.
-      * **status** ``StorageVersionStatus`` - API server instances report the version they can decode and the version they
-        encode objects to when persisting objects in the backend.
+      * **metadata** ``meta_v1.ObjectMeta`` - metadata is the standard object metadata. The name is <group>.<resource>.
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
@@ -48,13 +47,15 @@ class StorageVersion(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - The name is <group>.<resource>.
+      * **spec** ``Optional[StorageVersionSpec]`` - spec is an empty spec. It is here to comply with Kubernetes API style.
+      * **status** ``Optional[StorageVersionStatus]`` - status on the version the API server instance can decode from and encode
+        objects to when persisting objects in the backend.
     """
-    spec: 'StorageVersionSpec'
-    status: 'StorageVersionStatus'
+    metadata: 'meta_v1.ObjectMeta'
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
-    metadata: 'Optional[meta_v1.ObjectMeta]' = None
+    spec: 'Optional[StorageVersionSpec]' = None
+    status: 'Optional[StorageVersionStatus]' = None
 
     def __post_init__(self):
         self.apiVersion = 'internal.apiserver.k8s.io/v1alpha1'
@@ -67,13 +68,14 @@ class StorageVersionCondition(DictMixin):
 
       **parameters**
 
-      * **message** ``str`` - A human readable message indicating details about the transition.
-      * **reason** ``str`` - The reason for the condition's last transition.
-      * **status** ``str`` - Status of the condition, one of True, False, Unknown.
-      * **type** ``str`` - Type of the condition.
-      * **lastTransitionTime** ``Optional[meta_v1.Time]`` - Last time the condition transitioned from one status to another.
-      * **observedGeneration** ``Optional[int]`` - If set, this represents the .metadata.generation that the condition was set
-        based upon.
+      * **message** ``str`` - message is a human readable string indicating details about the transition.
+      * **reason** ``str`` - reason for the condition's last transition.
+      * **status** ``str`` - status of the condition, one of True, False, Unknown.
+      * **type** ``str`` - type of the condition.
+      * **lastTransitionTime** ``Optional[meta_v1.Time]`` - lastTransitionTime is the last time the condition transitioned from one status
+        to another.
+      * **observedGeneration** ``Optional[int]`` - observedGeneration represents the .metadata.generation that the condition was
+        set based upon, if field is set.
     """
     message: 'str'
     reason: 'str'
@@ -121,12 +123,14 @@ class StorageVersionStatus(DictMixin):
 
       **parameters**
 
-      * **commonEncodingVersion** ``Optional[str]`` - If all API server instances agree on the same encoding storage version, then
-        this field is set to that version. Otherwise this field is left empty. API
-        servers should finish updating its storageVersionStatus entry before serving
-        write operations, so that this field will be in sync with the reality.
-      * **conditions** ``Optional[List[StorageVersionCondition]]`` - The latest available observations of the storageVersion's state.
-      * **storageVersions** ``Optional[List[ServerStorageVersion]]`` - The reported versions per API server instance.
+      * **commonEncodingVersion** ``Optional[str]`` - commonEncodingVersion is set to an encoding storage version if all API server
+        instances share that same version. If they don't share one storage version,
+        this field is left empty. API servers should finish updating its
+        storageVersionStatus entry before serving write operations, so that this field
+        will be in sync with the reality.
+      * **conditions** ``Optional[List[StorageVersionCondition]]`` - conditions lists the latest available observations of the storageVersion's
+        state.
+      * **storageVersions** ``Optional[List[ServerStorageVersion]]`` - storageVersions lists the reported versions per API server instance.
     """
     commonEncodingVersion: 'Optional[str]' = None
     conditions: 'Optional[List[StorageVersionCondition]]' = None

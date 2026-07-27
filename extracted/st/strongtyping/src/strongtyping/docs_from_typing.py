@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-@created: 12.05.21
-@author: eisenmenger
-"""
-
 import inspect
 import pprint
 import re
@@ -99,20 +92,19 @@ def get_type_info(val: Any, type_origins: Any) -> str:
         try:
             return f"{get_origins(val)[1]}({get_type_info(val, type_origins[0])}, {get_type_info(val, type_origins[1])})"
         except TypeError:
-            text = ", ".join(
-                [
-                    get_type_info(val, type_origin)
-                    for type_origin in get_possible_types(type_origins)
-                ]
-            )
-            return f"{get_origins(val)[1]}({text})"
+            pos_types = get_possible_types(type_origins)
+            if pos_types:
+                text = ", ".join([get_type_info(val, type_origin) for type_origin in pos_types])
+                return f"{get_origins(val)[1]}({text})"
+            return ""
     elif origins[1].lower() in ("list", "tuple", "set"):
-        text = ", ".join(
-            [get_type_info(val, type_origin) for type_origin in get_possible_types(type_origins)]
-        )
-        if origins[1] != "None" and get_origins(val)[1] != origins[1]:
-            return f"{origins[1]}({text})"
-        return f"{get_origins(val)[1]}({text})"
+        pos_types = get_possible_types(type_origins)
+        if pos_types:
+            text = ", ".join([get_type_info(val, type_origin) for type_origin in pos_types])
+            if origins[1] != "None" and get_origins(val)[1] != origins[1]:
+                return f"{origins[1]}({text})"
+            return f"{get_origins(val)[1]}({text})"
+        return ""
     elif val_origins[1] == "Literal":
         text = " or ".join([f"`{elem}`" for elem in type_origins])
         return f"`{type(type_origins[0]).__name__}` allowed values are {text}"

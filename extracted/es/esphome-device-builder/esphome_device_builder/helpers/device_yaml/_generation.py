@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 # (fail-open), matching the prior unknown-board behaviour.
 _caps = load_platform_capabilities_index()
 # ESPHome stores variant tags uppercase (``"ESP32H2"``); normalise to the
-# lowercase ``Esp32Variant`` form the wizard compares against.
+# lowercase catalog form the wizard compares against.
 _ESP32_NO_WIFI_VARIANTS: frozenset[str] = frozenset(v.lower() for v in _caps.esp32_no_wifi_variants)
 _RP2040_NO_WIFI_BOARDS: frozenset[str] = frozenset(_caps.rp2040_no_wifi_boards)
 
@@ -381,11 +381,10 @@ def _infer_native_wifi(board: BoardCatalogEntry) -> bool:
     snapshotted platform_capabilities index.
     """
     esphome_cfg = board.esphome
-    # ``str(...)`` handles both the production enum (``Platform`` /
-    # ``Esp32Variant`` are ``StrEnum``) and bare-string inputs from
-    # tests that mock the catalog entry without going through the
-    # enum constructors. ``_has_native_wifi`` lowercases the variant
-    # itself, so no case normalisation is needed here.
+    # ``str(...)`` handles both the production ``Platform`` StrEnum and
+    # bare-string inputs from tests that mock the catalog entry.
+    # ``_has_native_wifi`` lowercases the variant itself, so no case
+    # normalisation is needed here.
     return _has_native_wifi(
         platform=str(esphome_cfg.platform) if esphome_cfg.platform else "",
         board=esphome_cfg.board,

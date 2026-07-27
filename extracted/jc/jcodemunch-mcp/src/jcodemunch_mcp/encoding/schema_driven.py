@@ -46,6 +46,15 @@ from .format import (
 UNIVERSAL_META_JSON = frozenset({
     "verdict",            # retrieval verdict incl. absence evidence_ref
     "ignored_arguments",  # v1.108.175: part of the call was silently discarded
+    # #377 hardening item 11: the carrier the server re-attaches when the
+    # verdict itself was filtered out. An encoder that drops it hands back a
+    # response that looks complete while the proof token has vanished.
+    "absence_evidence",
+    # #377 phase 2: the evidence-receipt carrier. It is the ONLY thing in the
+    # response that names the receipt — the body lives at munch://evidence/<id>
+    # and is read on demand — so an encoder that drops it silently converts an
+    # opted-in call back into one that proved nothing.
+    "receipts",
 })
 
 

@@ -7,6 +7,9 @@
 # pylint: skip-file
 # fmt: off
 # isort: skip_file
+from ......schema_classes import AIAgentKeyClass
+from ......schema_classes import AgentSkillKeyClass
+from ......schema_classes import ApiKeyClass
 from ......schema_classes import AssertionKeyClass
 from ......schema_classes import ChartKeyClass
 from ......schema_classes import ContainerKeyClass
@@ -68,6 +71,9 @@ from ......schema_classes import TestKeyClass
 from ......schema_classes import VersionSetKeyClass
 
 
+AIAgentKey = AIAgentKeyClass
+AgentSkillKey = AgentSkillKeyClass
+ApiKey = ApiKeyClass
 AssertionKey = AssertionKeyClass
 ChartKey = ChartKeyClass
 ContainerKey = ContainerKeyClass

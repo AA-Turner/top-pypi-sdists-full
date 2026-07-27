@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: whisper_normalizer
-Version: 0.1.14
+Version: 0.1.15
 Summary: A python package for whisper normalizer
 Author-email: kurianbenoy <kurian.bkk@gmail.com>
 License-Expression: MIT
@@ -32,6 +32,7 @@ License-File: LICENSE
 Requires-Dist: more_itertools
 Requires-Dist: regex
 Requires-Dist: indic-numtowords
+Requires-Dist: text2num
 Provides-Extra: dev
 Requires-Dist: black; extra == "dev"
 Requires-Dist: nbdev; extra == "dev"

@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-@created: 11.06.20
-@author: felix
-"""
-
 import builtins
 import functools
 import inspect
@@ -14,8 +7,9 @@ import warnings
 from types import FunctionType, MethodType
 from typing import Any
 
-from strongtyping._utils import _get_new, _severity_level, action, remove_subclass
+from strongtyping._utils import _get_new, action, get_severity_level, remove_subclass
 from strongtyping.cached_set import CachedSet
+from strongtyping.config import SEVERITY_LEVEL
 from strongtyping.exceptions import TypeMismatch
 
 TYPE_EXTRACTION_PATTERN = r"(^[:a-zA-Z0-9 _-]+(:))"
@@ -164,14 +158,18 @@ def match_docstring(
     cache_size: int = 0,
     subclass: bool = False,
     severity: str = "env",
-    **kwargs: Any,
+    **kwargs_: Any,
 ) -> Any:
     cached_set = None if cache_size == 0 else CachedSet(cache_size)
 
     def wrapper(func: typing.Callable[..., Any]) -> Any:
         docstring_types = extract_docstring_param_types(func)
 
-        severity_level = _severity_level(severity)
+        severity_level_: SEVERITY_LEVEL | int = get_severity_level(severity)
+        if isinstance(severity_level_, SEVERITY_LEVEL):
+            severity_level = severity_level_.value
+        else:
+            severity_level = severity_level_
 
         @functools.wraps(func)
         def inner(*args: Any, **kwargs: Any) -> Any:
@@ -230,7 +228,11 @@ def match_class_docstring(
     **kwargs: Any,
 ) -> Any:
     def wrapper(cls: typing.Type[Any]) -> Any:
-        severity_level = _severity_level(severity)
+        severity_level_: SEVERITY_LEVEL | int = get_severity_level(severity)
+        if isinstance(severity_level_, SEVERITY_LEVEL):
+            severity_level = severity_level_.value
+        else:
+            severity_level = severity_level_
 
         def inner(*args: Any, **kwargs: Any) -> Any:
             if severity_level > 0:

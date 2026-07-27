@@ -18,14 +18,18 @@ the genuine ``lumina-unhinged`` soul + FEB on qwen3.6, not a generic assistant.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
+
+from .dataplane_auth import require_dataplane_auth
 
 logger = logging.getLogger("skchat.daemon_proxy")
 
@@ -35,7 +39,7 @@ router = APIRouter(prefix="/api")
 _SKCOMMS_API = "http://127.0.0.1:9384"
 
 # ── Lumina identity (the always-present companion) ─────────────────────────── #
-LUMINA_ID = "lumina@chef.skworld"
+LUMINA_ID = "lumina@chef.skworld.io"
 LUMINA_URI = "capauth:lumina@skworld.io"
 LUMINA_NAME = "Lumina"
 LUMINA_FINGERPRINT = "02BC0EB3CAD31DB691A753C70C5629AB893F9746"
@@ -78,6 +82,23 @@ def _get_history():
     return _HISTORY
 
 
+_PRESENCE = None
+
+
+def _get_presence():
+    """Return the shared ``PresenceCache`` (JSON-backed), created on first use.
+
+    The cache reloads from disk on every read, so the daemon (which records
+    presence) and this webui process stay in sync across processes.
+    """
+    global _PRESENCE
+    if _PRESENCE is None:
+        from skchat.presence import PresenceCache
+
+        _PRESENCE = PresenceCache()
+    return _PRESENCE
+
+
 def _get_brain():
     """Return the shared ``LuminaBrain`` (soul + qwen3.6), created on first use.
 
@@ -95,6 +116,18 @@ def _get_brain():
         from bridge_consciousness import LuminaBrain  # type: ignore
 
         _BRAIN = LuminaBrain(home=_AGENT_HOME, agent=LUMINA_NAME)
+        # Per-message skmemory recall (_mem.inject) surfaces her stored memories
+        # into every DM reply. Those are currently polluted with the old
+        # voice-call / pqdm1 mess, so recall keeps dragging "PGP payloads / voice
+        # not deployed" into unrelated replies. Disable recall on the DM brain
+        # (this instance only; the Telegram bridge runs its own). Re-enable with
+        # SKCHAT_DM_MEMORY=1 once her memory is cleaned.
+        if os.getenv("SKCHAT_DM_MEMORY", "0").strip().lower() not in ("1", "true", "yes", "on"):
+            try:
+                _BRAIN._mem = None
+                logger.info("DM brain: skmemory recall disabled (SKCHAT_DM_MEMORY=0)")
+            except Exception:
+                logger.debug("could not disable DM brain memory", exc_info=True)
     except Exception:
         logger.exception("LuminaBrain unavailable — Lumina will use a fallback reply")
         _BRAIN = None
@@ -132,7 +165,81 @@ def _persist(
         fields["rich"] = rich
     msg = ChatMessage(**fields)
     hist.save(msg)
+    # SEAM 2/4: flag-gated SHADOW write to the single-writer authoritative log.
+    # Best-effort + off by default — never affects the primary JSONL/SQLite save.
+    _shadow_log(msg)
     return msg
+
+
+# --------------------------------------------------------------------------- #
+# SEAM 2/4 — single-writer message log (flag-gated shadow write)
+#
+# When SKCHAT_MESSAGE_LOG is truthy, every persisted message is ALSO appended to
+# the single-writer ``MessageLog`` (a per-conversation monotonic seq + immutable
+# message_id). This is a PARALLEL authoritative projection: the JSONL/SQLite
+# history above stays the source of truth. The write is best-effort — any failure
+# is swallowed so it can NEVER break a send. Flag OFF (default) => nothing runs.
+# --------------------------------------------------------------------------- #
+_MSGLOG = None
+
+
+def _message_log_enabled() -> bool:
+    """Whether the single-writer shadow log is on (``SKCHAT_MESSAGE_LOG``).
+
+    Default OFF: unset / ``0`` / ``false`` / ``no`` / ``off`` all mean "off"
+    (same truthiness convention as ``SKCHAT_ASYNC_REPLY`` below).
+    """
+    return os.getenv("SKCHAT_MESSAGE_LOG", "").strip().lower() not in (
+        "",
+        "0",
+        "false",
+        "no",
+        "off",
+    )
+
+
+def _get_message_log():
+    """Return the shared ``MessageLog`` (SQLite/WAL), created on first use."""
+    global _MSGLOG
+    if _MSGLOG is None:
+        from skchat.message_log import MessageLog
+
+        _MSGLOG = MessageLog()
+    return _MSGLOG
+
+
+def _shadow_conversation_id(msg) -> str:
+    """Stable conversation id for *msg* (matches the app's ``conversation_id``).
+
+    Any message where Lumina is a party belongs to her 1:1 thread (``LUMINA_ID``);
+    otherwise the conversation is keyed by the peer that isn't the operator.
+    """
+    s = getattr(msg, "sender", "") or ""
+    r = getattr(msg, "recipient", "") or ""
+    if _is_lumina(s) or _is_lumina(r):
+        return LUMINA_ID
+    if s in (OPERATOR_ID, "chef", "chef@skworld.io"):
+        return r or "unknown"
+    return s or "unknown"
+
+
+def _shadow_log(msg) -> None:
+    """Best-effort SHADOW append of *msg* to the single-writer ``MessageLog``.
+
+    Flag-gated by ``SKCHAT_MESSAGE_LOG`` (default OFF). NEVER raises — a
+    shadow-log failure must not break the send. The immutable ChatMessage ``id``
+    doubles as the ``client_dedup_key`` so re-logging the same message is
+    idempotent (no second seq).
+    """
+    if not _message_log_enabled():
+        return
+    try:
+        # Use the shared record() so this path uses the SAME canonical
+        # conversation_id (dm:<a>|<b> / group:<gid>) as every other writer. The
+        # old Lumina-centric _shadow_conversation_id is retired for the log.
+        _get_message_log().record(msg)
+    except Exception:
+        logger.debug("shadow message-log write failed (send unaffected)", exc_info=True)
 
 
 def _is_lumina(peer: str) -> bool:
@@ -296,8 +403,18 @@ def _group_msg_to_app(m, *, group_id: str) -> dict:
 def _participant_is_agent(uri: str) -> bool:
     short = (uri or "").split(":")[-1].split("@")[0].lower()
     return short in {
-        "lumina", "jarvis", "opus", "ava", "ara", "artisan", "herald",
-        "sentinel", "architect", "scholar", "steward", "coder",
+        "lumina",
+        "jarvis",
+        "opus",
+        "ava",
+        "ara",
+        "artisan",
+        "herald",
+        "sentinel",
+        "architect",
+        "scholar",
+        "steward",
+        "coder",
     }
 
 
@@ -364,15 +481,30 @@ def _lumina_messages(limit: int = 200) -> list[dict]:
 
 
 def _lumina_conversation() -> dict:
-    """The pinned Lumina conversation entry (app conversation shape)."""
+    """The pinned Lumina conversation entry (app conversation shape).
+
+    Carries BOTH the conversation-contract keys (``peer_id``/``display_name``/
+    ``soul_fingerprint``, read by the Flutter app's ``Conversation.fromJson``)
+    and aliased peer-contract keys (``name``/``fingerprint``). This same dict
+    also backs ``GET /api/v1/peers`` (see ``api_peers``), which the app reads
+    with ``PeerInfo.fromJson`` -- a DIFFERENT model that only ever looked at
+    ``name``/``fingerprint``. Without the aliases, every peer discovered only
+    through ``/api/v1/peers`` (no conversation thread yet) parsed to an empty
+    name and a null fingerprint, and the app's fallback then substituted the
+    peerId itself for the fingerprint -- which the peer-trust tier resolver
+    treats as "no real key", permanently showing the peer as unverifiable
+    instead of their true keyed/red tier.
+    """
     msgs = _lumina_messages(limit=50)
     last = msgs[-1] if msgs else None
     return {
         "peer_id": LUMINA_ID,
         "display_name": LUMINA_NAME,
+        "name": LUMINA_NAME,
         "last_message": (last or {}).get("content", "") if last else "",
         "last_message_time": (last or {}).get("timestamp", _now_iso()),
         "soul_fingerprint": LUMINA_FINGERPRINT,
+        "fingerprint": LUMINA_FINGERPRINT,
         "is_online": _operator_online(),
         "is_agent": True,
         "unread_count": 0,
@@ -387,6 +519,10 @@ def _other_peers() -> list[dict]:
     """Best-effort: known peers from ~/.skcapstone/peers/*.json (Lumina excluded).
 
     Lumina is added separately and pinned first; this just enriches the list.
+
+    See the ``name``/``fingerprint`` note on :func:`_lumina_conversation` --
+    this dict shape backs both ``/api/v1/conversations`` and ``/api/v1/peers``,
+    so it carries both key sets for the same reason.
     """
     import json
 
@@ -402,13 +538,17 @@ def _other_peers() -> list[dict]:
         handle = (data.get("handle") or data.get("identity") or p.stem).strip()
         if _is_lumina(handle) or _is_lumina(data.get("identity", "")) or p.stem == "lumina":
             continue
+        display_name = data.get("name") or p.stem.title()
+        fingerprint = data.get("fingerprint", "")
         out.append(
             {
                 "peer_id": data.get("handle") or data.get("identity") or p.stem,
-                "display_name": data.get("name") or p.stem.title(),
+                "display_name": display_name,
+                "name": display_name,
                 "last_message": "",
                 "last_message_time": _now_iso(),
-                "soul_fingerprint": data.get("fingerprint", ""),
+                "soul_fingerprint": fingerprint,
+                "fingerprint": fingerprint,
                 "is_online": False,
                 "is_agent": (data.get("agent_type") == "ai")
                 or (data.get("entity_type") == "ai-agent"),
@@ -420,6 +560,81 @@ def _other_peers() -> list[dict]:
             }
         )
     return out
+
+
+def _peers_dir() -> Path:
+    """The capauth peer store directory (patchable in tests)."""
+    return Path(os.path.expanduser("~/.skcapstone/peers"))
+
+
+def _peer_fingerprint_index() -> dict[str, str]:
+    """Build a ``{key -> fingerprint}`` map from ``~/.skcapstone/peers/*.json``.
+
+    Each peer is indexed ONLY under its fully-qualified addresses (``identity``
+    URI, ``handle``, ``fqid``), all lower-cased. Bare short names / file stems
+    are DELIBERATELY excluded: the swarm reuses identical agent short-names
+    (``artisan``, ``steward``, ``lumina`` ...) across realms, so a short-name
+    key would let a cross-realm ``artisan@opB.skworld.io`` collide onto the
+    LOCAL ``artisan``'s fingerprint (cross-realm key misattribution). Only a
+    full, realm-qualified match is trustworthy. Read fresh (no cache) so a
+    newly-added peer is picked up without a restart, same as :func:`_other_peers`.
+    """
+    import json
+
+    idx: dict[str, str] = {}
+    peers_dir = _peers_dir()
+    if not peers_dir.is_dir():
+        return idx
+    for p in sorted(peers_dir.glob("*.json")):
+        try:
+            data = json.loads(p.read_text())
+        except Exception:
+            continue
+        fp = (data.get("fingerprint") or "").strip()
+        if not fp:
+            continue
+        # Full, realm-qualified keys ONLY (no bare short name / stem).
+        keys = [data.get("identity"), data.get("handle"), data.get("fqid")]
+        for k in keys:
+            if k:
+                idx[k.strip().lower()] = fp
+    return idx
+
+
+def fingerprint_for_identity(identity: str, index: dict[str, str] | None = None) -> str:
+    """Real capauth fingerprint for a FULLY-QUALIFIED *identity*.
+
+    Matches only a full ``identity`` URI (``capauth:steward@skworld.io``),
+    ``handle`` (``steward@skworld.io``), or ``fqid`` against the peer store, plus
+    the Lumina special-case. A bare short name or a cross-realm fqid that isn't a
+    known local peer returns ``""`` (keyless -> no badge), never a fabricated or
+    misattributed key. Pass a prebuilt [index] to avoid re-reading the store.
+    """
+    if not identity:
+        return ""
+    if _is_lumina(identity):
+        return LUMINA_FINGERPRINT
+    idx = index if index is not None else _peer_fingerprint_index()
+    ident = identity.strip().lower()
+    for key in (
+        ident,
+        ident[len("capauth:") :] if ident.startswith("capauth:") else ident,
+    ):
+        fp = idx.get(key)
+        if fp:
+            return fp
+    return ""
+
+
+def soul_metadata_for(identity: str) -> str:
+    """JSON participant metadata carrying *identity*'s capauth soul_fingerprint
+    (M1b trust badges). Empty fingerprint for an unknown identity (keyless -> no
+    badge). MUST only be stamped from a PROVEN or operator-gated identity: a
+    fingerprint minted from an unauthenticated caller-chosen identity is a
+    trust-badge SPOOF (see the participant-badge security review)."""
+    import json
+
+    return json.dumps({"soul_fingerprint": fingerprint_for_identity(identity)})
 
 
 # --------------------------------------------------------------------------- #
@@ -441,26 +656,47 @@ async def api_health():
 
 
 def _short_name(uri: str) -> str:
-    s = uri[len("capauth:"):] if uri.startswith("capauth:") else uri
+    s = uri[len("capauth:") :] if uri.startswith("capauth:") else uri
     return s.split("@")[0]
+
+
+def _resolve_signer_pubkey(peer: str) -> str | None:
+    """Best-effort ASCII-armored PGP public key for the claimed publisher.
+
+    Used only when ``SKCHAT_REQUIRE_SIGNED_PREKEYS`` is set: the signed prekey
+    bundle is verified against the identity's own key from the skcapstone peer
+    store. Returns ``None`` if the peer has no published key — the intake then
+    fails closed (nothing stored)."""
+    try:
+        from skchat.crypto import _load_peer_public_key
+
+        return _load_peer_public_key(peer)
+    except Exception:
+        logger.debug("no signer pubkey for prekey publisher %s", peer, exc_info=True)
+        return None
 
 
 def _open_hybrid_inbound(token: str, *, sender_short: str) -> str | None:
     """Open a `pqdm1:` token addressed to Lumina. Returns plaintext or None."""
     try:
-        from skchat import pq_prekeys as PQ
-        from skcomms.pqdm import open_sealed
         import base64 as _b64
+
+        from skcomms.pqdm import open_sealed
+
+        from skchat import pq_prekeys as PQ
 
         priv = PQ.lumina_private()
         if priv is None:
             return None
-        rest = token[len("pqdm1:"):]
+        rest = token[len("pqdm1:") :]
         suite, _, b64 = rest.partition(":")
         sealed = _b64.b64decode(b64)
         clear = open_sealed(
-            sealed, priv,
-            sender=sender_short, recipient="lumina", expected_suite=suite,
+            sealed,
+            priv,
+            sender=sender_short,
+            recipient="lumina",
+            expected_suite=suite,
         )
         return clear.decode("utf-8")
     except Exception:
@@ -472,9 +708,11 @@ def _seal_hybrid_outbound(plaintext: str, *, recipient_short: str) -> str | None
     """Seal `plaintext` to the operator's stored prekey. Returns a `pqdm1:`
     token or None (no prekey / no backend → caller keeps the plaintext)."""
     try:
-        from skchat import pq_prekeys as PQ
-        from skcomms.pqdm import HYBRID_SUITE, PrekeyBundle, seal
         import base64 as _b64
+
+        from skcomms.pqdm import HYBRID_SUITE, PrekeyBundle, seal
+
+        from skchat import pq_prekeys as PQ
 
         peer = PQ.load_peer_bundle(recipient_short)
         if not peer:
@@ -483,8 +721,10 @@ def _seal_hybrid_outbound(plaintext: str, *, recipient_short: str) -> str | None
         if not bundle.is_hybrid:
             return None
         sealed = seal(
-            plaintext.encode("utf-8"), bundle,
-            sender="lumina", recipient=recipient_short,
+            plaintext.encode("utf-8"),
+            bundle,
+            sender="lumina",
+            recipient=recipient_short,
         )
         return f"pqdm1:{HYBRID_SUITE}:" + _b64.b64encode(sealed).decode("ascii")
     except Exception:
@@ -493,7 +733,10 @@ def _seal_hybrid_outbound(plaintext: str, *, recipient_short: str) -> str | None
 
 
 @router.post("/v1/prekey")
-async def api_publish_prekey(request: Request):
+async def api_publish_prekey(
+    request: Request,
+    _auth: None = Depends(require_dataplane_auth),
+):
     """Publish a peer's (the app's) hybrid-KEM prekey bundle.
 
     Body = a ``PrekeyBundle`` dict: ``{suite, hybrid_public_hex, signature?,
@@ -509,10 +752,13 @@ async def api_publish_prekey(request: Request):
     if not isinstance(body, dict):
         raise HTTPException(400, "prekey bundle must be an object")
     owner = _short_name((body.get("owner") or OPERATOR_ID))
-    PQ.store_peer_bundle(owner, body)
-    return JSONResponse(
-        {"ok": True, "stored": owner, "hybrid": PQ.peer_is_hybrid(owner)}
-    )
+    # P0.5 / SEAM 7: fail closed on unsigned/invalid bundles when the operator
+    # opts in via SKCHAT_REQUIRE_SIGNED_PREKEYS. Resolve the claimed identity's
+    # PGP public key best-effort (only needed when the flag is on).
+    signer = _resolve_signer_pubkey(owner) if PQ.require_signed_prekeys() else None
+    if not PQ.store_app_prekey_bundle(owner, body, signer_public_armor=signer):
+        raise HTTPException(400, "prekey bundle rejected: unsigned or invalid signature")
+    return JSONResponse({"ok": True, "stored": owner, "hybrid": PQ.peer_is_hybrid(owner)})
 
 
 @router.get("/v1/prekey/{peer:path}")
@@ -593,20 +839,29 @@ async def api_conversations():
 
 
 def _group_conversations() -> list[dict]:
-    """All persisted groups in the app conversation shape (``is_group:true``)."""
+    """All persisted groups in the app conversation shape (``is_group:true``),
+    each carrying per-member ``participants`` with server-resolved
+    ``soul_fingerprint`` so the unified list can fold an aggregate group badge.
+    """
     from skchat import daemon_proxy_groups as G
 
     out: list[dict] = []
     try:
+        idx = _peer_fingerprint_index()
         for grp in G.list_groups():
-            out.append(G.group_to_conversation(grp))
+            out.append(
+                G.group_to_conversation(
+                    grp,
+                    fingerprint_for=lambda i: fingerprint_for_identity(i, idx),
+                )
+            )
     except Exception:
         logger.exception("group conversation list failed")
     return out
 
 
 @router.get("/v1/inbox")
-async def api_inbox():
+async def api_inbox(_auth: None = Depends(require_dataplane_auth)):
     """Every message (the app groups by ``peer_id``). Lumina thread included."""
     try:
         return JSONResponse({"messages": _lumina_messages(limit=500)})
@@ -645,7 +900,8 @@ async def api_inbox_federation_proxy(request: Request):
                 timeout=20.0,
             )
         resp_headers = {
-            k: v for k, v in r.headers.items()
+            k: v
+            for k, v in r.headers.items()
             if k.lower() not in ("content-length", "transfer-encoding", "connection")
         }
         return Response(content=r.content, status_code=r.status_code, headers=resp_headers)
@@ -748,7 +1004,15 @@ async def api_group_members(group_id: str):
     group = G.load_group(group_id)
     if group is None:
         raise HTTPException(404, "group not found")
-    return JSONResponse([G.member_to_app(m) for m in group.members])
+    # Resolve every member's capauth fingerprint from the peer store once, so
+    # each member row carries a real key for the per-member trust badge.
+    idx = _peer_fingerprint_index()
+    return JSONResponse(
+        [
+            G.member_to_app(m, fingerprint=fingerprint_for_identity(m.identity_uri, idx))
+            for m in group.members
+        ]
+    )
 
 
 @router.post("/v1/groups/{group_id}/members")
@@ -777,16 +1041,29 @@ async def api_group_add_member(group_id: str, request: Request):
             hist, peer_id=group_id, new_member=identity, operator_uri=OPERATOR_ID
         )
         return JSONResponse(
-            {"ok": True, "promoted": True, "group": G.group_to_conversation(group),
-             "members": [G.member_to_app(m) for m in group.members]}
+            {
+                "ok": True,
+                "promoted": True,
+                "group": G.group_to_conversation(group),
+                "members": [
+                    G.member_to_app(m, fingerprint=fingerprint_for_identity(m.identity_uri))
+                    for m in group.members
+                ],
+            }
         )
 
     if not G.can_add_members(group, OPERATOR_ID):
         raise HTTPException(403, "not allowed to add members")
     added = G.add_member(group, identity, role=role)
     return JSONResponse(
-        {"ok": True, "added": added,
-         "members": [G.member_to_app(m) for m in group.members]}
+        {
+            "ok": True,
+            "added": added,
+            "members": [
+                G.member_to_app(m, fingerprint=fingerprint_for_identity(m.identity_uri))
+                for m in group.members
+            ],
+        }
     )
 
 
@@ -818,8 +1095,14 @@ async def api_group_remove_member(group_id: str, identity: str):
     if not removed:
         raise HTTPException(404, "member not found")
     return JSONResponse(
-        {"ok": True, "removed": identity,
-         "members": [G.member_to_app(m) for m in group.members]}
+        {
+            "ok": True,
+            "removed": identity,
+            "members": [
+                G.member_to_app(m, fingerprint=fingerprint_for_identity(m.identity_uri))
+                for m in group.members
+            ],
+        }
     )
 
 
@@ -949,7 +1232,10 @@ async def api_group_call_participants(group_id: str):
             "room": room,
             "active": len(participants),
             "participants": participants,
-            "members": [G.member_to_app(m) for m in group.members],
+            "members": [
+                G.member_to_app(m, fingerprint=fingerprint_for_identity(m.identity_uri))
+                for m in group.members
+            ],
         }
     )
 
@@ -962,7 +1248,13 @@ async def _livekit_list_participants(room: str) -> list[dict]:
         from livekit import api  # soft dep
     except ImportError:
         return []
-    url = _os.getenv("SKCHAT_LIVEKIT_URL", "ws://skworld-100:7880")
+    # Server-side RoomService/Twirp call: prefer the dedicated API URL over the
+    # browser-facing SKCHAT_LIVEKIT_URL, which may carry a Funnel path prefix
+    # (e.g. wss://host/livekit-ws) that mangles into a malformed double-slash
+    # Twirp URL. Falls back to SKCHAT_LIVEKIT_URL for backward compat.
+    url = _os.getenv("SKCHAT_LIVEKIT_API_URL", "").strip() or _os.getenv(
+        "SKCHAT_LIVEKIT_URL", "ws://skworld-100:7880"
+    )
     http_url = url.replace("ws://", "http://").replace("wss://", "https://")
     key = _os.getenv("SKCHAT_LIVEKIT_API_KEY", "")
     secret = _os.getenv("SKCHAT_LIVEKIT_API_SECRET", "")
@@ -1017,6 +1309,228 @@ async def api_conversation_history(peer_id: str):
     return JSONResponse([])
 
 
+# Idempotency state for api_send (see the coalescing block below). Per-message
+# locks serialize identical concurrent sends; the recent-reply cache lets a retry
+# within the window return the same reply instead of triggering a fresh brain call.
+_SEND_LOCKS: dict[str, asyncio.Lock] = {}
+_SEND_RECENT: dict[str, tuple[float, dict]] = {}
+_SEND_DEDUP_WINDOW = 90.0  # seconds a generated reply is reused for retries
+# The blocking LLM reply runs in a worker THREAD (never on the event loop, which
+# would freeze health/WS/other sends and drive the app to time out + retry +
+# duplicate). This lock serializes brain calls (the shared LuminaBrain is not
+# guaranteed reentrant) — matching today's sequential behavior — while the loop
+# stays free.
+_BRAIN_LOCK = asyncio.Lock()
+
+
+def _context_epoch():
+    """Optional datetime cutoff: messages OLDER than this are not fed to the
+    brain. Lets us reset a polluted conversation (voice/pqdm1 mess) without
+    deleting history — write an ISO timestamp to ~/.skchat/lumina-context-epoch.
+    Returns None when no cutoff is set.
+    """
+    try:
+        raw = (Path.home() / ".skchat" / "lumina-context-epoch").read_text().strip()
+        dt = datetime.fromisoformat(raw)
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
+
+
+def _is_context_noise(content: str) -> bool:
+    """True for messages that must NOT be fed to Lumina's brain as context.
+
+    Sealed pqdm1 ciphertext reads to her as opaque base64 (she then keeps
+    replying about "PGP payloads / voice not deployed"), and __TYPING__/
+    __RECEIPT__ control pings are not turns. Empty bodies carry nothing.
+    """
+    c = (content or "").strip()
+    if not c:
+        return True
+    if c.startswith("pqdm1:"):
+        return True
+    if c.startswith("__") and "__" in c[2:]:  # __TYPING__:… / __RECEIPT__:… etc.
+        return True
+    return False
+
+
+# --------------------------------------------------------------------------- #
+# P0.6 — versioned-contract + dual-serve negotiation scaffolding
+#
+# Clients announce the contract revisions / features they understand via a
+# single request header (``X-SKChat-Client-Caps``). The send handler parses it
+# up front and can gate behavior on it, so a FUTURE contract change (and the
+# P0.5 auth enforcement) applies ONLY to capable clients — deployed clients that
+# send NO header keep the current behavior verbatim, because every gate defaults
+# to "off" when the capability is absent. This is deliberately minimal: a
+# parser, a gate helper, and one dual-serve branch point — not a full protocol.
+# --------------------------------------------------------------------------- #
+CLIENT_CAPS_HEADER = "X-SKChat-Client-Caps"
+
+
+def _parse_client_caps(raw: str | None) -> dict[str, str | bool]:
+    """Parse the client-capability header into a ``{token: value}`` map.
+
+    Format: a comma-separated list of capability tokens, each either a bare flag
+    (``typed-envelope``) or ``key=value`` (``v=2``). Keys are lower-cased and
+    whitespace-tolerant. A missing/blank header yields an EMPTY map, so the
+    caller falls through to the legacy default path (no capabilities assumed).
+    """
+    caps: dict[str, str | bool] = {}
+    if not raw:
+        return caps
+    for part in raw.split(","):
+        tok = part.strip()
+        if not tok:
+            continue
+        key, sep, val = tok.partition("=")
+        key = key.strip().lower()
+        if not key:
+            continue
+        caps[key] = val.strip() if sep else True
+    return caps
+
+
+def _client_caps(request: Request) -> dict[str, str | bool]:
+    """Read + parse the client-capability header off *request* (empty if none)."""
+    return _parse_client_caps(request.headers.get(CLIENT_CAPS_HEADER))
+
+
+def _client_supports(caps: dict[str, str | bool], capability: str) -> bool:
+    """Dual-serve gate: ``True`` iff the client announced *capability*.
+
+    An absent header / unknown capability returns ``False``, so a deployed
+    client that sends nothing keeps the current (legacy) behavior. This is the
+    single branch point a future contract change or the P0.5 auth enforcement
+    hangs off — ``if _client_supports(caps, "auth"): <enforce>``.
+    """
+    return bool(caps.get(capability.strip().lower(), False))
+
+
+def _apply_contract(result: dict, caps: dict[str, str | bool]) -> dict:
+    """Dual-serve seam: layer capability-gated contract additions onto *result*.
+
+    A client that announced NO caps gets *result* verbatim — the legacy send
+    contract, unchanged. A capable client gets the negotiated caps echoed back
+    under ``client_caps`` (the first, harmless dual-serve addition; future
+    contract changes hang off the same ``caps``-gated branch). Never mutates the
+    legacy response shape for clients that opted into nothing.
+    """
+    if not caps:
+        return result
+    return {**result, "client_caps": caps}
+
+
+def _async_reply_enabled() -> bool:
+    """Whether the 1:1 Lumina reply is generated in a background task
+    (``SKCHAT_ASYNC_REPLY``).
+
+    Default OFF: unset / ``0`` / ``false`` / ``no`` / ``off`` all mean "keep the
+    synchronous reply-in-the-response behavior" (same truthiness convention as
+    ``SKCHAT_SEAL_GROUPS`` in ``daemon_proxy_groups.py``).
+    """
+    return os.getenv("SKCHAT_ASYNC_REPLY", "").strip().lower() not in (
+        "",
+        "0",
+        "false",
+        "no",
+        "off",
+    )
+
+
+async def _ws_broadcast_safe(payload: dict) -> None:
+    """Emit a ``/ws/chat`` broadcast, swallowing any failure.
+
+    The web clients (legacy webui + the Flutter app) refresh on a ``new`` ping.
+    In the async-reply background task a WS failure must NEVER kill the task, so
+    the broadcast is best-effort here and at the synchronous call sites alike.
+    """
+    try:
+        from skchat import webui as _webui
+
+        await _webui._ws_broadcast(payload)
+    except Exception:
+        logger.debug("ws broadcast unavailable", exc_info=True)
+
+
+async def _generate_lumina_reply(
+    hist,
+    user_msg,
+    content: str,
+    convo: list[dict],
+    convo_is_hybrid: bool,
+    caps: dict[str, str | bool],
+) -> dict:
+    """Generate + persist Lumina's reply for one 1:1 turn and push a WS ``new``.
+
+    Shared by BOTH paths: the synchronous path awaits it and returns its result
+    (unchanged), the async-202 path runs it in a background task (the app
+    refetches on the WS ``new`` signal). Runs the brain in a thread under
+    ``_BRAIN_LOCK``, applies the fail-closed hybrid seal (returning the
+    503-shaped ``{"ok": False, "error": "reply_not_sealable"}`` dict when the
+    reply cannot be sealed — never persisting or emitting a plaintext leak),
+    persists the reply linked back to ``user_msg``, emits
+    ``_ws_broadcast({"type": "new"})`` and returns the app-shaped reply payload
+    (the SAME dict ``api_send`` returns today).
+    """
+    # 3. Invoke her brain. Never 500: persist a graceful fallback on failure.
+    brain = _get_brain()
+    if brain is None:
+        reply_text = (
+            "…(I'm here, but my language backend is offline right now — try again in a moment.)"
+        )
+    else:
+        try:
+            # Run the (up to ~180s) blocking LLM call in a thread so the async
+            # event loop stays responsive; serialize brain calls with the lock.
+            async with _BRAIN_LOCK:
+                reply_text = (
+                    await asyncio.to_thread(brain.reply, content, history=convo, sender="chef")
+                    or ""
+                )
+        except Exception:
+            logger.exception("Lumina brain reply failed")
+            reply_text = "…(thinking failed — my backend hiccuped. Say that again?)"
+        if not reply_text.strip():
+            reply_text = "…(thinking failed — I came back empty. Try once more?)"
+
+    # 4. Persist her reply — linked back to the user turn (and thread).
+    #    PQC Q5: if the conversation negotiated hybrid AND the operator published
+    #    a prekey, seal the reply so the app opens it hybrid-pq. Otherwise the
+    #    plaintext reply is stored unchanged (classical path).
+    reply_wire = reply_text
+    if convo_is_hybrid:
+        sealed = _seal_hybrid_outbound(reply_text, recipient_short="chef")
+        if sealed is None:
+            # P0.1 (fail closed): the conversation negotiated hybrid-PQ but
+            # the reply cannot be sealed (no prekey / KEM backend gone).
+            # Refuse rather than fall back to plaintext — never persist or
+            # return Lumina's cleartext reply onto a hybrid channel.
+            logger.error("api_send: hybrid reply not sealable — refusing plaintext leak")
+            return {"ok": False, "error": "reply_not_sealable"}
+        reply_wire = sealed
+    reply_msg = _persist(
+        hist,
+        LUMINA_URI,
+        OPERATOR_ID,
+        reply_wire,
+        reply_to_id=user_msg.id,
+        thread_id=user_msg.thread_id,
+    )
+
+    result = {
+        "ok": True,
+        "id": user_msg.id,
+        "recipient": LUMINA_ID,
+        "ts": user_msg.timestamp.isoformat(),
+        # Full shared contract (+ legacy fields) so the app round-trips it.
+        "reply": _msg_to_app(reply_msg, self_id=OPERATOR_ID),
+    }
+    # Web clients (the legacy webui) refresh on a ws "new" ping if available.
+    await _ws_broadcast_safe({"type": "new"})
+    return result
+
+
 @router.post("/v1/send")
 async def api_send(request: Request):
     """Persist the operator's message and, for Lumina, invoke her real brain.
@@ -1026,6 +1540,11 @@ async def api_send(request: Request):
     shared ``LuminaBrain`` (soul + qwen3.6), store + return it. On any backend
     error, a graceful "…(thinking failed)" reply is persisted rather than 500.
     """
+    # P0.6: negotiate the client's contract capabilities up front so the handler
+    # (and future dual-serve branches / P0.5 auth) can gate on them. A client
+    # that sends no header yields an empty cap map -> legacy behavior unchanged.
+    caps = _client_caps(request)
+
     try:
         body = await request.json()
     except Exception:
@@ -1065,6 +1584,75 @@ async def api_send(request: Request):
     if not content:
         raise HTTPException(400, "empty message")
 
+    # ── Control-plane messages are NOT conversational turns ────────────────────
+    # The app sends typing indicators and read receipts through this same POST
+    # body (content "__TYPING__:{…}" / "__RECEIPT__:{…}"). They must NEVER be
+    # persisted as chat or fed to Lumina's brain — doing so made her generate a
+    # spurious "receipt received / I'm receiving your typing…" reply for EACH
+    # one, which is the real source of Chef's "2-3 unrelated replies per DM"
+    # (each control ping has different content, so plain dedup can't catch them).
+    # Handle them out-of-band and return without a brain reply.
+    if content.startswith("__TYPING__"):
+        try:
+            from skchat import webui as _webui
+
+            await _webui._ws_broadcast({"type": "typing"})
+        except Exception:
+            logger.debug("typing broadcast unavailable", exc_info=True)
+        return JSONResponse({"ok": True, "control": "typing"})
+    if content.startswith("__RECEIPT__"):
+        try:
+            import json as _json
+
+            payload = _json.loads(content.split(":", 1)[1]) if ":" in content else {}
+            target = payload.get("target_id") or payload.get("message_id")
+            if target:
+                _get_history().record_receipt(
+                    target, str(payload.get("kind", "read")), OPERATOR_ID
+                )
+        except Exception:
+            logger.debug("receipt handling failed", exc_info=True)
+        return JSONResponse({"ok": True, "control": "receipt"})
+    # ── STOPGAP (P0.3b, throwaway): route reaction/edit control frames away ────
+    # The app also tunnels reactions + edits through this POST body as
+    # ``__REACT__:{…}`` / ``__EDIT__:{…}`` frames. Same failure mode as typing/
+    # receipts: fed to the brain they produce spurious "you reacted 👍 to…" turns.
+    # Apply them best-effort here and short-circuit — NEVER call the brain. This
+    # is a deliberate stopgap; the durable fix is the typed-envelope routing in
+    # docs/superpowers/plans/2026-07-14-p0-stop-active-harm.md, after which the
+    # canonical /v1/react + /v1/edit routes carry this and these frames go away.
+    if content.startswith("__REACT__"):
+        try:
+            import json as _json
+
+            payload = _json.loads(content.split(":", 1)[1]) if ":" in content else {}
+            target = payload.get("target_id") or payload.get("message_id")
+            emoji = (payload.get("emoji") or "").strip()
+            op = (payload.get("op") or "add").strip().lower()
+            if target and emoji:
+                h = _get_history()
+                if op == "remove":
+                    h.clear_reaction(target, emoji, OPERATOR_ID)
+                else:
+                    h.set_reaction(target, emoji, OPERATOR_ID)
+        except Exception:
+            logger.debug("reaction control frame failed", exc_info=True)
+        return JSONResponse({"ok": True, "control": "reaction"})
+    if content.startswith("__EDIT__"):
+        try:
+            import json as _json
+
+            payload = _json.loads(content.split(":", 1)[1]) if ":" in content else {}
+            target = payload.get("target_id") or payload.get("message_id")
+            new_body = payload.get("body")
+            if new_body is None:
+                new_body = payload.get("content")
+            if target and (new_body or "").strip():
+                _get_history().edit_message(target, new_body)
+        except Exception:
+            logger.debug("edit control frame failed", exc_info=True)
+        return JSONResponse({"ok": True, "control": "edit"})
+
     hist = _get_history()
 
     # Group send: fan out to members + persist on the group thread.
@@ -1081,11 +1669,22 @@ async def api_send(request: Request):
         if group is not None:
             if not G.can_post(group, OPERATOR_ID):
                 raise HTTPException(403, "this group is read-only (admins only)")
-            msg = G.fan_out_send(
-                group, hist, OPERATOR_ID, content,
-                reply_to_id=reply_to_id, thread_id=group.id,
-                content_type=content_type, rich=rich,
-            )
+            try:
+                msg = G.fan_out_send(
+                    group,
+                    hist,
+                    OPERATOR_ID,
+                    content,
+                    reply_to_id=reply_to_id,
+                    thread_id=group.id,
+                    content_type=content_type,
+                    rich=rich,
+                )
+            except G.GroupSealNotReadyError as exc:
+                # encryption_required group can't seal to every member: refuse
+                # LOUDLY (409) instead of a partial/cleartext send. The client can
+                # surface "encryption not ready" rather than a silent downgrade.
+                raise HTTPException(409, f"group encryption not ready: {exc}")
             try:
                 from skchat import webui as _webui
 
@@ -1093,97 +1692,153 @@ async def api_send(request: Request):
             except Exception:
                 logger.debug("ws broadcast unavailable", exc_info=True)
             return JSONResponse(
-                {
-                    "ok": True,
-                    "id": msg.id,
-                    "recipient": group.id,
-                    "group_id": group.id,
-                    "ts": msg.timestamp.isoformat(),
-                    "message": _group_msg_to_app(msg, group_id=group.id),
-                }
+                _apply_contract(
+                    {
+                        "ok": True,
+                        "id": msg.id,
+                        "recipient": group.id,
+                        "group_id": group.id,
+                        "ts": msg.timestamp.isoformat(),
+                        "message": _group_msg_to_app(msg, group_id=group.id),
+                    },
+                    caps,
+                )
             )
 
     if not _is_lumina(recipient):
         # Non-Lumina peers: persist only (no brain). Keeps the route honest.
         msg = _persist(
-            hist, OPERATOR_ID, recipient or "unknown", content, reply_to_id, thread_id,
-            content_type=content_type, rich=rich,
+            hist,
+            OPERATOR_ID,
+            recipient or "unknown",
+            content,
+            reply_to_id,
+            thread_id,
+            content_type=content_type,
+            rich=rich,
         )
         return JSONResponse(
-            {
+            _apply_contract(
+                {
+                    "ok": True,
+                    "id": msg.id,
+                    "recipient": recipient,
+                    "ts": msg.timestamp.isoformat(),
+                    "message": _msg_to_app(msg, self_id=OPERATOR_ID),
+                },
+                caps,
+            )
+        )
+
+    # ── Idempotency: coalesce app retries of the SAME message ──────────────────
+    # The Flutter app resends POST /api/send when brain.reply() is slow enough to
+    # time out the HTTP request. Each resend used to store a NEW user turn and
+    # generate a FRESH reply from stale 40-message context -> Chef got 2-3
+    # off-topic replies + a leaked pqdm1 blob per message. Serialize identical
+    # sends on a per-message lock and cache the reply for a short window, so a
+    # retry (concurrent OR just after) returns the SAME reply, one brain call.
+    _dk = f"{thread_id or ''}\x1f{content}"
+    _lock = _SEND_LOCKS.setdefault(_dk, asyncio.Lock())
+    async with _lock:
+        _cached = _SEND_RECENT.get(_dk)
+        if _cached is not None and (time.monotonic() - _cached[0]) < _SEND_DEDUP_WINDOW:
+            logger.info("api_send: coalesced duplicate send (returning cached reply)")
+            return JSONResponse(_apply_contract({**_cached[1], "deduped": True}, caps))
+
+        # 1. Persist the operator's message to Lumina (with reply/thread linkage).
+        user_msg = _persist(
+            hist,
+            OPERATOR_ID,
+            LUMINA_URI,
+            content,
+            reply_to_id,
+            thread_id,
+            content_type=content_type,
+            rich=rich,
+        )
+
+        # 2. Build the prior-turn history for context (oldest-first role/content).
+        prior = _lumina_messages(limit=40)
+        _epoch = _context_epoch()
+        convo: list[dict] = []
+        for pm in prior:
+            if pm["id"] == user_msg.id:
+                continue  # don't double-feed the message we just stored
+            # Context reset: skip anything older than the epoch cutoff.
+            if _epoch is not None:
+                try:
+                    _pts = datetime.fromisoformat(str(pm.get("ts") or pm.get("timestamp") or ""))
+                    if _pts.tzinfo is None:
+                        _pts = _pts.replace(tzinfo=timezone.utc)
+                    if _pts < _epoch:
+                        continue
+                except Exception:
+                    pass
+            _pc = str(pm.get("content", "") or "")
+            # Drop non-conversational NOISE from the brain context: sealed pqdm1
+            # ciphertext (which Lumina otherwise "reads" as opaque base64 and
+            # keeps replying about — the source of the off-topic "PGP payloads /
+            # voice not deployed" answers) and any leftover __TYPING__/__RECEIPT__
+            # control pings. Feeding her a clean transcript makes her answer the
+            # actual message.
+            if _is_context_noise(_pc):
+                continue
+            convo.append({"role": "assistant" if pm["is_agent"] else "user", "content": _pc})
+
+        # 3./4. Generate + persist Lumina's reply (brain → fail-closed hybrid
+        #        seal → persist → ws "new"). Extracted so BOTH the synchronous
+        #        path and the async-202 background task share one code path.
+        if _async_reply_enabled():
+            # Flag ON: return 202 immediately and generate the reply in a
+            # background task. The app already refetches on the ws "new" signal,
+            # so no plaintext/reply rides this response. The task is crash-safe:
+            # a brain failure persists a graceful fallback inside
+            # _generate_lumina_reply, and this wrapper never raises out.
+            async def _bg():
+                try:
+                    await _generate_lumina_reply(
+                        hist, user_msg, content, convo, convo_is_hybrid, caps
+                    )
+                except Exception:
+                    logger.exception("async reply task failed")
+
+            asyncio.create_task(_bg())
+            _async_payload = {
                 "ok": True,
-                "id": msg.id,
+                "status": "generating",
+                "id": user_msg.id,
                 "recipient": recipient,
-                "ts": msg.timestamp.isoformat(),
-                "message": _msg_to_app(msg, self_id=OPERATOR_ID),
+                "ts": user_msg.timestamp.isoformat(),
             }
+            # Cache the 202 so a retry / double-send within the window is DEDUPED
+            # (returns this same 202) instead of spawning a SECOND background task,
+            # which would duplicate the reply. Prune stale keys.
+            _now = time.monotonic()
+            _SEND_RECENT[_dk] = (_now, _async_payload)
+            for _k in [
+                k for k, (t, _) in list(_SEND_RECENT.items()) if _now - t > _SEND_DEDUP_WINDOW
+            ]:
+                _SEND_RECENT.pop(_k, None)
+                _SEND_LOCKS.pop(_k, None)
+            return JSONResponse(_apply_contract(_async_payload, caps), status_code=202)
+
+        _result = await _generate_lumina_reply(
+            hist, user_msg, content, convo, convo_is_hybrid, caps
         )
+        if not _result.get("ok"):
+            # Fail closed (P0.1): hybrid reply not sealable — 503, nothing leaked.
+            return JSONResponse(_result, status_code=503)
 
-    # 1. Persist the operator's message to Lumina (with reply/thread linkage).
-    user_msg = _persist(
-        hist, OPERATOR_ID, LUMINA_URI, content, reply_to_id, thread_id,
-        content_type=content_type, rich=rich,
-    )
+        # Cache so a retry within the window returns THIS reply; prune stale keys.
+        _now = time.monotonic()
+        _SEND_RECENT[_dk] = (_now, _result)
+        for _k in [k for k, (t, _) in list(_SEND_RECENT.items()) if _now - t > _SEND_DEDUP_WINDOW]:
+            _SEND_RECENT.pop(_k, None)
+            _SEND_LOCKS.pop(_k, None)
 
-    # 2. Build the prior-turn history for context (oldest-first role/content).
-    prior = _lumina_messages(limit=40)
-    convo: list[dict] = []
-    for pm in prior:
-        if pm["id"] == user_msg.id:
-            continue  # don't double-feed the message we just stored
-        convo.append(
-            {"role": "assistant" if pm["is_agent"] else "user", "content": pm["content"]}
-        )
-
-    # 3. Invoke her brain. Never 500: persist a graceful fallback on failure.
-    brain = _get_brain()
-    if brain is None:
-        reply_text = "…(I'm here, but my language backend is offline right now — try again in a moment.)"
-    else:
-        try:
-            reply_text = brain.reply(content, history=convo, sender="chef") or ""
-        except Exception:
-            logger.exception("Lumina brain reply failed")
-            reply_text = "…(thinking failed — my backend hiccuped. Say that again?)"
-        if not reply_text.strip():
-            reply_text = "…(thinking failed — I came back empty. Try once more?)"
-
-    # 4. Persist + return her reply — linked back to the user turn (and thread).
-    #    PQC Q5: if the conversation negotiated hybrid AND the operator published
-    #    a prekey, seal the reply so the app opens it hybrid-pq. Otherwise the
-    #    plaintext reply is stored unchanged (classical path).
-    reply_wire = reply_text
-    if convo_is_hybrid:
-        sealed = _seal_hybrid_outbound(reply_text, recipient_short="chef")
-        if sealed is not None:
-            reply_wire = sealed
-    reply_msg = _persist(
-        hist,
-        LUMINA_URI,
-        OPERATOR_ID,
-        reply_wire,
-        reply_to_id=user_msg.id,
-        thread_id=thread_id,
-    )
-
-    # Web clients (the legacy webui) refresh on a ws "new" ping if available.
-    try:
-        from skchat import webui as _webui
-
-        await _webui._ws_broadcast({"type": "new"})
-    except Exception:
-        logger.debug("ws broadcast unavailable", exc_info=True)
-
-    return JSONResponse(
-        {
-            "ok": True,
-            "id": user_msg.id,
-            "recipient": LUMINA_ID,
-            "ts": user_msg.timestamp.isoformat(),
-            # Full shared contract (+ legacy fields) so the app round-trips it.
-            "reply": _msg_to_app(reply_msg, self_id=OPERATOR_ID),
-        }
-    )
+    # Dual-serve: capable clients get the negotiated caps echoed; the cached
+    # ``_result`` stays the legacy shape so a legacy retry gets legacy output.
+    return JSONResponse(_apply_contract(_result, caps))
 
 
 @router.post("/v1/react")
@@ -1292,8 +1947,45 @@ async def api_thread(thread_id: str):
 
 
 @router.post("/v1/presence")
-async def api_presence():
-    return JSONResponse({"ok": True})
+async def api_presence(request: Request):
+    """Read presence state from the ``PresenceCache`` (SEAM 5 / P3).
+
+    Body ``{peer?}``:
+      * with ``peer`` → that peer's real state:
+        ``{ok, peer, state:"online"|"away"|"offline", online:bool, last_seen}``.
+        An unknown/never-seen peer degrades to ``offline`` (``last_seen: null``),
+        never an error.
+      * without ``peer`` → every cached entry:
+        ``{ok, peers:[{uri, state, last_seen}]}``.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+    peer = (body.get("peer") or "").strip()
+
+    cache = _get_presence()
+
+    if peer:
+        entry = cache.get_entry(peer) or {}
+        state = cache.get_status(peer)
+        return JSONResponse(
+            {
+                "ok": True,
+                "peer": peer,
+                "state": state,
+                "online": state == "online",
+                "last_seen": entry.get("timestamp"),
+            }
+        )
+
+    peers = [
+        {"uri": uri, "state": entry.get("state", "offline"), "last_seen": entry.get("timestamp")}
+        for uri, entry in sorted(cache.get_all().items())
+    ]
+    return JSONResponse({"ok": True, "peers": peers})
 
 
 @router.get("/")

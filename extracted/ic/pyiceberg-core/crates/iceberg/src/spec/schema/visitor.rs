@@ -16,7 +16,6 @@
 // under the License.
 
 use super::*;
-use crate::spec::VariantType;
 
 /// A post order schema visitor.
 ///
@@ -70,9 +69,6 @@ pub trait SchemaVisitor {
     fn map(&mut self, map: &MapType, key_value: Self::T, value: Self::T) -> Result<Self::T>;
     /// Called when see a primitive type.
     fn primitive(&mut self, p: &PrimitiveType) -> Result<Self::T>;
-
-    /// Called when see a variant type.
-    fn variant(&mut self, v: &VariantType) -> Result<Self::T>;
 }
 
 /// Visiting a type in post order.
@@ -103,7 +99,6 @@ pub(crate) fn visit_type<V: SchemaVisitor>(r#type: &Type, visitor: &mut V) -> Re
             visitor.map(map, key_result, value_result)
         }
         Type::Struct(s) => visit_struct(s, visitor),
-        Type::Variant(v) => visitor.variant(v),
     }
 }
 
@@ -190,8 +185,6 @@ pub trait SchemaWithPartnerVisitor<P> {
     ) -> Result<Self::T>;
     /// Called when see a primitive type.
     fn primitive(&mut self, p: &PrimitiveType, partner: &P) -> Result<Self::T>;
-    /// Called when see a variant type.
-    fn variant(&mut self, v: &VariantType, partner: &P) -> Result<Self::T>;
 }
 
 /// Accessor used to get child partner from parent partner.
@@ -249,7 +242,6 @@ pub(crate) fn visit_type_with_partner<P, V: SchemaWithPartnerVisitor<P>, A: Part
             visitor.map(map, partner, key_result, value_result)
         }
         Type::Struct(s) => visit_struct_with_partner(s, partner, visitor, accessor),
-        Type::Variant(v) => visitor.variant(v, partner),
     }
 }
 

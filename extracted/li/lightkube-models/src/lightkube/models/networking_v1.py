@@ -6,9 +6,9 @@ from ._schema import dataclass, field, DictMixin
 if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.com/issue/PY-54560
     from dataclasses import dataclass, field
 
+from . import util_intstr
 from . import core_v1
 from . import meta_v1
-from . import util_intstr
 
 
 @dataclass
@@ -70,6 +70,8 @@ class IPAddress(DictMixin):
 
       **parameters**
 
+      * **spec** ``IPAddressSpec`` - spec is the desired state of the IPAddress. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
@@ -80,13 +82,11 @@ class IPAddress(DictMixin):
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
       * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-      * **spec** ``Optional[IPAddressSpec]`` - spec is the desired state of the IPAddress. More info:
-        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
     """
+    spec: 'IPAddressSpec'
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
     metadata: 'Optional[meta_v1.ObjectMeta]' = None
-    spec: 'Optional[IPAddressSpec]' = None
 
     def __post_init__(self):
         self.apiVersion = 'networking.k8s.io/v1'

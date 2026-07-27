@@ -16,8 +16,10 @@ When the flag is OFF: operator routes 404, guest routes 403 (no oracle).
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
+import threading
 import time
 import uuid as _uuid
 from pathlib import Path
@@ -110,22 +112,21 @@ def _assert_same_group(session: GG.GuestSession, requested_group_id: str) -> Non
 # Operator: invite mint / list / revoke
 # --------------------------------------------------------------------------- #
 @router.post("/groups/{group_id}/invite")
-async def operator_create_invite(group_id: str, request: Request):
+async def operator_create_invite(group_id: str, request: Request, mode: str = "group"):
     """Operator-only: mint a room-scoped, signed invite for ``group_id``.
 
-    Body (all optional): ``{ttl?, single_use?}``. Returns ``{token, join_url}``
-    (relative join url). Operator-gated (tailnet/loopback or
+    Body (all optional): ``{ttl?, single_use?}``. Query ``?mode=dm|group``
+    (default ``group``): ``mode=dm`` mints a NEW 2-seat DM guest group
+    (``metadata.mode="dm"``, seat 1 = operator) and invites into it — the path
+    ``group_id`` is unused in that case; ``mode=group`` is the unchanged
+    behaviour (invite into the existing ``group_id``). Returns ``{token,
+    join_url, ...}``. Operator-gated (tailnet/loopback or
     ``SKCHAT_GUEST_OPERATOR_TOKEN``); 404 when the feature flag is off.
     """
     _require_flag_operator()
     from skchat.guest import _require_operator
 
     _require_operator(request)
-
-    from skchat import daemon_proxy_groups as G
-
-    if G.load_group(group_id) is None:
-        raise HTTPException(404, "group not found")
 
     try:
         body = await request.json()
@@ -138,8 +139,25 @@ async def operator_create_invite(group_id: str, request: Request):
             ttl = int(ttl_raw)
         except (TypeError, ValueError):
             ttl = None
-    single_use = bool(body.get("single_use", False))
 
+    if (mode or "group").strip().lower() == "dm":
+        # A 1:1 DM invite mints its OWN 2-seat guest group; the path group_id is
+        # not used. DMs default single-use (override via body).
+        try:
+            result = GG.create_dm_invite(single_use=bool(body.get("single_use", True)), ttl=ttl)
+        except RuntimeError as exc:  # secret unset
+            raise HTTPException(503, str(exc)) from exc
+        logger.info(
+            "guest-group DM invite minted (jti=%s gid=%s)", result["jti"], result["group_id"]
+        )
+        return JSONResponse(result)
+
+    from skchat import daemon_proxy_groups as G
+
+    if G.load_group(group_id) is None:
+        raise HTTPException(404, "group not found")
+
+    single_use = bool(body.get("single_use", False))
     try:
         result = GG.create_group_invite(group_id, ttl=ttl, single_use=single_use)
     except RuntimeError as exc:  # secret unset
@@ -165,6 +183,21 @@ async def operator_revoke_invite(group_id: str, token: str, request: Request):
     return JSONResponse({"ok": True, "revoked_jti": jti, "group_id": group_id})
 
 
+def _operator_signed_prekey():
+    """The operator's current signed hybrid prekey (hybrid_public_hex), or None.
+
+    Fail-closed (§5): on any error the guest receives no prekey and must abort the
+    PQ handshake rather than silently fall back to a classical join.
+    """
+    try:
+        from skchat import pq_prekeys as _pq
+
+        return (_pq.agent_bundle().get("hybrid_public_hex") or "").strip() or None
+    except Exception as exc:  # noqa: BLE001
+        logger.info("guest preview: operator signed prekey unavailable: %s", exc)
+        return None
+
+
 @router.get("/guest/invite/{token}")
 async def guest_invite_preview(token: str):
     """Public-of-tailnet preview of an invite (group name) for the landing page.
@@ -183,14 +216,33 @@ async def guest_invite_preview(token: str):
     group = G.load_group(info["group_id"])
     if group is None:
         return JSONResponse({"valid": False})
-    return JSONResponse(
-        {
-            "valid": True,
-            "group_id": group.id,
-            "group_name": group.name,
-            "expires_at": info["exp"],
-        }
-    )
+    resp = {
+        "valid": True,
+        "group_id": group.id,
+        "group_name": group.name,
+        "expires_at": info["exp"],
+    }
+    # Phase 1: surface the operator-signed material so the joiner can verify the
+    # operator signature (under the FULL inline pubkey) and the bundle commitment
+    # BEFORE the handshake — fail-closed, no directory lookup (C1/C2/H3).
+    if GG.pq_invites_enabled():
+        resp.update(
+            {
+                "jti": info["jti"],
+                "idm": info.get("idm"),
+                "full_pubkey": info.get("operator_pubkey"),
+                "ik_fp": info.get("ik_fp"),
+                "bc": info.get("bc"),
+                "mode": info.get("mode"),
+                "operator_sig": info.get("operator_sig"),
+                # Phase 2: the operator's current signed hybrid prekey, so the guest
+                # can verify_commitment(full_pubkey, signed_prekey, bc) and encapsulate
+                # its PQXDH to it. Read live (no JWT bloat). A prekey rotation since
+                # mint makes bc mismatch, so the guest aborts (fail-closed, correct).
+                "signed_prekey": _operator_signed_prekey(),
+            }
+        )
+    return JSONResponse(resp)
 
 
 # --------------------------------------------------------------------------- #
@@ -200,10 +252,11 @@ async def guest_invite_preview(token: str):
 async def guest_join(request: Request):
     """Validate an invite, add the guest as an untrusted member, return tokens.
 
-    Body: ``{invite_token, display_name, guest_pubkey}``. Returns a guest session
-    token scoped to ONLY the invite's group + a LiveKit guest call token + the
-    group bootstrap (id/name + initial history). The invite's single-use claim is
-    burned here.
+    Body: ``{invite_token, display_name, guest_pubkey}`` (Phase 1 additionally
+    requires ``guest_sig`` binding the guest key to ``{jti, guest_pubkey, bc}``).
+    Returns a guest session token scoped to ONLY the invite's group + a LiveKit
+    guest call token + the group bootstrap (id/name + initial history). The
+    invite's single-use claim is burned here.
     """
     _require_flag_guest()
     try:
@@ -213,10 +266,33 @@ async def guest_join(request: Request):
     invite_token = (body.get("invite_token") or "").strip()
     display_name = (body.get("display_name") or "").strip()
     guest_pubkey = (body.get("guest_pubkey") or "").strip()
+    guest_sig = (body.get("guest_sig") or "").strip()
     if not invite_token:
         raise HTTPException(400, "invite_token is required")
     if not display_name:
         raise HTTPException(400, "display_name is required")
+
+    # Phase 1: peek the operator claims BEFORE burning so a bad/absent guest
+    # binding is rejected without consuming a single-use invite.
+    if GG.pq_invites_enabled():
+        from skchat import pq_invites as PQI
+
+        try:
+            peek = GG.verify_group_invite(invite_token, burn_single_use=False)
+        except GG.InviteInvalid as exc:
+            logger.info("guest-group join rejected (peek): %s", exc)
+            raise HTTPException(401, "invalid or expired invite") from exc
+        bc = peek.get("bc")
+        # Bind the guest browser key to THIS invite; a stolen link replayed by a
+        # third party who lacks the guest key → 401 (generic, no oracle).
+        if not (
+            guest_pubkey
+            and guest_sig
+            and bc
+            and PQI.verify_guest_binding(guest_sig, guest_pubkey, peek["jti"], bc)
+        ):
+            logger.info("guest-group join rejected: guest key binding failed")
+            raise HTTPException(401, "invalid or expired invite")
 
     try:
         info = GG.verify_group_invite(invite_token, burn_single_use=True)
@@ -235,18 +311,27 @@ async def guest_join(request: Request):
     guest_id = GG.guest_identity(display_name, guest_pubkey)
     fp = GG.pubkey_fingerprint(guest_pubkey)
 
+    # Mode-A DM: a 1:1 is a 2-seat guest group (seat 1 = operator). A NEW guest
+    # that would take a third seat is refused (the DM is full). A returning guest
+    # (same identity) is idempotent and always allowed.
+    if (
+        group.metadata.get("mode") == "dm"
+        and group.get_member(guest_id) is None
+        and group.member_count >= GG.DM_SEAT_CAP
+    ):
+        logger.info("dm join rejected: %s full (%d seats)", group_id, group.member_count)
+        raise HTTPException(403, "direct message is full")
+
     GG.add_untrusted_guest_member(group, guest_id, display)
     G.save_group(group)
 
-    session = GG.mint_guest_session(
-        group_id=group_id, guest_id=guest_id, name=display, fp=fp
-    )
+    session = GG.mint_guest_session(group_id=group_id, guest_id=guest_id, name=display, fp=fp)
 
     # LiveKit guest call token (publish A/V + screen + subscribe, never admin) —
     # reuse the group call room derivation so guests + members share one room.
     call = _mint_guest_call_token(group_id, guest_id, display, request)
 
-    bootstrap = _guest_messages(group_id, limit=200)
+    bootstrap = _guest_messages(group_id, limit=200, guest_id=guest_id)
     return JSONResponse(
         {
             "ok": True,
@@ -318,11 +403,57 @@ def _mint_guest_call_token(group_id: str, guest_id: str, display: str, request: 
 # --------------------------------------------------------------------------- #
 # Guest: read the bound group thread
 # --------------------------------------------------------------------------- #
-def _guest_messages(group_id: str, limit: int = 200) -> list[dict]:
+def _msg_ts_epoch(m) -> float:
+    """Best-effort epoch seconds for a message timestamp (datetime/number/iso)."""
+    ts = getattr(m, "timestamp", None)
+    if isinstance(ts, (int, float)):
+        return float(ts)
+    if hasattr(ts, "timestamp"):
+        try:
+            return float(ts.timestamp())
+        except Exception:
+            return 0.0
+    if isinstance(ts, str) and ts:
+        from datetime import datetime
+
+        try:
+            return datetime.fromisoformat(ts).timestamp()
+        except Exception:
+            return 0.0
+    return 0.0
+
+
+def _dm_epoch_fence(group_id: str, guest_id: str):
+    """Return the epoch-fence cutoff (``added_at``) for a DM guest, else None.
+
+    A ``mode="dm"`` guest sees no group history from before it joined (SimpleX
+    "no pre-epoch history"). Non-dm groups are NOT fenced — existing group-invite
+    history behaviour is unchanged.
+    """
+    if not guest_id:
+        return None
+    from skchat import daemon_proxy_groups as G
+
+    group = G.load_group(group_id)
+    if group is None or group.metadata.get("mode") != "dm":
+        return None
+    entry = (group.metadata.get("guests") or {}).get(guest_id)
+    if not entry:
+        return None
+    added = entry.get("added_at")
+    try:
+        return float(added) if added is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _guest_messages(group_id: str, limit: int = 200, *, guest_id: str = "") -> list[dict]:
     """Load the bound group's thread in the app message contract (guest view).
 
     Reuses ``daemon_proxy._group_msg_to_app`` so the guest UI gets the identical
     shape members get, then decorates each message with the guest-trust markers.
+    For a ``mode="dm"`` guest, an epoch fence drops any message older than the
+    guest's ``added_at`` (no pre-join DM history).
     """
     from skchat import daemon_proxy
     from skchat import daemon_proxy_groups as G
@@ -330,8 +461,11 @@ def _guest_messages(group_id: str, limit: int = 200) -> list[dict]:
     hist = _history()
     rows = G.group_thread_messages(hist, group_id, limit=limit)
     rows.sort(key=lambda x: getattr(x, "timestamp", ""))
+    fence = _dm_epoch_fence(group_id, guest_id)
     out = []
     for m in rows:
+        if fence is not None and _msg_ts_epoch(m) < fence:
+            continue
         d = daemon_proxy._group_msg_to_app(m, group_id=group_id)
         meta = getattr(m, "metadata", {}) or {}
         if meta.get("guest"):
@@ -352,7 +486,12 @@ async def guest_conversation(request: Request):
     _require_flag_guest()
     session = _guest_session(request)
     _bound_group(session)  # 404 if the group vanished
-    return JSONResponse({"group_id": session.group_id, "messages": _guest_messages(session.group_id)})
+    return JSONResponse(
+        {
+            "group_id": session.group_id,
+            "messages": _guest_messages(session.group_id, guest_id=session.guest_id),
+        }
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -410,11 +549,20 @@ async def guest_send(request: Request):
         },
     )
     hist.save(group_msg)
-    # Per-member copies (so each member's 1:1-style inbox sees it).
-    from skchat.group import MemberRole  # noqa: F401
-
+    # Authoritative log: the ONE canonical group event, not the member copies.
+    hist.record_event(group_msg)
+    # Per-member history copies (legacy 1:1-style inbox). Redundant once the
+    # authoritative log is on (record_event above logs the canonical event once);
+    # skip them then to stop the 1->N write amplification. Flag off => legacy.
+    _log_on = os.getenv("SKCHAT_MESSAGE_LOG", "").strip().lower() not in (
+        "",
+        "0",
+        "false",
+        "no",
+        "off",
+    )
     for member in group.members:
-        if member.identity_uri == session.guest_id:
+        if member.identity_uri == session.guest_id or _log_on:
             continue
         try:
             hist.save(
@@ -482,12 +630,17 @@ async def guest_react(request: Request):
     # with a guessed id.
     from skchat import daemon_proxy_groups as G
 
-    thread_ids = {getattr(m, "id", None) for m in G.group_thread_messages(hist, session.group_id, limit=2000)}
+    thread_ids = {
+        getattr(m, "id", None) for m in G.group_thread_messages(hist, session.group_id, limit=2000)
+    }
     if message_id not in thread_ids:
         raise HTTPException(403, "message is not in your room")
 
-    msg = hist.set_reaction(message_id, emoji, session.guest_id) if op == "add" else \
-        hist.clear_reaction(message_id, emoji, session.guest_id)
+    msg = (
+        hist.set_reaction(message_id, emoji, session.guest_id)
+        if op == "add"
+        else hist.clear_reaction(message_id, emoji, session.guest_id)
+    )
     if msg is None:
         raise HTTPException(404, "message not found")
     from skchat import daemon_proxy
@@ -659,6 +812,369 @@ async def guest_call(request: Request):
     if not call.get("available"):
         raise HTTPException(503, "livekit not configured")
     return JSONResponse(call)
+
+
+# --------------------------------------------------------------------------- #
+# Mode C: non-federated accept/sign (a peer that already has an identity)      #
+# --------------------------------------------------------------------------- #
+# A peer WITH an identity accepts an invite by signing an accept assertion; the
+# operator reviews it (SAS) and counter-signs a mutual join record. The crypto
+# lives in guest_accept.py; these routes carry it over the Funnel (the gift-wrap
+# rendezvous is an alternative transport). Pending assertions are held in memory
+# keyed by jti between accept and counter-sign.
+_mode_c_pending: dict = {}
+_mode_c_lock = threading.Lock()
+
+
+def _mode_c_sas(bc: str, operator_fp: str, peer_fp: str) -> str:
+    """6-digit Short Authentication String over bc + both bundle fingerprints.
+
+    Both sides compute it and compare out-of-band; a MITM key swap changes a
+    fingerprint so the SAS mismatches.
+    """
+    h = hashlib.sha256(f"{bc}|{operator_fp}|{peer_fp}".encode()).digest()
+    return f"{int.from_bytes(h[:4], 'big') % 1_000_000:06d}"
+
+
+def _mode_c_admit(pend: dict, operator_id: str = ""):
+    """Build + operator-sign the mutual join_record, burn the invite nonce (H5),
+    persist the admission (with the peer's operator_id for Mode B), and admit the
+    peer to the group. Shared by manual counter-sign and trust-inherited auto-
+    admit. Returns ``(join_record, sig_operator)``.
+    """
+    import json as _json
+
+    from skchat import crypto as _crypto
+    from skchat import daemon_proxy_groups as G
+    from skchat import guest_accept as A
+
+    chat_crypto = _crypto.load_agent_crypto()
+    if chat_crypto is None or not getattr(chat_crypto, "can_sign", False):
+        raise HTTPException(500, "operator signing key unavailable")
+    op_fp = A.pubkey_fingerprint(str(chat_crypto._private_key.pubkey))
+    ts = int(time.time())
+    record = A.build_join_record(
+        pend["jti"],
+        op_fp,
+        pend["peer_fp"],
+        op_fp,
+        pend["peer_fp"],
+        pend["assertion"],
+        pend["sig_peer"],
+        ts,
+    )
+    sig_operator = A.sign_join_record(chat_crypto, record)
+
+    nonces = A.ConsumedNonces()
+    try:
+        nonces.mark_consumed(pend["jti"])
+        nonces.record_admission(
+            pend["peer_fp"], operator_id, _json.dumps(record), sig_operator, pend["sig_peer"]
+        )
+    finally:
+        nonces.close()
+
+    try:
+        group = G.load_group(pend["group_id"])
+        if group is not None:
+            GG.add_untrusted_guest_member(group, f"peer:{pend['peer_fp'][:16]}", "Peer")
+            G.save_group(group)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("mode-c admit failed: %s", exc)
+    return record, sig_operator
+
+
+def _process_mode_c_accept(body: dict):
+    """Core Mode C accept processing, shared by the direct route and the
+    gift-wrapped route: verify the invite + the peer's assertion, inherit trust
+    if the peer proves membership under an opt-in-trusted operator (Mode B), else
+    hold pending for manual review. Returns a JSONResponse; raises HTTPException
+    (400/401) fail-closed."""
+    from skchat import guest_accept as A
+
+    invite_token = (body.get("invite_token") or "").strip()
+    assertion = body.get("accept_assertion") or {}
+    sig_peer = (body.get("sig_peer") or "").strip()
+    accepter_pubkey = (body.get("accepter_pubkey") or "").strip()
+    if not (invite_token and assertion and sig_peer and accepter_pubkey):
+        raise HTTPException(400, "accept_assertion, sig_peer, accepter_pubkey required")
+
+    try:
+        info = GG.verify_group_invite(invite_token, burn_single_use=False)
+    except GG.InviteInvalid as exc:
+        logger.info("mode-c accept rejected (invite): %s", exc)
+        raise HTTPException(401, "invalid or expired invite") from exc
+
+    bc = info.get("bc")
+    if not bc or not A.verify_accept_assertion(
+        assertion, sig_peer, accepter_pubkey, expected_bc=bc
+    ):
+        logger.info("mode-c accept rejected: assertion verify failed")
+        raise HTTPException(401, "accept assertion verification failed")
+
+    jti = info["jti"]
+    peer_fp = A.pubkey_fingerprint(accepter_pubkey)
+    pend = {
+        "jti": jti,
+        "group_id": info["group_id"],
+        "assertion": assertion,
+        "sig_peer": sig_peer,
+        "accepter_pubkey": accepter_pubkey,
+        "peer_fp": peer_fp,
+        "bc": bc,
+        "sas": _mode_c_sas(bc, info.get("ik_fp") or "", peer_fp),
+        "ts": int(time.time()),
+    }
+    # Mode B: if the peer PROVES (an operator-signed attestation over its own key)
+    # that it belongs to an OPT-IN-trusted peer-operator, inherit trust and
+    # auto-admit (skip the SAS). Fail-closed: a self-declared operator_id with no
+    # valid attestation, or an untrusted/revoked operator, falls through to manual
+    # review, so a spoofed claim can NEVER inherit trust.
+    operator_id = (body.get("operator_id") or "").strip()
+    operator_attestation = (body.get("operator_attestation") or "").strip()
+    if operator_id and operator_attestation:
+        nonces = A.ConsumedNonces()
+        try:
+            op_pub = nonces.operator_pubkey(operator_id)  # trusted AND not revoked
+        finally:
+            nonces.close()
+        if op_pub and A.verify_operator_attestation(op_pub, accepter_pubkey, operator_attestation):
+            pend["operator_id"] = operator_id
+            record, sig_operator = _mode_c_admit(pend, operator_id)
+            return JSONResponse(
+                {
+                    "ok": True,
+                    "jti": jti,
+                    "inherited": True,
+                    "join_record": record,
+                    "sig_operator": sig_operator,
+                }
+            )
+
+    with _mode_c_lock:
+        _mode_c_pending[jti] = pend
+    return JSONResponse({"ok": True, "jti": jti, "sas": pend["sas"], "peer_fp": peer_fp})
+
+
+@router.post("/mode-c/accept-giftwrapped")
+async def mode_c_accept_giftwrapped(request: Request):
+    """A peer submits a Mode C accept sealed in a NIP-59 gift-wrap envelope, so a
+    shared rendezvous relay sees only ciphertext + a throwaway key (H6 metadata
+    privacy). Body: the gift-wrap ``envelope``. The operator opens it with its
+    hybrid private key, then processes the inner accept exactly like the direct
+    route. Fail-closed: an unopenable envelope is a generic 401."""
+    _require_flag_guest()
+    from skchat import guest_giftwrap as GW
+    from skchat import pq_prekeys as PQ
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    envelope = body.get("envelope") or body
+    kp = PQ.ensure_agent_keypair()
+    if not kp:
+        raise HTTPException(500, "operator hybrid key unavailable")
+    _, priv = kp
+    try:
+        inner = GW.open_giftwrap(envelope, priv.hex())
+    except Exception as exc:  # noqa: BLE001 — any open failure is a generic reject
+        logger.info("mode-c gift-wrapped accept rejected: %s", exc)
+        raise HTTPException(401, "invalid gift-wrap envelope") from exc
+    return _process_mode_c_accept(inner)
+
+
+@router.post("/mode-c/accept")
+async def mode_c_accept(request: Request):
+    """A peer submits a signed accept assertion for an invite (Mode C, Phase 3).
+
+    Body: ``{invite_token, accept_assertion, sig_peer, accepter_pubkey}``. Verifies
+    the invite + the peer's assertion signature (bc anti-downgrade, aud==peer,
+    scope), holds it pending for operator review, and returns the SAS. Fail-closed:
+    a bad invite / assertion / bc is a generic 401 (no oracle).
+    """
+    _require_flag_guest()
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    return _process_mode_c_accept(body)
+
+
+@router.get("/mode-c/pending")
+async def mode_c_pending(request: Request):
+    """Operator: list Mode C accept assertions awaiting counter-sign."""
+    _require_flag_operator()
+    from skchat.guest import _require_operator
+
+    _require_operator(request)
+    with _mode_c_lock:
+        items = [
+            {
+                "jti": p["jti"],
+                "group_id": p["group_id"],
+                "peer_fp": p["peer_fp"],
+                "sas": p["sas"],
+                "ts": p["ts"],
+            }
+            for p in _mode_c_pending.values()
+        ]
+    return JSONResponse({"pending": items})
+
+
+@router.post("/mode-c/counter-sign")
+async def mode_c_counter_sign(request: Request):
+    """Operator: counter-sign a pending accept assertion (Mode C, Phase 3).
+
+    Body: ``{jti}``. Builds the mutually-signed join record, burns the invite
+    nonce (H5), and admits the peer to the group. Operator-gated.
+    """
+    _require_flag_operator()
+    from skchat.guest import _require_operator
+
+    _require_operator(request)
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    jti = (body.get("jti") or "").strip()
+    with _mode_c_lock:
+        pend = _mode_c_pending.get(jti)
+    if not pend:
+        raise HTTPException(404, "no pending accept for that jti")
+
+    record, sig_operator = _mode_c_admit(pend, pend.get("operator_id", ""))
+    with _mode_c_lock:
+        _mode_c_pending.pop(jti, None)
+    return JSONResponse(
+        {"ok": True, "jti": jti, "join_record": record, "sig_operator": sig_operator}
+    )
+
+
+@router.get("/mode-c/admitted")
+async def mode_c_admitted(request: Request):
+    """Operator: list durably-admitted peers (the TOFU pin store), newest first.
+
+    Excludes any whose peer or operator pin has been revoked. Operator-gated.
+    """
+    _require_flag_operator()
+    from skchat.guest import _require_operator
+
+    _require_operator(request)
+    from skchat import guest_accept as A
+
+    nonces = A.ConsumedNonces()
+    try:
+        items = [
+            {
+                "peer_fp": a["peer_fp"],
+                "operator_id": a["operator_id"],
+                "admitted_at": a["admitted_at"],
+            }
+            for a in nonces.list_admissions()
+        ]
+    finally:
+        nonces.close()
+    return JSONResponse({"admitted": items})
+
+
+@router.post("/mode-c/revoke")
+async def mode_c_revoke(request: Request):
+    """Operator: revoke an admitted peer's trust pin (H5). Body: ``{peer_fp}``.
+
+    Revokes the identity pin, so its join record no longer counts and the peer
+    drops out of the admitted list. Operator-gated.
+    """
+    _require_flag_operator()
+    from skchat.guest import _require_operator
+
+    _require_operator(request)
+    from skchat import guest_accept as A
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    peer_fp = (body.get("peer_fp") or "").strip()
+    if not peer_fp:
+        raise HTTPException(400, "peer_fp is required")
+    nonces = A.ConsumedNonces()
+    try:
+        nonces.revoke_pin(peer_fp)
+    finally:
+        nonces.close()
+    return JSONResponse({"ok": True, "revoked": peer_fp})
+
+
+@router.post("/mode-c/trust-operator")
+async def mode_c_trust_operator(request: Request):
+    """Operator: EXPLICITLY opt-in to trust a peer-operator (Mode B trust
+    inheritance). Body: ``{operator_id, operator_pubkey}``. An agent that later
+    presents an attestation signed by this operator over its own key is admitted
+    without a fresh SAS. Never implicit (H4). Operator-gated."""
+    _require_flag_operator()
+    from skchat.guest import _require_operator
+
+    _require_operator(request)
+    from skchat import guest_accept as A
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    operator_id = (body.get("operator_id") or "").strip()
+    operator_pubkey = (body.get("operator_pubkey") or "").strip()
+    if not (operator_id and operator_pubkey):
+        raise HTTPException(400, "operator_id and operator_pubkey are required")
+    nonces = A.ConsumedNonces()
+    try:
+        nonces.trust_operator(operator_id, operator_pubkey)
+    finally:
+        nonces.close()
+    return JSONResponse({"ok": True, "trusted": operator_id})
+
+
+@router.get("/mode-c/trusted-operators")
+async def mode_c_trusted_operators(request: Request):
+    """Operator: list opt-in-trusted peer-operators (non-revoked)."""
+    _require_flag_operator()
+    from skchat.guest import _require_operator
+
+    _require_operator(request)
+    from skchat import guest_accept as A
+
+    nonces = A.ConsumedNonces()
+    try:
+        items = nonces.list_trusted_operators()
+    finally:
+        nonces.close()
+    return JSONResponse({"trusted_operators": items})
+
+
+@router.post("/mode-c/untrust-operator")
+async def mode_c_untrust_operator(request: Request):
+    """Operator: revoke trust in a peer-operator (H5). Body: ``{operator_id}``.
+    Its agents stop inheriting and it drops from the trusted list."""
+    _require_flag_operator()
+    from skchat.guest import _require_operator
+
+    _require_operator(request)
+    from skchat import guest_accept as A
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    operator_id = (body.get("operator_id") or "").strip()
+    if not operator_id:
+        raise HTTPException(400, "operator_id is required")
+    nonces = A.ConsumedNonces()
+    try:
+        nonces.revoke_pin(operator_id)
+    finally:
+        nonces.close()
+    return JSONResponse({"ok": True, "untrusted": operator_id})
 
 
 def register_guest_group_routes(app) -> None:

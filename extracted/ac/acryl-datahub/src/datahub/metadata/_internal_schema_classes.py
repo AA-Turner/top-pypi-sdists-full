@@ -271,12 +271,653 @@ class DataHubAccessTokenInfoClass(_Aspect):
         self._inner_dict['description'] = value
     
     
+class AIAgentDependenciesClass(_Aspect):
+    """Dependencies of an AI agent: the skills it adopts, the tools it
+    invokes, and the models it runs on. These are governance/discovery
+    relationships to first-class catalog entities."""
+
+
+    ASPECT_NAME = 'aiAgentDependencies'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.agent.AIAgentDependencies")
+
+    def __init__(self,
+        skills: Union[None, List[str]]=None,
+        tools: Union[None, List[str]]=None,
+        models: Union[None, List[str]]=None,
+    ):
+        super().__init__()
+        
+        self.skills = skills
+        self.tools = tools
+        self.models = models
+    
+    def _restore_defaults(self) -> None:
+        self.skills = self.RECORD_SCHEMA.fields_dict["skills"].default
+        self.tools = self.RECORD_SCHEMA.fields_dict["tools"].default
+        self.models = self.RECORD_SCHEMA.fields_dict["models"].default
+    
+    
+    @property
+    def skills(self) -> Union[None, List[str]]:
+        """High-level skills this agent adopts."""
+        return self._inner_dict.get('skills')  # type: ignore
+    
+    @skills.setter
+    def skills(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['skills'] = value
+    
+    
+    @property
+    def tools(self) -> Union[None, List[str]]:
+        """APIs this agent invokes (cataloged API entities)."""
+        return self._inner_dict.get('tools')  # type: ignore
+    
+    @tools.setter
+    def tools(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['tools'] = value
+    
+    
+    @property
+    def models(self) -> Union[None, List[str]]:
+        """Models (LLMs) this agent runs on."""
+        return self._inner_dict.get('models')  # type: ignore
+    
+    @models.setter
+    def models(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['models'] = value
+    
+    
+class AIAgentInfoClass(_Aspect):
+    """Configuration and metadata for an AI agent.
+    
+    Agents can be:
+    1. System (SYSTEM): bootstrapped at deployment time via YAML, not editable
+    2. Native (NATIVE): created by end users through the UI or API
+    3. External (EXTERNAL): cataloged on DataHub but managed externally"""
+
+
+    ASPECT_NAME = 'aiAgentInfo'
+    ASPECT_INFO = {'schemaVersion': 8}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.agent.AIAgentInfo")
+
+    def __init__(self,
+        name: str,
+        created: "AuditStampClass",
+        lastModified: "AuditStampClass",
+        tagline: Union[None, str]=None,
+        description: Union[None, str]=None,
+        instructions: Union[None, str]=None,
+        source: Union[None, "AIAgentSourceClass"]=None,
+    ):
+        super().__init__()
+        
+        self.name = name
+        self.tagline = tagline
+        self.description = description
+        self.instructions = instructions
+        self.source = source
+        self.created = created
+        self.lastModified = lastModified
+    
+    def _restore_defaults(self) -> None:
+        self.name = str()
+        self.tagline = self.RECORD_SCHEMA.fields_dict["tagline"].default
+        self.description = self.RECORD_SCHEMA.fields_dict["description"].default
+        self.instructions = self.RECORD_SCHEMA.fields_dict["instructions"].default
+        self.source = self.RECORD_SCHEMA.fields_dict["source"].default
+        self.created = AuditStampClass._construct_with_defaults()
+        self.lastModified = AuditStampClass._construct_with_defaults()
+    
+    
+    @property
+    def name(self) -> str:
+        """Display name of the agent"""
+        return self._inner_dict.get('name')  # type: ignore
+    
+    @name.setter
+    def name(self, value: str) -> None:
+        self._inner_dict['name'] = value
+    
+    
+    @property
+    def tagline(self) -> Union[None, str]:
+        """Short, user-facing tagline shown on agent cards, hero subtitles, and
+    picker dropdowns. Should be a one-line summary (~120 chars). When
+    absent, surfaces fall back to truncating `description`."""
+        return self._inner_dict.get('tagline')  # type: ignore
+    
+    @tagline.setter
+    def tagline(self, value: Union[None, str]) -> None:
+        self._inner_dict['tagline'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        """Description of what this agent does AND when Ask DataHub should
+    route to it. Style: "X does Y. Use when Z." The router reads this
+    verbatim when deciding whether to delegate to this agent, so the
+    "Use when..." tail is load-bearing — not optional prose. Roughly
+    300-1000 chars is the right length."""
+        return self._inner_dict.get('description')  # type: ignore
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        self._inner_dict['description'] = value
+    
+    
+    @property
+    def instructions(self) -> Union[None, str]:
+        """Custom base instructions for the agent, beyond the standard DataHub boilerplate.
+    Injected into the agent's system prompt."""
+        return self._inner_dict.get('instructions')  # type: ignore
+    
+    @instructions.setter
+    def instructions(self, value: Union[None, str]) -> None:
+        self._inner_dict['instructions'] = value
+    
+    
+    @property
+    def source(self) -> Union[None, "AIAgentSourceClass"]:
+        """The source or origin of the agent definition.
+    System agents (source.type = SYSTEM) are bootstrapped at deployment time
+    and are not editable by end users."""
+        return self._inner_dict.get('source')  # type: ignore
+    
+    @source.setter
+    def source(self, value: Union[None, "AIAgentSourceClass"]) -> None:
+        self._inner_dict['source'] = value
+    
+    
+    @property
+    def created(self) -> "AuditStampClass":
+        """When this agent was created"""
+        return self._inner_dict.get('created')  # type: ignore
+    
+    @created.setter
+    def created(self, value: "AuditStampClass") -> None:
+        self._inner_dict['created'] = value
+    
+    
+    @property
+    def lastModified(self) -> "AuditStampClass":
+        """When this agent was last modified"""
+        return self._inner_dict.get('lastModified')  # type: ignore
+    
+    @lastModified.setter
+    def lastModified(self, value: "AuditStampClass") -> None:
+        self._inner_dict['lastModified'] = value
+    
+    
+class AIAgentSourceClass(DictWrapper):
+    """The source or origin of an AI agent definition.
+    Follows the same pattern as AssertionSource."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.agent.AIAgentSource")
+    def __init__(self,
+        type: Union[str, "AIAgentSourceTypeClass"],
+        clonedFrom: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.type = type
+        self.clonedFrom = clonedFrom
+    
+    def _restore_defaults(self) -> None:
+        self.type = AIAgentSourceTypeClass.SYSTEM
+        self.clonedFrom = self.RECORD_SCHEMA.fields_dict["clonedFrom"].default
+    
+    
+    @property
+    def type(self) -> Union[str, "AIAgentSourceTypeClass"]:
+        """The source type of the agent"""
+        return self._inner_dict.get('type')  # type: ignore
+    
+    @type.setter
+    def type(self, value: Union[str, "AIAgentSourceTypeClass"]) -> None:
+        self._inner_dict['type'] = value
+    
+    
+    @property
+    def clonedFrom(self) -> Union[None, str]:
+        """If this agent was cloned from another agent, the URN of the source agent.
+    Null on SYSTEM agents and original NATIVE/EXTERNAL agents.
+    
+    Used to group clones into an Agent Family — the base + all its clones share
+    one frontend module, one tool palette, and one set of instructions. Clones
+    inherit configuration verbatim from the base; what differs is their
+    stewardship set (the artifacts they manage)."""
+        return self._inner_dict.get('clonedFrom')  # type: ignore
+    
+    @clonedFrom.setter
+    def clonedFrom(self, value: Union[None, str]) -> None:
+        self._inner_dict['clonedFrom'] = value
+    
+    
+class AIAgentSourceTypeClass(object):
+    """The source type of an AI agent definition.
+    
+    Follows the same pattern as AssertionSourceType: NATIVE agents are
+    defined and managed on DataHub, while EXTERNAL agents are cataloged
+    but managed outside DataHub."""
+    
+    SYSTEM = "SYSTEM"
+    """A system-internal agent, bootstrapped at deployment time.
+    System agents are not editable by end users."""
+    
+    NATIVE = "NATIVE"
+    """An agent defined and managed natively on DataHub by end users."""
+    
+    EXTERNAL = "EXTERNAL"
+    """An agent defined and managed externally, cataloged on DataHub."""
+    
+    
+    
+class AgentSkillInfoClass(_Aspect):
+    """Properties of an AgentSkill — a high-level capability bundle (specialized
+    prompts/instructions + the tools it relies on). Skills are
+    higher-level than tools: a skill packages domain expertise and the
+    low-level tools needed to apply it."""
+
+
+    ASPECT_NAME = 'agentSkillInfo'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.agentskill.AgentSkillInfo")
+
+    def __init__(self,
+        name: str,
+        description: Union[None, str]=None,
+        instructions: Union[None, str]=None,
+        sourceRepository: Union[None, "SkillSourceRepositoryClass"]=None,
+        requiredTools: Union[None, List[str]]=None,
+        created: Union[None, "AuditStampClass"]=None,
+        lastModified: Union[None, "AuditStampClass"]=None,
+    ):
+        super().__init__()
+        
+        self.name = name
+        self.description = description
+        self.instructions = instructions
+        self.sourceRepository = sourceRepository
+        self.requiredTools = requiredTools
+        self.created = created
+        self.lastModified = lastModified
+    
+    def _restore_defaults(self) -> None:
+        self.name = str()
+        self.description = self.RECORD_SCHEMA.fields_dict["description"].default
+        self.instructions = self.RECORD_SCHEMA.fields_dict["instructions"].default
+        self.sourceRepository = self.RECORD_SCHEMA.fields_dict["sourceRepository"].default
+        self.requiredTools = self.RECORD_SCHEMA.fields_dict["requiredTools"].default
+        self.created = self.RECORD_SCHEMA.fields_dict["created"].default
+        self.lastModified = self.RECORD_SCHEMA.fields_dict["lastModified"].default
+    
+    
+    @property
+    def name(self) -> str:
+        """Display name of the skill."""
+        return self._inner_dict.get('name')  # type: ignore
+    
+    @name.setter
+    def name(self, value: str) -> None:
+        self._inner_dict['name'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        """Description of what the skill does and when to use it."""
+        return self._inner_dict.get('description')  # type: ignore
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        self._inner_dict['description'] = value
+    
+    
+    @property
+    def instructions(self) -> Union[None, str]:
+        """Markdown body of the skill's SKILL.md file, excluding YAML frontmatter.
+    This is the execution guidance loaded when the skill is activated."""
+        return self._inner_dict.get('instructions')  # type: ignore
+    
+    @instructions.setter
+    def instructions(self, value: Union[None, str]) -> None:
+        self._inner_dict['instructions'] = value
+    
+    
+    @property
+    def sourceRepository(self) -> Union[None, "SkillSourceRepositoryClass"]:
+        """Git location where the skill is defined (source of truth)."""
+        return self._inner_dict.get('sourceRepository')  # type: ignore
+    
+    @sourceRepository.setter
+    def sourceRepository(self, value: Union[None, "SkillSourceRepositoryClass"]) -> None:
+        self._inner_dict['sourceRepository'] = value
+    
+    
+    @property
+    def requiredTools(self) -> Union[None, List[str]]:
+        """Tools this skill requires to operate."""
+        return self._inner_dict.get('requiredTools')  # type: ignore
+    
+    @requiredTools.setter
+    def requiredTools(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['requiredTools'] = value
+    
+    
+    @property
+    def created(self) -> Union[None, "AuditStampClass"]:
+        """When this skill was registered."""
+        return self._inner_dict.get('created')  # type: ignore
+    
+    @created.setter
+    def created(self, value: Union[None, "AuditStampClass"]) -> None:
+        self._inner_dict['created'] = value
+    
+    
+    @property
+    def lastModified(self) -> Union[None, "AuditStampClass"]:
+        """When this skill was last modified."""
+        return self._inner_dict.get('lastModified')  # type: ignore
+    
+    @lastModified.setter
+    def lastModified(self, value: Union[None, "AuditStampClass"]) -> None:
+        self._inner_dict['lastModified'] = value
+    
+    
+class SkillSourceRepositoryClass(DictWrapper):
+    """Pointer to the git location where a skill is defined. Skills follow a
+    "git as source of truth" pattern (e.g. the agentskills.io standard):
+    the repository owns the skill definition, DataHub catalogs it."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.agentskill.SkillSourceRepository")
+    def __init__(self,
+        repositoryUrn: Union[None, str]=None,
+        url: Union[None, str]=None,
+        path: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.repositoryUrn = repositoryUrn
+        self.url = url
+        self.path = path
+    
+    def _restore_defaults(self) -> None:
+        self.repositoryUrn = self.RECORD_SCHEMA.fields_dict["repositoryUrn"].default
+        self.url = self.RECORD_SCHEMA.fields_dict["url"].default
+        self.path = self.RECORD_SCHEMA.fields_dict["path"].default
+    
+    
+    @property
+    def repositoryUrn(self) -> Union[None, str]:
+        """URN of the Repository entity in DataHub that owns this skill definition.
+    Preferred over url when the repository is already cataloged in DataHub."""
+        return self._inner_dict.get('repositoryUrn')  # type: ignore
+    
+    @repositoryUrn.setter
+    def repositoryUrn(self, value: Union[None, str]) -> None:
+        self._inner_dict['repositoryUrn'] = value
+    
+    
+    @property
+    def url(self) -> Union[None, str]:
+        """External URL of the git repository, for repositories not cataloged as
+    DataHub Repository entities."""
+        return self._inner_dict.get('url')  # type: ignore
+    
+    @url.setter
+    def url(self, value: Union[None, str]) -> None:
+        self._inner_dict['url'] = value
+    
+    
+    @property
+    def path(self) -> Union[None, str]:
+        """Path within the repository to the skill definition file (e.g.
+    "customer-service/SKILL.md")."""
+        return self._inner_dict.get('path')  # type: ignore
+    
+    @path.setter
+    def path(self, value: Union[None, str]) -> None:
+        self._inner_dict['path'] = value
+    
+    
+class ApiPropertiesClass(_Aspect):
+    """Properties of an API — a named callable with a typed input and output schema
+    (an MCP tool, REST endpoint, gRPC method, GraphQL operation, function, etc.).
+    APIs are cataloged as first-class entities so both humans and agents can
+    discover them before building new ones, and so caller -> API dependencies
+    (services that compose APIs, agents that invoke them) are visible in the
+    graph. The kind of API is captured via the standard subTypes aspect, and the
+    input/output schema lives on the separate apiSignature aspect."""
+
+
+    ASPECT_NAME = 'apiProperties'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.api.ApiProperties")
+
+    def __init__(self,
+        name: str,
+        description: Union[None, str]=None,
+        externalUrl: Union[None, str]=None,
+        sourceRepository: Union[None, str]=None,
+        created: Union[None, "AuditStampClass"]=None,
+        lastModified: Union[None, "AuditStampClass"]=None,
+    ):
+        super().__init__()
+        
+        self.name = name
+        self.description = description
+        self.externalUrl = externalUrl
+        self.sourceRepository = sourceRepository
+        self.created = created
+        self.lastModified = lastModified
+    
+    def _restore_defaults(self) -> None:
+        self.name = str()
+        self.description = self.RECORD_SCHEMA.fields_dict["description"].default
+        self.externalUrl = self.RECORD_SCHEMA.fields_dict["externalUrl"].default
+        self.sourceRepository = self.RECORD_SCHEMA.fields_dict["sourceRepository"].default
+        self.created = self.RECORD_SCHEMA.fields_dict["created"].default
+        self.lastModified = self.RECORD_SCHEMA.fields_dict["lastModified"].default
+    
+    
+    @property
+    def name(self) -> str:
+        """Display name of the API."""
+        return self._inner_dict.get('name')  # type: ignore
+    
+    @name.setter
+    def name(self, value: str) -> None:
+        self._inner_dict['name'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        """Description of what the API does and when to use it."""
+        return self._inner_dict.get('description')  # type: ignore
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        self._inner_dict['description'] = value
+    
+    
+    @property
+    def externalUrl(self) -> Union[None, str]:
+        """Optional link to the API's registry entry, documentation, or source."""
+        return self._inner_dict.get('externalUrl')  # type: ignore
+    
+    @externalUrl.setter
+    def externalUrl(self, value: Union[None, str]) -> None:
+        self._inner_dict['externalUrl'] = value
+    
+    
+    @property
+    def sourceRepository(self) -> Union[None, str]:
+        """The source-code repository this API is produced from (the SourcedFrom
+    provenance edge). Lights up the repo -> service -> api -> app -> dataset chain."""
+        return self._inner_dict.get('sourceRepository')  # type: ignore
+    
+    @sourceRepository.setter
+    def sourceRepository(self, value: Union[None, str]) -> None:
+        self._inner_dict['sourceRepository'] = value
+    
+    
+    @property
+    def created(self) -> Union[None, "AuditStampClass"]:
+        """When this API was registered."""
+        return self._inner_dict.get('created')  # type: ignore
+    
+    @created.setter
+    def created(self, value: Union[None, "AuditStampClass"]) -> None:
+        self._inner_dict['created'] = value
+    
+    
+    @property
+    def lastModified(self) -> Union[None, "AuditStampClass"]:
+        """When this API was last modified."""
+        return self._inner_dict.get('lastModified')  # type: ignore
+    
+    @lastModified.setter
+    def lastModified(self, value: Union[None, "AuditStampClass"]) -> None:
+        self._inner_dict['lastModified'] = value
+    
+    
+class ApiSignatureClass(_Aspect):
+    """The input/output signature of an API — the schema that defines what the
+    callable accepts and returns. Kept separate from apiProperties because the
+    signature is scraped from the endpoint (an OpenAPI/JSON-Schema doc, an MCP
+    tool manifest, a function definition) and evolves on its own cadence: when
+    the endpoint's contract changes, only this aspect is re-ingested, leaving the
+    catalog identity (name, ownership, docs) on apiProperties untouched."""
+
+
+    ASPECT_NAME = 'apiSignature'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.api.ApiSignature")
+
+    def __init__(self,
+        schemaDefinition: Union[None, str]=None,
+        inputFields: Union[None, List["SchemaFieldClass"]]=None,
+        outputFields: Union[None, List["SchemaFieldClass"]]=None,
+    ):
+        super().__init__()
+        
+        self.schemaDefinition = schemaDefinition
+        self.inputFields = inputFields
+        self.outputFields = outputFields
+    
+    def _restore_defaults(self) -> None:
+        self.schemaDefinition = self.RECORD_SCHEMA.fields_dict["schemaDefinition"].default
+        self.inputFields = self.RECORD_SCHEMA.fields_dict["inputFields"].default
+        self.outputFields = self.RECORD_SCHEMA.fields_dict["outputFields"].default
+    
+    
+    @property
+    def schemaDefinition(self) -> Union[None, str]:
+        """The input/output schema stored as an opaque string (typically JSON Schema).
+    The source-of-truth representation of the signature; round-trips the full
+    contract even when it uses constructs the structured fields below cannot
+    capture. For a structured, typed view use `inputFields` + `outputFields`."""
+        return self._inner_dict.get('schemaDefinition')  # type: ignore
+    
+    @schemaDefinition.setter
+    def schemaDefinition(self, value: Union[None, str]) -> None:
+        self._inner_dict['schemaDefinition'] = value
+    
+    
+    @property
+    def inputFields(self) -> Union[None, List["SchemaFieldClass"]]:
+        """Typed input parameters of the API's signature (the input schema), reusing
+    DataHub's schema-field model so nested/struct/array types, nullability, and
+    field descriptions render with the standard schema components. Each field's
+    fieldPath is the parameter name; nullable=false means a required argument."""
+        return self._inner_dict.get('inputFields')  # type: ignore
+    
+    @inputFields.setter
+    def inputFields(self, value: Union[None, List["SchemaFieldClass"]]) -> None:
+        self._inner_dict['inputFields'] = value
+    
+    
+    @property
+    def outputFields(self) -> Union[None, List["SchemaFieldClass"]]:
+        """The output shape the API returns when invoked, modeled as schema fields
+    (a scalar return is a single field; an object return is a field per member)."""
+        return self._inner_dict.get('outputFields')  # type: ignore
+    
+    @outputFields.setter
+    def outputFields(self, value: Union[None, List["SchemaFieldClass"]]) -> None:
+        self._inner_dict['outputFields'] = value
+    
+    
+class HttpMethodClass(object):
+    # No docs available.
+    
+    GET = "GET"
+    POST = "POST"
+    PUT = "PUT"
+    PATCH = "PATCH"
+    DELETE = "DELETE"
+    HEAD = "HEAD"
+    OPTIONS = "OPTIONS"
+    TRACE = "TRACE"
+    
+    
+class RestApiPropertiesClass(_Aspect):
+    """REST-specific properties for APIs of subtype REST_ENDPOINT.
+    
+    Only attached to API entities where subType = REST_ENDPOINT. The (method, path)
+    pair identifies a REST operation, so an endpoint that serves the same path
+    under multiple HTTP methods (e.g. GET vs POST /orders) is modeled as a
+    distinct API entity per method, each carrying its own apiSignature. Kept on
+    this subtype-specific aspect rather than the protocol-agnostic apiProperties
+    so callers can filter by method and group endpoints that share a path."""
+
+
+    ASPECT_NAME = 'restApiProperties'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.api.RestApiProperties")
+
+    def __init__(self,
+        method: Union[str, "HttpMethodClass"],
+        path: str,
+    ):
+        super().__init__()
+        
+        self.method = method
+        self.path = path
+    
+    def _restore_defaults(self) -> None:
+        self.method = HttpMethodClass.GET
+        self.path = str()
+    
+    
+    @property
+    def method(self) -> Union[str, "HttpMethodClass"]:
+        """The HTTP method this endpoint responds to."""
+        return self._inner_dict.get('method')  # type: ignore
+    
+    @method.setter
+    def method(self, value: Union[str, "HttpMethodClass"]) -> None:
+        self._inner_dict['method'] = value
+    
+    
+    @property
+    def path(self) -> str:
+        """The route/path template of the endpoint, relative to the owning service's
+    base URL, e.g. "/orders/{orderId}". Endpoints that share a path (across
+    methods) can be grouped by filtering on this value."""
+        return self._inner_dict.get('path')  # type: ignore
+    
+    @path.setter
+    def path(self, value: str) -> None:
+        self._inner_dict['path'] = value
+    
+    
 class ApplicationKeyClass(_Aspect):
     """Key for a Query"""
 
 
     ASPECT_NAME = 'applicationKey'
-    ASPECT_INFO = {'keyForEntity': 'application', 'entityCategory': 'core', 'entityAspects': ['applicationProperties', 'ownership', 'glossaryTerms', 'globalTags', 'domains', 'institutionalMemory', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes']}
+    ASPECT_INFO = {'keyForEntity': 'application', 'entityCategory': 'core', 'entityAspects': ['applicationProperties', 'applicationLineage', 'ownership', 'glossaryTerms', 'globalTags', 'domains', 'institutionalMemory', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.application.ApplicationKey")
 
     def __init__(self,
@@ -300,12 +941,56 @@ class ApplicationKeyClass(_Aspect):
         self._inner_dict['id'] = value
     
     
+class ApplicationLineageClass(_Aspect):
+    """Lineage relationships for an Application: which APIs and datasets it
+    consumes as inputs, and which APIs and datasets it produces as outputs.
+    Follows the same Edge-based pattern as DataJobInputOutput."""
+
+
+    ASPECT_NAME = 'applicationLineage'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.application.ApplicationLineage")
+
+    def __init__(self,
+        inputEdges: Union[None, List["EdgeClass"]]=None,
+        outputEdges: Union[None, List["EdgeClass"]]=None,
+    ):
+        super().__init__()
+        
+        self.inputEdges = inputEdges
+        self.outputEdges = outputEdges
+    
+    def _restore_defaults(self) -> None:
+        self.inputEdges = self.RECORD_SCHEMA.fields_dict["inputEdges"].default
+        self.outputEdges = self.RECORD_SCHEMA.fields_dict["outputEdges"].default
+    
+    
+    @property
+    def inputEdges(self) -> Union[None, List["EdgeClass"]]:
+        """Upstream entities (APIs, datasets) consumed by this application."""
+        return self._inner_dict.get('inputEdges')  # type: ignore
+    
+    @inputEdges.setter
+    def inputEdges(self, value: Union[None, List["EdgeClass"]]) -> None:
+        self._inner_dict['inputEdges'] = value
+    
+    
+    @property
+    def outputEdges(self) -> Union[None, List["EdgeClass"]]:
+        """Downstream entities (APIs, datasets) produced or written by this application."""
+        return self._inner_dict.get('outputEdges')  # type: ignore
+    
+    @outputEdges.setter
+    def outputEdges(self, value: Union[None, List["EdgeClass"]]) -> None:
+        self._inner_dict['outputEdges'] = value
+    
+    
 class ApplicationPropertiesClass(_Aspect):
     """The main properties of an Application"""
 
 
     ASPECT_NAME = 'applicationProperties'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.application.ApplicationProperties")
 
     def __init__(self,
@@ -313,6 +998,7 @@ class ApplicationPropertiesClass(_Aspect):
         externalUrl: Union[None, str]=None,
         name: Union[None, str]=None,
         description: Union[None, str]=None,
+        parentApplication: Union[None, str]=None,
     ):
         super().__init__()
         
@@ -324,12 +1010,14 @@ class ApplicationPropertiesClass(_Aspect):
         self.externalUrl = externalUrl
         self.name = name
         self.description = description
+        self.parentApplication = parentApplication
     
     def _restore_defaults(self) -> None:
         self.customProperties = dict()
         self.externalUrl = self.RECORD_SCHEMA.fields_dict["externalUrl"].default
         self.name = self.RECORD_SCHEMA.fields_dict["name"].default
         self.description = self.RECORD_SCHEMA.fields_dict["description"].default
+        self.parentApplication = self.RECORD_SCHEMA.fields_dict["parentApplication"].default
     
     
     @property
@@ -370,6 +1058,19 @@ class ApplicationPropertiesClass(_Aspect):
     @description.setter
     def description(self, value: Union[None, str]) -> None:
         self._inner_dict['description'] = value
+    
+    
+    @property
+    def parentApplication(self) -> Union[None, str]:
+        """The parent application that contains this one (app-of-apps hierarchy).
+    A child holds the reference to its parent to avoid cardinality blow-up on
+    the parent side. The Application profile follows the edge upward to render
+    the "Part of" breadcrumb."""
+        return self._inner_dict.get('parentApplication')  # type: ignore
+    
+    @parentApplication.setter
+    def parentApplication(self, value: Union[None, str]) -> None:
+        self._inner_dict['parentApplication'] = value
     
     
 class ApplicationsClass(_Aspect):
@@ -4310,6 +5011,13 @@ class ChangeAuditStampsClass(DictWrapper):
         self._inner_dict['deleted'] = value
     
     
+class CompressionTypeClass(object):
+    # No docs available.
+    
+    NONE = "NONE"
+    GZIP = "GZIP"
+    
+    
 class CostClass(_Aspect):
     # No docs available.
 
@@ -5921,6 +6629,65 @@ class InstitutionalMemoryMetadataSettingsClass(DictWrapper):
     @showInAssetPreview.setter
     def showInAssetPreview(self, value: bool) -> None:
         self._inner_dict['showInAssetPreview'] = value
+    
+    
+class LargeStringClass(DictWrapper):
+    """A string whose stored form may be compressed, so large text (API specs,
+    schemas, docs) can live in an aspect without breaching the aspect-size limit.
+    The logical value is always the decompressed UTF-8 text; `compression` tells
+    consumers how to decode `blob`. NOTE: never mark a LargeString field
+    @Searchable — a compressed blob cannot be indexed (enforced at model load)."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.common.LargeString")
+    def __init__(self,
+        blob: str,
+        compression: Optional[Union[str, "CompressionTypeClass"]]=None,
+        uncompressedSize: Union[None, int]=None,
+    ):
+        super().__init__()
+        
+        self.blob = blob
+        if compression is None:
+            # default: 'NONE'
+            self.compression = self.RECORD_SCHEMA.fields_dict["compression"].default
+        else:
+            self.compression = compression
+        self.uncompressedSize = uncompressedSize
+    
+    def _restore_defaults(self) -> None:
+        self.blob = str()
+        self.compression = self.RECORD_SCHEMA.fields_dict["compression"].default
+        self.uncompressedSize = self.RECORD_SCHEMA.fields_dict["uncompressedSize"].default
+    
+    
+    @property
+    def blob(self) -> str:
+        """ When compression = NONE, the raw UTF-8 text. Otherwise base64(codec(utf8(text))) — base64 keeps it JSON-safe. """
+        return self._inner_dict.get('blob')  # type: ignore
+    
+    @blob.setter
+    def blob(self, value: str) -> None:
+        self._inner_dict['blob'] = value
+    
+    
+    @property
+    def compression(self) -> Union[str, "CompressionTypeClass"]:
+        """ Codec applied to `blob`. """
+        return self._inner_dict.get('compression')  # type: ignore
+    
+    @compression.setter
+    def compression(self, value: Union[str, "CompressionTypeClass"]) -> None:
+        self._inner_dict['compression'] = value
+    
+    
+    @property
+    def uncompressedSize(self) -> Union[None, int]:
+        """ Byte length of the original (decompressed) UTF-8 text — for display/budgeting without decoding. """
+        return self._inner_dict.get('uncompressedSize')  # type: ignore
+    
+    @uncompressedSize.setter
+    def uncompressedSize(self, value: Union[None, int]) -> None:
+        self._inner_dict['uncompressedSize'] = value
     
     
 class MLFeatureDataTypeClass(object):
@@ -9757,7 +10524,7 @@ class DataPlatformInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'dataPlatformInfo'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo")
 
     def __init__(self,
@@ -9765,6 +10532,7 @@ class DataPlatformInfoClass(_Aspect):
         type: Union[str, "PlatformTypeClass"],
         datasetNameDelimiter: str,
         displayName: Union[None, str]=None,
+        logical: Union[None, bool]=None,
         logoUrl: Union[None, str]=None,
     ):
         super().__init__()
@@ -9773,6 +10541,7 @@ class DataPlatformInfoClass(_Aspect):
         self.displayName = displayName
         self.type = type
         self.datasetNameDelimiter = datasetNameDelimiter
+        self.logical = logical
         self.logoUrl = logoUrl
     
     def _restore_defaults(self) -> None:
@@ -9780,6 +10549,7 @@ class DataPlatformInfoClass(_Aspect):
         self.displayName = self.RECORD_SCHEMA.fields_dict["displayName"].default
         self.type = PlatformTypeClass.FILE_SYSTEM
         self.datasetNameDelimiter = str()
+        self.logical = self.RECORD_SCHEMA.fields_dict["logical"].default
         self.logoUrl = self.RECORD_SCHEMA.fields_dict["logoUrl"].default
     
     
@@ -9821,6 +10591,16 @@ class DataPlatformInfoClass(_Aspect):
     @datasetNameDelimiter.setter
     def datasetNameDelimiter(self, value: str) -> None:
         self._inner_dict['datasetNameDelimiter'] = value
+    
+    
+    @property
+    def logical(self) -> Union[None, bool]:
+        """Whether datasets on this platform are logical models (hand-authored, no ingestion source)."""
+        return self._inner_dict.get('logical')  # type: ignore
+    
+    @logical.setter
+    def logical(self, value: Union[None, bool]) -> None:
+        self._inner_dict['logical'] = value
     
     
     @property
@@ -15196,7 +15976,7 @@ class CorpUserInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'corpUserInfo'
-    ASPECT_INFO = {'EntityUrns': ['com.linkedin.pegasus2avro.common.CorpuserUrn'], 'schemaVersion': 2}
+    ASPECT_INFO = {'EntityUrns': ['com.linkedin.pegasus2avro.common.CorpuserUrn']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.identity.CorpUserInfo")
 
     def __init__(self,
@@ -15882,11 +16662,13 @@ class IncidentExternalLinksClass(_Aspect):
     
     
 class IncidentInfoClass(_Aspect):
-    """Information about an incident raised on an asset."""
+    """Information about an incident raised on an asset.
+    
+    NOTE: When this file is changed, update IncidentActivityEvent.pdl to remove searchable and relationship annotations."""
 
 
     ASPECT_NAME = 'incidentInfo'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.incident.IncidentInfo")
 
     def __init__(self,
@@ -17380,6 +18162,97 @@ class LogicalParentClass(_Aspect):
     @parent.setter
     def parent(self, value: Union[None, "EdgeClass"]) -> None:
         self._inner_dict['parent'] = value
+    
+    
+class AIAgentKeyClass(_Aspect):
+    """Key for an AI Agent entity"""
+
+
+    ASPECT_NAME = 'aiAgentKey'
+    ASPECT_INFO = {'keyForEntity': 'aiAgent', 'entityCategory': 'core', 'entityAspects': ['aiAgentInfo', 'aiAgentDependencies', 'dataPlatformInstance', 'displayProperties', 'ownership', 'status', 'structuredProperties', 'upstreamLineage', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'incidentsSummary', 'versionProperties'], 'entityDoc': 'An AI agent with custom instructions, tools, and scoping. Supports native (DataHub-managed), system (bootstrapped), and external (cataloged) agents.'}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.AIAgentKey")
+
+    def __init__(self,
+        id: str,
+    ):
+        super().__init__()
+        
+        self.id = id
+    
+    def _restore_defaults(self) -> None:
+        self.id = str()
+    
+    
+    @property
+    def id(self) -> str:
+        """Unique identifier for the agent, e.g. "ask-datahub" or a generated UUID"""
+        return self._inner_dict.get('id')  # type: ignore
+    
+    @id.setter
+    def id(self, value: str) -> None:
+        self._inner_dict['id'] = value
+    
+    
+class AgentSkillKeyClass(_Aspect):
+    """Key for an AgentSkill entity — a high-level, reusable capability bundle
+    (prompts + tools + domain expertise) that agents can adopt."""
+
+
+    ASPECT_NAME = 'agentSkillKey'
+    ASPECT_INFO = {'keyForEntity': 'agentSkill', 'entityCategory': 'core', 'entityAspects': ['agentSkillInfo', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'structuredProperties', 'versionProperties'], 'entityDoc': 'A high-level, reusable capability bundle (prompts + tools + domain expertise) that agents adopt. Defined in git and cataloged in DataHub.'}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.AgentSkillKey")
+
+    def __init__(self,
+        id: str,
+    ):
+        super().__init__()
+        
+        self.id = id
+    
+    def _restore_defaults(self) -> None:
+        self.id = str()
+    
+    
+    @property
+    def id(self) -> str:
+        """Unique identifier for the skill, e.g. "customer-service-skill" or a
+    generated UUID."""
+        return self._inner_dict.get('id')  # type: ignore
+    
+    @id.setter
+    def id(self, value: str) -> None:
+        self._inner_dict['id'] = value
+    
+    
+class ApiKeyClass(_Aspect):
+    """Key for an API entity — a named callable with a typed input and output
+    schema (an MCP tool, REST endpoint, gRPC method, GraphQL operation, function,
+    etc.) that can be invoked by humans, services, or AI agents."""
+
+
+    ASPECT_NAME = 'apiKey'
+    ASPECT_INFO = {'keyForEntity': 'api', 'entityCategory': 'core', 'entityAspects': ['apiProperties', 'apiSignature', 'restApiProperties', 'subTypes', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'structuredProperties', 'versionProperties'], 'entityDoc': 'A named callable with a typed input and output schema (an MCP tool, REST endpoint, gRPC method, GraphQL operation, function, etc.). Cataloged as a first-class entity for discovery and caller-to-API dependency tracking (services that compose APIs, agents that invoke them).'}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.ApiKey")
+
+    def __init__(self,
+        id: str,
+    ):
+        super().__init__()
+        
+        self.id = id
+    
+    def _restore_defaults(self) -> None:
+        self.id = str()
+    
+    
+    @property
+    def id(self) -> str:
+        """Unique identifier for the API, e.g. "order-lookup-mcp" or a generated UUID."""
+        return self._inner_dict.get('id')  # type: ignore
+    
+    @id.setter
+    def id(self, value: str) -> None:
+        self._inner_dict['id'] = value
     
     
 class AssertionKeyClass(_Aspect):
@@ -20693,11 +21566,12 @@ class MetricInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'metricInfo'
-    ASPECT_INFO = {'schemaVersion': 2}
+    ASPECT_INFO = {'schemaVersion': 3}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metric.MetricInfo")
 
     def __init__(self,
         name: str,
+        externalUrl: Union[None, str]=None,
         description: Union[None, str]=None,
         created: Union[None, "AuditStampClass"]=None,
         lastModified: Union[None, "AuditStampClass"]=None,
@@ -20707,6 +21581,7 @@ class MetricInfoClass(_Aspect):
     ):
         super().__init__()
         
+        self.externalUrl = externalUrl
         self.name = name
         self.description = description
         self.created = created
@@ -20716,6 +21591,7 @@ class MetricInfoClass(_Aspect):
         self.aiContext = aiContext
     
     def _restore_defaults(self) -> None:
+        self.externalUrl = self.RECORD_SCHEMA.fields_dict["externalUrl"].default
         self.name = str()
         self.description = self.RECORD_SCHEMA.fields_dict["description"].default
         self.created = self.RECORD_SCHEMA.fields_dict["created"].default
@@ -20723,6 +21599,16 @@ class MetricInfoClass(_Aspect):
         self.semanticModel = self.RECORD_SCHEMA.fields_dict["semanticModel"].default
         self.expression = self.RECORD_SCHEMA.fields_dict["expression"].default
         self.aiContext = self.RECORD_SCHEMA.fields_dict["aiContext"].default
+    
+    
+    @property
+    def externalUrl(self) -> Union[None, str]:
+        """URL where the reference exist"""
+        return self._inner_dict.get('externalUrl')  # type: ignore
+    
+    @externalUrl.setter
+    def externalUrl(self, value: Union[None, str]) -> None:
+        self._inner_dict['externalUrl'] = value
     
     
     @property
@@ -22805,7 +23691,7 @@ class DataHubPageModulePropertiesClass(_Aspect):
 
 
     ASPECT_NAME = 'dataHubPageModuleProperties'
-    ASPECT_INFO = {'schemaVersion': 2}
+    ASPECT_INFO = {'schemaVersion': 3}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.module.DataHubPageModuleProperties")
 
     def __init__(self,
@@ -22938,6 +23824,27 @@ class DataHubPageModuleTypeClass(object):
     
     COLUMNS = "COLUMNS"
     """Module displaying the columns of a dataset"""
+    
+    SEMANTIC_MODEL_DATASETS = "SEMANTIC_MODEL_DATASETS"
+    """Module displaying the datasets referenced by a semantic model"""
+    
+    SEMANTIC_MODEL_METRICS = "SEMANTIC_MODEL_METRICS"
+    """Module displaying the metrics defined within a semantic model"""
+    
+    SEMANTIC_MODEL_RELATIONSHIPS = "SEMANTIC_MODEL_RELATIONSHIPS"
+    """Module displaying the relationships of a semantic model"""
+    
+    SEMANTIC_MODEL_DIMENSIONS = "SEMANTIC_MODEL_DIMENSIONS"
+    """Module displaying the dimensions of a semantic model"""
+    
+    AI_CONTEXT = "AI_CONTEXT"
+    """Module displaying AI context (synonyms, instructions, examples) for an asset"""
+    
+    METRIC_SQL = "METRIC_SQL"
+    """Module displaying the SQL expression of a metric"""
+    
+    RELATED_METRICS = "RELATED_METRICS"
+    """Module displaying related metrics"""
     
     UNKNOWN = "UNKNOWN"
     """Unknown module type - this can occur with corrupted data or rolling back to versions without new modules"""
@@ -25831,6 +26738,256 @@ class QueryUsageStatisticsClass(_Aspect):
         self._inner_dict['userCounts'] = value
     
     
+class RepositoryKeyClass(_Aspect):
+    """Key for a Repository entity.
+    
+    A Repository represents a source-code repository (GitHub, GitLab, internal SCM, etc.).
+    The key is platform-agnostic: the platform is carried in the dataPlatformInstance
+    aspect, not the key. The id is constructed by convention as
+    "<platform>.<org>/<name>" (e.g. "github.acme/payments"); native or
+    unknown-platform repos may omit the platform prefix."""
+
+
+    ASPECT_NAME = 'repositoryKey'
+    ASPECT_INFO = {'keyForEntity': 'repository', 'entityCategory': 'core', 'entityAspects': ['repositoryProperties', 'repositorySource', 'repositoryLineage', 'subTypes', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'domains', 'institutionalMemory', 'structuredProperties', 'browsePathsV2'], 'entityDoc': 'A source-code repository (GitHub, GitLab, internal SCM, etc.). The genesis node of the software-to-data lifecycle (repo -> service -> api -> app -> dataset); produces the services, APIs, and apps cataloged elsewhere. Not tabular (no columns/queries/stats).'}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.repository.RepositoryKey")
+
+    def __init__(self,
+        id: str,
+    ):
+        super().__init__()
+        
+        self.id = id
+    
+    def _restore_defaults(self) -> None:
+        self.id = str()
+    
+    
+    @property
+    def id(self) -> str:
+        """Unique identifier for this repository.
+    Examples: github.acme/payments, gitlab.acme/data-platform, my-internal-repo"""
+        return self._inner_dict.get('id')  # type: ignore
+    
+    @id.setter
+    def id(self, value: str) -> None:
+        self._inner_dict['id'] = value
+    
+    
+class RepositoryLineageClass(_Aspect):
+    """Provenance edges between Repository entities."""
+
+
+    ASPECT_NAME = 'repositoryLineage'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.repository.RepositoryLineage")
+
+    def __init__(self,
+        forkOf: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.forkOf = forkOf
+    
+    def _restore_defaults(self) -> None:
+        self.forkOf = self.RECORD_SCHEMA.fields_dict["forkOf"].default
+    
+    
+    @property
+    def forkOf(self) -> Union[None, str]:
+        """The repository this one is a git fork of. A plain provenance edge."""
+        return self._inner_dict.get('forkOf')  # type: ignore
+    
+    @forkOf.setter
+    def forkOf(self, value: Union[None, str]) -> None:
+        self._inner_dict['forkOf'] = value
+    
+    
+class RepositoryPropertiesClass(_Aspect):
+    """Code-specific properties for a Repository entity.
+    
+    A Repository is a first-class representation of a source-code repository
+    (GitHub, GitLab, internal SCM, etc.). It is the genesis node of the
+    software -> data lifecycle (repo -> service -> api -> app -> dataset) and
+    produces the services/APIs/apps cataloged elsewhere. It is NOT tabular
+    (no columns / queries / stats / quality / preview)."""
+
+
+    ASPECT_NAME = 'repositoryProperties'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.repository.RepositoryProperties")
+
+    def __init__(self,
+        name: str,
+        description: Union[None, str]=None,
+        defaultBranch: Union[None, str]=None,
+        languages: Union[None, List[str]]=None,
+        license: Union[None, str]=None,
+        homepageUrl: Union[None, str]=None,
+        archived: Union[None, bool]=None,
+        created: Union[None, "AuditStampClass"]=None,
+        lastModified: Union[None, "AuditStampClass"]=None,
+    ):
+        super().__init__()
+        
+        self.name = name
+        self.description = description
+        self.defaultBranch = defaultBranch
+        self.languages = languages
+        self.license = license
+        self.homepageUrl = homepageUrl
+        self.archived = archived
+        self.created = created
+        self.lastModified = lastModified
+    
+    def _restore_defaults(self) -> None:
+        self.name = str()
+        self.description = self.RECORD_SCHEMA.fields_dict["description"].default
+        self.defaultBranch = self.RECORD_SCHEMA.fields_dict["defaultBranch"].default
+        self.languages = self.RECORD_SCHEMA.fields_dict["languages"].default
+        self.license = self.RECORD_SCHEMA.fields_dict["license"].default
+        self.homepageUrl = self.RECORD_SCHEMA.fields_dict["homepageUrl"].default
+        self.archived = self.RECORD_SCHEMA.fields_dict["archived"].default
+        self.created = self.RECORD_SCHEMA.fields_dict["created"].default
+        self.lastModified = self.RECORD_SCHEMA.fields_dict["lastModified"].default
+    
+    
+    @property
+    def name(self) -> str:
+        """Display name of the repository, shown in UI and search results."""
+        return self._inner_dict.get('name')  # type: ignore
+    
+    @name.setter
+    def name(self, value: str) -> None:
+        self._inner_dict['name'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        """Description of what this repository contains."""
+        return self._inner_dict.get('description')  # type: ignore
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        self._inner_dict['description'] = value
+    
+    
+    @property
+    def defaultBranch(self) -> Union[None, str]:
+        """The default branch of the repository (e.g. "main", "master")."""
+        return self._inner_dict.get('defaultBranch')  # type: ignore
+    
+    @defaultBranch.setter
+    def defaultBranch(self, value: Union[None, str]) -> None:
+        self._inner_dict['defaultBranch'] = value
+    
+    
+    @property
+    def languages(self) -> Union[None, List[str]]:
+        """The programming languages used in the repository (e.g. ["Python", "TypeScript"]),
+    conventionally ordered most-prevalent first. Repositories are frequently
+    polyglot, so this is modeled as a list rather than a single value."""
+        return self._inner_dict.get('languages')  # type: ignore
+    
+    @languages.setter
+    def languages(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['languages'] = value
+    
+    
+    @property
+    def license(self) -> Union[None, str]:
+        """The license of the repository (e.g. "Apache-2.0", "MIT")."""
+        return self._inner_dict.get('license')  # type: ignore
+    
+    @license.setter
+    def license(self, value: Union[None, str]) -> None:
+        self._inner_dict['license'] = value
+    
+    
+    @property
+    def homepageUrl(self) -> Union[None, str]:
+        """A link to the repository's homepage or documentation."""
+        return self._inner_dict.get('homepageUrl')  # type: ignore
+    
+    @homepageUrl.setter
+    def homepageUrl(self, value: Union[None, str]) -> None:
+        self._inner_dict['homepageUrl'] = value
+    
+    
+    @property
+    def archived(self) -> Union[None, bool]:
+        """Whether the repository is archived (read-only / no longer maintained)."""
+        return self._inner_dict.get('archived')  # type: ignore
+    
+    @archived.setter
+    def archived(self, value: Union[None, bool]) -> None:
+        self._inner_dict['archived'] = value
+    
+    
+    @property
+    def created(self) -> Union[None, "AuditStampClass"]:
+        """When this repository was created."""
+        return self._inner_dict.get('created')  # type: ignore
+    
+    @created.setter
+    def created(self, value: Union[None, "AuditStampClass"]) -> None:
+        self._inner_dict['created'] = value
+    
+    
+    @property
+    def lastModified(self) -> Union[None, "AuditStampClass"]:
+        """When this repository was last modified."""
+        return self._inner_dict.get('lastModified')  # type: ignore
+    
+    @lastModified.setter
+    def lastModified(self, value: Union[None, "AuditStampClass"]) -> None:
+        self._inner_dict['lastModified'] = value
+    
+    
+class RepositorySourceClass(_Aspect):
+    """The source binding for a Repository — where the repository lives and how it is
+    identified in its source system. Reusable across any synced or native repo."""
+
+
+    ASPECT_NAME = 'repositorySource'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.repository.RepositorySource")
+
+    def __init__(self,
+        externalUrl: Union[None, str]=None,
+        externalId: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.externalUrl = externalUrl
+        self.externalId = externalId
+    
+    def _restore_defaults(self) -> None:
+        self.externalUrl = self.RECORD_SCHEMA.fields_dict["externalUrl"].default
+        self.externalId = self.RECORD_SCHEMA.fields_dict["externalId"].default
+    
+    
+    @property
+    def externalUrl(self) -> Union[None, str]:
+        """The web or clone URL of the repository in its source system."""
+        return self._inner_dict.get('externalUrl')  # type: ignore
+    
+    @externalUrl.setter
+    def externalUrl(self, value: Union[None, str]) -> None:
+        self._inner_dict['externalUrl'] = value
+    
+    
+    @property
+    def externalId(self) -> Union[None, str]:
+        """The identifier of the repository in its source system (e.g. a GitHub
+    numeric repo id or an org/name slug)."""
+        return self._inner_dict.get('externalId')  # type: ignore
+    
+    @externalId.setter
+    def externalId(self, value: Union[None, str]) -> None:
+        self._inner_dict['externalId'] = value
+    
+    
 class DataHubRetentionConfigClass(_Aspect):
     # No docs available.
 
@@ -27788,11 +28945,12 @@ class SemanticModelInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'semanticModelInfo'
-    ASPECT_INFO = {'schemaVersion': 2}
+    ASPECT_INFO = {'schemaVersion': 3}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.semanticmodel.SemanticModelInfo")
 
     def __init__(self,
         name: str,
+        externalUrl: Union[None, str]=None,
         description: Union[None, str]=None,
         created: Union[None, "AuditStampClass"]=None,
         lastModified: Union[None, "AuditStampClass"]=None,
@@ -27803,6 +28961,7 @@ class SemanticModelInfoClass(_Aspect):
     ):
         super().__init__()
         
+        self.externalUrl = externalUrl
         self.name = name
         self.description = description
         self.created = created
@@ -27817,6 +28976,7 @@ class SemanticModelInfoClass(_Aspect):
         self.relationships = relationships
     
     def _restore_defaults(self) -> None:
+        self.externalUrl = self.RECORD_SCHEMA.fields_dict["externalUrl"].default
         self.name = str()
         self.description = self.RECORD_SCHEMA.fields_dict["description"].default
         self.created = self.RECORD_SCHEMA.fields_dict["created"].default
@@ -27825,6 +28985,16 @@ class SemanticModelInfoClass(_Aspect):
         self.aiContext = self.RECORD_SCHEMA.fields_dict["aiContext"].default
         self.datasets = list()
         self.relationships = self.RECORD_SCHEMA.fields_dict["relationships"].default
+    
+    
+    @property
+    def externalUrl(self) -> Union[None, str]:
+        """URL where the reference exist"""
+        return self._inner_dict.get('externalUrl')  # type: ignore
+    
+    @externalUrl.setter
+    def externalUrl(self, value: Union[None, str]) -> None:
+        self._inner_dict['externalUrl'] = value
     
     
     @property
@@ -28015,6 +29185,354 @@ class SemanticModelRelationshipClass(DictWrapper):
     @cardinality.setter
     def cardinality(self, value: Union[None, Union[str, "ERModelRelationshipCardinalityClass"]]) -> None:
         self._inner_dict['cardinality'] = value
+    
+    
+class McpServerPropertiesClass(_Aspect):
+    """MCP-specific properties for Services of subtype MCP.
+    
+    Only attached to Service entities where subType = MCP.
+    Contains connection details for the MCP server.
+    
+    Note: This contains only connection information (URL, transport, timeout).
+    Authentication and Ask DataHub configuration are in GlobalSettings.aiPlugins."""
+
+
+    ASPECT_NAME = 'mcpServerProperties'
+    ASPECT_INFO = {'schemaVersion': 2}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.service.McpServerProperties")
+
+    def __init__(self,
+        url: str,
+        transport: Optional[Union[str, "McpTransportClass"]]=None,
+        timeout: Union[None, float]=None,
+        customHeaders: Union[None, Dict[str, str]]=None,
+    ):
+        super().__init__()
+        
+        self.url = url
+        if transport is None:
+            # default: 'HTTP'
+            self.transport = self.RECORD_SCHEMA.fields_dict["transport"].default
+        else:
+            self.transport = transport
+        self.timeout = timeout
+        self.customHeaders = customHeaders
+    
+    def _restore_defaults(self) -> None:
+        self.url = str()
+        self.transport = self.RECORD_SCHEMA.fields_dict["transport"].default
+        self.timeout = self.RECORD_SCHEMA.fields_dict["timeout"].default
+        self.customHeaders = self.RECORD_SCHEMA.fields_dict["customHeaders"].default
+    
+    
+    @property
+    def url(self) -> str:
+        """MCP server endpoint URL.
+    Example: https://mcp.glean.com/v1"""
+        return self._inner_dict.get('url')  # type: ignore
+    
+    @url.setter
+    def url(self, value: str) -> None:
+        self._inner_dict['url'] = value
+    
+    
+    @property
+    def transport(self) -> Union[str, "McpTransportClass"]:
+        """Transport protocol for MCP communication."""
+        return self._inner_dict.get('transport')  # type: ignore
+    
+    @transport.setter
+    def transport(self, value: Union[str, "McpTransportClass"]) -> None:
+        self._inner_dict['transport'] = value
+    
+    
+    @property
+    def timeout(self) -> Union[None, float]:
+        """Connection timeout in seconds.
+    When absent, the integrations service applies its own default (currently 300s)."""
+        return self._inner_dict.get('timeout')  # type: ignore
+    
+    @timeout.setter
+    def timeout(self, value: Union[None, float]) -> None:
+        self._inner_dict['timeout'] = value
+    
+    
+    @property
+    def customHeaders(self) -> Union[None, Dict[str, str]]:
+        """Custom headers to send with every request.
+    These are non-auth headers (e.g., X-Tenant-ID, X-Client-Version).
+    Auth headers are configured in GlobalSettings.aiPlugins."""
+        return self._inner_dict.get('customHeaders')  # type: ignore
+    
+    @customHeaders.setter
+    def customHeaders(self, value: Union[None, Dict[str, str]]) -> None:
+        self._inner_dict['customHeaders'] = value
+    
+    
+class McpTransportClass(object):
+    # No docs available.
+    
+    HTTP = "HTTP"
+    """Standard HTTP/HTTPS transport."""
+    
+    SSE = "SSE"
+    """Server-Sent Events for streaming responses."""
+    
+    WEBSOCKET = "WEBSOCKET"
+    """WebSocket for bidirectional communication."""
+    
+    
+    
+class ServiceDefinitionClass(_Aspect):
+    """The definition document for a Service — the full OpenAPI YAML, GraphQL
+    SDL, gRPC .proto, or AsyncAPI document that describes everything the service
+    exposes.
+    
+    This is the source of truth for the service's interface. The operation-level
+    `api` entities the service composes (the ServiceComposesApi relationship) are
+    the parsed projection of this document.
+    
+    Kept as a separate aspect (not a field on ServiceProperties) because the
+    rawSpec blob is large and only needed on the profile — ServiceProperties
+    is fetched on every search card and header, this is not."""
+
+
+    ASPECT_NAME = 'serviceDefinition'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.service.ServiceDefinition")
+
+    def __init__(self,
+        format: Union[str, "ServiceDefinitionFormatClass"],
+        rawSpec: "LargeStringClass",
+        version: Union[None, str]=None,
+        externalUrl: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.format = format
+        self.rawSpec = rawSpec
+        self.version = version
+        self.externalUrl = externalUrl
+    
+    def _restore_defaults(self) -> None:
+        self.format = ServiceDefinitionFormatClass.OPENAPI
+        self.rawSpec = LargeStringClass._construct_with_defaults()
+        self.version = self.RECORD_SCHEMA.fields_dict["version"].default
+        self.externalUrl = self.RECORD_SCHEMA.fields_dict["externalUrl"].default
+    
+    
+    @property
+    def format(self) -> Union[str, "ServiceDefinitionFormatClass"]:
+        """The spec format, so consumers know how to parse and render `rawSpec`."""
+        return self._inner_dict.get('format')  # type: ignore
+    
+    @format.setter
+    def format(self, value: Union[str, "ServiceDefinitionFormatClass"]) -> None:
+        self._inner_dict['format'] = value
+    
+    
+    @property
+    def rawSpec(self) -> "LargeStringClass":
+        """The entire spec document, verbatim (the source of truth). Rendered
+    read-only on the Service profile's Definition tab. Stored as a LargeString so
+    large specs (full OpenAPI docs, schemas) compress under the aspect-size
+    limit; readers get the decompressed text (decoded server-side in the
+    GraphQL mapper)."""
+        return self._inner_dict.get('rawSpec')  # type: ignore
+    
+    @rawSpec.setter
+    def rawSpec(self, value: "LargeStringClass") -> None:
+        self._inner_dict['rawSpec'] = value
+    
+    
+    @property
+    def version(self) -> Union[None, str]:
+        """Spec version, e.g. the OpenAPI `info.version`. Optional."""
+        return self._inner_dict.get('version')  # type: ignore
+    
+    @version.setter
+    def version(self, value: Union[None, str]) -> None:
+        self._inner_dict['version'] = value
+    
+    
+    @property
+    def externalUrl(self) -> Union[None, str]:
+        """Link to the canonical source of the spec, if hosted elsewhere."""
+        return self._inner_dict.get('externalUrl')  # type: ignore
+    
+    @externalUrl.setter
+    def externalUrl(self, value: Union[None, str]) -> None:
+        self._inner_dict['externalUrl'] = value
+    
+    
+class ServiceDefinitionFormatClass(object):
+    # No docs available.
+    
+    OPENAPI = "OPENAPI"
+    """ An OpenAPI (v2/Swagger or v3) document. """
+    
+    GRAPHQL_SDL = "GRAPHQL_SDL"
+    """ A GraphQL Schema Definition Language document. """
+    
+    GRPC_PROTO = "GRPC_PROTO"
+    """ A gRPC Protocol Buffers (.proto) service definition. """
+    
+    ASYNCAPI = "ASYNCAPI"
+    """ An AsyncAPI (event / streaming) document. """
+    
+    JSON_SCHEMA = "JSON_SCHEMA"
+    """ A raw JSON Schema document (e.g. an MCP server's tools/list payload). """
+    
+    OTHER = "OTHER"
+    """ Any other spec format not enumerated above. """
+    
+    
+    
+class ServiceKeyClass(_Aspect):
+    """Key for a Service entity.
+    
+    A Service represents an external service that can be integrated with DataHub,
+    such as an MCP server, REST API, or other service types."""
+
+
+    ASPECT_NAME = 'serviceKey'
+    ASPECT_INFO = {'keyForEntity': 'service', 'entityCategory': 'core', 'entityAspects': ['serviceProperties', 'mcpServerProperties', 'serviceDefinition', 'incidentsSummary', 'subTypes', 'ownership', 'status', 'globalTags', 'semanticContent', 'dataPlatformInstance'], 'entityDoc': 'A Service represents an external service that can be integrated with DataHub, such as an MCP server.'}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.service.ServiceKey")
+
+    def __init__(self,
+        id: str,
+    ):
+        super().__init__()
+        
+        self.id = id
+    
+    def _restore_defaults(self) -> None:
+        self.id = str()
+    
+    
+    @property
+    def id(self) -> str:
+        """Unique identifier for this service.
+    Examples: glean-search, internal-tools, weather-api"""
+        return self._inner_dict.get('id')  # type: ignore
+    
+    @id.setter
+    def id(self, value: str) -> None:
+        self._inner_dict['id'] = value
+    
+    
+class ServiceLifecycleClass(object):
+    # No docs available.
+    
+    EXPERIMENTAL = "EXPERIMENTAL"
+    """ Early / unstable; may change or disappear without notice. """
+    
+    PRODUCTION = "PRODUCTION"
+    """ Stable and supported for production use. """
+    
+    DEPRECATED = "DEPRECATED"
+    """ Being retired; consumers should migrate off. """
+    
+    
+    
+class ServicePropertiesClass(_Aspect):
+    """Common properties for all Service types.
+    
+    A Service is a catalog entry for an external service (MCP server, REST API, etc.).
+    This aspect contains identity and descriptive information.
+    Subtype-specific properties are in separate aspects (e.g., McpServerProperties).
+    
+    Note: This contains only catalog information (identity, description).
+    Ask DataHub configuration (auth, instructions) is in GlobalSettings.aiPlugins."""
+
+
+    ASPECT_NAME = 'serviceProperties'
+    ASPECT_INFO = {'schemaVersion': 2}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.service.ServiceProperties")
+
+    def __init__(self,
+        displayName: str,
+        description: Union[None, str]=None,
+        lifecycle: Union[None, Union[str, "ServiceLifecycleClass"]]=None,
+        apis: Union[None, List[str]]=None,
+        sourceRepository: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.displayName = displayName
+        self.description = description
+        self.lifecycle = lifecycle
+        self.apis = apis
+        self.sourceRepository = sourceRepository
+    
+    def _restore_defaults(self) -> None:
+        self.displayName = str()
+        self.description = self.RECORD_SCHEMA.fields_dict["description"].default
+        self.lifecycle = self.RECORD_SCHEMA.fields_dict["lifecycle"].default
+        self.apis = self.RECORD_SCHEMA.fields_dict["apis"].default
+        self.sourceRepository = self.RECORD_SCHEMA.fields_dict["sourceRepository"].default
+    
+    
+    @property
+    def displayName(self) -> str:
+        """Display name shown in UI and search results."""
+        return self._inner_dict.get('displayName')  # type: ignore
+    
+    @displayName.setter
+    def displayName(self, value: str) -> None:
+        self._inner_dict['displayName'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        """Description of what this service provides."""
+        return self._inner_dict.get('description')  # type: ignore
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        self._inner_dict['description'] = value
+    
+    
+    @property
+    def lifecycle(self) -> Union[None, Union[str, "ServiceLifecycleClass"]]:
+        """Lifecycle stage of the service, from experimental through production to
+    deprecation. Rendered as a small badge on the profile so consumers can see
+    at a glance whether the service is safe to depend on."""
+        return self._inner_dict.get('lifecycle')  # type: ignore
+    
+    @lifecycle.setter
+    def lifecycle(self, value: Union[None, Union[str, "ServiceLifecycleClass"]]) -> None:
+        self._inner_dict['lifecycle'] = value
+    
+    
+    @property
+    def apis(self) -> Union[None, List[str]]:
+        """The APIs (callables) this service composes / exposes — e.g. the tools an
+    MCP server serves, or the endpoints a REST API exposes. The reverse edge
+    (an API "served by" its service) is the incoming ServiceComposesApi
+    relationship on the API.
+    
+    This is a lineage edge: the API is downstream of the service that exposes
+    it, so the software-to-data chain nests correctly as
+    repo -> service -> api -> app -> dataset (the endpoints hang off their
+    service, not off the repository directly)."""
+        return self._inner_dict.get('apis')  # type: ignore
+    
+    @apis.setter
+    def apis(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['apis'] = value
+    
+    
+    @property
+    def sourceRepository(self) -> Union[None, str]:
+        """The source-code repository this service is produced from (the SourcedFrom
+    provenance edge). Lights up the repo -> service -> api -> app -> dataset chain:
+    the Repository profile shows incoming SourcedFrom edges as "what it produces"."""
+        return self._inner_dict.get('sourceRepository')  # type: ignore
+    
+    @sourceRepository.setter
+    def sourceRepository(self, value: Union[None, str]) -> None:
+        self._inner_dict['sourceRepository'] = value
     
     
 class AssetSettingsClass(_Aspect):
@@ -29498,7 +31016,7 @@ class DataHubPageTemplatePropertiesClass(_Aspect):
 
 
     ASPECT_NAME = 'dataHubPageTemplateProperties'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.template.DataHubPageTemplateProperties")
 
     def __init__(self,
@@ -29726,11 +31244,16 @@ class SummaryElementTypeClass(object):
     # No docs available.
     
     CREATED = "CREATED"
+    LAST_MODIFIED = "LAST_MODIFIED"
+    LAST_INGESTED = "LAST_INGESTED"
     TAGS = "TAGS"
     GLOSSARY_TERMS = "GLOSSARY_TERMS"
     OWNERS = "OWNERS"
     DOMAIN = "DOMAIN"
     STRUCTURED_PROPERTY = "STRUCTURED_PROPERTY"
+    DOCUMENT_STATUS = "DOCUMENT_STATUS"
+    DOCUMENT_TYPE = "DOCUMENT_TYPE"
+    SEMANTIC_MODEL = "SEMANTIC_MODEL"
     
     
 class TestDefinitionClass(DictWrapper):
@@ -30687,7 +32210,18 @@ class DataHubViewTypeClass(object):
 __SCHEMA_TYPES = {
     'com.linkedin.events.KafkaAuditHeader': KafkaAuditHeaderClass,
     'com.linkedin.pegasus2avro.access.token.DataHubAccessTokenInfo': DataHubAccessTokenInfoClass,
+    'com.linkedin.pegasus2avro.agent.AIAgentDependencies': AIAgentDependenciesClass,
+    'com.linkedin.pegasus2avro.agent.AIAgentInfo': AIAgentInfoClass,
+    'com.linkedin.pegasus2avro.agent.AIAgentSource': AIAgentSourceClass,
+    'com.linkedin.pegasus2avro.agent.AIAgentSourceType': AIAgentSourceTypeClass,
+    'com.linkedin.pegasus2avro.agentskill.AgentSkillInfo': AgentSkillInfoClass,
+    'com.linkedin.pegasus2avro.agentskill.SkillSourceRepository': SkillSourceRepositoryClass,
+    'com.linkedin.pegasus2avro.api.ApiProperties': ApiPropertiesClass,
+    'com.linkedin.pegasus2avro.api.ApiSignature': ApiSignatureClass,
+    'com.linkedin.pegasus2avro.api.HttpMethod': HttpMethodClass,
+    'com.linkedin.pegasus2avro.api.RestApiProperties': RestApiPropertiesClass,
     'com.linkedin.pegasus2avro.application.ApplicationKey': ApplicationKeyClass,
+    'com.linkedin.pegasus2avro.application.ApplicationLineage': ApplicationLineageClass,
     'com.linkedin.pegasus2avro.application.ApplicationProperties': ApplicationPropertiesClass,
     'com.linkedin.pegasus2avro.application.Applications': ApplicationsClass,
     'com.linkedin.pegasus2avro.assertion.AssertionAction': AssertionActionClass,
@@ -30763,6 +32297,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.common.BrowsePaths': BrowsePathsClass,
     'com.linkedin.pegasus2avro.common.BrowsePathsV2': BrowsePathsV2Class,
     'com.linkedin.pegasus2avro.common.ChangeAuditStamps': ChangeAuditStampsClass,
+    'com.linkedin.pegasus2avro.common.CompressionType': CompressionTypeClass,
     'com.linkedin.pegasus2avro.common.Cost': CostClass,
     'com.linkedin.pegasus2avro.common.CostCost': CostCostClass,
     'com.linkedin.pegasus2avro.common.CostCostDiscriminator': CostCostDiscriminatorClass,
@@ -30797,6 +32332,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.common.InstitutionalMemory': InstitutionalMemoryClass,
     'com.linkedin.pegasus2avro.common.InstitutionalMemoryMetadata': InstitutionalMemoryMetadataClass,
     'com.linkedin.pegasus2avro.common.InstitutionalMemoryMetadataSettings': InstitutionalMemoryMetadataSettingsClass,
+    'com.linkedin.pegasus2avro.common.LargeString': LargeStringClass,
     'com.linkedin.pegasus2avro.common.MLFeatureDataType': MLFeatureDataTypeClass,
     'com.linkedin.pegasus2avro.common.Media': MediaClass,
     'com.linkedin.pegasus2avro.common.MediaType': MediaTypeClass,
@@ -30984,6 +32520,9 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.lifecycle.LifecycleStageTransitionPolicy': LifecycleStageTransitionPolicyClass,
     'com.linkedin.pegasus2avro.lifecycle.LifecycleStageTypeInfo': LifecycleStageTypeInfoClass,
     'com.linkedin.pegasus2avro.logical.LogicalParent': LogicalParentClass,
+    'com.linkedin.pegasus2avro.metadata.key.AIAgentKey': AIAgentKeyClass,
+    'com.linkedin.pegasus2avro.metadata.key.AgentSkillKey': AgentSkillKeyClass,
+    'com.linkedin.pegasus2avro.metadata.key.ApiKey': ApiKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.AssertionKey': AssertionKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.ChartKey': ChartKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.ContainerKey': ContainerKeyClass,
@@ -31157,6 +32696,10 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.query.QuerySubject': QuerySubjectClass,
     'com.linkedin.pegasus2avro.query.QuerySubjects': QuerySubjectsClass,
     'com.linkedin.pegasus2avro.query.QueryUsageStatistics': QueryUsageStatisticsClass,
+    'com.linkedin.pegasus2avro.repository.RepositoryKey': RepositoryKeyClass,
+    'com.linkedin.pegasus2avro.repository.RepositoryLineage': RepositoryLineageClass,
+    'com.linkedin.pegasus2avro.repository.RepositoryProperties': RepositoryPropertiesClass,
+    'com.linkedin.pegasus2avro.repository.RepositorySource': RepositorySourceClass,
     'com.linkedin.pegasus2avro.retention.DataHubRetentionConfig': DataHubRetentionConfigClass,
     'com.linkedin.pegasus2avro.retention.Retention': RetentionClass,
     'com.linkedin.pegasus2avro.retention.TimeBasedRetention': TimeBasedRetentionClass,
@@ -31207,6 +32750,13 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.semanticmodel.SemanticFieldType': SemanticFieldTypeClass,
     'com.linkedin.pegasus2avro.semanticmodel.SemanticModelInfo': SemanticModelInfoClass,
     'com.linkedin.pegasus2avro.semanticmodel.SemanticModelRelationship': SemanticModelRelationshipClass,
+    'com.linkedin.pegasus2avro.service.McpServerProperties': McpServerPropertiesClass,
+    'com.linkedin.pegasus2avro.service.McpTransport': McpTransportClass,
+    'com.linkedin.pegasus2avro.service.ServiceDefinition': ServiceDefinitionClass,
+    'com.linkedin.pegasus2avro.service.ServiceDefinitionFormat': ServiceDefinitionFormatClass,
+    'com.linkedin.pegasus2avro.service.ServiceKey': ServiceKeyClass,
+    'com.linkedin.pegasus2avro.service.ServiceLifecycle': ServiceLifecycleClass,
+    'com.linkedin.pegasus2avro.service.ServiceProperties': ServicePropertiesClass,
     'com.linkedin.pegasus2avro.settings.asset.AssetSettings': AssetSettingsClass,
     'com.linkedin.pegasus2avro.settings.asset.AssetSummarySettings': AssetSummarySettingsClass,
     'com.linkedin.pegasus2avro.settings.asset.AssetSummarySettingsTemplate': AssetSummarySettingsTemplateClass,
@@ -31263,7 +32813,18 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.view.DataHubViewType': DataHubViewTypeClass,
     'KafkaAuditHeader': KafkaAuditHeaderClass,
     'DataHubAccessTokenInfo': DataHubAccessTokenInfoClass,
+    'AIAgentDependencies': AIAgentDependenciesClass,
+    'AIAgentInfo': AIAgentInfoClass,
+    'AIAgentSource': AIAgentSourceClass,
+    'AIAgentSourceType': AIAgentSourceTypeClass,
+    'AgentSkillInfo': AgentSkillInfoClass,
+    'SkillSourceRepository': SkillSourceRepositoryClass,
+    'ApiProperties': ApiPropertiesClass,
+    'ApiSignature': ApiSignatureClass,
+    'HttpMethod': HttpMethodClass,
+    'RestApiProperties': RestApiPropertiesClass,
     'ApplicationKey': ApplicationKeyClass,
+    'ApplicationLineage': ApplicationLineageClass,
     'ApplicationProperties': ApplicationPropertiesClass,
     'Applications': ApplicationsClass,
     'AssertionAction': AssertionActionClass,
@@ -31339,6 +32900,7 @@ __SCHEMA_TYPES = {
     'BrowsePaths': BrowsePathsClass,
     'BrowsePathsV2': BrowsePathsV2Class,
     'ChangeAuditStamps': ChangeAuditStampsClass,
+    'CompressionType': CompressionTypeClass,
     'Cost': CostClass,
     'CostCost': CostCostClass,
     'CostCostDiscriminator': CostCostDiscriminatorClass,
@@ -31373,6 +32935,7 @@ __SCHEMA_TYPES = {
     'InstitutionalMemory': InstitutionalMemoryClass,
     'InstitutionalMemoryMetadata': InstitutionalMemoryMetadataClass,
     'InstitutionalMemoryMetadataSettings': InstitutionalMemoryMetadataSettingsClass,
+    'LargeString': LargeStringClass,
     'MLFeatureDataType': MLFeatureDataTypeClass,
     'Media': MediaClass,
     'MediaType': MediaTypeClass,
@@ -31560,6 +33123,9 @@ __SCHEMA_TYPES = {
     'LifecycleStageTransitionPolicy': LifecycleStageTransitionPolicyClass,
     'LifecycleStageTypeInfo': LifecycleStageTypeInfoClass,
     'LogicalParent': LogicalParentClass,
+    'AIAgentKey': AIAgentKeyClass,
+    'AgentSkillKey': AgentSkillKeyClass,
+    'ApiKey': ApiKeyClass,
     'AssertionKey': AssertionKeyClass,
     'ChartKey': ChartKeyClass,
     'ContainerKey': ContainerKeyClass,
@@ -31733,6 +33299,10 @@ __SCHEMA_TYPES = {
     'QuerySubject': QuerySubjectClass,
     'QuerySubjects': QuerySubjectsClass,
     'QueryUsageStatistics': QueryUsageStatisticsClass,
+    'RepositoryKey': RepositoryKeyClass,
+    'RepositoryLineage': RepositoryLineageClass,
+    'RepositoryProperties': RepositoryPropertiesClass,
+    'RepositorySource': RepositorySourceClass,
     'DataHubRetentionConfig': DataHubRetentionConfigClass,
     'Retention': RetentionClass,
     'TimeBasedRetention': TimeBasedRetentionClass,
@@ -31783,6 +33353,13 @@ __SCHEMA_TYPES = {
     'SemanticFieldType': SemanticFieldTypeClass,
     'SemanticModelInfo': SemanticModelInfoClass,
     'SemanticModelRelationship': SemanticModelRelationshipClass,
+    'McpServerProperties': McpServerPropertiesClass,
+    'McpTransport': McpTransportClass,
+    'ServiceDefinition': ServiceDefinitionClass,
+    'ServiceDefinitionFormat': ServiceDefinitionFormatClass,
+    'ServiceKey': ServiceKeyClass,
+    'ServiceLifecycle': ServiceLifecycleClass,
+    'ServiceProperties': ServicePropertiesClass,
     'AssetSettings': AssetSettingsClass,
     'AssetSummarySettings': AssetSummarySettingsClass,
     'AssetSummarySettingsTemplate': AssetSummarySettingsTemplateClass,
@@ -31846,246 +33423,264 @@ avrojson.set_global_json_converter(_json_converter)
     
 
 ASPECT_CLASSES: List[Type[_Aspect]] = [
-    PostInfoClass,
-    DataHubConnectionDetailsClass,
-    DataHubPageTemplatePropertiesClass,
-    DomainPropertiesClass,
-    DomainsClass,
-    StructuredPropertyDefinitionClass,
-    StructuredPropertySettingsClass,
-    StructuredPropertyKeyClass,
-    StructuredPropertiesClass,
-    SchemaMetadataClass,
-    EditableSchemaMetadataClass,
-    DataHubPersonaInfoClass,
-    DataHubIngestionSourceInfoClass,
-    DataHubStepStatePropertiesClass,
-    BusinessAttributesClass,
-    BusinessAttributeKeyClass,
-    BusinessAttributeInfoClass,
-    EditableNotebookPropertiesClass,
-    NotebookContentClass,
-    NotebookInfoClass,
-    QueryPropertiesClass,
-    QueryUsageStatisticsClass,
-    QuerySubjectsClass,
-    DataPlatformInfoClass,
-    SlackUserInfoClass,
-    PartitionsSummaryClass,
-    IcebergCatalogInfoClass,
-    DatasetDeprecationClass,
-    DatasetUpstreamLineageClass,
-    ViewPropertiesClass,
-    DatasetUsageStatisticsClass,
-    DatasetProfileClass,
-    EditableDatasetPropertiesClass,
-    DatasetPropertiesClass,
-    UpstreamLineageClass,
-    EntityTypeInfoClass,
-    EntityTypeKeyClass,
-    EditableChartPropertiesClass,
-    ChartUsageStatisticsClass,
-    ChartQueryClass,
-    ChartInfoClass,
-    DataHubFileInfoClass,
-    GlobalSettingsInfoClass,
-    AssetSettingsClass,
-    MLModelKeyClass,
-    SchemaFieldKeyClass,
-    VersionSetKeyClass,
-    DataHubPolicyKeyClass,
-    DataHubAccessTokenKeyClass,
-    DataHubFileKeyClass,
-    DashboardKeyClass,
-    ContainerKeyClass,
-    DataContractKeyClass,
-    DocumentKeyClass,
-    SemanticModelKeyClass,
-    GlobalSettingsKeyClass,
-    DataHubPageTemplateKeyClass,
-    TelemetryKeyClass,
-    DataProcessInstanceKeyClass,
-    DataJobKeyClass,
-    DataHubViewKeyClass,
-    RoleKeyClass,
-    DataPlatformInstanceKeyClass,
-    MLPrimaryKeyKeyClass,
-    ChartKeyClass,
-    LifecycleStageTypeKeyClass,
-    DataHubStepStateKeyClass,
-    CorpGroupKeyClass,
-    NotebookKeyClass,
-    QueryKeyClass,
-    CorpUserKeyClass,
-    DomainKeyClass,
-    FormKeyClass,
-    TagKeyClass,
-    DatasetKeyClass,
-    MLModelGroupKeyClass,
-    TestKeyClass,
-    ExecutionRequestKeyClass,
-    DataHubRetentionKeyClass,
-    DataHubRoleKeyClass,
-    DataHubPageModuleKeyClass,
-    MLModelDeploymentKeyClass,
-    DataHubPersonaKeyClass,
-    DataHubSecretKeyClass,
-    DataHubIngestionSourceKeyClass,
-    DataHubUpgradeKeyClass,
-    InviteTokenKeyClass,
-    MetricKeyClass,
-    OwnershipTypeKeyClass,
-    ERModelRelationshipKeyClass,
-    MLFeatureTableKeyClass,
-    AssertionKeyClass,
-    DataProcessKeyClass,
-    MLFeatureKeyClass,
-    PostKeyClass,
-    DataHubActionKeyClass,
-    GlossaryTermKeyClass,
-    GlossaryNodeKeyClass,
-    DataPlatformKeyClass,
-    IncidentKeyClass,
-    DataHubOpenAPISchemaKeyClass,
-    DataFlowKeyClass,
-    DataHubConnectionKeyClass,
-    TestResultsClass,
-    TestInfoClass,
-    DataHubPageModulePropertiesClass,
-    ExecutionRequestSignalClass,
-    ExecutionRequestInputClass,
-    ExecutionRequestResultClass,
-    AssertionActionsClass,
-    AssertionInfoClass,
-    AssertionRunEventClass,
-    DataTypeKeyClass,
-    DataTypeInfoClass,
-    DataHubUpgradeResultClass,
-    DataHubUpgradeRequestClass,
-    SystemMetadataClass,
     ERModelRelationshipPropertiesClass,
     EditableERModelRelationshipPropertiesClass,
-    MetricUpstreamsClass,
-    MetricRelationshipsClass,
-    MetricInfoClass,
-    LifecycleStageTypeInfoClass,
-    DataHubViewInfoClass,
-    EditableDataJobPropertiesClass,
-    EditableDataFlowPropertiesClass,
-    DataFlowInfoClass,
-    DataJobInfoClass,
-    DataJobInputOutputClass,
-    VersionInfoClass,
-    DatahubIngestionCheckpointClass,
-    DatahubIngestionRunSummaryClass,
-    SchemaFieldAliasesClass,
-    SchemaFieldInfoClass,
-    DataHubAccessTokenInfoClass,
-    LogicalParentClass,
-    PlatformResourceInfoClass,
-    PlatformResourceKeyClass,
-    TelemetryClientIdClass,
-    VersionSetPropertiesClass,
-    GlossaryRelatedTermsClass,
-    GlossaryTermInfoClass,
-    GlossaryNodeInfoClass,
+    FormInfoClass,
+    DynamicFormAssignmentClass,
+    BrowsePathsV2Class,
+    IncidentsSummaryClass,
+    OriginClass,
+    FormsClass,
+    CostClass,
+    DeprecationClass,
+    DataPlatformInstanceClass,
+    GlobalTagsClass,
+    GlossaryTermsClass,
+    VersionPropertiesClass,
+    StatusClass,
+    OwnershipClass,
+    OperationClass,
+    SemanticContentClass,
+    InstitutionalMemoryClass,
+    DataTransformLogicClass,
+    SiblingsClass,
+    InputFieldsClass,
+    DocumentationClass,
+    DisplayPropertiesClass,
+    AccessClass,
+    SubTypesClass,
+    BrowsePathsClass,
+    EmbedClass,
     DashboardUsageStatisticsClass,
     DashboardInfoClass,
     EditableDashboardPropertiesClass,
-    ApplicationPropertiesClass,
-    ApplicationsClass,
-    ApplicationKeyClass,
-    OwnershipTypeInfoClass,
-    SemanticModelInfoClass,
-    DataProductKeyClass,
+    GlossaryTermInfoClass,
+    GlossaryRelatedTermsClass,
+    GlossaryNodeInfoClass,
+    DatasetPropertiesClass,
+    ViewPropertiesClass,
+    DatasetDeprecationClass,
+    PartitionsSummaryClass,
+    DatasetProfileClass,
+    DatasetUpstreamLineageClass,
+    EditableDatasetPropertiesClass,
+    DatasetUsageStatisticsClass,
+    UpstreamLineageClass,
+    IcebergCatalogInfoClass,
     DataProductPropertiesClass,
-    IncidentsSummaryClass,
-    DocumentationClass,
-    OwnershipClass,
-    OriginClass,
-    OperationClass,
-    InputFieldsClass,
-    InstitutionalMemoryClass,
-    EmbedClass,
-    GlossaryTermsClass,
-    BrowsePathsV2Class,
-    BrowsePathsClass,
-    SubTypesClass,
-    DataPlatformInstanceClass,
-    CostClass,
-    DeprecationClass,
-    GlobalTagsClass,
-    VersionPropertiesClass,
-    SiblingsClass,
-    FormsClass,
-    AccessClass,
-    DisplayPropertiesClass,
-    SemanticContentClass,
-    StatusClass,
-    DataTransformLogicClass,
+    DataProductKeyClass,
+    DataHubUpgradeKeyClass,
+    DataJobKeyClass,
+    GlossaryNodeKeyClass,
+    MLModelDeploymentKeyClass,
+    DataHubViewKeyClass,
+    CorpUserKeyClass,
+    CorpGroupKeyClass,
+    DataContractKeyClass,
+    MLModelGroupKeyClass,
+    DataHubOpenAPISchemaKeyClass,
+    AIAgentKeyClass,
+    AgentSkillKeyClass,
+    SemanticModelKeyClass,
+    ExecutionRequestKeyClass,
+    MLModelKeyClass,
+    TestKeyClass,
+    RoleKeyClass,
+    DataHubPageTemplateKeyClass,
+    DatasetKeyClass,
+    GlobalSettingsKeyClass,
+    DataProcessKeyClass,
+    DataPlatformInstanceKeyClass,
+    PostKeyClass,
+    ChartKeyClass,
+    IncidentKeyClass,
+    MetricKeyClass,
+    DataHubConnectionKeyClass,
+    MLFeatureTableKeyClass,
+    LifecycleStageTypeKeyClass,
+    ApiKeyClass,
+    OwnershipTypeKeyClass,
+    DataHubFileKeyClass,
+    MLFeatureKeyClass,
+    DataPlatformKeyClass,
+    DataHubActionKeyClass,
+    DataHubRoleKeyClass,
+    TelemetryKeyClass,
+    NotebookKeyClass,
+    DataHubPageModuleKeyClass,
+    DomainKeyClass,
+    ContainerKeyClass,
+    InviteTokenKeyClass,
+    DataHubAccessTokenKeyClass,
+    DataFlowKeyClass,
+    TagKeyClass,
+    SchemaFieldKeyClass,
+    DataHubPersonaKeyClass,
+    DocumentKeyClass,
+    DataProcessInstanceKeyClass,
+    ERModelRelationshipKeyClass,
+    DataHubStepStateKeyClass,
+    VersionSetKeyClass,
+    AssertionKeyClass,
+    DataHubIngestionSourceKeyClass,
+    GlossaryTermKeyClass,
+    DataHubSecretKeyClass,
+    DashboardKeyClass,
+    MLPrimaryKeyKeyClass,
+    FormKeyClass,
+    DataHubPolicyKeyClass,
+    DataHubRetentionKeyClass,
+    QueryKeyClass,
+    DataHubPersonaInfoClass,
+    CorpUserInfoClass,
+    CorpUserCredentialsClass,
+    CorpUserEditableInfoClass,
+    InviteTokenClass,
+    NativeGroupMembershipClass,
+    RoleMembershipClass,
+    GroupMembershipClass,
+    CorpGroupInfoClass,
+    CorpGroupEditableInfoClass,
+    CorpUserStatusClass,
+    CorpUserSettingsClass,
+    MetricUpstreamsClass,
+    MetricRelationshipsClass,
+    MetricInfoClass,
+    RolePropertiesClass,
+    ActorsClass,
+    ChartUsageStatisticsClass,
+    ChartQueryClass,
+    EditableChartPropertiesClass,
+    ChartInfoClass,
     DocumentUsageStatisticsClass,
     DocumentInfoClass,
     DocumentSettingsClass,
-    DataHubSecretValueClass,
-    InviteTokenClass,
-    NativeGroupMembershipClass,
-    CorpUserEditableInfoClass,
-    CorpUserStatusClass,
-    RoleMembershipClass,
-    GroupMembershipClass,
-    CorpUserSettingsClass,
-    CorpGroupEditableInfoClass,
-    CorpUserCredentialsClass,
-    CorpGroupInfoClass,
-    CorpUserInfoClass,
-    DataHubRetentionConfigClass,
-    ContainerPropertiesClass,
-    ContainerClass,
     EditableContainerPropertiesClass,
-    DataContractPropertiesClass,
-    DataContractStatusClass,
-    DataHubRoleInfoClass,
-    DataHubPolicyInfoClass,
-    SourceCodeClass,
-    EditableMLModelGroupPropertiesClass,
-    MLHyperParamClass,
-    EvaluationDataClass,
-    EditableMLFeaturePropertiesClass,
-    EditableMLPrimaryKeyPropertiesClass,
-    EthicalConsiderationsClass,
-    CaveatsAndRecommendationsClass,
-    QuantitativeAnalysesClass,
-    MLModelGroupPropertiesClass,
-    MLModelPropertiesClass,
-    MLMetricClass,
-    TrainingDataClass,
-    MLModelDeploymentPropertiesClass,
-    MLPrimaryKeyPropertiesClass,
-    MetricsClass,
-    MLModelFactorPromptsClass,
-    EditableMLFeatureTablePropertiesClass,
-    MLFeaturePropertiesClass,
-    MLTrainingRunPropertiesClass,
-    MLFeatureTablePropertiesClass,
-    EditableMLModelPropertiesClass,
-    IntendedUseClass,
-    TagPropertiesClass,
-    FormInfoClass,
-    DynamicFormAssignmentClass,
-    IncidentInfoClass,
+    ContainerClass,
+    ContainerPropertiesClass,
+    DomainsClass,
+    DomainPropertiesClass,
+    ExecutionRequestResultClass,
+    ExecutionRequestInputClass,
+    ExecutionRequestSignalClass,
+    TelemetryClientIdClass,
+    DataHubSecretValueClass,
+    BusinessAttributeKeyClass,
+    BusinessAttributeInfoClass,
+    BusinessAttributesClass,
+    DataHubPageTemplatePropertiesClass,
+    DataHubPageModulePropertiesClass,
+    GlobalSettingsInfoClass,
+    AssetSettingsClass,
+    VersionSetPropertiesClass,
+    NotebookContentClass,
+    EditableNotebookPropertiesClass,
+    NotebookInfoClass,
     IncidentSourceClass,
     IncidentNotesClass,
+    IncidentInfoClass,
     IncidentExternalLinksClass,
-    IcebergWarehouseInfoClass,
-    DataPlatformInstancePropertiesClass,
+    SchemaFieldAliasesClass,
+    SchemaFieldInfoClass,
+    ApplicationKeyClass,
+    ApplicationsClass,
+    ApplicationPropertiesClass,
+    ApplicationLineageClass,
+    SemanticModelInfoClass,
+    VersionInfoClass,
+    EditableDataJobPropertiesClass,
+    EditableDataFlowPropertiesClass,
+    DataJobInputOutputClass,
+    DataFlowInfoClass,
+    DataJobInfoClass,
+    DatahubIngestionRunSummaryClass,
+    DatahubIngestionCheckpointClass,
+    DataHubConnectionDetailsClass,
+    DataTypeInfoClass,
+    DataTypeKeyClass,
+    AssertionRunEventClass,
+    AssertionActionsClass,
+    AssertionInfoClass,
+    DataHubPolicyInfoClass,
+    DataHubRoleInfoClass,
+    PostInfoClass,
+    DataHubUpgradeRequestClass,
+    DataHubUpgradeResultClass,
+    DataHubFileInfoClass,
     DataProcessInstancePropertiesClass,
-    DataProcessInstanceRelationshipsClass,
+    DataProcessInstanceInputClass,
+    DataProcessInfoClass,
     DataProcessInstanceRunEventClass,
     DataProcessInstanceOutputClass,
-    DataProcessInfoClass,
-    DataProcessInstanceInputClass,
-    RolePropertiesClass,
-    ActorsClass
+    DataProcessInstanceRelationshipsClass,
+    DataContractPropertiesClass,
+    DataContractStatusClass,
+    DataHubViewInfoClass,
+    ServicePropertiesClass,
+    ServiceDefinitionClass,
+    McpServerPropertiesClass,
+    ServiceKeyClass,
+    OwnershipTypeInfoClass,
+    PlatformResourceKeyClass,
+    PlatformResourceInfoClass,
+    RepositorySourceClass,
+    RepositoryPropertiesClass,
+    RepositoryKeyClass,
+    RepositoryLineageClass,
+    DataHubIngestionSourceInfoClass,
+    DataHubAccessTokenInfoClass,
+    AIAgentDependenciesClass,
+    AIAgentInfoClass,
+    ApiPropertiesClass,
+    ApiSignatureClass,
+    RestApiPropertiesClass,
+    AgentSkillInfoClass,
+    SystemMetadataClass,
+    TestResultsClass,
+    TestInfoClass,
+    DataHubStepStatePropertiesClass,
+    DataPlatformInstancePropertiesClass,
+    IcebergWarehouseInfoClass,
+    DataPlatformInfoClass,
+    SlackUserInfoClass,
+    EntityTypeInfoClass,
+    EntityTypeKeyClass,
+    EvaluationDataClass,
+    EditableMLFeatureTablePropertiesClass,
+    EditableMLFeaturePropertiesClass,
+    IntendedUseClass,
+    EditableMLPrimaryKeyPropertiesClass,
+    MLTrainingRunPropertiesClass,
+    MLPrimaryKeyPropertiesClass,
+    TrainingDataClass,
+    SourceCodeClass,
+    QuantitativeAnalysesClass,
+    CaveatsAndRecommendationsClass,
+    EditableMLModelGroupPropertiesClass,
+    MLModelPropertiesClass,
+    EthicalConsiderationsClass,
+    MLMetricClass,
+    MLFeatureTablePropertiesClass,
+    MLFeaturePropertiesClass,
+    MLModelDeploymentPropertiesClass,
+    EditableMLModelPropertiesClass,
+    MetricsClass,
+    MLModelFactorPromptsClass,
+    MLHyperParamClass,
+    MLModelGroupPropertiesClass,
+    TagPropertiesClass,
+    DataHubRetentionConfigClass,
+    QuerySubjectsClass,
+    QueryUsageStatisticsClass,
+    QueryPropertiesClass,
+    LifecycleStageTypeInfoClass,
+    LogicalParentClass,
+    EditableSchemaMetadataClass,
+    SchemaMetadataClass,
+    StructuredPropertyDefinitionClass,
+    StructuredPropertyKeyClass,
+    StructuredPropertiesClass,
+    StructuredPropertySettingsClass
 ]
 
 ASPECT_NAME_MAP: Dict[str, Type[_Aspect]] = {
@@ -32097,454 +33692,487 @@ from typing import Literal, Set
 from typing_extensions import TypedDict
 
 class AspectBag(TypedDict, total=False):
-    postInfo: PostInfoClass
-    dataHubConnectionDetails: DataHubConnectionDetailsClass
-    dataHubPageTemplateProperties: DataHubPageTemplatePropertiesClass
-    domainProperties: DomainPropertiesClass
-    domains: DomainsClass
-    propertyDefinition: StructuredPropertyDefinitionClass
-    structuredPropertySettings: StructuredPropertySettingsClass
-    structuredPropertyKey: StructuredPropertyKeyClass
-    structuredProperties: StructuredPropertiesClass
-    schemaMetadata: SchemaMetadataClass
-    editableSchemaMetadata: EditableSchemaMetadataClass
-    dataHubPersonaInfo: DataHubPersonaInfoClass
-    dataHubIngestionSourceInfo: DataHubIngestionSourceInfoClass
-    dataHubStepStateProperties: DataHubStepStatePropertiesClass
-    businessAttributes: BusinessAttributesClass
-    businessAttributeKey: BusinessAttributeKeyClass
-    businessAttributeInfo: BusinessAttributeInfoClass
-    editableNotebookProperties: EditableNotebookPropertiesClass
-    notebookContent: NotebookContentClass
-    notebookInfo: NotebookInfoClass
-    queryProperties: QueryPropertiesClass
-    queryUsageStatistics: QueryUsageStatisticsClass
-    querySubjects: QuerySubjectsClass
-    dataPlatformInfo: DataPlatformInfoClass
-    slackUserInfo: SlackUserInfoClass
-    partitionsSummary: PartitionsSummaryClass
-    icebergCatalogInfo: IcebergCatalogInfoClass
-    datasetDeprecation: DatasetDeprecationClass
-    datasetUpstreamLineage: DatasetUpstreamLineageClass
-    viewProperties: ViewPropertiesClass
-    datasetUsageStatistics: DatasetUsageStatisticsClass
-    datasetProfile: DatasetProfileClass
-    editableDatasetProperties: EditableDatasetPropertiesClass
-    datasetProperties: DatasetPropertiesClass
-    upstreamLineage: UpstreamLineageClass
-    entityTypeInfo: EntityTypeInfoClass
-    entityTypeKey: EntityTypeKeyClass
-    editableChartProperties: EditableChartPropertiesClass
-    chartUsageStatistics: ChartUsageStatisticsClass
-    chartQuery: ChartQueryClass
-    chartInfo: ChartInfoClass
-    dataHubFileInfo: DataHubFileInfoClass
-    globalSettingsInfo: GlobalSettingsInfoClass
-    assetSettings: AssetSettingsClass
-    mlModelKey: MLModelKeyClass
-    schemaFieldKey: SchemaFieldKeyClass
-    versionSetKey: VersionSetKeyClass
-    dataHubPolicyKey: DataHubPolicyKeyClass
-    dataHubAccessTokenKey: DataHubAccessTokenKeyClass
-    dataHubFileKey: DataHubFileKeyClass
-    dashboardKey: DashboardKeyClass
-    containerKey: ContainerKeyClass
-    dataContractKey: DataContractKeyClass
-    documentKey: DocumentKeyClass
-    semanticModelKey: SemanticModelKeyClass
-    globalSettingsKey: GlobalSettingsKeyClass
-    dataHubPageTemplateKey: DataHubPageTemplateKeyClass
-    telemetryKey: TelemetryKeyClass
-    dataProcessInstanceKey: DataProcessInstanceKeyClass
-    dataJobKey: DataJobKeyClass
-    dataHubViewKey: DataHubViewKeyClass
-    roleKey: RoleKeyClass
-    dataPlatformInstanceKey: DataPlatformInstanceKeyClass
-    mlPrimaryKeyKey: MLPrimaryKeyKeyClass
-    chartKey: ChartKeyClass
-    lifecycleStageTypeKey: LifecycleStageTypeKeyClass
-    dataHubStepStateKey: DataHubStepStateKeyClass
-    corpGroupKey: CorpGroupKeyClass
-    notebookKey: NotebookKeyClass
-    queryKey: QueryKeyClass
-    corpUserKey: CorpUserKeyClass
-    domainKey: DomainKeyClass
-    formKey: FormKeyClass
-    tagKey: TagKeyClass
-    datasetKey: DatasetKeyClass
-    mlModelGroupKey: MLModelGroupKeyClass
-    testKey: TestKeyClass
-    dataHubExecutionRequestKey: ExecutionRequestKeyClass
-    dataHubRetentionKey: DataHubRetentionKeyClass
-    dataHubRoleKey: DataHubRoleKeyClass
-    dataHubPageModuleKey: DataHubPageModuleKeyClass
-    mlModelDeploymentKey: MLModelDeploymentKeyClass
-    dataHubPersonaKey: DataHubPersonaKeyClass
-    dataHubSecretKey: DataHubSecretKeyClass
-    dataHubIngestionSourceKey: DataHubIngestionSourceKeyClass
-    dataHubUpgradeKey: DataHubUpgradeKeyClass
-    inviteTokenKey: InviteTokenKeyClass
-    metricKey: MetricKeyClass
-    ownershipTypeKey: OwnershipTypeKeyClass
-    erModelRelationshipKey: ERModelRelationshipKeyClass
-    mlFeatureTableKey: MLFeatureTableKeyClass
-    assertionKey: AssertionKeyClass
-    dataProcessKey: DataProcessKeyClass
-    mlFeatureKey: MLFeatureKeyClass
-    postKey: PostKeyClass
-    dataHubActionKey: DataHubActionKeyClass
-    glossaryTermKey: GlossaryTermKeyClass
-    glossaryNodeKey: GlossaryNodeKeyClass
-    dataPlatformKey: DataPlatformKeyClass
-    incidentKey: IncidentKeyClass
-    dataHubOpenAPISchemaKey: DataHubOpenAPISchemaKeyClass
-    dataFlowKey: DataFlowKeyClass
-    dataHubConnectionKey: DataHubConnectionKeyClass
-    testResults: TestResultsClass
-    testInfo: TestInfoClass
-    dataHubPageModuleProperties: DataHubPageModulePropertiesClass
-    dataHubExecutionRequestSignal: ExecutionRequestSignalClass
-    dataHubExecutionRequestInput: ExecutionRequestInputClass
-    dataHubExecutionRequestResult: ExecutionRequestResultClass
-    assertionActions: AssertionActionsClass
-    assertionInfo: AssertionInfoClass
-    assertionRunEvent: AssertionRunEventClass
-    dataTypeKey: DataTypeKeyClass
-    dataTypeInfo: DataTypeInfoClass
-    dataHubUpgradeResult: DataHubUpgradeResultClass
-    dataHubUpgradeRequest: DataHubUpgradeRequestClass
-    systemMetadata: SystemMetadataClass
     erModelRelationshipProperties: ERModelRelationshipPropertiesClass
     editableERModelRelationshipProperties: EditableERModelRelationshipPropertiesClass
-    metricUpstreams: MetricUpstreamsClass
-    metricRelationships: MetricRelationshipsClass
-    metricInfo: MetricInfoClass
-    lifecycleStageTypeInfo: LifecycleStageTypeInfoClass
-    dataHubViewInfo: DataHubViewInfoClass
-    editableDataJobProperties: EditableDataJobPropertiesClass
-    editableDataFlowProperties: EditableDataFlowPropertiesClass
-    dataFlowInfo: DataFlowInfoClass
-    dataJobInfo: DataJobInfoClass
-    dataJobInputOutput: DataJobInputOutputClass
-    versionInfo: VersionInfoClass
-    datahubIngestionCheckpoint: DatahubIngestionCheckpointClass
-    datahubIngestionRunSummary: DatahubIngestionRunSummaryClass
-    schemaFieldAliases: SchemaFieldAliasesClass
-    schemafieldInfo: SchemaFieldInfoClass
-    dataHubAccessTokenInfo: DataHubAccessTokenInfoClass
-    logicalParent: LogicalParentClass
-    platformResourceInfo: PlatformResourceInfoClass
-    platformResourceKey: PlatformResourceKeyClass
-    telemetryClientId: TelemetryClientIdClass
-    versionSetProperties: VersionSetPropertiesClass
-    glossaryRelatedTerms: GlossaryRelatedTermsClass
-    glossaryTermInfo: GlossaryTermInfoClass
-    glossaryNodeInfo: GlossaryNodeInfoClass
+    formInfo: FormInfoClass
+    dynamicFormAssignment: DynamicFormAssignmentClass
+    browsePathsV2: BrowsePathsV2Class
+    incidentsSummary: IncidentsSummaryClass
+    origin: OriginClass
+    forms: FormsClass
+    cost: CostClass
+    deprecation: DeprecationClass
+    dataPlatformInstance: DataPlatformInstanceClass
+    globalTags: GlobalTagsClass
+    glossaryTerms: GlossaryTermsClass
+    versionProperties: VersionPropertiesClass
+    status: StatusClass
+    ownership: OwnershipClass
+    operation: OperationClass
+    semanticContent: SemanticContentClass
+    institutionalMemory: InstitutionalMemoryClass
+    dataTransformLogic: DataTransformLogicClass
+    siblings: SiblingsClass
+    inputFields: InputFieldsClass
+    documentation: DocumentationClass
+    displayProperties: DisplayPropertiesClass
+    access: AccessClass
+    subTypes: SubTypesClass
+    browsePaths: BrowsePathsClass
+    embed: EmbedClass
     dashboardUsageStatistics: DashboardUsageStatisticsClass
     dashboardInfo: DashboardInfoClass
     editableDashboardProperties: EditableDashboardPropertiesClass
-    applicationProperties: ApplicationPropertiesClass
-    applications: ApplicationsClass
-    applicationKey: ApplicationKeyClass
-    ownershipTypeInfo: OwnershipTypeInfoClass
-    semanticModelInfo: SemanticModelInfoClass
-    dataProductKey: DataProductKeyClass
+    glossaryTermInfo: GlossaryTermInfoClass
+    glossaryRelatedTerms: GlossaryRelatedTermsClass
+    glossaryNodeInfo: GlossaryNodeInfoClass
+    datasetProperties: DatasetPropertiesClass
+    viewProperties: ViewPropertiesClass
+    datasetDeprecation: DatasetDeprecationClass
+    partitionsSummary: PartitionsSummaryClass
+    datasetProfile: DatasetProfileClass
+    datasetUpstreamLineage: DatasetUpstreamLineageClass
+    editableDatasetProperties: EditableDatasetPropertiesClass
+    datasetUsageStatistics: DatasetUsageStatisticsClass
+    upstreamLineage: UpstreamLineageClass
+    icebergCatalogInfo: IcebergCatalogInfoClass
     dataProductProperties: DataProductPropertiesClass
-    incidentsSummary: IncidentsSummaryClass
-    documentation: DocumentationClass
-    ownership: OwnershipClass
-    origin: OriginClass
-    operation: OperationClass
-    inputFields: InputFieldsClass
-    institutionalMemory: InstitutionalMemoryClass
-    embed: EmbedClass
-    glossaryTerms: GlossaryTermsClass
-    browsePathsV2: BrowsePathsV2Class
-    browsePaths: BrowsePathsClass
-    subTypes: SubTypesClass
-    dataPlatformInstance: DataPlatformInstanceClass
-    cost: CostClass
-    deprecation: DeprecationClass
-    globalTags: GlobalTagsClass
-    versionProperties: VersionPropertiesClass
-    siblings: SiblingsClass
-    forms: FormsClass
-    access: AccessClass
-    displayProperties: DisplayPropertiesClass
-    semanticContent: SemanticContentClass
-    status: StatusClass
-    dataTransformLogic: DataTransformLogicClass
+    dataProductKey: DataProductKeyClass
+    dataHubUpgradeKey: DataHubUpgradeKeyClass
+    dataJobKey: DataJobKeyClass
+    glossaryNodeKey: GlossaryNodeKeyClass
+    mlModelDeploymentKey: MLModelDeploymentKeyClass
+    dataHubViewKey: DataHubViewKeyClass
+    corpUserKey: CorpUserKeyClass
+    corpGroupKey: CorpGroupKeyClass
+    dataContractKey: DataContractKeyClass
+    mlModelGroupKey: MLModelGroupKeyClass
+    dataHubOpenAPISchemaKey: DataHubOpenAPISchemaKeyClass
+    aiAgentKey: AIAgentKeyClass
+    agentSkillKey: AgentSkillKeyClass
+    semanticModelKey: SemanticModelKeyClass
+    dataHubExecutionRequestKey: ExecutionRequestKeyClass
+    mlModelKey: MLModelKeyClass
+    testKey: TestKeyClass
+    roleKey: RoleKeyClass
+    dataHubPageTemplateKey: DataHubPageTemplateKeyClass
+    datasetKey: DatasetKeyClass
+    globalSettingsKey: GlobalSettingsKeyClass
+    dataProcessKey: DataProcessKeyClass
+    dataPlatformInstanceKey: DataPlatformInstanceKeyClass
+    postKey: PostKeyClass
+    chartKey: ChartKeyClass
+    incidentKey: IncidentKeyClass
+    metricKey: MetricKeyClass
+    dataHubConnectionKey: DataHubConnectionKeyClass
+    mlFeatureTableKey: MLFeatureTableKeyClass
+    lifecycleStageTypeKey: LifecycleStageTypeKeyClass
+    apiKey: ApiKeyClass
+    ownershipTypeKey: OwnershipTypeKeyClass
+    dataHubFileKey: DataHubFileKeyClass
+    mlFeatureKey: MLFeatureKeyClass
+    dataPlatformKey: DataPlatformKeyClass
+    dataHubActionKey: DataHubActionKeyClass
+    dataHubRoleKey: DataHubRoleKeyClass
+    telemetryKey: TelemetryKeyClass
+    notebookKey: NotebookKeyClass
+    dataHubPageModuleKey: DataHubPageModuleKeyClass
+    domainKey: DomainKeyClass
+    containerKey: ContainerKeyClass
+    inviteTokenKey: InviteTokenKeyClass
+    dataHubAccessTokenKey: DataHubAccessTokenKeyClass
+    dataFlowKey: DataFlowKeyClass
+    tagKey: TagKeyClass
+    schemaFieldKey: SchemaFieldKeyClass
+    dataHubPersonaKey: DataHubPersonaKeyClass
+    documentKey: DocumentKeyClass
+    dataProcessInstanceKey: DataProcessInstanceKeyClass
+    erModelRelationshipKey: ERModelRelationshipKeyClass
+    dataHubStepStateKey: DataHubStepStateKeyClass
+    versionSetKey: VersionSetKeyClass
+    assertionKey: AssertionKeyClass
+    dataHubIngestionSourceKey: DataHubIngestionSourceKeyClass
+    glossaryTermKey: GlossaryTermKeyClass
+    dataHubSecretKey: DataHubSecretKeyClass
+    dashboardKey: DashboardKeyClass
+    mlPrimaryKeyKey: MLPrimaryKeyKeyClass
+    formKey: FormKeyClass
+    dataHubPolicyKey: DataHubPolicyKeyClass
+    dataHubRetentionKey: DataHubRetentionKeyClass
+    queryKey: QueryKeyClass
+    dataHubPersonaInfo: DataHubPersonaInfoClass
+    corpUserInfo: CorpUserInfoClass
+    corpUserCredentials: CorpUserCredentialsClass
+    corpUserEditableInfo: CorpUserEditableInfoClass
+    inviteToken: InviteTokenClass
+    nativeGroupMembership: NativeGroupMembershipClass
+    roleMembership: RoleMembershipClass
+    groupMembership: GroupMembershipClass
+    corpGroupInfo: CorpGroupInfoClass
+    corpGroupEditableInfo: CorpGroupEditableInfoClass
+    corpUserStatus: CorpUserStatusClass
+    corpUserSettings: CorpUserSettingsClass
+    metricUpstreams: MetricUpstreamsClass
+    metricRelationships: MetricRelationshipsClass
+    metricInfo: MetricInfoClass
+    roleProperties: RolePropertiesClass
+    actors: ActorsClass
+    chartUsageStatistics: ChartUsageStatisticsClass
+    chartQuery: ChartQueryClass
+    editableChartProperties: EditableChartPropertiesClass
+    chartInfo: ChartInfoClass
     documentUsageStatistics: DocumentUsageStatisticsClass
     documentInfo: DocumentInfoClass
     documentSettings: DocumentSettingsClass
-    dataHubSecretValue: DataHubSecretValueClass
-    inviteToken: InviteTokenClass
-    nativeGroupMembership: NativeGroupMembershipClass
-    corpUserEditableInfo: CorpUserEditableInfoClass
-    corpUserStatus: CorpUserStatusClass
-    roleMembership: RoleMembershipClass
-    groupMembership: GroupMembershipClass
-    corpUserSettings: CorpUserSettingsClass
-    corpGroupEditableInfo: CorpGroupEditableInfoClass
-    corpUserCredentials: CorpUserCredentialsClass
-    corpGroupInfo: CorpGroupInfoClass
-    corpUserInfo: CorpUserInfoClass
-    dataHubRetentionConfig: DataHubRetentionConfigClass
-    containerProperties: ContainerPropertiesClass
-    container: ContainerClass
     editableContainerProperties: EditableContainerPropertiesClass
-    dataContractProperties: DataContractPropertiesClass
-    dataContractStatus: DataContractStatusClass
-    dataHubRoleInfo: DataHubRoleInfoClass
-    dataHubPolicyInfo: DataHubPolicyInfoClass
-    sourceCode: SourceCodeClass
-    editableMlModelGroupProperties: EditableMLModelGroupPropertiesClass
-    mlHyperParam: MLHyperParamClass
-    mlModelEvaluationData: EvaluationDataClass
-    editableMlFeatureProperties: EditableMLFeaturePropertiesClass
-    editableMlPrimaryKeyProperties: EditableMLPrimaryKeyPropertiesClass
-    mlModelEthicalConsiderations: EthicalConsiderationsClass
-    mlModelCaveatsAndRecommendations: CaveatsAndRecommendationsClass
-    mlModelQuantitativeAnalyses: QuantitativeAnalysesClass
-    mlModelGroupProperties: MLModelGroupPropertiesClass
-    mlModelProperties: MLModelPropertiesClass
-    mlMetric: MLMetricClass
-    mlModelTrainingData: TrainingDataClass
-    mlModelDeploymentProperties: MLModelDeploymentPropertiesClass
-    mlPrimaryKeyProperties: MLPrimaryKeyPropertiesClass
-    mlModelMetrics: MetricsClass
-    mlModelFactorPrompts: MLModelFactorPromptsClass
-    editableMlFeatureTableProperties: EditableMLFeatureTablePropertiesClass
-    mlFeatureProperties: MLFeaturePropertiesClass
-    mlTrainingRunProperties: MLTrainingRunPropertiesClass
-    mlFeatureTableProperties: MLFeatureTablePropertiesClass
-    editableMlModelProperties: EditableMLModelPropertiesClass
-    intendedUse: IntendedUseClass
-    tagProperties: TagPropertiesClass
-    formInfo: FormInfoClass
-    dynamicFormAssignment: DynamicFormAssignmentClass
-    incidentInfo: IncidentInfoClass
+    container: ContainerClass
+    containerProperties: ContainerPropertiesClass
+    domains: DomainsClass
+    domainProperties: DomainPropertiesClass
+    dataHubExecutionRequestResult: ExecutionRequestResultClass
+    dataHubExecutionRequestInput: ExecutionRequestInputClass
+    dataHubExecutionRequestSignal: ExecutionRequestSignalClass
+    telemetryClientId: TelemetryClientIdClass
+    dataHubSecretValue: DataHubSecretValueClass
+    businessAttributeKey: BusinessAttributeKeyClass
+    businessAttributeInfo: BusinessAttributeInfoClass
+    businessAttributes: BusinessAttributesClass
+    dataHubPageTemplateProperties: DataHubPageTemplatePropertiesClass
+    dataHubPageModuleProperties: DataHubPageModulePropertiesClass
+    globalSettingsInfo: GlobalSettingsInfoClass
+    assetSettings: AssetSettingsClass
+    versionSetProperties: VersionSetPropertiesClass
+    notebookContent: NotebookContentClass
+    editableNotebookProperties: EditableNotebookPropertiesClass
+    notebookInfo: NotebookInfoClass
     incidentSource: IncidentSourceClass
     incidentNotes: IncidentNotesClass
+    incidentInfo: IncidentInfoClass
     incidentExternalLinks: IncidentExternalLinksClass
-    icebergWarehouseInfo: IcebergWarehouseInfoClass
-    dataPlatformInstanceProperties: DataPlatformInstancePropertiesClass
+    schemaFieldAliases: SchemaFieldAliasesClass
+    schemafieldInfo: SchemaFieldInfoClass
+    applicationKey: ApplicationKeyClass
+    applications: ApplicationsClass
+    applicationProperties: ApplicationPropertiesClass
+    applicationLineage: ApplicationLineageClass
+    semanticModelInfo: SemanticModelInfoClass
+    versionInfo: VersionInfoClass
+    editableDataJobProperties: EditableDataJobPropertiesClass
+    editableDataFlowProperties: EditableDataFlowPropertiesClass
+    dataJobInputOutput: DataJobInputOutputClass
+    dataFlowInfo: DataFlowInfoClass
+    dataJobInfo: DataJobInfoClass
+    datahubIngestionRunSummary: DatahubIngestionRunSummaryClass
+    datahubIngestionCheckpoint: DatahubIngestionCheckpointClass
+    dataHubConnectionDetails: DataHubConnectionDetailsClass
+    dataTypeInfo: DataTypeInfoClass
+    dataTypeKey: DataTypeKeyClass
+    assertionRunEvent: AssertionRunEventClass
+    assertionActions: AssertionActionsClass
+    assertionInfo: AssertionInfoClass
+    dataHubPolicyInfo: DataHubPolicyInfoClass
+    dataHubRoleInfo: DataHubRoleInfoClass
+    postInfo: PostInfoClass
+    dataHubUpgradeRequest: DataHubUpgradeRequestClass
+    dataHubUpgradeResult: DataHubUpgradeResultClass
+    dataHubFileInfo: DataHubFileInfoClass
     dataProcessInstanceProperties: DataProcessInstancePropertiesClass
-    dataProcessInstanceRelationships: DataProcessInstanceRelationshipsClass
+    dataProcessInstanceInput: DataProcessInstanceInputClass
+    dataProcessInfo: DataProcessInfoClass
     dataProcessInstanceRunEvent: DataProcessInstanceRunEventClass
     dataProcessInstanceOutput: DataProcessInstanceOutputClass
-    dataProcessInfo: DataProcessInfoClass
-    dataProcessInstanceInput: DataProcessInstanceInputClass
-    roleProperties: RolePropertiesClass
-    actors: ActorsClass
+    dataProcessInstanceRelationships: DataProcessInstanceRelationshipsClass
+    dataContractProperties: DataContractPropertiesClass
+    dataContractStatus: DataContractStatusClass
+    dataHubViewInfo: DataHubViewInfoClass
+    serviceProperties: ServicePropertiesClass
+    serviceDefinition: ServiceDefinitionClass
+    mcpServerProperties: McpServerPropertiesClass
+    serviceKey: ServiceKeyClass
+    ownershipTypeInfo: OwnershipTypeInfoClass
+    platformResourceKey: PlatformResourceKeyClass
+    platformResourceInfo: PlatformResourceInfoClass
+    repositorySource: RepositorySourceClass
+    repositoryProperties: RepositoryPropertiesClass
+    repositoryKey: RepositoryKeyClass
+    repositoryLineage: RepositoryLineageClass
+    dataHubIngestionSourceInfo: DataHubIngestionSourceInfoClass
+    dataHubAccessTokenInfo: DataHubAccessTokenInfoClass
+    aiAgentDependencies: AIAgentDependenciesClass
+    aiAgentInfo: AIAgentInfoClass
+    apiProperties: ApiPropertiesClass
+    apiSignature: ApiSignatureClass
+    restApiProperties: RestApiPropertiesClass
+    agentSkillInfo: AgentSkillInfoClass
+    systemMetadata: SystemMetadataClass
+    testResults: TestResultsClass
+    testInfo: TestInfoClass
+    dataHubStepStateProperties: DataHubStepStatePropertiesClass
+    dataPlatformInstanceProperties: DataPlatformInstancePropertiesClass
+    icebergWarehouseInfo: IcebergWarehouseInfoClass
+    dataPlatformInfo: DataPlatformInfoClass
+    slackUserInfo: SlackUserInfoClass
+    entityTypeInfo: EntityTypeInfoClass
+    entityTypeKey: EntityTypeKeyClass
+    mlModelEvaluationData: EvaluationDataClass
+    editableMlFeatureTableProperties: EditableMLFeatureTablePropertiesClass
+    editableMlFeatureProperties: EditableMLFeaturePropertiesClass
+    intendedUse: IntendedUseClass
+    editableMlPrimaryKeyProperties: EditableMLPrimaryKeyPropertiesClass
+    mlTrainingRunProperties: MLTrainingRunPropertiesClass
+    mlPrimaryKeyProperties: MLPrimaryKeyPropertiesClass
+    mlModelTrainingData: TrainingDataClass
+    sourceCode: SourceCodeClass
+    mlModelQuantitativeAnalyses: QuantitativeAnalysesClass
+    mlModelCaveatsAndRecommendations: CaveatsAndRecommendationsClass
+    editableMlModelGroupProperties: EditableMLModelGroupPropertiesClass
+    mlModelProperties: MLModelPropertiesClass
+    mlModelEthicalConsiderations: EthicalConsiderationsClass
+    mlMetric: MLMetricClass
+    mlFeatureTableProperties: MLFeatureTablePropertiesClass
+    mlFeatureProperties: MLFeaturePropertiesClass
+    mlModelDeploymentProperties: MLModelDeploymentPropertiesClass
+    editableMlModelProperties: EditableMLModelPropertiesClass
+    mlModelMetrics: MetricsClass
+    mlModelFactorPrompts: MLModelFactorPromptsClass
+    mlHyperParam: MLHyperParamClass
+    mlModelGroupProperties: MLModelGroupPropertiesClass
+    tagProperties: TagPropertiesClass
+    dataHubRetentionConfig: DataHubRetentionConfigClass
+    querySubjects: QuerySubjectsClass
+    queryUsageStatistics: QueryUsageStatisticsClass
+    queryProperties: QueryPropertiesClass
+    lifecycleStageTypeInfo: LifecycleStageTypeInfoClass
+    logicalParent: LogicalParentClass
+    editableSchemaMetadata: EditableSchemaMetadataClass
+    schemaMetadata: SchemaMetadataClass
+    propertyDefinition: StructuredPropertyDefinitionClass
+    structuredPropertyKey: StructuredPropertyKeyClass
+    structuredProperties: StructuredPropertiesClass
+    structuredPropertySettings: StructuredPropertySettingsClass
 
 
 KEY_ASPECTS: Dict[str, Type[_Aspect]] = {
-    'structuredProperty': StructuredPropertyKeyClass,
-    'businessAttribute': BusinessAttributeKeyClass,
-    'entityType': EntityTypeKeyClass,
-    'mlModel': MLModelKeyClass,
-    'schemaField': SchemaFieldKeyClass,
-    'versionSet': VersionSetKeyClass,
-    'dataHubPolicy': DataHubPolicyKeyClass,
-    'dataHubAccessToken': DataHubAccessTokenKeyClass,
-    'dataHubFile': DataHubFileKeyClass,
-    'dashboard': DashboardKeyClass,
-    'container': ContainerKeyClass,
-    'dataContract': DataContractKeyClass,
-    'document': DocumentKeyClass,
-    'semanticModel': SemanticModelKeyClass,
-    'globalSettings': GlobalSettingsKeyClass,
-    'dataHubPageTemplate': DataHubPageTemplateKeyClass,
-    'telemetry': TelemetryKeyClass,
-    'dataProcessInstance': DataProcessInstanceKeyClass,
-    'dataJob': DataJobKeyClass,
-    'dataHubView': DataHubViewKeyClass,
-    'role': RoleKeyClass,
-    'dataPlatformInstance': DataPlatformInstanceKeyClass,
-    'mlPrimaryKey': MLPrimaryKeyKeyClass,
-    'chart': ChartKeyClass,
-    'lifecycleStageType': LifecycleStageTypeKeyClass,
-    'dataHubStepState': DataHubStepStateKeyClass,
-    'corpGroup': CorpGroupKeyClass,
-    'notebook': NotebookKeyClass,
-    'query': QueryKeyClass,
-    'corpuser': CorpUserKeyClass,
-    'domain': DomainKeyClass,
-    'form': FormKeyClass,
-    'tag': TagKeyClass,
-    'dataset': DatasetKeyClass,
-    'mlModelGroup': MLModelGroupKeyClass,
-    'test': TestKeyClass,
-    'dataHubExecutionRequest': ExecutionRequestKeyClass,
-    'dataHubRetention': DataHubRetentionKeyClass,
-    'dataHubRole': DataHubRoleKeyClass,
-    'dataHubPageModule': DataHubPageModuleKeyClass,
-    'mlModelDeployment': MLModelDeploymentKeyClass,
-    'dataHubPersona': DataHubPersonaKeyClass,
-    'dataHubSecret': DataHubSecretKeyClass,
-    'dataHubIngestionSource': DataHubIngestionSourceKeyClass,
+    'dataProduct': DataProductKeyClass,
     'dataHubUpgrade': DataHubUpgradeKeyClass,
-    'inviteToken': InviteTokenKeyClass,
-    'metric': MetricKeyClass,
-    'ownershipType': OwnershipTypeKeyClass,
-    'erModelRelationship': ERModelRelationshipKeyClass,
-    'mlFeatureTable': MLFeatureTableKeyClass,
-    'assertion': AssertionKeyClass,
-    'dataProcess': DataProcessKeyClass,
-    'mlFeature': MLFeatureKeyClass,
-    'post': PostKeyClass,
-    'dataHubAction': DataHubActionKeyClass,
-    'glossaryTerm': GlossaryTermKeyClass,
+    'dataJob': DataJobKeyClass,
     'glossaryNode': GlossaryNodeKeyClass,
-    'dataPlatform': DataPlatformKeyClass,
-    'incident': IncidentKeyClass,
+    'mlModelDeployment': MLModelDeploymentKeyClass,
+    'dataHubView': DataHubViewKeyClass,
+    'corpuser': CorpUserKeyClass,
+    'corpGroup': CorpGroupKeyClass,
+    'dataContract': DataContractKeyClass,
+    'mlModelGroup': MLModelGroupKeyClass,
     'dataHubOpenAPISchema': DataHubOpenAPISchemaKeyClass,
-    'dataFlow': DataFlowKeyClass,
+    'aiAgent': AIAgentKeyClass,
+    'agentSkill': AgentSkillKeyClass,
+    'semanticModel': SemanticModelKeyClass,
+    'dataHubExecutionRequest': ExecutionRequestKeyClass,
+    'mlModel': MLModelKeyClass,
+    'test': TestKeyClass,
+    'role': RoleKeyClass,
+    'dataHubPageTemplate': DataHubPageTemplateKeyClass,
+    'dataset': DatasetKeyClass,
+    'globalSettings': GlobalSettingsKeyClass,
+    'dataProcess': DataProcessKeyClass,
+    'dataPlatformInstance': DataPlatformInstanceKeyClass,
+    'post': PostKeyClass,
+    'chart': ChartKeyClass,
+    'incident': IncidentKeyClass,
+    'metric': MetricKeyClass,
     'dataHubConnection': DataHubConnectionKeyClass,
-    'dataType': DataTypeKeyClass,
-    'platformResource': PlatformResourceKeyClass,
+    'mlFeatureTable': MLFeatureTableKeyClass,
+    'lifecycleStageType': LifecycleStageTypeKeyClass,
+    'api': ApiKeyClass,
+    'ownershipType': OwnershipTypeKeyClass,
+    'dataHubFile': DataHubFileKeyClass,
+    'mlFeature': MLFeatureKeyClass,
+    'dataPlatform': DataPlatformKeyClass,
+    'dataHubAction': DataHubActionKeyClass,
+    'dataHubRole': DataHubRoleKeyClass,
+    'telemetry': TelemetryKeyClass,
+    'notebook': NotebookKeyClass,
+    'dataHubPageModule': DataHubPageModuleKeyClass,
+    'domain': DomainKeyClass,
+    'container': ContainerKeyClass,
+    'inviteToken': InviteTokenKeyClass,
+    'dataHubAccessToken': DataHubAccessTokenKeyClass,
+    'dataFlow': DataFlowKeyClass,
+    'tag': TagKeyClass,
+    'schemaField': SchemaFieldKeyClass,
+    'dataHubPersona': DataHubPersonaKeyClass,
+    'document': DocumentKeyClass,
+    'dataProcessInstance': DataProcessInstanceKeyClass,
+    'erModelRelationship': ERModelRelationshipKeyClass,
+    'dataHubStepState': DataHubStepStateKeyClass,
+    'versionSet': VersionSetKeyClass,
+    'assertion': AssertionKeyClass,
+    'dataHubIngestionSource': DataHubIngestionSourceKeyClass,
+    'glossaryTerm': GlossaryTermKeyClass,
+    'dataHubSecret': DataHubSecretKeyClass,
+    'dashboard': DashboardKeyClass,
+    'mlPrimaryKey': MLPrimaryKeyKeyClass,
+    'form': FormKeyClass,
+    'dataHubPolicy': DataHubPolicyKeyClass,
+    'dataHubRetention': DataHubRetentionKeyClass,
+    'query': QueryKeyClass,
+    'businessAttribute': BusinessAttributeKeyClass,
     'application': ApplicationKeyClass,
-    'dataProduct': DataProductKeyClass
+    'dataType': DataTypeKeyClass,
+    'service': ServiceKeyClass,
+    'platformResource': PlatformResourceKeyClass,
+    'repository': RepositoryKeyClass,
+    'entityType': EntityTypeKeyClass,
+    'structuredProperty': StructuredPropertyKeyClass
 }
 
 KEY_ASPECT_NAMES: Set[str] = {cls.ASPECT_NAME for cls in KEY_ASPECTS.values()}
 
 ENTITY_TYPE_NAMES: List[str] = [
-    'structuredProperty',
-    'businessAttribute',
-    'entityType',
-    'mlModel',
-    'schemaField',
-    'versionSet',
-    'dataHubPolicy',
-    'dataHubAccessToken',
-    'dataHubFile',
-    'dashboard',
-    'container',
-    'dataContract',
-    'document',
-    'semanticModel',
-    'globalSettings',
-    'dataHubPageTemplate',
-    'telemetry',
-    'dataProcessInstance',
-    'dataJob',
-    'dataHubView',
-    'role',
-    'dataPlatformInstance',
-    'mlPrimaryKey',
-    'chart',
-    'lifecycleStageType',
-    'dataHubStepState',
-    'corpGroup',
-    'notebook',
-    'query',
-    'corpuser',
-    'domain',
-    'form',
-    'tag',
-    'dataset',
-    'mlModelGroup',
-    'test',
-    'dataHubExecutionRequest',
-    'dataHubRetention',
-    'dataHubRole',
-    'dataHubPageModule',
-    'mlModelDeployment',
-    'dataHubPersona',
-    'dataHubSecret',
-    'dataHubIngestionSource',
+    'dataProduct',
     'dataHubUpgrade',
-    'inviteToken',
-    'metric',
-    'ownershipType',
-    'erModelRelationship',
-    'mlFeatureTable',
-    'assertion',
-    'dataProcess',
-    'mlFeature',
-    'post',
-    'dataHubAction',
-    'glossaryTerm',
+    'dataJob',
     'glossaryNode',
-    'dataPlatform',
-    'incident',
+    'mlModelDeployment',
+    'dataHubView',
+    'corpuser',
+    'corpGroup',
+    'dataContract',
+    'mlModelGroup',
     'dataHubOpenAPISchema',
-    'dataFlow',
+    'aiAgent',
+    'agentSkill',
+    'semanticModel',
+    'dataHubExecutionRequest',
+    'mlModel',
+    'test',
+    'role',
+    'dataHubPageTemplate',
+    'dataset',
+    'globalSettings',
+    'dataProcess',
+    'dataPlatformInstance',
+    'post',
+    'chart',
+    'incident',
+    'metric',
     'dataHubConnection',
-    'dataType',
-    'platformResource',
+    'mlFeatureTable',
+    'lifecycleStageType',
+    'api',
+    'ownershipType',
+    'dataHubFile',
+    'mlFeature',
+    'dataPlatform',
+    'dataHubAction',
+    'dataHubRole',
+    'telemetry',
+    'notebook',
+    'dataHubPageModule',
+    'domain',
+    'container',
+    'inviteToken',
+    'dataHubAccessToken',
+    'dataFlow',
+    'tag',
+    'schemaField',
+    'dataHubPersona',
+    'document',
+    'dataProcessInstance',
+    'erModelRelationship',
+    'dataHubStepState',
+    'versionSet',
+    'assertion',
+    'dataHubIngestionSource',
+    'glossaryTerm',
+    'dataHubSecret',
+    'dashboard',
+    'mlPrimaryKey',
+    'form',
+    'dataHubPolicy',
+    'dataHubRetention',
+    'query',
+    'businessAttribute',
     'application',
-    'dataProduct'
+    'dataType',
+    'service',
+    'platformResource',
+    'repository',
+    'entityType',
+    'structuredProperty'
 ]
 EntityTypeName = Literal[
-    'structuredProperty',
-    'businessAttribute',
-    'entityType',
-    'mlModel',
-    'schemaField',
-    'versionSet',
-    'dataHubPolicy',
-    'dataHubAccessToken',
-    'dataHubFile',
-    'dashboard',
-    'container',
-    'dataContract',
-    'document',
-    'semanticModel',
-    'globalSettings',
-    'dataHubPageTemplate',
-    'telemetry',
-    'dataProcessInstance',
-    'dataJob',
-    'dataHubView',
-    'role',
-    'dataPlatformInstance',
-    'mlPrimaryKey',
-    'chart',
-    'lifecycleStageType',
-    'dataHubStepState',
-    'corpGroup',
-    'notebook',
-    'query',
-    'corpuser',
-    'domain',
-    'form',
-    'tag',
-    'dataset',
-    'mlModelGroup',
-    'test',
-    'dataHubExecutionRequest',
-    'dataHubRetention',
-    'dataHubRole',
-    'dataHubPageModule',
-    'mlModelDeployment',
-    'dataHubPersona',
-    'dataHubSecret',
-    'dataHubIngestionSource',
+    'dataProduct',
     'dataHubUpgrade',
-    'inviteToken',
-    'metric',
-    'ownershipType',
-    'erModelRelationship',
-    'mlFeatureTable',
-    'assertion',
-    'dataProcess',
-    'mlFeature',
-    'post',
-    'dataHubAction',
-    'glossaryTerm',
+    'dataJob',
     'glossaryNode',
-    'dataPlatform',
-    'incident',
+    'mlModelDeployment',
+    'dataHubView',
+    'corpuser',
+    'corpGroup',
+    'dataContract',
+    'mlModelGroup',
     'dataHubOpenAPISchema',
-    'dataFlow',
+    'aiAgent',
+    'agentSkill',
+    'semanticModel',
+    'dataHubExecutionRequest',
+    'mlModel',
+    'test',
+    'role',
+    'dataHubPageTemplate',
+    'dataset',
+    'globalSettings',
+    'dataProcess',
+    'dataPlatformInstance',
+    'post',
+    'chart',
+    'incident',
+    'metric',
     'dataHubConnection',
-    'dataType',
-    'platformResource',
+    'mlFeatureTable',
+    'lifecycleStageType',
+    'api',
+    'ownershipType',
+    'dataHubFile',
+    'mlFeature',
+    'dataPlatform',
+    'dataHubAction',
+    'dataHubRole',
+    'telemetry',
+    'notebook',
+    'dataHubPageModule',
+    'domain',
+    'container',
+    'inviteToken',
+    'dataHubAccessToken',
+    'dataFlow',
+    'tag',
+    'schemaField',
+    'dataHubPersona',
+    'document',
+    'dataProcessInstance',
+    'erModelRelationship',
+    'dataHubStepState',
+    'versionSet',
+    'assertion',
+    'dataHubIngestionSource',
+    'glossaryTerm',
+    'dataHubSecret',
+    'dashboard',
+    'mlPrimaryKey',
+    'form',
+    'dataHubPolicy',
+    'dataHubRetention',
+    'query',
+    'businessAttribute',
     'application',
-    'dataProduct'
+    'dataType',
+    'service',
+    'platformResource',
+    'repository',
+    'entityType',
+    'structuredProperty'
 ]
 
 # fmt: on

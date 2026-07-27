@@ -1042,7 +1042,12 @@ class XA1MessageBody(XMessageBody):
 class XBXMessageBody(NewProtocolMessageBody):
     """AC BX message body. body[0] b0/b1, body[1] propertyNumber, cursor 2."""
 
-    def __init__(self, body: bytearray, bt: int) -> None:
+    def __init__(
+        self,
+        body: bytearray,
+        bt: int,
+        subtype8_temperature: bool = False,
+    ) -> None:
         """Initialize AC BX message body."""
         super().__init__(body, bt)
 
@@ -1089,11 +1094,14 @@ class XBXMessageBody(NewProtocolMessageBody):
                 len(data) > SELF_CLEAN_ACTIVE_STATUS_BYTE
                 and data[SELF_CLEAN_ACTIVE_STATUS_BYTE] != 0
             )
-        if SUBTYPE8_TEMPERATURE_TAG in params:
+        if (
+            subtype8_temperature
+            and SUBTYPE8_TEMPERATURE_TAG in params
+            and self._parse_subtype8_temperatures(params[SUBTYPE8_TEMPERATURE_TAG])
+        ):
             self.has_subtype8_temperature = True
-            self._parse_subtype8_temperatures(params[SUBTYPE8_TEMPERATURE_TAG])
 
-    def _parse_subtype8_temperatures(self, data: bytearray) -> None:
+    def _parse_subtype8_temperatures(self, data: bytearray) -> bool:
         """Decode setpoint/indoor temperature for AC subtype 8 (model 22013279).
 
         The standard C0 frame is stale for this subtype; temperatures are
@@ -1101,9 +1109,13 @@ class XBXMessageBody(NewProtocolMessageBody):
         setpoint in byte 1:
         - low 6 bits encode 0.5C steps with a +11.5C offset
         - bit 0x40 adds an extra +0.5C
+
+        Only call this for subtype-8 devices: other subtypes send tag 0x7e with
+        unrelated content, where these offsets decode to a bogus temperature
+        that would then suppress their valid C0 temperatures.
         """
         if len(data) <= SUBTYPE8_TEMPERATURE_MIN_LENGTH:
-            return
+            return False
         raw_setpoint = data[1]
         target_temperature = (
             SUBTYPE8_SETPOINT_OFFSET + (raw_setpoint & SUBTYPE8_SETPOINT_MASK) / 2
@@ -1124,15 +1136,25 @@ class XBXMessageBody(NewProtocolMessageBody):
                 <= SUBTYPE8_MAX_VALID_TEMPERATURE
             ):
                 target_temperature = fallback_target
-        self.target_temperature = target_temperature
-        self.indoor_temperature = round(
+            else:
+                return False
+        indoor_temperature = round(
             (data[SUBTYPE8_INDOOR_TEMPERATURE_BYTE] - 50) / 2
             + data[SUBTYPE8_INDOOR_TEMPERATURE_DECIMAL_BYTE] * 0.1,
             1,
         )
+        if not (
+            SUBTYPE8_MIN_VALID_TEMPERATURE
+            <= indoor_temperature
+            <= SUBTYPE8_MAX_VALID_TEMPERATURE
+        ):
+            return False
+        self.target_temperature = target_temperature
+        self.indoor_temperature = indoor_temperature
         # Outdoor temperature isn't available locally on this model (the app
         # shows a cloud/weather value); avoid the bogus C0-derived value.
         self.outdoor_temperature = None
+        return True
 
 
 class XB5MessageBody(NewProtocolMessageBody):
@@ -1531,7 +1553,12 @@ class XBBMessageBody(MessageBody):
 class MessageACResponse(MessageResponse):
     """AC message response."""
 
-    def __init__(self, message: bytearray, power_analysis_method: int = 3) -> None:
+    def __init__(
+        self,
+        message: bytearray,
+        power_analysis_method: int = 3,
+        subtype8_temperature: bool = False,
+    ) -> None:
         """Initialize AC message response."""
         super().__init__(message)
         # dataType 0x05 and messageBytes[0] 0xA0
@@ -1554,7 +1581,9 @@ class MessageACResponse(MessageResponse):
             MessageType.set,
             MessageType.notify2,
         ] and self.body_type in [ListTypes.B0, ListTypes.B1, ListTypes.B5]:
-            self.set_body(XBXMessageBody(super().body, self.body_type))
+            self.set_body(
+                XBXMessageBody(super().body, self.body_type, subtype8_temperature),
+            )
         # dataType 0x02 and messageBytes[0] 0xC0
         # dataType 0x03 and messageBytes[0] 0xC0
         elif (

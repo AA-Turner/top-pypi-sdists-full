@@ -143,7 +143,7 @@ class MatchCondition(DictMixin):
 
       **parameters**
 
-      * **expression** ``str`` - Expression represents the expression which will be evaluated by CEL. Must
+      * **expression** ``str`` - expression represents the expression which will be evaluated by CEL. Must
         evaluate to bool. CEL expressions have access to the contents of the
         AdmissionRequest and Authorizer, organized into CEL variables:
         'object' - The object from the incoming request. The value is null for DELETE
@@ -158,7 +158,7 @@ class MatchCondition(DictMixin):
           request resource.
         Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
         Required.
-      * **name** ``str`` - Name is an identifier for this match condition, used for strategic merging of
+      * **name** ``str`` - name is an identifier for this match condition, used for strategic merging of
         MatchConditions, as well as providing an identifier for logging purposes. A
         good name should be descriptive of the associated expression. Name must be a
         qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -180,7 +180,7 @@ class MatchResources(DictMixin):
 
       **parameters**
 
-      * **excludeResourceRules** ``Optional[List[NamedRuleWithOperations]]`` - ExcludeResourceRules describes what operations on what resources/subresources
+      * **excludeResourceRules** ``Optional[List[NamedRuleWithOperations]]`` - excludeResourceRules describes what operations on what resources/subresources
         the policy should not care about. The exclude rules take precedence over
         include rules (if a resource matches both, it is excluded)
       * **matchPolicy** ``Optional[str]`` - matchPolicy defines how the "MatchResources" list is used to match incoming
@@ -198,7 +198,7 @@ class MatchResources(DictMixin):
         extensions/v1beta1 API groups. The API server translates the request to a
         matched resource API if necessary.
         Defaults to "Equivalent"
-      * **namespaceSelector** ``Optional[meta_v1.LabelSelector]`` - NamespaceSelector decides whether to run the admission control policy on an
+      * **namespaceSelector** ``Optional[meta_v1.LabelSelector]`` - namespaceSelector decides whether to run the admission control policy on an
         object based on whether the namespace for that object matches the selector. If
         the object itself is a namespace, the matching is performed on
         object.metadata.labels. If the object is another cluster scoped resource, it
@@ -234,7 +234,7 @@ class MatchResources(DictMixin):
         See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
         for more examples of label selectors.
         Default to the empty LabelSelector, which matches everything.
-      * **objectSelector** ``Optional[meta_v1.LabelSelector]`` - ObjectSelector decides whether to run the policy based on if the object has
+      * **objectSelector** ``Optional[meta_v1.LabelSelector]`` - objectSelector decides whether to run the policy based on if the object has
         matching labels. objectSelector is evaluated against both the oldObject and
         newObject that would be sent to the policy's expression (CEL), and is
         considered to match if either object matches the selector. A null object
@@ -243,7 +243,7 @@ class MatchResources(DictMixin):
         object) is not considered to match. Use the object selector only if the
         webhook is opt-in, because end users may skip the admission webhook by setting
         the labels. Default to the empty LabelSelector, which matches everything.
-      * **resourceRules** ``Optional[List[NamedRuleWithOperations]]`` - ResourceRules describes what operations on what resources/subresources the
+      * **resourceRules** ``Optional[List[NamedRuleWithOperations]]`` - resourceRules describes what operations on what resources/subresources the
         admission policy matches. The policy cares about an operation if it matches
         _any_ Rule.
     """
@@ -269,9 +269,9 @@ class MutatingAdmissionPolicy(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object metadata; More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata; More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata.
-      * **spec** ``Optional[MutatingAdmissionPolicySpec]`` - Specification of the desired behavior of the MutatingAdmissionPolicy.
+      * **spec** ``Optional[MutatingAdmissionPolicySpec]`` - spec defines the desired behavior of the MutatingAdmissionPolicy.
     """
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
@@ -309,9 +309,9 @@ class MutatingAdmissionPolicyBinding(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object metadata; More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata; More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata.
-      * **spec** ``Optional[MutatingAdmissionPolicyBindingSpec]`` - Specification of the desired behavior of the MutatingAdmissionPolicyBinding.
+      * **spec** ``Optional[MutatingAdmissionPolicyBindingSpec]`` - spec defines the desired behavior of the MutatingAdmissionPolicyBinding.
     """
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
@@ -339,7 +339,7 @@ class MutatingAdmissionPolicyBindingList(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ListMeta]`` - Standard list metadata. More info:
+      * **metadata** ``Optional[meta_v1.ListMeta]`` - metadata is the standard list metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
     """
     items: 'List[MutatingAdmissionPolicyBinding]'
@@ -401,7 +401,7 @@ class MutatingAdmissionPolicyList(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ListMeta]`` - Standard list metadata. More info:
+      * **metadata** ``Optional[meta_v1.ListMeta]`` - metadata is the standard list metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
     """
     items: 'List[MutatingAdmissionPolicy]'
@@ -515,17 +515,17 @@ class NamedRuleWithOperations(DictMixin):
 
       **parameters**
 
-      * **apiGroups** ``Optional[List[str]]`` - APIGroups is the API groups the resources belong to. '*' is all groups. If '*'
+      * **apiGroups** ``Optional[List[str]]`` - apiGroups is the API groups the resources belong to. '*' is all groups. If '*'
         is present, the length of the slice must be one. Required.
-      * **apiVersions** ``Optional[List[str]]`` - APIVersions is the API versions the resources belong to. '*' is all versions.
+      * **apiVersions** ``Optional[List[str]]`` - apiVersions is the API versions the resources belong to. '*' is all versions.
         If '*' is present, the length of the slice must be one. Required.
-      * **operations** ``Optional[List[str]]`` - Operations is the operations the admission hook cares about - CREATE, UPDATE,
+      * **operations** ``Optional[List[str]]`` - operations is the operations the admission hook cares about - CREATE, UPDATE,
         DELETE, CONNECT or * for all of those operations and any future admission
         operations that are added. If '*' is present, the length of the slice must be
         one. Required.
-      * **resourceNames** ``Optional[List[str]]`` - ResourceNames is an optional white list of names that the rule applies to.  An
+      * **resourceNames** ``Optional[List[str]]`` - resourceNames is an optional white list of names that the rule applies to.  An
         empty set means that everything is allowed.
-      * **resources** ``Optional[List[str]]`` - Resources is a list of resources this rule applies to.
+      * **resources** ``Optional[List[str]]`` - resources is a list of resources this rule applies to.
         For example: 'pods' means pods. 'pods/log' means the log subresource of pods.
         '*' means all resources, but not subresources. 'pods/*' means all subresources
         of pods. '*/scale' means all scale subresources. '*/*' means all resources and
@@ -555,9 +555,9 @@ class ParamKind(DictMixin):
 
       **parameters**
 
-      * **apiVersion** ``Optional[str]`` - APIVersion is the API group version the resources belong to. In format of
+      * **apiVersion** ``Optional[str]`` - apiVersion is the API group version the resources belong to. In format of
         "group/version". Required.
-      * **kind** ``Optional[str]`` - Kind is the API kind the resources belong to. Required.
+      * **kind** ``Optional[str]`` - kind is the API kind the resources belong to. Required.
     """
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
@@ -570,7 +570,7 @@ class ParamRef(DictMixin):
 
       **parameters**
 
-      * **name** ``Optional[str]`` - `name` is the name of the resource being referenced.
+      * **name** ``Optional[str]`` - name is the name of the resource being referenced.
         `name` and `selector` are mutually exclusive properties. If one is set, the
         other must be unset.
       * **namespace** ``Optional[str]`` - namespace is the namespace of the referenced resource. Allows limiting the
@@ -584,12 +584,11 @@ class ParamRef(DictMixin):
         evaluated for admission will be used when this field is left unset. Take care
         that if this is left empty the binding must not match any cluster-scoped
         resources, which will result in an error.
-      * **parameterNotFoundAction** ``Optional[str]`` - `parameterNotFoundAction` controls the behavior of the binding when the
-        resource exists, and name or selector is valid, but there are no parameters
-        matched by the binding. If the value is set to `Allow`, then no matched
-        parameters will be treated as successful validation by the binding. If set to
-        `Deny`, then no matched parameters will be subject to the `failurePolicy` of
-        the policy.
+      * **parameterNotFoundAction** ``Optional[str]`` - parameterNotFoundAction controls the behavior of the binding when the resource
+        exists, and name or selector is valid, but there are no parameters matched by
+        the binding. If the value is set to `Allow`, then no matched parameters will
+        be treated as successful validation by the binding. If set to `Deny`, then no
+        matched parameters will be subject to the `failurePolicy` of the policy.
         Allowed values are `Allow` or `Deny` Default to `Deny`
       * **selector** ``Optional[meta_v1.LabelSelector]`` - selector can be used to match multiple param objects based on their labels.
         Supply selector: {} to match all resources of the ParamKind.
@@ -610,10 +609,10 @@ class Variable(DictMixin):
 
       **parameters**
 
-      * **expression** ``str`` - Expression is the expression that will be evaluated as the value of the
+      * **expression** ``str`` - expression is the expression that will be evaluated as the value of the
         variable. The CEL expression has access to the same identifiers as the CEL
         expressions in Validation.
-      * **name** ``str`` - Name is the name of the variable. The name must be a valid CEL identifier and
+      * **name** ``str`` - name is the name of the variable. The name must be a valid CEL identifier and
         unique among all variables. The variable can be accessed in other expressions
         through `variables` For example, if name is "foo", the variable will be
         available as `variables.foo`

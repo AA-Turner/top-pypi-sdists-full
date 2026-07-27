@@ -2,9 +2,11 @@
 Trigger-handler body → :class:`AutomationTree` decomposition.
 
 Turns a ruamel-parsed handler body (bare action list, single bare
-action, or explicit ``then:``) into the typed tree the frontend edits,
-normalising every per-automation fault (unknown action / condition id)
-to :class:`CommandError` so the collector can contain it to one entry.
+action, or explicit ``then:``) into the typed tree the frontend edits.
+An uncatalogued action becomes an opaque passthrough node (its
+siblings stay editable); a still-fatal per-automation fault (unknown
+condition id, malformed entry) normalises to :class:`CommandError` so
+the collector can contain it to one entry.
 """
 
 from __future__ import annotations
@@ -12,11 +14,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from ruamel.yaml.comments import TaggedScalar
+from ruamel.yaml.comments import CommentedMap, CommentedSeq, TaggedScalar
 from ruamel.yaml.scalarfloat import ScalarFloat
 from ruamel.yaml.scalarstring import LiteralScalarString
 
 from ...helpers.api import CommandError
+from ...helpers.yaml.scalar import is_custom_yaml_tag
 from ...models.api import ErrorCode
 from ...models.automations import (
     ActionNode,
@@ -45,12 +48,14 @@ def _safe_tree(
     """
     Run *build*, isolating a per-automation decompose failure.
 
-    The decompose helpers normalise every per-automation fault to
-    ``CommandError`` (unknown action / condition id), so catching it
-    here contains the fault to this one entry — it comes back with an
-    empty tree plus the message while its siblings parse. A document
-    that won't load at all is the separate whole-file failure raised by
-    :func:`parse_device_yaml` upstream. The third tuple field flags an
+    The decompose helpers normalise a still-fatal per-automation fault
+    to ``CommandError`` (unknown condition id, malformed entry), so
+    catching it here contains the fault to this one entry — it comes
+    back with an empty tree plus the message while its siblings parse.
+    (An uncatalogued action no longer faults — it decomposes to an
+    opaque passthrough node.) A document that won't load at all is the
+    separate whole-file failure raised by :func:`parse_device_yaml`
+    upstream. The third tuple field flags an
     :class:`UnsupportedActionError` — a known action with no form.
     """
     try:
@@ -133,20 +138,45 @@ def _decompose_action_list(body: Any) -> list[ActionNode]:
     for item in items:
         if not isinstance(item, dict) or not item:
             continue
+        # A registry-shape action is a single-key ``{id: params}`` mapping. A
+        # multi-key item is a misrouted / malformed body (a typo'd trigger
+        # entry that fell through to the action-list path), so an uncatalogued
+        # id there must fault rather than pass through — see _decompose_action.
+        multi_key = len(item) > 1
         for action_id, params in item.items():
-            out.append(_decompose_action(str(action_id), params))
+            out.append(_decompose_action(str(action_id), params, multi_key=multi_key))
     return out
 
 
-def _decompose_action(action_id: str, raw_params: Any) -> ActionNode:
+def _uncatalogued_action(action_id: str, raw_params: Any, *, multi_key: bool) -> ActionNode:
+    """Handle an id with no catalog entry: passthrough node, or fault."""
+    if catalog.is_known_action(action_id):
+        msg = f"No structured editor for action {action_id!r}"
+        raise UnsupportedActionError(ErrorCode.INVALID_ARGS, msg)
+    if multi_key:
+        # Uncatalogued id sharing a mapping with other keys: a real external
+        # action is always a one-key entry, so this is a misrouted body.
+        # Fault so a save can't silently restructure it.
+        msg = f"Unknown action id: {action_id!r}"
+        raise CommandError(ErrorCode.INVALID_ARGS, msg)
+    # Uncatalogued single-key id (an external component's action, or a typo):
+    # keep it as an opaque passthrough node so its siblings stay editable
+    # rather than collapsing the whole automation to read-only. ``preserve_tags``
+    # keeps ``!secret`` / ``!include`` etc. (scalar or collection) through the
+    # emitter (comments and exact formatting are still lost); the frontend
+    # shows it read-only.
+    return ActionNode(
+        action_id=action_id,
+        unknown=True,
+        raw_body=_render_value(raw_params, preserve_tags=True),
+    )
+
+
+def _decompose_action(action_id: str, raw_params: Any, *, multi_key: bool = False) -> ActionNode:
     """Build one :class:`ActionNode` from a registry-shaped mapping entry."""
     action = catalog.action_by_id(action_id)
     if action is None:
-        if catalog.is_known_action(action_id):
-            msg = f"No structured editor for action {action_id!r}"
-            raise UnsupportedActionError(ErrorCode.INVALID_ARGS, msg)
-        msg = f"Unknown action id: {action_id!r}"
-        raise CommandError(ErrorCode.INVALID_ARGS, msg)
+        return _uncatalogued_action(action_id, raw_params, multi_key=multi_key)
     children: dict[str, list[ActionNode]] = {}
     conditions: list[ConditionNode] = []
 
@@ -264,7 +294,7 @@ def _collect_api_action_params(block: dict) -> dict[str, Any]:
     return out
 
 
-def _render_value(value: Any) -> Any:
+def _render_value(value: Any, *, preserve_tags: bool = False) -> Any:
     """
     Convert a ruamel-parsed value to its JSON-wire shape.
 
@@ -272,25 +302,58 @@ def _render_value(value: Any) -> Any:
     sentinel; an ``!lambda``-tagged value additionally carries
     ``"_tag": "!lambda"`` so the emitter re-emits the tag (dropping it
     turns the C++ lambda into a plain string literal). ruamel maps and
-    lists become plain dicts/lists, recursively. Tagged scalars from
-    ruamel are not JSON-serialisable on their own, so any unrecognised
-    tag falls back to its plain string value.
+    lists become plain dicts/lists, recursively. Any other tagged value
+    (scalar or collection) falls back untagged — *unless* ``preserve_tags``
+    (an opaque passthrough body), where it becomes a ``{"_tagged", "_tag"}``
+    sentinel the emitter re-tags, so ``!secret`` / ``!include`` inside an
+    uncatalogued action survive a re-emit. (Comments and exact formatting
+    are still lost — ruamel rebuilds the document.)
     """
     if isinstance(value, LiteralScalarString):
         return {"_lambda": str(value)}
     if isinstance(value, TaggedScalar):
-        tag = getattr(value.tag, "value", "") if value.tag is not None else ""
-        if tag == "!lambda":
-            return {"_lambda": str(value), "_tag": "!lambda"}
-        return str(value)
+        return _render_tagged_scalar(value, preserve_tags=preserve_tags)
     if isinstance(value, dict):
-        return {k: _render_value(v) for k, v in value.items()}
+        rendered = {k: _render_value(v, preserve_tags=preserve_tags) for k, v in value.items()}
+        return _maybe_tagged(value, rendered, preserve_tags=preserve_tags)
     if isinstance(value, list):
-        return [_render_value(v) for v in value]
+        items = [_render_value(v, preserve_tags=preserve_tags) for v in value]
+        return _maybe_tagged(value, items, preserve_tags=preserve_tags)
+    return _render_scalar_leaf(value, preserve_tags=preserve_tags)
+
+
+def _render_scalar_leaf(value: Any, *, preserve_tags: bool) -> Any:
+    """Coerce a scalar leaf to a JSON-wire value (see :func:`_render_value`)."""
     # ruamel round-trip mode wraps floats in ScalarFloat (a float subclass);
     # orjson serialises int/bool subclasses but refuses float subclasses, so
     # coerce to a plain float for the wire.
-    return float(value) if isinstance(value, ScalarFloat) else value
+    if isinstance(value, ScalarFloat):
+        return float(value)
+    if preserve_tags and not isinstance(value, (str, int, float, type(None))):
+        # A standard-tag scalar (``!!binary`` → bytes, ``!!set`` → a set) would
+        # otherwise ride into raw_body and make orjson refuse the whole parse
+        # response. Keep it JSON-safe. (bool is an int subclass, so it stays.)
+        return str(value)
+    return value
+
+
+def _render_tagged_scalar(value: TaggedScalar, *, preserve_tags: bool) -> Any:
+    """Render a ruamel ``TaggedScalar`` to its wire shape (see :func:`_render_value`)."""
+    tag = value.tag.value
+    if tag == "!lambda":
+        return {"_lambda": str(value), "_tag": "!lambda"}
+    if preserve_tags and is_custom_yaml_tag(tag):
+        return {"_tagged": str(value), "_tag": tag}
+    return str(value)
+
+
+def _maybe_tagged(node: Any, rendered: Any, *, preserve_tags: bool) -> Any:
+    """Wrap *rendered* in a ``{_tagged, _tag}`` sentinel iff *node* is a tagged ruamel map/seq."""
+    if preserve_tags and isinstance(node, (CommentedMap, CommentedSeq)):
+        tag = node.tag.value
+        if is_custom_yaml_tag(tag):
+            return {"_tagged": rendered, "_tag": tag}
+    return rendered
 
 
 def _render_params(value: Any) -> Any:

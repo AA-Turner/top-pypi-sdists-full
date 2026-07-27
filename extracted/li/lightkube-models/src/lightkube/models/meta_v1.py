@@ -6,8 +6,8 @@ from ._schema import dataclass, field, DictMixin
 if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.com/issue/PY-54560
     from dataclasses import dataclass, field
 
-from . import runtime
 from typing import Dict
+from . import runtime
 from datetime import datetime
 
 
@@ -404,11 +404,19 @@ class ListMeta(DictMixin):
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
       * **selfLink** ``Optional[str]`` - Deprecated: selfLink is a legacy read-only field that is no longer populated
         by the system.
+      * **shardInfo** ``Optional[ShardInfo]`` - shardInfo is set when the list is a filtered subset of the full collection, as
+        selected by a shard selector on the request. It echoes back the selector so
+        clients can verify which shard they received and merge sharded responses.
+        Clients should not cache sharded list responses as a full representation of
+        the collection.
+        This is an alpha field and requires enabling the ShardedListAndWatch feature
+        gate.
     """
     continue_: 'Optional[str]' = field(metadata={"json": "continue"}, default=None)
     remainingItemCount: 'Optional[int]' = None
     resourceVersion: 'Optional[str]' = None
     selfLink: 'Optional[str]' = None
+    shardInfo: 'Optional[ShardInfo]' = None
 
 
 @dataclass
@@ -641,6 +649,20 @@ class ServerAddressByClientCIDR(DictMixin):
     """
     clientCIDR: 'str'
     serverAddress: 'str'
+
+
+@dataclass
+class ShardInfo(DictMixin):
+    r"""ShardInfo describes the shard selector that was applied to produce a list
+      response. Its presence on a list response indicates the list is a filtered
+      subset.
+
+      **parameters**
+
+      * **selector** ``str`` - selector is the shard selector string from the request, echoed back so clients
+        can verify which shard they received and merge responses from multiple shards.
+    """
+    selector: 'str'
 
 
 @dataclass

@@ -52,7 +52,7 @@ pub struct PyFieldSummary {
 }
 
 #[pymethods]
-impl PyFieldSummary {
+impl crate::manifest::PyFieldSummary {
     #[getter]
     fn contains_null(&self) -> bool {
         self.inner.contains_null
@@ -80,7 +80,7 @@ pub struct PyManifestFile {
 }
 
 #[pymethods]
-impl PyManifestFile {
+impl crate::manifest::PyManifestFile {
     #[getter]
     fn manifest_path(&self) -> &str {
         self.inner.manifest_path.as_str()
@@ -208,7 +208,7 @@ pub struct PyManifestList {
 }
 
 #[pymethods]
-impl PyManifestList {
+impl crate::manifest::PyManifestList {
     fn entries(&self) -> Vec<PyManifestFile> {
         self.inner
             .entries()

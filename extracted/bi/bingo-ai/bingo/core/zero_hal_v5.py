@@ -673,6 +673,120 @@ class ContextPoisonGuard:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Layer 6: FabricatedProgressGuard (v6.2.330)
+# ══════════════════════════════════════════════════════════════════════════════
+
+_FABRICATED_PROGRESS_PATTERNS: list[re.Pattern] = [
+    # Chinese patterns (DeepSeek/GLM)
+    re.compile(r'我们已经(?:成功)?(?:从|提取|获取|发现|确认|找到|完成)', re.IGNORECASE),
+    re.compile(r'之前(?:我们)?已经(?:成功)?(?:提取|获取|发现|确认|解析|分析)', re.IGNORECASE),
+    re.compile(r'根据(?:对话历史|之前的结果|上一步)', re.IGNORECASE),
+    re.compile(r'(?:签名|密钥|算法|密码|token|secret)(?:已经|已)(?:成功)?(?:提取|获取|破解|解密)', re.IGNORECASE),
+    # English patterns
+    re.compile(r'we\s+(?:already|previously|earlier)\s+(?:found|extracted|confirmed|discovered|obtained|cracked)', re.IGNORECASE),
+    re.compile(r'(?:as|from)\s+(?:our|the)\s+(?:earlier|previous|prior)\s+(?:analysis|scan|extraction|discovery)', re.IGNORECASE),
+    re.compile(r'(?:signing|encryption|auth)\s+(?:algorithm|key|secret)\s+(?:was|is|has been)\s+(?:extracted|found|confirmed)', re.IGNORECASE),
+    # Korean patterns
+    re.compile(r'이미\s+(?:추출|확인|발견|획득|분석)(?:했|한|된)', re.IGNORECASE),
+    re.compile(r'(?:서명|키|알고리즘|비밀|토큰).*(?:추출|획득|확인)\s*(?:완료|성공|됨)', re.IGNORECASE),
+]
+
+_FABRICATED_SPECIFIC_CLAIMS: list[re.Pattern] = [
+    # Claims of extracted concrete values (algorithm names, keys, formulas)
+    re.compile(r'(?:X-S|X-FP|sign|signature)\s*=\s*(?:MD5|SHA|HMAC|AES|Base64)\s*\(', re.IGNORECASE),
+    re.compile(r'(?:密钥|key|secret)\s*(?:=|是|为|:)\s*["\'][^"\']{8,}["\']', re.IGNORECASE),
+    re.compile(r'(?:algorithm|算法)\s*(?:=|是|为|:)\s*\S{5,}', re.IGNORECASE),
+]
+
+
+@dataclass
+class FabricatedProgressResult:
+    fabricated: bool = False
+    claims: list[str] = field(default_factory=list)
+
+    @property
+    def is_clean(self) -> bool:
+        return not self.fabricated
+
+
+class FabricatedProgressGuard:
+    """
+    Layer 6 — 허위 진행 주장 감지 (v6.2.330).
+
+    모델이 "이미 추출했다/발견했다"고 주장하지만 실제 tool_result에
+    해당 증거가 없는 경우를 차단.
+    """
+
+    def validate(
+        self,
+        response_text: str,
+        exec_output: str,
+        registry: FactRegistry,
+    ) -> FabricatedProgressResult:
+        result = FabricatedProgressResult()
+
+        # 일반 진행 주장 패턴 탐지
+        for pat in _FABRICATED_PROGRESS_PATTERNS:
+            m = pat.search(response_text)
+            if m:
+                claim = m.group(0)[:100]
+                # exec_output에 관련 증거가 있는지 확인
+                if exec_output and len(exec_output) > 50:
+                    # 실행 결과가 충분히 있으면 정당한 주장일 수 있음 - 스킵
+                    continue
+                result.claims.append(claim)
+
+        # 구체적 값 주장 (알고리즘, 키 등) - exec_output에서 해당 값이 없으면 환각
+        for pat in _FABRICATED_SPECIFIC_CLAIMS:
+            m = pat.search(response_text)
+            if m:
+                claimed_value = m.group(0)[:120]
+                # exec_output에 이 값의 핵심 부분이 있는지 확인
+                _key_parts = re.findall(r'[A-Za-z0-9_]{4,}', claimed_value)
+                _found_in_exec = any(
+                    part.lower() in (exec_output or "").lower()
+                    for part in _key_parts
+                    if part.lower() not in ("sign", "signature", "algorithm", "key", "secret", "base64", "hmac")
+                )
+                if not _found_in_exec:
+                    result.claims.append(f"[SPECIFIC] {claimed_value}")
+                    result.fabricated = True
+
+        # 일반 주장이 3개 이상이면서 exec_output이 비어있거나 짧으면 환각
+        if len(result.claims) >= 2 and len(exec_output or "") < 100:
+            result.fabricated = True
+
+        return result
+
+    def block_msg(self, result: FabricatedProgressResult, lang: str = "ko") -> str:
+        claims_str = "\n".join(f"  - {c}" for c in result.claims[:5])
+        msgs = {
+            "ko": (
+                f"[⛔ 허위 진행 주장 차단 — Zero Hallucination v5 Layer 6]\n\n"
+                f"실행 결과 없이 다음 발견/추출을 주장했습니다:\n{claims_str}\n\n"
+                f"■ '이미 추출했다/발견했다'는 주장은 반드시 직전 tool_result에 근거해야 합니다.\n"
+                f"■ tool_result에 없는 알고리즘, 키, 비밀값을 만들어내지 마십시오.\n"
+                f"■ 실제로 도구를 실행하여 결과를 확인한 후에만 주장하세요."
+            ),
+            "zh": (
+                f"[⛔ 虚假进展拦截 — Zero Hallucination v5 Layer 6]\n\n"
+                f"无执行结果却声称以下发现/提取:\n{claims_str}\n\n"
+                f"■ '已经提取/发现'的声明必须基于直接的tool_result证据。\n"
+                f"■ 禁止编造不在tool_result中的算法、密钥或秘密值。\n"
+                f"■ 请先执行工具获取真实结果后再做声明。"
+            ),
+            "en": (
+                f"[⛔ FABRICATED PROGRESS BLOCKED — Zero Hallucination v5 Layer 6]\n\n"
+                f"Claimed findings/extractions without tool_result evidence:\n{claims_str}\n\n"
+                f"■ Claims of 'already found/extracted' MUST be backed by the preceding tool_result.\n"
+                f"■ Do NOT fabricate algorithms, keys, or secrets not present in tool_result.\n"
+                f"■ Execute tools first, then claim findings based on real output."
+            ),
+        }
+        return msgs.get(lang, msgs["en"])
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # ZeroHalResult — 파이프라인 결과
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -681,7 +795,7 @@ class ZeroHalResult:
     """5-Layer 파이프라인 통합 결과."""
     blocked: bool = False
     warned: bool = False
-    block_reason: str = ""         # "UNANCHORED_CLAIM" | "NUMERIC_HAL" | "EXCESS_INFERENCE" | "CONTEXT_POISON"
+    block_reason: str = ""         # "UNANCHORED_CLAIM" | "NUMERIC_HAL" | "EXCESS_INFERENCE" | "CONTEXT_POISON" | "FABRICATED_PROGRESS"
     inject_message: Optional[str] = None
     facts_registered: int = 0
     inference_ratio: float = 0.0
@@ -716,12 +830,13 @@ class ZeroHalEngine:
         self.lang = lang
         self.session_target = session_target
 
-        # 5개 레이어 인스턴스
+        # 6개 레이어 인스턴스
         self.registry          = FactRegistry()
         self.claim_anchor      = ClaimAnchorValidator()
         self.numeric_guard     = NumericHallucinationGuard()
         self.inference_meter   = InferenceMeter()
         self.context_poison    = ContextPoisonGuard()
+        self.fabricated_guard  = FabricatedProgressGuard()
 
         # 초기 타겟 설정
         if session_target:
@@ -824,6 +939,16 @@ class ZeroHalEngine:
             result.block_reason = result.block_reason or "CONTEXT_POISON"
             warn_msg = self.context_poison.warn_msg(poison_result, self.lang)
             result.inject_message = (result.inject_message or "") + "\n\n" + warn_msg if result.inject_message else warn_msg
+
+        # Layer 6: 허위 진행 주장 감지 (v6.2.330)
+        fab_result = self.fabricated_guard.validate(response_text, exec_output, self.registry)
+        result.layer_results["fabricated_progress"] = fab_result
+        if not fab_result.is_clean:
+            result.blocked = True
+            result.block_reason = "FABRICATED_PROGRESS"
+            result.inject_message = self.fabricated_guard.block_msg(fab_result, self.lang)
+            self._blocked_count += 1
+            return result
 
         return result
 

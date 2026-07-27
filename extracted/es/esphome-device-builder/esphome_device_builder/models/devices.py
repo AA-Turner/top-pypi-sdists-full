@@ -262,6 +262,12 @@ class Device(DashboardModel):
     # unset (frontend uses 115200); ``0`` ⇒ UART logging disabled; positive ⇒
     # that baud.
     logger_baud_rate: int | None = None
+    # Resolved ``logger:`` output interface (``UART0`` / ``USB_CDC`` /
+    # ``USB_SERIAL_JTAG`` / ...). The frontend compares it against the Web
+    # Serial port's USB vendor to spot a console the port can't carry.
+    # ``None`` ⇒ unknowable (no logger, unknown variant, libretiny runtime
+    # default).
+    logger_interface: str | None = None
     # esp32 whose ``ota: platform: esphome`` sets ``allow_partition_access``
     # — gates the install dialog's OTA bootloader-update action. Whether the
     # *running* firmware has it compiled in is the frontend's half of the
@@ -305,11 +311,11 @@ class WizardResponse(DashboardModel):
 @dataclass
 class ImportBundleResponse(DashboardModel):
     """
-    Result of a ``devices/import_bundle`` call.
+    Result of a ``POST /api/devices/import_bundle`` upload.
 
     ``status="conflicts"`` means nothing was written: *conflicts*
     lists the bundle files that already exist on disk so the user
-    can pick which to overwrite and re-submit. ``status="imported"``
+    can pick which to overwrite and re-upload. ``status="imported"``
     means the tree landed; *configuration* is the device's YAML, and
     *written* / *kept* report which files were placed vs left untouched
     (a non-empty *kept* means a partial import). ``secrets.yaml`` is

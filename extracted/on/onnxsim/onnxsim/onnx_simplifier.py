@@ -16,17 +16,8 @@ import onnx.checker  # type: ignore
 import onnx.helper  # type: ignore
 import onnx.shape_inference  # type: ignore
 import onnx.numpy_helper  # type: ignore
-try:
-    import onnxruntime as rt  # type: ignore
-except ImportError:
-    command = [sys.executable, '-m', 'pip', 'install', 'onnxruntime']
-    print(Text(f"Installing onnxruntime by `{' '.join(command)}`, please wait for a moment..", style="bold magenta"))
-    import subprocess
-    subprocess.check_call(command)
-    import onnxruntime as rt
-
-
 import onnxsim.onnxsim_cpp2py_export as C
+from . import backend
 from . import model_info
 from . import model_checking
 from . import version
@@ -106,6 +97,201 @@ def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: Optional
 DEFAULT_TENSOR_SIZE_THRESHOLDHOLD = '1.5GB'
 
 
+# ONNX ``TensorProto`` element types that onnxoptimizer's tensor-value hashing
+# (``cse_util.h``) knows how to hash. Any other type makes those passes raise
+# ``RuntimeError: no supported data type: <N>``. We enumerate the *supported*
+# types (rather than the unsupported ones) so that element types added to ONNX
+# in the future are treated as unhashable by default instead of silently
+# crashing the optimizer.
+_CSE_HASHABLE_ELEM_TYPES = frozenset({
+    onnx.TensorProto.UNDEFINED,
+    onnx.TensorProto.BOOL,
+    onnx.TensorProto.INT8,
+    onnx.TensorProto.INT16,
+    onnx.TensorProto.INT32,
+    onnx.TensorProto.INT64,
+    onnx.TensorProto.UINT8,
+    onnx.TensorProto.UINT16,
+    onnx.TensorProto.UINT32,
+    onnx.TensorProto.UINT64,
+    onnx.TensorProto.FLOAT,
+    onnx.TensorProto.DOUBLE,
+    onnx.TensorProto.FLOAT16,
+    onnx.TensorProto.BFLOAT16,
+    onnx.TensorProto.COMPLEX64,
+    onnx.TensorProto.COMPLEX128,
+    onnx.TensorProto.STRING,
+})
+
+# onnxoptimizer passes that hash tensor *values* via ``cse_util.h``. They crash
+# on tensors whose element type they cannot hash -- for example the
+# ``float8_e4m3fn`` zero points in NVIDIA ModelOpt fp8 QDQ models (see GitHub
+# issue #348), or int4/uint4/float8 tensors in general.
+_TENSOR_VALUE_HASHING_OPTIMIZERS = (
+    "eliminate_common_subexpression",
+    "eliminate_duplicate_initializer",
+)
+
+
+def _iter_tensor_data_types(graph: onnx.GraphProto):
+    """Yield the ``data_type`` of every tensor stored inside ``graph``.
+
+    Covers initializers, ``Constant`` (and other) tensor/tensors attributes and
+    recurses into subgraphs, i.e. all the places onnxoptimizer might hash a
+    tensor value.
+    """
+    for initializer in graph.initializer:
+        yield initializer.data_type
+    for node in graph.node:
+        for attr in node.attribute:
+            if attr.HasField("t"):
+                yield attr.t.data_type
+            for tensor in attr.tensors:
+                yield tensor.data_type
+            if attr.HasField("g"):
+                yield from _iter_tensor_data_types(attr.g)
+            for subgraph in attr.graphs:
+                yield from _iter_tensor_data_types(subgraph)
+
+
+def _has_cse_unhashable_tensor(model: onnx.ModelProto) -> bool:
+    """Whether ``model`` contains a tensor onnxoptimizer's CSE cannot hash."""
+    return any(
+        data_type not in _CSE_HASHABLE_ELEM_TYPES
+        for data_type in _iter_tensor_data_types(model.graph)
+    )
+
+
+def _formal_parameter_tuple(param) -> Tuple:
+    """Marshal an ``onnx.defs.OpSchema.FormalParameter`` for the C++ importer."""
+    return (
+        param.name,
+        param.description,
+        param.type_str,
+        int(param.option),
+        bool(param.is_homogeneous),
+        int(param.min_arity),
+    )
+
+
+def _register_schema_in_onnxsim(schema) -> None:
+    """Register a single ``onnx.defs.OpSchema`` into onnxsim's C++ registry."""
+    inputs = [_formal_parameter_tuple(p) for p in schema.inputs]
+    outputs = [_formal_parameter_tuple(p) for p in schema.outputs]
+
+    attributes = []
+    for attr in schema.attributes.values():
+        # ``default_value`` is an ``onnx.AttributeProto`` that nanobind
+        # serializes across the library boundary; an UNDEFINED type means the
+        # attribute has no default (it is either required or plainly optional).
+        default_value = attr.default_value
+        if default_value is None:
+            default_value = onnx.AttributeProto()
+        attributes.append(
+            (attr.name, attr.description, int(attr.type), bool(attr.required), default_value)
+        )
+
+    type_constraints = [
+        (tc.type_param_str, list(tc.allowed_type_strs), tc.description)
+        for tc in schema.type_constraints
+    ]
+
+    C._register_schema(
+        schema.name,
+        schema.domain,
+        int(schema.since_version),
+        schema.doc or "",
+        inputs,
+        outputs,
+        attributes,
+        type_constraints,
+        bool(schema.has_type_and_shape_inference_function),
+    )
+
+
+def import_onnx_schemas() -> int:
+    """Copy operator schemas from the Python ``onnx`` module into onnxsim.
+
+    onnxsim links its own copy of the ONNX C++ library, so its operator schema
+    registry is completely separate from the one the ``onnx`` Python module uses.
+    A schema a user adds via ``onnx.defs.register_schema`` -- for example to
+    describe a custom/user-defined operator -- is therefore invisible to
+    onnxsim, and simplifying such a model fails ``check_model`` with
+    "No Op registered for <op> ..." (GitHub issue #326).
+
+    This imports every operator schema that onnxsim does not already know about
+    from the ``onnx`` registry into onnxsim's registry, so custom operators pass
+    validation and are preserved through simplification. Standard ONNX operators
+    (already present in onnxsim) are left untouched. It is idempotent and safe to
+    call repeatedly: an operator onnxsim already knows -- including one imported
+    by a previous call -- is skipped.
+
+    The type/shape inference function attached to an ``onnx`` schema is native
+    code inside the ``onnx`` library and cannot be transferred directly, so when
+    a schema has one, onnxsim registers a trampoline that calls it back through
+    ``onnx.shape_inference.infer_node_outputs`` during shape inference. Custom
+    operators without an inference function are still imported (shape inference
+    flows past them).
+
+    :return: the number of schemas imported.
+    """
+    import onnx.defs
+
+    try:
+        schemas = onnx.defs.get_all_schemas_with_history()
+    except Exception:
+        return 0
+
+    imported = 0
+    # Cache onnxsim's knowledge per (op, domain) so the native check runs once
+    # per operator rather than once per registered version.
+    onnxsim_knows: Dict[Tuple[str, str], bool] = {}
+    for schema in schemas:
+        try:
+            key = (schema.name, schema.domain)
+            known = onnxsim_knows.get(key)
+            if known is None:
+                known = C._has_schema(schema.name, schema.domain)
+                onnxsim_knows[key] = known
+            if known:
+                continue
+            _register_schema_in_onnxsim(schema)
+            imported += 1
+        except Exception:
+            # A single unusual schema must never break simplification: skip it
+            # and keep importing the rest.
+            continue
+    return imported
+
+
+def _snapshot_doc_strings(model: onnx.ModelProto) -> dict:
+    """Capture the ``doc_string`` fields that the C++ optimizer discards."""
+    return {
+        "model": model.doc_string,
+        "graph": model.graph.doc_string,
+        "inputs": {i.name: i.doc_string for i in model.graph.input},
+        "outputs": {o.name: o.doc_string for o in model.graph.output},
+    }
+
+
+def _restore_doc_strings(model: onnx.ModelProto, snapshot: dict) -> None:
+    """Restore doc strings captured by :func:`_snapshot_doc_strings`.
+
+    Only fields that the optimizer left empty are restored, so any doc string
+    produced by the optimizer itself takes precedence.
+    """
+    if not model.doc_string and snapshot["model"]:
+        model.doc_string = snapshot["model"]
+    if not model.graph.doc_string and snapshot["graph"]:
+        model.graph.doc_string = snapshot["graph"]
+    for ipt in model.graph.input:
+        if not ipt.doc_string and snapshot["inputs"].get(ipt.name):
+            ipt.doc_string = snapshot["inputs"][ipt.name]
+    for opt in model.graph.output:
+        if not opt.doc_string and snapshot["outputs"].get(opt.name):
+            opt.doc_string = snapshot["outputs"][opt.name]
+
+
 def simplify(
     model: Union[str, onnx.ModelProto],
     check_n: int = 0,
@@ -124,6 +310,7 @@ def simplify(
     tensor_size_threshold: str = DEFAULT_TENSOR_SIZE_THRESHOLDHOLD,
     mutable_initializer: bool = False,
     *,
+    import_custom_schemas: bool = True,
     input_shapes=None,
 ) -> Tuple[onnx.ModelProto, bool]:
     """
@@ -143,6 +330,10 @@ def simplify(
     :param custom_lib: onnxruntime custom ops's shared library
     :param include_subgraph: Simplify subgraph (e.g. true graph and false graph of "If" operator) instead of only the main graph
     :param unused_output: name of unused outputs that will be eliminated from the model
+    :param import_custom_schemas: Import operator schemas registered in the Python `onnx` module
+            (e.g. via `onnx.defs.register_schema`) into onnxsim's own registry so models using
+            custom operators pass validation. Set to False to disable this and leave onnxsim's
+            registry untouched.
     :param input_shapes: Deprecated. Please use `overwrite_input_shapes` and/or `test_input_shapes` instead.
     :return: A tuple (simplified model, success(True) or failed(False))
     """
@@ -163,6 +354,14 @@ def simplify(
         overwrite_input_shapes = input_shapes
         test_input_shapes = input_shapes
 
+    # Bridge operator schemas registered in the Python ``onnx`` module (e.g. via
+    # ``onnx.defs.register_schema`` for a custom operator) into onnxsim's own
+    # separately linked schema registry, so models using custom operators pass
+    # validation instead of failing with "No Op registered for ..." (issue #326).
+    # Can be turned off via ``import_custom_schemas=False``.
+    if import_custom_schemas:
+        import_onnx_schemas()
+
     if not perform_optimization:
         # None means skip all optimizers
         skipped_optimizers = None
@@ -171,8 +370,25 @@ def simplify(
 
     if skip_fuse_bn and skipped_optimizers is not None:
         skipped_optimizers.append("fuse_bn_into_conv")
-    if isinstance(model, str):
-        model = onnx.load(model)
+    # Track whether we own the in-memory model. When the caller passes a file
+    # path we load it here, so the resulting ``ModelProto`` is private to this
+    # function and may be mutated freely (e.g. saved as external data without a
+    # defensive copy). When the caller passes their own ``ModelProto`` we must
+    # not mutate it.
+    model_owned = isinstance(model, str)
+    # When the caller passes a file path, defer loading the (potentially
+    # multi-GB) external tensor data until it is actually needed -- right before
+    # the model is serialized for the C++ simplifier. Every graph transformation
+    # in between (input-shape overwrite, unused-output/initializer pruning,
+    # unhashable-tensor detection, doc-string snapshotting) reads only tensor
+    # *metadata* -- names, shapes, element types -- never the raw bytes, so
+    # keeping the weights on disk through these phases lowers active memory use
+    # and avoids loading them at all when an earlier phase raises. The directory
+    # is remembered so the external data can be resolved later.
+    external_data_dir: Optional[str] = None
+    if model_owned:
+        external_data_dir = os.path.dirname(os.path.abspath(model))
+        model = onnx.load(model, load_external_data=False)
     if overwrite_input_shapes is None:
         overwrite_input_shapes = {}
     overwrite_input_shapes = check_and_update_input_shapes(
@@ -184,11 +400,46 @@ def simplify(
         for ipt in model.graph.input:
             if ipt.name == name:
                 for i, dim in enumerate(ipt.type.tensor_type.shape.dim):
-                    dim.dim_value = input_shape[i]
+                    # A non-positive value means "keep the original (possibly
+                    # dynamic) dimension" rather than hardcoding an invalid size
+                    # such as 0, which would make the model impossible to run
+                    # (see GitHub issue #237).
+                    if input_shape[i] > 0:
+                        dim.dim_value = input_shape[i]
     if unused_output is not None:
         model = remove_unused_output(model, unused_output)
     if not mutable_initializer and model.ir_version >= 4:
         model = remove_initializer_from_input(model)
+
+    # onnxoptimizer's common-subexpression / duplicate-initializer passes hash
+    # tensor values and crash with "no supported data type: <N>" on element
+    # types they cannot hash, such as the float8 zero points produced by NVIDIA
+    # ModelOpt fp8 QDQ models (GitHub issue #348). When such a tensor is present
+    # we transparently skip those two passes so the rest of the simplification
+    # still runs, instead of failing outright. ``skipped_optimizers is None``
+    # means "skip every optimizer", so there is nothing to add in that case.
+    if skipped_optimizers is not None and _has_cse_unhashable_tensor(model):
+        added = [
+            opt for opt in _TENSOR_VALUE_HASHING_OPTIMIZERS
+            if opt not in skipped_optimizers
+        ]
+        if added:
+            skipped_optimizers.extend(added)
+            print(
+                Text(
+                    "The model contains tensors with element types that "
+                    "onnxoptimizer cannot hash (e.g. float8/int4 in NVIDIA "
+                    "ModelOpt fp8 QDQ models). Skipping the optimizers "
+                    f"{added} to avoid a crash; all other simplifications "
+                    "still run.",
+                    style="bold magenta",
+                )
+            )
+
+    # The C++ optimizer re-serializes the graph and drops the `doc_string`
+    # fields on the model, graph and input/output value infos. Snapshot them
+    # here so they can be restored on the simplified model (GitHub issue #428).
+    doc_strings = _snapshot_doc_strings(model)
 
     def parse_size(size: str) -> int:
         m = re.fullmatch(r"([\d.]+)\s*([KMGT]?B)", size.strip(), re.I)
@@ -202,34 +453,75 @@ def simplify(
     if tensor_size_threshold > 2**31 - 9999:
         raise ValueError("tensor_size_threshold should be less than 2GB")
 
+    # Materialize the external tensor data now that the metadata-only phases are
+    # over and the full model is about to be serialized for the C++ simplifier.
+    # This is a no-op unless we loaded from a path above (and therefore deferred
+    # it); a caller-provided ``ModelProto`` already carries its data inline.
+    if external_data_dir is not None:
+        onnx.load_external_data_for_model(model, external_data_dir)
+
     try:
         model_bytes = model.SerializeToString()
         if len(model_bytes) >= 2 * 1024 * 1024 * 1024:
             model_bytes = None
             raise EncodeError("Message larger than 2GiB")
         model_opt_bytes = C.simplify(
+            _get_model_executor(),
             model_bytes,
             skipped_optimizers,
             not skip_constant_folding,
             not skip_shape_inference,
             tensor_size_threshold,
         )
+        # The serialized original (~1x model) is not needed once the C++
+        # simplifier has consumed it -- the large-model fallback below
+        # re-serializes from ``model`` rather than reusing these bytes. Free it
+        # now so it is not held alive while the simplified result is
+        # deserialized, which would otherwise inflate peak memory for no reason.
+        del model_bytes
         if len(model_opt_bytes) == 0:
             raise ValueError("Simplified model larger than 2GB")
+        # With ``check_n == 0`` the original model is never read again:
+        # ``model_checking.compare`` only touches it inside the ``range(check_n)``
+        # loop, so it merely runs ``onnx.checker.check_model`` on the result.
+        # Release the original before deserializing the result to lower peak
+        # memory. Only do so when we own the model (a caller-provided
+        # ``ModelProto`` is still referenced by the caller, so dropping our
+        # reference would not free anything). This must come *after* the
+        # ``len(model_opt_bytes) == 0`` check above -- that is the ">2GB
+        # optimized model" trigger whose fallback re-simplifies from ``model``.
+        if check_n == 0 and model_owned:
+            model = None
         model_opt = onnx.load_from_string(model_opt_bytes)
         check_ok = model_checking.compare(
             model_opt, model, check_n, test_input_shapes, input_data, custom_lib
         )
     except (EncodeError, ValueError, onnx.onnx_cpp2py_export.checker.ValidationError):
+        if model is None:
+            # We released the original model above because ``check_n == 0`` made
+            # it unnecessary. The large-model fallback re-simplifies from it, so
+            # it cannot run here. This is not the recoverable >2GB case (that is
+            # caught by the ``len(model_opt_bytes) == 0`` check before the model
+            # is freed), so surface the exception directly instead of crashing
+            # on a ``None`` model.
+            raise
         print("[bold magenta]Simplified model larger than 2GB. Trying to save as external data...[/bold magenta]")
         # large models try to convert through a temporary file
         with tempfile.TemporaryDirectory() as tmpdirname:
+            # ``save_as_external_data=True`` mutates the model in place, moving
+            # each initializer's ``raw_data`` out to the external data file. When
+            # we own the model this both avoids a full ``deepcopy`` (which would
+            # double peak memory for multi-GB models) and frees the in-memory
+            # ``raw_data`` as it is streamed to disk. Only copy when the caller
+            # owns the ``ModelProto`` and must not see it mutated.
+            model_to_save = model if model_owned else copy.deepcopy(model)
             onnx.save(
-                copy.deepcopy(model),
+                model_to_save,
                 os.path.join(tmpdirname, 'model.onnx'),
                 save_as_external_data=True,
             )
             check_ok = C.simplify_path(
+                _get_model_executor(),
                 os.path.join(tmpdirname, 'model.onnx'),
                 os.path.join(tmpdirname, 'opt.onnx'),
                 skipped_optimizers,
@@ -243,6 +535,7 @@ def simplify(
                 check_n, test_input_shapes, input_data, custom_lib
             )
             model_opt = onnx.load(os.path.join(tmpdirname, 'opt.onnx'))
+    _restore_doc_strings(model_opt, doc_strings)
     return model_opt, check_ok
 
 
@@ -260,24 +553,45 @@ class PyModelExecutor(C.ModelExecutor):
         input_arrs = map(onnx.numpy_helper.to_array, input_tps)
         input_names = [x.name for x in model.graph.input]
         inputs = dict(zip(input_names, input_arrs))
-        sess_options = rt.SessionOptions()
-        sess_options.graph_optimization_level = rt.GraphOptimizationLevel(0)
-        sess_options.log_severity_level = 3
-        sess = rt.InferenceSession(
-            model.SerializeToString(),
-            sess_options=sess_options,
-            providers=["CPUExecutionProvider"],
-        )
-        output_names = [x.name for x in sess.get_outputs()]
-        run_options = rt.RunOptions()
-        run_options.log_severity_level = 3
-        output_arrs = sess.run(output_names, inputs, run_options=run_options)
+        outputs = backend.run_model(model, inputs)
+        # The inference backend may return a non-ndarray for an output (for
+        # example onnxruntime yields an empty Python list for an empty sequence
+        # output). onnx.numpy_helper.from_array only accepts numpy arrays, so
+        # coerce any such value into an empty array instead of crashing with
+        # "'list' object has no attribute 'shape'" (GitHub PR #249).
         return [
-            onnx.numpy_helper.from_array(x).SerializeToString() for x in output_arrs
+            onnx.numpy_helper.from_array(x).SerializeToString() if isinstance(x, np.ndarray) else x
+            for x in outputs.values()
         ]
 
 
+_model_executor: Optional[PyModelExecutor] = None
+
+
+def _get_model_executor() -> PyModelExecutor:
+    """Return the process-wide Python model executor, creating it on demand.
+
+    The executor is passed explicitly to the C++ ``simplify``/``simplify_path``
+    entry points instead of being registered as a global instance.
+    """
+    global _model_executor
+    if _model_executor is None:
+        _model_executor = PyModelExecutor()
+    return _model_executor
+
+
 def main():
+    # onnxsim runs models through native libraries (onnx shape inference,
+    # onnxoptimizer and onnxruntime). A malformed or unusual model can make one
+    # of them crash with a segmentation fault instead of a Python exception,
+    # which is very hard to diagnose from a bare "Segmentation fault" message
+    # (see GitHub issue #426). Enabling faulthandler makes such native crashes
+    # dump a Python traceback to stderr, pinpointing the phase that crashed.
+    import faulthandler
+
+    if not faulthandler.is_enabled():
+        faulthandler.enable()
+
     parser = argparse.ArgumentParser()
     parser.add_argument("input_model", help="Input ONNX model")
     parser.add_argument("output_model", help="Output ONNX model")
@@ -379,6 +693,11 @@ def main():
         help="Save parameters as external data. This will make the .onnx file much smaller, but the .onnx file will depend on the external data file (.data).",
         action="store_true",
         )
+    parser.add_argument(
+        "--skip-schema-import",
+        help="By default onnxsim imports operator schemas registered in the Python 'onnx' module (e.g. via onnx.defs.register_schema) into its own registry so models with custom operators pass validation. Specify this flag to disable that import.",
+        action="store_true",
+        )
     parser.add_argument('-v', '--version', action='version', version='onnxsim ' + version.version)
 
     class ListOptimizers(argparse.Action):
@@ -460,6 +779,12 @@ def main():
     overwrite_input_shapes = parse_shapes(args.overwrite_input_shape)
 
     if args.enable_onnxruntime_optimization:
+        if not backend.has_onnxruntime():
+            raise RuntimeError(
+                "--enable-onnxruntime-optimization requires onnxruntime, "
+                "please install it by `pip install onnxruntime`."
+            )
+        import onnxruntime as rt
 
         tmp_file = tempfile.NamedTemporaryFile()
         sess_options = rt.SessionOptions()
@@ -469,16 +794,27 @@ def main():
         sess_options.optimized_model_filepath = tmp_file.name
         _ = rt.InferenceSession(args.input_model, sess_options, providers=["CPUExecutionProvider"])
 
-        model = onnx.load(tmp_file.name)
+        # ``tmp_file`` stays referenced (and thus on disk) until ``main`` returns,
+        # so ``simplify`` can load it below.
+        model_path = tmp_file.name
     else:
-        model = onnx.load(args.input_model)
+        model_path = args.input_model
+
+    # Load only the graph structure here, deferring the (potentially multi-GB)
+    # external tensor data. The CLI needs this model just for the pre-flight
+    # warnings below and the size/op diff printed at the end -- none of which read
+    # raw tensor bytes: op counts come from graph structure and the reported size
+    # is computed from external-data metadata (see ``model_info``). ``simplify``
+    # is handed the *path* (not this ModelProto) so it owns its copy and performs
+    # its own deferred load, keeping the weights out of memory here entirely.
+    model = onnx.load(model_path, load_external_data=False)
 
     if args.tensor_size_threshold == DEFAULT_TENSOR_SIZE_THRESHOLDHOLD:
         for node in model.graph.node:
-            if node.op_type in ["Tile", "ConstantOfShape"]:
+            if node.op_type in ["Tile", "ConstantOfShape", "Expand"]:
                 print(
                     Text(
-                        'Your model contains "Tile" ops or/and "ConstantOfShape" ops. Folding these ops can make the simplified model much larger. If it is not expected, please specify "--no-large-tensor" (which will lose some optimization chances)',
+                        'Your model contains "Tile" ops or/and "ConstantOfShape" ops or/and "Expand" ops. Folding these ops can make the simplified model much larger. If it is not expected, please specify "--no-large-tensor" (which will lose some optimization chances)',
                         style="bold magenta",
                     )
                 )
@@ -506,7 +842,7 @@ def main():
     print("Simplifying...")
 
     model_opt, check_ok = simplify(
-        model,
+        model_path,
         args.check_n,
         perform_optimization,
         False,
@@ -522,6 +858,7 @@ def main():
         args.unused_output,
         args.tensor_size_threshold,
         args.mutable_initializer,
+        import_custom_schemas=not args.skip_schema_import,
     )
 
     try:

@@ -91,7 +91,9 @@ def _auth(session):
 def test_invite_mint_and_join_makes_untrusted_member(client):
     grp = _make_group()
     inv = _invite(client, grp.id)
-    assert inv["join_url"] == f"/join/{inv['token']}"
+    # join_url points at the Flutter app's guest route (hash-routed under
+    # /app/), NOT the old /join/<token> page (collided with conf /join).
+    assert inv["join_url"] == f"/app/#/g/{inv['token']}"
     assert inv["group_id"] == grp.id
 
     r = _join(client, inv["token"])
@@ -133,9 +135,7 @@ def test_revoked_invite_rejected(client):
     grp = _make_group()
     inv = _invite(client, grp.id)
     # Revoke via the operator route.
-    r = client.request(
-        "DELETE", f"/api/v1/groups/{grp.id}/invite/{inv['token']}", headers=_OP
-    )
+    r = client.request("DELETE", f"/api/v1/groups/{grp.id}/invite/{inv['token']}", headers=_OP)
     assert r.status_code == 200, r.text
     r2 = _join(client, inv["token"])
     assert r2.status_code == 401
@@ -259,9 +259,9 @@ def test_guest_cannot_download_another_groups_file(client):
     inv_b = _invite(client, grp_b.id)
     session_b = _join(client, inv_b["token"], pubkey="KEY-B").json()["session_token"]
     files = {"file": ("b.txt", io.BytesIO(b"group B secret"), "text/plain")}
-    tid = client.post(
-        "/api/v1/guest/file", files=files, headers=_auth(session_b)
-    ).json()["transfer_id"]
+    tid = client.post("/api/v1/guest/file", files=files, headers=_auth(session_b)).json()[
+        "transfer_id"
+    ]
     # Guest A tries to download B's file → 403.
     r = client.get(f"/api/v1/guest/file/{tid}", headers=_auth(session_a))
     assert r.status_code == 403
@@ -290,9 +290,12 @@ def test_guest_routes_require_session(client):
 
 
 def test_guest_bad_session_rejected(client):
-    assert client.get(
-        "/api/v1/guest/conversation", headers={"Authorization": "Bearer not.a.jwt"}
-    ).status_code == 403
+    assert (
+        client.get(
+            "/api/v1/guest/conversation", headers={"Authorization": "Bearer not.a.jwt"}
+        ).status_code
+        == 403
+    )
 
 
 # ── feature flag gating ───────────────────────────────────────────────────────

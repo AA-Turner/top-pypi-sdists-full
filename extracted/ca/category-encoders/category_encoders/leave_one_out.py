@@ -34,8 +34,10 @@ class LeaveOneOutEncoder( util.SupervisedTransformerMixin,util.BaseEncoder):
         options are 'error', 'return_nan' and 'value', defaults to 'value',
          which returns the target mean.
     sigma: float
-        adds normal (Gaussian) distribution noise into training data in order to decrease
-        overfitting (testing data are untouched). Sigma gives the standard deviation
+        adds Gaussian regularization noise to the encoded values during fit
+        to decrease overfitting. The noise is multiplicative — encoded values
+        are scaled by ``N(1, sigma)`` — so it is centered on 1, not 0
+        (testing data are untouched). Sigma gives the standard deviation
         (spread or "width") of the normal distribution. The optimal value is commonly
         between 0.05 and 0.6.
         The default is to not add noise, but that leads to significantly suboptimal results.
@@ -161,7 +163,7 @@ class LeaveOneOutEncoder( util.SupervisedTransformerMixin,util.BaseEncoder):
     def transform_leave_one_out(self, X: pd.DataFrame, y: pd.Series | None, mapping=None):
         """Apply leave-one-out-encoding to a dataframe.
 
-        If a target is given the lable-mean is calculated without the target (left out).
+        If a target is given the label-mean is calculated without the target (left out).
         Otherwise, the label mean from the fit step is taken.
         """
         random_state_ = check_random_state(self.random_state)
@@ -184,7 +186,7 @@ class LeaveOneOutEncoder( util.SupervisedTransformerMixin,util.BaseEncoder):
                 X[col] = X[col].astype(index_dtype)
 
             if self.handle_unknown == 'error' and is_unknown_value.any():
-                raise ValueError('Columns to be encoded can not contain new values')
+                raise ValueError('Columns to be encoded cannot contain new values')
 
             if (
                 y is None

@@ -6,6 +6,7 @@ with conflict detection.
 
 import difflib
 import logging
+import os
 import time
 from datetime import UTC, datetime
 from functools import lru_cache
@@ -18,13 +19,24 @@ from pydantic import BaseModel, Field
 from ..auth.auth_manager import AuthManager
 from ..utils import json_fast
 from ..utils.config import ServerConfig
+from ..utils.instances import INSTANCE_CONFIG_ENV, load_instance_config_env, safe_instance_url
 from ..utils.registry import register_tool
 from ..utils.sync_anchor import (
+    BLANK_REMOTE_KEPT,
+    CONFLICT_MIRRORED,
+    IN_SYNC_OUTCOMES,
+    KEPT_LOCAL,
+    LEGACY_KEPT,
+    REFRESHED,
+    UNCHANGED,
+    WRITTEN,
     SyncMeta,
+    SyncMetaEntry,
     cleanup_mirror,
     field_sha,
     is_mirror_artifact,
     mirror_path_for,
+    reconcile_field,
 )
 from .portal_tools import (
     UpdatePortalComponentParams,
@@ -218,6 +230,10 @@ class DiffLocalComponentParams(BaseModel):
         default=False,
         description="Status-only: verdict + changed-line counts, no diff bodies; dirs scan all.",
     )
+    refresh: bool = Field(
+        default=False,
+        description="Fast-forward clean local files to the live server body; edits kept.",
+    )
 
 
 class PushLocalComponentParams(BaseModel):
@@ -334,6 +350,46 @@ def _resolve_origin_url(scope_root: Path) -> str:
         return url
     manifest = _find_manifest_json(scope_root)
     return str(manifest.get("instance") or "").strip()
+
+
+def _alias_for_instance_url(url: str) -> str:
+    """Reverse-resolve a recorded origin URL to its configured instance alias.
+
+    A wrong-instance message that ends in "run list_instances to find it" costs
+    the caller a whole extra round trip to learn something this process already
+    knows — and the observed failure was the caller re-issuing the same broken
+    call instead of taking the detour. The registry is env-sourced, so the answer
+    is available right here without reaching into the server object.
+
+    Empty string when the answer isn't knowable — single-instance mode, an origin
+    that predates the registry, or a malformed config. Diagnostics must never be
+    the thing that raises, so a bad SERVICENOW_INSTANCE_CONFIG degrades to the
+    generic guidance instead of replacing a useful error with a parse failure.
+    """
+    if not url:
+        return ""
+    try:
+        entries = load_instance_config_env(os.getenv(INSTANCE_CONFIG_ENV))
+    except (ValueError, TypeError):
+        return ""
+    # Match on host: the recorded origin and the configured URL routinely differ
+    # by a trailing slash or scheme, and the host is what actually identifies the
+    # instance.
+    target = safe_instance_url(url.rstrip("/")).lower()
+    for alias, entry in entries.items():
+        entry_url = str(entry.get("url") or entry.get("instance_url") or "").strip()
+        if entry_url and safe_instance_url(entry_url.rstrip("/")).lower() == target:
+            return alias
+    return ""
+
+
+def _instance_retry_hint(url: str) -> str:
+    """The routing fix as one clause: the exact alias when we can name it, the
+    lookup instruction only when we genuinely cannot."""
+    alias = _alias_for_instance_url(url)
+    if alias:
+        return f"instance='{alias}'"
+    return "instance=<alias> (run list_instances to find it)"
 
 
 # Surfaced (not raised) when a local source has no recorded origin instance.
@@ -874,12 +930,13 @@ def _validate_instance_url(resolved: _ResolvedComponent, config: ServerConfig) -
         # Lead with the fix: the observed failure mode is the LLM re-issuing the
         # same call ~12× because the actionable hint was buried mid-message. The
         # FIRST sentence must be the exact retry.
+        alias = _alias_for_instance_url(origin)
+        confirm = f"confirm_instance='{alias}'" if alias else "confirm_instance=<alias>"
         raise ValueError(
-            f"Retry this call with instance=<alias> — the alias for '{origin}' "
-            f"(run list_instances to find it). For a push, add confirm_instance=<alias> "
-            f"confirm='approve'. Reason: this local component is from '{origin}' but the "
-            f"active instance is '{active}', so the active one is the WRONG target and is "
-            f"blocked. Do NOT edit config or re-download to change the target."
+            f"Retry this call with {_instance_retry_hint(origin)}. For a push, add "
+            f"{confirm} confirm='approve'. Reason: this local component is from '{origin}' "
+            f"but the active instance is '{active}', so the active one is the WRONG target "
+            f"and is blocked. Do NOT edit config or re-download to change the target."
         )
 
 
@@ -1082,9 +1139,9 @@ def _scan_download_root(
         # call repeatedly. First sentence = the exact retry.
         return {
             "error": (
-                f"Retry this diff with instance=<alias> — the alias for '{origin_url}' "
-                f"(run list_instances to find it). Reason: this directory is from "
-                f"'{origin_url}' but the current connection is '{config.instance_url}'."
+                f"Retry this diff with {_instance_retry_hint(origin_url)}. Reason: this "
+                f"directory is from '{origin_url}' but the current connection is "
+                f"'{config.instance_url}'."
             )
         }
 
@@ -1496,6 +1553,122 @@ def _three_way_by_anchor(
     return out
 
 
+def _rebase_guidance(three_way: Dict[str, Any]) -> Optional[str]:
+    """Next step for the ONE case in the 3-way split that needs a human decision:
+    fields both you AND the server changed. The other buckets are self-explanatory
+    (your edit / their edit / already-equal), so staying silent there keeps the
+    response token-lean instead of narrating what the field names already say.
+
+    The instruction differs by whether the server's copy is already on disk: a
+    ``.remote`` mirror exists only after a download/refresh materialized it, and
+    "merge the sidecar" is a dead end when the sidecar isn't there.
+    """
+    diverged = three_way.get("diverged_both_changed")
+    if not diverged:
+        return None
+    fields = ", ".join(diverged)
+    if three_way.get("conflict_sidecars_on_disk"):
+        return (
+            f"Diverged (you AND the server changed): {fields}. The server's CURRENT body for "
+            f"each is in the matching *.remote.* sidecar beside your file. Merge THEIR change "
+            f"into your working file — never edit or push the sidecar — then "
+            f"update_remote_from_local; the sidecar clears itself once the two reconcile."
+        )
+    return (
+        f"Diverged (you AND the server changed): {fields}. The server's body is not on disk "
+        f"yet — run diff_local_component(path=..., refresh=True) to write a *.remote.* sidecar "
+        f"of the CURRENT server body beside your file (your edits are never overwritten), "
+        f"merge THEIR change into your working file, then update_remote_from_local."
+    )
+
+
+# reconcile_field outcome -> response bucket. Buckets describe what happened to
+# YOUR file, which is what the caller has to act on; the outcome constants are an
+# internal vocabulary and leaking them would make the response a lookup exercise.
+_REFRESH_BUCKETS: Dict[str, str] = {
+    WRITTEN: "refreshed",
+    REFRESHED: "refreshed",
+    UNCHANGED: "already_current",
+    KEPT_LOCAL: "kept_local_edits",
+    CONFLICT_MIRRORED: "conflicts_mirrored",
+    LEGACY_KEPT: "kept_no_anchor",
+    BLANK_REMOTE_KEPT: "kept_no_anchor",
+}
+
+
+def _refresh_local_from_remote(
+    resolved: "_ResolvedComponent",
+    remote_record: Dict[str, Any],
+    table_dir: Path,
+    meta: SyncMetaEntry,
+) -> Dict[str, Any]:
+    """Fast-forward the local working copy to the live server body. Never clobbers.
+
+    The write side of diff, and the reason it is a flag rather than a bulk
+    re-download: ``reconcile_field`` decides per FIELD, so a component with one
+    edited and one clean file fast-forwards the clean one and leaves the edit
+    alone. A whole-tree ``download_*`` runs the same reconcile but cannot be aimed
+    at a single component.
+
+    The anchor advances in two steps, deliberately. Per-field shas are ALWAYS
+    recorded: a field just refreshed provably equals the server, and leaving its
+    old sha behind would make the very next diff report the SERVER's content as
+    "your local edit". The record-level watermark (sys_updated_on / _by /
+    sys_mod_count) advances ONLY when every field ended in sync — advancing it
+    while a field still diverges would tell the next drift gate "the server never
+    moved" and hide the conflict for good.
+    """
+    stored = dict(meta.get("field_shas") or {})
+    new_shas = dict(stored)
+    buckets: Dict[str, List[str]] = {}
+    all_in_sync = bool(resolved.fields)
+
+    for field_name, fpath in sorted(resolved.fields.items()):
+        # blank_remote_is_unknown=False: this is a single-record full=True read, so
+        # an empty body is a real empty field, not the spurious blank a bulk query
+        # can return.
+        outcome, sha = reconcile_field(
+            fpath, str(remote_record.get(field_name) or ""), stored.get(field_name, "")
+        )
+        if sha:
+            new_shas[field_name] = sha
+        if outcome not in IN_SYNC_OUTCOMES:
+            all_in_sync = False
+        buckets.setdefault(_REFRESH_BUCKETS.get(outcome, outcome), []).append(field_name)
+
+    meta_updated = False
+    if all_in_sync or new_shas != stored:
+        try:
+            _record_sync_meta(
+                table_dir,
+                resolved.name,
+                resolved.sys_id,
+                (
+                    str(remote_record.get("sys_updated_on") or "")
+                    if all_in_sync
+                    else meta.get("sys_updated_on", "")
+                ),
+                (
+                    _display_str(remote_record.get("sys_updated_by"))
+                    if all_in_sync
+                    else meta.get("sys_updated_by", "")
+                ),
+                (
+                    str(remote_record.get("sys_mod_count") or "")
+                    if all_in_sync
+                    else meta.get("sys_mod_count", "")
+                ),
+                new_shas,
+            )
+            meta_updated = True
+        except OSError as e:
+            logger.warning("Refresh could not update _sync_meta.json: %s", e)
+
+    out: Dict[str, Any] = {k: v for k, v in sorted(buckets.items())}
+    out["sync_meta_updated"] = meta_updated
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Verdict mode: token-lean live verification. The remote BODY is fetched and
 # compared inside the MCP (network only) — the LLM context receives verdicts
@@ -1754,11 +1927,19 @@ def _verdict_scan(config: ServerConfig, auth_manager: AuthManager, root: Path) -
         )
     if skipped_origin:
         result["skipped_other_instance"] = skipped_origin
+        # Name the alias per distinct origin rather than sending the caller to
+        # list_instances — the scan already holds every origin it skipped.
+        aliases = sorted(
+            {a for a in (_alias_for_instance_url(s["origin"]) for s in skipped_origin) if a}
+        )
+        if aliases:
+            routing = "instance='" + "' or instance='".join(aliases) + "'"
+        else:
+            routing = "instance=<alias> (see list_instances)"
         result["skipped_hint"] = (
             "These trees were downloaded from a DIFFERENT instance than the active one — "
-            "verdicts against the wrong server would be misleading. Route the call with "
-            "instance=<alias> (see list_instances), or compare across instances with "
-            "compare_instances."
+            f"verdicts against the wrong server would be misleading. Route the call with "
+            f"{routing}, or compare across instances with compare_instances."
         )
     return result
 
@@ -1769,7 +1950,7 @@ def _verdict_scan(config: ServerConfig, auth_manager: AuthManager, root: Path) -
 @register_tool(
     "diff_local_component",
     params=DiffLocalComponentParams,
-    description="Diff local edits vs remote, or vs a 2nd root (compare_to); verdict=True for status-only.",
+    description="Diff local edits vs remote (or compare_to root); verdict=True status-only, refresh=True fast-forwards.",
     serialization="raw_dict",
     return_type=dict,
 )
@@ -1786,8 +1967,29 @@ def diff_local_component(
     # compare_to mode: diff against a 2nd local download root (dev-vs-test),
     # not the live remote. Pure local — no network, no auth needed.
     if params.compare_to:
+        if params.refresh:
+            return {
+                "error": (
+                    "refresh compares against the LIVE server; it has no meaning with "
+                    "compare_to (local-vs-local). Drop one of the two."
+                )
+            }
         compare_to = Path(params.compare_to).expanduser().resolve()
         return _diff_against_compare_to(path, compare_to, params.context_lines)
+
+    # Refresh writes to disk per COMPONENT, so a root/scope/table dir has no single
+    # component to fast-forward — say which tool does that instead of half-doing it.
+    if params.refresh and path.is_dir():
+        try:
+            _resolve_local_path(path)
+        except ValueError:
+            return {
+                "error": (
+                    "refresh applies to ONE component (a record folder or a field file). For a "
+                    "whole tree use download_app_sources / download_server_sources — they run "
+                    "the same non-clobbering reconcile over every component."
+                )
+            }
 
     # Verdict mode on a directory: batch-verify every component under it
     # (download root, scope root, or table dir). A record folder falls through
@@ -1829,6 +2031,15 @@ def diff_local_component(
     table_dir = resolved.scope_root / resolved.table
     sync_meta = _read_sync_meta(table_dir)
     meta = sync_meta.get(resolved.name, {})
+
+    # Refresh runs BEFORE anything is measured, and the anchor is re-read after it,
+    # so drift, the 3-way split and the diffs all describe what is LEFT once the
+    # fast-forward has happened — never a picture of the state we just replaced.
+    refresh_report: Optional[Dict[str, Any]] = None
+    if params.refresh:
+        refresh_report = _refresh_local_from_remote(resolved, remote_record, table_dir, meta)
+        meta = _read_sync_meta(table_dir).get(resolved.name, {})
+
     local_updated_on = meta.get("sys_updated_on", "")
     remote_updated_on = str(remote_record.get("sys_updated_on") or "")
     # sys_updated_by is a string (user_name) field — readable as-is.
@@ -1885,6 +2096,7 @@ def diff_local_component(
     # untangled by eye.
     _stored_shas = meta.get("field_shas", {})
     three_way = _three_way_by_anchor(resolved, remote_record, _stored_shas)
+    rebase = _rebase_guidance(three_way)
 
     # Verdict mode: status + line counts only, never diff bodies.
     if params.verdict:
@@ -1907,6 +2119,10 @@ def diff_local_component(
             vres["conflict_sidecars"] = sidecars
         if three_way:
             vres["three_way"] = three_way
+        if rebase:
+            vres["rebase_guidance"] = rebase
+        if refresh_report:
+            vres["refresh"] = refresh_report
         if conflict_warning:
             vres["conflict_warning"] = conflict_warning
         if stale_watermark:
@@ -1935,6 +2151,10 @@ def diff_local_component(
     }
     if three_way:
         result["three_way"] = three_way
+    if rebase:
+        result["rebase_guidance"] = rebase
+    if refresh_report:
+        result["refresh"] = refresh_report
     if stale_watermark:
         result["stale_watermark"] = stale_watermark
     # Surface attribution only when it's NOT plain-consistent — token-lean: a
@@ -2331,8 +2551,13 @@ def update_remote_from_local(
     # the in-scope UI. The component's scope is known from the record we just
     # read, so set it proactively (browser auth only; best-effort — if it can't
     # switch, the write still attempts and the 403 path below explains why).
-    from servicenow_mcp.tools.session_context_tools import _is_browser_auth, set_application_scope
+    from servicenow_mcp.tools.session_context_tools import (
+        _is_browser_auth,
+        check_update_set_for_push,
+        set_application_scope,
+    )
 
+    update_set_warning: Optional[Dict[str, str]] = None
     if _is_browser_auth(config):
         sc = remote_record.get("sys_scope")
         scope_sys_id = str(sc.get("value") or "") if isinstance(sc, dict) else str(sc or "")
@@ -2344,6 +2569,19 @@ def update_remote_from_local(
                     scope_sys_id,
                     switched.get("error"),
                 )
+        # 3c. Which update set is about to CAPTURE this write, and is it the one
+        # this record was last worked in? Read only, and only after the scope
+        # align — switching the current application switches the update set with
+        # it, so asking earlier answers about a session state that no longer
+        # exists. Warn-/confirm-only by design: a push that silently lands in
+        # 'Default' never ships, and a set switched since the last edit may split
+        # one change across two sets — but auto-creating or auto-switching a set is
+        # a write side effect of its own. Surfacing it costs nothing and leaves the
+        # call to a human. table+sys_id let it compare against this record's last
+        # capture (per-instance sys_update_xml), correct across prod/dev/test.
+        update_set_warning = check_update_set_for_push(
+            config, auth_manager, resolved.table, resolved.sys_id
+        )
 
     # 4. Delegate to existing update_portal_component
     try:
@@ -2609,6 +2847,13 @@ def update_remote_from_local(
         mismatched = validation.get("mismatched_fields") if isinstance(validation, dict) else None
         if mismatched:
             ack["fields_mismatched"] = [m.get("field") for m in mismatched]
+    # The write succeeded but was captured somewhere it cannot ship from. Reported
+    # on the SUCCESS path on purpose: it is not a push failure, it is a delivery
+    # failure that would otherwise stay invisible until the release is missing it.
+    # Routed through `result` so it rides the same forwarding path as the delegate's
+    # own warnings below — one place decides what a warning looks like in the ack.
+    if update_set_warning:
+        result["update_set_warning"] = update_set_warning
     # Genuine warnings from the delegate ride along untouched — an oversized
     # payload or a pre-flight caveat is exactly what a compact ack must not eat.
     for warning_key in ("size_warnings", "pre_flight_warnings", "update_set_warning"):

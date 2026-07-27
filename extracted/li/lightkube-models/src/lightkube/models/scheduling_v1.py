@@ -16,9 +16,6 @@ class PriorityClass(DictMixin):
 
       **parameters**
 
-      * **value** ``int`` - value represents the integer value of this priority class. This is the actual
-        priority that pods receive when they have the name of this class in their pod
-        spec.
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
@@ -39,14 +36,17 @@ class PriorityClass(DictMixin):
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
       * **preemptionPolicy** ``Optional[str]`` - preemptionPolicy is the Policy for preempting pods with lower priority. One of
         Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset.
+      * **value** ``Optional[int]`` - value represents the integer value of this priority class. This is the actual
+        priority that pods receive when they have the name of this class in their pod
+        spec.
     """
-    value: 'int'
     apiVersion: 'Optional[str]' = None
     description: 'Optional[str]' = None
     globalDefault: 'Optional[bool]' = None
     kind: 'Optional[str]' = None
     metadata: 'Optional[meta_v1.ObjectMeta]' = None
     preemptionPolicy: 'Optional[str]' = None
+    value: 'Optional[int]' = None
 
     def __post_init__(self):
         self.apiVersion = 'scheduling.k8s.io/v1'

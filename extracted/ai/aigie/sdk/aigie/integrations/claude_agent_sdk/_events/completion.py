@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 class CompletionEvents:
+    _current_turn_span_id: str | None
+
     async def complete_pending_subagent_spans(self):
         """Force-close any subagent spans whose ToolResultBlock was missed.
 

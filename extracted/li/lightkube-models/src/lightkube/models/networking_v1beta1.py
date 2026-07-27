@@ -22,6 +22,8 @@ class IPAddress(DictMixin):
 
       **parameters**
 
+      * **spec** ``IPAddressSpec`` - spec is the desired state of the IPAddress. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
@@ -32,13 +34,11 @@ class IPAddress(DictMixin):
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
       * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-      * **spec** ``Optional[IPAddressSpec]`` - spec is the desired state of the IPAddress. More info:
-        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
     """
+    spec: 'IPAddressSpec'
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
     metadata: 'Optional[meta_v1.ObjectMeta]' = None
-    spec: 'Optional[IPAddressSpec]' = None
 
     def __post_init__(self):
         self.apiVersion = 'networking.k8s.io/v1beta1'

@@ -14,11 +14,13 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional
 
 from aigie.context_manager import merge_metadata
+from aigie.integrations import _base
 from aigie.integrations.claude_agent_sdk.monitoring import (
     DetectedError,
     DriftDetector,
     ErrorDetector,
 )
+from aigie.tracing.emitter import TraceEmitter
 from aigie.tracing.retention import is_retention_suppressed
 from aigie.tracing.trace_state import deregister_open_span, register_open_span
 
@@ -192,22 +194,37 @@ class ClaudeAgentSDKEvents(
     # suppressed. Wire-shape baselines lock the payload format.
 
     _emitter: Any = None
+    _root_name: str | None
 
-    def _resolve_buffer(self) -> Any:
+    @staticmethod
+    def _lookup_trace_emitter() -> Any:
+        adapter = _base.get("claude_agent_sdk")
+        emitter = getattr(adapter, "_emitter", None) if adapter is not None else None
+        return emitter if isinstance(emitter, TraceEmitter) else None
+
+    def _resolve_sink(self) -> Any:
         if self._emitter is not None:
             return self._emitter
         aigie = self._get_aigie()
-        buf = getattr(aigie, "_buffer", None) if aigie is not None else None
-        if buf is not None:
-            self._emitter = buf
-        return buf
+        emitter = self._lookup_trace_emitter()
+        if emitter is not None and getattr(emitter, "_aigie", None) is aigie:
+            sink = emitter
+        else:
+            sink = getattr(aigie, "_buffer", None) if aigie is not None else None
+        if sink is not None:
+            self._emitter = sink
+        return sink
 
     def _emit(self, payload: dict[str, Any]) -> None:
         if is_retention_suppressed():
             return
-        buf = self._resolve_buffer()
-        if buf is not None:
-            buf.add_sync(payload)
+        sink = self._resolve_sink()
+        if sink is None:
+            return
+        if isinstance(sink, TraceEmitter):
+            sink.emit(payload)
+        else:
+            sink.add_sync(payload)
 
     @staticmethod
     def _finalize_open_payload(span_data: dict[str, Any]) -> dict[str, Any]:
@@ -349,7 +366,7 @@ class ClaudeAgentSDKEvents(
     def _init_parent_tracking(self) -> None:
         """Nested-subagent parent stack + depth tracking."""
         self._current_query_span_id: str | None = None
-        self._current_turn_span_id: str | None = None
+        self._current_turn_span_id = None
         self._current_parent_tool_use_id: str | None = None
         self._aigie: Any = None
         self._trace_context: Any | None = None

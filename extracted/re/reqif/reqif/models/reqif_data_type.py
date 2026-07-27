@@ -104,14 +104,14 @@ class ReqIFEnumValue:
     def __init__(  # pylint: disable=too-many-arguments
         self,
         identifier: str,
-        key: str,
+        key: Optional[str],
         description: Optional[str] = None,
         last_change: Optional[str] = None,
         other_content: Optional[str] = None,
         long_name: Optional[str] = None,
     ):
         self.identifier: str = identifier
-        self.key: str = key
+        self.key: Optional[str] = key
         self.description: Optional[str] = description
         self.last_change: Optional[str] = last_change
         self.other_content: Optional[str] = other_content

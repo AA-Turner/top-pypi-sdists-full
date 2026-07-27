@@ -5,6 +5,7 @@ import onnxruntime
 import onnxsim
 import os
 
+from onnx import helper, numpy_helper, TensorProto
 from typing import Optional
 from onnxsim.test_utils import export_simplify_and_check_by_python_api
 
@@ -177,3 +178,336 @@ def test_ext():
         sim_model, check_ok = onnxsim.simplify(model_fn, check_n=0)
         module = None
         assert check_ok
+
+
+def _constant_value(model, name):
+    # Return the constant value produced for `name`, whether it is delivered as
+    # a graph initializer or as a Constant node's value attribute, else None.
+    for initializer in model.graph.initializer:
+        if initializer.name == name:
+            return numpy_helper.to_array(initializer)
+    for node in model.graph.node:
+        if node.op_type == "Constant" and name in node.output:
+            for attr in node.attribute:
+                if attr.name == "value":
+                    return numpy_helper.to_array(attr.t)
+    return None
+
+
+def test_partial_shape_evaluation_gather():
+    # Partial shape evaluation for https://github.com/onnxsim/onnxsim/issues/139
+    # The input's leading dimension is dynamic, but a Gather that reads only the
+    # static dimensions of its shape must still be pre-computed into a constant.
+    x = helper.make_tensor_value_info("x", TensorProto.FLOAT, ["batch", 3, 4, 5])
+    g = helper.make_tensor_value_info("g", TensorProto.INT64, [3])
+    indices = helper.make_tensor("indices", TensorProto.INT64, [3], [1, 2, 3])
+    nodes = [
+        helper.make_node("Shape", ["x"], ["s"]),
+        helper.make_node("Gather", ["s", "indices"], ["g"], axis=0),
+    ]
+    graph = helper.make_graph(nodes, "g", [x], [g], initializer=[indices])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    onnx.checker.check_model(model)
+
+    sim_model, check_ok = onnxsim.simplify(model)
+    assert check_ok
+    onnx.checker.check_model(sim_model)
+    op_types = [n.op_type for n in sim_model.graph.node]
+    # The whole Shape -> Gather chain collapses to a constant even though the
+    # batch dimension is dynamic.
+    assert "Shape" not in op_types
+    assert "Gather" not in op_types
+    value = _constant_value(sim_model, "g")
+    assert value is not None
+    assert list(value) == [3, 4, 5]
+
+
+def test_partial_shape_evaluation_keeps_dynamic_gather():
+    # A Gather that reads the dynamic dimension must NOT be folded: its value is
+    # unknown until runtime.
+    x = helper.make_tensor_value_info("x", TensorProto.FLOAT, ["batch", 3, 4, 5])
+    g = helper.make_tensor_value_info("g", TensorProto.INT64, [1])
+    indices = helper.make_tensor("indices", TensorProto.INT64, [1], [0])
+    nodes = [
+        helper.make_node("Shape", ["x"], ["s"]),
+        helper.make_node("Gather", ["s", "indices"], ["g"], axis=0),
+    ]
+    graph = helper.make_graph(nodes, "g", [x], [g], initializer=[indices])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    onnx.checker.check_model(model)
+
+    sim_model, check_ok = onnxsim.simplify(model)
+    assert check_ok
+    onnx.checker.check_model(sim_model)
+    op_types = [n.op_type for n in sim_model.graph.node]
+    # The dynamic dimension cannot be pre-computed, so the ops stay and "g" is
+    # not turned into a constant.
+    assert "Gather" in op_types
+    assert _constant_value(sim_model, "g") is None
+
+
+def test_unfoldable_const_node_keeps_topological_order():
+    # A const node (all-constant inputs) that fails to fold must keep its
+    # original position. Here SequenceEmpty is treated as a const node; its
+    # output feeds a non-const consumer (SequenceInsert). If a failed const node
+    # were moved to the end of the graph it would land after its consumer and
+    # break topological sorting, making the output fail onnx's checker (issues
+    # #238, #335, #352).
+    #
+    # Constant folding is disabled here on purpose: SequenceEmpty produces a
+    # sequence value, which the backend returns as an empty list. Folding would
+    # coerce that into an empty *tensor* initializer and drop the node, which is
+    # semantically wrong for a sequence. Skipping folding keeps the sequence
+    # pipeline intact so we exercise the topological ordering of the preserved
+    # nodes.
+    x = helper.make_tensor_value_info("x", TensorProto.FLOAT, [2])
+    y = helper.make_tensor_value_info("y", TensorProto.FLOAT, [2])
+    nodes = [
+        helper.make_node("SequenceEmpty", [], ["seq"]),
+        helper.make_node("SequenceInsert", ["seq", "x"], ["seq2"]),
+        helper.make_node("ConcatFromSequence", ["seq2"], ["y"], axis=0, new_axis=0),
+    ]
+    graph = helper.make_graph(nodes, "g", [x], [y])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    onnx.checker.check_model(model)
+
+    sim_model, check_ok = onnxsim.simplify(model, skip_constant_folding=True)
+    assert check_ok
+    # Output must remain a valid, topologically sorted graph.
+    onnx.checker.check_model(sim_model)
+    op_types = [n.op_type for n in sim_model.graph.node]
+    assert op_types.index("SequenceEmpty") < op_types.index("SequenceInsert")
+
+
+def test_folding_does_not_duplicate_initializers():
+    # Folding a const op that reads a weight (here a Transpose on an initializer)
+    # produces a new initializer for the result but must not leave the original
+    # operand initializer dangling in the graph. Otherwise the weight data is
+    # duplicated, which can push a large model past onnx's 2GB protobuf limit
+    # before the optimizer runs (issue #174).
+    x = helper.make_tensor_value_info("x", TensorProto.FLOAT, [3, 4])
+    y = helper.make_tensor_value_info("y", TensorProto.FLOAT, [3, 4])
+    w = helper.make_tensor("w", TensorProto.FLOAT, [4, 3], list(range(12)))
+    nodes = [
+        helper.make_node("Transpose", ["w"], ["wt"], perm=[1, 0]),
+        helper.make_node("Add", ["x", "wt"], ["y"]),
+    ]
+    graph = helper.make_graph(nodes, "g", [x], [y], initializer=[w])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    onnx.checker.check_model(model)
+
+    # Disable the onnx optimizer so the constant folding logic alone is
+    # responsible for cleaning up the dangling initializer.
+    sim_model, check_ok = onnxsim.simplify(model, perform_optimization=False)
+    assert check_ok
+    onnx.checker.check_model(sim_model)
+
+    # Core invariant of the fix, independent of platform: the simplified graph
+    # must never carry an initializer that no node consumes. Whether the backend
+    # executor is able to fold the Transpose can vary between environments, but
+    # the "no dangling initializer" property must hold either way.
+    op_types = [n.op_type for n in sim_model.graph.node]
+    used = {i for n in sim_model.graph.node for i in n.input}
+    for init in sim_model.graph.initializer:
+        assert init.name in used, f"unused initializer left behind: {init.name}"
+
+    # When the Transpose was actually folded into an initializer, the folded
+    # result must replace the original weight "w" rather than duplicate it.
+    if "Transpose" not in op_types:
+        assert "w" not in {init.name for init in sim_model.graph.initializer}
+
+
+def test_fp8_qdq_model():
+    # Regression test for GitHub issue #348. NVIDIA ModelOpt emits fp8 QDQ
+    # models whose QuantizeLinear/DequantizeLinear zero points use the
+    # ``float8_e4m3fn`` element type (17). onnxoptimizer's tensor-value hashing
+    # passes (eliminate_common_subexpression / eliminate_duplicate_initializer)
+    # cannot hash such tensors and used to abort the whole simplification with
+    # "RuntimeError: no supported data type: 17". onnxsim now detects these
+    # tensors and transparently skips the offending passes instead of crashing.
+    def fp8_zero_point(name: str) -> onnx.TensorProto:
+        # A single float8_e4m3fn zero, expressed as its raw byte so the test
+        # does not depend on ml_dtypes.
+        return helper.make_tensor(name, TensorProto.FLOAT8E4M3FN, [], b"\x00", raw=True)
+
+    weight = helper.make_tensor(
+        "W", TensorProto.FLOAT, [4, 3], [0.1 * i for i in range(12)]
+    )
+    w_scale = helper.make_tensor("w_scale", TensorProto.FLOAT, [], [0.05])
+    a_scale = helper.make_tensor("a_scale", TensorProto.FLOAT, [], [0.1])
+
+    nodes = [
+        # activation QDQ (dynamic input, must be preserved)
+        helper.make_node("QuantizeLinear", ["X", "a_scale", "a_zp"], ["X_q"]),
+        helper.make_node("DequantizeLinear", ["X_q", "a_scale", "a_zp"], ["X_dq"]),
+        # weight QDQ (constant inputs) plus a duplicated weight zero point to
+        # exercise eliminate_duplicate_initializer as well.
+        helper.make_node("QuantizeLinear", ["W", "w_scale", "w_zp"], ["W_q"]),
+        helper.make_node("DequantizeLinear", ["W_q", "w_scale", "w_zp2"], ["W_dq"]),
+        helper.make_node("MatMul", ["X_dq", "W_dq"], ["Y"]),
+    ]
+    graph = helper.make_graph(
+        nodes,
+        "fp8_qdq",
+        [helper.make_tensor_value_info("X", TensorProto.FLOAT, [2, 4])],
+        [helper.make_tensor_value_info("Y", TensorProto.FLOAT, [2, 3])],
+        [
+            weight,
+            w_scale,
+            a_scale,
+            fp8_zero_point("a_zp"),
+            fp8_zero_point("w_zp"),
+            fp8_zero_point("w_zp2"),
+        ],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 21)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    # Must not raise "no supported data type: 17".
+    sim_model, check_ok = onnxsim.simplify(model)
+    assert check_ok
+    onnx.checker.check_model(sim_model)
+    # The fp8 QDQ structure must survive simplification.
+    op_types = [n.op_type for n in sim_model.graph.node]
+    assert op_types.count("QuantizeLinear") == 2
+    assert op_types.count("DequantizeLinear") == 2
+    assert "MatMul" in op_types
+
+
+def test_fp8_qdq_modelopt_integration():
+    # NVIDIA ModelOpt used to simplify ONNX models inside its quantization
+    # preprocessing with exactly ``model_simp, check = onnxsim.simplify(model)``
+    # (wrapped in a try/except that fell back to the unsimplified model on
+    # error). It dropped onnxsim for onnxslim, in part because onnxsim aborted
+    # on ModelOpt's fp8 QDQ output with "no supported data type: 17" (issue
+    # #348). This exercises that exact call shape on a richer, more
+    # ModelOpt-like graph -- Conv + Gemm with both activation and weight QDQ and
+    # duplicated float8 zero points -- to guard that onnxsim simplifies it
+    # without crashing and preserves the QDQ structure TensorRT relies on.
+    def fp8_zero_point(name: str) -> onnx.TensorProto:
+        # A single float8_e4m3fn zero as its raw byte (no ml_dtypes dependency).
+        return helper.make_tensor(name, TensorProto.FLOAT8E4M3FN, [], b"\x00", raw=True)
+
+    conv_w = helper.make_tensor(
+        "conv_w", TensorProto.FLOAT, [8, 3, 3, 3],
+        [0.01 * (i % 7 - 3) for i in range(8 * 3 * 3 * 3)],
+    )
+    gemm_w = helper.make_tensor(
+        "gemm_w", TensorProto.FLOAT, [8, 8], [0.02 * (i % 5 - 2) for i in range(64)]
+    )
+    conv_ws = helper.make_tensor("conv_w_scale", TensorProto.FLOAT, [], [0.02])
+    gemm_ws = helper.make_tensor("gemm_w_scale", TensorProto.FLOAT, [], [0.03])
+    act_s = helper.make_tensor("act_scale", TensorProto.FLOAT, [], [0.1])
+    act_s2 = helper.make_tensor("act_scale2", TensorProto.FLOAT, [], [0.1])
+
+    nodes = [
+        # activation QDQ on the dynamic input -- must survive simplification.
+        helper.make_node("QuantizeLinear", ["X", "act_scale", "a_zp"], ["Xq"]),
+        helper.make_node("DequantizeLinear", ["Xq", "act_scale", "a_zp"], ["Xdq"]),
+        # weight QDQ (constant). ModelOpt duplicates fp8 zero points across
+        # weights, which is what tripped eliminate_duplicate_initializer.
+        helper.make_node("QuantizeLinear", ["conv_w", "conv_w_scale", "cw_zp"], ["cwq"]),
+        helper.make_node("DequantizeLinear", ["cwq", "conv_w_scale", "cw_zp2"], ["cwdq"]),
+        helper.make_node("Conv", ["Xdq", "cwdq"], ["conv_out"], kernel_shape=[3, 3]),
+        helper.make_node("GlobalAveragePool", ["conv_out"], ["pooled"]),
+        helper.make_node("Flatten", ["pooled"], ["flat"], axis=1),
+        # second activation QDQ + weight QDQ feeding a Gemm.
+        helper.make_node("QuantizeLinear", ["flat", "act_scale2", "a_zp2"], ["flatq"]),
+        helper.make_node("DequantizeLinear", ["flatq", "act_scale2", "a_zp2"], ["flatdq"]),
+        helper.make_node("QuantizeLinear", ["gemm_w", "gemm_w_scale", "gw_zp"], ["gwq"]),
+        helper.make_node("DequantizeLinear", ["gwq", "gemm_w_scale", "gw_zp2"], ["gwdq"]),
+        helper.make_node("Gemm", ["flatdq", "gwdq"], ["Y"], transB=1),
+    ]
+    graph = helper.make_graph(
+        nodes,
+        "modelopt_fp8_qdq",
+        [helper.make_tensor_value_info("X", TensorProto.FLOAT, [1, 3, 6, 6])],
+        [helper.make_tensor_value_info("Y", TensorProto.FLOAT, [1, 8])],
+        [
+            conv_w, gemm_w, conv_ws, gemm_ws, act_s, act_s2,
+            fp8_zero_point("a_zp"), fp8_zero_point("a_zp2"),
+            fp8_zero_point("cw_zp"), fp8_zero_point("cw_zp2"),
+            fp8_zero_point("gw_zp"), fp8_zero_point("gw_zp2"),
+        ],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 21)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    # ModelOpt's exact former call shape. Must not raise "no supported data
+    # type: 17"; check must be True so ModelOpt would keep the simplified model.
+    sim_model, check_ok = onnxsim.simplify(model)
+    assert check_ok
+    onnx.checker.check_model(sim_model)
+
+    # Every QDQ pair must be preserved -- TensorRT needs the QDQ structure, and
+    # onnxsim must not fold or dedupe it away.
+    op_types = [n.op_type for n in sim_model.graph.node]
+    assert op_types.count("QuantizeLinear") == 4
+    assert op_types.count("DequantizeLinear") == 4
+    assert "Conv" in op_types
+    assert "Gemm" in op_types
+
+
+def test_if_with_const_cond_is_folded():
+    # An `If` whose condition is a constant, with branches that each just
+    # produce a constant, used to crash simplify() with a segfault (exit 139):
+    # onnxsim's constant folding turns the branch `Constant` nodes into subgraph
+    # initializers, and the onnxoptimizer "eliminate_if_with_const_cond" pass
+    # then dereferenced a null value while inlining the taken branch (the branch
+    # output was now an initializer with no producing node). With the fixed pass
+    # the `If` is folded away and its output becomes the taken branch's constant
+    # (GitHub issue #452).
+    tv = helper.make_tensor("tv", TensorProto.FLOAT, [2], [1.0, 2.0])
+    fv = helper.make_tensor("fv", TensorProto.FLOAT, [2], [3.0, 4.0])
+    then_b = helper.make_graph(
+        [helper.make_node("Constant", [], ["to"], value=tv)], "tb", [],
+        [helper.make_tensor_value_info("to", TensorProto.FLOAT, [2])])
+    else_b = helper.make_graph(
+        [helper.make_node("Constant", [], ["fo"], value=fv)], "fb", [],
+        [helper.make_tensor_value_info("fo", TensorProto.FLOAT, [2])])
+    if_node = helper.make_node(
+        "If", ["c"], ["Y"], then_branch=then_b, else_branch=else_b)
+    graph = helper.make_graph(
+        [if_node], "g", [],
+        [helper.make_tensor_value_info("Y", TensorProto.FLOAT, [2])],
+        [helper.make_tensor("c", TensorProto.BOOL, [], [True])])
+    model = helper.make_model(
+        graph, opset_imports=[helper.make_opsetid("", 13)])
+    onnx.checker.check_model(model)
+
+    sim_model, check_ok = onnxsim.simplify(model)
+    assert check_ok
+    onnx.checker.check_model(sim_model)
+    # The constant-condition `If` (condition is True) must be folded away, and
+    # the model output must be the "then" branch constant [1.0, 2.0]. Read the
+    # folded value straight out of the graph rather than running the model,
+    # since helper.make_model stamps the latest ONNX IR version, which the
+    # bundled onnxruntime may not load.
+    assert all(n.op_type != "If" for n in sim_model.graph.node)
+
+    def _resolve_const(model, name):
+        # Follow the output through initializers, Constant nodes, and Identity
+        # aliases until a constant tensor is found.
+        seen = set()
+        while name and name not in seen:
+            seen.add(name)
+            for init in model.graph.initializer:
+                if init.name == name:
+                    return numpy_helper.to_array(init)
+            alias = None
+            for node in model.graph.node:
+                if name not in node.output:
+                    continue
+                if node.op_type == "Constant":
+                    (attr,) = [a for a in node.attribute if a.name == "value"]
+                    return numpy_helper.to_array(attr.t)
+                if node.op_type == "Identity":
+                    alias = node.input[0]
+                break
+            name = alias
+        raise AssertionError(f"output {name!r} is not a resolvable constant")
+
+    out = _resolve_const(sim_model, sim_model.graph.output[0].name)
+    assert out.tolist() == [1.0, 2.0]

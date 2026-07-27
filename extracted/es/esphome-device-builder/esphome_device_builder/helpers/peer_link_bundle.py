@@ -4,7 +4,7 @@ Bundle chunking + reassembly helpers for the peer-link ``submit_job`` flow.
 The offloader produces a gzipped tarball via
 :class:`esphome.bundle.ConfigBundleCreator`; that's a single
 ``bytes`` payload that has to ride the peer-link's per-frame
-size cap (:data:`APP_FRAME_MAX_BYTES`, 32 KiB).
+size cap (:data:`APP_FRAME_MAX_BYTES`, 60 KiB).
 :func:`chunk_bundle` slices the bundle into the wire-format's
 base64 envelope shape; :class:`BundleAssembler` does the
 reverse on the receiver side, with structured rejection of
@@ -45,6 +45,10 @@ from collections.abc import Iterator
 from enum import StrEnum
 from typing import NoReturn
 
+# Re-exported: the bundle-assembly cap lives in the neutral ``bundle_limits``
+# module so the UI import path can share it without importing peer-link code.
+from .bundle_limits import BUNDLE_MAX_TOTAL_BYTES
+
 # Raw bytes per chunk before b64 encoding. Sized so the
 # resulting JSON frame fits comfortably under
 # :data:`APP_FRAME_MAX_BYTES` (60 KiB after 5c-1's bump):
@@ -56,14 +60,6 @@ from typing import NoReturn
 # fixed per-frame overhead (Noise AEAD tag + JSON envelope)
 # in half on a typical ESPHome bundle.
 BUNDLE_CHUNK_SIZE_BYTES = 32 * 1024
-
-# Hard cap on the assembled bundle. ESPHome bundles in the
-# wild are 5-50 KiB compressed; an exotic image-heavy include
-# tree can push to a few hundred KiB. 4 MiB is well above the
-# realistic ceiling but small enough that a misbehaving
-# offloader can't pin gigabytes of memory pretending to send
-# a bundle. May be revisited based on production bundle sizes.
-BUNDLE_MAX_TOTAL_BYTES = 4 * 1024 * 1024
 
 # Hard cap on the assembled firmware tarball. The materialise
 # pipeline ships the receiver's full build subtree (firmware
@@ -259,6 +255,9 @@ class BundleAssembler:
         self._buf = bytearray()
         self._next_index = 0
         self._closed = False
+        # Set on the first successful ``finalise``; the working buffer is
+        # released at the same point.
+        self._result: bytes | None = None
 
     def feed(self, chunk_index: int, raw: bytes, *, is_last: bool) -> None:
         """Accept one chunk. Raises :class:`BundleAssemblerError` on mismatch."""
@@ -301,8 +300,12 @@ class BundleAssembler:
         assembler hasn't seen its announced last chunk, or
         :attr:`BundleAssemblerErrorCode.HASH_MISMATCH` if the
         SHA-256 of the assembled bytes doesn't match the
-        offloader's announced digest.
+        offloader's announced digest. Memoised: the result is
+        cached and the working buffer freed on the first call,
+        so a second call returns the same bytes without re-work.
         """
+        if self._result is not None:
+            return self._result
         if not self._closed:
             _fail(
                 _Code.UNDERSIZED,
@@ -320,4 +323,7 @@ class BundleAssembler:
                 _Code.HASH_MISMATCH,
                 f"assembled bundle sha256 {actual} != announced {self._sha256_hex}",
             )
-        return bytes(self._buf)
+        self._result = bytes(self._buf)
+        # Release the working buffer once the result is cached.
+        self._buf = bytearray()
+        return self._result

@@ -741,6 +741,12 @@ class TryExceptMultipleReturnPathViolation(ASTViolation):
        No longer produced, kept here for historic reasons.
        This is covered with ``ruff`` linter. See ``B012`` and ``SIM107``.
 
+    .. note::
+        Starting from **Python 3.14**, interpreter will emit a ``SyntaxWarning``
+        for ``return``, ``break``, or ``continue`` inside a ``finally`` block,
+        as per **PEP 765**. This makes such code officially discouraged at the
+        language level, and it may become a ``SyntaxError`` in future versions.
+
     """
 
     error_template = 'Found `try`/`else`/`finally` with multiple return paths'
@@ -2016,6 +2022,12 @@ class LoopControlFinallyViolation(ASTViolation):
        No longer produced, kept here for historic reasons.
        This is covered with ``ruff`` linter. See ``B012``.
 
+    .. note::
+        Starting from **Python 3.14**, interpreter will emit a ``SyntaxWarning``
+        for ``return``, ``break``, or ``continue`` inside a ``finally`` block,
+        as per **PEP 765**. This makes such code officially discouraged at the
+        language level, and it may become a ``SyntaxError`` in future versions.
+
     """
 
     error_template = 'Found `break` or `continue` in `finally` block'
@@ -2933,7 +2945,7 @@ class MultilineFormattedStringViolation(TokenizeViolation):
 
     Example::
 
-        # Correct
+        # Correct:
         x = f''' { 1
         ...}'''
 
@@ -2997,20 +3009,20 @@ class LeakingForLoopViolation(ASTViolation):
 
     Example::
 
-        # bad
+        # Correct:
         class Some:
             for x in [1, 2]:
                 print(x)
 
-        # bad
+        # Wrong:
         for y in [3, 4]:
             print(y)
 
-        # good
+        # Correct:
         class Some:
             _ = [print(x) for x in [1, 2]]
 
-        # good
+        # Correct:
         some_list = [print(y) for y in [3, 4]]
 
     .. versionadded:: 1.5.0

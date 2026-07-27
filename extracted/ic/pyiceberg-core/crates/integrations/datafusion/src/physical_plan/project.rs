@@ -126,6 +126,10 @@ impl PartialEq for PartitionExpr {
 impl Eq for PartitionExpr {}
 
 impl PhysicalExpr for PartitionExpr {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
     fn data_type(&self, _input_schema: &ArrowSchema) -> DFResult<DataType> {
         Ok(self.calculator.partition_arrow_type().clone())
     }
@@ -190,7 +194,6 @@ mod tests {
     use datafusion::arrow::datatypes::{DataType, Field, Fields};
     use datafusion::physical_plan::empty::EmptyExec;
     use iceberg::spec::{NestedField, PrimitiveType, Schema, StructType, Transform, Type};
-    use iceberg::test_utils::test_runtime;
 
     use super::*;
 
@@ -205,7 +208,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let partition_spec = PartitionSpec::builder(Arc::new(table_schema.clone()))
+        let partition_spec = iceberg::spec::PartitionSpec::builder(Arc::new(table_schema.clone()))
             .add_partition_field("id", "id_partition", Transform::Identity)
             .unwrap()
             .build()
@@ -230,7 +233,7 @@ mod tests {
             .unwrap();
 
         let partition_spec = Arc::new(
-            PartitionSpec::builder(Arc::new(table_schema.clone()))
+            iceberg::spec::PartitionSpec::builder(Arc::new(table_schema.clone()))
                 .add_partition_field("id", "id_partition", Transform::Identity)
                 .unwrap()
                 .build()
@@ -276,7 +279,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let partition_spec = PartitionSpec::builder(Arc::new(table_schema.clone()))
+        let partition_spec = iceberg::spec::PartitionSpec::builder(Arc::new(table_schema.clone()))
             .add_partition_field("id", "id_partition", Transform::Identity)
             .unwrap()
             .build()
@@ -337,7 +340,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let partition_spec = PartitionSpec::builder(Arc::new(table_schema.clone()))
+        let partition_spec = iceberg::spec::PartitionSpec::builder(Arc::new(table_schema.clone()))
             .add_partition_field("address.city", "city_partition", Transform::Identity)
             .unwrap()
             .build()
@@ -410,7 +413,7 @@ mod tests {
                 .unwrap(),
         );
 
-        let partition_spec = PartitionSpec::builder(table_schema.clone())
+        let partition_spec = iceberg::spec::PartitionSpec::builder(table_schema.clone())
             .add_partition_field("id", "id_partition", Transform::Identity)
             .unwrap()
             .build()
@@ -440,12 +443,11 @@ mod tests {
 
         let input = Arc::new(EmptyExec::new(arrow_schema));
 
-        let table = Table::builder()
+        let table = iceberg::table::Table::builder()
             .metadata(table_metadata.metadata)
             .identifier(TableIdent::from_strs(["test", "table"]).unwrap())
             .file_io(FileIO::new_with_fs())
-            .metadata_location("/test/metadata.json")
-            .runtime(test_runtime())
+            .metadata_location("/test/metadata.json".to_string())
             .build()
             .unwrap();
 
@@ -469,7 +471,7 @@ mod tests {
                 .unwrap(),
         );
 
-        let partition_spec = PartitionSpec::builder(table_schema.clone())
+        let partition_spec = iceberg::spec::PartitionSpec::builder(table_schema.clone())
             .add_partition_field("id", "id_partition", Transform::Identity)
             .unwrap()
             .build()
@@ -499,12 +501,11 @@ mod tests {
 
         let input = Arc::new(EmptyExec::new(arrow_schema));
 
-        let table = Table::builder()
+        let table = iceberg::table::Table::builder()
             .metadata(table_metadata.metadata)
             .identifier(TableIdent::from_strs(["test", "table"]).unwrap())
             .file_io(FileIO::new_with_fs())
-            .metadata_location("/test/metadata.json")
-            .runtime(test_runtime())
+            .metadata_location("/test/metadata.json".to_string())
             .build()
             .unwrap();
 
@@ -539,7 +540,7 @@ mod tests {
                 .unwrap(),
         );
 
-        let partition_spec = PartitionSpec::builder(table_schema.clone())
+        let partition_spec = iceberg::spec::PartitionSpec::builder(table_schema.clone())
             .add_partition_field("id", "id_partition", Transform::Identity)
             .unwrap()
             .build()
@@ -555,7 +556,7 @@ mod tests {
             sort_order,
             "/test/table".to_string(),
             FormatVersion::V2,
-            HashMap::new(),
+            std::collections::HashMap::new(),
         )
         .unwrap();
 
@@ -572,12 +573,11 @@ mod tests {
 
         let input = Arc::new(EmptyExec::new(arrow_schema));
 
-        let table = Table::builder()
+        let table = iceberg::table::Table::builder()
             .metadata(table_metadata.metadata)
             .identifier(TableIdent::from_strs(["test", "table"]).unwrap())
             .file_io(FileIO::new_with_fs())
-            .metadata_location("/test/metadata.json")
-            .runtime(test_runtime())
+            .metadata_location("/test/metadata.json".to_string())
             .build()
             .unwrap();
 

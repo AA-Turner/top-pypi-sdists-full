@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: giddy
-Version: 2.3.8
+Version: 2.3.9
 Summary: PySAL-giddy for exploratory spatiotemporal data analysis
 Maintainer-email: Wei Kang <weikang9009@gmail.com>
 License: BSD 3-Clause
@@ -12,14 +12,14 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: GIS
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: esda<2.9,>=2.7
+Requires-Dist: esda<3,>=2.7
 Requires-Dist: libpysal>=4.12
 Requires-Dist: mapclassify>=2.7
 Requires-Dist: quantecon>=0.8
-Requires-Dist: scipy>=1.12
+Requires-Dist: scipy>=1.14
 Requires-Dist: seaborn
 Requires-Dist: matplotlib
 Provides-Extra: dev

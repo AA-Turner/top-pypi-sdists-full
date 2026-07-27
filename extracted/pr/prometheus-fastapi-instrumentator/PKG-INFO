@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prometheus-fastapi-instrumentator
-Version: 8.0.2
+Version: 8.1.0
 Summary: Instrument your FastAPI app with Prometheus metrics
 License: ISC
 License-File: LICENSE

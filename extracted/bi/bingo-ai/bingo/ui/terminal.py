@@ -550,6 +550,8 @@ class BingoTerminal:
         # 네트워크 환경 (VPN 감지 결과 캐싱)
         self._net_env: dict = {}
         self._detect_network_env()
+        # v6.2.330: http_request SSL 연속 실패 카운터 — 2회 이상 시 curl 전환 유도
+        self._http_ssl_fail_count: int = 0
 
         # /retry 용 마지막 실행 결과 캐시
         self._last_exec_result: str = ""
@@ -1649,6 +1651,32 @@ class BingoTerminal:
         model_cfg = self.config.get_active_model_config()
         provider = model_cfg.provider if model_cfg else "deepseek"
         system_text = get_pentest_system_prompt(provider)
+
+        # FC 모드 활성화 시: 텍스트 코드블록 금지 지시어 주입
+        if self._get_fc_tools() is not None:
+            system_text += (
+                "\n\n[FUNCTION CALLING MODE — MANDATORY]\n"
+                "You have bash_exec, python_exec, and http_request tools available.\n"
+                "NEVER output ```python, ```bash, or any other text code blocks.\n"
+                "Text code blocks are IGNORED and will NOT execute.\n"
+                "To run code or commands, call bash_exec/python_exec/http_request tools directly.\n"
+            )
+
+        # v6.2.330: 환각 방지 강화 지시어 — 허위 진행 주장 근본 차단
+        system_text += (
+            "\n\n[ZERO HALLUCINATION — ABSOLUTE RULES]\n"
+            "1. NEVER claim 'we already found/extracted/confirmed X' unless a TOOL_RESULT "
+            "in this conversation explicitly contains that data.\n"
+            "2. NEVER fabricate signing algorithms, encryption keys, API secrets, or "
+            "technical details that were not returned in a tool result.\n"
+            "3. If you cannot recall the specific TOOL_RESULT that proves a claim, "
+            "the claim is HALLUCINATED. Re-execute the tool to verify.\n"
+            "4. Each discovery MUST cite its source: which tool call returned it.\n"
+            "5. 'Based on conversation history' or 'as we found earlier' without "
+            "a concrete tool output reference = HALLUCINATION.\n"
+            "6. When a tool fails repeatedly (same error 2+ times), CHANGE STRATEGY. "
+            "Do NOT retry the same failing approach more than twice.\n"
+        )
 
         # 언어 설정을 시스템 프롬프트에 강제 주입 (매 요청마다)
         _lang = getattr(self.config, "lang", "en")
@@ -3898,6 +3926,11 @@ class BingoTerminal:
         )
 
         # 스트리밍 중: 코드 블록 접힌 상태로 실시간 표시
+        import time as _time_mod
+        import re as _re_think
+        _re_think_open = _re_think.compile(r'<(?:think|thinking|THINK|THINKING)>', _re_think.IGNORECASE)
+        _re_think_close = _re_think.compile(r'</(?:think|thinking|THINK|THINKING)>', _re_think.IGNORECASE)
+        _think_start: "float | None" = None
         with Live(console=self.console, refresh_per_second=20, transient=True) as live:
             buf = Text()
             for chunk in stream:
@@ -3924,6 +3957,12 @@ class BingoTerminal:
                     return ""
                 if chunk.text:
                     full += chunk.text
+                    _in_thinking = bool(_re_think_open.search(full)) and not bool(_re_think_close.search(full))
+                    if _in_thinking:
+                        if _think_start is None:
+                            _think_start = _time_mod.time()
+                    else:
+                        _think_start = None
                     visible = self._filter_ai_thinking(full)
                     visible = self._project_public_text(visible)
                     collapsed = self._collapse_code_blocks(visible)
@@ -3934,7 +3973,16 @@ class BingoTerminal:
                             buf = Text(collapsed, style="white")
                     else:
                         buf = Text(collapsed, style="white")
-                    live.update(buf)
+                    if _in_thinking and _think_start is not None:
+                        _elapsed = int(_time_mod.time() - _think_start)
+                        _indicator = Text(f"🧠 thinking... ({_elapsed}s)", style="dim cyan")
+                        if str(buf).strip():
+                            buf.append(f"\n🧠 thinking... ({_elapsed}s)", style="dim cyan")
+                            live.update(buf)
+                        else:
+                            live.update(_indicator)
+                    else:
+                        live.update(buf)
                 if chunk.tool_calls:
                     self._last_tool_calls.extend(chunk.tool_calls)
 
@@ -4137,7 +4185,9 @@ class BingoTerminal:
                     headers = args.get("headers") or {}
                     body = args.get("body")
                     follow = args.get("follow_redirects", False)
-                    timeout = args.get("timeout", 30)
+                    # POST requests to WAF-protected endpoints often hang — use shorter timeout
+                    default_timeout = 10 if method in ("POST", "PUT", "PATCH") else 30
+                    timeout = args.get("timeout", default_timeout)
                     if not url:
                         output = "[ERROR] No URL provided"
                     else:
@@ -4157,12 +4207,18 @@ class BingoTerminal:
                             tgt_domain = f"{tgt_ext.domain}.{tgt_ext.suffix}" if tgt_ext.domain and tgt_ext.suffix else target_host
                             _resolved_ip = getattr(self, "_target_resolved_ip", None)
                             _is_target_ip = (request_host == _resolved_ip) if _resolved_ip else False
-                            _is_bare_ip = bool(re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', request_host))
-                            if req_domain != tgt_domain and request_host != target_host and not _is_target_ip and not _is_bare_ip:
-                                output = f"[ERROR] Target drift blocked: {url}\nSession target: {target_url}\nAttempted domain: {request_host} ({req_domain})\nAllowed domain: {target_host} ({tgt_domain})"
-                                self.console.print(f"[{THEME['dim']}]  🚫 Target drift blocked: {request_host} != {target_host}[/]")
-                                results.append({"id": tc.id, "name": name, "output": output})
-                                continue
+                            _is_cf_domain = bool(_resolved_ip and self._is_cf_ip(_resolved_ip))
+                            if req_domain != tgt_domain and request_host != target_host:
+                                if _is_target_ip and self._check_ip_direct_accessible(request_host):
+                                    pass  # resolved IP + accessible
+                                elif _is_cf_domain and self._check_ip_direct_accessible(request_host, domain=target_host):
+                                    pass  # CF domain: origin IP verified via Host header
+                                else:
+                                    _reason = "IP direct access blocked (domain-binding)" if _is_target_ip else "Target drift blocked"
+                                    output = f"[ERROR] {_reason}: {url}\nSession target: {target_url}\nAttempted: {request_host} ({req_domain})\nAllowed: {target_host} ({tgt_domain})"
+                                    self.console.print(f"[{THEME['dim']}]  🚫 {_reason}: {request_host}[/]")
+                                    results.append({"id": tc.id, "name": name, "output": output})
+                                    continue
                         self.console.print(
                             f"[{THEME['dim']}]  ⚙ http_request: {method} {url[:100]}[/]"
                         )
@@ -4196,6 +4252,21 @@ class BingoTerminal:
                 output = f"[TIMEOUT] Command exceeded {args.get('timeout', 180)}s"
             except Exception as e:
                 output = f"[ERROR] {type(e).__name__}: {str(e)[:500]}"
+            # v6.2.330: http_request SSL 연속 실패 감지 → curl 전환 유도
+            if name == "http_request":
+                _is_ssl_err = any(k in output for k in ("SSL", "handshake", "TLS", "CERTIFICATE", "ConnectError"))
+                if _is_ssl_err and "[ERROR]" in output:
+                    self._http_ssl_fail_count += 1
+                    if self._http_ssl_fail_count >= 2:
+                        output += (
+                            "\n\n[AUTO-SWITCH] http_request has failed with SSL errors "
+                            f"{self._http_ssl_fail_count} times consecutively.\n"
+                            "STOP using http_request for this target. Use bash_exec + curl instead:\n"
+                            "  curl --resolve DOMAIN:443:IP -sk -D - 'https://...' | head -N\n"
+                            "curl handles Cloudflare TLS/SNI correctly. Do NOT retry http_request."
+                        )
+                else:
+                    self._http_ssl_fail_count = 0
             results.append({"id": tc.id, "name": name, "output": output})
         return results
 
@@ -4220,6 +4291,42 @@ class BingoTerminal:
             pass
         return None
 
+    @staticmethod
+    def _is_cf_ip(ip: str) -> bool:
+        """Return True if the IP belongs to Cloudflare (AS13335)."""
+        import ipaddress
+        _CF_RANGES = [
+            "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22",
+            "104.16.0.0/13", "104.24.0.0/14",
+            "108.162.192.0/18", "131.0.72.0/22",
+            "141.101.64.0/18", "162.158.0.0/15",
+            "172.64.0.0/13", "173.245.48.0/20",
+            "188.114.96.0/20", "190.93.240.0/20",
+            "197.234.240.0/22", "198.41.128.0/17",
+        ]
+        try:
+            addr = ipaddress.ip_address(ip)
+            return any(addr in ipaddress.ip_network(r) for r in _CF_RANGES)
+        except Exception:
+            return False
+
+    def _check_ip_direct_accessible(self, ip: str, domain: str | None = None) -> bool:
+        """Return True if http://IP/ responds. If domain given, include Host header (CF origin check)."""
+        cache_key = f"{ip}:{domain or ''}"
+        cache = getattr(self, "_ip_accessibility_cache", {})
+        if cache_key in cache:
+            return cache[cache_key]
+        try:
+            import requests as _req
+            hdrs = {"Host": domain} if domain else {}
+            resp = _req.get(f"http://{ip}/", headers=hdrs, timeout=5, allow_redirects=False, verify=False)
+            result = resp.status_code < 400
+        except Exception:
+            result = False
+        cache[cache_key] = result
+        self._ip_accessibility_cache = cache
+        return result
+
     def _check_target_drift_in_text(self, text: str) -> str | None:
         """Check if text contains URLs pointing to different domains than session target."""
         if not hasattr(self, "_current_target") or not self._current_target:
@@ -4241,21 +4348,41 @@ class BingoTerminal:
         }
 
         _resolved_ip = getattr(self, "_target_resolved_ip", None)
+        _is_cf_domain = bool(_resolved_ip and self._is_cf_ip(_resolved_ip))
 
         url_pattern = r'https?://([a-zA-Z0-9][-a-zA-Z0-9.]*[a-zA-Z0-9])'
         for match in re.finditer(url_pattern, text):
             found_host = match.group(1)
             if found_host == _resolved_ip:
-                continue
+                if self._check_ip_direct_accessible(found_host):
+                    continue
+                else:
+                    return f"[ERROR] IP direct access blocked (domain-binding): {found_host}\nSession target: {self._current_target}\nUse domain: {target_host}"
             req_ext = tldextract.extract(found_host)
             req_domain = f"{req_ext.domain}.{req_ext.suffix}" if req_ext.domain and req_ext.suffix else found_host
             if req_domain == tgt_domain or found_host == target_host:
                 continue
             if req_domain in _OSINT_ALLOWED:
                 continue
-            if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', found_host):
-                continue
+            # CF 도메인: 새 IP가 Host헤더로 origin 검증되면 허용
+            if _is_cf_domain and re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', found_host):
+                if self._check_ip_direct_accessible(found_host, domain=target_host):
+                    continue
             return f"[ERROR] Target drift blocked: {found_host}\nSession target: {self._current_target}\nAttempted domain: {found_host} ({req_domain})\nAllowed domain: {target_host} ({tgt_domain})"
+
+        _IP_SAFE = {"127.0.0.1", "0.0.0.0", "8.8.8.8", "8.8.4.4", "1.1.1.1", "9.9.9.9"}
+        for ip_match in re.finditer(r'\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b', text):
+            ip = ip_match.group(1)
+            if ip == _resolved_ip or ip == target_host or ip in _IP_SAFE:
+                continue
+            octets = ip.split(".")
+            if octets[0] == "10" or octets[0] == "192" or (octets[0] == "172" and 16 <= int(octets[1]) <= 31):
+                continue
+            # CF 도메인: origin IP를 Host헤더로 검증 후 허용
+            if _is_cf_domain and self._check_ip_direct_accessible(ip, domain=target_host):
+                continue
+            return f"[ERROR] Target drift blocked (bare IP): {ip}\nSession target: {self._current_target}\nOnly allowed IP: {_resolved_ip or target_host}\nUse domain URL instead: {target_host}"
+
         return None
 
     def _rewrite_dns_commands(self, cmd: str) -> str:
@@ -6176,6 +6303,44 @@ class BingoTerminal:
     @staticmethod
     def _format_interrupted_action_result(tool_name: str, elapsed: float) -> str:
         return action_runtime_helpers.format_interrupted_action_result(tool_name, elapsed)
+
+    @staticmethod
+    def _build_failure_assertions(raw_results: str) -> str:
+        """Scan execution results for HTTP failures and inject inviolable fact assertions."""
+        import re as _fa_re
+        _failed: list[tuple[str, str]] = []
+        _cur_url: str | None = None
+        _seen: set[str] = set()
+        for line in raw_results.splitlines():
+            _u = _fa_re.search(r'https?://\S+', line)
+            if _u:
+                _cur_url = _u.group(0).rstrip("'\")")
+            _http_m = _fa_re.search(r'HTTP/\S+\s+(\d{3})', line)
+            if _http_m and int(_http_m.group(1)) >= 400 and _cur_url and _cur_url not in _seen:
+                _failed.append((_cur_url, f"HTTP {_http_m.group(1)}"))
+                _seen.add(_cur_url)
+                continue
+            _af_m = _fa_re.search(r'\[HTTP_ACCESS_FAILED:\s*(\d{3})', line)
+            if _af_m and _cur_url and _cur_url not in _seen:
+                _failed.append((_cur_url, f"HTTP {_af_m.group(1)}"))
+                _seen.add(_cur_url)
+                continue
+            if _fa_re.search(r'\[EXECUTION_TIMEOUT\]|\[TIMEOUT\]', line) and _cur_url and _cur_url not in _seen:
+                _failed.append((_cur_url, "TIMEOUT"))
+                _seen.add(_cur_url)
+                continue
+            if _fa_re.search(r'\[CONNECTION_REFUSED\]|connection refused|no route to host', line, _fa_re.IGNORECASE) and _cur_url and _cur_url not in _seen:
+                _failed.append((_cur_url, "CONNECTION_REFUSED"))
+                _seen.add(_cur_url)
+        if not _failed:
+            return ""
+        _out = ["\n[FAILURE_FACTS — INVIOLABLE]",
+                "The following requests FAILED. Claiming success for these is HALLUCINATION:"]
+        for url, reason in _failed[:10]:
+            _out.append(f"  FAILED: {url} → {reason}")
+        _out.append("FORBIDDEN: Do NOT report 200/success/access/login/found for any URL above.")
+        _out.append("[END FAILURE_FACTS]\n")
+        return "\n".join(_out)
 
     def _build_action_result_record(self, tool_name: str, tool_args: dict, started_at: str, result: dict, elapsed: float) -> tuple[str, str, bool, int, bool]:
         output = result.get("output", "")
@@ -8629,6 +8794,7 @@ class BingoTerminal:
         _fc_mode = self._get_fc_tools() is not None
         _fc_nudge_count = 0
         _FC_NUDGE_MAX = 10  # Increased: discovery phases often need multiple prose iterations
+        _http_ssl_fail_count = 0  # Track consecutive http_request SSL failures
 
         while True:
             # ── Native function calling: tool_calls execution path ──────────
@@ -8661,13 +8827,13 @@ class BingoTerminal:
             # Model must use tool_use for execution. Text code blocks = display only.
             if _fc_mode:
                 _has_text_blocks = "```" in current_response or "TOOL_CALL:" in current_response
-                if not _has_text_blocks:
-                    # FC mode without tool_use: pure prose response (planning/thinking)
+                # FC mode: any response without tool_use (prose OR text blocks) triggers nudge
+                if not _has_text_blocks or not self._last_tool_calls:
                     _fc_nudge_count += 1
                     # 빈 응답도 루프 카운터에 반영 — 무한 루프 방지
                     self._exec_loop_count += 1
-                    _HARD_LOOP_CAP = int(os.environ.get("BINGO_MAX_LOOPS", "60"))
-                    if self._exec_loop_count >= _HARD_LOOP_CAP:
+                    _HARD_LOOP_CAP = int(os.environ.get("BINGO_MAX_LOOPS", "0"))
+                    if _HARD_LOOP_CAP > 0 and self._exec_loop_count >= _HARD_LOOP_CAP:
                         _cap_lang = getattr(self.config, "lang", "en")
                         _cap_msg = {
                             "ko": f"⛔ 루프 {_HARD_LOOP_CAP}회 도달 — 자동 중단. 결과를 보고합니다.",
@@ -8700,9 +8866,6 @@ class BingoTerminal:
                         self._finalize_runtime("provider_failure", self._last_model_turn.failure)
                         break
                     continue
-                # FC mode: has code blocks or TOOL_CALL in text (display only, not executed)
-                # Skip legacy code-block-nudge path entirely — FC models use tool_use, not text blocks
-                continue
 
             # 코드 블록 없으면 → AI에게 코드 작성 재촉 (최대 3회)
             # v5.2.2: TOOL_CALL이 있으면 "코드 없음" 처리 우회 — _run_code_blocks에서 처리
@@ -8774,7 +8937,23 @@ class BingoTerminal:
                 import re as _thal_re
                 # 코드 블록 제거해 순수 텍스트만 추출
                 _text_only = _thal_re.sub(r'```[\s\S]*?```', '', current_response).strip()
-                if _text_only and not results_text:
+                _results_has_failure = bool(results_text) and any(
+                    _thal_re.search(
+                        r'HTTP_ACCESS_FAILED|EXECUTION_TIMEOUT|CONNECTION_REFUSED'
+                        r'|HTTP/\S+\s+[45]\d\d|\[TIMEOUT\]|connection refused',
+                        r, _thal_re.IGNORECASE,
+                    )
+                    for r in results_text
+                )
+                _prose_claims_success = bool(results_text) and _results_has_failure and bool(
+                    _thal_re.search(
+                        r'(?:200\s*(?:ok)?|success(?:ful)?|login.*success|auth.*success'
+                        r'|접속\s*성공|인증\s*성공|로그인\s*성공|발견됨|확인됨|접근\s*가능'
+                        r'|成功|登录成功|访问成功|found|confirmed|accessible)',
+                        _text_only, _thal_re.IGNORECASE,
+                    )
+                )
+                if _text_only and (not results_text or _prose_claims_success):
                     _TEXT_HAL_RE = _thal_re.compile(
                         r"(?:"
                         # 중국어
@@ -9583,9 +9762,9 @@ class BingoTerminal:
             self._show_token_usage()
             self._exec_loop_count += 1
 
-            # ── Hard loop cap: prevent runaway 100+ loops ──────────────────
-            _HARD_LOOP_CAP = int(os.environ.get("BINGO_MAX_LOOPS", "60"))
-            if self._exec_loop_count >= _HARD_LOOP_CAP:
+            # ── Hard loop cap: safety net for runaway loops ──────────────────
+            _HARD_LOOP_CAP = int(os.environ.get("BINGO_MAX_LOOPS", "0"))
+            if _HARD_LOOP_CAP > 0 and self._exec_loop_count >= _HARD_LOOP_CAP:
                 _cap_lang = getattr(self.config, "lang", "en")
                 _cap_msg = {
                     "ko": f"⛔ 루프 {_HARD_LOOP_CAP}회 도달 — 자동 중단. 결과를 보고합니다.",
@@ -10452,9 +10631,11 @@ class BingoTerminal:
                     f"  - If CAPTCHA: look for API endpoint that bypasses frontend\n"
                 )
 
+            _fail_assertions = self._build_failure_assertions(trimmed)
             injection = (
                 "=== BINGO REAL EXECUTION RESULTS ===\n"
                 + trimmed
+                + _fail_assertions
                 + _ip_block_hint
                 + _waf_redirect_note
                 + "\n=== END REAL RESULTS ===\n\n"
@@ -11462,6 +11643,7 @@ class BingoTerminal:
         potential_count: int,
         ground_truth: str,
         session_credentials: list,
+        tech_observations: list | None = None,
     ) -> str:
         """Build a deterministic report when the report LLM is unavailable."""
         labels = {
@@ -11526,6 +11708,15 @@ class BingoTerminal:
             "zh": "- 未确认的观察仅保留在下面的待验证列表中。",
             "en": "- Unconfirmed observations are kept only in the verification backlog below.",
         }.get(lang, "- Unconfirmed observations are kept only in the verification backlog below.")
+        tech_section = ""
+        if tech_observations:
+            tech_title = {
+                "ko": "기술 스택 관측 (도구 실행 결과 기반)",
+                "zh": "技术栈观测（基于工具执行结果）",
+                "en": "Technical Observations (from tool execution)",
+            }.get(lang, "Technical Observations (from tool execution)")
+            tech_section = f"## {tech_title}\n" + "\n".join(f"- {obs}" for obs in tech_observations) + "\n\n"
+
         return (
             f"# Target: {target}\n"
             f"## {summary}\n"
@@ -11533,6 +11724,7 @@ class BingoTerminal:
             f"- {metrics[0]}: {confirmed_count}\n"
             f"- {metrics[1]}: {potential_count}\n\n"
             f"## {vulns}\n{verified_text}\n\n"
+            f"{tech_section}"
             f"## {evidence}\n{evidence_text}\n\n"
             f"## {backlog_label}\n{backlog_text}\n\n"
             f"## {creds}\n{credential_lines}\n\n"
@@ -11663,6 +11855,26 @@ class BingoTerminal:
                 f" kind={getattr(provider_failure, 'kind', 'provider_error')};"
                 f" request_id={getattr(provider_failure, 'request_id', '') or 'N/A'}."
             )
+        # v6.2.330: FactRegistry에서 기술 스택 관측 추출
+        _tech_obs: list[str] = []
+        try:
+            _pg = self._phantom_guard
+            if _pg is not None:
+                _zh = _pg._get_zero_hal()
+                if _zh is not None and hasattr(_zh, "registry"):
+                    _reg = _zh.registry
+                    for _ip in _reg.get_all("ip")[:5]:
+                        _tech_obs.append(f"IP: {_ip}")
+                    for _ver in _reg.get_all("version")[:8]:
+                        _tech_obs.append(f"Version: {_ver}")
+                    for _hdr in _reg.get_all("header")[:6]:
+                        _tech_obs.append(f"Header: {_hdr}")
+                    for _path in _reg.get_all("path")[:10]:
+                        _tech_obs.append(f"Path: {_path}")
+                    for _cve in _reg.get_all("cve")[:5]:
+                        _tech_obs.append(f"CVE: {_cve}")
+        except Exception:
+            pass
         full = self._build_fallback_report(
             target=target,
             lang=_lang,
@@ -11670,6 +11882,7 @@ class BingoTerminal:
             potential_count=_fe_potential_n,
             ground_truth=_fe_snap_block,
             session_credentials=list(_session_creds),
+            tech_observations=_tech_obs or None,
         )
         full = full.replace(
             f"# Target: {target}",

@@ -144,6 +144,7 @@ class WarmPool:
         reset_attempts: int = 3,
         vm_timeout: int | None = None,
         vm_budget: AgentVMBudget | None = None,
+        alias_prefix: str = "warm-pool",
     ) -> None:
         if max_size < 1:
             raise ValueError("max_size must be at least 1")
@@ -156,6 +157,7 @@ class WarmPool:
 
         self._runtime_factory = runtime_factory
         self._image = image
+        self._alias_prefix = alias_prefix
         self.max_size = max_size
         self._pre_warm_target = min(pre_warm, max_size)
         self.health_check_timeout = health_check_timeout
@@ -551,7 +553,7 @@ class WarmPool:
         last_exc: BaseException | None = None
 
         for attempt in range(_PROVISION_VM_ATTEMPT_LIMIT):
-            alias = vm_setup.make_agent_alias("warm-pool")
+            alias = vm_setup.make_agent_alias(self._alias_prefix)
             logger.info(
                 "Creating pooled runtime: %s (image: %s)%s",
                 alias,

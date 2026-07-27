@@ -108,30 +108,34 @@ const IN_PREDICATE_LIMIT: usize = 200;
 impl BoundPredicateVisitor for ManifestFilterVisitor<'_> {
     type T = bool;
 
-    fn always_true(&mut self) -> Result<bool> {
+    fn always_true(&mut self) -> crate::Result<bool> {
         ROWS_MIGHT_MATCH
     }
 
-    fn always_false(&mut self) -> Result<bool> {
+    fn always_false(&mut self) -> crate::Result<bool> {
         ROWS_CANNOT_MATCH
     }
 
-    fn and(&mut self, lhs: bool, rhs: bool) -> Result<bool> {
+    fn and(&mut self, lhs: bool, rhs: bool) -> crate::Result<bool> {
         Ok(lhs && rhs)
     }
 
-    fn or(&mut self, lhs: bool, rhs: bool) -> Result<bool> {
+    fn or(&mut self, lhs: bool, rhs: bool) -> crate::Result<bool> {
         Ok(lhs || rhs)
     }
 
-    fn not(&mut self, _: bool) -> Result<bool> {
+    fn not(&mut self, _: bool) -> crate::Result<bool> {
         Err(Error::new(
             ErrorKind::Unexpected,
             "not operator is not supported in partition filter",
         ))
     }
 
-    fn is_null(&mut self, reference: &BoundReference, _predicate: &BoundPredicate) -> Result<bool> {
+    fn is_null(
+        &mut self,
+        reference: &BoundReference,
+        _predicate: &BoundPredicate,
+    ) -> crate::Result<bool> {
         Ok(self.field_summary_for_reference(reference).contains_null)
     }
 
@@ -139,7 +143,7 @@ impl BoundPredicateVisitor for ManifestFilterVisitor<'_> {
         &mut self,
         reference: &BoundReference,
         _predicate: &BoundPredicate,
-    ) -> Result<bool> {
+    ) -> crate::Result<bool> {
         let field = self.field_summary_for_reference(reference);
 
         // contains_null encodes whether at least one partition value is null,
@@ -151,7 +155,11 @@ impl BoundPredicateVisitor for ManifestFilterVisitor<'_> {
         }
     }
 
-    fn is_nan(&mut self, reference: &BoundReference, _predicate: &BoundPredicate) -> Result<bool> {
+    fn is_nan(
+        &mut self,
+        reference: &BoundReference,
+        _predicate: &BoundPredicate,
+    ) -> crate::Result<bool> {
         let field = self.field_summary_for_reference(reference);
         if let Some(contains_nan) = field.contains_nan
             && !contains_nan
@@ -166,7 +174,11 @@ impl BoundPredicateVisitor for ManifestFilterVisitor<'_> {
         ROWS_MIGHT_MATCH
     }
 
-    fn not_nan(&mut self, reference: &BoundReference, _predicate: &BoundPredicate) -> Result<bool> {
+    fn not_nan(
+        &mut self,
+        reference: &BoundReference,
+        _predicate: &BoundPredicate,
+    ) -> crate::Result<bool> {
         let field = self.field_summary_for_reference(reference);
         if let Some(contains_nan) = field.contains_nan {
             // check if all values are nan
@@ -182,7 +194,7 @@ impl BoundPredicateVisitor for ManifestFilterVisitor<'_> {
         reference: &BoundReference,
         datum: &Datum,
         _predicate: &BoundPredicate,
-    ) -> Result<bool> {
+    ) -> crate::Result<bool> {
         let field = self.field_summary_for_reference(reference);
 
         match &field.lower_bound {
@@ -206,7 +218,7 @@ impl BoundPredicateVisitor for ManifestFilterVisitor<'_> {
         reference: &BoundReference,
         datum: &Datum,
         _predicate: &BoundPredicate,
-    ) -> Result<bool> {
+    ) -> crate::Result<bool> {
         let field = self.field_summary_for_reference(reference);
         match &field.lower_bound {
             Some(bound_bytes) => {
@@ -229,7 +241,7 @@ impl BoundPredicateVisitor for ManifestFilterVisitor<'_> {
         reference: &BoundReference,
         datum: &Datum,
         _predicate: &BoundPredicate,
-    ) -> Result<bool> {
+    ) -> crate::Result<bool> {
         let field = self.field_summary_for_reference(reference);
         match &field.upper_bound {
             Some(bound_bytes) => {
@@ -252,7 +264,7 @@ impl BoundPredicateVisitor for ManifestFilterVisitor<'_> {
         reference: &BoundReference,
         datum: &Datum,
         _predicate: &BoundPredicate,
-    ) -> Result<bool> {
+    ) -> crate::Result<bool> {
         let field = self.field_summary_for_reference(reference);
         match &field.upper_bound {
             Some(bound_bytes) => {
@@ -275,7 +287,7 @@ impl BoundPredicateVisitor for ManifestFilterVisitor<'_> {
         reference: &BoundReference,
         datum: &Datum,
         _predicate: &BoundPredicate,
-    ) -> Result<bool> {
+    ) -> crate::Result<bool> {
         let field = self.field_summary_for_reference(reference);
 
         if field.lower_bound.is_none() || field.upper_bound.is_none() {
@@ -310,7 +322,7 @@ impl BoundPredicateVisitor for ManifestFilterVisitor<'_> {
         _reference: &BoundReference,
         _datum: &Datum,
         _predicate: &BoundPredicate,
-    ) -> Result<bool> {
+    ) -> crate::Result<bool> {
         // because the bounds are not necessarily a min or max value, this cannot be answered using
         // them. notEq(col, X) with (X, Y) doesn't guarantee that X is a value in col.
         ROWS_MIGHT_MATCH
@@ -321,7 +333,7 @@ impl BoundPredicateVisitor for ManifestFilterVisitor<'_> {
         reference: &BoundReference,
         datum: &Datum,
         _predicate: &BoundPredicate,
-    ) -> Result<bool> {
+    ) -> crate::Result<bool> {
         let field = self.field_summary_for_reference(reference);
 
         if field.lower_bound.is_none() || field.upper_bound.is_none() {
@@ -356,7 +368,7 @@ impl BoundPredicateVisitor for ManifestFilterVisitor<'_> {
         reference: &BoundReference,
         datum: &Datum,
         _predicate: &BoundPredicate,
-    ) -> Result<bool> {
+    ) -> crate::Result<bool> {
         let field = self.field_summary_for_reference(reference);
 
         if field.contains_null || field.lower_bound.is_none() || field.upper_bound.is_none() {
@@ -399,7 +411,7 @@ impl BoundPredicateVisitor for ManifestFilterVisitor<'_> {
         reference: &BoundReference,
         literals: &FnvHashSet<Datum>,
         _predicate: &BoundPredicate,
-    ) -> Result<bool> {
+    ) -> crate::Result<bool> {
         let field = self.field_summary_for_reference(reference);
         if field.lower_bound.is_none() {
             return ROWS_CANNOT_MATCH;
@@ -437,7 +449,7 @@ impl BoundPredicateVisitor for ManifestFilterVisitor<'_> {
         _reference: &BoundReference,
         _literals: &FnvHashSet<Datum>,
         _predicate: &BoundPredicate,
-    ) -> Result<bool> {
+    ) -> crate::Result<bool> {
         // because the bounds are not necessarily a min or max value, this cannot be answered using
         // them. notIn(col, {X, ...}) with (X, Y) doesn't guarantee that X is a value in col.
         ROWS_MIGHT_MATCH
@@ -467,7 +479,7 @@ impl ManifestFilterVisitor<'_> {
         all_null
     }
 
-    fn datum_as_str<'a>(bound: &'a Datum, err_msg: &str) -> Result<&'a String> {
+    fn datum_as_str<'a>(bound: &'a Datum, err_msg: &str) -> crate::Result<&'a String> {
         let PrimitiveLiteral::String(bound) = bound.literal() else {
             return Err(Error::new(ErrorKind::Unexpected, err_msg));
         };

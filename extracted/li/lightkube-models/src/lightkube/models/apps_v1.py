@@ -6,10 +6,10 @@ from ._schema import dataclass, field, DictMixin
 if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.com/issue/PY-54560
     from dataclasses import dataclass, field
 
-from . import util_intstr
+from . import meta_v1
 from . import core_v1
 from . import runtime
-from . import meta_v1
+from . import util_intstr
 
 
 @dataclass

@@ -105,6 +105,7 @@ class AgentConfig:
         enable_cache=True,
         prompt_templates=None,
         prompt_template_root=None,
+        reasoning_effort=None,
     ):
         self.model = model
         self.api_key = api_key
@@ -116,6 +117,7 @@ class AgentConfig:
         self.enable_cache = enable_cache
         self.prompt_templates = prompt_templates or {}
         self.prompt_template_root = prompt_template_root
+        self.reasoning_effort = reasoning_effort
         self.provider: str | None = None
         self.base_url: str | None = None
 
@@ -150,6 +152,7 @@ def create_llm_adapter(config):
         timeout=getattr(config, "timeout", None),
         retry_attempts=getattr(config, "retry_attempts", 3),
         temperature=getattr(config, "temperature", 0.0),
+        reasoning_effort=getattr(config, "reasoning_effort", None),
     )
 
 
@@ -258,6 +261,41 @@ class SecurityAuditAgent:
         )
 
         return parse_llm_response(response, file_path)
+
+    def investigate(
+        self,
+        source,
+        file_path,
+        *,
+        context,
+        candidates,
+        tools,
+        limits=None,
+        run_id=None,
+        persist_trace=True,
+    ):
+        """Run a bounded, repository-aware Deep Audit investigation.
+
+        The processor owns and supplies the read-only capability. Keeping path
+        resolution and filesystem authority out of the model adapter prevents a
+        provider from silently broadening the tool boundary.
+        """
+
+        from .investigator import LogicInvestigator
+
+        investigator = LogicInvestigator(
+            self.get_adapter(),
+            limits=limits,
+            persist_trace=persist_trace,
+        )
+        return investigator.investigate(
+            source=source,
+            file_path=file_path,
+            context=context,
+            candidates=candidates,
+            tools=tools,
+            run_id=run_id,
+        )
 
 
 class ReviewAgent:

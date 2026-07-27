@@ -31,7 +31,9 @@ from ruamel.yaml.comments import CommentedMap, CommentedSeq, TaggedScalar
 from ruamel.yaml.scalarstring import LiteralScalarString
 from ruamel.yaml.tag import Tag
 
-from ...helpers.yaml.scalar import is_lambda_sentinel
+from ...helpers.api import CommandError
+from ...helpers.yaml.scalar import is_custom_yaml_tag, is_lambda_sentinel, is_tagged_sentinel
+from ...models.api import ErrorCode
 from ...models.automations import (
     ActionNode,
     AutomationAction,
@@ -139,6 +141,24 @@ def _shorthand_key(entry: AutomationAction | AutomationCondition | None) -> str 
 
 def emit_action_node(node: ActionNode) -> CommentedMap:
     """Build one ``{<action_id>: <body>}`` mapping for an action node."""
+    if node.unknown:
+        if catalog.is_known_action(node.action_id):
+            # A passthrough node can only ever be uncatalogued; ``unknown`` on a
+            # catalogued id is a mislabelled echo whose null body would wipe the
+            # real params. Fail loud, mirroring the guard below.
+            msg = f"Catalogued action {node.action_id!r} flagged as an unknown passthrough"
+            raise CommandError(ErrorCode.INVALID_ARGS, msg)
+        # Opaque passthrough (external / uncatalogued action): re-emit the body
+        # as-is (bar comments and exact formatting; YAML tags are preserved).
+        out = CommentedMap()
+        out[node.action_id] = encode_value(node.raw_body)
+        return out
+    if not catalog.is_known_action(node.action_id):
+        # A structured node (``unknown`` unset) for an id we have no schema
+        # for can only be a lossy client echo — the normal path would emit a
+        # null / stripped body and wipe the real params. Fail loud instead.
+        msg = f"Cannot write uncatalogued action {node.action_id!r} as a structured node"
+        raise CommandError(ErrorCode.INVALID_ARGS, msg)
     body = CommentedMap()
     # Condition gate leads the body: ``if`` / ``while`` want it before
     # ``then`` / ``else``, ``wait_until`` before its ``timeout:`` param.
@@ -220,6 +240,8 @@ def encode_value(value: Any) -> Any:
     """
     if is_lambda_sentinel(value):
         return _encode_lambda(value["_lambda"], value.get("_tag"))
+    if is_tagged_sentinel(value):
+        return _encode_tagged(value["_tagged"], value["_tag"])
     if isinstance(value, dict):
         out = CommentedMap()
         for k, v in value.items():
@@ -241,6 +263,40 @@ def dump(value: Any) -> str:
     return buf.getvalue()
 
 
+def _tagged_scalar(value: str, tag: str, *, style: str | None = None) -> TaggedScalar:
+    """Build a ``TaggedScalar`` carrying *tag* (``!secret`` / ``!lambda`` …)."""
+    scalar = TaggedScalar(value=value, style=style)
+    scalar.yaml_set_ctag(Tag(suffix=tag))
+    return scalar
+
+
+def _encode_tagged(body: Any, tag: Any) -> Any:
+    """
+    Re-attach a passthrough body's YAML tag (``!secret`` / ``!include`` …).
+
+    Both halves of the ``{"_tagged", "_tag"}`` wire sentinel are client-
+    supplied, so validate before either reaches ruamel — a malformed tag emits
+    unparseable YAML, and a non-``str``/dict/list body would blow up as a
+    generic error mid-dump. A tagged collection keeps the tag on its map/seq;
+    a scalar re-wraps in a ``TaggedScalar``.
+    """
+    if not is_custom_yaml_tag(tag):
+        msg = f"Invalid YAML tag in passthrough body: {tag!r}"
+        raise CommandError(ErrorCode.INVALID_ARGS, msg)
+    if isinstance(body, str):
+        return _tagged_scalar(body, tag)
+    if isinstance(body, (dict, list)):
+        inner = encode_value(body)
+        # A body that is itself a lambda sentinel encodes to a scalar, not a
+        # collection — re-wrap it as a tagged scalar rather than set a ctag on it.
+        if isinstance(inner, (CommentedMap, CommentedSeq)):
+            inner.yaml_set_ctag(Tag(suffix=tag))
+            return inner
+        return _tagged_scalar(str(inner), tag)
+    msg = f"Invalid passthrough body under tag {tag!r}: {type(body).__name__}"
+    raise CommandError(ErrorCode.INVALID_ARGS, msg)
+
+
 def _encode_lambda(body: str, tag: str | None) -> Any:
     """
     Build a ruamel scalar for a lambda sentinel body.
@@ -255,8 +311,5 @@ def _encode_lambda(body: str, tag: str | None) -> Any:
             body += "\n"
         return LiteralScalarString(body)
     if "\n" in body.rstrip("\n"):
-        scalar = TaggedScalar(value=body if body.endswith("\n") else body + "\n", style="|")
-    else:
-        scalar = TaggedScalar(value=body.rstrip("\n"), style=None)
-    scalar.yaml_set_ctag(Tag(suffix="!lambda"))
-    return scalar
+        return _tagged_scalar(body if body.endswith("\n") else body + "\n", "!lambda", style="|")
+    return _tagged_scalar(body.rstrip("\n"), "!lambda")

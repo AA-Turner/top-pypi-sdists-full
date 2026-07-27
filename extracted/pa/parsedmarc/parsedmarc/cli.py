@@ -4,17 +4,18 @@
 """A CLI for parsing DMARC reports"""
 
 import atexit
+import functools
 import http.client
 import json
 import logging
 import os
+import shutil
 import signal
 import sys
 import time
 from argparse import ArgumentParser, Namespace
 from configparser import ConfigParser
 from glob import escape as glob_escape, glob
-from multiprocessing import Pipe, Process
 from ssl import CERT_NONE, create_default_context
 
 import httpx
@@ -24,9 +25,11 @@ from kiota_abstractions.api_error import APIError
 from tqdm import tqdm
 
 from parsedmarc import (
+    IP_ADDRESS_CACHE,
     REVERSE_DNS_MAP,
     SEEN_AGGREGATE_REPORT_IDS,
     InvalidDMARCReport,
+    ParserConfig,
     ParserError,
     __version__,
     elastic,
@@ -38,7 +41,6 @@ from parsedmarc import (
     kafkaclient,
     loganalytics,
     opensearch,
-    parse_report_file,
     postgres,
     s3,
     save_output,
@@ -47,6 +49,7 @@ from parsedmarc import (
     watch_inbox,
     webhook,
 )
+from parsedmarc.constants import DEFAULT_DNS_MAX_RETRIES, DEFAULT_DNS_TIMEOUT
 from parsedmarc.log import logger
 from parsedmarc.mail import (
     AuthMethod,
@@ -55,12 +58,14 @@ from parsedmarc.mail import (
     MaildirConnection,
     MSGraphConnection,
 )
-from parsedmarc.types import ParsingResults
+from parsedmarc.parallel import _parse_report_file_job, parallel_map
+from parsedmarc.types import ParsedReport, ParsingResults
 from parsedmarc.utils import (
     InvalidIPinfoAPIKey,
     configure_ipinfo_api,
     get_base_domain,
     get_reverse_dns,
+    human_timestamp_to_datetime,
     is_mbox,
     load_ip_db,
     load_psl_overrides,
@@ -222,6 +227,192 @@ def _expand_file_path_args(paths: list[str], recursive: bool = False) -> list[st
     return expanded
 
 
+def _exclude_archived_paths(file_paths: list[str], archive_directory: str) -> list[str]:
+    """Filter *file_paths* down to paths that are not already inside
+    *archive_directory*.
+
+    The archive directory may live inside an input directory (e.g.
+    ``<input>/archive``), so without this filter a file already moved
+    into the archive on a previous run would be picked up again by a
+    later ``file_path`` directory expansion, re-parsed, and re-archived
+    (colliding with itself and accumulating numeric suffixes forever).
+
+    Paths are resolved with ``os.path.realpath`` (not just
+    ``os.path.abspath``) so a symlinked spelling of either the archive
+    directory or an input path still matches: e.g. ``archive_directory``
+    configured via a ``/data`` symlink while the input directory is
+    passed as the real ``/mnt/...`` path would otherwise never compare
+    equal, and every run would re-archive the same files with a new
+    numeric suffix forever.
+    """
+    archive_root = os.path.normcase(os.path.realpath(archive_directory))
+    kept: list[str] = []
+    for path in file_paths:
+        abs_path = os.path.normcase(os.path.realpath(path))
+        try:
+            inside_archive = (
+                os.path.commonpath([archive_root, abs_path]) == archive_root
+            )
+        except ValueError:
+            # Paths are on different drives (Windows) or otherwise not
+            # comparable, so the path can't be inside the archive.
+            inside_archive = False
+        if inside_archive:
+            logger.debug(f"Excluding already-archived file {path}")
+            continue
+        kept.append(path)
+    return kept
+
+
+def _archive_subdir_for_result(result: ParsedReport) -> str | None:
+    """Return the ``<year>/<month>/<type folder>`` subdirectory a parsed
+    report's source file should be archived under, or ``None`` when the
+    report type is unrecognized or its date can't be determined.
+
+    The date comes from the parsed report itself, not the source
+    filename or file mtime: aggregate reports use
+    ``report_metadata.begin_date``, failure reports use
+    ``arrival_date_utc``, and SMTP TLS reports use ``begin_date``.
+    """
+    report_type = result["report_type"]
+    # Only the wall-clock year/month fields are read from the parsed
+    # datetime, so no timezone conversion ever happens here — but tag
+    # the strings whose zone is known, per human_timestamp_to_datetime's
+    # contract. Aggregate begin_date is a local-time string
+    # (timestamp_to_human uses datetime.fromtimestamp) and must stay
+    # naive; arrival_date_utc is UTC wall-clock; SMTP TLS begin_date is
+    # RFC 3339 with an offset, so assume_utc would be a no-op anyway.
+    assume_utc = False
+    try:
+        if result["report_type"] == "aggregate":
+            type_folder = "Aggregate"
+            date_string = result["report"]["report_metadata"]["begin_date"]
+        elif result["report_type"] == "failure":
+            type_folder = "Failure"
+            date_string = result["report"]["arrival_date_utc"]
+            assume_utc = True
+        elif result["report_type"] == "smtp_tls":
+            type_folder = "SMTP-TLS"
+            date_string = result["report"]["begin_date"]
+        else:
+            logger.warning(f"Cannot archive unknown report type: {report_type}")
+            return None
+        dt = human_timestamp_to_datetime(date_string, assume_utc=assume_utc)
+    except (KeyError, TypeError, ValueError, OverflowError) as e:
+        logger.warning(f"Cannot determine archive date for {report_type} report: {e}")
+        return None
+
+    return os.path.join(f"{dt.year:04d}", f"{dt.month:02d}", type_folder)
+
+
+def _move_file_to_archive(file_path: str, dest_dir: str) -> str:
+    """Move *file_path* into *dest_dir*, creating it if needed, and return
+    the final destination path.
+
+    An existing file at the destination is never overwritten: a numeric
+    suffix is appended before the extension (``name-1.xml``,
+    ``name-2.xml``, ...) until a free name is found. For multi-suffix
+    names like ``report.xml.gz`` the numeric suffix lands before the
+    last suffix only (``report.xml-1.gz``); this is acceptable.
+
+    The free-name claim is atomic (``os.open`` with
+    ``O_CREAT | O_EXCL``) rather than an exists-check-then-move: a plain
+    ``os.path.exists()`` check followed by ``shutil.move()`` is a
+    TOCTOU race between concurrent ``parsedmarc`` invocations sharing an
+    archive directory, and ``shutil.move()`` silently overwrites an
+    existing destination on POSIX, which would violate the
+    never-overwrite guarantee. Instead, each candidate name is staked
+    out with a zero-byte placeholder file before the real move happens;
+    ``shutil.move()`` then replaces that placeholder with the real file
+    — atomically via ``os.rename`` when source and destination are on
+    the same POSIX filesystem, otherwise (Windows, or a cross-device
+    move) via a ``copy2``-and-overwrite that is not atomic but still
+    cannot collide with a concurrent invocation, since the placeholder
+    already claimed the name.
+    """
+    os.makedirs(dest_dir, exist_ok=True)
+    base, ext = os.path.splitext(os.path.basename(file_path))
+    candidate = os.path.basename(file_path)
+    n = 1
+    while True:
+        dest_path = os.path.join(dest_dir, candidate)
+        try:
+            # 0o600 (not os.open's 0o777 default) so a placeholder that
+            # outlives a failed move+cleanup is never executable or
+            # group/other-accessible. The mode never reaches the real
+            # archived file: os.rename replaces the placeholder's inode
+            # outright, and the copy2 fallback's copystat overwrites the
+            # mode with the source file's.
+            fd = os.open(dest_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        except FileExistsError:
+            candidate = f"{base}-{n}{ext}"
+            n += 1
+            continue
+        os.close(fd)
+        break
+
+    try:
+        shutil.move(file_path, dest_path)
+    except Exception:
+        try:
+            os.remove(dest_path)
+        except OSError:
+            # Best-effort cleanup of the just-created placeholder; the
+            # move failure re-raised below is the error that matters.
+            pass
+        raise
+    return dest_path
+
+
+def _archive_processed_file(
+    file_path: str, archive_directory: str, result: ParsedReport | Exception
+) -> None:
+    """Move *file_path* into *archive_directory* after processing.
+
+    Files that failed to parse as a report (*result* is a
+    ``ParserError`` — every parse-failure exception, including
+    ``InvalidSMTPTLSReport``, subclasses it) go to
+    ``<archive_directory>/Invalid/``. Files that failed for some other
+    reason (a transient ``OSError``/``PermissionError`` from the parse
+    job's broad catch, or an unexpected parser bug) are left in place so
+    a later run can retry them — renaming a valid-but-currently-unreadable
+    report into ``Invalid/`` would permanently sideline it, since moving
+    a file needs no read permission on its contents, and
+    ``_exclude_archived_paths`` would then hide it from every future run
+    too. The parse loop already logged the error either way.
+
+    Successfully parsed files go to the dated ``<year>/<month>/<type>``
+    subdirectory returned by ``_archive_subdir_for_result``; if that
+    returns ``None`` (unknown report type or unparseable date), the file
+    is left in place — a warning was already logged by that helper.
+
+    A move failure is logged and never allowed to abort the run: the
+    file has already been successfully parsed (or definitively failed
+    to parse), so a filesystem error while archiving it should not
+    cause the caller to lose that work.
+    """
+    if isinstance(result, ParserError):
+        subdir = "Invalid"
+    elif isinstance(result, Exception):
+        logger.debug(
+            f"Leaving {file_path} in place: {result.__class__.__name__} is not "
+            "a report-parsing failure, so it may be retryable"
+        )
+        return
+    else:
+        subdir = _archive_subdir_for_result(result)
+        if subdir is None:
+            return
+
+    dest_dir = os.path.join(archive_directory, subdir)
+    try:
+        dest_path = _move_file_to_archive(file_path, dest_dir)
+    except Exception as e:
+        logger.error(f"Error moving {file_path} to the archive: {e}")
+        return
+    logger.debug(f"Archived {file_path} to {dest_path}")
+
+
 # All known INI config section names, used for env var resolution.
 _KNOWN_SECTIONS = frozenset(
     {
@@ -369,37 +560,9 @@ def _configure_logging(log_level, log_file=None):
         log_level: The logging level (e.g., logging.DEBUG, logging.WARNING)
         log_file: Optional path to log file
     """
-    # Get the logger
-    from parsedmarc.log import logger
+    from parsedmarc.log import configure_logging
 
-    # Set the log level
-    logger.setLevel(log_level)
-
-    # Add StreamHandler with formatter if not already present
-    # Check if we already have a StreamHandler to avoid duplicates
-    # Use exact type check to distinguish from FileHandler subclass
-    has_stream_handler = any(type(h) is logging.StreamHandler for h in logger.handlers)
-
-    if not has_stream_handler:
-        formatter = logging.Formatter(
-            fmt="%(levelname)8s:%(filename)s:%(lineno)d:%(message)s",
-            datefmt="%Y-%m-%d:%H:%M:%S",
-        )
-        handler = logging.StreamHandler()
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-
-    # Add FileHandler if log_file is specified
-    if log_file:
-        try:
-            fh = logging.FileHandler(log_file, "a")
-            formatter = logging.Formatter(
-                "%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s"
-            )
-            fh.setFormatter(formatter)
-            logger.addHandler(fh)
-        except (IOError, OSError, PermissionError) as error:
-            logger.warning(f"Unable to write to log file: {error}")
+    configure_logging(log_level, log_file)
 
 
 # Loggers of the libraries that implement the mailbox and Microsoft Graph
@@ -445,64 +608,6 @@ def _configure_dependency_logging(level: int) -> None:
         for wanted in logger.handlers:
             if wanted not in dep_logger.handlers:
                 dep_logger.addHandler(wanted)
-
-
-def cli_parse(
-    file_path,
-    sa,
-    nameservers,
-    dns_timeout,
-    dns_retries,
-    ip_db_path,
-    offline,
-    always_use_local_files,
-    reverse_dns_map_path,
-    reverse_dns_map_url,
-    normalize_timespan_threshold_hours,
-    conn,
-    log_level=logging.ERROR,
-    log_file=None,
-):
-    """Separated this function for multiprocessing
-
-    Args:
-        file_path: Path to the report file
-        sa: Strip attachment payloads flag
-        nameservers: List of nameservers
-        dns_timeout: DNS timeout
-        dns_retries: Number of DNS retries on transient errors
-        ip_db_path: Path to IP database
-        offline: Offline mode flag
-        always_use_local_files: Always use local files flag
-        reverse_dns_map_path: Path to reverse DNS map
-        reverse_dns_map_url: URL to reverse DNS map
-        normalize_timespan_threshold_hours: Timespan threshold
-        conn: Pipe connection for IPC
-        log_level: Logging level for this process
-        log_file: Optional path to log file
-    """
-    # Configure logging in this child process
-    _configure_logging(log_level, log_file)
-
-    try:
-        file_results = parse_report_file(
-            file_path,
-            ip_db_path=ip_db_path,
-            offline=offline,
-            always_use_local_files=always_use_local_files,
-            reverse_dns_map_path=reverse_dns_map_path,
-            reverse_dns_map_url=reverse_dns_map_url,
-            nameservers=nameservers,
-            dns_timeout=dns_timeout,
-            dns_retries=dns_retries,
-            strip_attachment_payloads=sa,
-            normalize_timespan_threshold_hours=normalize_timespan_threshold_hours,
-        )
-        conn.send([file_results, file_path])
-    except ParserError as error:
-        conn.send([error, file_path])
-    finally:
-        conn.close()
 
 
 def _load_config(config_file: str | None = None) -> ConfigParser:
@@ -566,6 +671,8 @@ def _parse_config(config: ConfigParser, opts):
             )
         if "output" in general_config:
             opts.output = _expand_path(general_config["output"])
+        if "archive_directory" in general_config:
+            opts.archive_directory = _expand_path(general_config["archive_directory"])
         if "aggregate_json_filename" in general_config:
             opts.aggregate_json_filename = general_config["aggregate_json_filename"]
         if "failure_json_filename" in general_config:
@@ -676,12 +783,32 @@ def _parse_config(config: ConfigParser, opts):
             opts.mailbox_watch = bool(mailbox_config.getboolean("watch"))
         if "delete" in mailbox_config:
             opts.mailbox_delete = bool(mailbox_config.getboolean("delete"))
+        if "delete_aggregate" in mailbox_config:
+            opts.mailbox_delete_aggregate = bool(
+                mailbox_config.getboolean("delete_aggregate")
+            )
+        if "delete_failure" in mailbox_config:
+            opts.mailbox_delete_failure = bool(
+                mailbox_config.getboolean("delete_failure")
+            )
+        if "delete_smtp_tls" in mailbox_config:
+            opts.mailbox_delete_smtp_tls = bool(
+                mailbox_config.getboolean("delete_smtp_tls")
+            )
+        if "delete_invalid" in mailbox_config:
+            opts.mailbox_delete_invalid = bool(
+                mailbox_config.getboolean("delete_invalid")
+            )
         if "test" in mailbox_config:
             opts.mailbox_test = bool(mailbox_config.getboolean("test"))
         if "batch_size" in mailbox_config:
             opts.mailbox_batch_size = mailbox_config.getint("batch_size")
         if "check_timeout" in mailbox_config:
             opts.mailbox_check_timeout = mailbox_config.getint("check_timeout")
+        if "max_unsaved_retries" in mailbox_config:
+            opts.mailbox_max_unsaved_retries = mailbox_config.getint(
+                "max_unsaved_retries"
+            )
         if "since" in mailbox_config:
             opts.mailbox_since = mailbox_config["since"]
 
@@ -1544,6 +1671,41 @@ def _close_output_clients(clients):
                 logger.warning("Error closing %s", name, exc_info=True)
 
 
+def _build_parser_config(opts: Namespace) -> ParserConfig:
+    """Builds the single ParserConfig for this run from parsed opts, bound to
+    the process-wide default caches (the parsedmarc module globals).
+    """
+    return ParserConfig(
+        offline=opts.offline,
+        ip_db_path=opts.ip_db_path,
+        always_use_local_files=opts.always_use_local_files,
+        reverse_dns_map_path=opts.reverse_dns_map_path,
+        reverse_dns_map_url=opts.reverse_dns_map_url,
+        psl_overrides_path=opts.psl_overrides_path,
+        psl_overrides_url=opts.psl_overrides_url,
+        nameservers=opts.nameservers,
+        dns_timeout=(
+            float(opts.dns_timeout)
+            if opts.dns_timeout is not None
+            else DEFAULT_DNS_TIMEOUT
+        ),
+        dns_retries=(
+            int(opts.dns_retries)
+            if opts.dns_retries is not None
+            else DEFAULT_DNS_MAX_RETRIES
+        ),
+        strip_attachment_payloads=opts.strip_attachment_payloads,
+        normalize_timespan_threshold_hours=(
+            float(opts.normalize_timespan_threshold_hours)
+            if opts.normalize_timespan_threshold_hours is not None
+            else 24.0
+        ),
+        ip_address_cache=IP_ADDRESS_CACHE,
+        seen_aggregate_report_ids=SEEN_AGGREGATE_REPORT_IDS,
+        reverse_dns_map=REVERSE_DNS_MAP,
+    )
+
+
 def _main():
     """Called when the module is executed"""
 
@@ -1555,7 +1717,12 @@ def _main():
             domain = report["policy_published"]["domain"]
         elif "reported_domain" in report:
             domain = report["reported_domain"]
-        elif "policies" in report:
+        elif report.get("policies"):
+            # Guarded with .get() truthiness: parse_smtp_tls_report_json()
+            # accepts a report whose policies list is empty, which would
+            # make [0] raise IndexError here. Such a report has no domain
+            # to map, so it falls through to return None like any other
+            # unmappable report.
             domain = report["policies"][0]["policy_domain"]
         if domain:
             domain = get_base_domain(domain)
@@ -1574,7 +1741,44 @@ def _main():
                         return prefix
         return None
 
+    def filter_smtp_tls_reports_for_index_prefix(tls_reports):
+        """Drop SMTP TLS reports whose domain isn't covered by
+        ``index_prefix_domain_map``.
+
+        Shared by ``process_reports()`` (which filters each batch it saves)
+        and by the combined ``parsing_results`` that feeds
+        ``email_results()``. Mailbox batches are saved inside
+        ``get_dmarc_reports_from_mailbox()``, so the dicts
+        ``process_reports()`` filters in place are no longer the same
+        objects as the combined results assembled afterward -- without this,
+        the emailed summary would list SMTP TLS reports that were
+        deliberately excluded from every output destination.
+        """
+        if index_prefix_domain_map is None:
+            return tls_reports
+        filtered_tls = []
+        for report in tls_reports:
+            if get_index_prefix(report) is not None:
+                filtered_tls.append(report)
+            else:
+                domain = "unknown"
+                if "policies" in report and report["policies"]:
+                    domain = report["policies"][0].get("policy_domain", "unknown")
+                logger.debug(
+                    "Ignoring SMTP TLS report for domain not in "
+                    "index_prefix_domain_map: %s",
+                    domain,
+                )
+        return filtered_tls
+
     def process_reports(reports_):
+        """Write ``reports_`` to every configured output destination.
+
+        Returns the list of human-readable output-error messages recorded
+        along the way -- empty when every destination accepted the reports.
+        Callers use that as the "was this batch saved?" signal; see
+        ``mailbox_save_callback()``.
+        """
         output_errors = []
 
         def log_output_error(destination, error):
@@ -1583,20 +1787,9 @@ def _main():
             output_errors.append(message)
 
         if index_prefix_domain_map is not None:
-            filtered_tls = []
-            for report in reports_.get("smtp_tls_reports", []):
-                if get_index_prefix(report) is not None:
-                    filtered_tls.append(report)
-                else:
-                    domain = "unknown"
-                    if "policies" in report and report["policies"]:
-                        domain = report["policies"][0].get("policy_domain", "unknown")
-                    logger.debug(
-                        "Ignoring SMTP TLS report for domain not in "
-                        "index_prefix_domain_map: %s",
-                        domain,
-                    )
-            reports_["smtp_tls_reports"] = filtered_tls
+            reports_["smtp_tls_reports"] = filter_smtp_tls_reports_for_index_prefix(
+                reports_.get("smtp_tls_reports", [])
+            )
 
         indent_value = 2 if opts.prettify_json else None
         output_str = (
@@ -1606,16 +1799,24 @@ def _main():
         if not opts.silent:
             print(output_str)
         if opts.output:
-            save_output(
-                reports_,
-                output_directory=opts.output,
-                aggregate_json_filename=opts.aggregate_json_filename,
-                failure_json_filename=opts.failure_json_filename,
-                smtp_tls_json_filename=opts.smtp_tls_json_filename,
-                aggregate_csv_filename=opts.aggregate_csv_filename,
-                failure_csv_filename=opts.failure_csv_filename,
-                smtp_tls_csv_filename=opts.smtp_tls_csv_filename,
-            )
+            try:
+                save_output(
+                    reports_,
+                    output_directory=opts.output,
+                    aggregate_json_filename=opts.aggregate_json_filename,
+                    failure_json_filename=opts.failure_json_filename,
+                    smtp_tls_json_filename=opts.smtp_tls_json_filename,
+                    aggregate_csv_filename=opts.aggregate_csv_filename,
+                    failure_csv_filename=opts.failure_csv_filename,
+                    smtp_tls_csv_filename=opts.smtp_tls_csv_filename,
+                )
+            except (OSError, ValueError) as error_:
+                # The only output destination that was not already caught:
+                # a full disk or an unwritable directory used to crash the
+                # run outright, and now that a failed save holds mailbox
+                # messages back it also has to be recorded like any other
+                # destination's failure rather than escaping.
+                log_output_error("File output", str(error_))
 
         kafka_client = clients.get("kafka_client")
         s3_client = clients.get("s3_client")
@@ -1938,6 +2139,8 @@ def _main():
                 )
             )
 
+        return output_errors
+
     arg_parser = ArgumentParser(description="Parses DMARC reports")
     arg_parser.add_argument(
         "-c",
@@ -2075,9 +2278,17 @@ def _main():
         mailbox_archive_folder="Archive",
         mailbox_watch=False,
         mailbox_delete=False,
+        # None means "unset": each per-report-type flag inherits mailbox_delete
+        # in get_dmarc_reports_from_mailbox, so an explicit False (opting one
+        # type out of a global delete = true) stays distinct from being unset.
+        mailbox_delete_aggregate=None,
+        mailbox_delete_failure=None,
+        mailbox_delete_smtp_tls=None,
+        mailbox_delete_invalid=None,
         mailbox_test=False,
         mailbox_batch_size=10,
         mailbox_check_timeout=30,
+        mailbox_max_unsaved_retries=2,
         mailbox_since=None,
         imap_host=None,
         imap_skip_certificate_verification=False,
@@ -2179,6 +2390,7 @@ def _main():
         maildir_create=False,
         log_file=args.log_file,
         n_procs=1,
+        archive_directory=None,
         ip_db_path=None,
         ipinfo_url=None,
         ipinfo_api_token=None,
@@ -2355,6 +2567,8 @@ def _main():
     signal.signal(signal.SIGINT, _handle_sigint)
 
     file_paths = _expand_file_path_args(args.file_path, recursive=args.recursive)
+    if opts.archive_directory:
+        file_paths = _exclude_archived_paths(file_paths, opts.archive_directory)
     mbox_paths = []
 
     for file_path in file_paths:
@@ -2367,10 +2581,6 @@ def _main():
     for mbox_path in mbox_paths:
         file_paths.remove(mbox_path)
 
-    counter = 0
-
-    results = []
-
     pbar = None
     if sys.stderr.isatty() and len(file_paths) > 0:
         pbar = tqdm(total=len(file_paths))
@@ -2379,121 +2589,77 @@ def _main():
     if n_procs < 1:
         n_procs = 1
 
-    # Capture the current log level to pass to child processes
-    current_log_level = logger.level
-    current_log_file = opts.log_file
+    parser_config = _build_parser_config(opts)
 
-    for batch_index in range((len(file_paths) + n_procs - 1) // n_procs):
-        # Honor a shutdown request between batches before spawning the
-        # next pool. Anything already parsed is still in `results` and
-        # will go through process_reports() in the cleanup path so we
-        # don't lose work the operator already paid for.
-        if _shutdown_requested:
-            logger.info(
-                "Shutdown requested, stopping file processing after %d batch(es)",
-                batch_index,
-            )
-            break
-
-        processes = []
-        connections = []
-
-        for proc_index in range(n_procs * batch_index, n_procs * (batch_index + 1)):
-            if proc_index >= len(file_paths):
-                break
-
-            parent_conn, child_conn = Pipe()
-            connections.append(parent_conn)
-
-            process = Process(
-                target=cli_parse,
-                args=(
-                    file_paths[proc_index],
-                    opts.strip_attachment_payloads,
-                    opts.nameservers,
-                    opts.dns_timeout,
-                    opts.dns_retries,
-                    opts.ip_db_path,
-                    opts.offline,
-                    opts.always_use_local_files,
-                    opts.reverse_dns_map_path,
-                    opts.reverse_dns_map_url,
-                    opts.normalize_timespan_threshold_hours,
-                    child_conn,
-                    current_log_level,
-                    current_log_file,
-                ),
-            )
-            processes.append(process)
-
-        for proc in processes:
-            proc.start()
-
-        for conn in connections:
-            results.append(conn.recv())
-
-        for proc in processes:
-            proc.join()
-            if pbar is not None:
-                counter += 1
-                pbar.update(1)
-
-    if pbar is not None:
-        pbar.close()
-
-    for result in results:
-        if isinstance(result[0], ParserError) or result[0] is None:
-            logger.error(f"Failed to parse {result[1]} - {result[0]}")
+    func = functools.partial(_parse_report_file_job, config=parser_config)
+    for file_path, result in parallel_map(
+        func, file_paths, n_procs, should_stop=lambda: _shutdown_requested
+    ):
+        if pbar is not None:
+            pbar.update(1)
+        if isinstance(result, Exception):
+            logger.error(f"Failed to parse {file_path} - {result}")
         else:
-            if result[0]["report_type"] == "aggregate":
-                report_org = result[0]["report"]["report_metadata"]["org_name"]
-                report_id = result[0]["report"]["report_metadata"]["report_id"]
+            if result["report_type"] == "aggregate":
+                report_org = result["report"]["report_metadata"]["org_name"]
+                report_id = result["report"]["report_metadata"]["report_id"]
                 report_key = f"{report_org}_{report_id}"
                 if report_key not in SEEN_AGGREGATE_REPORT_IDS:
                     SEEN_AGGREGATE_REPORT_IDS[report_key] = True
-                    aggregate_reports.append(result[0]["report"])
+                    aggregate_reports.append(result["report"])
                 else:
                     logger.debug(
                         "Skipping duplicate aggregate report "
                         f"from {report_org} with ID: {report_id}"
                     )
-            elif result[0]["report_type"] == "failure":
-                failure_reports.append(result[0]["report"])
-            elif result[0]["report_type"] == "smtp_tls":
-                smtp_tls_reports.append(result[0]["report"])
+            elif result["report_type"] == "failure":
+                failure_reports.append(result["report"])
+            elif result["report_type"] == "smtp_tls":
+                smtp_tls_reports.append(result["report"])
+        if opts.archive_directory:
+            _archive_processed_file(file_path, opts.archive_directory, result)
+
+    if pbar is not None:
+        pbar.close()
+
+    if _shutdown_requested:
+        # Anything already parsed is still in aggregate_reports /
+        # failure_reports / smtp_tls_reports and will go through
+        # process_reports() in the cleanup path so we don't lose work
+        # the operator already paid for.
+        logger.info("Shutdown requested, stopping file processing early")
 
     for mbox_path in mbox_paths:
         if _shutdown_requested:
             logger.info("Shutdown requested, skipping remaining mbox files")
             break
-        normalize_timespan_threshold_hours_value = (
-            float(opts.normalize_timespan_threshold_hours)
-            if opts.normalize_timespan_threshold_hours is not None
-            else 24.0
-        )
-        strip = opts.strip_attachment_payloads
         reports = get_dmarc_reports_from_mbox(
             mbox_path,
-            nameservers=opts.nameservers,
-            dns_timeout=opts.dns_timeout,
-            dns_retries=opts.dns_retries,
-            strip_attachment_payloads=strip,
-            ip_db_path=opts.ip_db_path,
-            always_use_local_files=opts.always_use_local_files,
-            reverse_dns_map_path=opts.reverse_dns_map_path,
-            reverse_dns_map_url=opts.reverse_dns_map_url,
-            offline=opts.offline,
-            normalize_timespan_threshold_hours=normalize_timespan_threshold_hours_value,
+            config=parser_config,
+            n_procs=n_procs,
         )
         aggregate_reports += reports["aggregate_reports"]
         failure_reports += reports["failure_reports"]
         smtp_tls_reports += reports["smtp_tls_reports"]
 
+    # Snapshot of the file/mbox-derived reports, taken before the mailbox
+    # block below appends anything fetched from a live mailbox connection.
+    # Mailbox batches are handed to process_reports() by
+    # mailbox_save_callback() before get_dmarc_reports_from_mailbox() even
+    # returns -- that is what lets it decide whether archiving is safe -- so
+    # the final process_reports() call runs on this snapshot only, or the
+    # mailbox-derived reports would be saved twice.
+    file_parsing_results: ParsingResults = {
+        "aggregate_reports": list(aggregate_reports),
+        "failure_reports": list(failure_reports),
+        "smtp_tls_reports": list(smtp_tls_reports),
+    }
+
     mailbox_connection = None
     msgraph_connection: MSGraphConnection | None = None
     mailbox_batch_size_value = 10
     mailbox_check_timeout_value = 30
-    normalize_timespan_threshold_hours_value = 24.0
+    mailbox_max_unsaved_retries_value = 2
 
     if opts.imap_host:
         try:
@@ -2603,7 +2769,21 @@ def _main():
             exit(1)
 
     if opts.gmail_api_credentials_file:
-        if opts.mailbox_delete:
+        # Any effective delete flag needs the deletion scope: the per-report-type
+        # flags inherit mailbox_delete when unset (None), so this reduces to
+        # mailbox_delete alone when none of them is set. The scope is a
+        # mailbox-wide capability grant rather than a per-type one, so when it
+        # is missing every flag is turned off explicitly.
+        per_type_delete_opts = (
+            "mailbox_delete_aggregate",
+            "mailbox_delete_failure",
+            "mailbox_delete_smtp_tls",
+            "mailbox_delete_invalid",
+        )
+        if any(
+            opts.mailbox_delete if getattr(opts, name) is None else getattr(opts, name)
+            for name in per_type_delete_opts
+        ):
             if "https://mail.google.com/" not in opts.gmail_api_scopes:
                 logger.error(
                     "Message deletion requires scope"
@@ -2612,6 +2792,8 @@ def _main():
                     "to acquire proper access."
                 )
                 opts.mailbox_delete = False
+                for name in per_type_delete_opts:
+                    setattr(opts, name, False)
 
         try:
             mailbox_connection = GmailConnection(
@@ -2649,36 +2831,58 @@ def _main():
             if opts.mailbox_check_timeout is not None
             else 30
         )
-        normalize_timespan_threshold_hours_value = (
-            float(opts.normalize_timespan_threshold_hours)
-            if opts.normalize_timespan_threshold_hours is not None
-            else 24.0
+        mailbox_max_unsaved_retries_value = (
+            int(opts.mailbox_max_unsaved_retries)
+            if opts.mailbox_max_unsaved_retries is not None
+            else 2
         )
+
+    def mailbox_save_callback(batch: ParsingResults) -> bool:
+        """Save one mailbox batch and report whether it actually landed.
+
+        Passed to ``get_dmarc_reports_from_mailbox()`` as ``save_callback``
+        and to ``watch_inbox()`` as its ``callback``. Returning ``False``
+        when any output destination failed keeps that batch's messages in
+        the mailbox to be retried, instead of archiving or deleting reports
+        that were never persisted anywhere (#242). With
+        ``fail_on_output_error`` enabled it never returns ``False``:
+        ``process_reports()`` raises ``ParserError`` instead, which the
+        library treats as "unsaved" too (same retention and retry-cap
+        bookkeeping) before the exception propagates back out here.
+        """
+        return not process_reports(batch)
+
     if mailbox_connection and not _shutdown_requested:
         try:
             reports = get_dmarc_reports_from_mailbox(
                 connection=mailbox_connection,
                 delete=opts.mailbox_delete,
+                delete_aggregate=opts.mailbox_delete_aggregate,
+                delete_failure=opts.mailbox_delete_failure,
+                delete_smtp_tls=opts.mailbox_delete_smtp_tls,
+                delete_invalid=opts.mailbox_delete_invalid,
                 batch_size=mailbox_batch_size_value,
                 reports_folder=opts.mailbox_reports_folder,
                 archive_folder=opts.mailbox_archive_folder,
-                ip_db_path=opts.ip_db_path,
-                always_use_local_files=opts.always_use_local_files,
-                reverse_dns_map_path=opts.reverse_dns_map_path,
-                reverse_dns_map_url=opts.reverse_dns_map_url,
-                offline=opts.offline,
-                nameservers=opts.nameservers,
                 test=opts.mailbox_test,
-                strip_attachment_payloads=opts.strip_attachment_payloads,
                 since=opts.mailbox_since,
-                dns_retries=opts.dns_retries,
-                normalize_timespan_threshold_hours=normalize_timespan_threshold_hours_value,
+                config=parser_config,
+                n_procs=n_procs,
+                save_callback=mailbox_save_callback,
+                max_unsaved_retries=mailbox_max_unsaved_retries_value,
             )
 
             aggregate_reports += reports["aggregate_reports"]
             failure_reports += reports["failure_reports"]
             smtp_tls_reports += reports["smtp_tls_reports"]
 
+        except ParserError as error:
+            # fail_on_output_error turns a failed batch save into a
+            # ParserError inside mailbox_save_callback; it reaches here
+            # through get_dmarc_reports_from_mailbox, which leaves the
+            # batch's messages in the mailbox on its way out.
+            logger.error(error.__str__())
+            sys.exit(1)
         except (ClientAuthenticationError, APIError, httpx.HTTPError) as error:
             if msgraph_connection is None:
                 logger.exception("Mailbox Error")
@@ -2695,17 +2899,31 @@ def _main():
             logger.exception("Mailbox Error")
             exit(1)
 
+    # Filtered here rather than relying on process_reports()'s in-place
+    # filtering: the dicts it filters are the file snapshot and the mailbox
+    # batches, not this combined dict, which exists only to feed
+    # email_results() / email_results_via_msgraph() below.
     parsing_results: ParsingResults = {
         "aggregate_reports": aggregate_reports,
         "failure_reports": failure_reports,
-        "smtp_tls_reports": smtp_tls_reports,
+        "smtp_tls_reports": filter_smtp_tls_reports_for_index_prefix(smtp_tls_reports),
     }
 
-    try:
-        process_reports(parsing_results)
-    except ParserError as error:
-        logger.error(error.__str__())
-        exit(1)
+    file_results_nonempty = bool(
+        file_parsing_results["aggregate_reports"]
+        or file_parsing_results["failure_reports"]
+        or file_parsing_results["smtp_tls_reports"]
+    )
+    # Mailbox-derived reports were already saved by mailbox_save_callback;
+    # only file/mbox-derived reports are left to save here. With a mailbox
+    # connection and nothing from files, skip the call entirely so the run
+    # doesn't print a second, empty JSON blob.
+    if file_results_nonempty or not mailbox_connection:
+        try:
+            process_reports(file_parsing_results)
+        except ParserError as error:
+            logger.error(error.__str__())
+            sys.exit(1)
 
     smtp_to_value = (
         list(opts.smtp_to)
@@ -2784,25 +3002,22 @@ def _main():
                 # at a safe boundary once the current batch is processed.
                 watch_inbox(
                     mailbox_connection=mailbox_connection,
-                    callback=process_reports,
+                    callback=mailbox_save_callback,
                     reports_folder=opts.mailbox_reports_folder,
                     archive_folder=opts.mailbox_archive_folder,
                     delete=opts.mailbox_delete,
+                    delete_aggregate=opts.mailbox_delete_aggregate,
+                    delete_failure=opts.mailbox_delete_failure,
+                    delete_smtp_tls=opts.mailbox_delete_smtp_tls,
+                    delete_invalid=opts.mailbox_delete_invalid,
                     test=opts.mailbox_test,
                     check_timeout=mailbox_check_timeout_value,
-                    nameservers=opts.nameservers,
-                    dns_timeout=opts.dns_timeout,
-                    dns_retries=opts.dns_retries,
-                    strip_attachment_payloads=opts.strip_attachment_payloads,
                     batch_size=mailbox_batch_size_value,
                     since=opts.mailbox_since,
-                    ip_db_path=opts.ip_db_path,
-                    always_use_local_files=opts.always_use_local_files,
-                    reverse_dns_map_path=opts.reverse_dns_map_path,
-                    reverse_dns_map_url=opts.reverse_dns_map_url,
-                    offline=opts.offline,
-                    normalize_timespan_threshold_hours=normalize_timespan_threshold_hours_value,
+                    config=parser_config,
                     config_reloading=lambda: _reload_requested or _shutdown_requested,
+                    n_procs=n_procs,
+                    max_unsaved_retries=mailbox_max_unsaved_retries_value,
                 )
             except FileExistsError as error:
                 logger.error(f"{error.__str__()}")
@@ -2889,6 +3104,8 @@ def _main():
                 for k, v in vars(new_opts).items():
                     setattr(opts, k, v)
 
+                parser_config = _build_parser_config(opts)
+
                 # Update watch parameters from reloaded config
                 mailbox_batch_size_value = (
                     int(opts.mailbox_batch_size)
@@ -2900,10 +3117,10 @@ def _main():
                     if opts.mailbox_check_timeout is not None
                     else 30
                 )
-                normalize_timespan_threshold_hours_value = (
-                    float(opts.normalize_timespan_threshold_hours)
-                    if opts.normalize_timespan_threshold_hours is not None
-                    else 24.0
+                mailbox_max_unsaved_retries_value = (
+                    int(opts.mailbox_max_unsaved_retries)
+                    if opts.mailbox_max_unsaved_retries is not None
+                    else 2
                 )
 
                 # Update log level

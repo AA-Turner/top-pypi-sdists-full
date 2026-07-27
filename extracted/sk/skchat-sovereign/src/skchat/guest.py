@@ -9,8 +9,10 @@ Flow
 4. Guest POSTs ``/guest/join`` with ``{room, invite_token, display_name}``.
    ``InviteVerifier.join()`` validates the invite → returns a ``GuestToken``
    dataclass + a ready-to-use LiveKit participant JWT.
-5. Browser is redirected to ``/livekit/<room>?room=…&identity=…&token=…``;
-   livekit.html auto-connects using the pre-minted token.
+5. Browser is handed off to the NATIVE Flutter app deep link
+   ``/app/#/conf?room=…&token=…&url=…&identity=…`` (hash-routed), which connects
+   straight to media with the pre-minted token. The legacy web client
+   (``/livekit/<room>?…``) stays reachable as a fallback via ``?web=1``.
 
 Security properties
 -------------------
@@ -524,8 +526,12 @@ class InviteVerifier:
             if not _mark_used(jti, expires_at=exp):
                 raise GuestJoinError(f"single-use invite {jti!r} already used")
 
-        # Build identity: server-assigned, guest cannot influence it.
-        identity = f"guest:{jti[:8]}"
+        # Build identity: server-assigned, guest cannot influence it. A UNIQUE
+        # per-join suffix is appended so that several people joining through the
+        # SAME reusable invite each get a distinct LiveKit identity. Without it
+        # they all shared guest:<jti> and LiveKit (one participant per identity)
+        # deduped them, so each joiner saw only themselves ("1 in call").
+        identity = f"guest:{jti[:8]}-{secrets.token_hex(3)}"
 
         # Display name: body > token hint > fallback. Reserved names (operator /
         # agent handles) are suffixed so a guest cannot impersonate them.
@@ -714,17 +720,31 @@ async function join(e) {{
       return;
     }}
     const data = await r.json();
-    const params = new URLSearchParams({{
-      room: data.room,
-      identity: data.identity,
-      token: data.lk_token,
-    }});
-    window.location.href = '/livekit/' + encodeURIComponent(data.room) + '?' + params.toString();
+    // Hand off to the NATIVE Flutter app by default (served at /app/, hash-
+    // routed, so /conf is reached at /app/#/conf with the pre-minted token).
+    // The legacy web client stays reachable as a fallback via ?web=1.
+    const room = data.room;
+    let target;
+    if (new URLSearchParams(location.search).get('web') === '1') {{
+      const params = new URLSearchParams({{
+        room: room, identity: data.identity || '', token: data.lk_token || '',
+      }});
+      target = '/livekit/' + encodeURIComponent(room) + '?' + params.toString();
+    }} else {{
+      const params = new URLSearchParams();
+      params.set('room', room);
+      if (data.lk_token) params.set('token', data.lk_token);
+      if (data.lk_url) params.set('url', data.lk_url);
+      if (data.identity) params.set('identity', data.identity);
+      if (data.display) params.set('display', data.display);
+      target = '/app/#/conf?' + params.toString();
+    }}
+    window.location.href = target;
   }} catch (err) {{
     btn.disabled = false;
     btn.textContent = 'Join call';
     document.getElementById('f').insertAdjacentHTML(
-      'afterbegin', '<p class="err">Network error — please retry.</p>');
+      'afterbegin', '<p class="err">Network error, please retry.</p>');
   }}
 }}
 </script>

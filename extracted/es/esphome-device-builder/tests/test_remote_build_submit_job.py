@@ -17,6 +17,7 @@ e2e harness in :mod:`tests.e2e` stays visible:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import shutil
 from pathlib import Path
@@ -26,15 +27,25 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from esphome.bundle import EsphomeError
 
-from esphome_device_builder.controllers.remote_build.submit_job import (
+from esphome_device_builder.controllers.remote_build.submit_job import SubmitJobReceiver
+from esphome_device_builder.controllers.remote_build.submit_job._extract_window import (
+    ExtractWindow,
+)
+from esphome_device_builder.controllers.remote_build.submit_job.controller import (
     _DEVICE_DISPLAY_FIELD_MAX_LEN,
-    SubmitJobReceiver,
     _coerce_display_field,
+    _PendingSubmit,
     _validate_configuration_filename,
 )
-from esphome_device_builder.helpers.peer_link_bundle import BUNDLE_CHUNK_SIZE_BYTES
+from esphome_device_builder.helpers.api import CommandError
+from esphome_device_builder.helpers.paths import PathEscapeError
+from esphome_device_builder.helpers.peer_link_bundle import (
+    BUNDLE_CHUNK_SIZE_BYTES,
+    BUNDLE_MAX_TOTAL_BYTES,
+)
 from esphome_device_builder.helpers.remote_build_layout import RemoteBuildPath
 from esphome_device_builder.models import (
+    ErrorCode,
     JobType,
     SubmitJobChunkFrameData,
     SubmitJobFrameData,
@@ -105,6 +116,27 @@ def _header(
     return cast(SubmitJobFrameData, header)
 
 
+async def _drain_extracts(receiver: SubmitJobReceiver) -> None:
+    """Await the off-loop post-ack extract tasks so assertions see their effects."""
+    await asyncio.gather(*receiver._extracts._tasks, return_exceptions=True)
+
+
+def _passthrough_prepare(bundle_path: Path, target_dir: Path) -> Path:
+    """Stand-in ``prepare_bundle_for_compile`` returning the conventional YAML leaf."""
+    return target_dir / "kitchen.yaml"
+
+
+def _park_extract(receiver: SubmitJobReceiver, monkeypatch: pytest.MonkeyPatch) -> asyncio.Event:
+    """Replace the receiver's extract with one parked on the returned release event."""
+    release = asyncio.Event()
+
+    async def _parked_extract(**_kwargs: object) -> None:
+        await release.wait()
+
+    monkeypatch.setattr(receiver, "_extract_and_queue", _parked_extract)
+    return release
+
+
 def _frame_chunks(job_id: str, bundle: bytes) -> list[SubmitJobChunkFrameData]:
     """Build typed ``SubmitJobChunkFrameData`` chunks via the shared helper."""
     _header_dict, chunks = make_submit_job_frames(
@@ -120,6 +152,11 @@ def _ack_payload(session: Any) -> dict[str, Any]:
     """Pull the most recent ``send_app_frame`` payload off *session*."""
     payload: dict[str, Any] = session.send_app_frame.call_args.args[0]
     return payload
+
+
+def _sent_frames(session: Any) -> list[dict[str, Any]]:
+    """Every ``send_app_frame`` payload off *session*, in send order."""
+    return [call.args[0] for call in session.send_app_frame.call_args_list]
 
 
 # ---------------------------------------------------------------------------
@@ -399,7 +436,7 @@ async def test_submit_job_oversized_bundle_rejected(tmp_path: Path) -> None:
         job_id="job-1",
         configuration_filename="kitchen.yaml",
         target="compile",
-        total_bundle_bytes=10 * 1024 * 1024,  # 10 MiB > 4 MiB cap
+        total_bundle_bytes=BUNDLE_MAX_TOTAL_BYTES + 1,
         num_chunks=1,
         bundle_sha256="0" * 64,
     )
@@ -563,6 +600,7 @@ async def test_submit_job_happy_path_extracts_and_queues(
     await receiver.handle_submit_job(session, _header(bundle=bundle))
     for chunk in _frame_chunks("job-1", bundle):
         await receiver.handle_submit_job_chunk(session, chunk)
+    await _drain_extracts(receiver)
 
     # Ack accepted, reason omitted on the success path.
     payload = _ack_payload(session)
@@ -623,6 +661,7 @@ async def test_submit_job_happy_path_with_relative_config_dir(
     await receiver.handle_submit_job(session, _header(bundle=bundle))
     for chunk in _frame_chunks("job-1", bundle):
         await receiver.handle_submit_job_chunk(session, chunk)
+    await _drain_extracts(receiver)
 
     payload = _ack_payload(session)
     assert payload["accepted"] is True, payload
@@ -676,6 +715,7 @@ async def test_submit_job_clean_target_creates_clean_job(
     await receiver.handle_submit_job(session, _header(target="clean", bundle=bundle))
     for chunk in _frame_chunks("job-1", bundle):
         await receiver.handle_submit_job_chunk(session, chunk)
+    await _drain_extracts(receiver)
 
     payload = _ack_payload(session)
     assert payload["accepted"] is True
@@ -747,6 +787,7 @@ async def test_submit_job_carries_display_fields_through_to_firmware_job(
     await receiver.handle_submit_job(session, cast(SubmitJobFrameData, header))
     for chunk in chunks:
         await receiver.handle_submit_job_chunk(session, cast(SubmitJobChunkFrameData, chunk))
+    await _drain_extracts(receiver)
 
     assert _ack_payload(session)["accepted"] is True
     assert len(firmware.created_jobs) == 1
@@ -807,6 +848,7 @@ async def test_submit_job_malformed_display_fields_coerce_to_empty(
     await receiver.handle_submit_job(session, cast(SubmitJobFrameData, header))
     for chunk in chunks:
         await receiver.handle_submit_job_chunk(session, cast(SubmitJobChunkFrameData, chunk))
+    await _drain_extracts(receiver)
 
     assert _ack_payload(session)["accepted"] is True
     job = firmware.created_jobs[0]
@@ -874,6 +916,7 @@ async def test_submit_job_missing_display_fields_falls_through_to_empty_strings(
     await receiver.handle_submit_job(session, cast(SubmitJobFrameData, legacy_header))
     for chunk in chunks:
         await receiver.handle_submit_job_chunk(session, cast(SubmitJobChunkFrameData, chunk))
+    await _drain_extracts(receiver)
 
     assert _ack_payload(session)["accepted"] is True
     job = firmware.created_jobs[0]
@@ -945,6 +988,7 @@ async def test_submit_job_bundle_path_survives_prepare_bundle_wipe(
     await receiver.handle_submit_job(session, _header(bundle=bundle))
     for chunk in _frame_chunks("job-1", bundle):
         await receiver.handle_submit_job_chunk(session, chunk)
+    await _drain_extracts(receiver)
 
     payload = _ack_payload(session)
     assert payload["accepted"] is True
@@ -976,44 +1020,480 @@ async def test_submit_job_intermediate_chunk_no_ack(tmp_path: Path) -> None:
     session.terminate.assert_not_called()
 
 
-async def test_submit_job_path_traversal_dashboard_id_caught_at_extract(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A malicious ``dashboard_id`` shape escapes the filename validator but is caught at extract.
-
-    Pins the defence-in-depth resolve-and-stay-under-root check
-    inside ``_extract_and_queue``. The filename validator
-    catches separators / ``..`` in ``configuration_filename``,
-    but ``dashboard_id`` flows through unvalidated from the
-    Noise handshake / receiver-side registration. A future
-    regression there would hit this gate.
-    """
+async def test_submit_job_path_traversal_dashboard_id_rejected_at_header(tmp_path: Path) -> None:
+    """A traversing ``dashboard_id`` is refused pre-ack with ``invalid_header``."""
     firmware = _make_firmware_controller()
     receiver = _make_receiver(tmp_path, firmware)
-    # Climbing dashboard_id; the resolve-and-relative-to defense
-    # rejects because the resulting target_dir resolves outside
+    # Climbing dashboard_id; the resulting target_dir resolves outside
     # ``<config>/.esphome/.remote_builds/``.
     session = _make_session(dashboard_id="../../escape")
+
+    await receiver.handle_submit_job(session, _header())
+
+    payload = _ack_payload(session)
+    assert payload["accepted"] is False
+    assert payload["reason"] == "invalid_header"
+    session.terminate.assert_not_called()
+    assert session.dashboard_id not in receiver._inflight
+    firmware._enqueue.assert_not_called()
+
+
+async def test_extract_recheck_catches_an_escape_appearing_post_ack(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The in-executor under-root re-check still guards a post-header escape."""
+    firmware = _make_firmware_controller()
+    receiver = _make_receiver(tmp_path, firmware)
+    session = _make_session()
     bundle = b"hello"
+    checks: list[None] = []
+
+    def _escape_on_recheck(target: Path, root: Path) -> Path:
+        # First call is the pre-ack header gate; the re-check runs in
+        # the executor hop, after e.g. a symlink swap under the root.
+        if checks:
+            raise PathEscapeError(str(target))
+        checks.append(None)
+        return target
+
     monkeypatch.setattr(
-        "esphome.bundle.prepare_bundle_for_compile",
-        lambda _bundle, _target: tmp_path / "kitchen.yaml",
+        "esphome_device_builder.helpers.remote_build_layout.resolve_under_root",
+        _escape_on_recheck,
     )
 
     await receiver.handle_submit_job(session, _header(bundle=bundle))
     for chunk in _frame_chunks("job-1", bundle):
         await receiver.handle_submit_job_chunk(session, chunk)
+    await _drain_extracts(receiver)
 
-    payload = _ack_payload(session)
-    assert payload["accepted"] is False
-    assert payload["reason"] == "invalid_header"
+    frames = _sent_frames(session)
+    assert frames[0]["type"] == "submit_job_ack"
+    assert frames[0]["accepted"] is True
+    assert frames[-1]["type"] == "job_state_changed"
+    assert frames[-1]["status"] == "failed"
+    assert "invalid_header" in frames[-1]["error_message"]
     firmware._enqueue.assert_not_called()
 
 
-async def test_submit_job_enqueue_failure_rejects(
+async def test_submit_job_acks_before_extract(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A failure inside ``_enqueue`` rejects ``queue_rejected``; session stays."""
+    """The accepted ack is sent before the (slow) write + extract hop runs."""
+    firmware = _make_firmware_controller()
+    receiver = _make_receiver(tmp_path, firmware)
+    session = _make_session()
+    bundle = b"hello"
+    ack_before_extract = False
+
+    def _prepare(bundle_path: Path, target_dir: Path) -> Path:
+        nonlocal ack_before_extract
+        ack_before_extract = any(
+            call.args[0].get("type") == "submit_job_ack" and call.args[0].get("accepted")
+            for call in session.send_app_frame.call_args_list
+        )
+        return target_dir / "kitchen.yaml"
+
+    monkeypatch.setattr("esphome.bundle.prepare_bundle_for_compile", _prepare)
+
+    await receiver.handle_submit_job(session, _header(bundle=bundle))
+    for chunk in _frame_chunks("job-1", bundle):
+        await receiver.handle_submit_job_chunk(session, chunk)
+    await _drain_extracts(receiver)
+
+    assert ack_before_extract
+
+
+async def test_receive_path_stays_live_while_the_extract_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The final chunk handler returns with the extract still parked off-loop."""
+    receiver = _make_receiver(tmp_path)
+    session = _make_session()
+    bundle = b"hello"
+    release = asyncio.Event()
+    entered = asyncio.Event()
+
+    async def _blocked_extract(**_kwargs: object) -> None:
+        entered.set()
+        await release.wait()
+
+    monkeypatch.setattr(receiver, "_extract_and_queue", _blocked_extract)
+
+    await receiver.handle_submit_job(session, _header(bundle=bundle))
+    for chunk in _frame_chunks("job-1", bundle):
+        await receiver.handle_submit_job_chunk(session, chunk)
+    # The handler returned with the extract parked: the receive loop is free
+    # to answer heartbeats and take the next frame.
+    await entered.wait()
+    assert _ack_payload(session)["accepted"] is True
+    header2 = _header(job_id="job-2", configuration_filename="other.yaml", bundle=bundle)
+    await receiver.handle_submit_job(session, header2)
+    assert session.dashboard_id in receiver._inflight
+
+    release.set()
+    await _drain_extracts(receiver)
+
+
+async def test_extracts_chain_per_peer_preserving_enqueue_order(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A second accepted submit waits for the peer's previous extract."""
+    receiver = _make_receiver(tmp_path)
+    session = _make_session()
+    bundle = b"hello"
+    release = asyncio.Event()
+    order: list[str] = []
+
+    async def _recording_extract(
+        *, session: object, pending: _PendingSubmit, bundle_bytes: bytes, cancel_key: object
+    ) -> None:
+        order.append(pending.job_id)
+        if len(order) == 1:
+            # Park the first extract so the second lands behind it.
+            await release.wait()
+
+    monkeypatch.setattr(receiver, "_extract_and_queue", _recording_extract)
+
+    await receiver.handle_submit_job(session, _header(job_id="job-1", bundle=bundle))
+    for chunk in _frame_chunks("job-1", bundle):
+        await receiver.handle_submit_job_chunk(session, chunk)
+    await receiver.handle_submit_job(
+        session, _header(job_id="job-2", configuration_filename="other.yaml", bundle=bundle)
+    )
+    for chunk in _frame_chunks("job-2", bundle):
+        await receiver.handle_submit_job_chunk(session, chunk)
+
+    await asyncio.sleep(0)
+    assert order == ["job-1"]  # the second extract is parked behind the first
+    release.set()
+    await _drain_extracts(receiver)
+    assert order == ["job-1", "job-2"]
+
+
+async def test_unexpected_extract_crash_reports_failed_instead_of_stranding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A non-rejection crash in the off-loop extract still sends the terminal frame."""
+    receiver = _make_receiver(tmp_path)
+    session = _make_session()
+    bundle = b"hello"
+
+    async def _crashing_extract(**_kwargs: object) -> None:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(receiver, "_extract_and_queue", _crashing_extract)
+
+    await receiver.handle_submit_job(session, _header(bundle=bundle))
+    for chunk in _frame_chunks("job-1", bundle):
+        await receiver.handle_submit_job_chunk(session, chunk)
+    await _drain_extracts(receiver)
+
+    frames = _sent_frames(session)
+    assert frames[0]["type"] == "submit_job_ack"
+    assert frames[0]["accepted"] is True
+    assert frames[-1]["type"] == "job_state_changed"
+    assert frames[-1]["status"] == "failed"
+    assert "extract_failed" in frames[-1]["error_message"]
+    session.terminate.assert_not_called()
+
+
+async def test_cancel_extract_in_the_window_skips_queue_and_reports_cancelled(
+    tmp_path: Path,
+) -> None:
+    """A ``cancel_job`` flagged before the extract runs never queues; terminal frame sent."""
+    firmware = _make_firmware_controller()
+    receiver = _make_receiver(tmp_path, firmware)
+    session = _make_session()
+    bundle = b"hello"
+
+    await receiver.handle_submit_job(session, _header(bundle=bundle))
+    for chunk in _frame_chunks("job-1", bundle):
+        await receiver.handle_submit_job_chunk(session, chunk)
+    assert receiver.cancel_extract(session.dashboard_id, "job-1")
+    await _drain_extracts(receiver)
+
+    frames = _sent_frames(session)
+    assert frames[0]["type"] == "submit_job_ack"
+    assert frames[0]["accepted"] is True
+    assert frames[-1]["type"] == "job_state_changed"
+    assert frames[-1]["status"] == "cancelled"
+    assert frames[-1]["job_id"] == "job-1"
+    firmware._create_job.assert_not_called()
+    firmware._enqueue.assert_not_called()
+    assert not receiver._extracts._cancel_requested
+
+
+@pytest.mark.parametrize(
+    ("cancel_side_effect", "expect_cancelled_frame"),
+    [
+        pytest.param(None, False, id="cancel-accepted"),
+        pytest.param(
+            CommandError(ErrorCode.INVALID_ARGS, "job already terminal"),
+            False,
+            id="already-terminal-refusal-defers-to-fanout",
+        ),
+        pytest.param(
+            CommandError(ErrorCode.NOT_FOUND, "Job not found: local-0"),
+            True,
+            id="vanished-job-gets-the-frame-directly",
+        ),
+        pytest.param(
+            RuntimeError("state out of sync"),
+            False,
+            id="crash-never-reports-terminal-for-a-queued-job",
+        ),
+    ],
+)
+async def test_cancel_extract_flagged_mid_enqueue_routes_a_firmware_cancel(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    cancel_side_effect: Exception | None,
+    expect_cancelled_frame: bool,
+) -> None:
+    """A cancel landing during the enqueue await cancels through the firmware queue."""
+    firmware = _make_firmware_controller()
+    receiver = _make_receiver(tmp_path, firmware)
+    session = _make_session()
+    bundle = b"hello"
+    monkeypatch.setattr(
+        "esphome.bundle.prepare_bundle_for_compile",
+        _passthrough_prepare,
+    )
+
+    async def _enqueue_with_late_cancel(job: Any) -> Any:
+        assert receiver.cancel_extract(session.dashboard_id, "job-1")
+        return job
+
+    firmware._enqueue = AsyncMock(side_effect=_enqueue_with_late_cancel)
+    firmware.cancel = AsyncMock(side_effect=cancel_side_effect)
+
+    await receiver.handle_submit_job(session, _header(bundle=bundle))
+    for chunk in _frame_chunks("job-1", bundle):
+        await receiver.handle_submit_job_chunk(session, chunk)
+    await _drain_extracts(receiver)
+
+    firmware.cancel.assert_awaited_once_with(job_id="local-0")
+    terminal_frames = [f for f in _sent_frames(session) if f["type"] == "job_state_changed"]
+    if expect_cancelled_frame:
+        # A vanished job gets the terminal ``cancelled`` frame directly.
+        assert [f["status"] for f in terminal_frames] == ["cancelled"]
+        assert terminal_frames[0]["job_id"] == "job-1"
+    else:
+        # The fan-out owns the terminal frame (already-terminal refusal), or
+        # the job is live in the queue (crash): nothing is sent here.
+        assert not terminal_frames
+    # Post-handoff the extract window no longer claims the correlation.
+    assert not receiver.cancel_extract(session.dashboard_id, "job-1")
+
+
+async def test_resubmit_of_a_mid_extract_job_id_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A same-``job_id`` resubmit while its extract runs rejects instead of re-indexing."""
+    receiver = _make_receiver(tmp_path)
+    session = _make_session()
+    bundle = b"hello"
+    release = _park_extract(receiver, monkeypatch)
+
+    await receiver.handle_submit_job(session, _header(bundle=bundle))
+    for chunk in _frame_chunks("job-1", bundle):
+        await receiver.handle_submit_job_chunk(session, chunk)
+    await asyncio.sleep(0)  # extract parked, in-flight entry cleared
+    first_task = next(iter(receiver._extracts._tasks))
+
+    await receiver.handle_submit_job(session, _header(bundle=bundle))
+    payload = _ack_payload(session)
+    assert payload["accepted"] is False
+    assert payload["reason"] == "duplicate_submit"
+    # The original extract task still owns the correlation.
+    assert receiver._extracts._index[(session.dashboard_id, "job-1")] is first_task
+
+    release.set()
+    await _drain_extracts(receiver)
+
+
+async def test_cancel_extract_flagged_mid_extract_skips_the_queue(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A cancel landing during the executor hop is caught before the job is created."""
+    firmware = _make_firmware_controller()
+    receiver = _make_receiver(tmp_path, firmware)
+    session = _make_session()
+    bundle = b"hello"
+
+    async def _executor_with_late_cancel(func: Any, *args: Any) -> str:
+        assert receiver.cancel_extract(session.dashboard_id, "job-1")
+        return "kitchen.yaml"
+
+    monkeypatch.setattr(
+        "esphome_device_builder.controllers.remote_build.submit_job._post_ack.run_in_executor",
+        _executor_with_late_cancel,
+    )
+
+    await receiver.handle_submit_job(session, _header(bundle=bundle))
+    for chunk in _frame_chunks("job-1", bundle):
+        await receiver.handle_submit_job_chunk(session, chunk)
+    await _drain_extracts(receiver)
+
+    frames = _sent_frames(session)
+    assert frames[-1]["type"] == "job_state_changed"
+    assert frames[-1]["status"] == "cancelled"
+    firmware._create_job.assert_not_called()
+    firmware._enqueue.assert_not_called()
+
+
+def test_cancel_extract_without_a_live_task_returns_false(tmp_path: Path) -> None:
+    """No live extract for the correlation: the caller falls through to its drop path."""
+    receiver = _make_receiver(tmp_path)
+    assert not receiver.cancel_extract("dash-1", "job-1")
+
+
+async def test_mid_extract_job_holds_the_reset_busy_gate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A live extract counts as in-flight so ``reset_build_env`` can't wipe under it."""
+    receiver = _make_receiver(tmp_path)
+    session = _make_session()
+    bundle = b"hello"
+    release = _park_extract(receiver, monkeypatch)
+
+    await receiver.handle_submit_job(session, _header(bundle=bundle))
+    for chunk in _frame_chunks("job-1", bundle):
+        await receiver.handle_submit_job_chunk(session, chunk)
+    assert receiver.has_any_inflight()
+
+    release.set()
+    await _drain_extracts(receiver)
+    assert not receiver.has_any_inflight()
+
+
+async def test_cancel_while_parked_behind_a_predecessor_skips_its_extract(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A cancel landing while an extract waits on the per-peer lock is honoured at the lock."""
+    firmware = _make_firmware_controller()
+    receiver = _make_receiver(tmp_path, firmware)
+    session = _make_session()
+    bundle = b"hello"
+    release = asyncio.Event()
+
+    original = receiver._extract_and_queue
+
+    async def _slow_first_extract(*, pending: _PendingSubmit, **kwargs: Any) -> None:
+        if pending.job_id == "job-1":
+            await release.wait()
+            return
+        await original(pending=pending, **kwargs)
+
+    monkeypatch.setattr(receiver, "_extract_and_queue", _slow_first_extract)
+
+    await receiver.handle_submit_job(session, _header(job_id="job-1", bundle=bundle))
+    for chunk in _frame_chunks("job-1", bundle):
+        await receiver.handle_submit_job_chunk(session, chunk)
+    await receiver.handle_submit_job(
+        session, _header(job_id="job-2", configuration_filename="other.yaml", bundle=bundle)
+    )
+    for chunk in _frame_chunks("job-2", bundle):
+        await receiver.handle_submit_job_chunk(session, chunk)
+    await asyncio.sleep(0)  # job-2's task passes its pre-lock check and parks
+    assert receiver.cancel_extract(session.dashboard_id, "job-2")
+
+    release.set()
+    await _drain_extracts(receiver)
+
+    frames = _sent_frames(session)
+    assert frames[-1] == {
+        "type": "job_state_changed",
+        "job_id": "job-2",
+        "status": "cancelled",
+        "error_message": "cancelled by the offloader before the build was queued",
+    }
+    firmware._create_job.assert_not_called()
+
+
+async def test_spawn_refuses_after_stop() -> None:
+    """The window itself gates spawning, independent of the receiver's early return."""
+    window = ExtractWindow()
+    await window.stop()
+
+    async def _never() -> None:
+        raise AssertionError("spawned after stop")
+
+    window.spawn(("dash-1", "job-1"), _never())
+    assert not window._tasks
+
+
+async def test_no_extract_spawns_after_stop(tmp_path: Path) -> None:
+    """A final chunk landing after ``stop()`` neither acks nor spawns a task."""
+    receiver = _make_receiver(tmp_path)
+    session = _make_session()
+    bundle = b"hello"
+
+    await receiver.stop()
+    await receiver.handle_submit_job(session, _header(bundle=bundle))
+    for chunk in _frame_chunks("job-1", bundle):
+        await receiver.handle_submit_job_chunk(session, chunk)
+
+    assert not receiver._extracts._tasks
+    assert not _sent_frames(session)
+    # The dropped submit leaves no residue that would wedge the reset busy gate.
+    assert not receiver._inflight
+    assert not receiver.has_any_inflight()
+
+
+async def test_stop_cancels_a_parked_extract(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Receiver shutdown cancels the off-loop extract instead of leaking it."""
+    receiver = _make_receiver(tmp_path)
+    session = _make_session()
+    bundle = b"hello"
+
+    _park_extract(receiver, monkeypatch)
+
+    await receiver.handle_submit_job(session, _header(bundle=bundle))
+    for chunk in _frame_chunks("job-1", bundle):
+        await receiver.handle_submit_job_chunk(session, chunk)
+    assert receiver._extracts._tasks
+
+    await receiver.stop()
+    assert not receiver._extracts._tasks
+
+
+async def test_submit_landing_mid_drain_spawns_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A final chunk arriving while ``stop()`` awaits its drain spawns no task."""
+    receiver = _make_receiver(tmp_path)
+    session = _make_session()
+    bundle = b"hello"
+
+    _park_extract(receiver, monkeypatch)
+
+    await receiver.handle_submit_job(session, _header(bundle=bundle))
+    for chunk in _frame_chunks("job-1", bundle):
+        await receiver.handle_submit_job_chunk(session, chunk)
+    await asyncio.sleep(0)  # let the first extract park
+
+    tasks_before = set(receiver._extracts._tasks)
+    stop_task = asyncio.ensure_future(receiver.stop())
+    await asyncio.sleep(0)  # stop() is now awaiting the drain
+    # The session is still live mid-drain; the stopped gate refuses the submit.
+    await receiver.handle_submit_job(
+        session, _header(job_id="job-2", configuration_filename="other.yaml", bundle=bundle)
+    )
+    for chunk in _frame_chunks("job-2", bundle):
+        await receiver.handle_submit_job_chunk(session, chunk)
+    assert receiver._extracts._tasks <= tasks_before
+
+    await stop_task
+    assert not receiver._extracts._tasks
+
+
+async def test_submit_job_enqueue_failure_reports_failed_after_ack(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A ``_enqueue`` failure acks accepted, then reports a terminal ``failed`` frame."""
     firmware = _make_firmware_controller()
     firmware._enqueue = AsyncMock(side_effect=RuntimeError("queue full"))
     receiver = _make_receiver(tmp_path, firmware)
@@ -1022,23 +1502,30 @@ async def test_submit_job_enqueue_failure_rejects(
 
     monkeypatch.setattr(
         "esphome.bundle.prepare_bundle_for_compile",
-        lambda _bundle, target: target / "kitchen.yaml",
+        _passthrough_prepare,
     )
 
     await receiver.handle_submit_job(session, _header(bundle=bundle))
     for chunk in _frame_chunks("job-1", bundle):
         await receiver.handle_submit_job_chunk(session, chunk)
+    await _drain_extracts(receiver)
 
-    payload = _ack_payload(session)
-    assert payload["accepted"] is False
-    assert payload["reason"] == "queue_rejected"
+    frames = _sent_frames(session)
+    # Accepted up front, before the extract/queue hop...
+    assert frames[0]["type"] == "submit_job_ack"
+    assert frames[0]["accepted"] is True
+    # ...then a terminal failed frame carrying the reason; the wire stays good.
+    assert frames[-1]["type"] == "job_state_changed"
+    assert frames[-1]["status"] == "failed"
+    assert frames[-1]["job_id"] == "job-1"
+    assert "queue_rejected" in frames[-1]["error_message"]
     session.terminate.assert_not_called()
 
 
-async def test_submit_job_extract_failure_rejects_without_terminate(
+async def test_submit_job_extract_failure_reports_failed_without_terminate(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A failure inside ``prepare_bundle_for_compile`` rejects ``extract_failed``; session stays."""
+    """A ``prepare_bundle_for_compile`` failure acks accepted, then reports ``failed``."""
     firmware = _make_firmware_controller()
     receiver = _make_receiver(tmp_path, firmware)
     session = _make_session()
@@ -1055,13 +1542,16 @@ async def test_submit_job_extract_failure_rejects_without_terminate(
     await receiver.handle_submit_job(session, _header(bundle=bundle))
     for chunk in _frame_chunks("job-1", bundle):
         await receiver.handle_submit_job_chunk(session, chunk)
+    await _drain_extracts(receiver)
 
-    payload = _ack_payload(session)
-    assert payload["accepted"] is False
-    assert payload["reason"] == "extract_failed"
-    # Receiver-side problem; the wire is still good.
+    frames = _sent_frames(session)
+    assert frames[0]["type"] == "submit_job_ack"
+    assert frames[0]["accepted"] is True
+    assert frames[-1]["type"] == "job_state_changed"
+    assert frames[-1]["status"] == "failed"
+    assert "extract_failed" in frames[-1]["error_message"]
+    # Receiver-side problem; the wire is still good and no job was queued.
     session.terminate.assert_not_called()
-    # No job was queued.
     firmware._enqueue.assert_not_called()
 
 

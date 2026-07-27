@@ -57,8 +57,12 @@ class HashingEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
         6C12T CPU with 100,000 samples makes max_sample=16,666.
         It is not recommended to set it larger than the default value.
     n_components: int
-        how many bits to use to represent the feature. By default, we use 8 bits.
-        For high-cardinality features, consider using up-to 32 bits.
+        the number of output features (hash buckets) per encoded column.
+        Defaults to 8. This is the *dimension*, not a bit count —
+        ``n_components=32`` produces 32 buckets, not 2**32. The collision
+        rate is roughly ``1 / n_components``; prefer larger values for
+        high-cardinality features. See `Feature hashing on Wikipedia
+        <https://en.wikipedia.org/wiki/Feature_hashing>`_.
     process_creation_method: string
         either "fork", "spawn" or "forkserver" (availability depends on your
         platform). See https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods
@@ -119,6 +123,8 @@ class HashingEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
 
     prefit_ordinal = False
     encoding_relation = util.EncodingRelation.ONE_TO_M
+    _VALID_HANDLE_MISSING = None
+    _VALID_HANDLE_UNKNOWN = None
 
     def __init__(
         self,
@@ -228,11 +234,11 @@ class HashingEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
             for val in row:
                 if val is not None:
                     hasher = hasher_constructor()
-                    # Computes an integer index from the hasher digest. The endian is
-                    # "big" as the code use to read:
+                    # Computes an integer index from the hasher digest. The endianness is
+                    # "big" as the code used to read:
                     # column_index = int(hasher.hexdigest(), 16) % N
-                    # which is implicitly considering the hexdigest to be big endian,
-                    # even if the system is little endian.
+                    # which is implicitly considering the hexdigest to be big-endian,
+                    # even if the system is little-endian.
                     # Building the index that way is about 30% faster than using the
                     # hexdigest.
                     hasher.update(bytes(str(val), 'utf-8'))

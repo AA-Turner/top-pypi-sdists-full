@@ -77,11 +77,24 @@ def render_action_output_preview(output: str, mask_internal_markers: Callable[[s
 
 
 def format_action_result(tool_name: str, exit_code: int, success: bool, elapsed: float, output: str, result_extra: dict) -> str:
+    _fail_marker = ""
+    _out_lower = output.lower()
+    _http_m = re.search(r'HTTP/\S+\s+(\d{3})', output)
+    _status_m = re.search(r'status[=:\s]+(\d{3})', output, re.IGNORECASE)
+    _code_src = _http_m or _status_m
+    if _code_src:
+        _sc = int(_code_src.group(1))
+        if _sc >= 400:
+            _fail_marker = f"\n[HTTP_ACCESS_FAILED: {_sc} — endpoint does NOT exist or access DENIED]\n"
+    if not _fail_marker and re.search(r'\[TIMEOUT\]|timed out|exceeded.*timeout|timeout.*exceeded', _out_lower):
+        _fail_marker = "\n[EXECUTION_TIMEOUT: command exceeded time limit — result is INCOMPLETE]\n"
+    if not _fail_marker and re.search(r'connection refused|no route to host|errno 111|port.*closed|connect.*failed', _out_lower):
+        _fail_marker = "\n[CONNECTION_REFUSED: port is CLOSED or service is NOT running]\n"
     return (
         f"=== TOOL_RESULT: {tool_name} ===\n"
         f"exit_code={exit_code}  success={success}  elapsed={elapsed}s\n"
         f"extra={json.dumps(result_extra, ensure_ascii=False, default=str)[:500]}\n"
-        f"--- output ---\n{output}\n"
+        f"--- output ---\n{output}{_fail_marker}\n"
         f"=== END TOOL_RESULT ==="
     )
 

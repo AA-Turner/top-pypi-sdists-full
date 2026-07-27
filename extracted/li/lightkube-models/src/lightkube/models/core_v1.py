@@ -6,9 +6,9 @@ from ._schema import dataclass, field, DictMixin
 if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.com/issue/PY-54560
     from dataclasses import dataclass, field
 
+from . import util_intstr
 from . import meta_v1
 from . import resource
-from . import util_intstr
 
 
 @dataclass
@@ -2155,6 +2155,19 @@ class ImageVolumeSource(DictMixin):
 
 
 @dataclass
+class ImageVolumeStatus(DictMixin):
+    r"""ImageVolumeStatus represents the image-based volume status.
+
+      **parameters**
+
+      * **imageRef** ``str`` - ImageRef is the digest of the image used for this volume. It should have a
+        value that's similar to the pod's status.containerStatuses[i].imageID. The
+        ImageRef length should not exceed 256 characters.
+    """
+    imageRef: 'str'
+
+
+@dataclass
 class KeyToPath(DictMixin):
     r"""Maps a string key to a path within a volume.
 
@@ -2639,6 +2652,25 @@ class NodeAffinity(DictMixin):
     """
     preferredDuringSchedulingIgnoredDuringExecution: 'Optional[List[PreferredSchedulingTerm]]' = None
     requiredDuringSchedulingIgnoredDuringExecution: 'Optional[NodeSelector]' = None
+
+
+@dataclass
+class NodeAllocatableResourceClaimStatus(DictMixin):
+    r"""NodeAllocatableResourceClaimStatus describes the status of node allocatable
+      resources allocated via DRA.
+
+      **parameters**
+
+      * **resourceClaimName** ``str`` - ResourceClaimName is the resource claim referenced by the pod that resulted in
+        this node allocatable resource allocation.
+      * **resources** ``dict`` - Resources is a map of the node-allocatable resource name to the aggregate
+        quantity allocated to the claim.
+      * **containers** ``Optional[List[str]]`` - Containers lists the names of all containers in this pod that reference the
+        claim.
+    """
+    resourceClaimName: 'str'
+    resources: 'dict'
+    containers: 'Optional[List[str]]' = None
 
 
 @dataclass
@@ -3483,8 +3515,7 @@ class PersistentVolumeSpec(DictMixin):
         deprecated and the in-tree photonPersistentDisk type is no longer supported.
       * **portworxVolume** ``Optional[PortworxVolumeSource]`` - portworxVolume represents a portworx volume attached and mounted on kubelets
         host machine. Deprecated: PortworxVolume is deprecated. All operations for the
-        in-tree portworxVolume type are redirected to the pxd.portworx.com CSI driver
-        when the CSIMigrationPortworx feature-gate is on.
+        in-tree portworxVolume type are redirected to the pxd.portworx.com CSI driver.
       * **quobyte** ``Optional[QuobyteVolumeSource]`` - quobyte represents a Quobyte mount on the host that shares a pod's lifetime.
         Deprecated: Quobyte is deprecated and the in-tree quobyte type is no longer
         supported.
@@ -3800,8 +3831,7 @@ class PodCondition(DictMixin):
       * **lastTransitionTime** ``Optional[meta_v1.Time]`` - Last time the condition transitioned from one status to another.
       * **message** ``Optional[str]`` - Human-readable message indicating details about last transition.
       * **observedGeneration** ``Optional[int]`` - If set, this represents the .metadata.generation that the pod condition was
-        set based upon. The PodObservedGenerationTracking feature gate must be enabled
-        to use this field.
+        set based upon.
       * **reason** ``Optional[str]`` - Unique, one-word, CamelCase reason for the condition's last transition.
     """
     status: 'str'
@@ -3942,6 +3972,14 @@ class PodResourceClaim(DictMixin):
       It adds a name to it that uniquely identifies the ResourceClaim inside the
       Pod. Containers that need access to the ResourceClaim reference it with this
       name.
+      
+      When the DRAWorkloadResourceClaims feature gate is enabled and this Pod
+      belongs to a PodGroup, a PodResourceClaim is matched to a
+      PodGroupResourceClaim if all of their fields are equal (Name,
+      ResourceClaimName, and ResourceClaimTemplateName). A matched claim references
+      a single ResourceClaim shared across all Pods in the PodGroup, reserved for
+      the PodGroup in ResourceClaimStatus.ReservedFor rather than for individual
+      Pods.
 
       **parameters**
 
@@ -3957,6 +3995,14 @@ class PodResourceClaim(DictMixin):
         The pod name and resource name, along with a generated component, will be used
         to form a unique name for the ResourceClaim, which will be recorded in
         pod.status.resourceClaimStatuses.
+        When the DRAWorkloadResourceClaims feature gate is enabled and the pod belongs
+        to a PodGroup that defines a PodGroupResourceClaim with the same Name and
+        ResourceClaimTemplateName, this PodResourceClaim resolves to the ResourceClaim
+        generated for the PodGroup. All pods in the group that define an equivalent
+        PodResourceClaim matching the PodGroupResourceClaim's Name and
+        ResourceClaimTemplateName share the same generated ResourceClaim.
+        ResourceClaims generated for a PodGroup are owned by the PodGroup and their
+        lifecycles are tied to the PodGroup instead of any individual pod.
         This field is immutable and no changes will be made to the corresponding
         ResourceClaim by the control plane after creating the ResourceClaim.
         Exactly one of ResourceClaimName and ResourceClaimTemplateName must be set.
@@ -3978,9 +4024,13 @@ class PodResourceClaimStatus(DictMixin):
         the name of an entry in pod.spec.resourceClaims, which implies that the string
         must be a DNS_LABEL.
       * **resourceClaimName** ``Optional[str]`` - ResourceClaimName is the name of the ResourceClaim that was generated for the
-        Pod in the namespace of the Pod. If this is unset, then generating a
-        ResourceClaim was not necessary. The pod.spec.resourceClaims entry can be
-        ignored in this case.
+        Pod in the namespace of the Pod.
+        When the DRAWorkloadResourceClaims feature is enabled and the corresponding
+        PodResourceClaim matches a PodGroupResourceClaim made by the Pod's PodGroup,
+        then this is the name of the ResourceClaim generated and reserved for the
+        PodGroup.
+        If this is unset, then generating a ResourceClaim was not necessary. The
+        pod.spec.resourceClaims entry can be ignored in this case.
     """
     name: 'str'
     resourceClaimName: 'Optional[str]' = None
@@ -3996,6 +4046,20 @@ class PodSchedulingGate(DictMixin):
         field.
     """
     name: 'str'
+
+
+@dataclass
+class PodSchedulingGroup(DictMixin):
+    r"""PodSchedulingGroup identifies the runtime scheduling group instance that a Pod
+      belongs to. The scheduler uses this information to apply workload-aware
+      scheduling semantics. Exactly one field must be specified.
+
+      **parameters**
+
+      * **podGroupName** ``Optional[str]`` - PodGroupName specifies the name of the standalone PodGroup object that
+        represents the runtime instance of this group. Must be a DNS subdomain.
+    """
+    podGroupName: 'Optional[str]' = None
 
 
 @dataclass
@@ -4153,8 +4217,7 @@ class PodSpec(DictMixin):
         loading a kernel module with CAP_SYS_MODULE. When set to false, a new userns
         is created for the pod. Setting false is useful for mitigating container
         breakout vulnerabilities even allowing users to run their containers as root
-        without actually having root privileges on the host. This field is alpha-level
-        and is only honored by servers that enable the UserNamespacesSupport feature.
+        without actually having root privileges on the host.
       * **hostname** ``Optional[str]`` - Specifies the hostname of the Pod If not specified, the pod's hostname will be
         set to a system-defined value.
       * **hostnameOverride** ``Optional[str]`` - HostnameOverride specifies an explicit override for the pod's hostname as
@@ -4270,6 +4333,17 @@ class PodSpec(DictMixin):
         SchedulingGated state and the scheduler will not attempt to schedule the pod.
         SchedulingGates can only be set at pod creation time, and be removed only
         afterwards.
+      * **schedulingGroup** ``Optional[PodSchedulingGroup]`` - SchedulingGroup provides a reference to the immediate scheduling runtime
+        grouping object that this Pod belongs to. This field is used by the scheduler
+        to identify the group and apply the correct group scheduling policies. The
+        association with a group also impacts other lifecycle aspects of a Pod that
+        are relevant in a wider context of scheduling like preemption, resource
+        attachment, etc. If not specified, the Pod is treated as a single unit in all
+        of these aspects. The group object referenced by this field may not exist at
+        the time the Pod is created. This field is immutable, but a group object with
+        the same name may be recreated with different policies. Doing this during pod
+        scheduling may result in the placement not conforming to the expected
+        policies.
       * **securityContext** ``Optional[PodSecurityContext]`` - SecurityContext holds pod-level security attributes and common container
         settings. Optional: Defaults to empty.  See type description for default
         values of each field.
@@ -4307,13 +4381,6 @@ class PodSpec(DictMixin):
         constraints. All topologySpreadConstraints are ANDed.
       * **volumes** ``Optional[List[Volume]]`` - List of volumes that can be mounted by containers belonging to the pod. More
         info: https://kubernetes.io/docs/concepts/storage/volumes
-      * **workloadRef** ``Optional[WorkloadReference]`` - WorkloadRef provides a reference to the Workload object that this Pod belongs
-        to. This field is used by the scheduler to identify the PodGroup and apply the
-        correct group scheduling policies. The Workload object referenced by this
-        field may not exist at the time the Pod is created. This field is immutable,
-        but a Workload object with the same name may be recreated with different
-        policies. Doing this during pod scheduling may result in the placement not
-        conforming to the expected policies.
     """
     containers: 'List[Container]'
     activeDeadlineSeconds: 'Optional[int]' = None
@@ -4346,6 +4413,7 @@ class PodSpec(DictMixin):
     runtimeClassName: 'Optional[str]' = None
     schedulerName: 'Optional[str]' = None
     schedulingGates: 'Optional[List[PodSchedulingGate]]' = None
+    schedulingGroup: 'Optional[PodSchedulingGroup]' = None
     securityContext: 'Optional[PodSecurityContext]' = None
     serviceAccount: 'Optional[str]' = None
     serviceAccountName: 'Optional[str]' = None
@@ -4356,7 +4424,6 @@ class PodSpec(DictMixin):
     tolerations: 'Optional[List[Toleration]]' = None
     topologySpreadConstraints: 'Optional[List[TopologySpreadConstraint]]' = None
     volumes: 'Optional[List[Volume]]' = None
-    workloadRef: 'Optional[WorkloadReference]' = None
 
 
 @dataclass
@@ -4407,6 +4474,12 @@ class PodStatus(DictMixin):
         https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-and-container-status
       * **message** ``Optional[str]`` - A human readable message indicating details about why the pod is in this
         condition.
+      * **nodeAllocatableResourceClaimStatuses** ``Optional[List[NodeAllocatableResourceClaimStatus]]`` - NodeAllocatableResourceClaimStatuses contains the status of node-allocatable
+        resources that were allocated for this pod through DRA claims. This includes
+        resources currently reported in v1.Node `status.allocatable` that are not
+        extended resources (see
+        https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#extended-resources).
+        Examples include "cpu", "memory", "ephemeral-storage", and hugepages.
       * **nominatedNodeName** ``Optional[str]`` - nominatedNodeName is set only when this pod preempts other pods on the node,
         but it cannot be scheduled right away as preemption victims receive their
         graceful termination periods. This field does not guarantee that the pod will
@@ -4470,6 +4543,7 @@ class PodStatus(DictMixin):
     hostIPs: 'Optional[List[HostIP]]' = None
     initContainerStatuses: 'Optional[List[ContainerStatus]]' = None
     message: 'Optional[str]' = None
+    nodeAllocatableResourceClaimStatuses: 'Optional[List[NodeAllocatableResourceClaimStatus]]' = None
     nominatedNodeName: 'Optional[str]' = None
     observedGeneration: 'Optional[int]' = None
     phase: 'Optional[str]' = None
@@ -4973,9 +5047,14 @@ class ResourceHealth(DictMixin):
                     For example, Device Plugin got unregistered and hasn't been
         re-registered since.
         In future we may want to introduce the PermanentlyUnhealthy Status.
+      * **message** ``Optional[str]`` - Message provides human-readable context for Health (e.g. "ECC error count
+        exceeded threshold"). This field is populated by the kubelet when
+        ResourceHealthStatusMessage is enabled if the DRA plugin returns a message,
+        and is null otherwise.
     """
     resourceID: 'str'
     health: 'Optional[str]' = None
+    message: 'Optional[str]' = None
 
 
 @dataclass
@@ -5471,9 +5550,8 @@ class SecurityContext(DictMixin):
         field cannot be set when spec.os.name is windows.
       * **procMount** ``Optional[str]`` - procMount denotes the type of proc mount to use for the containers. The
         default value is Default which uses the container runtime defaults for
-        readonly paths and masked paths. This requires the ProcMountType feature flag
-        to be enabled. Note that this field cannot be set when spec.os.name is
-        windows.
+        readonly paths and masked paths. Note that this field cannot be set when
+        spec.os.name is windows.
       * **readOnlyRootFilesystem** ``Optional[bool]`` - Whether this container has a read-only root filesystem. Default is false. Note
         that this field cannot be set when spec.os.name is windows.
       * **runAsGroup** ``Optional[int]`` - The GID to run the entrypoint of the container process. Uses runtime default
@@ -6378,9 +6456,8 @@ class Volume(DictMixin):
         all valid types supported by the container image field. The OCI object gets
         mounted in a single directory (spec.containers[*].volumeMounts.mountPath) by
         merging the manifest layers in the same way as for container images. The
-        volume will be mounted read-only (ro) and non-executable files (noexec). Sub
-        path mounts for containers are not supported
-        (spec.containers[*].volumeMounts.subpath) before 1.33. The field
+        volume will be mounted read-only (ro). Sub path mounts for containers are not
+        supported (spec.containers[*].volumeMounts.subpath) before 1.33. The field
         spec.securityContext.fsGroupChangePolicy has no effect on this volume type.
       * **iscsi** ``Optional[ISCSIVolumeSource]`` - iscsi represents an ISCSI Disk resource that is attached to a kubelet's host
         machine and then exposed to the pod. More info:
@@ -6395,8 +6472,7 @@ class Volume(DictMixin):
         deprecated and the in-tree photonPersistentDisk type is no longer supported.
       * **portworxVolume** ``Optional[PortworxVolumeSource]`` - portworxVolume represents a portworx volume attached and mounted on kubelets
         host machine. Deprecated: PortworxVolume is deprecated. All operations for the
-        in-tree portworxVolume type are redirected to the pxd.portworx.com CSI driver
-        when the CSIMigrationPortworx feature-gate is on.
+        in-tree portworxVolume type are redirected to the pxd.portworx.com CSI driver.
       * **projected** ``Optional[ProjectedVolumeSource]`` - projected items for all in one resources secrets, configmaps, and downward API
       * **quobyte** ``Optional[QuobyteVolumeSource]`` - quobyte represents a Quobyte mount on the host that shares a pod's lifetime.
         Deprecated: Quobyte is deprecated and the in-tree quobyte type is no longer
@@ -6520,11 +6596,13 @@ class VolumeMountStatus(DictMixin):
       * **recursiveReadOnly** ``Optional[str]`` - RecursiveReadOnly must be set to Disabled, Enabled, or unspecified (for
         non-readonly mounts). An IfPossible value in the original VolumeMount must be
         translated to Disabled or Enabled, depending on the mount result.
+      * **volumeStatus** ``Optional[VolumeStatus]`` - volumeStatus represents volume-type-specific status about the mounted volume.
     """
     mountPath: 'str'
     name: 'str'
     readOnly: 'Optional[bool]' = None
     recursiveReadOnly: 'Optional[str]' = None
+    volumeStatus: 'Optional[VolumeStatus]' = None
 
 
 @dataclass
@@ -6614,6 +6692,19 @@ class VolumeResourceRequirements(DictMixin):
 
 
 @dataclass
+class VolumeStatus(DictMixin):
+    r"""VolumeStatus represents the status of a mounted volume. At most one of its
+      members must be specified.
+
+      **parameters**
+
+      * **image** ``Optional[ImageVolumeStatus]`` - image represents an OCI object (a container image or artifact) pulled and
+        mounted on the kubelet's host machine.
+    """
+    image: 'Optional[ImageVolumeStatus]' = None
+
+
+@dataclass
 class VsphereVirtualDiskVolumeSource(DictMixin):
     r"""Represents a vSphere volume resource.
 
@@ -6673,31 +6764,5 @@ class WindowsSecurityContextOptions(DictMixin):
     gmsaCredentialSpecName: 'Optional[str]' = None
     hostProcess: 'Optional[bool]' = None
     runAsUserName: 'Optional[str]' = None
-
-
-@dataclass
-class WorkloadReference(DictMixin):
-    r"""WorkloadReference identifies the Workload object and PodGroup membership that
-      a Pod belongs to. The scheduler uses this information to apply workload-aware
-      scheduling semantics.
-
-      **parameters**
-
-      * **name** ``str`` - Name defines the name of the Workload object this Pod belongs to. Workload
-        must be in the same namespace as the Pod. If it doesn't match any existing
-        Workload, the Pod will remain unschedulable until a Workload object is created
-        and observed by the kube-scheduler. It must be a DNS subdomain.
-      * **podGroup** ``str`` - PodGroup is the name of the PodGroup within the Workload that this Pod belongs
-        to. If it doesn't match any existing PodGroup within the Workload, the Pod
-        will remain unschedulable until the Workload object is recreated and observed
-        by the kube-scheduler. It must be a DNS label.
-      * **podGroupReplicaKey** ``Optional[str]`` - PodGroupReplicaKey specifies the replica key of the PodGroup to which this Pod
-        belongs. It is used to distinguish pods belonging to different replicas of the
-        same pod group. The pod group policy is applied separately to each replica.
-        When set, it must be a DNS label.
-    """
-    name: 'str'
-    podGroup: 'str'
-    podGroupReplicaKey: 'Optional[str]' = None
 
 

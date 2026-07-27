@@ -9,14 +9,13 @@ import sys
 import tempfile
 import urllib.parse
 import urllib.request
-from pathlib import Path
 from collections.abc import Mapping
+from pathlib import Path
 from typing import ClassVar, Self
 
 from platformdirs import user_cache_path
 from pydantic import Field, TypeAdapter, computed_field, model_validator
 
-from .binary import Binary
 from .base_types import (
     BinName,
     BinProviderName,
@@ -29,6 +28,7 @@ from .base_types import (
     abxpkg_install_root_default,
     bin_abspath,
 )
+from .binary import Binary
 from .binprovider import (
     BinProvider,
     EnvProvider,
@@ -37,9 +37,9 @@ from .binprovider import (
     remap_kwargs,
 )
 from .config import load_derived_cache
+from .exceptions import BinaryInstallError, BinProviderInstallError
 from .logging import format_subprocess_output
 from .semver import SemVer
-
 
 USER_CACHE_PATH = user_cache_path("pnpm", "abxpkg")
 
@@ -168,7 +168,13 @@ class PnpmProvider(BinProvider):
         threshold = SemVer.parse("10.16.0")
         try:
             installer = self.INSTALLER_BINARY(no_cache=no_cache)
-        except Exception:
+        except (
+            AssertionError,
+            BinProviderInstallError,
+            BinaryInstallError,
+            OSError,
+            ValueError,
+        ):
             return False
         version = installer.loaded_version if installer else None
         return bool(version and threshold and version >= threshold)
@@ -239,6 +245,9 @@ class PnpmProvider(BinProvider):
     def setup_PATH(self, no_cache: bool = False) -> None:
         """Populate PATH on first use from install_root/bin_dir, or PNPM_HOME in global mode."""
         path_entries: list[str | Path] = []
+        managed_lib_dir = self._managed_lib_dir()
+        if managed_lib_dir is not None:
+            path_entries.append(managed_lib_dir / "env" / "bin")
         if self.bin_dir:
             path_entries.append(self.bin_dir)
         else:
@@ -299,34 +308,50 @@ class PnpmProvider(BinProvider):
         env_root = managed_lib_dir / "env"
         return EnvProvider(install_root=env_root, bin_dir=env_root / "bin")
 
-    def _cache_node_dependency(self, no_cache: bool = False):
+    def _cache_lifecycle_dependency(
+        self,
+        bin_name: BinName,
+        no_cache: bool = False,
+    ):
         try:
-            node_loaded = Binary(
-                name="node",
+            loaded = Binary(
+                name=bin_name,
                 binproviders=[self._managed_env_provider()],
             ).load(no_cache=no_cache)
-        except Exception:
-            node_loaded = None
+        except (
+            AssertionError,
+            BinProviderInstallError,
+            BinaryInstallError,
+            OSError,
+            ValueError,
+        ):
+            loaded = None
         if (
-            node_loaded
-            and node_loaded.loaded_abspath
-            and node_loaded.loaded_version
-            and node_loaded.loaded_sha256
+            loaded
+            and loaded.loaded_abspath
+            and loaded.loaded_version
+            and loaded.loaded_sha256
         ):
             self.write_cached_binary(
-                "node",
-                node_loaded.loaded_abspath,
-                node_loaded.loaded_version,
-                node_loaded.loaded_sha256,
+                bin_name,
+                loaded.loaded_abspath,
+                loaded.loaded_version,
+                loaded.loaded_sha256,
                 resolved_provider_name=(
-                    node_loaded.loaded_binprovider.name
-                    if node_loaded.loaded_binprovider is not None
+                    loaded.loaded_binprovider.name
+                    if loaded.loaded_binprovider is not None
                     else self.name
                 ),
-                resolved_provider=node_loaded.loaded_binprovider,
+                resolved_provider=loaded.loaded_binprovider,
                 cache_kind="dependency",
             )
-        return node_loaded
+        return loaded
+
+    def _cache_lifecycle_dependencies(self, no_cache: bool = False):
+        return {
+            "node": self._cache_lifecycle_dependency("node", no_cache=no_cache),
+            "npm": self._cache_lifecycle_dependency("npm", no_cache=no_cache),
+        }
 
     @staticmethod
     def _pnpm_package_for_node(node_version: SemVer | None) -> str:
@@ -405,7 +430,7 @@ class PnpmProvider(BinProvider):
                     cache_kind="dependency",
                 )
             self._INSTALLER_BINARY = loaded
-            self._cache_node_dependency(no_cache=no_cache)
+            self._cache_lifecycle_dependencies(no_cache=no_cache)
             return loaded
         return None
 
@@ -419,7 +444,8 @@ class PnpmProvider(BinProvider):
             min_release_age=0,
         )
         npm_installer = npm_provider.INSTALLER_BINARY(no_cache=no_cache)
-        node_loaded = self._cache_node_dependency(no_cache=no_cache)
+        dependencies = self._cache_lifecycle_dependencies(no_cache=no_cache)
+        node_loaded = dependencies["node"]
         pnpm_package = self._pnpm_package_for_node(
             node_loaded.loaded_version if node_loaded is not None else None,
         )
@@ -436,7 +462,13 @@ class PnpmProvider(BinProvider):
                 name="npm",
                 binproviders=[self._managed_env_provider()],
             ).load(no_cache=no_cache)
-        except Exception:
+        except (
+            AssertionError,
+            BinProviderInstallError,
+            BinaryInstallError,
+            OSError,
+            ValueError,
+        ):
             host_npm = None
         if host_npm and host_npm.loaded_abspath:
             npm_provider._INSTALLER_BINARY = host_npm
@@ -463,7 +495,7 @@ class PnpmProvider(BinProvider):
                     cache_kind="dependency",
                 )
             self._INSTALLER_BINARY = loaded
-            self._cache_node_dependency(no_cache=no_cache)
+            self._cache_lifecycle_dependencies(no_cache=no_cache)
         return loaded
 
     def INSTALLER_BINARY(self, no_cache: bool = False):
@@ -490,7 +522,8 @@ class PnpmProvider(BinProvider):
         from .binprovider_npm import NpmProvider
 
         installer_root = self._installer_provider_root()
-        node_loaded = self._cache_node_dependency(no_cache=no_cache)
+        dependencies = self._cache_lifecycle_dependencies(no_cache=no_cache)
+        node_loaded = dependencies["node"]
         pnpm_package = self._pnpm_package_for_node(
             node_loaded.loaded_version if node_loaded is not None else None,
         )
@@ -532,7 +565,7 @@ class PnpmProvider(BinProvider):
                             cache_kind="dependency",
                         )
                     self._INSTALLER_BINARY = loaded
-                    self._cache_node_dependency(no_cache=no_cache)
+                    self._cache_lifecycle_dependencies(no_cache=no_cache)
                     return loaded
 
             return self._install_installer_binary(no_cache=no_cache)
@@ -585,14 +618,45 @@ class PnpmProvider(BinProvider):
         no_cache: bool = False,
     ) -> None:
         if self.euid is None:
-            self.euid = self.detect_euid(
-                owner_paths=(self.install_root,),
-                preserve_root=True,
-            )
+            self.euid = self._managed_install_euid()
         if not no_cache:
             self._ensure_writable_cache_dir(self.cache_dir)
         if self.bin_dir:
             self.bin_dir.mkdir(parents=True, exist_ok=True)
+
+    def _managed_install_euid(self) -> int:
+        """Return the uid that should own pnpm-managed package installs."""
+        sudo_uid = self._sudo_managed_install_euid()
+        if sudo_uid is not None:
+            return sudo_uid
+        return self.detect_euid(
+            owner_paths=(self.install_root,),
+            preserve_root=True,
+        )
+
+    def _sudo_managed_install_euid(
+        self,
+        *,
+        current_euid: int | None = None,
+        environ: Mapping[str, str] | None = None,
+    ) -> int | None:
+        """Return SUDO_UID for root-invoked managed installs, when usable."""
+        if self.install_root is None:
+            return None
+        if current_euid is None:
+            current_euid = os.geteuid()
+        if current_euid != 0:
+            return None
+        sudo_uid = (environ or os.environ).get("SUDO_UID")
+        if not sudo_uid:
+            return None
+        try:
+            uid = int(sudo_uid)
+        except ValueError:
+            return None
+        if uid > 0 and self.uid_has_passwd_entry(uid):
+            return uid
+        return None
 
     def _store_dir(self, no_cache: bool = False) -> Path:
         existing_store_dir = self._existing_store_dir()
@@ -695,7 +759,13 @@ class PnpmProvider(BinProvider):
                     quiet=True,
                 ).stdout.strip(),
             )
-        except Exception:
+        except (
+            AssertionError,
+            BinProviderInstallError,
+            BinaryInstallError,
+            OSError,
+            ValueError,
+        ):
             return None
 
     def _installed_package_dir(self, bin_name: str) -> Path | None:
@@ -714,7 +784,7 @@ class PnpmProvider(BinProvider):
         package_json_path = package_dir / "package.json"
         try:
             loaded = json.loads(package_json_path.read_text())
-        except Exception:
+        except (OSError, json.JSONDecodeError):
             return {}
         return loaded if isinstance(loaded, dict) else {}
 
@@ -740,7 +810,7 @@ class PnpmProvider(BinProvider):
                 continue
             try:
                 cli_paths[entry.name] = TypeAdapter(HostBinPath).validate_python(entry)
-            except Exception:
+            except ValueError:
                 continue
         return cli_paths
 
@@ -1045,7 +1115,13 @@ class PnpmProvider(BinProvider):
         try:
             pnpm_abspath = self.INSTALLER_BINARY(no_cache=no_cache).loaded_abspath
             assert pnpm_abspath
-        except Exception:
+        except (
+            AssertionError,
+            BinProviderInstallError,
+            BinaryInstallError,
+            OSError,
+            ValueError,
+        ):
             pnpm_abspath = None
 
         # Fallback: ask `pnpm ls --json` for the installed version of the
@@ -1081,7 +1157,14 @@ class PnpmProvider(BinProvider):
                 if isinstance(listing, list):
                     listing = listing[0] if listing else {}
                 return listing["dependencies"][package]["version"]
-            except Exception:
+            except (
+                KeyError,
+                TypeError,
+                json.JSONDecodeError,
+                BinProviderInstallError,
+                OSError,
+                ValueError,
+            ):
                 pass
 
         try:

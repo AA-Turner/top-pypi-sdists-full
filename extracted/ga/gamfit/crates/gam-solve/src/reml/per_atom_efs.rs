@@ -460,9 +460,9 @@ pub(crate) fn backtrack_cost(
     cfg: &PerAtomEfsConfig,
 ) -> Result<Option<(Array1<f64>, f64, f64)>, EstimationError> {
     let descent_slack = PER_ATOM_COST_DESCENT_TOL * current_cost.abs().max(1.0);
-    // A trial whose cost evaluation errors is an INVALID trial (`Ok(None)`):
-    // the search halves and retries without consulting the acceptance test,
-    // exactly as the pre-migration loop swallowed `Err(_)`.
+    // Recoverable domain refusals arrive as `Ok(+∞)` and keep halving. A typed
+    // error means the objective artifact could not be built and must escape this
+    // line search without being reinterpreted as another numerical point.
     let accepted = backtracking_line_search::<_, EstimationError>(
         BacktrackConfig {
             max_steps: PER_ATOM_MAX_BACKTRACK + 1,
@@ -474,7 +474,8 @@ pub(crate) fn backtrack_cost(
                 trial[i] += alpha * full_step[i];
             }
             let trial = project_to_bounds(&trial, cfg);
-            Ok(obj.eval_cost(&trial).ok().map(|cost| (cost, trial)))
+            let cost = obj.eval_cost(&trial)?;
+            Ok(Some((cost, trial)))
         },
         |_alpha, cost| cost.is_finite() && cost <= current_cost + descent_slack,
     )?;
@@ -792,6 +793,57 @@ mod tests {
             Array1::from_elem(dim, -50.0),
             Array1::from_elem(dim, 50.0),
         )
+    }
+
+    #[test]
+    fn per_atom_backtracking_propagates_typed_value_failure() {
+        const SENTINEL: &str = "#2481 per-atom value artifact";
+
+        struct FailingCostObjective;
+
+        impl OuterObjective for FailingCostObjective {
+            fn capability(&self) -> OuterCapability {
+                OuterCapability {
+                    gradient: Derivative::Analytic,
+                    hessian: DeclaredHessianForm::Unavailable,
+                    n_params: 1,
+                    psi_dim: 0,
+                    fixed_point_available: true,
+                    barrier_config: None,
+                    prefer_gradient_only: false,
+                    disable_fixed_point: false,
+                }
+            }
+
+            fn eval_cost(&mut self, _: &Array1<f64>) -> Result<f64, EstimationError> {
+                Err(EstimationError::InvalidInput(SENTINEL.to_string()))
+            }
+
+            fn eval(&mut self, _: &Array1<f64>) -> Result<OuterEval, EstimationError> {
+                Err(EstimationError::InvalidInput(SENTINEL.to_string()))
+            }
+
+            fn reset(&mut self) {}
+
+            fn seed_inner_state(
+                &mut self,
+                _: &Array1<f64>,
+            ) -> Result<SeedOutcome, EstimationError> {
+                Ok(SeedOutcome::NoSlot)
+            }
+        }
+
+        let mut objective = FailingCostObjective;
+        let error = backtrack_cost(
+            &mut objective,
+            &array![0.0],
+            &array![1.0],
+            1.0,
+            &wide_bounds(1),
+        )
+        .expect_err("a typed value failure must escape per-atom backtracking");
+        assert!(matches!(error, EstimationError::InvalidInput(_)));
+        assert!(error.to_string().contains(SENTINEL));
     }
 
     #[test]

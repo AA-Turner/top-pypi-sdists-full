@@ -7,8 +7,8 @@ if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.
     from dataclasses import dataclass, field
 
 from . import core_v1
-from . import resource
 from . import meta_v1
+from . import resource
 
 
 @dataclass
@@ -104,8 +104,8 @@ class CSIDriverSpec(DictMixin):
         enabled. If not set, no updates occur (neither periodic nor upon detecting
         capacity-related failures), and the allocatable.count remains static. The
         minimum allowed value for this field is 10 seconds.
-        This is a beta feature and requires the MutableCSINodeAllocatableCount feature
-        gate to be enabled.
+        This feature requires the MutableCSINodeAllocatableCount feature gate to be
+        enabled.
         This field is mutable.
       * **podInfoOnMount** ``Optional[bool]`` - podInfoOnMount indicates this CSI volume driver requires additional pod
         information (like podName, podUID, etc.) during mount operations, if set to
@@ -130,6 +130,20 @@ class CSIDriverSpec(DictMixin):
         support one mode when deployed on such a cluster and the deployment determines
         which mode that is, for example via a command line parameter of the driver.
         This field was immutable in Kubernetes < 1.29 and now is mutable.
+      * **preventPodSchedulingIfMissing** ``Optional[bool]`` - PreventPodSchedulingIfMissing indicates that the CSI driver wants to prevent
+        pod scheduling if the CSI driver on the node is missing.
+        Enabling this option will prevent the scheduler (or any other component which
+        embeds default scheduler such as cluster-autoscaler) from scheduling pods to
+        nodes where CSI driver is not installed.
+        For components(such as cluster-autoscaler) that embed the scheduler and run
+        pod placement simulations using scheduler plugins, they MUST be aware of CSI
+        driver registration information via CSINode object. They must create simulated
+        CSINode objects in addition to Node objects during scheduling simulation,
+        otherwise if PreventPodSchedulingIfMissing is enabled globally for CSIDriver
+        object, any newly created node may be rejected by the scheduler because of
+        missing CSI driver information from the node.
+        This is an alpha feature and requires the VolumeLimitScaling feature gate to
+        be enabled. Default is "false".
       * **requiresRepublish** ``Optional[bool]`` - requiresRepublish indicates the CSI driver wants `NodePublishVolume` being
         periodically called to reflect any possible change in the mounted volume. This
         field defaults to false.
@@ -207,6 +221,7 @@ class CSIDriverSpec(DictMixin):
     fsGroupPolicy: 'Optional[str]' = None
     nodeAllocatableUpdatePeriodSeconds: 'Optional[int]' = None
     podInfoOnMount: 'Optional[bool]' = None
+    preventPodSchedulingIfMissing: 'Optional[bool]' = None
     requiresRepublish: 'Optional[bool]' = None
     seLinuxMount: 'Optional[bool]' = None
     serviceAccountTokenInSecrets: 'Optional[bool]' = None
@@ -736,8 +751,8 @@ class VolumeError(DictMixin):
 
       * **errorCode** ``Optional[int]`` - errorCode is a numeric gRPC code representing the error encountered during
         Attach or Detach operations.
-        This is an optional, beta field that requires the
-        MutableCSINodeAllocatableCount feature gate being enabled to be set.
+        This field requires the MutableCSINodeAllocatableCount feature gate being
+        enabled to be set.
       * **message** ``Optional[str]`` - message represents the error encountered during Attach or Detach operation.
         This string may be logged, so it should not contain sensitive information.
       * **time** ``Optional[meta_v1.Time]`` - time represents the time the error was encountered.

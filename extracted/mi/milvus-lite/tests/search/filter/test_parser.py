@@ -2,9 +2,12 @@
 
 import pytest
 
+import milvus_lite.search.filter.ast as filter_ast
 from milvus_lite.search.filter.ast import (
     And,
     ArithOp,
+    ArrayContainsOp,
+    ArrayLengthOp,
     BoolLit,
     CmpOp,
     FieldRef,
@@ -18,6 +21,7 @@ from milvus_lite.search.filter.ast import (
     MetaAccess,
     Not,
     Or,
+    PathAccess,
     StringLit,
     TimestampLit,
 )
@@ -496,6 +500,91 @@ def test_is_null_lhs_must_be_field():
         parse_expr("'literal' is null")
 
 
+def test_is_null_on_json_path():
+    e = parse_expr('metadata["key"] is null')
+    assert isinstance(e, IsNullOp)
+    assert isinstance(e.field, PathAccess)
+    assert e.field.path == ("key",)
+    assert e.negate is False
+    assert e.from_exists is False
+
+
+def test_is_not_null_on_nested_json_path():
+    e = parse_expr('metadata["a"]["b"] is not null')
+    assert isinstance(e, IsNullOp)
+    assert isinstance(e.field, PathAccess)
+    assert e.field.path == ("a", "b")
+    assert e.negate is True
+
+
+def test_is_null_on_meta_access():
+    e = parse_expr('$meta["key"] is null')
+    assert isinstance(e, IsNullOp)
+    assert isinstance(e.field, MetaAccess)
+    assert e.field.key == "key"
+    assert e.negate is False
+
+
+# ---------------------------------------------------------------------------
+# Phase F2b — exists (desugars to IS NOT NULL with from_exists)
+# ---------------------------------------------------------------------------
+
+def test_exists_on_json_path():
+    e = parse_expr('exists metadata["key"]')
+    assert isinstance(e, IsNullOp)
+    assert isinstance(e.field, PathAccess)
+    assert e.field.path == ("key",)
+    assert e.negate is True
+    assert e.from_exists is True
+
+
+def test_exists_uppercase():
+    e = parse_expr('EXISTS metadata["key"]')
+    assert isinstance(e, IsNullOp)
+    assert e.from_exists is True
+
+
+def test_exists_on_meta_access():
+    e = parse_expr('exists $meta["key"]')
+    assert isinstance(e, IsNullOp)
+    assert isinstance(e.field, MetaAccess)
+    assert e.negate is True
+
+
+def test_exists_on_bare_field():
+    """Bare identifiers parse fine — semantic.py decides whether the
+    field is dynamic (allowed) or an in-schema column (rejected)."""
+    e = parse_expr("exists dyn")
+    assert isinstance(e, IsNullOp)
+    assert isinstance(e.field, FieldRef)
+    assert e.from_exists is True
+
+
+def test_not_exists():
+    e = parse_expr('not exists metadata["key"]')
+    assert isinstance(e, Not)
+    assert isinstance(e.operand, IsNullOp)
+    assert e.operand.negate is True
+    assert e.operand.from_exists is True
+
+
+def test_exists_in_and():
+    e = parse_expr('exists metadata["a"] and metadata["a"] == "x"')
+    assert isinstance(e, And)
+    assert isinstance(e.operands[0], IsNullOp)
+    assert e.operands[0].from_exists is True
+
+
+def test_exists_requires_field_or_path():
+    with pytest.raises(FilterParseError, match="field reference or JSON path"):
+        parse_expr("exists 5")
+
+
+def test_exists_rejects_string_literal():
+    with pytest.raises(FilterParseError, match="field reference or JSON path"):
+        parse_expr("exists 'key'")
+
+
 def test_is_missing_null_keyword():
     with pytest.raises(FilterParseError, match="expected 'null'"):
         parse_expr("title is something")
@@ -554,3 +643,54 @@ def test_meta_in_in_expression():
     ref, but $meta is not a FieldRef. Currently rejected by parser."""
     with pytest.raises(FilterParseError, match="field reference"):
         parse_expr('$meta["category"] in ["tech", "news"]')
+
+
+# ---------------------------------------------------------------------------
+# Composable JSON / array path access
+# ---------------------------------------------------------------------------
+
+def test_array_access_parses_as_path_access():
+    expr = parse_expr("array_field[0] < 1")
+    assert isinstance(expr, CmpOp)
+    assert isinstance(expr.left, filter_ast.PathAccess)
+    assert isinstance(expr.left.base, FieldRef)
+    assert expr.left.base.name == "array_field"
+    assert expr.left.path == (0,)
+
+
+def test_mixed_json_array_path():
+    expr = parse_expr('payload["items"][0]["score"] > 0')
+    assert isinstance(expr, CmpOp)
+    assert isinstance(expr.left, filter_ast.PathAccess)
+    assert isinstance(expr.left.base, FieldRef)
+    assert expr.left.base.name == "payload"
+    assert expr.left.path == ("items", 0, "score")
+
+
+def test_meta_array_path():
+    expr = parse_expr('$meta["array_field"][0] < 1')
+    assert isinstance(expr, CmpOp)
+    assert isinstance(expr.left, filter_ast.PathAccess)
+    assert isinstance(expr.left.base, MetaAccess)
+    assert expr.left.base.key == "array_field"
+    assert expr.left.path == (0,)
+
+
+def test_array_contains_accepts_path_value():
+    expr = parse_expr('array_contains(payload["tags"], "a")')
+    assert isinstance(expr, ArrayContainsOp)
+    assert isinstance(expr.value, filter_ast.PathAccess)
+    assert expr.value.path == ("tags",)
+
+
+def test_array_length_accepts_dynamic_field():
+    expr = parse_expr("array_length(array_field) > 2")
+    assert isinstance(expr, CmpOp)
+    assert isinstance(expr.left, ArrayLengthOp)
+    assert isinstance(expr.left.value, FieldRef)
+    assert expr.left.value.name == "array_field"
+
+
+def test_negative_path_index_rejected():
+    with pytest.raises(FilterParseError, match="non-negative"):
+        parse_expr("array_field[-1] == 1")

@@ -1,14 +1,16 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: mendeleev
-Version: 1.1.0
+Version: 1.2.0
 Summary: Pythonic periodic table of elements
 License: MIT
+License-File: AUTHORS.rst
+License-File: LICENSE
 Keywords: periodic table,chemistry,elements,science
 Author: Lukasz Mentel
 Author-email: lmmentel@gmail.com
 Maintainer: Lukasz Mentel
 Maintainer-email: lmmentel@gmail.com
-Requires-Python: >=3.9,<3.14
+Requires-Python: >=3.10,<3.15
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Science/Research
@@ -16,25 +18,30 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Topic :: Scientific/Engineering :: Chemistry
 Classifier: Topic :: Scientific/Engineering :: Physics
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Provides-Extra: vis
 Requires-Dist: Pygments (>=2.11.2,<3.0.0)
 Requires-Dist: SQLAlchemy (>=1.4.0)
+Requires-Dist: bokeh (>=3.0,<4.0) ; extra == "vis"
 Requires-Dist: colorama (>=0.4.6,<0.5.0)
 Requires-Dist: deprecated (>=1.2.14,<2.0.0)
+Requires-Dist: jupyter-bokeh (>=4.0,<5.0) ; extra == "vis"
 Requires-Dist: numpy (>=2.0,<3.0)
-Requires-Dist: pandas (>=1.1.0) ; python_version < "3.12"
-Requires-Dist: pandas (>=2.1,<3.0) ; python_version >= "3.12" and python_version < "3.14"
-Requires-Dist: pydantic (>=2.9.2,<3.0.0)
+Requires-Dist: pandas (>=2.1,<3.0)
+Requires-Dist: pint (>=0.24.4,<0.25.0)
+Requires-Dist: plotly (>=5.0,<6.0) ; extra == "vis"
+Requires-Dist: pydantic (>=2.12,<3.0)
+Requires-Dist: pydantic-core (>=2.23,<3.0)
 Requires-Dist: pyfiglet (>=0.8.post1,<0.9)
+Requires-Dist: seaborn (>=0.12) ; extra == "vis"
 Project-URL: Documentation, https://mendeleev.readthedocs.io
 Project-URL: Repository, https://github.com/lmmentel/mendeleev
 Description-Content-Type: text/markdown
@@ -81,7 +88,7 @@ of elements, ions and isotopes in the periodic table of elements.
 > - sql,
 > - markdown.
 >
-> All releases a tagged with the same version numbers as ``mendeeleev``.
+> All releases a tagged with the same version numbers as ``mendeleev``.
 
 <!-- TABLE OF CONTENTS -->
 ## Table of Contents
@@ -132,8 +139,9 @@ enables you to create customized periodic tables displaying various
 properties.
 
 ![peridic_table](docs/source/_static/img/mendeleev_periodic_series.png)
-Django Extensions is free and always will be. It is development and maintained by developers in an Open Source manner. Any support is welcome. You could help by writing documentation, pull-requests, report issues and/or translations.
-iodic trends in the periodic tables. If you want to
+
+The package also facilitates the exploration and visualization of
+periodic trends in the periodic table. If you want to
 look at some examples there are a few
 [tutorials](http://mendeleev.readthedocs.io/en/stable/tutorials.html)
 available as [jupyter notebooks](http://jupyter.org/).
@@ -158,7 +166,7 @@ the [conda-forge Anaconda channel](https://anaconda.org/conda-forge/mendeleev)
 channel by
 
 ``` {.sourceCode .bash}
-conda install -c lmmentel mendeleev=1.1.0
+conda install conda-forge::mendeleev
 ```
 
 The package can also be installed using
@@ -182,6 +190,14 @@ pip install git+https://github.com/lmmentel/mendeleev.git
 ## Documentation
 
 Full documentation is hosted on [Read the Docs](http://mendeleev.readthedocs.org/en/latest/).
+
+**Key Documentation Pages:**
+- [API Overview](https://mendeleev.readthedocs.io/en/stable/api_overview.html) - Architecture and usage patterns
+- [Units Support](https://mendeleev.readthedocs.io/en/stable/units.html) - Working with physical units (v1.2.0+)
+- [FAQ](https://mendeleev.readthedocs.io/en/stable/faq.html) - Frequently asked questions
+- [Troubleshooting](https://mendeleev.readthedocs.io/en/stable/troubleshooting.html) - Common issues and solutions
+
+**Interactive Tutorials:**
 
 There are also tutorials available as [Jupyter](https://jupyter.org/)
 notebooks on [binder](https://mybinder.org/) where you can explore the examples interactively:
@@ -322,6 +338,13 @@ important entries are listed:
 - quadrupole moment
 - quadrupole moment uncertainty
 - spin
+
+### Units Support (v1.2.0+)
+
+Since version 1.2.0, mendeleev integrates with [pint](https://pint.readthedocs.io/) to provide
+physical units for properties. Each property includes metadata describing its units, making it easy
+to work with quantities in different unit systems and perform unit-aware calculations.
+See the [Units documentation](https://mendeleev.readthedocs.io/en/stable/units.html) for details.
 
 ## Getting started
 
@@ -577,7 +600,7 @@ Here\'s the reference in the
    author = {Mentel, Łukasz},
    title = {{mendeleev} -- A Python resource for properties of chemical elements, ions and isotopes},
    url = {https://github.com/lmmentel/mendeleev},
-   version = {1.1.0},
+   version = {1.2.0},
    date = {2014--},
 }
 ```
@@ -586,8 +609,8 @@ or the older [BibTeX](http://www.bibtex.org/) format
 
 ``` {.sourceCode .latex}
 @misc{mendeleev2014,
-   auhor = {Mentel, Łukasz},
-   title = {mendeleev} -- A Python resource for properties of chemical elements, ions and isotopes, ver. 1.1.0},
+   author = {Mentel, Łukasz},
+   title = {mendeleev} -- A Python resource for properties of chemical elements, ions and isotopes, ver. 1.2.0},
    howpublished = {\url{https://github.com/lmmentel/mendeleev}},
    year  = {2014--},
 }

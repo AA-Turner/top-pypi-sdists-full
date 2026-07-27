@@ -13,6 +13,10 @@ The qwen3.6 HTTP backend is never touched — a stub ``LuminaBrain`` is injected
 
 from __future__ import annotations
 
+import json
+import os
+import time as _time
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -43,6 +47,11 @@ def client(tmp_path, monkeypatch):
     brain = _StubBrain()
     monkeypatch.setattr(daemon_proxy, "_BRAIN", brain)
 
+    # Isolate the send-dedup caches (module globals) so a reply cached in one
+    # test can't leak into another that decodes to the same content.
+    monkeypatch.setattr(daemon_proxy, "_SEND_RECENT", {})
+    monkeypatch.setattr(daemon_proxy, "_SEND_LOCKS", {})
+
     # Don't enrich with the operator's real ~/.skcapstone/peers in tests.
     monkeypatch.setattr(daemon_proxy, "_other_peers", lambda: [])
 
@@ -66,9 +75,106 @@ def test_lumina_always_present_in_peers_and_conversations(client):
         assert first["is_agent"] is True
         assert first["is_online"] is True
         # Full app conversation contract present.
-        for key in ("last_message", "last_message_time", "soul_fingerprint",
-                    "unread_count", "is_group", "member_count", "avatar_url"):
+        for key in (
+            "last_message",
+            "last_message_time",
+            "soul_fingerprint",
+            "unread_count",
+            "is_group",
+            "member_count",
+            "avatar_url",
+        ):
             assert key in first
+        # Peer-contract aliases (`name`/`fingerprint`) must ALSO be present:
+        # `GET /api/v1/peers` is parsed by the Flutter app's `PeerInfo.fromJson`,
+        # which only reads `name`/`fingerprint`, not `display_name`/
+        # `soul_fingerprint`. Missing aliases here previously meant every peer
+        # discovered only through `/api/v1/peers` (no conversation thread yet)
+        # parsed to an empty name and a null fingerprint app-side, and the
+        # app's fallback then substituted the peerId itself for the
+        # fingerprint -- treated as "no real key" by the peer-trust tier
+        # resolver, permanently rendering the peer unverifiable.
+        assert first["name"] == "Lumina"
+        assert first["fingerprint"] == daemon_proxy.LUMINA_FINGERPRINT
+
+
+def test_other_peers_carry_name_and_fingerprint_aliases(client, monkeypatch):
+    """A real (non-Lumina) peer's ``/api/v1/peers`` entry must carry both the
+    conversation-shape keys (``display_name``/``soul_fingerprint``) AND the
+    peer-shape aliases (``name``/``fingerprint``) the app's ``PeerInfo``
+    model reads, so a peer with no conversation thread yet still resolves to
+    their real capauth fingerprint via the app's peers-only fallback.
+    """
+    jarvis_fp = "BCF7ED87AC8117B448B7677F45BF78F335767EF8"
+    monkeypatch.setattr(
+        daemon_proxy,
+        "_other_peers",
+        lambda: [
+            {
+                "peer_id": "jarvis@skworld.io",
+                "display_name": "Jarvis",
+                "name": "Jarvis",
+                "last_message": "",
+                "last_message_time": "2026-01-01T00:00:00+00:00",
+                "soul_fingerprint": jarvis_fp,
+                "fingerprint": jarvis_fp,
+                "is_online": False,
+                "is_agent": True,
+                "unread_count": 0,
+                "last_delivery_status": "sent",
+                "is_group": False,
+                "member_count": 0,
+                "avatar_url": "",
+            }
+        ],
+    )
+    r = client.get("/api/v1/peers")
+    assert r.status_code == 200
+    body = r.json()
+    jarvis = next(p for p in body if p["peer_id"] == "jarvis@skworld.io")
+    assert jarvis["name"] == "Jarvis"
+    assert jarvis["fingerprint"] == jarvis_fp
+    assert jarvis["fingerprint"] != jarvis["peer_id"]
+
+
+def test_other_peers_reads_real_fingerprint_with_both_key_shapes(tmp_path, monkeypatch):
+    """Unit-test ``_other_peers()`` itself (not monkeypatched away here) against
+    a real ``~/.skcapstone/peers/*.json`` fixture, the same schema the live
+    peer store on disk uses. Each entry must carry the real fingerprint under
+    BOTH ``soul_fingerprint`` (conversation contract) and ``fingerprint``
+    (peer contract) so it survives whichever model the app parses it with.
+    """
+    peers_dir = tmp_path / "peers"
+    peers_dir.mkdir()
+    (peers_dir / "jarvis.json").write_text(
+        json.dumps(
+            {
+                "name": "Jarvis",
+                "identity": "capauth:jarvis@skworld.io",
+                "fingerprint": "BCF7ED87AC8117B448B7677F45BF78F335767EF8",
+                "handle": "jarvis@skworld.io",
+                "agent_type": "ai",
+            }
+        )
+    )
+
+    real_expanduser = os.path.expanduser
+
+    def _fake_expanduser(p):
+        if p == "~/.skcapstone/peers":
+            return str(peers_dir)
+        return real_expanduser(p)
+
+    monkeypatch.setattr(daemon_proxy.os.path, "expanduser", _fake_expanduser)
+
+    peers = daemon_proxy._other_peers()
+    assert len(peers) == 1
+    jarvis = peers[0]
+    assert jarvis["peer_id"] == "jarvis@skworld.io"
+    assert jarvis["display_name"] == "Jarvis"
+    assert jarvis["name"] == "Jarvis"
+    assert jarvis["soul_fingerprint"] == "BCF7ED87AC8117B448B7677F45BF78F335767EF8"
+    assert jarvis["fingerprint"] == "BCF7ED87AC8117B448B7677F45BF78F335767EF8"
 
 
 def test_send_to_lumina_persists_pair_and_returns_reply(client):
@@ -179,6 +285,70 @@ def test_group_faninto_is_excluded_but_threaded_dm_is_kept(client, monkeypatch):
     assert "my threaded 1:1 answer" in inbox_contents
 
 
+def test_hybrid_reply_not_sealable_fails_closed(client, monkeypatch):
+    """P0.1: a hybrid conversation whose reply cannot be sealed must fail
+    closed — HTTP 503 ``reply_not_sealable``, with NO plaintext reply persisted
+    or returned. Refusing beats leaking Lumina's cleartext onto the wire /
+    into history when the operator negotiated hybrid-PQ.
+    """
+    # Force the inbound `pqdm1:` token to "open" (marks the convo hybrid) but
+    # make the outbound seal fail (no prekey / backend gone).
+    monkeypatch.setattr(
+        daemon_proxy,
+        "_open_hybrid_inbound",
+        lambda token, sender_short="chef": "decoded secret",
+    )
+    monkeypatch.setattr(
+        daemon_proxy,
+        "_seal_hybrid_outbound",
+        lambda text, recipient_short="chef": None,
+    )
+
+    r = client.post("/api/v1/send", json={"recipient": "lumina", "message": "pqdm1:abc"})
+    assert r.status_code == 503
+    body = r.json()
+    assert body["ok"] is False
+    assert body["error"] == "reply_not_sealable"
+    # No reply payload leaked back to the caller.
+    assert "reply" not in body
+
+    # The plaintext reply must NOT be persisted (no leak into history): the
+    # only stored turn is the inbound operator message — nothing from Lumina.
+    hist = client.get("/api/v1/conversations/" + daemon_proxy.LUMINA_ID).json()
+    assert not any(m["is_agent"] for m in hist)
+    assert "Lumina hears you: decoded secret" not in [m["content"] for m in hist]
+
+
+def test_hybrid_reply_sealed_returns_200(client, monkeypatch):
+    """Companion to the fail-closed path: when the reply CAN be sealed, the
+    hybrid conversation still returns 200 with the sealed wire token."""
+    monkeypatch.setattr(
+        daemon_proxy,
+        "_open_hybrid_inbound",
+        lambda token, sender_short="chef": "decoded secret",
+    )
+    monkeypatch.setattr(
+        daemon_proxy,
+        "_seal_hybrid_outbound",
+        lambda text, recipient_short="chef": "pqdm1:SEALED",
+    )
+
+    r = client.post("/api/v1/send", json={"recipient": "lumina", "message": "pqdm1:abc"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is True
+    assert body["reply"]["content"] == "pqdm1:SEALED"
+
+
+def test_classical_path_still_returns_200_plaintext(client):
+    """The non-hybrid path is unchanged: 200 with the plaintext reply."""
+    r = client.post("/api/v1/send", json={"recipient": "lumina", "message": "hi there"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is True
+    assert body["reply"]["content"] == "Lumina hears you: hi there"
+
+
 def test_brain_failure_persists_graceful_reply_not_500(client, monkeypatch):
     class _BoomBrain:
         def reply(self, *a, **k):
@@ -192,3 +362,237 @@ def test_brain_failure_persists_graceful_reply_not_500(client, monkeypatch):
     # Both turns are still persisted.
     hist = client.get("/api/v1/conversations/" + daemon_proxy.LUMINA_ID).json()
     assert len(hist) == 2 and hist[0]["content"] == "you there?"
+
+
+def test_react_control_frame_short_circuits_brain(client):
+    """P0.3b: a ``__REACT__`` control frame applies the reaction best-effort,
+    never invokes the brain, and returns ``control: 'reaction'``."""
+    import json as _json
+
+    # A real message to react to (this first send does hit the brain).
+    sent = client.post("/api/v1/send", json={"recipient": "lumina", "message": "hi"}).json()
+    target_id = sent["id"]
+    client._brain.calls.clear()
+
+    frame = "__REACT__:" + _json.dumps({"target_id": target_id, "emoji": "👍", "op": "add"})
+    r = client.post("/api/v1/send", json={"recipient": "lumina", "message": frame})
+    assert r.status_code == 200
+    assert r.json() == {"ok": True, "control": "reaction"}
+    # Brain NOT invoked, no reply.
+    assert client._brain.calls == []
+    assert "reply" not in r.json()
+    # The reaction was applied best-effort (not persisted as a chat turn).
+    msg = client._hist.find_by_id(target_id)
+    assert "👍" in (msg.reactions_map() or {})
+    # No stray control-frame message appears in the thread.
+    hist = client.get("/api/v1/conversations/" + daemon_proxy.LUMINA_ID).json()
+    assert all("__REACT__" not in m["content"] for m in hist)
+
+
+def _wait_for_reply(client, expected_len=2, timeout=5.0):
+    """Poll the Lumina thread until the async background task has landed."""
+    deadline = _time.monotonic() + timeout
+    stored: list = []
+    while _time.monotonic() < deadline:
+        stored = client.get("/api/v1/conversations/" + daemon_proxy.LUMINA_ID).json()
+        if len(stored) >= expected_len:
+            break
+        _time.sleep(0.02)
+    return stored
+
+
+async def test_generate_lumina_reply_returns_reply_dict(client, monkeypatch):
+    """Task 1: the extracted coroutine returns the SAME app-shaped reply dict
+    ``api_send`` returns today (pure-refactor contract), persists the reply and
+    fires a ``new`` broadcast."""
+    seen: list = []
+
+    async def _fake_ws(payload):
+        seen.append(payload)
+
+    monkeypatch.setattr(daemon_proxy, "_ws_broadcast_safe", _fake_ws)
+
+    hist = client._hist
+    user_msg = daemon_proxy._persist(
+        hist,
+        daemon_proxy.OPERATOR_ID,
+        daemon_proxy.LUMINA_URI,
+        "ping",
+    )
+    result = await daemon_proxy._generate_lumina_reply(
+        hist,
+        user_msg,
+        "ping",
+        [],
+        False,
+        {},
+    )
+    assert result["ok"] is True
+    assert result["recipient"] == daemon_proxy.LUMINA_ID
+    assert result["id"] == user_msg.id
+    assert result["reply"]["content"] == "Lumina hears you: ping"
+    assert result["reply"]["reply_to_id"] == user_msg.id
+    assert seen == [{"type": "new"}]
+    stored = client.get("/api/v1/conversations/" + daemon_proxy.LUMINA_ID).json()
+    assert [m["content"] for m in stored] == ["ping", "Lumina hears you: ping"]
+
+
+def test_async_flag_off_is_synchronous(client, monkeypatch):
+    """Flag OFF: /api/v1/send stays synchronous — the reply rides the 200 body
+    (byte-for-byte today's behavior)."""
+    monkeypatch.delenv("SKCHAT_ASYNC_REPLY", raising=False)
+    r = client.post("/api/v1/send", json={"recipient": "lumina", "message": "hi"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is True
+    assert body["reply"]["content"] == "Lumina hears you: hi"
+
+
+def test_async_flag_on_returns_202_then_delivers(client, monkeypatch):
+    """Flag ON: /api/v1/send returns 202 immediately, then the background task
+    generates + persists the reply and fires a ``new`` broadcast."""
+    monkeypatch.setenv("SKCHAT_ASYNC_REPLY", "1")
+    seen: list = []
+
+    async def _fake_ws(payload):
+        seen.append(payload)
+
+    monkeypatch.setattr(daemon_proxy, "_ws_broadcast_safe", _fake_ws)
+
+    r = client.post("/api/v1/send", json={"recipient": "lumina", "message": "hi"})
+    assert r.status_code == 202
+    body = r.json()
+    assert body["ok"] is True
+    assert body["status"] == "generating"
+    assert body["id"]
+    assert "reply" not in body
+
+    stored = _wait_for_reply(client)
+    assert [m["content"] for m in stored] == ["hi", "Lumina hears you: hi"]
+    assert stored[1]["is_agent"] is True
+    assert {"type": "new"} in seen
+
+
+def test_async_flag_on_brain_failure_persists_fallback(client, monkeypatch):
+    """Task 3: with the flag on and a brain that raises, the background task
+    persists a graceful fallback reply (not nothing), still fires ``new`` and
+    never raises out of the task."""
+    monkeypatch.setenv("SKCHAT_ASYNC_REPLY", "1")
+
+    class _BoomBrain:
+        def reply(self, *a, **k):
+            raise RuntimeError("backend down")
+
+    monkeypatch.setattr(daemon_proxy, "_BRAIN", _BoomBrain())
+    seen: list = []
+
+    async def _fake_ws(payload):
+        seen.append(payload)
+
+    monkeypatch.setattr(daemon_proxy, "_ws_broadcast_safe", _fake_ws)
+
+    r = client.post("/api/v1/send", json={"recipient": "lumina", "message": "you there?"})
+    assert r.status_code == 202
+
+    stored = _wait_for_reply(client)
+    assert len(stored) == 2
+    assert stored[0]["content"] == "you there?"
+    assert "thinking failed" in stored[1]["content"].lower()
+    assert {"type": "new"} in seen
+
+
+def test_edit_control_frame_short_circuits_brain(client):
+    """P0.3b: an ``__EDIT__`` control frame edits the target best-effort,
+    never invokes the brain, and returns ``control: 'edit'``."""
+    import json as _json
+
+    sent = client.post("/api/v1/send", json={"recipient": "lumina", "message": "typo"}).json()
+    target_id = sent["id"]
+    client._brain.calls.clear()
+
+    frame = "__EDIT__:" + _json.dumps({"target_id": target_id, "body": "fixed"})
+    r = client.post("/api/v1/send", json={"recipient": "lumina", "message": frame})
+    assert r.status_code == 200
+    assert r.json() == {"ok": True, "control": "edit"}
+    # Brain NOT invoked, no reply.
+    assert client._brain.calls == []
+    assert "reply" not in r.json()
+    # The edit was applied best-effort.
+    msg = client._hist.find_by_id(target_id)
+    assert msg.content == "fixed"
+    # No stray control-frame message appears in the thread.
+    hist = client.get("/api/v1/conversations/" + daemon_proxy.LUMINA_ID).json()
+    assert all("__EDIT__" not in m["content"] for m in hist)
+
+
+def test_async_double_send_dedupes_no_second_task(client, monkeypatch):
+    """Flag ON: an identical retry/double-send within the window is DEDUPED (same
+    202) and does NOT spawn a second background reply task (would duplicate)."""
+    monkeypatch.setenv("SKCHAT_ASYNC_REPLY", "1")
+    import skchat.daemon_proxy as dp
+
+    calls = {"n": 0}
+    real_create = dp.asyncio.create_task
+
+    def _counting(coro, *a, **k):
+        calls["n"] += 1
+        return real_create(coro, *a, **k)
+
+    monkeypatch.setattr(dp.asyncio, "create_task", _counting)
+    body = {"recipient": "lumina", "message": "double send test"}
+    r1 = client.post("/api/v1/send", json=body)
+    r2 = client.post("/api/v1/send", json=body)
+    assert r1.status_code == 202
+    assert r2.json().get("deduped") is True  # 2nd is the cached 202
+    assert calls["n"] == 1  # only ONE reply task spawned
+
+
+# --------------------------------------------------------------------------- #
+# SEAM 2/4 — flag-gated shadow write to the single-writer message log
+# --------------------------------------------------------------------------- #
+def test_message_log_shadow_write_when_flag_on(client, tmp_path, monkeypatch):
+    """SKCHAT_MESSAGE_LOG=1: a send ALSO appends to the single-writer log.
+
+    The user turn (and Lumina's reply) land in her per-conversation log, so
+    ``latest_seq`` advances past zero. The primary history save is untouched.
+    """
+    monkeypatch.setenv("SKCHAT_HOME", str(tmp_path / "mlhome"))
+    monkeypatch.setenv("SKCHAT_MESSAGE_LOG", "1")
+    monkeypatch.setattr(daemon_proxy, "_MSGLOG", None)  # fresh singleton on tmp path
+
+    r = client.post("/api/v1/send", json={"recipient": "lumina", "message": "log me"})
+    assert r.status_code == 200
+
+    log = daemon_proxy._get_message_log()
+    # _shadow_log records under the canonical conversation_id (dm:<a>|<b>), NOT
+    # the retired Lumina-centric LUMINA_ID key. On a fresh log this send yields
+    # exactly one conversation (the operator<->Lumina DM), so read it back by its
+    # real id instead of assuming the old key.
+    convs = log.conversations()
+    assert len(convs) == 1
+    conv_id = convs[0]["conversation_id"]
+    # Sync path persists BOTH the operator turn and Lumina's reply -> seq >= 2.
+    assert log.latest_seq(conv_id) >= 2
+    rows = log.read(conv_id)
+    assert rows[0]["content"] == "log me"
+    assert rows[0]["seq"] == 1 and rows[0]["message_id"]
+
+    # The normal chat surface is unchanged (shadow write is parallel, not primary).
+    hist = client.get("/api/v1/conversations/" + daemon_proxy.LUMINA_ID).json()
+    assert [m["content"] for m in hist] == ["log me", "Lumina hears you: log me"]
+
+
+def test_message_log_untouched_when_flag_off(client, tmp_path, monkeypatch):
+    """Flag OFF (default): the log is never constructed and no DB is written —
+    zero behavior change, existing api_send contract intact."""
+    monkeypatch.setenv("SKCHAT_HOME", str(tmp_path / "mlhome_off"))
+    monkeypatch.delenv("SKCHAT_MESSAGE_LOG", raising=False)
+    monkeypatch.setattr(daemon_proxy, "_MSGLOG", None)
+
+    r = client.post("/api/v1/send", json={"recipient": "lumina", "message": "no log"})
+    assert r.status_code == 200
+    assert r.json()["reply"]["content"] == "Lumina hears you: no log"
+
+    # Nothing touched the log: singleton stays None, no DB file created.
+    assert daemon_proxy._MSGLOG is None
+    assert not (tmp_path / "mlhome_off" / "message_log.db").exists()

@@ -50,10 +50,10 @@ from milvus_lite.search.filter.ast import (
     LikeOp,
     ListLit,
     MetaAccess,
+    PathAccess,
     Not,
     Or,
     StringLit,
-    JsonAccess,
     TextMatchOp,
 )
 
@@ -157,8 +157,10 @@ def _collect(node: Expr, keys: Set[str]) -> None:
 
 def _has_python_only_nodes(node: Expr) -> bool:
     """Check if the AST contains nodes that require python_backend."""
-    from milvus_lite.search.filter.ast import ArrayContainsOp, ArrayLengthOp, ArrayAccessOp
-    if isinstance(node, (TextMatchOp, JsonAccess, ArrayContainsOp, ArrayLengthOp, ArrayAccessOp)):
+    from milvus_lite.search.filter.ast import ArrayContainsOp, ArrayLengthOp
+    if isinstance(node, (
+        TextMatchOp, PathAccess, ArrayContainsOp, ArrayLengthOp,
+    )):
         return True
     if isinstance(node, (CmpOp, ArithOp)):
         return _has_python_only_nodes(node.left) or _has_python_only_nodes(node.right)
@@ -227,7 +229,10 @@ def _rewrite_meta_access(node: Expr, keys: Set[str]) -> Expr:
     if isinstance(node, IsNullOp):
         new_field = _rewrite_meta_access(node.field, keys)
         if new_field is not node.field:
-            return IsNullOp(field=new_field, negate=node.negate, pos=node.pos)
+            return IsNullOp(
+                field=new_field, negate=node.negate, pos=node.pos,
+                from_exists=node.from_exists,
+            )
         return node
     # Literals and FieldRef are leaves — return unchanged.
     return node

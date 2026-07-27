@@ -49,6 +49,14 @@ class PlateauFinder(BaseTransformer):
         self.min_length = min_length
         super().__init__()
 
+    @classmethod
+    def get_test_params(cls, parameter_set="default"):
+        # just two quick param sets to test with
+        return [
+            {},
+            {"value": np.inf, "min_length": 1},
+        ]
+
     def _transform(self, X, y=None):
         """Transform X.
 
@@ -451,9 +459,10 @@ class FittedParamExtractor(BaseTransformer):
             instance.
             ``create_test_instance`` uses the first (or only) dictionary in ``params``
         """
+        from skbase.utils.dependencies import _check_estimator_deps
+
         from sktime.forecasting.exp_smoothing import ExponentialSmoothing
         from sktime.forecasting.trend import TrendForecaster
-        from sktime.utils.dependencies import _check_estimator_deps
 
         # accessing a nested parameter
         params = [

@@ -527,10 +527,13 @@ async def test_auth_middleware_malformed_authorization_header_returns_401(
 
 # Plain routes the real app intends to be reachable without credentials:
 # / and the SPA catch-all serve the public shell, /ws authenticates in-band,
-# /version is the healthcheck, /api/firmware/download carries its own token.
+# /version is the healthcheck, and /api/firmware/download and
+# /api/devices/import_bundle each carry their own single-use token.
 # Static dirs (/assets, /boards/images) and the catch-all are non-plain
 # resources and are skipped (public frontend surfaces).
-_PUBLIC_PLAIN_ROUTES = frozenset({"/", "/ws", "/version", "/api/firmware/download"})
+_PUBLIC_PLAIN_ROUTES = frozenset(
+    {"/", "/ws", "/version", "/api/firmware/download", "/api/devices/import_bundle"}
+)
 
 
 async def test_create_app_gates_every_non_public_route(

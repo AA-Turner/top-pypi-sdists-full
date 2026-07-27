@@ -33,6 +33,8 @@ class HorizontalPodAutoscaler(DictMixin):
 
       **parameters**
 
+      * **spec** ``HorizontalPodAutoscalerSpec`` - spec defines the behaviour of autoscaler. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status.
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
@@ -43,14 +45,12 @@ class HorizontalPodAutoscaler(DictMixin):
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
       * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-      * **spec** ``Optional[HorizontalPodAutoscalerSpec]`` - spec defines the behaviour of autoscaler. More info:
-        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status.
       * **status** ``Optional[HorizontalPodAutoscalerStatus]`` - status is the current information about the autoscaler.
     """
+    spec: 'HorizontalPodAutoscalerSpec'
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
     metadata: 'Optional[meta_v1.ObjectMeta]' = None
-    spec: 'Optional[HorizontalPodAutoscalerSpec]' = None
     status: 'Optional[HorizontalPodAutoscalerStatus]' = None
 
     def __post_init__(self):

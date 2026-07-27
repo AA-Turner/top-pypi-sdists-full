@@ -490,7 +490,8 @@ def auto_train(
             # runs). Loading per-call mirrors the tabpfn branch above; if
             # this becomes a bottleneck on production runs, cache the
             # pretrained handle at module level.
-            import tabfm as _tabfm
+            from tabfm import TabFMRegressor
+            from tabfm import tabfm_v1_0_0_pytorch as tabfm_v1_0_1
 
             class _TabFMWithObjectDtype:
                 """sklearn-shaped wrapper that casts pandas category
@@ -504,7 +505,7 @@ def auto_train(
                 that upstream cast without breaking the other models.
                 So this adapter locally undoes it for TabFM only."""
                 def __init__(self, pretrained):
-                    self._reg = _tabfm.TabFMRegressor(model=pretrained)
+                    self._reg = TabFMRegressor(model=pretrained)
 
                 @staticmethod
                 def _cast(X):
@@ -520,7 +521,7 @@ def auto_train(
                 def predict(self, X):
                     return self._reg.predict(self._cast(X))
 
-            _pretrained = _tabfm.tabfm_v1_0_0_pytorch.load(model_type="regression")
+            _pretrained = tabfm_v1_0_1.load(model_type="regression")
             model = _TabFMWithObjectDtype(_pretrained)
         elif model_name == "tabpfn_ft":
             from tabpfn.finetuning import FinetunedTabPFNRegressor

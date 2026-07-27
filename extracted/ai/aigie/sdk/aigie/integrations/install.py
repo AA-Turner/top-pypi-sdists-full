@@ -31,6 +31,19 @@ _ADAPTER_PACKAGES: tuple[str, ...] = (
 )
 
 
+def _register_source_enricher(emitter: Any, aigie: Any) -> None:
+    """Register the SDK-source enricher that stamps the root span."""
+    from aigie import __version__
+    from aigie.tracing.source_enricher import SdkSourceEnricher
+
+    emitter.register_span_complete_hook(
+        SdkSourceEnricher(
+            sdk_version=__version__,
+            agent_name=getattr(aigie, "_agent_name", None),
+        )
+    )
+
+
 def install_framework_adapters(*, aigie: Any = None) -> None:
     """Install every registered FrameworkAdapter's tracing surface.
 
@@ -58,6 +71,8 @@ def install_framework_adapters(*, aigie: Any = None) -> None:
         # each framework's spans flow through its own emitter. They share
         # aigie._buffer, so wire output is unchanged.
         emitter = TraceEmitter(aigie) if aigie is not None else None
+        if emitter is not None:
+            _register_source_enricher(emitter, aigie)
         try:
             adapter.install(emitter=emitter, coordinator=coordinator)
         except Exception as exc:  # noqa: BLE001

@@ -12,7 +12,7 @@ classifiers = [
     "Topic :: Home Automation",
 ]
 dependencies = [
-    "esphome-device-builder-frontend==0.1.271",
+    "esphome-device-builder-frontend==0.1.283",
     "aiohttp>=3.9.0",
     "aiohttp-asyncmdnsresolver>=0.1.1",
     "colorlog>=6.8.0",
@@ -35,7 +35,7 @@ maintainers = [
 name = "esphome-device-builder"
 readme = "README.md"
 requires-python = ">=3.12"
-version = "1.6.10"
+version = "1.7.0"
 
 [project.optional-dependencies]
 esphome = [
@@ -47,7 +47,7 @@ test = [
     "importtime-waterfall==1.0.0",
     "jsonschema>=4.20.0",
     "mypy==2.3.0",
-    "pre-commit==4.6.0",
+    "pre-commit==4.6.1",
     "pre-commit-hooks==6.0.0",
     "pytest==9.1.1",
     "pytest-aiohttp==1.1.1",
@@ -55,7 +55,7 @@ test = [
     "pytest-cov==7.1.0",
     "pytest-timeout==2.4.0",
     "pytest-xdist==3.8.0",
-    "ruff==0.15.21",
+    "ruff==0.15.22",
     "types-PyYAML",
 ]
 

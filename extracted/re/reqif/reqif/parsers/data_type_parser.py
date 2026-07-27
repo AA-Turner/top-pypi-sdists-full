@@ -65,16 +65,23 @@ class DataTypeParser:
                         else None
                     )
                     properties = xml_specified_value.find("PROPERTIES")
-
-                    embedded_value = properties.find("EMBEDDED-VALUE")
-                    embedded_value_attributes = embedded_value.attrib
-
-                    embedded_value_key = embedded_value_attributes["KEY"]
-                    embedded_value_other_content = (
-                        embedded_value_attributes["OTHER-CONTENT"]
-                        if "OTHER-CONTENT" in embedded_value_attributes
+                    embedded_value = (
+                        properties.find("EMBEDDED-VALUE")
+                        if properties is not None
                         else None
                     )
+
+                    if embedded_value is not None:
+                        embedded_value_attributes = embedded_value.attrib
+                        embedded_value_key = embedded_value_attributes["KEY"]
+                        embedded_value_other_content = (
+                            embedded_value_attributes["OTHER-CONTENT"]
+                            if "OTHER-CONTENT" in embedded_value_attributes
+                            else None
+                        )
+                    else:
+                        embedded_value_key = None
+                        embedded_value_other_content = None
                     values.append(
                         ReqIFEnumValue(
                             description=specified_value_description,
@@ -293,12 +300,13 @@ class DataTypeParser:
                         output += f' LONG-NAME="{escaped_long_name}"'
                     output += ">\n"
 
-                    output += "              <PROPERTIES>\n"
-                    output += f'                <EMBEDDED-VALUE KEY="{value.key}"'
-                    if value.other_content is not None:
-                        output += f' OTHER-CONTENT="{value.other_content}"'
-                    output += "/>\n"
-                    output += "              </PROPERTIES>\n"
+                    if value.key is not None:
+                        output += "              <PROPERTIES>\n"
+                        output += f'                <EMBEDDED-VALUE KEY="{value.key}"'
+                        if value.other_content is not None:
+                            output += f' OTHER-CONTENT="{value.other_content}"'
+                        output += "/>\n"
+                        output += "              </PROPERTIES>\n"
 
                     output += "            </ENUM-VALUE>\n"
 

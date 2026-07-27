@@ -28,8 +28,8 @@ use crate::scan::{
     PartitionFilterCache,
 };
 use crate::spec::{
-    ManifestContentType, ManifestEntryRef, ManifestFile, ManifestList, NameMapping,
-    PartitionSpecRef, SchemaRef, SnapshotRef, TableMetadataRef,
+    ManifestContentType, ManifestEntryRef, ManifestFile, ManifestList, SchemaRef, SnapshotRef,
+    TableMetadataRef,
 };
 use crate::{Error, ErrorKind, Result};
 
@@ -46,9 +46,7 @@ pub(crate) struct ManifestFileContext {
     snapshot_schema: SchemaRef,
     expression_evaluator_cache: Arc<ExpressionEvaluatorCache>,
     delete_file_index: DeleteFileIndex,
-    name_mapping: Option<Arc<NameMapping>>,
     case_sensitive: bool,
-    partition_spec: Option<PartitionSpecRef>,
 }
 
 /// Wraps a [`ManifestEntryRef`] alongside the objects that are needed
@@ -62,9 +60,7 @@ pub(crate) struct ManifestEntryContext {
     pub partition_spec_id: i32,
     pub snapshot_schema: SchemaRef,
     pub delete_file_index: DeleteFileIndex,
-    pub name_mapping: Option<Arc<NameMapping>>,
     pub case_sensitive: bool,
-    pub partition_spec: Option<PartitionSpecRef>,
 }
 
 impl ManifestFileContext {
@@ -80,9 +76,7 @@ impl ManifestFileContext {
             mut sender,
             expression_evaluator_cache,
             delete_file_index,
-            name_mapping,
-            case_sensitive,
-            partition_spec,
+            ..
         } = self;
 
         let manifest = object_cache.get_manifest(&manifest_file).await?;
@@ -97,9 +91,7 @@ impl ManifestFileContext {
                 bound_predicates: bound_predicates.clone(),
                 snapshot_schema: snapshot_schema.clone(),
                 delete_file_index: delete_file_index.clone(),
-                name_mapping: name_mapping.clone(),
-                case_sensitive,
-                partition_spec: partition_spec.clone(),
+                case_sensitive: self.case_sensitive,
             };
 
             sender
@@ -124,26 +116,31 @@ impl ManifestEntryContext {
             )
             .await;
 
-        Ok(FileScanTask::builder()
-            .with_file_size_in_bytes(self.manifest_entry.file_size_in_bytes())
-            .with_start(0)
-            .with_length(self.manifest_entry.file_size_in_bytes())
-            .with_record_count(Some(self.manifest_entry.record_count()))
-            .with_data_file_path(self.manifest_entry.file_path().to_string())
-            .with_data_file_format(self.manifest_entry.file_format())
-            .with_schema(self.snapshot_schema)
-            .with_project_field_ids(self.field_ids.to_vec())
-            .with_predicate(
-                self.bound_predicates
-                    .map(|x| x.as_ref().snapshot_bound_predicate.clone()),
-            )
-            .with_deletes(deletes)
-            .with_partition(Some(self.manifest_entry.data_file.partition.clone()))
-            .with_partition_spec(self.partition_spec.clone())
-            .with_name_mapping(self.name_mapping)
-            .with_case_sensitive(self.case_sensitive)
-            .with_key_metadata(self.manifest_entry.data_file.key_metadata().map(Box::from))
-            .build())
+        Ok(FileScanTask {
+            file_size_in_bytes: self.manifest_entry.file_size_in_bytes(),
+            start: 0,
+            length: self.manifest_entry.file_size_in_bytes(),
+            record_count: Some(self.manifest_entry.record_count()),
+
+            data_file_path: self.manifest_entry.file_path().to_string(),
+            data_file_format: self.manifest_entry.file_format(),
+
+            schema: self.snapshot_schema,
+            project_field_ids: self.field_ids.to_vec(),
+            predicate: self
+                .bound_predicates
+                .map(|x| x.as_ref().snapshot_bound_predicate.clone()),
+
+            deletes,
+
+            // Include partition data and spec from manifest entry
+            partition: Some(self.manifest_entry.data_file.partition.clone()),
+            // TODO: Pass actual PartitionSpec through context chain for native flow
+            partition_spec: None,
+            // TODO: Extract name_mapping from table metadata property "schema.name-mapping.default"
+            name_mapping: None,
+            case_sensitive: self.case_sensitive,
+        })
     }
 }
 
@@ -160,7 +157,6 @@ pub(crate) struct PlanContext {
     pub snapshot_bound_predicate: Option<Arc<BoundPredicate>>,
     pub object_cache: Arc<ObjectCache>,
     pub field_ids: Arc<Vec<i32>>,
-    pub name_mapping: Option<Arc<NameMapping>>,
 
     pub partition_filter_cache: Arc<PartitionFilterCache>,
     pub manifest_evaluator_cache: Arc<ManifestEvaluatorCache>,
@@ -286,12 +282,7 @@ impl PlanContext {
             field_ids: self.field_ids.clone(),
             expression_evaluator_cache: self.expression_evaluator_cache.clone(),
             delete_file_index,
-            name_mapping: self.name_mapping.clone(),
             case_sensitive: self.case_sensitive,
-            partition_spec: self
-                .table_metadata
-                .partition_spec_by_id(manifest_file.partition_spec_id)
-                .cloned(),
         }
     }
 }

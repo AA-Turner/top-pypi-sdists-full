@@ -7,14 +7,203 @@
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/tuple.h>
 #include <nanobind/stl/vector.h>
 
+#include <algorithm>
+#include <string>
+#include <tuple>
+#include <vector>
+
+#include "onnx/defs/schema.h"
+#include "onnx/defs/shape_inference.h"
 #include "onnx/proto_utils.h"
 #include "onnxoptimizer/optimize.h"
 #include "onnxsim.h"
 
 namespace py = nanobind;
 using namespace nanobind::literals;
+
+// nanobind type casters converting Python ``onnx`` protobuf messages (any object
+// exposing ``SerializeToString``) to/from the corresponding C++ proto via the
+// protobuf wire format. This mirrors ONNX's own ``ONNX_DEFINE_TYPE_CASTER`` so
+// bindings can accept/return real ``onnx.*Proto`` objects instead of
+// pre-serialized bytes. ``AttributeProto`` marshals attribute defaults;
+// ``TypeProto``/``NodeProto``/``TensorProto`` marshal the custom-operator shape
+// inference bridge (see ``RunPythonNodeInference``).
+namespace nanobind {
+namespace detail {
+#define ONNXSIM_PROTO_CASTER(ProtoType, PyName)                               \
+  template <>                                                                 \
+  struct type_caster<onnx::ProtoType> {                                       \
+    NB_TYPE_CASTER(onnx::ProtoType, const_name(PyName))                       \
+    bool from_python(handle src, uint8_t, cleanup_list*) noexcept {           \
+      try {                                                                   \
+        if (!nanobind::hasattr(src, "SerializeToString")) {                   \
+          return false;                                                       \
+        }                                                                     \
+        auto serialized =                                                     \
+            nanobind::cast<nanobind::bytes>(src.attr("SerializeToString")()); \
+        return onnx::ParseProtoFromBytes(&value, serialized.c_str(),          \
+                                         serialized.size());                  \
+      } catch (const nanobind::python_error&) {                               \
+        return false;                                                         \
+      }                                                                       \
+    }                                                                         \
+    static handle from_cpp(const onnx::ProtoType& proto, rv_policy,           \
+                           cleanup_list*) noexcept {                          \
+      try {                                                                   \
+        const std::string serialized = proto.SerializeAsString();            \
+        auto py_proto =                                                       \
+            nanobind::module_::import_("onnx").attr(#ProtoType)();            \
+        py_proto.attr("ParseFromString")(                                     \
+            nanobind::bytes(serialized.c_str(), serialized.size()));         \
+        return py_proto.release();                                            \
+      } catch (...) {                                                         \
+        return handle();                                                      \
+      }                                                                       \
+    }                                                                         \
+  };
+
+ONNXSIM_PROTO_CASTER(AttributeProto, "onnx.AttributeProto")
+ONNXSIM_PROTO_CASTER(TypeProto, "onnx.TypeProto")
+ONNXSIM_PROTO_CASTER(NodeProto, "onnx.NodeProto")
+ONNXSIM_PROTO_CASTER(TensorProto, "onnx.TensorProto")
+
+#undef ONNXSIM_PROTO_CASTER
+}  // namespace detail
+}  // namespace nanobind
+
+namespace {
+
+using onnx::OpSchema;
+
+// A formal parameter (input/output) as marshalled from the Python ``onnx``
+// module: (name, description, type_str, option, is_homogeneous, min_arity).
+// ``option`` is the integer value of onnx's FormalParameterOption enum
+// (Single=0, Optional=1, Variadic=2).
+using PyFormalParameter =
+    std::tuple<std::string, std::string, std::string, int, bool, int>;
+// An attribute: (name, description, type, required, default_value). ``type`` is
+// the integer value of onnx's AttributeProto::AttributeType enum. When
+// ``default_value`` has a defined type the attribute is optional with that
+// default; when its type is UNDEFINED, ``required`` decides.
+using PyAttribute =
+    std::tuple<std::string, std::string, int, bool, onnx::AttributeProto>;
+// A type constraint: (type_param_str, allowed_type_strs, description).
+using PyTypeConstraint =
+    std::tuple<std::string, std::vector<std::string>, std::string>;
+
+// Ensure ``domain`` exists in the schema registry's domain-to-version range and
+// that ``version`` falls inside it, so a schema with that since_version can be
+// registered. The default ONNX domain ("") is always present; custom domains
+// coming from user-registered schemas usually are not, and onnx refuses to
+// register a schema whose domain/version is outside the known range.
+void EnsureDomainVersion(const std::string& domain, int version) {
+  auto& range = onnx::OpSchemaRegistry::DomainToVersionRange::Instance();
+  const auto& map = range.Map();
+  auto it = map.find(domain);
+  if (it == map.end()) {
+    range.AddDomainToVersion(domain, /*min_version=*/std::min(version, 1),
+                             /*max_version=*/std::max(version, 1));
+  } else {
+    const int lo = std::min(it->second.first, version);
+    const int hi = std::max(it->second.second, version);
+    if (lo != it->second.first || hi != it->second.second) {
+      range.UpdateDomainToVersion(domain, lo, hi);
+    }
+  }
+}
+
+// The default ONNX domain is stored as the empty string in the schema registry;
+// "ai.onnx" is an accepted spelling of the same domain.
+std::string NormalizeDomain(const std::string& domain) {
+  return domain == "ai.onnx" ? std::string() : domain;
+}
+
+// C++ shape/type inference trampoline for a custom operator whose *real*
+// inference function lives in the Python ``onnx`` module (registered by the user
+// via ``onnx.defs.register_schema`` + ``set_type_and_shape_inference_function``).
+// That function is native code inside the ``onnx`` library and cannot be called
+// directly from onnxsim's separately linked copy, so instead we reconstruct the
+// node and its input types from onnxsim's ``InferenceContext`` and hand them to
+// ``onnx.shape_inference.infer_node_outputs``, which runs the Python inference
+// function and returns the output types. The results are written back into the
+// context so onnxsim's own shape inference (and constant folding) can use them.
+//
+// onnxsim's ``InferenceContext`` is positional (it exposes input/output types by
+// index, not by name), so a synthetic node is built with placeholder names
+// ``in0.. / out0..``; attribute values are read by the names the schema declares.
+// This is invoked during ``InferShapes``, which onnxsim always runs while holding
+// the GIL (it is driven synchronously from the Python ``simplify`` binding);
+// ``gil_scoped_acquire`` is nonetheless taken to be safe. Any failure is
+// swallowed so a misbehaving custom inference never aborts simplification.
+void RunPythonNodeInference(onnx::InferenceContext& ctx,
+                            const std::string& op_type,
+                            const std::string& domain, int since_version,
+                            const std::vector<std::string>& attr_names) {
+  py::gil_scoped_acquire gil;
+  try {
+    const size_t num_inputs = ctx.getNumInputs();
+    const size_t num_outputs = ctx.getNumOutputs();
+
+    onnx::NodeProto node;
+    node.set_op_type(op_type);
+    node.set_domain(domain);
+    for (size_t i = 0; i < num_inputs; ++i) {
+      node.add_input("in" + std::to_string(i));
+    }
+    for (size_t i = 0; i < num_outputs; ++i) {
+      node.add_output("out" + std::to_string(i));
+    }
+    for (const auto& name : attr_names) {
+      const onnx::AttributeProto* attr = ctx.getAttribute(name);
+      if (attr != nullptr) {
+        *node.add_attribute() = *attr;
+      }
+    }
+
+    py::dict input_types;
+    py::dict input_data;
+    for (size_t i = 0; i < num_inputs; ++i) {
+      const std::string key = "in" + std::to_string(i);
+      const onnx::TypeProto* type = ctx.getInputType(i);
+      if (type != nullptr) {
+        input_types[key.c_str()] = py::cast(*type);
+      }
+      const onnx::TensorProto* data = ctx.getInputData(i);
+      if (data != nullptr) {
+        input_data[key.c_str()] = py::cast(*data);
+      }
+    }
+
+    py::object schema =
+        py::module_::import_("onnx.defs")
+            .attr("get_schema")(op_type, since_version, domain);
+    py::object result_obj =
+        py::module_::import_("onnx.shape_inference")
+            .attr("infer_node_outputs")(schema, py::cast(node), input_types,
+                                        input_data);
+    py::dict result = py::cast<py::dict>(result_obj);
+
+    for (size_t i = 0; i < num_outputs; ++i) {
+      const std::string key = "out" + std::to_string(i);
+      if (!result.contains(key.c_str())) {
+        continue;
+      }
+      onnx::TypeProto* out_type = ctx.getOutputType(i);
+      if (out_type != nullptr) {
+        py::object value = result[key.c_str()];
+        *out_type = py::cast<onnx::TypeProto>(value);
+      }
+    }
+  } catch (...) {
+    // Best-effort: leave the outputs uninferred on any failure so onnxsim's
+    // shape inference simply flows past this operator, as it did before.
+  }
+}
+
+}  // namespace
 
 struct PyModelExecutor : public ModelExecutor {
   using ModelExecutor::ModelExecutor;
@@ -69,7 +258,8 @@ NB_MODULE(onnxsim_cpp2py_export, m) {
   using namespace py::literals;
 
   m.def("simplify",
-        [](const py::bytes& model_proto_bytes,
+        [](std::shared_ptr<PyModelExecutor> executor,
+           const py::bytes& model_proto_bytes,
            std::optional<std::vector<std::string>> skip_optimizers,
            bool constant_folding, bool shape_inference,
            size_t tensor_size_threshold) -> py::bytes {
@@ -77,31 +267,30 @@ NB_MODULE(onnxsim_cpp2py_export, m) {
           InitEnv();
           ONNX_NAMESPACE::ModelProto model;
           ParseProtoFromBytes(&model, model_proto_bytes.c_str(), model_proto_bytes.size());
-          auto const result = Simplify(model, skip_optimizers, constant_folding,
-                                       shape_inference, tensor_size_threshold);
+          auto const result = Simplify(*executor, model, skip_optimizers,
+                                       constant_folding, shape_inference,
+                                       tensor_size_threshold);
           std::string out;
           result.SerializeToString(&out);
           return py::bytes(out.data(), out.size());
-        }, "model_bytes"_a, "skip_optimizers"_a.none(),
+        }, "executor"_a, "model_bytes"_a, "skip_optimizers"_a.none(),
         "constant_folding"_a = true, "shape_inference"_a = true, "tensor_size_threshold"_a)
       .def("simplify_path",
-           [](const std::string& in_path, const std::string& out_path,
+           [](std::shared_ptr<PyModelExecutor> executor,
+              const std::string& in_path, const std::string& out_path,
               std::optional<std::vector<std::string>> skip_optimizers,
               bool constant_folding, bool shape_inference,
               size_t tensor_size_threshold) -> bool {
              // force env initialization to register opset
              InitEnv();
-             SimplifyPath(in_path, out_path, skip_optimizers, constant_folding,
-                          shape_inference, tensor_size_threshold);
+             SimplifyPath(*executor, in_path, out_path, skip_optimizers,
+                          constant_folding, shape_inference,
+                          tensor_size_threshold);
              return true;
-           }, "in_path"_a, "out_path"_a,
+           }, "executor"_a, "in_path"_a, "out_path"_a,
            "skip_optimizers"_a.none(),
            "constant_folding"_a = true, "shape_inference"_a = true,
            "tensor_size_threshold"_a)
-      .def("_set_model_executor",
-           [](std::shared_ptr<PyModelExecutor> executor) {
-             ModelExecutor::set_instance(std::move(executor));
-           }, "executor"_a.none())
       .def("_list_optimizers",
            []() {
             py::list ret;
@@ -110,6 +299,102 @@ NB_MODULE(onnxsim_cpp2py_export, m) {
             }
             return ret;
            })
+      // Whether onnxsim's internal (statically linked) schema registry already
+      // knows an operator, at any opset version, in ``domain``. Used to skip
+      // operators that do not need importing from the Python ``onnx`` module.
+      .def("_has_schema",
+           [](const std::string& op_type, const std::string& domain) -> bool {
+             return onnx::OpSchemaRegistry::Schema(
+                        op_type, NormalizeDomain(domain)) != nullptr;
+           }, "op_type"_a, "domain"_a)
+      // Register a single operator schema into onnxsim's internal schema
+      // registry. onnxsim links its own copy of ONNX, so its registry is
+      // separate from the one the Python ``onnx`` module uses; this bridges a
+      // schema (e.g. one a user added via ``onnx.defs.register_schema``) across
+      // that boundary so the model passes ``check_model`` (GitHub issue #326).
+      //
+      // When ``has_inference_function`` is set, the Python schema carries a
+      // type/shape inference function; a C++ trampoline is attached that calls
+      // it back through ``onnx.shape_inference.infer_node_outputs`` during
+      // onnxsim's shape inference (see ``RunPythonNodeInference``). Otherwise the
+      // schema is registered without one and shape inference simply flows past
+      // the operator. Registration never raises: a malformed or duplicate schema
+      // is reported to stderr and ignored, matching the other schema-registration
+      // paths in onnxsim.
+      .def("_register_schema",
+           [](const std::string& name, const std::string& domain,
+              int since_version, const std::string& doc,
+              const std::vector<PyFormalParameter>& inputs,
+              const std::vector<PyFormalParameter>& outputs,
+              const std::vector<PyAttribute>& attributes,
+              const std::vector<PyTypeConstraint>& type_constraints,
+              bool has_inference_function) {
+             if (since_version < 1) {
+               since_version = 1;
+             }
+             const std::string dom = NormalizeDomain(domain);
+             EnsureDomainVersion(dom, since_version);
+
+             OpSchema schema;
+             schema.SetName(name).SetDomain(dom).SinceVersion(since_version).SetDoc(
+                 doc);
+
+             int idx = 0;
+             for (const auto& p : inputs) {
+               schema.Input(
+                   idx++, std::get<0>(p), std::get<1>(p), std::get<2>(p),
+                   static_cast<OpSchema::FormalParameterOption>(std::get<3>(p)),
+                   std::get<4>(p), std::get<5>(p));
+             }
+             idx = 0;
+             for (const auto& p : outputs) {
+               schema.Output(
+                   idx++, std::get<0>(p), std::get<1>(p), std::get<2>(p),
+                   static_cast<OpSchema::FormalParameterOption>(std::get<3>(p)),
+                   std::get<4>(p), std::get<5>(p));
+             }
+             for (const auto& a : attributes) {
+               const onnx::AttributeProto& default_value = std::get<4>(a);
+               if (default_value.type() != onnx::AttributeProto::UNDEFINED) {
+                 schema.Attr(OpSchema::Attribute(std::get<0>(a), std::get<1>(a),
+                                                 default_value));
+               } else {
+                 schema.Attr(OpSchema::Attribute(
+                     std::get<0>(a), std::get<1>(a),
+                     static_cast<onnx::AttributeProto::AttributeType>(
+                         std::get<2>(a)),
+                     std::get<3>(a)));
+               }
+             }
+             for (const auto& tc : type_constraints) {
+               schema.TypeConstraint(std::get<0>(tc), std::get<1>(tc),
+                                     std::get<2>(tc));
+             }
+
+             if (has_inference_function) {
+               // Capture what the trampoline needs to reach back into the Python
+               // ``onnx`` registry (which owns the real inference function) and
+               // to read the node's attributes by name.
+               std::vector<std::string> attr_names;
+               attr_names.reserve(attributes.size());
+               for (const auto& a : attributes) {
+                 attr_names.push_back(std::get<0>(a));
+               }
+               const int ver = since_version;
+               schema.TypeAndShapeInferenceFunction(
+                   [name, dom, ver,
+                    attr_names](onnx::InferenceContext& ctx) {
+                     RunPythonNodeInference(ctx, name, dom, ver, attr_names);
+                   });
+             }
+
+             onnx::RegisterSchema(std::move(schema), /*opset_version_to_load=*/0,
+                                  /*fail_duplicate_schema=*/false,
+                                  /*fail_with_exception=*/false);
+           },
+           "name"_a, "domain"_a, "since_version"_a, "doc"_a, "inputs"_a,
+           "outputs"_a, "attributes"_a, "type_constraints"_a,
+           "has_inference_function"_a)
       ;
 
   py::class_<PyModelExecutor, PyModelExecutorTrampoline>(m, "ModelExecutor")

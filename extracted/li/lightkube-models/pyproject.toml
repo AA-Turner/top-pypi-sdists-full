@@ -20,7 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
-version = "1.35.0.8"
+version = "1.36.3.8"
 
 [project.urls]
 Homepage = "https://github.com/gtsystem/lightkube-models"

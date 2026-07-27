@@ -6,7 +6,7 @@ from fnmatch import fnmatch
 from typing import Optional
 
 from ..storage import IndexStore, record_savings, estimate_savings, cost_avoided as _cost_avoided
-from ._utils import index_status_to_tool_error, resolve_repo
+from ._utils import index_status_to_tool_error, ledger_base_path as _ledger_base_path, resolve_repo
 from .get_context_bundle import _count_tokens
 from .search_symbols import (
     _tokenize,
@@ -289,6 +289,10 @@ def get_ranked_context(
     if not index:
         return index_status_to_tool_error(store.inspect_index(owner, name))
 
+    # #377 item 6: identity before the scan, compared after it.
+    from ..retrieval import subject_state as _subject
+    _state_before = _subject.capture(index)
+
     # BM25 corpus — cached on CodeIndex
     query_terms = _tokenize(query) or [query.lower()]
     # Guard: empty string in query_terms causes "" to match every filename
@@ -336,6 +340,8 @@ def get_ranked_context(
             scope=scope,
             compress=compress,
             start=start,
+            # #377 item 6 reaches this exit too (v1.108.185).
+            state_before=_state_before,
         )
 
     # Normalize PageRank to [0,1] for score combination
@@ -414,6 +420,39 @@ def get_ranked_context(
                 "total_tokens_saved": 0,
             },
         }
+        # This path asserts "Do not claim this feature exists" in prose, and
+        # until #377 item 6 it did so with none of the machinery that decides
+        # whether such a claim is allowed: no verdict, no freshness, no
+        # coverage, no gates. It gets the same verdict every other retrieval
+        # answer gets, so a genuine no-candidate result is citable and a scan
+        # over a stale, partial, rebuilding or moving subject is refused.
+        from ..retrieval.freshness import FreshnessProbe as _FreshnessProbe
+        from ..retrieval.verdict import build_verdict as _bv
+        from ..retrieval.verdict import index_changed_since_load as _icsl
+        from ..retrieval.verdict import index_coverage_meta as _icm
+        _p = _FreshnessProbe(
+            source_root=getattr(index, "source_root", "") or None,
+            indexed_at=getattr(index, "indexed_at", ""),
+            index_sha=getattr(index, "git_head", None),
+            file_mtimes=getattr(index, "file_mtimes", None),
+        )
+        result["_meta"]["verdict"] = _bv(
+            result_count=0,
+            scanned_symbols=len(candidates),
+            scanned_files=len(index.source_files),
+            query_terms=query_terms,
+            source_files=index.source_files,
+            index_stale=_p.repo_is_stale,
+            freshness=_p.repo_freshness,
+            index_changed=_icsl(index),
+            coverage=_icm(index),
+            moved_during_scan=_subject.moved_during_scan(
+                _state_before, index, result_count=0
+            ),
+            working_tree=_subject.working_tree_state(
+                index, scope=scope, freshness=_p.repo_freshness
+            ),
+        )["verdict"]
         return result
 
     # Normalize and compute combined score
@@ -552,6 +591,10 @@ def get_ranked_context(
     from ..retrieval.verdict import index_coverage_meta as _index_coverage_meta
     _vres = _build_verdict(
         result_count=len(context_items),
+        # #377 hardening item 8: a candidate set that could not be packed into
+        # the context budget is not a no-match. The zero-candidate case returns
+        # earlier, so anything reaching here really did match something.
+        matches_before_packing=items_considered,
         scanned_symbols=items_considered,
         scanned_files=len(set(s.get("file", "") for _, _, _, s in scored)),
         best_score=max(max_bm25, _EXACT_SEED_VERDICT_SCORE) if exact_ids else max_bm25,
@@ -560,12 +603,25 @@ def get_ranked_context(
         source_files=index.source_files,
         semantic_requested=False,
         index_stale=_probe.repo_is_stale,
+        freshness=_probe.repo_freshness,
         index_changed=_index_changed_since_load(index),
         coverage=_index_coverage_meta(index),
+        moved_during_scan=_subject.moved_during_scan(
+            _state_before, index, result_count=len(context_items)
+        ),
+        working_tree=(
+            _subject.working_tree_state(
+                index, scope=scope, freshness=_probe.repo_freshness
+            )
+            if not context_items else None
+        ),
     )
     negative_evidence = _vres["negative_evidence"]
     result["_meta"]["verdict"] = _vres["verdict"]
     _record_ranking_event(
+        # v1.108.188: the store this call was told to use, not whichever one the
+        # first savings write of the process happened to pin.
+        base_path=_ledger_base_path(store),
         tool="get_ranked_context",
         repo=f"{owner}/{name}",
         query=query,
@@ -606,6 +662,7 @@ def _get_ranked_context_fusion(
     scope,
     start: float,
     compress: bool = False,
+    state_before: Optional[dict] = None,
 ) -> dict:
     """Fusion-based ranked context: WRR across channels, greedy budget packing."""
     from ..retrieval.signal_fusion import (
@@ -627,6 +684,12 @@ def _get_ranked_context_fusion(
         ]
 
     if not candidates:
+        # v1.108.185. The scope selected nothing, so not a byte was read — and
+        # this returned a bare empty result, which reads like a completed search
+        # that found nothing (#377 hardening item 9). Same shape as the
+        # no-candidate early return the non-fusion path got a verdict for in
+        # v1.108.179; this is the exit that was missed.
+        from ..retrieval.verdict import retrieval_verdict_for_index as _rv
         elapsed = (time.perf_counter() - start) * 1000
         return {
             "context_items": [],
@@ -634,7 +697,29 @@ def _get_ranked_context_fusion(
             "budget_tokens": token_budget,
             "items_included": 0,
             "items_considered": 0,
-            "_meta": {"timing_ms": round(elapsed, 1), "tokens_saved": 0, "total_tokens_saved": 0},
+            "_meta": {
+                "timing_ms": round(elapsed, 1),
+                "tokens_saved": 0,
+                "total_tokens_saved": 0,
+                "fusion": True,
+                "search_mode": "fusion",
+                "verdict": _rv(
+                    index,
+                    result_count=0,
+                    query_terms=query_terms,
+                    scope=scope,
+                    state_before=state_before,
+                    incomplete={
+                        "reason": "empty_scope",
+                        "files_eligible": 0,
+                        "note": (
+                            "No indexed symbol matched this scope, so nothing was "
+                            "scanned. An empty eligible set proves nothing about "
+                            "the corpus."
+                        ),
+                    },
+                )["verdict"],
+            },
         }
 
     # Centrality for BM25 tiebreaker
@@ -727,6 +812,7 @@ def _get_ranked_context_fusion(
             "total_tokens_saved": total_saved,
             **_cost_avoided(tokens_saved, total_saved),
             "fusion": True,
+            "search_mode": "fusion",
             "channels": [ch.name for ch in channels],
         },
     }
@@ -746,18 +832,88 @@ def _get_ranked_context_fusion(
         file_rel = sid.split("::", 1)[0] if "::" in sid else ""
         item["_freshness"] = _probe.classify(file_rel)
     fusion_result["_meta"]["freshness"] = _probe.summary(context_items)
+    # v1.108.187. This exit passed NO ledger features, so `top1_score`, `top2_score`
+    # and `identity_hit` were recorded as their defaults on every row it has ever
+    # written — three of regret's six signals read those columns, and a default is
+    # indistinguishable from a measurement once it is in the ledger.
+    #
+    # Identity comes from the channel's own `raw_scores` rather than being left to
+    # default: this exit BUILDS the identity channel, so unlike its sibling it knows
+    # per symbol whether identity matched. `build_identity_channel` only admits
+    # symbols scoring above zero, so membership is the match.
+    # ⚠ The ledger input is SEPARATE from the confidence input on purpose.
+    # `compute_confidence` sniffs the same `identity` key when the caller passes no
+    # `has_identity_match`, and scores it 1.0 known-true / 0.7 unknown / 0.6
+    # known-false — so feeding identity to `attach_confidence` would MOVE the
+    # confidence of every fusion search (measured: 0.742 -> 0.783 on one fixture).
+    # That is a ranking-adjacent behaviour change, not "record the feature", so the
+    # confidence call keeps the input it has always had.
     _attach_confidence(
         fusion_result,
         [{"score": item.get("fusion_score")} for item in context_items],
         is_stale=_probe.repo_is_stale,
     )
+    from ..retrieval.confidence import extract_ledger_features as _ledger_feats
+    _id_raw = getattr(id_ch, "raw_scores", None) or {}
+    _feat = _ledger_feats([
+        {
+            "score": item.get("fusion_score"),
+            "identity": _id_raw.get(item.get("symbol_id", ""), 0.0),
+        }
+        for item in context_items
+    ])
+    # v1.108.186. This was a hardcoded `semantic_used=True` while the channel list
+    # above builds lexical, identity and structural — never similarity — so every
+    # row this exit has ever written claimed a channel that did not run. Derived
+    # from the channels actually built rather than hardcoded False: if anyone adds a
+    # similarity channel here, the ledger follows without a second edit. Same shape
+    # as `search_symbols_fusion`, which records its real `similarity_used` flag.
+    _semantic_used = any(ch.name == "similarity" for ch in channels)
     _record_ranking_event(
+        base_path=_ledger_base_path(store),
         tool="get_ranked_context_fusion",
         repo=f"{owner}/{name}",
         query=query,
         returned_ids=[c.get("symbol_id", "") for c in context_items],
         confidence=fusion_result["_meta"].get("confidence"),
-        semantic_used=True,
+        semantic_used=_semantic_used,
         repo_is_stale=_probe.repo_is_stale,
+        **_feat,
     )
+
+    # v1.108.185. The last exit in this tool without a verdict. The non-fusion
+    # no-candidate return got one in v1.108.179 and the main path has had one since
+    # v1.108.166; this branch was simply never revisited.
+    from ..retrieval.verdict import retrieval_verdict_for_index as _rv
+    _vres = _rv(
+        index,
+        result_count=len(context_items),
+        # A candidate set that could not be packed into the budget is not a
+        # no-match (#377 hardening item 8), and `_pack_budget` can empty it.
+        matches_before_packing=len(fused),
+        scanned_symbols=len(candidates),
+        scanned_files=len(set(s.get("file", "") for s in candidates)),
+        best_score=max((fr.score for fr in fused), default=None),
+        query_terms=query_terms,
+        scope=scope,
+        state_before=state_before,
+        # v1.108.186. Same derivation as the ledger row above, so the response and
+        # the ledger cannot disagree about the same call again — which is exactly
+        # what they did while this defaulted to `off` and the ledger said True.
+        semantic_channel="ok" if _semantic_used else "off",
+    )
+    fusion_result["_meta"]["verdict"] = _vres["verdict"]
+    if _vres["negative_evidence"] is not None:
+        fusion_result["negative_evidence"] = _vres["negative_evidence"]
+        if _vres["negative_evidence"]["verdict"] == "no_implementation_found":
+            fusion_result["⚠ warning"] = (
+                f"No implementation found for '{query[:80]}'. "
+                f"Do not claim this feature exists."
+            )
+        else:
+            fusion_result["⚠ warning"] = (
+                f"Low-confidence matches for '{query[:80]}' "
+                f"(best score: {_vres['negative_evidence']['best_match_score']}). "
+                f"Verify before claiming this feature exists."
+            )
     return fusion_result

@@ -540,8 +540,7 @@ def expand_path(p: Union[None, PathLike], expand_vars: bool = True) -> Optional[
 
 
 def remove_password_if_present(cmdline: Sequence[str]) -> List[str]:
-    """Parse any command line argument and if one of the elements is an URL with a
-    username and/or password, replace them by stars (in-place).
+    """Redact credentials in URLs and HTTP Authorization extra headers in a command line.
 
     If nothing is found, this just returns the command line as-is.
 
@@ -551,6 +550,16 @@ def remove_password_if_present(cmdline: Sequence[str]) -> List[str]:
     new_cmdline = []
     for index, to_parse in enumerate(cmdline):
         new_cmdline.append(to_parse)
+        config_key, separator, header = to_parse.partition("=")
+        header_name, colon, _ = header.partition(":")
+        if (
+            separator
+            and colon
+            and config_key.lower().endswith(".extraheader")
+            and header_name.strip().lower() == "authorization"
+        ):
+            new_cmdline[index] = "%s%s%s%s *****" % (config_key, separator, header_name, colon)
+            continue
         try:
             url = urlsplit(to_parse)
             # Remove password from the URL if present.
@@ -611,13 +620,17 @@ class RemoteProgress:
         self.error_lines: List[str] = []
         self.other_lines: List[str] = []
 
-    def _parse_progress_line(self, line: AnyStr) -> None:
+    def _parse_progress_line(self, line: AnyStr) -> Optional[object]:
         """Parse progress information from the given line as retrieved by
         :manpage:`git-push(1)` or :manpage:`git-fetch(1)`.
 
         - Lines that do not contain progress info are stored in :attr:`other_lines`.
         - Lines that seem to contain an error (i.e. start with ``error:`` or ``fatal:``)
           are stored in :attr:`error_lines`.
+
+        The base implementation returns ``None``. Subclasses may return another
+        value for compatibility with existing overrides, but callers should treat
+        the return value as unspecified.
         """
         # handle
         # Counting objects: 4, done.
@@ -632,7 +645,7 @@ class RemoteProgress:
 
         if self._cur_line.startswith(("error:", "fatal:")):
             self.error_lines.append(self._cur_line)
-            return
+            return None
 
         cur_count, max_count = None, None
         match = self.re_op_relative.match(line_str)
@@ -642,7 +655,7 @@ class RemoteProgress:
         if not match:
             self.line_dropped(line_str)
             self.other_lines.append(line_str)
-            return
+            return None
         # END could not get match
 
         op_code = 0
@@ -673,7 +686,7 @@ class RemoteProgress:
             self.line_dropped(line_str)
             # Note: Don't add this line to the other lines, as we have to silently
             # drop it.
-            return
+            return None
         # END handle op code
 
         # Figure out stage.
@@ -699,6 +712,7 @@ class RemoteProgress:
             max_count and float(max_count),
             message,
         )
+        return None
 
     def new_message_handler(self) -> Callable[[str], None]:
         """
@@ -708,7 +722,7 @@ class RemoteProgress:
         """
 
         def handler(line: AnyStr) -> None:
-            return self._parse_progress_line(line.rstrip())
+            self._parse_progress_line(line.rstrip())
 
         # END handler
 

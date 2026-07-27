@@ -10,6 +10,57 @@ from . import meta_v1
 
 
 @dataclass
+class ApplyConfiguration(DictMixin):
+    r"""ApplyConfiguration defines the desired configuration values of an object.
+
+      **parameters**
+
+      * **expression** ``Optional[str]`` - expression will be evaluated by CEL to create an apply configuration. ref:
+        https://github.com/google/cel-spec
+        Apply configurations are declared in CEL using object initialization. For
+        example, this CEL expression returns an apply configuration to set a single
+        field:
+        	Object{
+        	  spec: Object.spec{
+        	    serviceAccountName: "example"
+        	  }
+        	}
+        Apply configurations may not modify atomic structs, maps or arrays due to the
+        risk of accidental deletion of values not included in the apply configuration.
+        CEL expressions have access to the object types needed to create apply
+        configurations:
+        - 'Object' - CEL type of the resource object. - 'Object.<fieldName>' - CEL
+        type of object field (such as 'Object.spec') -
+        'Object.<fieldName1>.<fieldName2>...<fieldNameN>` - CEL type of nested field
+        (such as 'Object.spec.containers')
+        CEL expressions have access to the contents of the API request, organized into
+        CEL variables as well as some other useful variables:
+        - 'object' - The object from the incoming request. The value is null for
+        DELETE requests. - 'oldObject' - The existing object. The value is null for
+        CREATE requests. - 'request' - Attributes of the API
+        request([ref](/pkg/apis/admission/types.go#AdmissionRequest)). - 'params' -
+        Parameter resource referred to by the policy binding being evaluated. Only
+        populated if the policy has a ParamKind. - 'namespaceObject' - The namespace
+        object that the incoming object belongs to. The value is null for
+        cluster-scoped resources. - 'variables' - Map of composited variables, from
+        its name to its lazily evaluated value.
+          For example, a variable named 'foo' can be accessed as 'variables.foo'.
+        - 'authorizer' - A CEL Authorizer. May be used to perform authorization checks
+        for the principal (user or service account) of the request.
+          See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+        - 'authorizer.requestResource' - A CEL ResourceCheck constructed from the
+        'authorizer' and configured with the
+          request resource.
+        The `apiVersion`, `kind`, `metadata.name` and `metadata.generateName` are
+        always accessible from the root of the object. No other metadata properties
+        are accessible.
+        Only property names of the form `[a-zA-Z_.-/][a-zA-Z0-9_.-/]*` are accessible.
+        Required.
+    """
+    expression: 'Optional[str]' = None
+
+
+@dataclass
 class AuditAnnotation(DictMixin):
     r"""AuditAnnotation describes how to produce an audit annotation for an API
       request.
@@ -50,15 +101,92 @@ class ExpressionWarning(DictMixin):
 
       **parameters**
 
-      * **fieldRef** ``str`` - The path to the field that refers the expression. For example, the reference
-        to the expression of the first item of validations is
+      * **fieldRef** ``str`` - fieldRef is the path to the field that refers to the expression. For example,
+        the reference to the expression of the first item of validations is
         "spec.validations[0].expression"
-      * **warning** ``str`` - The content of type checking information in a human-readable form. Each line
-        of the warning contains the type that the expression is checked against,
-        followed by the type check error from the compiler.
+      * **warning** ``str`` - warning contains the content of type checking information in a human-readable
+        form. Each line of the warning contains the type that the expression is
+        checked against, followed by the type check error from the compiler.
     """
     fieldRef: 'str'
     warning: 'str'
+
+
+@dataclass
+class JSONPatch(DictMixin):
+    r"""JSONPatch defines a JSON Patch.
+
+      **parameters**
+
+      * **expression** ``Optional[str]`` - expression will be evaluated by CEL to create a [JSON
+        patch](https://jsonpatch.com/). ref: https://github.com/google/cel-spec
+        expression must return an array of JSONPatch values.
+        For example, this CEL expression returns a JSON patch to conditionally modify
+        a value:
+        	  [
+        	    JSONPatch{op: "test", path: "/spec/example", value: "Red"},
+        	    JSONPatch{op: "replace", path: "/spec/example", value: "Green"}
+        	  ]
+        To define an object for the patch value, use Object types. For example:
+        	  [
+        	    JSONPatch{
+        	      op: "add",
+        	      path: "/spec/selector",
+        	      value: Object.spec.selector{matchLabels: {"environment": "test"}}
+        	    }
+        	  ]
+        To use strings containing '/' and '~' as JSONPatch path keys, use
+        "jsonpatch.escapeKey". For example:
+        	  [
+        	    JSONPatch{
+        	      op: "add",
+        	      path: "/metadata/labels/" +
+        jsonpatch.escapeKey("example.com/environment"),
+        	      value: "test"
+        	    },
+        	  ]
+        CEL expressions have access to the types needed to create JSON patches and
+        objects:
+        - 'JSONPatch' - CEL type of JSON Patch operations. JSONPatch has the fields
+        'op', 'from', 'path' and 'value'.
+          See [JSON patch](https://jsonpatch.com/) for more details. The 'value' field
+        may be set to any of: string,
+          integer, array, map or object.  If set, the 'path' and 'from' fields must be
+        set to a
+          [JSON pointer](https://datatracker.ietf.org/doc/html/rfc6901/) string, where
+        the 'jsonpatch.escapeKey()' CEL
+          function may be used to escape path keys containing '/' and '~'.
+        - 'Object' - CEL type of the resource object. - 'Object.<fieldName>' - CEL
+        type of object field (such as 'Object.spec') -
+        'Object.<fieldName1>.<fieldName2>...<fieldNameN>` - CEL type of nested field
+        (such as 'Object.spec.containers')
+        CEL expressions have access to the contents of the API request, organized into
+        CEL variables as well as some other useful variables:
+        - 'object' - The object from the incoming request. The value is null for
+        DELETE requests. - 'oldObject' - The existing object. The value is null for
+        CREATE requests. - 'request' - Attributes of the API
+        request([ref](/pkg/apis/admission/types.go#AdmissionRequest)). - 'params' -
+        Parameter resource referred to by the policy binding being evaluated. Only
+        populated if the policy has a ParamKind. - 'namespaceObject' - The namespace
+        object that the incoming object belongs to. The value is null for
+        cluster-scoped resources. - 'variables' - Map of composited variables, from
+        its name to its lazily evaluated value.
+          For example, a variable named 'foo' can be accessed as 'variables.foo'.
+        - 'authorizer' - A CEL Authorizer. May be used to perform authorization checks
+        for the principal (user or service account) of the request.
+          See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+        - 'authorizer.requestResource' - A CEL ResourceCheck constructed from the
+        'authorizer' and configured with the
+          request resource.
+        CEL expressions have access to [Kubernetes CEL function
+        libraries](https://kubernetes.io/docs/reference/using-api/cel/#cel-options-language-features-and-libraries)
+        as well as:
+        - 'jsonpatch.escapeKey' - Performs JSONPatch key escaping. '~' and  '/' are
+        escaped as '~0' and `~1' respectively).
+        Only property names of the form `[a-zA-Z_.-/][a-zA-Z0-9_.-/]*` are accessible.
+        Required.
+    """
+    expression: 'Optional[str]' = None
 
 
 @dataclass
@@ -68,7 +196,7 @@ class MatchCondition(DictMixin):
 
       **parameters**
 
-      * **expression** ``str`` - Expression represents the expression which will be evaluated by CEL. Must
+      * **expression** ``str`` - expression represents the expression which will be evaluated by CEL. Must
         evaluate to bool. CEL expressions have access to the contents of the
         AdmissionRequest and Authorizer, organized into CEL variables:
         'object' - The object from the incoming request. The value is null for DELETE
@@ -83,7 +211,7 @@ class MatchCondition(DictMixin):
           request resource.
         Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
         Required.
-      * **name** ``str`` - Name is an identifier for this match condition, used for strategic merging of
+      * **name** ``str`` - name is an identifier for this match condition, used for strategic merging of
         MatchConditions, as well as providing an identifier for logging purposes. A
         good name should be descriptive of the associated expression. Name must be a
         qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -105,7 +233,7 @@ class MatchResources(DictMixin):
 
       **parameters**
 
-      * **excludeResourceRules** ``Optional[List[NamedRuleWithOperations]]`` - ExcludeResourceRules describes what operations on what resources/subresources
+      * **excludeResourceRules** ``Optional[List[NamedRuleWithOperations]]`` - excludeResourceRules describes what operations on what resources/subresources
         the ValidatingAdmissionPolicy should not care about. The exclude rules take
         precedence over include rules (if a resource matches both, it is excluded)
       * **matchPolicy** ``Optional[str]`` - matchPolicy defines how the "MatchResources" list is used to match incoming
@@ -122,7 +250,7 @@ class MatchResources(DictMixin):
         request to apps/v1beta1 or extensions/v1beta1 would be converted to apps/v1
         and sent to the ValidatingAdmissionPolicy.
         Defaults to "Equivalent"
-      * **namespaceSelector** ``Optional[meta_v1.LabelSelector]`` - NamespaceSelector decides whether to run the admission control policy on an
+      * **namespaceSelector** ``Optional[meta_v1.LabelSelector]`` - namespaceSelector decides whether to run the admission control policy on an
         object based on whether the namespace for that object matches the selector. If
         the object itself is a namespace, the matching is performed on
         object.metadata.labels. If the object is another cluster scoped resource, it
@@ -158,7 +286,7 @@ class MatchResources(DictMixin):
         See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
         for more examples of label selectors.
         Default to the empty LabelSelector, which matches everything.
-      * **objectSelector** ``Optional[meta_v1.LabelSelector]`` - ObjectSelector decides whether to run the validation based on if the object
+      * **objectSelector** ``Optional[meta_v1.LabelSelector]`` - objectSelector decides whether to run the validation based on if the object
         has matching labels. objectSelector is evaluated against both the oldObject
         and newObject that would be sent to the cel validation, and is considered to
         match if either object matches the selector. A null object (oldObject in the
@@ -167,7 +295,7 @@ class MatchResources(DictMixin):
         considered to match. Use the object selector only if the webhook is opt-in,
         because end users may skip the admission webhook by setting the labels.
         Default to the empty LabelSelector, which matches everything.
-      * **resourceRules** ``Optional[List[NamedRuleWithOperations]]`` - ResourceRules describes what operations on what resources/subresources the
+      * **resourceRules** ``Optional[List[NamedRuleWithOperations]]`` - resourceRules describes what operations on what resources/subresources the
         ValidatingAdmissionPolicy matches. The policy cares about an operation if it
         matches _any_ Rule.
     """
@@ -179,33 +307,267 @@ class MatchResources(DictMixin):
 
 
 @dataclass
+class MutatingAdmissionPolicy(DictMixin):
+    r"""MutatingAdmissionPolicy describes the definition of an admission mutation
+      policy that mutates the object coming into admission chain.
+
+      **parameters**
+
+      * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
+        Servers should convert recognized schemas to the latest internal value, and
+        may reject unrecognized values. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+      * **kind** ``Optional[str]`` - Kind is a string value representing the REST resource this object represents.
+        Servers may infer this from the endpoint the client submits requests to.
+        Cannot be updated. In CamelCase. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata; More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata.
+      * **spec** ``Optional[MutatingAdmissionPolicySpec]`` - spec defines the desired behavior of the MutatingAdmissionPolicy.
+    """
+    apiVersion: 'Optional[str]' = None
+    kind: 'Optional[str]' = None
+    metadata: 'Optional[meta_v1.ObjectMeta]' = None
+    spec: 'Optional[MutatingAdmissionPolicySpec]' = None
+
+    def __post_init__(self):
+        self.apiVersion = 'admissionregistration.k8s.io/v1'
+        self.kind = 'MutatingAdmissionPolicy'
+
+
+@dataclass
+class MutatingAdmissionPolicyBinding(DictMixin):
+    r"""MutatingAdmissionPolicyBinding binds the MutatingAdmissionPolicy with
+      parametrized resources. MutatingAdmissionPolicyBinding and the optional
+      parameter resource together define how cluster administrators configure
+      policies for clusters.
+      
+      For a given admission request, each binding will cause its policy to be
+      evaluated N times, where N is 1 for policies/bindings that don't use params,
+      otherwise N is the number of parameters selected by the binding. Each
+      evaluation is constrained by a [runtime cost
+      budget](https://kubernetes.io/docs/reference/using-api/cel/#runtime-cost-budget).
+      
+      Adding/removing policies, bindings, or params can not affect whether a given
+      (policy, binding, param) combination is within its own CEL budget.
+
+      **parameters**
+
+      * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
+        Servers should convert recognized schemas to the latest internal value, and
+        may reject unrecognized values. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+      * **kind** ``Optional[str]`` - Kind is a string value representing the REST resource this object represents.
+        Servers may infer this from the endpoint the client submits requests to.
+        Cannot be updated. In CamelCase. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata; More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata.
+      * **spec** ``Optional[MutatingAdmissionPolicyBindingSpec]`` - spec defines the desired behavior of the MutatingAdmissionPolicyBinding.
+    """
+    apiVersion: 'Optional[str]' = None
+    kind: 'Optional[str]' = None
+    metadata: 'Optional[meta_v1.ObjectMeta]' = None
+    spec: 'Optional[MutatingAdmissionPolicyBindingSpec]' = None
+
+    def __post_init__(self):
+        self.apiVersion = 'admissionregistration.k8s.io/v1'
+        self.kind = 'MutatingAdmissionPolicyBinding'
+
+
+@dataclass
+class MutatingAdmissionPolicyBindingList(DictMixin):
+    r"""MutatingAdmissionPolicyBindingList is a list of
+      MutatingAdmissionPolicyBinding.
+
+      **parameters**
+
+      * **items** ``List[MutatingAdmissionPolicyBinding]`` - List of PolicyBinding.
+      * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
+        Servers should convert recognized schemas to the latest internal value, and
+        may reject unrecognized values. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+      * **kind** ``Optional[str]`` - Kind is a string value representing the REST resource this object represents.
+        Servers may infer this from the endpoint the client submits requests to.
+        Cannot be updated. In CamelCase. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+      * **metadata** ``Optional[meta_v1.ListMeta]`` - metadata is the standard list metadata. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+    """
+    items: 'List[MutatingAdmissionPolicyBinding]'
+    apiVersion: 'Optional[str]' = None
+    kind: 'Optional[str]' = None
+    metadata: 'Optional[meta_v1.ListMeta]' = None
+
+    def __post_init__(self):
+        self.apiVersion = 'admissionregistration.k8s.io/v1'
+        self.kind = 'MutatingAdmissionPolicyBindingList'
+
+
+@dataclass
+class MutatingAdmissionPolicyBindingSpec(DictMixin):
+    r"""MutatingAdmissionPolicyBindingSpec defines the specification of the
+      MutatingAdmissionPolicyBinding.
+
+      **parameters**
+
+      * **matchResources** ``Optional[MatchResources]`` - matchResources limits what resources match this binding and may be mutated by
+        it. Note that if matchResources matches a resource, the resource must also
+        match a policy's matchConstraints and matchConditions before the resource may
+        be mutated. When matchResources is unset, it does not constrain resource
+        matching, and only the policy's matchConstraints and matchConditions must
+        match for the resource to be mutated. Additionally,
+        matchResources.resourceRules are optional and do not constraint matching when
+        unset. Note that this is differs from MutatingAdmissionPolicy
+        matchConstraints, where resourceRules are required. The CREATE, UPDATE and
+        CONNECT operations are allowed.  The DELETE operation may not be matched. '*'
+        matches CREATE, UPDATE and CONNECT.
+      * **paramRef** ``Optional[ParamRef]`` - paramRef specifies the parameter resource used to configure the admission
+        control policy. It should point to a resource of the type specified in
+        spec.ParamKind of the bound MutatingAdmissionPolicy. If the policy specifies a
+        ParamKind and the resource referred to by ParamRef does not exist, this
+        binding is considered mis-configured and the FailurePolicy of the
+        MutatingAdmissionPolicy applied. If the policy does not specify a ParamKind
+        then this field is ignored, and the rules are evaluated without a param.
+      * **policyName** ``Optional[str]`` - policyName references a MutatingAdmissionPolicy name which the
+        MutatingAdmissionPolicyBinding binds to. If the referenced resource does not
+        exist, this binding is considered invalid and will be ignored Required.
+    """
+    matchResources: 'Optional[MatchResources]' = None
+    paramRef: 'Optional[ParamRef]' = None
+    policyName: 'Optional[str]' = None
+
+
+@dataclass
+class MutatingAdmissionPolicyList(DictMixin):
+    r"""MutatingAdmissionPolicyList is a list of MutatingAdmissionPolicy.
+
+      **parameters**
+
+      * **items** ``List[MutatingAdmissionPolicy]`` - List of ValidatingAdmissionPolicy.
+      * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
+        Servers should convert recognized schemas to the latest internal value, and
+        may reject unrecognized values. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+      * **kind** ``Optional[str]`` - Kind is a string value representing the REST resource this object represents.
+        Servers may infer this from the endpoint the client submits requests to.
+        Cannot be updated. In CamelCase. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+      * **metadata** ``Optional[meta_v1.ListMeta]`` - metadata is the standard list metadata. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+    """
+    items: 'List[MutatingAdmissionPolicy]'
+    apiVersion: 'Optional[str]' = None
+    kind: 'Optional[str]' = None
+    metadata: 'Optional[meta_v1.ListMeta]' = None
+
+    def __post_init__(self):
+        self.apiVersion = 'admissionregistration.k8s.io/v1'
+        self.kind = 'MutatingAdmissionPolicyList'
+
+
+@dataclass
+class MutatingAdmissionPolicySpec(DictMixin):
+    r"""MutatingAdmissionPolicySpec defines the desired behavior of the admission
+      policy.
+
+      **parameters**
+
+      * **failurePolicy** ``Optional[str]`` - failurePolicy defines how to handle failures for the admission policy.
+        Failures can occur from CEL expression parse errors, type check errors,
+        runtime errors and invalid or mis-configured policy definitions or bindings.
+        A policy is invalid if paramKind refers to a non-existent Kind. A binding is
+        invalid if paramRef.name refers to a non-existent resource.
+        failurePolicy does not define how validations that evaluate to false are
+        handled.
+        Allowed values are Ignore or Fail. Defaults to Fail.
+      * **matchConditions** ``Optional[List[MatchCondition]]`` - matchConditions is a list of conditions that must be met for a request to be
+        validated. Match conditions filter requests that have already been matched by
+        the matchConstraints. An empty list of matchConditions matches all requests.
+        There are a maximum of 64 match conditions allowed.
+        If a parameter object is provided, it can be accessed via the `params` handle
+        in the same manner as validation expressions.
+        The exact matching logic is (in order):
+          1. If ANY matchCondition evaluates to FALSE, the policy is skipped.
+          2. If ALL matchConditions evaluate to TRUE, the policy is evaluated.
+          3. If any matchCondition evaluates to an error (but none are FALSE):
+             - If failurePolicy=Fail, reject the request
+             - If failurePolicy=Ignore, the policy is skipped
+      * **matchConstraints** ``Optional[MatchResources]`` - matchConstraints specifies what resources this policy is designed to validate.
+        The MutatingAdmissionPolicy cares about a request if it matches _all_
+        Constraints. However, in order to prevent clusters from being put into an
+        unstable state that cannot be recovered from via the API
+        MutatingAdmissionPolicy cannot match MutatingAdmissionPolicy and
+        MutatingAdmissionPolicyBinding. The CREATE, UPDATE and CONNECT operations are
+        allowed.  The DELETE operation may not be matched. '*' matches CREATE, UPDATE
+        and CONNECT. Required.
+      * **mutations** ``Optional[List[Mutation]]`` - mutations contain operations to perform on matching objects. mutations may not
+        be empty; a minimum of one mutation is required. mutations are evaluated in
+        order, and are reinvoked according to the reinvocationPolicy. The mutations of
+        a policy are invoked for each binding of this policy and reinvocation of
+        mutations occurs on a per binding basis.
+      * **paramKind** ``Optional[ParamKind]`` - paramKind specifies the kind of resources used to parameterize this policy. If
+        absent, there are no parameters for this policy and the param CEL variable
+        will not be provided to validation expressions. If paramKind refers to a
+        non-existent kind, this policy definition is mis-configured and the
+        FailurePolicy is applied. If paramKind is specified but paramRef is unset in
+        MutatingAdmissionPolicyBinding, the params variable will be null.
+      * **reinvocationPolicy** ``Optional[str]`` - reinvocationPolicy indicates whether mutations may be called multiple times
+        per MutatingAdmissionPolicyBinding as part of a single admission evaluation.
+        Allowed values are "Never" and "IfNeeded".
+        Never: These mutations will not be called more than once per binding in a
+        single admission evaluation.
+        IfNeeded: These mutations may be invoked more than once per binding for a
+        single admission request and there is no guarantee of order with respect to
+        other admission plugins, admission webhooks, bindings of this policy and
+        admission policies.  Mutations are only reinvoked when mutations change the
+        object after this mutation is invoked. Required.
+      * **variables** ``Optional[List[Variable]]`` - variables contain definitions of variables that can be used in composition of
+        other expressions. Each variable is defined as a named CEL expression. The
+        variables defined here will be available under `variables` in other
+        expressions of the policy except matchConditions because matchConditions are
+        evaluated before the rest of the policy.
+        The expression of a variable can refer to other variables defined earlier in
+        the list but not those after. Thus, variables must be sorted by the order of
+        first appearance and acyclic.
+    """
+    failurePolicy: 'Optional[str]' = None
+    matchConditions: 'Optional[List[MatchCondition]]' = None
+    matchConstraints: 'Optional[MatchResources]' = None
+    mutations: 'Optional[List[Mutation]]' = None
+    paramKind: 'Optional[ParamKind]' = None
+    reinvocationPolicy: 'Optional[str]' = None
+    variables: 'Optional[List[Variable]]' = None
+
+
+@dataclass
 class MutatingWebhook(DictMixin):
     r"""MutatingWebhook describes an admission webhook and the resources and
       operations it applies to.
 
       **parameters**
 
-      * **admissionReviewVersions** ``List[str]`` - AdmissionReviewVersions is an ordered list of preferred `AdmissionReview`
+      * **admissionReviewVersions** ``List[str]`` - admissionReviewVersions is an ordered list of preferred `AdmissionReview`
         versions the Webhook expects. API server will try to use first version in the
         list which it supports. If none of the versions specified in this list
         supported by API server, validation will fail for this object. If a persisted
         webhook configuration specifies allowed versions and does not include any
         versions known to the API Server, calls to the webhook will fail and be
         subject to the failure policy.
-      * **clientConfig** ``WebhookClientConfig`` - ClientConfig defines how to communicate with the hook. Required
-      * **name** ``str`` - The name of the admission webhook. Name should be fully qualified, e.g.,
-        imagepolicy.kubernetes.io, where "imagepolicy" is the name of the webhook, and
-        kubernetes.io is the name of the organization. Required.
-      * **sideEffects** ``str`` - SideEffects states whether this webhook has side effects. Acceptable values
+      * **clientConfig** ``WebhookClientConfig`` - clientConfig defines how to communicate with the hook. Required
+      * **name** ``str`` - name is the name of the admission webhook. Name should be fully qualified,
+        e.g., imagepolicy.kubernetes.io, where "imagepolicy" is the name of the
+        webhook, and kubernetes.io is the name of the organization. Required.
+      * **sideEffects** ``str`` - sideEffects states whether this webhook has side effects. Acceptable values
         are: None, NoneOnDryRun (webhooks created via v1beta1 may also specify Some or
         Unknown). Webhooks with side effects MUST implement a reconciliation system,
         since a request may be rejected by a future step in the admission chain and
         the side effects therefore need to be undone. Requests with the dryRun
         attribute will be auto-rejected if they match a webhook with sideEffects ==
         Unknown or Some.
-      * **failurePolicy** ``Optional[str]`` - FailurePolicy defines how unrecognized errors from the admission endpoint are
+      * **failurePolicy** ``Optional[str]`` - failurePolicy defines how unrecognized errors from the admission endpoint are
         handled - allowed values are Ignore or Fail. Defaults to Fail.
-      * **matchConditions** ``Optional[List[MatchCondition]]`` - MatchConditions is a list of conditions that must be met for a request to be
+      * **matchConditions** ``Optional[List[MatchCondition]]`` - matchConditions is a list of conditions that must be met for a request to be
         sent to this webhook. Match conditions filter requests that have already been
         matched by the rules, namespaceSelector, and objectSelector. An empty list of
         matchConditions matches all requests. There are a maximum of 64 match
@@ -231,7 +593,7 @@ class MutatingWebhook(DictMixin):
         request to apps/v1beta1 or extensions/v1beta1 would be converted to apps/v1
         and sent to the webhook.
         Defaults to "Equivalent"
-      * **namespaceSelector** ``Optional[meta_v1.LabelSelector]`` - NamespaceSelector decides whether to run the webhook on an object based on
+      * **namespaceSelector** ``Optional[meta_v1.LabelSelector]`` - namespaceSelector decides whether to run the webhook on an object based on
         whether the namespace for that object matches the selector. If the object
         itself is a namespace, the matching is performed on object.metadata.labels. If
         the object is another cluster scoped resource, it never skips the webhook.
@@ -266,7 +628,7 @@ class MutatingWebhook(DictMixin):
         See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
         for more examples of label selectors.
         Default to the empty LabelSelector, which matches everything.
-      * **objectSelector** ``Optional[meta_v1.LabelSelector]`` - ObjectSelector decides whether to run the webhook based on if the object has
+      * **objectSelector** ``Optional[meta_v1.LabelSelector]`` - objectSelector decides whether to run the webhook based on if the object has
         matching labels. objectSelector is evaluated against both the oldObject and
         newObject that would be sent to the webhook, and is considered to match if
         either object matches the selector. A null object (oldObject in the case of
@@ -291,7 +653,7 @@ class MutatingWebhook(DictMixin):
         * to validate an object after all mutations are guaranteed complete, use a
         validating admission webhook instead.
         Defaults to "Never".
-      * **rules** ``Optional[List[RuleWithOperations]]`` - Rules describes what operations on what resources/subresources the webhook
+      * **rules** ``Optional[List[RuleWithOperations]]`` - rules describes what operations on what resources/subresources the webhook
         cares about. The webhook cares about an operation if it matches _any_ Rule.
         However, in order to prevent ValidatingAdmissionWebhooks and
         MutatingAdmissionWebhooks from putting the cluster in a state which cannot be
@@ -299,7 +661,7 @@ class MutatingWebhook(DictMixin):
         ValidatingAdmissionWebhooks and MutatingAdmissionWebhooks are never called on
         admission requests for ValidatingWebhookConfiguration and
         MutatingWebhookConfiguration objects.
-      * **timeoutSeconds** ``Optional[int]`` - TimeoutSeconds specifies the timeout for this webhook. After the timeout
+      * **timeoutSeconds** ``Optional[int]`` - timeoutSeconds specifies the timeout for this webhook. After the timeout
         passes, the webhook call will be ignored or the API call will fail based on
         the failure policy. The timeout value must be between 1 and 30 seconds.
         Default to 10 seconds.
@@ -333,9 +695,9 @@ class MutatingWebhookConfiguration(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object metadata; More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata; More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata.
-      * **webhooks** ``Optional[List[MutatingWebhook]]`` - Webhooks is a list of webhooks and the affected resources and operations.
+      * **webhooks** ``Optional[List[MutatingWebhook]]`` - webhooks is a list of webhooks and the affected resources and operations.
     """
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
@@ -362,7 +724,7 @@ class MutatingWebhookConfigurationList(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ListMeta]`` - Standard list metadata. More info:
+      * **metadata** ``Optional[meta_v1.ListMeta]`` - metadata is the standard list metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
     """
     items: 'List[MutatingWebhookConfiguration]'
@@ -376,23 +738,43 @@ class MutatingWebhookConfigurationList(DictMixin):
 
 
 @dataclass
+class Mutation(DictMixin):
+    r"""Mutation specifies the CEL expression which is used to apply the Mutation.
+
+      **parameters**
+
+      * **patchType** ``str`` - patchType indicates the patch strategy used. Allowed values are
+        "ApplyConfiguration" and "JSONPatch". Required.
+      * **applyConfiguration** ``Optional[ApplyConfiguration]`` - applyConfiguration defines the desired configuration values of an object. The
+        configuration is applied to the admission object using [structured merge
+        diff](https://github.com/kubernetes-sigs/structured-merge-diff). A CEL
+        expression is used to create apply configuration.
+      * **jsonPatch** ``Optional[JSONPatch]`` - jsonPatch defines a [JSON patch](https://jsonpatch.com/) operation to perform
+        a mutation to the object. A CEL expression is used to create the JSON patch.
+    """
+    patchType: 'str'
+    applyConfiguration: 'Optional[ApplyConfiguration]' = None
+    jsonPatch: 'Optional[JSONPatch]' = None
+
+
+@dataclass
 class NamedRuleWithOperations(DictMixin):
     r"""NamedRuleWithOperations is a tuple of Operations and Resources with
       ResourceNames.
 
       **parameters**
 
-      * **apiGroups** ``Optional[List[str]]`` - APIGroups is the API groups the resources belong to. '*' is all groups. If '*'
+      * **apiGroups** ``Optional[List[str]]`` - apiGroups is the API groups the resources belong to. '*' is all groups. If '*'
         is present, the length of the slice must be one. Required.
-      * **apiVersions** ``Optional[List[str]]`` - APIVersions is the API versions the resources belong to. '*' is all versions.
+      * **apiVersions** ``Optional[List[str]]`` - apiVersions is the API versions the resources belong to. '*' is all versions.
         If '*' is present, the length of the slice must be one. Required.
-      * **operations** ``Optional[List[str]]`` - Operations is the operations the admission hook cares about - CREATE, UPDATE,
+      * **operations** ``Optional[List[str]]`` - operations is the operations the admission hook cares about - CREATE, UPDATE,
         DELETE, CONNECT or * for all of those operations and any future admission
         operations that are added. If '*' is present, the length of the slice must be
         one. Required.
-      * **resourceNames** ``Optional[List[str]]`` - ResourceNames is an optional white list of names that the rule applies to.  An
+      * **resourceNames** ``Optional[List[str]]`` - resourceNames is an optional white list of names that the rule applies to.  An
         empty set means that everything is allowed.
-      * **resources** ``Optional[List[str]]`` - Resources is a list of resources this rule applies to.
+      * **resources** ``Optional[List[str]]`` - resources is a list of resources this rule applies to.
         For example: 'pods' means pods. 'pods/log' means the log subresource of pods.
         '*' means all resources, but not subresources. 'pods/*' means all subresources
         of pods. '*/scale' means all scale subresources. '*/*' means all resources and
@@ -422,9 +804,9 @@ class ParamKind(DictMixin):
 
       **parameters**
 
-      * **apiVersion** ``Optional[str]`` - APIVersion is the API group version the resources belong to. In format of
+      * **apiVersion** ``Optional[str]`` - apiVersion is the API group version the resources belong to. In format of
         "group/version". Required.
-      * **kind** ``Optional[str]`` - Kind is the API kind the resources belong to. Required.
+      * **kind** ``Optional[str]`` - kind is the API kind the resources belong to. Required.
     """
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
@@ -454,12 +836,11 @@ class ParamRef(DictMixin):
         evaluated for admission will be used when this field is left unset. Take care
         that if this is left empty the binding must not match any cluster-scoped
         resources, which will result in an error.
-      * **parameterNotFoundAction** ``Optional[str]`` - `parameterNotFoundAction` controls the behavior of the binding when the
-        resource exists, and name or selector is valid, but there are no parameters
-        matched by the binding. If the value is set to `Allow`, then no matched
-        parameters will be treated as successful validation by the binding. If set to
-        `Deny`, then no matched parameters will be subject to the `failurePolicy` of
-        the policy.
+      * **parameterNotFoundAction** ``Optional[str]`` - parameterNotFoundAction controls the behavior of the binding when the resource
+        exists, and name or selector is valid, but there are no parameters matched by
+        the binding. If the value is set to `Allow`, then no matched parameters will
+        be treated as successful validation by the binding. If set to `Deny`, then no
+        matched parameters will be subject to the `failurePolicy` of the policy.
         Allowed values are `Allow` or `Deny`
         Required
       * **selector** ``Optional[meta_v1.LabelSelector]`` - selector can be used to match multiple param objects based on their labels.
@@ -482,15 +863,15 @@ class RuleWithOperations(DictMixin):
 
       **parameters**
 
-      * **apiGroups** ``Optional[List[str]]`` - APIGroups is the API groups the resources belong to. '*' is all groups. If '*'
+      * **apiGroups** ``Optional[List[str]]`` - apiGroups is the API groups the resources belong to. '*' is all groups. If '*'
         is present, the length of the slice must be one. Required.
-      * **apiVersions** ``Optional[List[str]]`` - APIVersions is the API versions the resources belong to. '*' is all versions.
+      * **apiVersions** ``Optional[List[str]]`` - apiVersions is the API versions the resources belong to. '*' is all versions.
         If '*' is present, the length of the slice must be one. Required.
-      * **operations** ``Optional[List[str]]`` - Operations is the operations the admission hook cares about - CREATE, UPDATE,
+      * **operations** ``Optional[List[str]]`` - operations is the operations the admission hook cares about - CREATE, UPDATE,
         DELETE, CONNECT or * for all of those operations and any future admission
         operations that are added. If '*' is present, the length of the slice must be
         one. Required.
-      * **resources** ``Optional[List[str]]`` - Resources is a list of resources this rule applies to.
+      * **resources** ``Optional[List[str]]`` - resources is a list of resources this rule applies to.
         For example: 'pods' means pods. 'pods/log' means the log subresource of pods.
         '*' means all resources, but not subresources. 'pods/*' means all subresources
         of pods. '*/scale' means all scale subresources. '*/*' means all resources and
@@ -519,11 +900,11 @@ class ServiceReference(DictMixin):
 
       **parameters**
 
-      * **name** ``str`` - `name` is the name of the service. Required
-      * **namespace** ``str`` - `namespace` is the namespace of the service. Required
-      * **path** ``Optional[str]`` - `path` is an optional URL path which will be sent in any request to this
+      * **name** ``str`` - name is the name of the service. Required
+      * **namespace** ``str`` - namespace is the namespace of the service. Required
+      * **path** ``Optional[str]`` - path is an optional URL path which will be sent in any request to this
         service.
-      * **port** ``Optional[int]`` - If specified, the port on the service that hosting webhook. Default to 443 for
+      * **port** ``Optional[int]`` - port is the port on the service that hosts the webhook. Default to 443 for
         backward compatibility. `port` should be a valid port number (1-65535,
         inclusive).
     """
@@ -540,7 +921,7 @@ class TypeChecking(DictMixin):
 
       **parameters**
 
-      * **expressionWarnings** ``Optional[List[ExpressionWarning]]`` - The type checking warnings for each expression.
+      * **expressionWarnings** ``Optional[List[ExpressionWarning]]`` - expressionWarnings contains the type checking warnings for each expression.
     """
     expressionWarnings: 'Optional[List[ExpressionWarning]]' = None
 
@@ -560,12 +941,12 @@ class ValidatingAdmissionPolicy(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object metadata; More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata; More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata.
-      * **spec** ``Optional[ValidatingAdmissionPolicySpec]`` - Specification of the desired behavior of the ValidatingAdmissionPolicy.
-      * **status** ``Optional[ValidatingAdmissionPolicyStatus]`` - The status of the ValidatingAdmissionPolicy, including warnings that are
-        useful to determine if the policy behaves in the expected way. Populated by
-        the system. Read-only.
+      * **spec** ``Optional[ValidatingAdmissionPolicySpec]`` - spec defines the desired behavior of the ValidatingAdmissionPolicy.
+      * **status** ``Optional[ValidatingAdmissionPolicyStatus]`` - status represents the current status of the ValidatingAdmissionPolicy,
+        including warnings that are useful to determine if the policy behaves in the
+        expected way. Populated by the system. Read-only.
     """
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
@@ -596,6 +977,7 @@ class ValidatingAdmissionPolicyBinding(DictMixin):
 
       **parameters**
 
+      * **spec** ``ValidatingAdmissionPolicyBindingSpec`` - spec defines the desired behavior of the ValidatingAdmissionPolicyBinding.
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
@@ -604,14 +986,13 @@ class ValidatingAdmissionPolicyBinding(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object metadata; More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata; More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata.
-      * **spec** ``Optional[ValidatingAdmissionPolicyBindingSpec]`` - Specification of the desired behavior of the ValidatingAdmissionPolicyBinding.
     """
+    spec: 'ValidatingAdmissionPolicyBindingSpec'
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
     metadata: 'Optional[meta_v1.ObjectMeta]' = None
-    spec: 'Optional[ValidatingAdmissionPolicyBindingSpec]' = None
 
     def __post_init__(self):
         self.apiVersion = 'admissionregistration.k8s.io/v1'
@@ -634,7 +1015,7 @@ class ValidatingAdmissionPolicyBindingList(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ListMeta]`` - Standard list metadata. More info:
+      * **metadata** ``Optional[meta_v1.ListMeta]`` - metadata is the standard list metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
     """
     items: 'List[ValidatingAdmissionPolicyBinding]'
@@ -654,25 +1035,10 @@ class ValidatingAdmissionPolicyBindingSpec(DictMixin):
 
       **parameters**
 
-      * **matchResources** ``Optional[MatchResources]`` - MatchResources declares what resources match this binding and will be
-        validated by it. Note that this is intersected with the policy's
-        matchConstraints, so only requests that are matched by the policy can be
-        selected by this. If this is unset, all resources matched by the policy are
-        validated by this binding When resourceRules is unset, it does not constrain
-        resource matching. If a resource is matched by the other fields of this
-        object, it will be validated. Note that this is differs from
-        ValidatingAdmissionPolicy matchConstraints, where resourceRules are required.
-      * **paramRef** ``Optional[ParamRef]`` - paramRef specifies the parameter resource used to configure the admission
-        control policy. It should point to a resource of the type specified in
-        ParamKind of the bound ValidatingAdmissionPolicy. If the policy specifies a
-        ParamKind and the resource referred to by ParamRef does not exist, this
-        binding is considered mis-configured and the FailurePolicy of the
-        ValidatingAdmissionPolicy applied. If the policy does not specify a ParamKind
-        then this field is ignored, and the rules are evaluated without a param.
-      * **policyName** ``Optional[str]`` - PolicyName references a ValidatingAdmissionPolicy name which the
+      * **policyName** ``str`` - policyName references a ValidatingAdmissionPolicy name which the
         ValidatingAdmissionPolicyBinding binds to. If the referenced resource does not
         exist, this binding is considered invalid and will be ignored Required.
-      * **validationActions** ``Optional[List[str]]`` - validationActions declares how Validations of the referenced
+      * **validationActions** ``List[str]`` - validationActions declares how Validations of the referenced
         ValidatingAdmissionPolicy are enforced. If a validation evaluates to false it
         is always enforced according to these actions.
         Failures defined by the ValidatingAdmissionPolicy's FailurePolicy are enforced
@@ -706,11 +1072,26 @@ class ValidatingAdmissionPolicyBindingSpec(DictMixin):
         duplicates the validation failure both in the API response body and the HTTP
         warning headers.
         Required.
+      * **matchResources** ``Optional[MatchResources]`` - matchResources declares what resources match this binding and will be
+        validated by it. Note that this is intersected with the policy's
+        matchConstraints, so only requests that are matched by the policy can be
+        selected by this. If this is unset, all resources matched by the policy are
+        validated by this binding When resourceRules is unset, it does not constrain
+        resource matching. If a resource is matched by the other fields of this
+        object, it will be validated. Note that this is differs from
+        ValidatingAdmissionPolicy matchConstraints, where resourceRules are required.
+      * **paramRef** ``Optional[ParamRef]`` - paramRef specifies the parameter resource used to configure the admission
+        control policy. It should point to a resource of the type specified in
+        ParamKind of the bound ValidatingAdmissionPolicy. If the policy specifies a
+        ParamKind and the resource referred to by ParamRef does not exist, this
+        binding is considered mis-configured and the FailurePolicy of the
+        ValidatingAdmissionPolicy applied. If the policy does not specify a ParamKind
+        then this field is ignored, and the rules are evaluated without a param.
     """
+    policyName: 'str'
+    validationActions: 'List[str]'
     matchResources: 'Optional[MatchResources]' = None
     paramRef: 'Optional[ParamRef]' = None
-    policyName: 'Optional[str]' = None
-    validationActions: 'Optional[List[str]]' = None
 
 
 @dataclass
@@ -728,7 +1109,7 @@ class ValidatingAdmissionPolicyList(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ListMeta]`` - Standard list metadata. More info:
+      * **metadata** ``Optional[meta_v1.ListMeta]`` - metadata is the standard list metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
     """
     items: 'List[ValidatingAdmissionPolicy]'
@@ -762,7 +1143,7 @@ class ValidatingAdmissionPolicySpec(DictMixin):
         When failurePolicy is set to Fail, ValidatingAdmissionPolicyBinding
         validationActions define how failures are enforced.
         Allowed values are Ignore or Fail. Defaults to Fail.
-      * **matchConditions** ``Optional[List[MatchCondition]]`` - MatchConditions is a list of conditions that must be met for a request to be
+      * **matchConditions** ``Optional[List[MatchCondition]]`` - matchConditions is a list of conditions that must be met for a request to be
         validated. Match conditions filter requests that have already been matched by
         the rules, namespaceSelector, and objectSelector. An empty list of
         matchConditions matches all requests. There are a maximum of 64 match
@@ -775,22 +1156,22 @@ class ValidatingAdmissionPolicySpec(DictMixin):
           3. If any matchCondition evaluates to an error (but none are FALSE):
              - If failurePolicy=Fail, reject the request
              - If failurePolicy=Ignore, the policy is skipped
-      * **matchConstraints** ``Optional[MatchResources]`` - MatchConstraints specifies what resources this policy is designed to validate.
+      * **matchConstraints** ``Optional[MatchResources]`` - matchConstraints specifies what resources this policy is designed to validate.
         The AdmissionPolicy cares about a request if it matches _all_ Constraints.
         However, in order to prevent clusters from being put into an unstable state
         that cannot be recovered from via the API ValidatingAdmissionPolicy cannot
         match ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding.
         Required.
-      * **paramKind** ``Optional[ParamKind]`` - ParamKind specifies the kind of resources used to parameterize this policy. If
+      * **paramKind** ``Optional[ParamKind]`` - paramKind specifies the kind of resources used to parameterize this policy. If
         absent, there are no parameters for this policy and the param CEL variable
         will not be provided to validation expressions. If ParamKind refers to a
         non-existent kind, this policy definition is mis-configured and the
         FailurePolicy is applied. If paramKind is specified but paramRef is unset in
         ValidatingAdmissionPolicyBinding, the params variable will be null.
-      * **validations** ``Optional[List[Validation]]`` - Validations contain CEL expressions which is used to apply the validation.
+      * **validations** ``Optional[List[Validation]]`` - validations contain CEL expressions which is used to apply the validation.
         Validations and AuditAnnotations may not both be empty; a minimum of one
         Validations or AuditAnnotations is required.
-      * **variables** ``Optional[List[Variable]]`` - Variables contain definitions of variables that can be used in composition of
+      * **variables** ``Optional[List[Variable]]`` - variables contain definitions of variables that can be used in composition of
         other expressions. Each variable is defined as a named CEL expression. The
         variables defined here will be available under `variables` in other
         expressions of the policy except MatchConditions because MatchConditions are
@@ -815,11 +1196,11 @@ class ValidatingAdmissionPolicyStatus(DictMixin):
 
       **parameters**
 
-      * **conditions** ``Optional[List[meta_v1.Condition]]`` - The conditions represent the latest available observations of a policy's
-        current state.
-      * **observedGeneration** ``Optional[int]`` - The generation observed by the controller.
-      * **typeChecking** ``Optional[TypeChecking]`` - The results of type checking for each expression. Presence of this field
-        indicates the completion of the type checking.
+      * **conditions** ``Optional[List[meta_v1.Condition]]`` - conditions represent the latest available observations of a policy's current
+        state.
+      * **observedGeneration** ``Optional[int]`` - observedGeneration is the generation observed by the controller.
+      * **typeChecking** ``Optional[TypeChecking]`` - typeChecking contains the results of type checking for each expression.
+        Presence of this field indicates the completion of the type checking.
     """
     conditions: 'Optional[List[meta_v1.Condition]]' = None
     observedGeneration: 'Optional[int]' = None
@@ -833,27 +1214,27 @@ class ValidatingWebhook(DictMixin):
 
       **parameters**
 
-      * **admissionReviewVersions** ``List[str]`` - AdmissionReviewVersions is an ordered list of preferred `AdmissionReview`
+      * **admissionReviewVersions** ``List[str]`` - admissionReviewVersions is an ordered list of preferred `AdmissionReview`
         versions the Webhook expects. API server will try to use first version in the
         list which it supports. If none of the versions specified in this list
         supported by API server, validation will fail for this object. If a persisted
         webhook configuration specifies allowed versions and does not include any
         versions known to the API Server, calls to the webhook will fail and be
         subject to the failure policy.
-      * **clientConfig** ``WebhookClientConfig`` - ClientConfig defines how to communicate with the hook. Required
-      * **name** ``str`` - The name of the admission webhook. Name should be fully qualified, e.g.,
-        imagepolicy.kubernetes.io, where "imagepolicy" is the name of the webhook, and
-        kubernetes.io is the name of the organization. Required.
-      * **sideEffects** ``str`` - SideEffects states whether this webhook has side effects. Acceptable values
+      * **clientConfig** ``WebhookClientConfig`` - clientConfig defines how to communicate with the hook. Required
+      * **name** ``str`` - name is the name of the admission webhook. Name should be fully qualified,
+        e.g., imagepolicy.kubernetes.io, where "imagepolicy" is the name of the
+        webhook, and kubernetes.io is the name of the organization. Required.
+      * **sideEffects** ``str`` - sideEffects states whether this webhook has side effects. Acceptable values
         are: None, NoneOnDryRun (webhooks created via v1beta1 may also specify Some or
         Unknown). Webhooks with side effects MUST implement a reconciliation system,
         since a request may be rejected by a future step in the admission chain and
         the side effects therefore need to be undone. Requests with the dryRun
         attribute will be auto-rejected if they match a webhook with sideEffects ==
         Unknown or Some.
-      * **failurePolicy** ``Optional[str]`` - FailurePolicy defines how unrecognized errors from the admission endpoint are
+      * **failurePolicy** ``Optional[str]`` - failurePolicy defines how unrecognized errors from the admission endpoint are
         handled - allowed values are Ignore or Fail. Defaults to Fail.
-      * **matchConditions** ``Optional[List[MatchCondition]]`` - MatchConditions is a list of conditions that must be met for a request to be
+      * **matchConditions** ``Optional[List[MatchCondition]]`` - matchConditions is a list of conditions that must be met for a request to be
         sent to this webhook. Match conditions filter requests that have already been
         matched by the rules, namespaceSelector, and objectSelector. An empty list of
         matchConditions matches all requests. There are a maximum of 64 match
@@ -879,7 +1260,7 @@ class ValidatingWebhook(DictMixin):
         request to apps/v1beta1 or extensions/v1beta1 would be converted to apps/v1
         and sent to the webhook.
         Defaults to "Equivalent"
-      * **namespaceSelector** ``Optional[meta_v1.LabelSelector]`` - NamespaceSelector decides whether to run the webhook on an object based on
+      * **namespaceSelector** ``Optional[meta_v1.LabelSelector]`` - namespaceSelector decides whether to run the webhook on an object based on
         whether the namespace for that object matches the selector. If the object
         itself is a namespace, the matching is performed on object.metadata.labels. If
         the object is another cluster scoped resource, it never skips the webhook.
@@ -914,7 +1295,7 @@ class ValidatingWebhook(DictMixin):
         See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels
         for more examples of label selectors.
         Default to the empty LabelSelector, which matches everything.
-      * **objectSelector** ``Optional[meta_v1.LabelSelector]`` - ObjectSelector decides whether to run the webhook based on if the object has
+      * **objectSelector** ``Optional[meta_v1.LabelSelector]`` - objectSelector decides whether to run the webhook based on if the object has
         matching labels. objectSelector is evaluated against both the oldObject and
         newObject that would be sent to the webhook, and is considered to match if
         either object matches the selector. A null object (oldObject in the case of
@@ -923,7 +1304,7 @@ class ValidatingWebhook(DictMixin):
         considered to match. Use the object selector only if the webhook is opt-in,
         because end users may skip the admission webhook by setting the labels.
         Default to the empty LabelSelector, which matches everything.
-      * **rules** ``Optional[List[RuleWithOperations]]`` - Rules describes what operations on what resources/subresources the webhook
+      * **rules** ``Optional[List[RuleWithOperations]]`` - rules describes what operations on what resources/subresources the webhook
         cares about. The webhook cares about an operation if it matches _any_ Rule.
         However, in order to prevent ValidatingAdmissionWebhooks and
         MutatingAdmissionWebhooks from putting the cluster in a state which cannot be
@@ -931,7 +1312,7 @@ class ValidatingWebhook(DictMixin):
         ValidatingAdmissionWebhooks and MutatingAdmissionWebhooks are never called on
         admission requests for ValidatingWebhookConfiguration and
         MutatingWebhookConfiguration objects.
-      * **timeoutSeconds** ``Optional[int]`` - TimeoutSeconds specifies the timeout for this webhook. After the timeout
+      * **timeoutSeconds** ``Optional[int]`` - timeoutSeconds specifies the timeout for this webhook. After the timeout
         passes, the webhook call will be ignored or the API call will fail based on
         the failure policy. The timeout value must be between 1 and 30 seconds.
         Default to 10 seconds.
@@ -964,9 +1345,9 @@ class ValidatingWebhookConfiguration(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object metadata; More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata; More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata.
-      * **webhooks** ``Optional[List[ValidatingWebhook]]`` - Webhooks is a list of webhooks and the affected resources and operations.
+      * **webhooks** ``Optional[List[ValidatingWebhook]]`` - webhooks is a list of webhooks and the affected resources and operations.
     """
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
@@ -994,7 +1375,7 @@ class ValidatingWebhookConfigurationList(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ListMeta]`` - Standard list metadata. More info:
+      * **metadata** ``Optional[meta_v1.ListMeta]`` - metadata is the standard list metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
     """
     items: 'List[ValidatingWebhookConfiguration]'
@@ -1013,7 +1394,7 @@ class Validation(DictMixin):
 
       **parameters**
 
-      * **expression** ``str`` - Expression represents the expression which will be evaluated by CEL. ref:
+      * **expression** ``str`` - expression represents the expression which will be evaluated by CEL. ref:
         https://github.com/google/cel-spec CEL expressions have access to the contents
         of the API request/response, organized into CEL variables as well as some
         other useful variables:
@@ -1065,7 +1446,7 @@ class Validation(DictMixin):
         intersect. Elements in `Y` with
             non-intersecting keys are appended, retaining their partial order.
         Required.
-      * **message** ``Optional[str]`` - Message represents the message displayed when validation fails. The message is
+      * **message** ``Optional[str]`` - message represents the message displayed when validation fails. The message is
         required if the Expression contains line breaks. The message must not contain
         line breaks. If unset, the message is "failed rule: {Rule}". e.g. "must be a
         URL with the host matching spec.host" If the Expression contains line breaks.
@@ -1085,7 +1466,7 @@ class Validation(DictMixin):
         be logged. messageExpression has access to all the same variables as the
         `expression` except for 'authorizer' and 'authorizer.requestResource'.
         Example: "object.x must be less than max ("+string(params.max)+")"
-      * **reason** ``Optional[str]`` - Reason represents a machine-readable description of why this validation
+      * **reason** ``Optional[str]`` - reason represents a machine-readable description of why this validation
         failed. If this is the first validation in the list to fail, this reason, as
         well as the corresponding HTTP response code, are used in the HTTP response to
         the client. The currently supported reasons are: "Unauthorized", "Forbidden",
@@ -1105,10 +1486,10 @@ class Variable(DictMixin):
 
       **parameters**
 
-      * **expression** ``str`` - Expression is the expression that will be evaluated as the value of the
+      * **expression** ``str`` - expression is the expression that will be evaluated as the value of the
         variable. The CEL expression has access to the same identifiers as the CEL
         expressions in Validation.
-      * **name** ``str`` - Name is the name of the variable. The name must be a valid CEL identifier and
+      * **name** ``str`` - name is the name of the variable. The name must be a valid CEL identifier and
         unique among all variables. The variable can be accessed in other expressions
         through `variables` For example, if name is "foo", the variable will be
         available as `variables.foo`
@@ -1124,13 +1505,13 @@ class WebhookClientConfig(DictMixin):
 
       **parameters**
 
-      * **caBundle** ``Optional[str]`` - `caBundle` is a PEM encoded CA bundle which will be used to validate the
+      * **caBundle** ``Optional[str]`` - caBundle is a PEM encoded CA bundle which will be used to validate the
         webhook's server certificate. If unspecified, system trust roots on the
         apiserver are used.
-      * **service** ``Optional[ServiceReference]`` - `service` is a reference to the service for this webhook. Either `service` or
+      * **service** ``Optional[ServiceReference]`` - service is a reference to the service for this webhook. Either `service` or
         `url` must be specified.
         If the webhook is running within the cluster, then you should use `service`.
-      * **url** ``Optional[str]`` - `url` gives the location of the webhook, in standard URL form
+      * **url** ``Optional[str]`` - url gives the location of the webhook, in standard URL form
         (`scheme://host:port/path`). Exactly one of `url` or `service` must be
         specified.
         The `host` should not refer to a service running in the cluster; use the

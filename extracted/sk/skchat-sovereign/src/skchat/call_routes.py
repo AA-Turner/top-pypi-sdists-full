@@ -19,7 +19,14 @@ from .call_session import (
     parse_invite_body,
 )
 from .connectivity import ice_config
-from .livekit_routes import LIVEKIT_URL, _have_creds, _mint_token
+from .livekit_routes import (
+    _ONTAILNET_NETS,
+    LIVEKIT_URL,
+    _gate_token_mint,
+    _have_creds,
+    _mint_token,
+    _real_client_ip,
+)
 
 logger = logging.getLogger("skchat.call_routes")
 _TOKEN_TTL = 21600  # 6 hours; tokens are non-revocable, keep short relative to key rotation
@@ -71,48 +78,56 @@ def _read_inbox() -> list:
     return read_inbox()
 
 
-# Private/loopback address prefixes trusted as "caller is on the tailnet/LAN".
-# Mirrors guest.py's _PRIVATE_PREFIXES / _client_is_private posture so the two
-# tailnet-detection call sites agree.
-_PRIVATE_PREFIXES = (
-    "127.",
-    "10.",
-    "192.168.",
-    "100.",  # Tailscale CGNAT range (100.64.0.0/10)
-    "::1",
-    "fd",  # ULA / Tailscale IPv6
-)
+# The reachability model ("can the caller reach us directly, no relay") and the
+# forwarded-header IP resolution now live in ONE place, ``livekit_routes``, so
+# /connectivity/ice and the public-aware SFU URL selection can never disagree:
+# ``_ONTAILNET_NETS`` (tailnet/LAN ranges, loopback deliberately excluded),
+# ``_parse_ip`` and ``_real_client_ip`` (honor Tailscale Funnel + X-Forwarded-For
+# when the socket peer is a loopback proxy) are imported above.
 
 
 def _client_on_tailnet(request: Request) -> bool:
-    """True if the *requesting caller's* own connection is loopback/private/tailnet.
+    """True ONLY for a genuine tailnet/LAN caller (direct host candidates suffice).
 
-    This is the reachability that matters for /connectivity/ice: it's the
-    browser making this request that needs to know whether it can rely on
-    direct host candidates, not the peer it's calling. Deliberately per-request
-    (not a constant) so off-tailnet browsers (mobile data, home wifi w/o
-    Tailscale, a public/Funnel guest) get real STUN/TURN servers instead of an
-    empty ice_servers list.
+    This is the reachability that matters for /connectivity/ice: the browser
+    making this request needs to know whether it can rely on direct host
+    candidates, not the peer it is calling. Off-tailnet callers (mobile data,
+    home wifi w/o Tailscale, a public/Funnel guest) MUST return False so they
+    fall through to the STUN/TURN relay tier instead of getting an empty
+    ice_servers list. A Funnel-proxied loopback request and any public IP are
+    OFF-tailnet; only tailnet CGNAT (100.64.0.0/10), RFC1918 LAN, or IPv6 ULA
+    count as on-tailnet.
     """
-    client = getattr(request, "client", None)
-    host = getattr(client, "host", None) if client is not None else None
-    if not host:
-        return False  # no client info -> don't assume tailnet
-    return host.startswith(_PRIVATE_PREFIXES)
+    ip = _real_client_ip(request)
+    if ip is None:
+        return False  # no usable client info -> don't assume tailnet
+    if ip.is_loopback:
+        return False  # loopback (incl. Funnel-proxied) is never treated as tailnet
+    return any(ip in net for net in _ONTAILNET_NETS)
 
 
 def _resolve_peer(peer: str) -> str:
-    """Resolve a peer arg (FQID or bare name) to a paired FQID, or 404."""
+    """Resolve a peer arg to a paired FQID, or raise 404/409.
+
+    Accepted (in priority): an exact paired FQID; otherwise reduce to the bare
+    agent name and match, so a bare name, a ``capauth:<agent>@<domain>`` wire
+    URI (what the Flutter client sends), and a differently-realmed FQID all
+    resolve to the same paired agent. This keeps resolution working across the
+    realm-string drift the peer store carried (see the calling-backend design
+    doc). Bare-name ambiguity across operators raises 409.
+    """
     peers = _list_peers()
     if peer in peers:
         return peer
-    matches = [fqid for fqid in peers if fqid.split("@", 1)[0] == peer]
+    probe = peer[len("capauth:") :] if peer.startswith("capauth:") else peer
+    bare = probe.split("@", 1)[0]
+    matches = [fqid for fqid in peers if fqid.split("@", 1)[0] == bare]
     if len(matches) == 1:
         return matches[0]
     if len(matches) > 1:
         raise HTTPException(
             status_code=409,
-            detail=f"ambiguous bare name {peer!r}: matches {matches}; use full FQID",
+            detail=f"ambiguous peer {peer!r}: matches {matches}; use full FQID",
         )
     raise HTTPException(status_code=404, detail=f"peer not paired: {peer}")
 
@@ -147,6 +162,14 @@ async def _peer_arg(request: Request) -> str:
 def register_call_routes(app: FastAPI) -> None:
     @app.post("/call/start")
     async def call_start(request: Request) -> JSONResponse:
+        # /call/start mints a full-publish LiveKit JWT exactly like
+        # /livekit/token (via _prepare_call -> _mint_token below), plus rings
+        # the peer and alerts the operator. It must therefore never be MORE
+        # open than /livekit/token: gate it with the identical, always-on
+        # check (loopback/tailnet OR a valid SKCHAT_GUEST_OPERATOR_TOKEN)
+        # rather than relying on the flag-gated dataplane-auth middleware,
+        # which exempts the /livekit prefix entirely.
+        _gate_token_mint(request)
         peer = await _peer_arg(request)
         try:
             body = await request.json()
@@ -168,13 +191,19 @@ def register_call_routes(app: FastAPI) -> None:
 
     @app.post("/call/answer")
     async def call_answer(request: Request) -> JSONResponse:
+        # Same token-minting exposure as /call/start above -> same gate.
+        _gate_token_mint(request)
         peer = await _peer_arg(request)
         ctx = _prepare_call(peer)  # no _send_invite — answering never rings
         return _call_response(ctx)
 
     @app.get("/call/incoming")
-    async def call_incoming() -> JSONResponse:
+    async def call_incoming(request: Request) -> JSONResponse:
         """Surface CALL_INVITE envelopes addressed to us, newest first."""
+        # Read-only, but it discloses who is calling whom; gate it the same
+        # as the token-minting call routes rather than leaving it the one
+        # unauthenticated /call/* surface.
+        _gate_token_mint(request)
         me = _self_fqid()
         invites = []
         for env, _verify in _read_inbox():
@@ -206,8 +235,12 @@ def register_call_routes(app: FastAPI) -> None:
         return JSONResponse({"invites": invites})
 
     @app.get("/call/peers")
-    async def call_peers() -> JSONResponse:
+    async def call_peers(request: Request) -> JSONResponse:
         """List paired peers (FQID + fingerprint) for the call UI."""
+        # Discloses the paired-peer roster + fingerprints; gate it the same as
+        # the other /call/* routes so it is not the one unauthenticated surface
+        # a public Funnel caller can enumerate (card 750ae88b).
+        _gate_token_mint(request)
         peers = [
             {"fqid": fqid, "fingerprint": (meta or {}).get("fingerprint")}
             for fqid, meta in _list_peers().items()
@@ -215,13 +248,30 @@ def register_call_routes(app: FastAPI) -> None:
         return JSONResponse({"peers": peers})
 
     @app.get("/connectivity/ice")
-    async def connectivity_ice(peer: str, request: Request) -> JSONResponse:
-        peer_fqid = _resolve_peer(peer)
+    async def connectivity_ice(request: Request, peer: str | None = None) -> JSONResponse:
         local_fqid = _self_fqid()
         # Derive on_tailnet from the actual requesting connection (see
-        # _client_on_tailnet) instead of hardcoding it — an off-tailnet caller
+        # _client_on_tailnet) instead of hardcoding it. An off-tailnet caller
         # (mobile data, home wifi w/o Tailscale, a public/Funnel guest) must
         # fall through to the STUN/TURN relay tier or its media never connects.
+        # This classification is what fundamentally selects the ICE tier; it does
+        # NOT depend on the peer being a paired peer.
         on_tailnet = _client_on_tailnet(request)
+        # Resolve the peer to a paired FQID for a real 1:1 call (keeps the
+        # peer_hint identity accurate). A conf/call GUEST (e.g. "guest-903ekz")
+        # or a self id is never paired, so _resolve_peer would 404. That must NOT
+        # deny a guest their TURN config: fall back to the raw peer string
+        # (informational only; the ephemeral TURN cred is keyed off local_fqid,
+        # is short-lived HMAC, and is exactly what off-tailnet guests need to
+        # relay media). Ambiguous bare names (409) still surface so p2p callers
+        # get the "use full FQID" guidance.
+        peer_fqid = local_fqid
+        if peer:
+            try:
+                peer_fqid = _resolve_peer(peer)
+            except HTTPException as exc:
+                if exc.status_code != 404:
+                    raise
+                peer_fqid = peer  # unpaired guest/self id (hint only), no 404
         cfg = ice_config(local_fqid, peer_fqid, peer_hint={"on_tailnet": on_tailnet})
         return JSONResponse(cfg)

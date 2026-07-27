@@ -9,8 +9,10 @@ vector-search / thread helpers remain available.
 
 from __future__ import annotations
 
+import fcntl
 import logging
 import os
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -65,6 +67,110 @@ class ChatHistory:
             else _skchat_home() / "history"
         )
         self._history_dir.mkdir(parents=True, exist_ok=True)
+        # Authoritative event log (lazily opened, flag-gated). See record_event.
+        self._log = None
+
+    def record_event(self, message) -> None:
+        """Best-effort append of *message* to the authoritative ``MessageLog``
+        when ``SKCHAT_MESSAGE_LOG`` is on. Call ONCE per logical message at its
+        CANONICAL write site (never inside a per-member fan-out loop). Idempotent
+        (dedup by id + dedup_key) and NEVER raises, so it can never break a
+        send/receive. Flag OFF (default) => no-op. This is the single append point
+        every writer routes through so all surfaces share one ordered history.
+        """
+        if os.getenv("SKCHAT_MESSAGE_LOG", "").strip().lower() in (
+            "",
+            "0",
+            "false",
+            "no",
+            "off",
+        ):
+            return
+        try:
+            if self._log is None:
+                from skchat.message_log import MessageLog
+
+                self._log = MessageLog()
+            self._log.record(message)
+        except Exception:  # noqa: BLE001 — a log failure must never break a send
+            logger.debug("record_event failed", exc_info=True)
+
+    def read_events(self, conversation_id: str, limit: int = 500):
+        """Return a conversation's messages from the authoritative ``MessageLog``
+        (full payloads, already deduped + seq-ordered) when ``SKCHAT_MESSAGE_LOG``
+        is on, else ``None`` so the caller falls back to the legacy store. This is
+        the ONE read-cutover seam every reader routes through, so all surfaces
+        serve identical history. Best-effort: ``None`` on any error.
+        """
+        if os.getenv("SKCHAT_MESSAGE_LOG", "").strip().lower() in (
+            "",
+            "0",
+            "false",
+            "no",
+            "off",
+        ):
+            return None
+        try:
+            if self._log is None:
+                from skchat.message_log import MessageLog
+
+                self._log = MessageLog()
+            from skchat.message_log import log_row_to_message
+
+            rows = self._log.read(conversation_id, limit=limit)
+            return [log_row_to_message(r) for r in rows]
+        except Exception:  # noqa: BLE001
+            logger.debug("read_events failed", exc_info=True)
+            return None
+
+    def read_recent_events(self, limit: int = 50):
+        """Recent messages across ALL conversations from the authoritative log
+        (an inbox view) when ``SKCHAT_MESSAGE_LOG`` is on, else ``None`` so the
+        caller falls back to the legacy store. Best-effort; ``None`` on error."""
+        if os.getenv("SKCHAT_MESSAGE_LOG", "").strip().lower() in (
+            "",
+            "0",
+            "false",
+            "no",
+            "off",
+        ):
+            return None
+        try:
+            if self._log is None:
+                from skchat.message_log import MessageLog
+
+                self._log = MessageLog()
+            from skchat.message_log import log_row_to_message
+
+            return [log_row_to_message(r) for r in self._log.recent(limit)]
+        except Exception:  # noqa: BLE001
+            logger.debug("read_recent_events failed", exc_info=True)
+            return None
+
+    def _update_log_payload(self, message) -> None:
+        """Reflect a mutation (reaction / edit / receipt) into the authoritative
+        log's payload for this message's id, so log-sourced readers see it (and a
+        reaction reaches the ONE logical message, not one fan-out copy). Flag-
+        gated, best-effort, never raises.
+        """
+        if os.getenv("SKCHAT_MESSAGE_LOG", "").strip().lower() in (
+            "",
+            "0",
+            "false",
+            "no",
+            "off",
+        ):
+            return
+        try:
+            if self._log is None:
+                from skchat.message_log import MessageLog
+
+                self._log = MessageLog()
+            mid = getattr(message, "id", None)
+            if mid:
+                self._log.update_payload(mid, message.model_dump_json())
+        except Exception:  # noqa: BLE001
+            logger.debug("_update_log_payload failed", exc_info=True)
 
     @staticmethod
     def _make_default_store() -> object:
@@ -95,20 +201,39 @@ class ChatHistory:
     # JSONL save / load
     # ------------------------------------------------------------------
 
+    @contextmanager
+    def _write_lock(self):
+        """Serialize all history writes across processes (daemon/webui/MCP all
+        share these files). Without this, an ``update_message`` full-file rewrite
+        that races a concurrent ``save`` append silently drops the appended line.
+        Advisory ``flock`` on a sidecar lock file (reads never take it).
+        """
+        lock_path = self._history_dir / ".write.lock"
+        fh = open(lock_path, "a", encoding="utf-8")
+        try:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+            yield
+        finally:
+            try:
+                fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+            finally:
+                fh.close()
+
     def save(self, message: ChatMessage) -> None:
         """Append *message* to today's JSONL history file.
 
         File: ``~/.skchat/history/YYYY-MM-DD.jsonl``
-        One JSON line per call, written atomically (append mode).
+        One JSON line per call, serialized against rewrites by ``_write_lock``.
 
         Args:
             message: The ChatMessage to persist.
         """
         date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         path = self._history_dir / f"{date_str}.jsonl"
-        with path.open("a", encoding="utf-8") as fh:
-            fh.write(message.model_dump_json())
-            fh.write("\n")
+        with self._write_lock():
+            with path.open("a", encoding="utf-8") as fh:
+                fh.write(message.model_dump_json())
+                fh.write("\n")
 
     def load(
         self,
@@ -233,39 +358,45 @@ class ChatHistory:
             before = before.replace(tzinfo=timezone.utc)
 
         removed = 0
-        for path in self._history_dir.glob("*.jsonl"):
-            try:
-                lines = path.read_text(encoding="utf-8").splitlines()
-            except OSError:
-                continue
-
-            kept: list[str] = []
-            for raw in lines:
-                stripped = raw.strip()
-                if not stripped:
-                    continue
+        # Serialize against concurrent save()/update_message and swap atomically,
+        # so a prune sweep never races an append or leaves a torn file (the gap
+        # the write lock did not previously cover).
+        with self._write_lock():
+            for path in self._history_dir.glob("*.jsonl"):
                 try:
-                    msg = ChatMessage.model_validate_json(stripped)
-                except Exception as e:
-                    logger.warning("history.py prune: dropping malformed line: %s", e)
-                    removed += 1
+                    lines = path.read_text(encoding="utf-8").splitlines()
+                except OSError:
                     continue
-                ts = msg.timestamp
-                if ts.tzinfo is None:
-                    ts = ts.replace(tzinfo=timezone.utc)
-                if ts < before:
-                    removed += 1
+
+                kept: list[str] = []
+                for raw in lines:
+                    stripped = raw.strip()
+                    if not stripped:
+                        continue
+                    try:
+                        msg = ChatMessage.model_validate_json(stripped)
+                    except Exception as e:
+                        logger.warning("history.py prune: dropping malformed line: %s", e)
+                        removed += 1
+                        continue
+                    ts = msg.timestamp
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=timezone.utc)
+                    if ts < before:
+                        removed += 1
+                    else:
+                        kept.append(stripped)
+
+                if kept:
+                    tmp = path.with_suffix(".jsonl.tmp")
+                    tmp.write_text("\n".join(kept) + "\n", encoding="utf-8")
+                    os.replace(tmp, path)
                 else:
-                    kept.append(stripped)
-
-            if kept:
-                path.write_text("\n".join(kept) + "\n", encoding="utf-8")
-            else:
-                # Nothing left in this file — remove it.
-                try:
-                    path.unlink()
-                except OSError as e:
-                    logger.warning("history.py prune: could not remove %s: %s", path, e)
+                    # Nothing left in this file — remove it.
+                    try:
+                        path.unlink()
+                    except OSError as e:
+                        logger.warning("history.py prune: could not remove %s: %s", path, e)
 
         return removed
 
@@ -314,32 +445,41 @@ class ChatHistory:
         Returns:
             bool: True if a matching line was found and rewritten.
         """
-        files = sorted(self._history_dir.glob("*.jsonl"), reverse=True)
-        for path in files:
-            try:
-                lines = path.read_text(encoding="utf-8").splitlines()
-            except OSError:
-                continue
-            replaced = False
-            out: list[str] = []
-            for raw in lines:
-                stripped = raw.strip()
-                if not stripped:
+        # Hold the write lock across the whole read-modify-write so a concurrent
+        # save append is not lost, and swap the file in atomically (temp +
+        # os.replace) so a concurrent reader never sees a truncated file.
+        with self._write_lock():
+            files = sorted(self._history_dir.glob("*.jsonl"), reverse=True)
+            for path in files:
+                try:
+                    lines = path.read_text(encoding="utf-8").splitlines()
+                except OSError:
                     continue
-                if not replaced:
-                    try:
-                        existing = ChatMessage.model_validate_json(stripped)
-                    except Exception:
-                        out.append(stripped)
+                replaced = False
+                out: list[str] = []
+                for raw in lines:
+                    stripped = raw.strip()
+                    if not stripped:
                         continue
-                    if existing.id == message.id:
-                        out.append(message.model_dump_json())
-                        replaced = True
-                        continue
-                out.append(stripped)
-            if replaced:
-                path.write_text("\n".join(out) + "\n", encoding="utf-8")
-                return True
+                    if not replaced:
+                        try:
+                            existing = ChatMessage.model_validate_json(stripped)
+                        except Exception:
+                            out.append(stripped)
+                            continue
+                        if existing.id == message.id:
+                            out.append(message.model_dump_json())
+                            replaced = True
+                            continue
+                    out.append(stripped)
+                if replaced:
+                    tmp = path.with_suffix(".jsonl.tmp")
+                    tmp.write_text("\n".join(out) + "\n", encoding="utf-8")
+                    os.replace(tmp, path)
+                    # Keep the authoritative log's payload current with this
+                    # mutation so log-sourced readers see the reaction/edit.
+                    self._update_log_payload(message)
+                    return True
         return False
 
     def set_reaction(self, message_id: str, emoji: str, sender: str) -> Optional[ChatMessage]:
@@ -384,9 +524,7 @@ class ChatHistory:
         self.update_message(msg)
         return msg
 
-    def record_receipt(
-        self, message_id: str, kind: str, sender: str
-    ) -> Optional[ChatMessage]:
+    def record_receipt(self, message_id: str, kind: str, sender: str) -> Optional[ChatMessage]:
         """Record a delivered/read receipt for *sender* and persist.
 
         Idempotent. Returns None if the message is not found.

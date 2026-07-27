@@ -40,7 +40,7 @@ class OneHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
     handle_missing: str
         options are 'error', 'return_nan', 'value', and 'indicator'. The default is 'value'.
 
-        'error' will raise a `ValueError` if missings are encountered.
+        'error' will raise a `ValueError` if a missing value is encountered.
         'return_nan' will encode a missing value as `np.nan` in every dummy column.
         'value' will encode a missing value as 0 in every dummy column.
         'indicator' will treat missingness as its own category, adding an additional dummy column
@@ -106,6 +106,8 @@ class OneHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
 
     prefit_ordinal = True
     encoding_relation = util.EncodingRelation.ONE_TO_N_UNIQUE
+    _VALID_HANDLE_MISSING = ('error', 'return_nan', 'value', 'ignore', 'indicator')
+    _VALID_HANDLE_UNKNOWN = ('error', 'return_nan', 'value', 'indicator')
 
     def __init__(
         self,
@@ -227,7 +229,7 @@ class OneHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
 
         if self.handle_unknown == 'error':
             if X[self.cols].isin([-1]).any().any():
-                raise ValueError('Columns to be encoded can not contain new values')
+                raise ValueError('Columns to be encoded cannot contain new values')
 
         X = self.get_dummies(X)
         return X
@@ -252,17 +254,16 @@ class OneHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
         # first check the type and make deep copy
         X = util.convert_input(X_in, columns=self.feature_names_out_, deep=True)
 
+        if self.drop_invariant and self.invariant_cols:
+            raise ValueError(
+                f'Unexpected input dimension {X.shape[1]}, the attribute drop_invariant '
+                'should be False when calling inverse_transform'
+            )
+
         X = self.reverse_dummies(X, self.mapping)
 
-        # then make sure that it is the right size
         if X.shape[1] != self._dim:
-            if self.drop_invariant:
-                raise ValueError(
-                    f'Unexpected input dimension {X.shape[1]}, the attribute drop_invariant should '
-                    'be False when transforming the data'
-                )
-            else:
-                raise ValueError(f'Unexpected input dimension {X.shape[1]}, expected {self._dim}')
+            raise ValueError(f'Unexpected input dimension {X.shape[1]}, expected {self._dim}')
 
         if not list(self.cols):
             return X if self.return_df else X.to_numpy()

@@ -591,7 +591,7 @@ class Geocif:
             self._setup_simple_regression_flags()
         elif self.model_name.startswith("cumulative_"):
             self._setup_cumulative_flags()
-        elif self.dispatch_name in ["tabpfn", "tabpfn_ft", "desreg", "tabicl", "tabicl_ft"]:
+        elif self.dispatch_name in ["tabpfn", "tabpfn_ft", "desreg", "tabicl", "tabicl_ft", "tabfm"]:
             self._setup_tabular_flags()
         elif self.dispatch_name in ["oblique", "ydf"]:
             self._setup_tree_flags()

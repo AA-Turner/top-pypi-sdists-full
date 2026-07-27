@@ -1,0 +1,43 @@
+# Copyright Kevin Deldycke <kevin@deldycke.com> and contributors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Test all agent definitions, detection and agent-specific groups."""
+
+from __future__ import annotations
+
+from extra_platforms import (
+    ALL_AGENTS,
+    UNKNOWN_AGENT,
+    current_agent,
+    is_any_agent,
+    is_unknown_agent,
+)
+
+
+def test_agent_detection():
+    # We don't always expect to detect an agent.
+    assert current_agent()
+    if is_unknown_agent():
+        assert current_agent() is UNKNOWN_AGENT
+        assert current_agent() not in ALL_AGENTS
+        assert not is_any_agent()
+    else:
+        assert current_agent() is not UNKNOWN_AGENT
+        assert current_agent() in ALL_AGENTS
+        assert is_any_agent()
+
+
+def test_agent_mutual_exclusion():
+    """At most one agent matches the current environment."""
+    matching = {agent for agent in ALL_AGENTS if agent.current}
+    assert len(matching) <= 1

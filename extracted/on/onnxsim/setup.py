@@ -31,6 +31,7 @@ ONNX_VERIFY_PROTO3 = bool(os.getenv('ONNX_VERIFY_PROTO3') == '1')
 ONNX_NAMESPACE = os.getenv('ONNX_NAMESPACE', 'onnx')
 ONNX_BUILD_TESTS = bool(os.getenv('ONNX_BUILD_TESTS') == '1')
 ONNX_OPT_USE_SYSTEM_PROTOBUF = bool(os.getenv('ONNX_OPT_USE_SYSTEM_PROTOBUF', '0') == '1')
+IS_FREE_THREADED = sysconfig.get_config_var("Py_GIL_DISABLED")
 
 DEBUG = bool(os.getenv('DEBUG'))
 COVERAGE = bool(os.getenv('COVERAGE'))
@@ -138,13 +139,16 @@ class cmake_build(setuptools.Command):
             os.makedirs(CMAKE_BUILD_DIR)
 
         with cd(CMAKE_BUILD_DIR):
-            build_type = 'Release'
+            build_type = 'RelWithDebInfo'
+            if WINDOWS:
+                build_type = 'Release'
             # configure
             cmake_args = [
                 CMAKE,
                 '-DPython_INCLUDE_DIR={}'.format(sysconfig.get_path('include')),
                 '-DPython_EXECUTABLE={}'.format(sys.executable),
                 '-DONNX_BUILD_PYTHON=ON',
+                "-DONNX_INSTALL=OFF",
                 '-DONNXSIM_PYTHON=ON',
                 '-DONNXSIM_BUILTIN_ORT=OFF',
                 '-DONNX_USE_LITE_PROTO=OFF',
@@ -153,6 +157,8 @@ class cmake_build(setuptools.Command):
                 '-DONNX_OPT_USE_SYSTEM_PROTOBUF={}'.format(
                     'ON' if ONNX_OPT_USE_SYSTEM_PROTOBUF else 'OFF'),
             ]
+            if IS_FREE_THREADED:
+                cmake_args.append('-DPython3_FIND_ABI=ANY;ANY;ANY;ANY')
             if COVERAGE:
                 cmake_args.append('-DONNX_COVERAGE=ON')
             if COVERAGE or DEBUG:
@@ -191,7 +197,7 @@ class cmake_build(setuptools.Command):
             print(f"Run command {cmake_args}")
             subprocess.check_call(cmake_args)
 
-            build_args = [CMAKE, '--build', os.curdir, '--target onnxsim_cpp2py_export']
+            build_args = [CMAKE, '--build', os.curdir, '--target', 'onnxsim_cpp2py_export']
             print(f"Run command {build_args}")
             subprocess.check_call(build_args)
 
@@ -243,7 +249,7 @@ cmdclass = {
 }
 
 py_limited_api = sys.version_info[0] >= 3 and sys.version_info[1] >= 12 and \
-    not sysconfig.get_config_var("Py_GIL_DISABLED")
+    not IS_FREE_THREADED
 if py_limited_api:
     setup_opts = {
         'bdist_wheel': {
@@ -261,6 +267,15 @@ ext_modules = [
 ]
 
 packages = setuptools.find_packages()
+# onnxsim/bin and onnxsim/capi hold C++ build inputs, not importable Python.
+# MANIFEST.in's `recursive-include onnxsim ...` sweeps their sources into the
+# sdist, and because they are identifier-named subdirectories of the onnxsim
+# package, setuptools both warns ("Package 'onnxsim.bin' is absent from the
+# `packages` configuration") and ships the raw .cpp/.h inside every wheel.
+# Declare them as packages to silence the warning, then exclude their contents
+# (below) so the built wheel carries no stray C++ sources -- they stay in the
+# sdist for source builds.
+packages += ['onnxsim.bin', 'onnxsim.capi']
 
 version_str = VersionInfo.version
 
@@ -277,5 +292,6 @@ setuptools.setup(
     cmdclass=cmdclass,
     packages=packages,
     include_package_data=True,
+    exclude_package_data={'onnxsim.bin': ['*'], 'onnxsim.capi': ['*']},
     options=setup_opts,
 )

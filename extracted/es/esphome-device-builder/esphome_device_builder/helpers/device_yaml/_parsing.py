@@ -9,7 +9,9 @@ from typing import NamedTuple
 from esphome import const
 from esphome.const import CONF_PACKAGES
 
-from ...models.boards import RP2_PLATFORM_ALIASES
+from ...definitions import load_platform_capabilities_index
+from ...models.boards import RP2_PLATFORM_ALIASES, normalize_platform
+from ..chips import normalize_chip_variant
 from ..yaml import (
     _split_value_and_comment,
     _strip_yaml_quotes,
@@ -446,6 +448,74 @@ def extract_logger_baud_rate(
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         return None
     return value
+
+
+def extract_logger_interface(
+    config: dict | None,
+    target_platform: str,
+    extra_substitutions: dict[str, str] | None = None,
+    storage_variant: str | None = None,
+) -> str | None:
+    """
+    Resolve the ``logger:`` output interface, or ``None`` when unknowable.
+
+    Explicit ``hardware_uart`` wins; otherwise the snapshotted per-platform
+    default, with esp32 keyed by :func:`resolve_esp32_variant`.
+    """
+    if not isinstance(config, dict) or const.CONF_LOGGER not in config:
+        return None
+    caps = load_platform_capabilities_index()
+    logger = config.get(const.CONF_LOGGER)
+    explicit = logger.get(const.CONF_HARDWARE_UART) if isinstance(logger, dict) else None
+    if explicit is not None:
+        if not isinstance(explicit, str):
+            return None
+        value = _resolve_substitutions(explicit, extra_substitutions or {}) or ""
+        value = value.strip().upper()
+        return value if value in caps.logger_interface_values else None
+    platform = normalize_platform(target_platform.strip().lower())
+    key = (
+        resolve_esp32_variant(config, extra_substitutions, storage_variant)
+        if platform == "esp32"
+        else platform
+    )
+    # The falsy guard is for mypy (resolve may return None); dict.get(None)
+    # would behave identically.
+    return caps.logger_interface_defaults.get(key) if key else None
+
+
+def resolve_esp32_variant(
+    config: dict | None,
+    extra_substitutions: dict[str, str] | None = None,
+    storage_variant: str | None = None,
+) -> str | None:
+    """
+    Canonical esp32 chip variant for a device, or ``None`` when unknowable.
+
+    Source order: YAML ``esp32.variant``, then *storage_variant* (StorageJSON's
+    post-codegen chip), then the board→variant snapshot. A bare-family
+    ``esp32`` from storage is ambiguous — never-compiled sidecars seed the
+    platform key there — so it defers to the board snapshot.
+    """
+    esp32 = config.get("esp32") if isinstance(config, dict) else None
+    esp32 = esp32 if isinstance(esp32, dict) else {}
+    subs = extra_substitutions or {}
+    yaml_variant = _resolve_substitutions(_str_or_none(esp32.get(const.CONF_VARIANT)), subs)
+    if isinstance(yaml_variant, str):
+        candidate = normalize_chip_variant(yaml_variant)
+        if candidate.startswith("esp32"):
+            return candidate
+    storage = normalize_chip_variant(storage_variant) if storage_variant else ""
+    if storage.startswith("esp32") and storage != "esp32":
+        return storage
+    board = _resolve_substitutions(_str_or_none(esp32.get(const.CONF_BOARD)), subs)
+    if isinstance(board, str):
+        snapshot = load_platform_capabilities_index().esp32_board_variants.get(board.strip())
+        if snapshot:
+            return normalize_chip_variant(snapshot)
+    # Post-compile classic chips legitimately store the bare ``esp32``; with
+    # no board to disambiguate the seeded-family case, stay unknowable.
+    return None
 
 
 def extract_ota_partition_access(config: dict | None) -> bool:

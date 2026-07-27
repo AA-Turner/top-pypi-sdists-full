@@ -91,9 +91,10 @@ pub(crate) fn azdls_config_parse(mut properties: HashMap<String, String>) -> Res
 pub(crate) fn azdls_create_operator<'a>(
     absolute_path: &'a str,
     config: &AzdlsConfig,
+    configured_scheme: &AzureStorageScheme,
 ) -> Result<(opendal::Operator, &'a str)> {
     let path = absolute_path.parse::<AzureStoragePath>()?;
-    match_path_with_config(&path, config)?;
+    match_path_with_config(&path, config, configured_scheme)?;
 
     let op = azdls_config_build(config, &path)?;
 
@@ -159,7 +160,18 @@ impl FromStr for AzureStorageScheme {
 }
 
 /// Validates whether the given path matches what's configured for the backend.
-pub(crate) fn match_path_with_config(path: &AzureStoragePath, config: &AzdlsConfig) -> Result<()> {
+fn match_path_with_config(
+    path: &AzureStoragePath,
+    config: &AzdlsConfig,
+    configured_scheme: &AzureStorageScheme,
+) -> Result<()> {
+    ensure_data_valid!(
+        &path.scheme == configured_scheme,
+        "Storage::Azdls: Scheme mismatch: configured {}, passed {}",
+        configured_scheme,
+        path.scheme
+    );
+
     if let Some(ref configured_account_name) = config.account_name {
         ensure_data_valid!(
             &path.account_name == configured_account_name,
@@ -208,7 +220,7 @@ fn azdls_config_build(config: &AzdlsConfig, path: &AzureStoragePath) -> Result<o
 
 /// Represents a fully qualified path to blob/ file in Azure Storage.
 #[derive(Debug, PartialEq)]
-pub(crate) struct AzureStoragePath {
+struct AzureStoragePath {
     /// The scheme of the URL, e.g., `abfss`, `abfs`, `wasbs`, or `wasb`.
     scheme: AzureStorageScheme,
 
@@ -224,7 +236,7 @@ pub(crate) struct AzureStoragePath {
     /// Path to the file.
     ///
     /// It is relative to the `root` of the `AzdlsConfig`.
-    pub(crate) path: String,
+    path: String,
 }
 
 impl AzureStoragePath {
@@ -396,6 +408,7 @@ mod tests {
                         endpoint: Some("https://myaccount.dfs.core.windows.net".to_string()),
                         ..Default::default()
                     },
+                    AzureStorageScheme::Abfss,
                 ),
                 Some(("myfs", "/path/to/file.parquet")),
             ),
@@ -408,19 +421,33 @@ mod tests {
                         endpoint: Some("https://myaccount.dfs.core.windows.net".to_string()),
                         ..Default::default()
                     },
+                    AzureStorageScheme::Abfss,
+                ),
+                None,
+            ),
+            (
+                "different scheme",
+                (
+                    "wasbs://myfs@myaccount.dfs.core.windows.net/path/to/file.parquet",
+                    AzdlsConfig {
+                        account_name: Some("myaccount".to_string()),
+                        endpoint: Some("https://myaccount.dfs.core.windows.net".to_string()),
+                        ..Default::default()
+                    },
+                    AzureStorageScheme::Abfss,
                 ),
                 None,
             ),
             (
                 "incompatible scheme for endpoint",
                 (
-                    // `abfss` implies https; configured endpoint is plain http.
-                    "abfss://myfs@myaccount.dfs.core.windows.net/path/to/file.parquet",
+                    "abfs://myfs@myaccount.dfs.core.windows.net/path/to/file.parquet",
                     AzdlsConfig {
                         account_name: Some("myaccount".to_string()),
                         endpoint: Some("http://myaccount.dfs.core.windows.net".to_string()),
                         ..Default::default()
                     },
+                    AzureStorageScheme::Abfss,
                 ),
                 None,
             ),
@@ -433,6 +460,7 @@ mod tests {
                         endpoint: Some("https://myaccount.dfs.core.chinacloudapi.cn".to_string()),
                         ..Default::default()
                     },
+                    AzureStorageScheme::Abfss,
                 ),
                 None,
             ),
@@ -446,27 +474,14 @@ mod tests {
                         endpoint: None,
                         ..Default::default()
                     },
-                ),
-                Some(("myfs", "/path/to/file.parquet")),
-            ),
-            (
-                "scheme differs from a previously-configured one is accepted",
-                (
-                    // No configured scheme exists anymore; both abfss and wasbs
-                    // should be accepted by the same storage.
-                    "wasbs://myfs@myaccount.blob.core.windows.net/path/to/file.parquet",
-                    AzdlsConfig {
-                        account_name: Some("myaccount".to_string()),
-                        endpoint: Some("https://myaccount.blob.core.windows.net".to_string()),
-                        ..Default::default()
-                    },
+                    AzureStorageScheme::Abfs,
                 ),
                 Some(("myfs", "/path/to/file.parquet")),
             ),
         ];
 
         for (name, input, expected) in test_cases {
-            let result = azdls_create_operator(input.0, &input.1);
+            let result = azdls_create_operator(input.0, &input.1, &input.2);
             match expected {
                 Some((expected_filesystem, expected_path)) => {
                     assert!(result.is_ok(), "Test case {name} failed: {result:?}");

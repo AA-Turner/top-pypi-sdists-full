@@ -1561,6 +1561,8 @@ async def test_e2e_submit_job_dispatches_to_receiver(
     assert ack["accepted"] is True
     assert "reason" not in ack
 
+    # The ack precedes the off-loop extract + queue hop; wait for the enqueue.
+    await wait_until(lambda: bool(queued_jobs), 5.0, "receiver to enqueue the job")
     assert len(queued_jobs) == 1
     assert queued_jobs[0].remote_peer == "alpha"
 
@@ -2421,6 +2423,22 @@ async def test_handle_cancel_job_unknown_remote_job_drops_silently(tmp_path: Pat
         _cancel_session(dashboard_id="offloader-1"),
         {"type": "cancel_job", "job_id": "unknown"},
     )
+    controller.offloader._db.firmware.cancel.assert_not_called()
+
+
+async def test_handle_cancel_job_mid_extract_routes_to_cancel_extract(tmp_path: Path) -> None:
+    """An unresolvable job_id with a live extract flags the extract window instead of dropping."""
+    controller = _make_receiver_with_fanout(tmp_path)
+    submit_receiver = MagicMock()
+    submit_receiver.cancel_extract.return_value = True
+    controller.receiver.state.submit_job_receiver = submit_receiver
+
+    await controller.receiver.handle_cancel_job(
+        _cancel_session(dashboard_id="offloader-1"),
+        {"type": "cancel_job", "job_id": "remote-xyz"},
+    )
+
+    submit_receiver.cancel_extract.assert_called_once_with("offloader-1", "remote-xyz")
     controller.offloader._db.firmware.cancel.assert_not_called()
 
 

@@ -1620,7 +1620,7 @@ def _self_consent_agent() -> str:
 
     uri = _get_identity()
     if uri.startswith("capauth:"):
-        uri = uri[len("capauth:"):]
+        uri = uri[len("capauth:") :]
     local = uri.split("@", 1)[0]
     return local or "lumina"
 
@@ -1665,9 +1665,7 @@ async def _handle_accept_contact_request(args: dict) -> list[TextContent]:
     token = build_pipeline(agent).on_accept(sender)
     # Clear the queued knock (idempotent; promotion already happened).
     consent_requests.accept_request(agent, sender)
-    return _json(
-        {"agent": agent, "sender": sender, "result": "accepted", "token": token}
-    )
+    return _json({"agent": agent, "sender": sender, "result": "accepted", "token": token})
 
 
 async def _handle_decline_contact_request(args: dict) -> list[TextContent]:
@@ -2154,6 +2152,7 @@ async def _handle_group_send(args: dict) -> list[TextContent]:
     # Store in local history
     history = _get_history()
     memory_id = history.store_message(message)
+    history.record_event(message)  # authoritative log (flag-gated, idempotent)
 
     # Deliver to each member via SKComms
     messenger = _get_messenger()
@@ -3312,7 +3311,21 @@ async def _handle_get_group_history(args: dict) -> list[TextContent]:
 
     limit: int = args.get("limit", 20)
     history = _get_history()
-    messages = history.get_thread_messages(group_id, limit=limit)
+    # Read cutover: serve from the authoritative log when on, so the MCP/agent
+    # view matches the app group view (previously MCP read store B, app read A,
+    # and the two diverged). Adapt log ChatMessages to the dict shape below.
+    events = history.read_events(f"group:{group_id}", limit=limit)
+    if events is not None:
+        messages = [
+            {
+                "sender": m.sender,
+                "content": m.content,
+                "timestamp": (m.timestamp.isoformat() if getattr(m, "timestamp", None) else ""),
+            }
+            for m in events
+        ]
+    else:
+        messages = history.get_thread_messages(group_id, limit=limit)
 
     return _json(
         [
@@ -3455,9 +3468,7 @@ async def _handle_skchat_group_create(args: dict) -> list[TextContent]:
             _member_hybrid = _PQ.hybrid_pub_hex_for(identity)
         except Exception:
             _member_hybrid = ""
-        member = group.add_member(
-            identity_uri=identity, hybrid_kem_public_hex=_member_hybrid
-        )
+        member = group.add_member(identity_uri=identity, hybrid_kem_public_hex=_member_hybrid)
         if member:
             added.append(identity)
 
@@ -4309,17 +4320,45 @@ async def _handle_skchat_inbox(args: dict) -> list[TextContent]:
             logger.warning("mcp_server.py: %s", e)
             pass  # keep as-is; tag filter will simply miss
 
-    # --- Primary: read from ChatHistory ----------------------------------
-    tags = ["skchat:message", f"skchat:recipient:{identity}"]
-    if resolved_sender:
-        tags.append(f"skchat:sender:{resolved_sender}")
+    # --- Read cutover: the unfiltered inbox serves from the authoritative log
+    # so it matches the app and reflects mutations. Received semantics preserved
+    # (a source change, not a behavior change): DMs addressed to me + group
+    # messages from OTHERS, never my own sends. Sender-filtered queries stay on
+    # the tag-indexed store B (which indexes by sender). Flag off => legacy B. ---
+    events = None if resolved_sender else history.read_recent_events(limit * 8)
+    messages: list[dict]
+    if events is not None:
+        # Normalize the self comparison across aliases (capauth:lumina@... vs
+        # lumina@...) so a self-sent DM never leaks and a DM to any of my aliases
+        # is still shown.
+        def _norm(uri: object) -> str:
+            return str(uri or "").replace("capauth:", "").strip().lower()
 
-    try:
-        memories = history._store.list_memories(tags=tags, limit=limit * 4)
-        messages: list[dict] = [history._memory_to_chat_dict(m) for m in memories]
-    except Exception as exc:
-        logger.warning("skchat_inbox: history read failed: %s", exc)
-        messages = []
+        self_id = _norm(identity)
+        messages = [
+            {
+                "id": e.id,
+                "sender": e.sender,
+                "recipient": e.recipient,
+                "content": e.content,
+                "timestamp": (e.timestamp.isoformat() if getattr(e, "timestamp", None) else ""),
+                "thread_id": e.thread_id,
+                "message_type": "text",
+            }
+            for e in events
+            if _norm(e.recipient) == self_id
+            or (str(e.recipient).startswith("group:") and _norm(e.sender) != self_id)
+        ][: limit * 4]
+    else:
+        tags = ["skchat:message", f"skchat:recipient:{identity}"]
+        if resolved_sender:
+            tags.append(f"skchat:sender:{resolved_sender}")
+        try:
+            memories = history._store.list_memories(tags=tags, limit=limit * 4)
+            messages = [history._memory_to_chat_dict(m) for m in memories]
+        except Exception as exc:
+            logger.warning("skchat_inbox: history read failed: %s", exc)
+            messages = []
 
     # --- Fallback: poll AgentMessenger.receive() if history is empty -----
     if not messages:

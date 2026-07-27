@@ -371,6 +371,7 @@ class BaseEncoder(BaseEstimator):
     _dim: int | None
     cols: list[str]
     use_default_cols: bool
+    use_all_cols: bool
     handle_missing: str
     handle_unknown: str
     verbose: int
@@ -381,8 +382,16 @@ class BaseEncoder(BaseEstimator):
     encoding_relation: EncodingRelation
 
     INVARIANCE_THRESHOLD = (
-        10e-5  # columns with variance less than this will be considered constant / invariant
+        10e-5  # Deprecated: previously used as a variance threshold for invariant detection.
+        # Now invariant columns are detected by checking nunique() <= 1, which is
+        # scale-independent and handles normalized/proportion values correctly.
     )
+
+    # Subclasses may override with a wider tuple, or set to None to opt out of
+    # string validation (CountEncoder accepts dicts/ints; HashingEncoder uses a
+    # sentinel string).
+    _VALID_HANDLE_MISSING: tuple[str, ...] | None = ('error', 'return_nan', 'value')
+    _VALID_HANDLE_UNKNOWN: tuple[str, ...] | None = ('error', 'return_nan', 'value')
 
     def __init__(
         self,
@@ -400,9 +409,9 @@ class BaseEncoder(BaseEstimator):
         ----------
         verbose: int
             integer indicating verbosity of output. 0 for none.
-        cols: list
+        cols: list or "all"
             a list of columns to encode, if None, all string and categorical columns
-            will be encoded.
+            will be encoded. If "all", all columns will be encoded regardless of dtype.
         drop_invariant: bool
             boolean for whether to drop columns with 0 variance.
         return_df: bool
@@ -425,6 +434,8 @@ class BaseEncoder(BaseEstimator):
         self.verbose = verbose
         # if True, even a repeated call of fit() will select string columns from X
         self.use_default_cols = cols is None
+        # if True, even a repeated call of fit() will select all columns from X
+        self.use_all_cols = isinstance(cols, str) and cols.lower() == 'all'
         # note that cols are only the columns to be encoded, feature_names_in_ are all columns
         self.cols = cols
         self.mapping = None
@@ -451,6 +462,7 @@ class BaseEncoder(BaseEstimator):
         """
         X, y = convert_inputs(X, y)
         self._check_fit_inputs(X, y)
+        self._validate_handle_strategies()
         self.feature_names_in_ = X.columns.tolist()
         self.n_features_in_ = len(self.feature_names_in_)
 
@@ -469,20 +481,29 @@ class BaseEncoder(BaseEstimator):
 
         if self.handle_missing == 'error':
             if X[self.cols].isna().any().any():
-                raise ValueError('Columns to be encoded can not contain null')
+                raise ValueError('Columns to be encoded cannot contain null')
 
         self._fit(X, y, **kwargs)
 
         # for finding invariant columns transform without y (as is done on the test set)
         self.feature_names_out_ = None  # Issue#437
-        X_transformed = self.transform(X, override_return_df=True)
+        # bypass set_output wrapping here; feature_names_out_ is not ready yet
+        prev_output_config = getattr(self, '_sklearn_output_config', None)
+        self._sklearn_output_config = {'transform': 'default'}
+        try:
+            X_transformed = self.transform(X, override_return_df=True)
+        finally:
+            if prev_output_config is None:
+                del self._sklearn_output_config
+            else:
+                self._sklearn_output_config = prev_output_config
         self.feature_names_out_ = X_transformed.columns.to_numpy()
 
         # drop all output columns with 0 variance.
         if self.drop_invariant:
             generated_cols = get_generated_cols(X, X_transformed, self.cols)
             self.invariant_cols = [
-                x for x in generated_cols if X_transformed[x].var() <= self.INVARIANCE_THRESHOLD
+                x for x in generated_cols if X_transformed[x].nunique() <= 1
             ]
             self.feature_names_out_ = np.fromiter(
                 (x for x in self.feature_names_out_ if x not in self.invariant_cols),
@@ -501,10 +522,27 @@ class BaseEncoder(BaseEstimator):
                 if y.isna().any():  # Target column should never have missing values
                     raise ValueError('The target column y must not contain missing values.')
 
+    def _validate_handle_strategies(self) -> None:
+        """Raise ValueError if handle_missing/handle_unknown are unrecognised strings."""
+        valid_missing = type(self)._VALID_HANDLE_MISSING
+        if valid_missing is not None and isinstance(self.handle_missing, str):
+            if self.handle_missing not in valid_missing:
+                raise ValueError(
+                    f'Unexpected handle_missing value {self.handle_missing!r} for '
+                    f'{type(self).__name__}. Supported values: {sorted(valid_missing)}.'
+                )
+        valid_unknown = type(self)._VALID_HANDLE_UNKNOWN
+        if valid_unknown is not None and isinstance(self.handle_unknown, str):
+            if self.handle_unknown not in valid_unknown:
+                raise ValueError(
+                    f'Unexpected handle_unknown value {self.handle_unknown!r} for '
+                    f'{type(self).__name__}. Supported values: {sorted(valid_unknown)}.'
+                )
+
     def _check_transform_inputs(self, df: pd.DataFrame) -> None:
         if self.handle_missing == 'error':
             if df[self.cols].isna().any().any():
-                raise ValueError('Columns to be encoded can not contain null')
+                raise ValueError('Columns to be encoded cannot contain null')
 
         if self._dim is None:
             raise NotFittedError('Must train encoder before it can be used to transform data.')
@@ -534,7 +572,9 @@ class BaseEncoder(BaseEstimator):
         :return: none, sets self.cols as a side effect
         """
         # if columns aren't passed, just use every string column
-        if self.use_default_cols:
+        if self.use_all_cols:
+            self.cols = X.columns.tolist()
+        elif self.use_default_cols:
             self.cols = get_categorical_cols(X)
         else:
             self.cols = convert_cols_to_list(self.cols)
@@ -600,7 +640,7 @@ class SupervisedTransformerMixin(sklearn.base.TransformerMixin):
     def transform(self, X: X_type, y: y_type | None = None, override_return_df: bool = False):
         """Perform the transformation to new categorical data.
 
-        Some encoders behave differently on whether y is given or not.
+        Some encoders behave differently on whether or not y is given.
         This is mainly due to regularisation in order to avoid overfitting.
         On training data transform should be called with y, on test data without.
 
@@ -624,7 +664,7 @@ class SupervisedTransformerMixin(sklearn.base.TransformerMixin):
             y = pd.Series(self.lab_encoder_.transform(y), index=y.index)
 
         if not list(self.cols):
-            return X
+            return X if (self.return_df or override_return_df) else X.to_numpy()
 
         X = self._transform(X, y)
 
@@ -666,7 +706,7 @@ class UnsupervisedTransformerMixin(sklearn.base.TransformerMixin):
         self._check_transform_inputs(X)
 
         if not list(self.cols):
-            return X
+            return X if (self.return_df or override_return_df) else X.to_numpy()
 
         X = self._transform(X)
         return self._drop_invariants(X, override_return_df)

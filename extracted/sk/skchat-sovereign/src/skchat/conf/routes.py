@@ -38,10 +38,19 @@ logger = logging.getLogger("skchat.conf.routes")
 
 _DEFAULT_TTL = int(os.getenv("SKCHAT_LIVEKIT_TOKEN_TTL", "21600"))
 
+
+def soul_metadata_for(identity: str) -> str:
+    """Trust-badge participant metadata for a PROVEN identity (thin re-export of
+    :func:`skchat.daemon_proxy.soul_metadata_for`). Only call with a
+    cryptographically-verified fqid, never a caller-supplied one."""
+    from skchat.daemon_proxy import soul_metadata_for as _impl
+
+    return _impl(identity)
+
+
 _MAX_FEDERATION_AGE = 300
 
 _NONCE_CACHE: dict = {}
-
 
 
 def _check_fed_nonce(fqid: str, nonce: str) -> bool:
@@ -54,6 +63,7 @@ def _check_fed_nonce(fqid: str, nonce: str) -> bool:
         return False
     _NONCE_CACHE[key] = now
     return True
+
 
 # --- On-demand Lumina conf-agent (pull the AI into THIS room) ----------------
 # The resident single-room agent is ``skchat-lumina-call.service``; this is the
@@ -95,7 +105,7 @@ def _agent_unit(room: str) -> str:
 
 def _default_runner(cmd: list[str]) -> subprocess.CompletedProcess:
     """Default command runner — actually invokes the process.
-    
+
     Tests inject their own runner (no real spawn). Raises ``FileNotFoundError``
     if ``cmd[0]`` is missing, which callers translate into a graceful 503.
     """
@@ -116,9 +126,20 @@ def _url() -> str:
     return os.getenv("SKCHAT_LIVEKIT_URL", "ws://skworld-100:7880")
 
 
+def _api_url() -> str:
+    """Server-side RoomService/Twirp base URL. SKCHAT_LIVEKIT_URL is
+    browser-facing and, behind a path-based Funnel (e.g. wss://host/livekit-ws),
+    makes the LiveKit SDK's Twirp client emit a malformed double-slash URL that
+    a reverse proxy 404s. SKCHAT_LIVEKIT_API_URL is a dedicated plain host:port
+    Twirp endpoint for server-side calls; when unset, fall back to
+    SKCHAT_LIVEKIT_URL for backward compat."""
+    return os.getenv("SKCHAT_LIVEKIT_API_URL", "").strip() or _url()
+
+
 def _public_url(request: Request) -> str:
     try:
         from skchat.livekit_routes import public_aware_livekit_url
+
         return public_aware_livekit_url(request)
     except Exception:
         return _url()
@@ -133,7 +154,12 @@ def _have_creds() -> bool:
 
 
 _PRIVATE_PREFIXES = (
-    "127.", "10.", "192.168.", "100.", "::1", "fd",
+    "127.",
+    "10.",
+    "192.168.",
+    "100.",
+    "::1",
+    "fd",
 )
 
 
@@ -176,6 +202,10 @@ def register_conf_routes(
     """
     reg = registry or ConfRegistry()
     run_cmd = runner or _default_runner
+    # The long-lived agent spawn honors the SAME injected runner (tests must
+    # never spawn a real systemd scope); only the production default differs
+    # (fire-and-forget Popen instead of a blocking subprocess.run).
+    agent_run = runner or _agent_runner
 
     def _advertise_conf(*, host_fqid: str, room: str, title: str) -> None:
         """Best-effort focus-advertise on conf create — never fails the create."""
@@ -188,6 +218,7 @@ def register_conf_routes(
             advertise_conf(host_fqid=host_fqid, room=room, title=title)
         except Exception as exc:  # noqa: BLE001 - advertise must never fail create
             logger.warning("conf: focus-advertise failed for %s: %s", room, exc)
+
     # Lazy LiveKit room-service client (mirrors Moderator._service): only built
     # when a route actually needs the live SFU, and only if creds are present.
     _svc_holder = {"svc": room_service}
@@ -203,7 +234,7 @@ def register_conf_routes(
             from livekit import api
 
             client = api.LiveKitAPI(
-                _http_url(_url()),
+                _http_url(_api_url()),
                 os.getenv("SKCHAT_LIVEKIT_API_KEY", ""),
                 os.getenv("SKCHAT_LIVEKIT_API_SECRET", ""),
             )
@@ -265,6 +296,10 @@ def register_conf_routes(
         # federated peer can discover + elect it (best-effort, never fatal).
         _advertise_conf(host_fqid=host, room=conf.room, title=conf.title)
         # Host is SOVEREIGN with room_admin so it can moderate / tear down.
+        # NO trust-badge metadata here: create trusts the tailnet, host_fqid is
+        # asserted-not-proven (see the SECURITY note above), so stamping its
+        # fingerprint would be a spoofable trust signal. The host gets its badge
+        # via the capauth-PROVEN /join/sovereign path when it actually joins.
         token = mint_conf_token(
             host,
             host.split("@")[0],
@@ -309,6 +344,11 @@ def register_conf_routes(
             role = ConfRole(role_raw)
         except ValueError as exc:
             raise HTTPException(400, f"unknown conf role: {role_raw!r}") from exc
+        # NO trust-badge metadata: this is the UNAUTHENTICATED join seam, the
+        # identity is caller-supplied and unproven (a public caller could claim
+        # any keyed agent's identity). Stamping its fingerprint here is exactly
+        # the trust-badge spoof the security review flagged. Proven joins use
+        # /join/sovereign; federated joins use /conf/{room}/federated-token.
         token = mint_conf_token(identity, name, role, conf.room, _DEFAULT_TTL)
         return JSONResponse(
             {
@@ -325,29 +365,66 @@ def register_conf_routes(
 
     @app.post("/conf/{room}/invite-agent")
     async def invite_agent(room: str, request: Request) -> JSONResponse:
-        """Pull the Lumina AI agent into ``room`` (host-gated, like /end).
+        """Pull an AI agent (default Lumina) into ``room``.
 
         Launches ``lumina-call.py --room <room> --greet "<greeting>"`` as a
         transient, supervised, resource-scoped systemd ``--scope`` unit
         (``lumina-conf-<sanitized-room>``). The room name is sanitized into the
         unit name (alnum/dash only) to prevent argument injection. Degrades
         gracefully (503 + clear error) if ``systemd-run`` is unavailable.
+
+        The optional ``agent`` field (a safe lowercase slug) selects which
+        persona joins: it is passed through as ``SKAGENT`` and the call script
+        loads that agent's soul. Invalid slugs are rejected (400); the default
+        is ``lumina``.
+
+        Two room kinds are served through the SAME contract so the app can pull
+        Lumina into whatever call it is already in:
+
+        * A REGISTERED conference (``reg.get(room)`` live): host-gated, exactly
+          as before (only the conf host may invite).
+        * A PLAIN call room (a 1:1 / group ``sk-room-...`` the app connected to
+          via ``/call/*`` or ``/livekit/token``) that is NOT in the conf
+          registry: there is no conf host to gate on, so this path is restricted
+          to tailnet callers (the same trust model ``call_routes`` uses for
+          ``/call/start`` and ``/connectivity/ice``). Off-tailnet callers still
+          get the original clean 404 so nothing new is exposed over the Funnel.
         """
-        conf = reg.get(room)
-        if conf is None or conf.status.value == "ended":
-            raise HTTPException(404, "conf not found or ended")
         body = await request.json()
-        _require_host(conf, (body.get("requester") or "").strip())
-        greeting = (body.get("greet") or "Lumina here — joining the conference.").strip()
+        conf = reg.get(room)
+        if conf is not None and conf.status.value != "ended":
+            # Registered conf: host-gated (unchanged contract).
+            _require_host(conf, (body.get("requester") or "").strip())
+            target_room = conf.room
+            default_greet = "Lumina here, joining the conference."
+        else:
+            # Not a registered conf: allow pulling Lumina into an ad-hoc CALL
+            # room, but only for a genuine tailnet caller (see docstring).
+            if not _is_tailnet(request):
+                raise HTTPException(404, "conf not found or ended")
+            target_room = room
+            default_greet = "Lumina here, joining the call."
+        greeting = (body.get("greet") or default_greet).strip()
         # C-defense: cap greeting length (it is an arg, sanitized, but keep it sane).
         if len(greeting) > 500:
             raise HTTPException(400, "greeting too long (max 500 chars)")
+
+        # Which agent persona to spawn. The call script picks its persona from the
+        # SKAGENT env var (falling back to the room identity), so passing it here
+        # makes the app's ``agent`` field meaningful instead of always-Lumina.
+        # This value becomes an env value AND a soul-dir path segment
+        # (``~/.skcapstone/agents/<agent>/soul``), so restrict it to a safe slug:
+        # lowercase alnum + dash only (no dots/slashes -> no path traversal, no
+        # shell metacharacters). Defaults to lumina for backward compatibility.
+        agent = (body.get("agent") or "lumina").strip().lower()
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,31}", agent):
+            raise HTTPException(400, "invalid agent name")
 
         # Fail clearly (not 5xx-crash) if the spawning mechanism is unavailable.
         if shutil.which("systemd-run") is None:
             raise HTTPException(503, "systemd-run unavailable; cannot launch conf agent")
 
-        unit = _agent_unit(conf.room)
+        unit = _agent_unit(target_room)
         cmd = [
             "systemd-run",
             "--user",
@@ -355,30 +432,35 @@ def register_conf_routes(
             f"--unit={unit}",
             "--property=MemoryMax=2G",
             "--property=CPUQuota=200%",
-            "-E", f"SKCHAT_WEBUI_URL=http://127.0.0.1:{os.getenv('SKCHAT_PORT', '8765')}",
-            "-E", f"SKCHAT_LIVEKIT_API_KEY={os.getenv('SKCHAT_LIVEKIT_API_KEY', '')}",
-            "-E", f"SKCHAT_LIVEKIT_API_SECRET={os.getenv('SKCHAT_LIVEKIT_API_SECRET', '')}",
+            "-E",
+            f"SKAGENT={agent}",
+            "-E",
+            f"SKCHAT_WEBUI_URL=http://127.0.0.1:{os.getenv('SKCHAT_PORT', '8765')}",
+            "-E",
+            f"SKCHAT_LIVEKIT_API_KEY={os.getenv('SKCHAT_LIVEKIT_API_KEY', '')}",
+            "-E",
+            f"SKCHAT_LIVEKIT_API_SECRET={os.getenv('SKCHAT_LIVEKIT_API_SECRET', '')}",
             _agent_python(),
             _lumina_call_script(),
             "--room",
-            conf.room,
+            target_room,
             "--greet",
             greeting,
         ]
         try:
-            proc = _agent_runner(cmd)
+            proc = agent_run(cmd)
         except FileNotFoundError as exc:
             raise HTTPException(503, "systemd-run unavailable; cannot launch conf agent") from exc
-        except Exception as exc:  # noqa: BLE001 - any spawn failure → graceful error
-            logger.warning("conf: invite-agent spawn failed for %s: %s", conf.room, exc)
+        except Exception as exc:  # noqa: BLE001 - any spawn failure -> graceful error
+            logger.warning("conf: invite-agent spawn failed for %s: %s", target_room, exc)
             raise HTTPException(500, f"failed to launch conf agent: {exc}") from exc
 
         rc = getattr(proc, "returncode", 0)
         if rc not in (0, None):
             stderr = (getattr(proc, "stderr", "") or "").strip()
-            logger.warning("conf: systemd-run rc=%s for %s: %s", rc, conf.room, stderr)
+            logger.warning("conf: systemd-run rc=%s for %s: %s", rc, target_room, stderr)
             raise HTTPException(502, f"systemd-run failed (rc={rc}): {stderr}")
-        return JSONResponse({"ok": True, "unit": unit, "room": conf.room})
+        return JSONResponse({"ok": True, "unit": unit, "room": target_room})
 
     @app.post("/conf/{room}/invite-agent-federated")
     async def invite_agent_federated(room: str, request: Request) -> JSONResponse:
@@ -404,9 +486,7 @@ def register_conf_routes(
             raise HTTPException(400, "requester required")
         host = (body.get("host") or "").strip() or None
         fqid = (body.get("fqid") or "").strip() or None
-        greeting = (
-            body.get("greet") or "Lumina here — joining the federated conference."
-        ).strip()
+        greeting = (body.get("greet") or "Lumina here — joining the federated conference.").strip()
         if len(greeting) > 500:
             raise HTTPException(400, "greeting too long (max 500 chars)")
 
@@ -594,7 +674,7 @@ def register_conf_routes(
     @app.get("/conf/health")
     async def conf_ops_health() -> JSONResponse:
         """Standalone ops health endpoint for the conf subsystem.
-        
+
         Reports conf registry stats, LiveKit credential status, and
         any running agent-worker units (best-effort).
         """
@@ -610,15 +690,17 @@ def register_conf_routes(
                         agent_units.append(parts[0])
         except Exception:
             pass
-        return JSONResponse({
-            "service": "skchat-conf",
-            "status": "ok",
-            "live_confs": len(live),
-            "total_participants": sum(len(c.participants) for c in live),
-            "total_waiting": sum(len(c.waiting_room) for c in live),
-            "livekit_configured": _have_creds(),
-            "agent_workers": agent_units,
-        })
+        return JSONResponse(
+            {
+                "service": "skchat-conf",
+                "status": "ok",
+                "live_confs": len(live),
+                "total_participants": sum(len(c.participants) for c in live),
+                "total_waiting": sum(len(c.waiting_room) for c in live),
+                "livekit_configured": _have_creds(),
+                "agent_workers": agent_units,
+            }
+        )
 
     @app.post("/conf/{room}/waiting")
     async def enter_waiting_room(room: str, request: Request) -> JSONResponse:
@@ -648,12 +730,14 @@ def register_conf_routes(
         if tailnet:
             reg.admit_guest(room, identity)
             return JSONResponse({"admitted": True, "identity": identity, "auto_admitted": True})
-        return JSONResponse({
-            "admitted": False,
-            "identity": identity,
-            "position": len(conf.waiting_room),
-            "message": "Waiting for host to admit you",
-        })
+        return JSONResponse(
+            {
+                "admitted": False,
+                "identity": identity,
+                "position": len(conf.waiting_room),
+                "message": "Waiting for host to admit you",
+            }
+        )
 
     @app.get("/conf/{room}/waiting")
     async def waiting_room_status(room: str) -> JSONResponse:
@@ -661,12 +745,14 @@ def register_conf_routes(
         conf = reg.get(room)
         if conf is None:
             raise HTTPException(404, "conf not found")
-        return JSONResponse({
-            "room": room,
-            "waiting": conf.waiting_room,
-            "admitted": conf.admitted,
-            "denied": conf.denied,
-        })
+        return JSONResponse(
+            {
+                "room": room,
+                "waiting": conf.waiting_room,
+                "admitted": conf.admitted,
+                "denied": conf.denied,
+            }
+        )
 
     @app.post("/conf/{room}/admit")
     async def admit_guest(room: str, request: Request) -> JSONResponse:
@@ -703,11 +789,11 @@ def register_conf_routes(
     @app.post("/conf/{room}/federated-token")
     async def conf_federated_token(room: str, request: Request) -> JSONResponse:
         """sk-lk-authd for conferences: cross-instance token minting.
-        
+
         Accepts a capauth-signed FQID assertion ``{claim, sig}``, verifies
         the assertion signature and freshness, checks trust policy, and mints
         a conf PARTICIPANT token for this host's LiveKit SFU.
-        
+
         This is the conf parallel of ``POST /sfu/get`` (which mints audio Space
         tokens). The assertion uses the same capauth-signing format, so a remote
         agent can present the same identity credential to either endpoint.
@@ -715,6 +801,8 @@ def register_conf_routes(
         try:
             from skchat.spaces.federation.assertion import (
                 AssertionError as FedAssertionError,
+            )
+            from skchat.spaces.federation.assertion import (
                 verify_signed,
             )
             from skchat.spaces.federation.trust import AccessLevel, TrustPolicy
@@ -746,12 +834,17 @@ def register_conf_routes(
         if rmr == "listener":
             role = ConfRole.GUEST_CONF
 
+        # PROVEN path: assertion.fqid was cryptographically verified
+        # (verify_signed above), so stamping its capauth fingerprint is a real,
+        # unspoofable trust signal. A cross-realm fqid the local peer store does
+        # not know resolves to "" (keyless), never a mis-matched local key.
         token = mint_conf_token(
             assertion.fqid,
             assertion.fqid.split("@")[0],
             role,
             conf.room,
             _DEFAULT_TTL,
+            metadata=soul_metadata_for(assertion.fqid),
         )
         # Federation observability: a remote peer just redeemed a cross-realm
         # token against this instance's SFU (best-effort counter, never fatal).
@@ -761,14 +854,16 @@ def register_conf_routes(
             incr("fed_tokens_redeemed")
         except Exception:  # noqa: BLE001 - observability must never break the mint
             pass
-        return JSONResponse({
-            "token": token,
-            "url": _url(),
-            "role": role.value,
-            "identity": assertion.fqid,
-            "conf_id": conf.conf_id,
-            "room": conf.room,
-        })
+        return JSONResponse(
+            {
+                "token": token,
+                "url": _public_url(request),
+                "role": role.value,
+                "identity": assertion.fqid,
+                "conf_id": conf.conf_id,
+                "room": conf.room,
+            }
+        )
 
     @app.get("/app/{rest:path}", response_class=FileResponse)
     async def flutter_app(rest: str) -> FileResponse:
@@ -789,9 +884,7 @@ def register_conf_routes(
                 "version.json",
             }
             headers = (
-                {"Cache-Control": "no-cache, must-revalidate"}
-                if p.name in volatile
-                else None
+                {"Cache-Control": "no-cache, must-revalidate"} if p.name in volatile else None
             )
             return FileResponse(p, headers=headers)
 
@@ -804,14 +897,32 @@ def register_conf_routes(
         return _resp(base / "index.html")
 
     @app.get("/conf/{room}", response_class=HTMLResponse)
-    async def conf_page(room: str) -> HTMLResponse:
-        """Redirect to livekit.html with the room pre-filled. Each visitor
-        gets a unique identity so multiple devices can join simultaneously."""
+    async def conf_page(room: str, request: Request) -> HTMLResponse:
+        """Hand a shared conference link to the NATIVE Flutter app by default.
+
+        A ``/conf/{room}`` link now lands in the app's native conf experience
+        (``/app/#/conf?room=...``), where the app mints a role-scoped token with
+        the signed-in identity and joins the room (with its panels). The legacy
+        web client (``livekit.html``) stays reachable as a fallback via
+        ``?web=1`` so nothing is lost if the app is unavailable. The room name is
+        HTML-escaped / URL-encoded before it lands in the markup + redirect URL.
+        """
+        import html as _html
+        from urllib.parse import quote
+
+        from skchat.app_link import conf_app_link, wants_web_fallback
+
+        if wants_web_fallback(request):
+            target = f"/livekit/{quote(room)}?room={quote(room)}"
+        else:
+            target = conf_app_link(room)
+        safe_room = _html.escape(room)
+        safe_target = _html.escape(target)
         return HTMLResponse(f"""<!doctype html>
 <html><head>
 <meta charset="utf-8"/>
-<meta http-equiv="refresh" content="0;url=/livekit/{room}?room={room}" />
-<title>Conference: {room}</title>
+<meta http-equiv="refresh" content="0;url={safe_target}" />
+<title>Conference: {safe_room}</title>
 </head><body>
-<p>Joining conference room <strong>{room}</strong>…</p>
+<p>Joining conference room <strong>{safe_room}</strong>...</p>
 </body></html>""")

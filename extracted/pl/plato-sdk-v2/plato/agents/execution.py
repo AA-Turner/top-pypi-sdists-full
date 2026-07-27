@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager, suppress
 from typing import TYPE_CHECKING
 
 from plato.agents.mounts import AgentWorkspaceMount, GitCheckoutPolicy, GitSyncPolicy
+from plato.agents.vm_setup import make_agent_pool_prefix
 from plato.agents.warmpool import AgentVMBudget, WarmPool
 from plato.git_ops.merge import delete_remote_ref, merge_ref_to_main
 from plato.git_ops.repo import trust_git_directory
@@ -79,6 +80,7 @@ class AgentExecutionManager:
             reset_attempts=agent_config.ssh_probe_retries,
             vm_timeout=vm_timeout,
             vm_budget=vm_budget,
+            alias_prefix=make_agent_pool_prefix(agent_config.package, agent_config.image, agent_config.config),
         )
         self._integration_lock = asyncio.Lock()
 

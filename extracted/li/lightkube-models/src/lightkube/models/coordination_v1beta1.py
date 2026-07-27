@@ -17,6 +17,8 @@ class LeaseCandidate(DictMixin):
 
       **parameters**
 
+      * **spec** ``LeaseCandidateSpec`` - spec contains the specification of the Lease. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
@@ -27,13 +29,11 @@ class LeaseCandidate(DictMixin):
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
       * **metadata** ``Optional[meta_v1.ObjectMeta]`` - More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-      * **spec** ``Optional[LeaseCandidateSpec]`` - spec contains the specification of the Lease. More info:
-        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
     """
+    spec: 'LeaseCandidateSpec'
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
     metadata: 'Optional[meta_v1.ObjectMeta]' = None
-    spec: 'Optional[LeaseCandidateSpec]' = None
 
     def __post_init__(self):
         self.apiVersion = 'coordination.k8s.io/v1beta1'

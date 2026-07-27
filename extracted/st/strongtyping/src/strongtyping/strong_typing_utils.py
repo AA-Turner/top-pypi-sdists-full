@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-@created: 19.11.20
-@author: felix
-"""
-
 import inspect
 import types
 import typing
@@ -332,7 +325,7 @@ def check_typevar(arg: Any, possible_types: Any, *args: Any, **kwargs: Any) -> b
 supported_typings = vars()
 
 
-def check_annotated_type(argument: Any, type_of: Any) -> bool:
+def check_annotated_type(argument: Any, type_of: Any) -> bool | object:
     result = True  # when no callable is assigned to __metadata__ we return True
     for func_obj in type_of.__metadata__:
         if callable(func_obj):
