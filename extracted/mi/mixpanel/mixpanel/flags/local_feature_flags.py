@@ -15,13 +15,16 @@ from mixpanel.credentials import ServiceAccountCredentials
 from .types import (
     ExperimentationFlag,
     ExperimentationFlags,
+    FallbackReason,
     LocalFlagsConfig,
     Rollout,
     SelectedVariant,
+    VariantSource,
 )
 from .utils import (
-    EXPOSURE_EVENT,
     REQUEST_HEADERS,
+    close_async_client_from_sync,
+    dispatch_exposure,
     generate_traceparent,
     normalized_hash,
     prepare_common_query_params,
@@ -228,7 +231,7 @@ class LocalFeatureFlagsProvider:
 
         if not flag_definition:
             logger.warning("Cannot find flag definition for key: '%s'", flag_key)
-            return fallback_value
+            return fallback_value.as_fallback(FallbackReason.flag_not_found())
 
         if not (context_value := context.get(flag_definition.context)):
             logger.warning(
@@ -236,7 +239,9 @@ class LocalFeatureFlagsProvider:
                 flag_definition.context,
                 flag_key,
             )
-            return fallback_value
+            return fallback_value.as_fallback(
+                FallbackReason.missing_context_key(flag_definition.context)
+            )
 
         selected_variant: SelectedVariant | None = None
 
@@ -257,7 +262,7 @@ class LocalFeatureFlagsProvider:
                 self._track_exposure(
                     flag_key, selected_variant, context, end_time - start_time
                 )
-            return selected_variant
+            return selected_variant.with_source(VariantSource.LOCAL)
 
         logger.debug(
             "%s context %s not eligible for any rollout for flag: %s",
@@ -265,7 +270,7 @@ class LocalFeatureFlagsProvider:
             context_value,
             flag_key,
         )
-        return fallback_value
+        return fallback_value.as_fallback(FallbackReason.no_rollout_match())
 
     def track_exposure_event(
         self, flag_key: str, variant: SelectedVariant, context: dict[str, Any]
@@ -530,18 +535,26 @@ class LocalFeatureFlagsProvider:
             if latency_in_seconds is not None:
                 properties["Variant fetch latency (ms)"] = latency_in_seconds * 1000
 
-            self._tracker(distinct_id, EXPOSURE_EVENT, properties)
+            self._dispatch_exposure(distinct_id, properties)
         else:
             logger.error(
                 "Cannot track exposure event without a distinct_id in the context"
             )
 
+    def _dispatch_exposure(self, distinct_id: str, properties: dict[str, Any]) -> None:
+        dispatch_exposure(
+            self._tracker, self._config.exposure_executor, distinct_id, properties
+        )
+
     async def __aenter__(self):
         return self
 
     def shutdown(self):
+        # SDK-85: close both clients. close_async_client_from_sync raises
+        # if a loop is already running — async callers should use __aexit__.
         self.stop_polling_for_definitions()
         self._sync_client.close()
+        close_async_client_from_sync(self._async_client)
 
     def __enter__(self):
         return self
@@ -550,8 +563,8 @@ class LocalFeatureFlagsProvider:
         logger.info("Exiting the LocalFeatureFlagsProvider and cleaning up resources")
         await self.astop_polling_for_definitions()
         await self._async_client.aclose()
+        self._sync_client.close()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         logger.info("Exiting the LocalFeatureFlagsProvider and cleaning up resources")
-        self.stop_polling_for_definitions()
-        self._sync_client.close()
+        self.shutdown()

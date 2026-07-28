@@ -36,8 +36,9 @@ use std::time::Duration;
 
 /// Selects the base environment used for a newly spawned process.
 ///
-/// Explicit values added through [`Command::env`] or [`Command::envs`]
-/// are applied after the selected base and therefore win on duplicate keys.
+/// Explicit mutations added through [`Command::env`], [`Command::envs`], or
+/// [`Command::env_remove`] are applied after the selected base and therefore
+/// always win.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum EnvironmentPolicy {
     /// Choose from the process lifetime: contained subprocesses inherit,
@@ -46,13 +47,19 @@ pub enum EnvironmentPolicy {
     Auto,
     /// Inherit the spawning process's environment.
     Inherit,
-    /// Start from the logged-in user's machine + user environment.
+    /// Start from the logged-in user's machine + user environment, discarding
+    /// the spawning process's ambient environment except for the documented
+    /// Unix locale, time-zone, and temporary-directory allowlist.
     ///
     /// Windows implements this with `CreateEnvironmentBlock`. Unix
     /// reconstructs a clean login environment from the user's identity
     /// (`getpwuid_r` → `USER`/`LOGNAME`/`HOME`/`SHELL`, platform default
-    /// `PATH`, carried-over locale/`TZ`/`TMPDIR`), falling back to
-    /// inheritance only when the passwd entry cannot be resolved.
+    /// `PATH`, carried-over locale/`TZ`/`TMPDIR`), falling back to inheritance
+    /// only when the passwd entry cannot be resolved.
+    ///
+    /// Consumers that need values such as `CARGO_HOME`, `RUSTUP_HOME`,
+    /// `SOLDR_*`, credentials, or runner-specific paths must pass them
+    /// explicitly on the [`Command`].
     UserBaseline,
     /// Start from an empty environment.
     Clear,
@@ -287,6 +294,34 @@ impl Drop for SpawnedChild {
     }
 }
 
+/// Set on every child spawned through the daemon path, so a process can be
+/// recognized as a *declared daemon* rather than inferred to be one.
+///
+/// # Why a positive marker
+///
+/// Reapers previously had to infer daemon-ness from the **absence** of
+/// [`crate::ORIGINATOR_ENV_VAR`], which `spawn_daemon` strips. But absence is
+/// overloaded: it means both "this process deliberately detached itself" and
+/// "something in the chain clobbered the environment" — and those are
+/// byte-identical at the observation point, so no amount of process-lineage
+/// tracking can separate them. See zackees/clud#522, where an
+/// ancestry-fallback proposal and a daemon exemption read the same signal and
+/// drew opposite conclusions.
+///
+/// A positive declaration removes the ambiguity: only a process that actually
+/// went through the daemon path carries this.
+///
+/// # Caveat
+///
+/// This is still an environment variable, so a chain that strips
+/// `RUNNING_PROCESS_ORIGINATOR` strips this too. It narrows the ambiguous case
+/// rather than eliminating it; a durable answer would need the daemon's
+/// supervisor to register the PID somewhere the reaper can read.
+///
+/// Distinct from `RUNNING_PROCESS_DAEMON_SCOPE`, which names a broker scope
+/// and is unrelated.
+pub const DAEMON_MARKER_ENV_VAR: &str = "RUNNING_PROCESS_IS_DAEMON";
+
 /// Spawn `command` as a detached daemon. NUL stdio, sanitized handles,
 /// no console window, ignores parent's Ctrl-C / SIGINT (Windows:
 /// `CREATE_NEW_PROCESS_GROUP` + `DETACHED_PROCESS`; Unix: `setsid` puts the
@@ -324,17 +359,88 @@ pub fn spawn_daemon_with_clear_env(
 }
 
 /// Spawn a detached daemon using an explicit environment policy.
+///
+/// [`EnvironmentPolicy::Auto`] resolves to
+/// [`EnvironmentPolicy::UserBaseline`] for daemons, excluding unlisted
+/// ambient variables. Use [`EnvironmentPolicy::Inherit`] as the explicit
+/// escape hatch for trusted callers that require the full parent environment.
+/// In every mode, explicit command environment additions, overrides, and
+/// removals are applied last.
 pub fn spawn_daemon_with_env_policy(
     command: &mut Command,
     policy: EnvironmentPolicy,
 ) -> std::io::Result<DaemonChild> {
+    spawn_daemon_inner(command, policy, false)
+}
+
+/// Like [`spawn_daemon`], but the child also **breaks away from any Job
+/// Object the spawner belongs to** (Windows; a no-op elsewhere).
+///
+/// Use this for a daemon that must outlive the process tree that happened to
+/// start it — a build cache server, a language server, anything discovered
+/// and reused by later, unrelated invocations.
+///
+/// # Why this is separate from [`spawn_daemon`]
+///
+/// "Detached lifetime" and "escapes my caller's containment" are different
+/// properties, and callers genuinely want them independently. Job Object
+/// membership is inherited by every descendant at any depth, and jobs created
+/// by this crate carry `KILL_ON_JOB_CLOSE` — so without breakaway the kernel
+/// terminates such a daemon the moment the spawner's job handle drops, no
+/// matter how detached the daemon made itself.
+///
+/// But making that unconditional breaks the opposite use: a child spawned as
+/// a daemon purely to obtain a sanitized handle list must stay inside the
+/// caller's job. `testbins/src/bin/spawner.rs` does exactly this, and
+/// `containment_test::test_contained_group_kills_grandchildren` fails if its
+/// sleepers escape.
+///
+/// # Refusal is not silent
+///
+/// `CREATE_BREAKAWAY_FROM_JOB` is *refused*, not ignored, when the spawner
+/// sits inside a job that lacks `JOB_OBJECT_LIMIT_BREAKAWAY_OK`:
+/// `CreateProcessW` fails with `ERROR_ACCESS_DENIED`. Outer jobs we do not
+/// control are common (CI runners, container supervisors, debuggers), so the
+/// spawn retries once with the flag cleared — a daemon that stays contained
+/// beats a daemon that fails to start.
+pub fn spawn_daemon_breaking_away_from_job(command: &mut Command) -> std::io::Result<DaemonChild> {
+    spawn_daemon_inner(command, EnvironmentPolicy::Auto, true)
+}
+
+/// [`spawn_daemon_breaking_away_from_job`] with an explicit env policy.
+pub fn spawn_daemon_breaking_away_with_env_policy(
+    command: &mut Command,
+    policy: EnvironmentPolicy,
+) -> std::io::Result<DaemonChild> {
+    spawn_daemon_inner(command, policy, true)
+}
+
+/// Apply the daemon self-declaration to `command`. Split out from
+/// [`spawn_daemon_inner`] so the policy is unit-testable without spawning a
+/// real detached process.
+pub(crate) fn mark_as_daemon(command: &mut Command) {
+    command.env(DAEMON_MARKER_ENV_VAR, "1");
+}
+
+fn spawn_daemon_inner(
+    command: &mut Command,
+    policy: EnvironmentPolicy,
+    breakaway: bool,
+) -> std::io::Result<DaemonChild> {
+    // Every daemon-spawn variant funnels through here, so this is the one
+    // place that can mark them all — including the free functions consumers
+    // like zccache call directly.
+    mark_as_daemon(command);
     let policy = policy.resolve(SpawnLifetime::Daemon);
     #[cfg(windows)]
     {
-        imp::spawn_daemon(command, policy)
+        imp::spawn_daemon(command, policy, breakaway)
     }
     #[cfg(unix)]
     {
+        // Unix has no Job Object; `setsid` already detaches the daemon from
+        // the parent's session and process group, so breakaway is moot.
+        let _ = breakaway;
         unix_impl::spawn_daemon(command, policy)
     }
 }

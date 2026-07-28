@@ -23,9 +23,9 @@ from pydantic import (
 
 from tidy3d.components.dispersion_fitter import AdvancedFastFitterParam, fit
 from tidy3d.components.types.base import discriminated_union
-from tidy3d.components.validators import assert_plane, validate_name_str
-from tidy3d.constants import EPSILON_0, FARAD, HENRY, MICROMETER, OHM, SpiceUnitScaling
-from tidy3d.exceptions import ValidationError
+from tidy3d.components.validators import assert_line_or_plane, validate_name_str
+from tidy3d.constants import EPSILON_0, FARAD, HENRY, MICROMETER, OHM, SpiceUnitScaling, fp_eps
+from tidy3d.exceptions import SetupError, ValidationError
 from tidy3d.log import log
 
 from .base import cached_property, keyed_cache
@@ -62,6 +62,7 @@ if TYPE_CHECKING:
 DEFAULT_LUMPED_ELEMENT_NUM_CELLS = 1
 LOSS_FACTOR_INDUCTOR = 1e6
 MAX_SPICE_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB; netlists are typically small
+_IMPEDANCE_ATOL = 1e-12  # Tolerance for near-zero impedance checks.
 
 
 class LumpedNodeMapper:
@@ -230,6 +231,11 @@ class LumpedElement(MicrowaveBaseModel, ABC):
         which are ready to be added to the :class:`.Simulation`"""
         return [self.to_structure(grid, frequency_range=frequency_range)]
 
+    def _check_grid_size(self, grid: Grid) -> None:
+        """Raise :class:`.SetupError` if the simulation grid is too coarse to resolve this element.
+
+        No-op by default; subclasses override when a coarse grid can degenerate the geometry."""
+
 
 class RectangularLumpedElement(LumpedElement, Box):
     """Class representing a rectangular planar element with zero thickness along its normal axis.
@@ -239,15 +245,14 @@ class RectangularLumpedElement(LumpedElement, Box):
 
     Note
     ----
-    The element must be planar (exactly one zero-size dimension). One-dimensional elements
-    (two zero-size dimensions) are not supported. If you need a narrow element, provide a
-    small but finite width along the lateral axis.
+    The element may be planar (exactly one zero-size dimension) or a one-dimensional line
+    (two zero-size dimensions).
     """
 
     voltage_axis: Axis = Field(
         title="Voltage Drop Axis",
         description="Specifies the axis along which the component is oriented and along which the "
-        "associated voltage drop will occur. Must be in the plane of the element.",
+        "associated voltage drop will occur. Must be a nonzero-size dimension of the element.",
     )
 
     snap_perimeter_to_grid: bool = Field(
@@ -260,17 +265,54 @@ class RectangularLumpedElement(LumpedElement, Box):
         "boundary along their ``normal_axis``, regardless of this option.",
     )
 
-    _plane_validator = assert_plane()
+    _plane_validator = assert_line_or_plane()
+
+    @cached_property
+    def _is_line(self) -> bool:
+        """Whether the element is one-dimensional (two zero-size dimensions)."""
+        return self.size.count(0.0) == 2
 
     @cached_property
     def normal_axis(self) -> Axis:
-        """Normal axis of the lumped element, which is the axis where the element has zero size."""
+        """Normal axis of the lumped element: the (first) axis where the element has zero size.
+        A line element has two such zero-size axes; this returns the first."""
+        # Implementation note (not user-facing): for a 1D (line) element the normal is essentially
+        # nominal -- after discretization the element is always a single-cell-thick sheet; the choice
+        # only matters for second-order subpixel averaging when a substrate/superstrate discontinuity
+        # makes one transverse axis the preferred normal (picked at meshing by choose_line_normal_axis).
         return self.size.index(0.0)
 
     @cached_property
     def lateral_axis(self) -> Axis:
         """Lateral axis of the lumped element."""
         return 3 - self.voltage_axis - self.normal_axis
+
+    def _raise_if_line(self) -> None:
+        """A line element's resolved structure depends on the grid and surrounding media, so it
+        cannot be produced standalone; it is resolved at simulation time."""
+        if self._is_line:
+            raise SetupError(
+                "A 1D (line) lumped element's structure is resolved at simulation time (it depends "
+                "on the grid and surrounding media); access it via 'Simulation.volumetric_structures'."
+            )
+
+    def _check_grid_size(self, grid: Grid) -> None:
+        """Raise :class:`.SetupError` if the grid is too coarse to resolve this element as a sheet.
+
+        Both planar and line elements are realized as a single-grid-cell-wide :class:`.Medium2D`
+        sheet, so each axis transverse to the ``voltage_axis`` needs at least two grid cells. With
+        fewer, the dual-cell snap and neighbor probe degenerate -- otherwise surfacing during
+        volumetric resolution as a cryptic "zero volume", ``IndexError``, or divide-by-zero."""
+        num_cells = grid.num_cells
+        for axis in range(3):
+            if axis == self.voltage_axis or num_cells[axis] >= 2:
+                continue
+            raise SetupError(
+                f"Grid is too coarse along the '{'xyz'[axis]}' axis for lumped element "
+                f"'{self.name}' at '{self.center}': it is realized as a single-grid-cell-wide "
+                f"Medium2D sheet and needs at least two grid cells along each axis transverse to "
+                f"its 'voltage_axis'. Refine the 'GridSpec' along '{'xyz'[axis]}'."
+            )
 
     @cached_property
     def _voltage_axis_2d(self) -> Axis2D:
@@ -313,8 +355,7 @@ class RectangularLumpedElement(LumpedElement, Box):
         if self.num_grid_cells is None:
             return []
         dl = self.size[self.voltage_axis] / self.num_grid_cells
-        override_size = list(self.size)
-        override_size[self.normal_axis] = 4 * dl
+        override_size = [size if size > 0 else 4 * dl for size in self.size]
         return [
             MeshOverrideStructure(
                 geometry=Box(center=self.center, size=override_size),
@@ -331,9 +372,11 @@ class RectangularLumpedElement(LumpedElement, Box):
 
         if not self.enable_snapping_points:
             return []
-        # normal axis
+        # snap along every zero-size (transverse) axis; a line has two such axes
         snapping_points = [
-            Geometry.unpop_axis(self.center[self.normal_axis], (None, None), axis=self.normal_axis)
+            Geometry.unpop_axis(self.center[axis], (None, None), axis=axis)
+            for axis in range(3)
+            if self.size[axis] == 0
         ]
         # also snap along voltage axis
         for bound_coord in self.bounds:
@@ -382,12 +425,13 @@ class RectangularLumpedElement(LumpedElement, Box):
         """
 
         center = list(self.center)
-        # Size of monitor needs to be nonzero along the normal axis so that the magnetic field on
-        # both sides of the sheet will be available
-        mon_size = list(self.size)
-        mon_size[self.normal_axis] = 2 * (
-            increment_float(center[self.normal_axis], 1.0) - center[self.normal_axis]
-        )
+        # Each zero-size dimension needs a small nonzero extent so the magnetic field on both sides
+        # is available; the floor at ``fp_eps`` keeps it from degenerating (e.g. at the origin). A
+        # line element has two such dimensions, a planar element one.
+        mon_size = [
+            max(2 * (increment_float(coord, 1.0) - coord), fp_eps) if size == 0 else size
+            for size, coord in zip(self.size, center)
+        ]
 
         e_component = "xyz"[self.voltage_axis]
         h1_component = "xyz"[self.lateral_axis]
@@ -407,15 +451,15 @@ class RectangularLumpedElement(LumpedElement, Box):
         return f"{self.name}_monitor"
 
     @model_validator(mode="after")
-    def _voltage_axis_in_plane(self) -> Self:
-        """Ensure voltage drop axis is in the plane of the lumped element."""
-        val = self.voltage_axis
-        name = self.name
-        size = self.size
-        if size.count(0.0) == 1 and size.index(0.0) == val:
-            # if not planar, then a separate validator should be triggered, not this one
-            raise ValidationError(
-                f"'voltage_axis' must be in the plane of lumped element '{name}'."
+    def _voltage_axis_has_extent(self) -> Self:
+        """Ensure the voltage drop axis has nonzero extent: it must lie in the plane of a sheet
+        element, and be the single nonzero (line) axis of a one-dimensional element."""
+        if self.size[self.voltage_axis] == 0:
+            self._raise_validation_error_at_loc(
+                ValidationError(
+                    f"'voltage_axis' must be a nonzero-size dimension of lumped element '{self.name}'."
+                ),
+                "voltage_axis",
             )
         return self
 
@@ -442,6 +486,7 @@ class LumpedResistor(RectangularLumpedElement):
     ) -> Structure:
         """Converts the :class:`LumpedResistor` object to a :class:`.Structure`
         ready to be added to the :class:`.Simulation`"""
+        self._raise_if_line()
         box = self.to_geometry(grid=grid)
         conductivity = self._sheet_conductance(box)
         components_2d = ["ss", "tt"]
@@ -1049,7 +1094,289 @@ class AdmittanceNetwork(MicrowaveBaseModel):
         return (self.a, self.b)
 
 
-class CircuitImpedanceModel(MicrowaveBaseModel):
+class _AdmittanceFitter(MicrowaveBaseModel, ABC):
+    """Private base class providing the admittance-to-pole-residue fitting pipeline.
+
+    Subclasses must implement :meth:`_get_effective_admittance` to return complex
+    admittance at sampled frequencies. This class provides all frequency-range resolution,
+    sampling (linearly spaced over ``freq_range``), fitting, caching, and medium-conversion
+    logic shared by :class:`CircuitImpedanceModel`.
+    """
+
+    freq_range: FreqBound | None = Field(
+        None,
+        title="Frequency Range",
+        description="Frequency range in Hz for fitting the admittance. When set, must satisfy "
+        "0 < f_min < f_max (fitting requires strictly positive frequencies). "
+        ":attr:`n_freqs` points are sampled from this range to fit the pole-residue model. "
+        "If ``None``, must be provided when the model is used (e.g. via "
+        "``_to_medium(scaling_factor, frequency_range=...)`` or by "
+        ":class:`~tidy3d.plugins.smatrix.TerminalComponentModeler`, which injects freq_range).",
+    )
+    n_freqs: int = Field(
+        default=10,
+        ge=5,
+        title="Number of Sampling Frequencies",
+        description="Number of sampling frequencies used in the pole-residue fit (minimum 5).",
+    )
+    fit_tolerance: float = Field(
+        default=1e-5,
+        title="Fit Tolerance",
+        description="Target weighted RMS error for the pole-residue fit.",
+    )
+    min_num_poles: int = Field(
+        default=1,
+        title="Minimum Number of Poles",
+        description="Minimum number of poles for the dispersion fitter.",
+    )
+    max_num_poles: int = Field(
+        default=5,
+        title="Maximum Number of Poles",
+        description="Maximum number of poles for the dispersion fitter.",
+    )
+    fit_show_progress: bool = Field(
+        default=False,
+        title="Show Fit Progress",
+        description="Whether to show the fitter progress bar when fitting.",
+    )
+
+    @field_validator("freq_range", mode="after")
+    @classmethod
+    def _validate_freq_range(cls, v: FreqBound | None) -> FreqBound | None:
+        """Require freq_range to have 0 < f_min < f_max when set (fitting requires ω > 0)."""
+        if v is None:
+            return v
+        f_min, f_max = v[0], v[1]
+        if f_min <= 0:
+            raise ValueError(
+                "freq_range must have a positive minimum frequency (fitting requires ω > 0). "
+                f"Got freq_range={v}."
+            )
+        if f_min >= f_max:
+            raise ValueError(
+                f"freq_range must have strictly increasing (f_min, f_max). Got freq_range={v}."
+            )
+        return (f_min, f_max)
+
+    @abstractmethod
+    def _get_effective_admittance(
+        self,
+        frequencies: np.ndarray,
+    ) -> np.ndarray:
+        """Return complex admittance at each frequency.
+
+        Parameters
+        ----------
+        frequencies : np.ndarray
+            Frequencies in Hz (must be positive).
+
+        Returns
+        -------
+        np.ndarray
+            Complex admittance at each frequency, same length as ``frequencies``.
+        """
+
+    @property
+    def _as_admittance_function(self) -> tuple[tuple[float, ...], tuple[float, ...]]:
+        """Not supported for :class:`_AdmittanceFitter` subclasses.
+
+        The rational polynomial ``(a, b)`` representation is only available for
+        :class:`RLCNetwork` and :class:`AdmittanceNetwork`. Subclasses of
+        :class:`_AdmittanceFitter` use :meth:`_get_effective_admittance` instead.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support _as_admittance_function. "
+            "Use _get_effective_admittance or _to_medium instead."
+        )
+
+    def _resolve_freq_range(
+        self,
+        frequency_range: FreqBound | None = None,
+    ) -> FreqBound:
+        """Return (f_min, f_max) for fitting. Use frequency_range if provided, else
+        self.freq_range; raise if none set."""
+        if frequency_range is not None:
+            return (frequency_range[0], frequency_range[1])
+        if self.freq_range is not None:
+            return (self.freq_range[0], self.freq_range[1])
+        raise ValueError(
+            f"{type(self).__name__} has no freq_range set. Either provide freq_range at "
+            "construction, pass frequency_range when calling _to_medium, or use with "
+            "TerminalComponentModeler (which injects freq_range)."
+        )
+
+    def _get_fit_frequencies(
+        self,
+        frequency_range: FreqBound | None = None,
+    ) -> np.ndarray:
+        """Return n_freqs sampling frequencies from the resolved frequency range."""
+        f_min, f_max = self._resolve_freq_range(frequency_range=frequency_range)
+        return np.linspace(f_min, f_max, self.n_freqs)
+
+    def _resolve_fit_freqs(self, freqs: np.ndarray | list[float] | None = None) -> np.ndarray:
+        """Return the frequency array to use for admittance evaluation.
+
+        If ``freqs`` is provided, return it as a float array. Otherwise return
+        :attr:`n_freqs` points sampled from :attr:`freq_range` via :meth:`_get_fit_frequencies`
+        (requires :attr:`freq_range` to be set).
+        """
+        if freqs is not None:
+            return np.asarray(freqs, dtype=float)
+        return self._get_fit_frequencies(frequency_range=None)
+
+    @keyed_cache(lambda self, freqs: tuple(float(x) for x in np.asarray(freqs).ravel()))
+    def _get_fitted_medium_for_freqs(self, freqs: np.ndarray) -> PoleResidue:
+        """Fit admittance at the given frequencies and return unscaled PoleResidue; cache by freqs."""
+        frequencies = np.asarray(freqs, dtype=float)
+        Y_complex = self._get_effective_admittance(frequencies)
+        medium, _ = self._fit_admittance_to_pole_residue(frequencies, Y_complex)
+        return medium
+
+    def _to_medium(
+        self,
+        scaling_factor: float,
+        frequency_range: FreqBound | None = None,
+    ) -> PoleResidue:
+        """Convert the admittance to a :class:`PoleResidue` medium with geometric scaling.
+
+        Resolves the frequency range from ``frequency_range`` if provided, otherwise from
+        :attr:`freq_range`. Samples :attr:`n_freqs` points in that range, computes
+        admittance, fits to pole-residue form, then applies ``scaling_factor``.
+        At least one of ``frequency_range`` or :attr:`freq_range` must be set.
+        """
+        effective_freqs = self._get_fit_frequencies(frequency_range=frequency_range)
+        medium = self._get_fitted_medium_for_freqs(effective_freqs)
+        # Scale admittance: Y' = scaling_factor * Y  =>  eps' - 1 = scaling_factor * (eps - 1)
+        new_eps_inf = 1.0 + scaling_factor * (float(medium.eps_inf) - 1.0)
+        new_poles = tuple((p, scaling_factor * c) for p, c in medium.poles)
+        return PoleResidue(eps_inf=new_eps_inf, poles=new_poles)
+
+    @staticmethod
+    def _admittance_to_eps_data(
+        frequencies: np.ndarray,
+        Y_complex: np.ndarray,
+    ) -> np.ndarray:
+        """Convert engineering-convention admittance Y(f) to equivalent complex permittivity.
+
+        The conversion uses the relationship between admittance and the equivalent
+        dispersive medium used in FDTD (Pereda et al., IEEE TMTT 1999):
+
+        .. math::
+
+            \\epsilon(\\omega) = 1 + \\frac{j \\, \\Delta \\, Y^*(\\omega)}
+                                        {\\omega \\, \\epsilon_0}
+
+        with :math:`\\Delta = 1` here. Geometric scaling is applied later in the network's
+        :meth:`_to_medium` when the model is used in a
+        :class:`~tidy3d.LinearLumpedElement` (via ``scaling_factor``).
+
+        Parameters
+        ----------
+        frequencies : np.ndarray
+            Frequencies in Hz (must be positive).
+        Y_complex : np.ndarray
+            Complex admittance at each frequency in engineering convention
+            (e.g. :math:`Y_C = j\\omega C`, :math:`Y_L = 1/(j\\omega L)`).
+
+        Returns
+        -------
+        np.ndarray
+            Complex permittivity array (same length as *frequencies*).
+        """
+        frequencies = np.asarray(frequencies, dtype=float)
+        Y_complex = np.asarray(Y_complex, dtype=complex)
+        omega = 2 * np.pi * frequencies
+        return 1.0 + 1j * np.conj(Y_complex) / (omega * EPSILON_0)
+
+    def _fit_admittance_to_pole_residue(
+        self,
+        frequencies: np.ndarray | list[float],
+        Y_complex: np.ndarray,
+    ) -> tuple[PoleResidue, float]:
+        """Fit admittance Y(f) at given frequencies to pole-residue via the dispersion fitter.
+
+        Converts the engineering-convention admittance to equivalent permittivity
+        (see :meth:`_admittance_to_eps_data` with :math:`\\Delta=1`), then fits with the
+        standard dispersion fitter.  Geometric scaling is applied in the network's
+        :meth:`_to_medium` when the model is used in a
+        :class:`~tidy3d.LinearLumpedElement`.
+
+        This approach has several advantages over fitting Y directly:
+
+        * **Correct symmetry** -- permittivity has Hermitian symmetry
+        (:math:`\\epsilon(-\\omega) = \\epsilon^*(\\omega)`), matching the
+        conjugate-pair pole-residue model.
+        * **Correct passivity** -- the fitter's built-in passivity enforcement
+        (Im[eps] >= 0) directly ensures admittance passivity (Re[Y] >= 0).
+        * **No intermediate polynomial** -- bypasses the ``AdmittanceNetwork``
+        ``(a, b)`` representation and its non-negative-coefficient constraint.
+
+        Parameters
+        ----------
+        frequencies : np.ndarray or list[float]
+            Frequencies in Hz (must be positive) at which ``Y_complex`` is given.
+        Y_complex : np.ndarray
+            Complex driving-point admittance at each frequency in engineering convention
+            (same length as ``frequencies``).
+
+        Returns
+        -------
+        tuple[PoleResidue, float]
+            The fitted pole-residue medium and the weighted RMS error.
+
+        Raises
+        ------
+        ValueError
+            If ``frequencies`` is empty, lengths of ``frequencies`` and ``Y_complex``
+            differ, or any frequency is non-positive.
+        """
+        frequencies = np.asarray(frequencies, dtype=float)
+        Y_complex = np.asarray(Y_complex, dtype=complex)
+        if frequencies.size == 0:
+            raise ValueError("frequencies must not be empty.")
+        if frequencies.size != Y_complex.size:
+            raise ValueError("frequencies and Y_complex must have the same length.")
+        if np.any(frequencies <= 0):
+            raise ValueError("All frequencies must be positive.")
+
+        omega = 2 * np.pi * frequencies
+        eps_data = _AdmittanceFitter._admittance_to_eps_data(frequencies, Y_complex)
+
+        # Scale factor for numerical conditioning: normalize max(omega) to ~1
+        scale_factor = 1.0 / (np.max(omega) + 1e-30)
+
+        advanced_param = AdvancedFastFitterParam(show_progress=self.fit_show_progress)
+
+        (eps_inf, poles, residues), rms = fit(
+            omega_data=omega,
+            resp_data=eps_data,
+            min_num_poles=self.min_num_poles,
+            max_num_poles=self.max_num_poles,
+            resp_inf=None,
+            tolerance_rms=self.fit_tolerance,
+            scale_factor=scale_factor,
+            advanced_param=advanced_param,
+        )
+
+        rms_val = rms
+        if rms_val > self.fit_tolerance:
+            log.warning(
+                "%s pole-residue fit RMS error (%g) exceeded tolerance (%g); "
+                "admittance may be poorly approximated in this frequency range. "
+                "Consider increasing n_freqs, increasing max_num_poles, or relaxing fit_tolerance.",
+                type(self).__name__,
+                rms_val,
+                self.fit_tolerance,
+            )
+
+        # Build PoleResidue from fitter output
+        pole_pairs = tuple((complex(a), complex(c)) for a, c in zip(poles, residues))
+        medium = PoleResidue(eps_inf=eps_inf, poles=pole_pairs)
+
+        return medium, rms_val
+
+
+class CircuitImpedanceModel(_AdmittanceFitter):
     """Circuit model storing R/L/C components and port nodes; fits admittance on demand.
 
     Stores the circuit description (components and port nodes) and fitting parameters.
@@ -1109,42 +1436,6 @@ class CircuitImpedanceModel(MicrowaveBaseModel):
         title="Port Node Minus",
         description="Name of the port reference node (negative/reference terminal).",
     )
-    freq_range: FreqBound | None = Field(
-        None,
-        title="Frequency Range",
-        description="Frequency range in Hz for fitting the admittance. When set, must satisfy "
-        "0 < f_min < f_max (validated at construction; inductor admittance is singular at DC). "
-        ":attr:`n_freqs` points are sampled from this range to fit the pole-residue model. "
-        "If ``None``, must be provided when the model is used (e.g. via "
-        "``_to_medium(scaling_factor, frequency_range=...)`` or by "
-        ":class:`~tidy3d.plugins.smatrix.TerminalComponentModeler`, which injects freq_range).",
-    )
-    n_freqs: int = Field(
-        default=10,
-        ge=5,
-        title="Number of Sampling Frequencies",
-        description="Number of sampling frequencies used in the pole-residue fit (minimum 5).",
-    )
-    fit_tolerance: float = Field(
-        default=1e-5,
-        title="Fit Tolerance",
-        description="Target weighted RMS error for the pole-residue fit.",
-    )
-    min_num_poles: int = Field(
-        default=1,
-        title="Minimum Number of Poles",
-        description="Minimum number of poles for the dispersion fitter.",
-    )
-    max_num_poles: int = Field(
-        default=5,
-        title="Maximum Number of Poles",
-        description="Maximum number of poles for the dispersion fitter.",
-    )
-    fit_show_progress: bool = Field(
-        default=False,
-        title="Show Fit Progress",
-        description="Whether to show the fitter progress bar when fitting.",
-    )
 
     # Design note: current implementation is nodal analysis with R/L/C only. A future
     # augmented-MNA backend could support DC-safe inductor branches and ideal/controlled
@@ -1155,86 +1446,6 @@ class CircuitImpedanceModel(MicrowaveBaseModel):
         """Reject invalid circuits: disconnected graph, or port nodes not distinct or not in graph."""
         self._assert_circuit_connected()
         return self
-
-    @field_validator("freq_range", mode="after")
-    @classmethod
-    def _validate_freq_range(cls, v: FreqBound | None) -> FreqBound | None:
-        """Require freq_range to have 0 < f_min < f_max when set (inductor admittance singular at DC)."""
-        if v is None:
-            return v
-        f_min, f_max = float(v[0]), float(v[1])
-        if f_min <= 0:
-            raise ValueError(
-                "freq_range must have positive minimum frequency (inductor admittance is singular at DC). "
-                f"Got freq_range={v}."
-            )
-        if f_min >= f_max:
-            raise ValueError(
-                f"freq_range must have strictly increasing (f_min, f_max). Got freq_range={v}."
-            )
-        return (f_min, f_max)
-
-    def _resolve_freq_range(
-        self,
-        frequency_range: FreqBound | None = None,
-    ) -> FreqBound:
-        """Return (f_min, f_max) for fitting. Use frequency_range if provided, else
-        self.freq_range; raise if none set."""
-        if frequency_range is not None:
-            return (float(frequency_range[0]), float(frequency_range[1]))
-        if self.freq_range is not None:
-            return (float(self.freq_range[0]), float(self.freq_range[1]))
-        raise ValueError(
-            "CircuitImpedanceModel has no freq_range set. Either provide freq_range at "
-            "construction, pass frequency_range when calling _to_medium, or use with "
-            "TerminalComponentModeler (which injects freq_range)."
-        )
-
-    def _get_fit_frequencies(
-        self,
-        frequency_range: FreqBound | None = None,
-    ) -> np.ndarray:
-        """Return n_freqs sampling frequencies from the resolved frequency range."""
-        f_min, f_max = self._resolve_freq_range(frequency_range=frequency_range)
-        return np.linspace(f_min, f_max, self.n_freqs)
-
-    def _resolve_fit_freqs(self, freqs: np.ndarray | list[float] | None = None) -> np.ndarray:
-        """Return the frequency array to use for admittance evaluation.
-
-        If ``freqs`` is provided, return it as a float array. Otherwise return
-        :attr:`n_freqs` points sampled from :attr:`freq_range` via :meth:`_get_fit_frequencies`
-        (requires :attr:`freq_range` to be set).
-        """
-        if freqs is not None:
-            return np.asarray(freqs, dtype=float)
-        return self._get_fit_frequencies(frequency_range=None)
-
-    @keyed_cache(lambda self, freqs: tuple(float(x) for x in np.asarray(freqs).ravel()))
-    def _get_fitted_medium_for_freqs(self, freqs: np.ndarray) -> PoleResidue:
-        """Fit circuit admittance at the given frequencies and return unscaled PoleResidue; cache by freqs."""
-        frequencies = np.asarray(freqs, dtype=float)
-        Y_complex = self._get_effective_admittance(frequencies)
-        medium, _ = self._fit_admittance_to_pole_residue(frequencies, Y_complex)
-        return medium
-
-    def _to_medium(
-        self,
-        scaling_factor: float,
-        frequency_range: FreqBound | None = None,
-    ) -> PoleResidue:
-        """Convert the stored circuit to a :class:`PoleResidue` medium with geometric scaling.
-
-        Resolves the frequency range from ``frequency_range`` if provided, otherwise from
-        :attr:`freq_range`. Samples :attr:`n_freqs` points in that range, computes driving-point
-        admittance, fits to pole-residue form, then applies ``scaling_factor``.
-        At least one of ``frequency_range`` or :attr:`freq_range` must be set.
-        """
-        effective_freqs = self._get_fit_frequencies(frequency_range=frequency_range)
-        medium = self._get_fitted_medium_for_freqs(effective_freqs)
-        # Scale admittance: Y' = scaling_factor * Y  =>  eps' - 1 = scaling_factor * (eps - 1)
-        new_eps_inf = 1.0 + scaling_factor * (float(medium.eps_inf) - 1.0)
-        new_poles = tuple((p, scaling_factor * c) for p, c in medium.poles)
-        return PoleResidue(eps_inf=new_eps_inf, poles=new_poles)
 
     @staticmethod
     def _parse_spice_value(s: str) -> float:
@@ -1647,129 +1858,6 @@ class CircuitImpedanceModel(MicrowaveBaseModel):
 
         return Y_LE
 
-    @staticmethod
-    def _admittance_to_eps_data(
-        frequencies: np.ndarray,
-        Y_complex: np.ndarray,
-    ) -> np.ndarray:
-        """Convert engineering-convention admittance Y(f) to equivalent complex permittivity.
-
-        The conversion uses the relationship between admittance and the equivalent
-        dispersive medium used in FDTD (Pereda et al., IEEE TMTT 1999):
-
-        .. math::
-
-            \\epsilon(\\omega) = 1 + \\frac{j \\, \\Delta \\, Y^*(\\omega)}
-                                        {\\omega \\, \\epsilon_0}
-
-        with :math:`\\Delta = 1` here. Geometric scaling is applied later in the network's
-        :meth:`_to_medium` when the model is used in a
-        :class:`~tidy3d.LinearLumpedElement` (via ``scaling_factor``).
-
-        Parameters
-        ----------
-        frequencies : np.ndarray
-            Frequencies in Hz (must be positive).
-        Y_complex : np.ndarray
-            Complex admittance at each frequency in engineering convention
-            (e.g. :math:`Y_C = j\\omega C`, :math:`Y_L = 1/(j\\omega L)`).
-
-        Returns
-        -------
-        np.ndarray
-            Complex permittivity array (same length as *frequencies*).
-        """
-        frequencies = np.asarray(frequencies, dtype=float)
-        Y_complex = np.asarray(Y_complex, dtype=complex)
-        omega = 2 * np.pi * frequencies
-        return 1.0 + 1j * np.conj(Y_complex) / (omega * EPSILON_0)
-
-    def _fit_admittance_to_pole_residue(
-        self,
-        frequencies: np.ndarray | list[float],
-        Y_complex: np.ndarray,
-    ) -> tuple[PoleResidue, float]:
-        """Fit admittance Y(f) at given frequencies to pole-residue via the dispersion fitter.
-
-        Converts the engineering-convention admittance to equivalent permittivity
-        (see :meth:`_admittance_to_eps_data` with :math:`\\Delta=1`), then fits with the
-        standard dispersion fitter.  Geometric scaling is applied in the network's
-        :meth:`_to_medium` when the model is used in a
-        :class:`~tidy3d.LinearLumpedElement`.
-
-        This approach has several advantages over fitting Y directly:
-
-        * **Correct symmetry** -- permittivity has Hermitian symmetry
-        (:math:`\\epsilon(-\\omega) = \\epsilon^*(\\omega)`), matching the
-        conjugate-pair pole-residue model.
-        * **Correct passivity** -- the fitter's built-in passivity enforcement
-        (Im[eps] >= 0) directly ensures admittance passivity (Re[Y] >= 0).
-        * **No intermediate polynomial** -- bypasses the ``AdmittanceNetwork``
-        ``(a, b)`` representation and its non-negative-coefficient constraint.
-
-        Parameters
-        ----------
-        frequencies : np.ndarray or list[float]
-            Frequencies in Hz (must be positive) at which ``Y_complex`` is given.
-        Y_complex : np.ndarray
-            Complex driving-point admittance at each frequency in engineering convention
-            (same length as ``frequencies``).
-
-        Returns
-        -------
-        tuple[PoleResidue, float]
-            The fitted pole-residue medium and the weighted RMS error.
-
-        Raises
-        ------
-        ValueError
-            If ``frequencies`` is empty, lengths of ``frequencies`` and ``Y_complex``
-            differ, or any frequency is non-positive.
-        """
-        frequencies = np.asarray(frequencies, dtype=float)
-        Y_complex = np.asarray(Y_complex, dtype=complex)
-        if frequencies.size == 0:
-            raise ValueError("frequencies must not be empty.")
-        if frequencies.size != Y_complex.size:
-            raise ValueError("frequencies and Y_complex must have the same length.")
-        if np.any(frequencies <= 0):
-            raise ValueError("All frequencies must be positive.")
-
-        omega = 2 * np.pi * frequencies
-        eps_data = CircuitImpedanceModel._admittance_to_eps_data(frequencies, Y_complex)
-
-        # Scale factor for numerical conditioning: normalize max(omega) to ~1
-        scale_factor = 1.0 / (np.max(omega) + 1e-30)
-
-        advanced_param = AdvancedFastFitterParam(show_progress=self.fit_show_progress)
-
-        (eps_inf, poles, residues), rms = fit(
-            omega_data=omega,
-            resp_data=eps_data,
-            min_num_poles=self.min_num_poles,
-            max_num_poles=self.max_num_poles,
-            resp_inf=None,
-            tolerance_rms=self.fit_tolerance,
-            scale_factor=scale_factor,
-            advanced_param=advanced_param,
-        )
-
-        rms_val = float(rms)
-        if rms_val > self.fit_tolerance:
-            log.warning(
-                "CircuitImpedanceModel pole-residue fit RMS error (%g) exceeded tolerance (%g); "
-                "circuit admittance may be poorly approximated in this frequency range. "
-                "Consider increasing n_freqs, increasing max_num_poles, or relaxing fit_tolerance.",
-                rms_val,
-                self.fit_tolerance,
-            )
-
-        # Build PoleResidue from fitter output
-        pole_pairs = tuple((complex(a), complex(c)) for a, c in zip(poles, residues))
-        medium = PoleResidue(eps_inf=float(eps_inf), poles=pole_pairs)
-
-        return medium, rms_val
-
     @classmethod
     def from_spice(
         cls,
@@ -1941,7 +2029,7 @@ class LinearLumpedElement(RectangularLumpedElement):
     lead to a higher parasitic capacitance. Follow the link to the associated notebook for an example
     of using this field.
 
-    .. image:: ../../_static/img/lumped_dist_type.png
+    .. image:: /_static/img/lumped_dist_type.png
         :width: 50%
 
     See Also
@@ -2013,6 +2101,7 @@ class LinearLumpedElement(RectangularLumpedElement):
         :attr:`freq_range` is used (e.g. after injection by
         :class:`~tidy3d.plugins.smatrix.TerminalComponentModeler`).
         """
+        self._raise_if_line()
         cell_box = self._create_box_for_network(grid)
         medium_scaling_factor = self._admittance_transfer_function_scaling(cell_box)
         medium = self.network._to_medium(medium_scaling_factor, frequency_range=frequency_range)
@@ -2061,6 +2150,7 @@ class LinearLumpedElement(RectangularLumpedElement):
         the model's :attr:`freq_range` is used (e.g. after injection by
         :class:`~tidy3d.plugins.smatrix.TerminalComponentModeler`).
         """
+        self._raise_if_line()
         PEC_connection = self.to_PEC_connection(grid)
         structures = []
         if PEC_connection is not None:
@@ -2154,18 +2244,19 @@ class LinearLumpedElement(RectangularLumpedElement):
         :math:`\\exp{-j \\omega t}`, so the imaginary part of the admittance will have
         an opposite sign compared to the expected value when using the engineering convention.
 
-        When the network is a :class:`CircuitImpedanceModel`, admittance is computed directly
-        from the circuit (nodal analysis) at the given frequencies. All frequencies must be
-        positive (DC is not supported until augmented MNA is available).
+        When the network is an :class:`_AdmittanceFitter` subclass (e.g.
+        :class:`CircuitImpedanceModel`), admittance is computed
+        directly via :meth:`_get_effective_admittance` at the given frequencies. All frequencies
+        must be positive (DC is not supported until augmented MNA is available).
 
         Both code paths return the same convention: :func:`network_complex_conductivity` (used
         for :class:`RLCNetwork` and :class:`AdmittanceNetwork`) evaluates the rational at
         :math:`s = -j\\omega` (``K_tan = -1j * 2*pi*freqs``), which yields physics convention;
-        :meth:`CircuitImpedanceModel._get_effective_admittance` returns engineering convention,
+        :meth:`_AdmittanceFitter._get_effective_admittance` returns engineering convention,
         so we apply :math:`Y^*` to match physics.
         """
         freqs = np.asarray(freqs, dtype=float)
-        if isinstance(self.network, CircuitImpedanceModel):
+        if isinstance(self.network, _AdmittanceFitter):
             # Direct circuit evaluation; correct at all positive frequencies including low freq.
             # Convention: circuit uses engineering (jω); convert to physics via conjugate.
             return np.conj(self.network._get_effective_admittance(freqs))

@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 
 import jsonschema_rs
@@ -10,7 +12,6 @@ DRAFT202012 = "https://json-schema.org/draft/2020-12/schema"
     "schema",
     [
         {"unevaluatedProperties": False},
-        {"$defs": {"a": {"type": "null"}}, "$ref": "#/$defs/a"},
     ],
 )
 def test_unmodeled_round_trips_verbatim(schema):
@@ -262,6 +263,28 @@ def test_view_number_interval():
             pytest.fail(f"unexpected view: {other!r}")
 
 
+def test_view_number_bound_off_the_float_grid():
+    # Folding `multipleOf` into an exclusive bound lands a fraction past a number no float can hold
+    # apart from its neighbour, and rounding it there would admit the value the schema excludes.
+    schema = {"type": "number", "multipleOf": 0.1, "exclusiveMinimum": 10**20}
+    match canonicalize(schema).view():
+        case canonical.NumberView(minimum=minimum, exclusive_minimum=exclusive_minimum):
+            assert minimum == Decimal("100000000000000000000.1")
+            assert exclusive_minimum is False
+            assert not jsonschema_rs.is_valid(schema, float(minimum))
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
+def test_view_number_bound_on_the_float_grid():
+    match canonicalize({"type": "number", "multipleOf": 0.5, "exclusiveMinimum": 1}).view():
+        case canonical.NumberView(minimum=minimum):
+            assert minimum == 1.5
+            assert isinstance(minimum, float)
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
 def test_view_integer_multiple_of():
     match canonicalize({"type": "integer", "multipleOf": 3}).view():
         case canonical.IntegerView(minimum=minimum, multiple_of=multiple_of):
@@ -298,12 +321,70 @@ def test_view_any_of():
             pytest.fail(f"unexpected view: {other!r}")
 
 
+def test_view_one_of():
+    schema = {
+        "oneOf": [{"$ref": "#/$defs/one"}, {"$ref": "#/$defs/two"}],
+        "$defs": {"one": {"const": 1}, "two": {"const": 2}},
+    }
+    match canonicalize(schema).view():
+        case canonical.OneOfView(branches=branches):
+            assert [branch.kind for branch in branches] == ["reference", "reference"]
+            assert all(isinstance(branch, CanonicalSchema) for branch in branches)
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
+def test_view_reference_and_definitions():
+    result = canonicalize({"$ref": "#/$defs/value", "$defs": {"value": {"type": "string"}}})
+
+    match result.view():
+        case canonical.ReferenceView(uri=uri):
+            assert uri == "#/$defs/value"
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+    assert result.definitions()["#/$defs/value"].kind == "multi_type"
+
+
+def test_view_all_of_with_symbolic_reference():
+    schema = {
+        "allOf": [
+            {"$ref": "#/$defs/value"},
+            {"type": "string"},
+        ],
+        "$defs": {"value": {"type": "string"}},
+    }
+    match canonicalize(schema).view():
+        case canonical.AllOfView(branches=branches):
+            assert [branch.kind for branch in branches] == ["multi_type", "reference"]
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
+def test_view_not_with_symbolic_reference():
+    match canonicalize(
+        {
+            "not": {"$ref": "#/$defs/other"},
+            "$defs": {"other": {"type": "string"}},
+        }
+    ).view():
+        case canonical.NotView(schema=inner):
+            assert inner.kind == "reference"
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
 def test_view_raw():
     match canonicalize({"unevaluatedProperties": False}).view():
         case canonical.RawView(schema=payload):
             assert payload == {"unevaluatedProperties": False}
         case other:
             pytest.fail(f"unexpected view: {other!r}")
+
+
+def test_contains_view_is_public():
+    view = canonicalize({"type": "array", "contains": {"type": "integer"}}).view()
+    assert isinstance(view, canonical.ArrayView)
+    assert isinstance(view.contains[0], canonical.ContainsView)
 
 
 @pytest.mark.parametrize(

@@ -185,6 +185,7 @@ class CreateEpisodeRequest(google.protobuf.message.Message):
     dvr_seconds: builtins.int
     """Enables episode DVR mode.
     Determines how many last seconds of the stream are available.
+
     Possible values:
     * `0`: infinite dvr size, the full length of the stream allowed to display
     * `>0`: size of dvr window in seconds, the minimum value is 30s
@@ -454,9 +455,9 @@ global___BatchDeleteEpisodesMetadata = BatchDeleteEpisodesMetadata
 class PerformEpisodeActionRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    EPISODE_ID_FIELD_NUMBER: builtins.int
     PUBLISH_FIELD_NUMBER: builtins.int
     UNPUBLISH_FIELD_NUMBER: builtins.int
-    EPISODE_ID_FIELD_NUMBER: builtins.int
     episode_id: builtins.str
     """ID of the episode on which to perform the action."""
     @property
@@ -474,9 +475,9 @@ class PerformEpisodeActionRequest(google.protobuf.message.Message):
     def __init__(
         self,
         *,
+        episode_id: builtins.str = ...,
         publish: global___PublishEpisodeAction | None = ...,
         unpublish: global___UnpublishEpisodeAction | None = ...,
-        episode_id: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["action", b"action", "publish", b"publish", "unpublish", b"unpublish"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing.Literal["action", b"action", "episode_id", b"episode_id", "publish", b"publish", "unpublish", b"unpublish"]) -> None: ...
@@ -650,3 +651,64 @@ class GetEpisodeManifestsResponse(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["manifests", b"manifests"]) -> None: ...
 
 global___GetEpisodeManifestsResponse = GetEpisodeManifestsResponse
+
+@typing.final
+class DownloadEpisodeRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    EPISODE_ID_FIELD_NUMBER: builtins.int
+    episode_id: builtins.str
+    """ID of the episode to download.
+    The episode must be associated with a finished stream.
+    """
+    def __init__(
+        self,
+        *,
+        episode_id: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["episode_id", b"episode_id"]) -> None: ...
+
+global___DownloadEpisodeRequest = DownloadEpisodeRequest
+
+@typing.final
+class DownloadEpisodeMetadata(google.protobuf.message.Message):
+    """Represents the metadata of a started download operation for an episode."""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    EPISODE_ID_FIELD_NUMBER: builtins.int
+    episode_id: builtins.str
+    """ID of the episode."""
+    def __init__(
+        self,
+        *,
+        episode_id: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["episode_id", b"episode_id"]) -> None: ...
+
+global___DownloadEpisodeMetadata = DownloadEpisodeMetadata
+
+@typing.final
+class DownloadableEpisodePayload(google.protobuf.message.Message):
+    """Represents the payload of a finished download operation for an episode."""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DOWNLOAD_URL_FIELD_NUMBER: builtins.int
+    EXPIRES_AT_FIELD_NUMBER: builtins.int
+    download_url: builtins.str
+    """Time-limited URL for downloading episode."""
+    @property
+    def expires_at(self) -> google.protobuf.timestamp_pb2.Timestamp:
+        """URL expiration time."""
+
+    def __init__(
+        self,
+        *,
+        download_url: builtins.str = ...,
+        expires_at: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["expires_at", b"expires_at"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["download_url", b"download_url", "expires_at", b"expires_at"]) -> None: ...
+
+global___DownloadableEpisodePayload = DownloadableEpisodePayload

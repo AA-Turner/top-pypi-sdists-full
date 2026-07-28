@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastjsonschema
-Version: 2.22.0
+Version: 2.22.1
 Summary: Fastest Python implementation of JSON schema
 Home-page: https://github.com/horejsek/python-fastjsonschema
 Author: Michal Horejsek
@@ -8,13 +8,6 @@ Author-email: fastjsonschema@horejsek.com
 License: BSD-3-Clause
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -26,6 +19,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
 License-File: LICENSE
 License-File: AUTHORS
 Provides-Extra: devel
@@ -45,6 +39,7 @@ Dynamic: home-page
 Dynamic: license
 Dynamic: license-file
 Dynamic: provides-extra
+Dynamic: requires-python
 Dynamic: summary
 
 ===========================

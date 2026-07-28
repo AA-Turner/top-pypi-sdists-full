@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: redisvl
-Version: 0.23.0
+Version: 0.24.0
 Summary: Python client library and CLI for using Redis as a vector database
 Project-URL: Homepage, https://github.com/redis/redis-vl-python
 Project-URL: Repository, https://github.com/redis/redis-vl-python
@@ -28,6 +28,7 @@ Provides-Extra: all
 Requires-Dist: boto3<2,>=1.36.0; extra == 'all'
 Requires-Dist: cohere>=4.44; extra == 'all'
 Requires-Dist: google-cloud-aiplatform<2.0.0,>=1.26; extra == 'all'
+Requires-Dist: google-genai>=1.0.0; extra == 'all'
 Requires-Dist: langcache>=0.11.0; extra == 'all'
 Requires-Dist: mistralai<2,>=1.0.0; extra == 'all'
 Requires-Dist: ollama>=0.5.4; extra == 'all'
@@ -43,6 +44,8 @@ Requires-Dist: boto3<2,>=1.36.0; extra == 'bedrock'
 Requires-Dist: urllib3<2.2.0; extra == 'bedrock'
 Provides-Extra: cohere
 Requires-Dist: cohere>=4.44; extra == 'cohere'
+Provides-Extra: google-genai
+Requires-Dist: google-genai>=1.0.0; extra == 'google-genai'
 Provides-Extra: langcache
 Requires-Dist: langcache>=0.11.0; extra == 'langcache'
 Provides-Extra: mcp

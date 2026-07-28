@@ -396,12 +396,12 @@ def register_generated_tools(mcp, _get_client):
         """List accounts
 
         Args:
-            profile_id: Filter accounts by profile ID
+            profile_id: Filter accounts by profile ID. Must be a valid ObjectId.
             platform: Filter accounts by platform (e.g. "instagram", "twitter").
             status: Filter accounts by connection status. `connected` returns healthy accounts; `disconnected` returns accounts that need reconnection (per the same reconnection check surfaced in the dashboard). Omit to return accounts in any status. When combined with page/limit, pagination totals reflect the filtered result set.
             include_over_limit: When true, includes accounts from over-limit profiles.
-            page: Page number (1-based). When provided with limit, enables server-side pagination. Omit for all accounts.
-            limit: Page size. Required alongside page for pagination."""
+            page: Page number (1-based). Must be provided together with limit to enable server-side pagination; sending only one of the two returns 400. Omit both for all accounts.
+            limit: Page size. Must be provided together with page; sending only one of the two returns 400."""
         client = _get_client()
         try:
             response = client.accounts.list_accounts(
@@ -1772,6 +1772,60 @@ def register_generated_tools(mcp, _get_client):
                 effective_instagram_media_id=effective_instagram_media_id,
                 from_date=from_date,
                 to_date=to_date,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List Search keywords",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_campaigns_list_ad_keywords(
+        page: int = 1,
+        limit: int = 50,
+        account_id: str | None = None,
+        ad_account_id: str | None = None,
+        profile_id: str | None = None,
+        campaign_id: str | None = None,
+        ad_set_id: str | None = None,
+        status: str | None = None,
+        match_type: str | None = None,
+        negative: bool | None = None,
+        search: str | None = None,
+    ) -> str:
+        """List Search keywords
+
+        Args:
+            page: Page number
+            limit
+            account_id: Social account ID
+            ad_account_id: Platform ad account ID (Google customer ID). Mirrors the same filter on /v1/ads.
+            profile_id: Profile ID
+            campaign_id: Platform campaign ID
+            ad_set_id: Platform ad group ID (Google ad group)
+            status: Keyword criterion status
+            match_type
+            negative: true = negative keywords only, false = positive only. Omit for both.
+            search: Case-insensitive substring match on the keyword text"""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.list_ad_keywords(
+                page=page,
+                limit=limit,
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                profile_id=profile_id,
+                campaign_id=campaign_id,
+                ad_set_id=ad_set_id,
+                status=status,
+                match_type=match_type,
+                negative=negative,
+                search=search,
             )
             return _format_response(response)
         except Exception as e:
@@ -9103,6 +9157,7 @@ def register_generated_tools(mcp, _get_client):
     def lead_gen_list_leads(
         form_id: str | None = None,
         account_id: str | None = None,
+        ad_account_id: str | None = None,
         limit: int = 25,
         since: int | None = None,
         cursor: str | None = None,
@@ -9111,15 +9166,17 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             form_id: Filter to a single lead form.
-            account_id: Filter to a single connected account.
+            account_id: Filter to a single connected account. LinkedIn ads accounts switch to the live fetch.
+            ad_account_id: LinkedIn only: the LinkedIn ad account id whose responses to read (owner-scoped finder).
             limit
-            since: Unix seconds; only leads created at/after this Meta timestamp.
-            cursor: Keyset cursor from a previous response's pagination.cursor."""
+            since: Unix seconds; only leads created at/after this timestamp.
+            cursor: Keyset cursor from a previous response's pagination.cursor (Meta: AdLead id; LinkedIn: numeric start offset)."""
         client = _get_client()
         try:
             response = client.lead_gen.list_leads(
                 form_id=form_id,
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 limit=limit,
                 since=since,
                 cursor=cursor,
@@ -9137,18 +9194,25 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def lead_gen_list_lead_forms(
-        account_id: str, limit: int = 25, cursor: str | None = None
+        account_id: str,
+        ad_account_id: str | None = None,
+        limit: int = 25,
+        cursor: str | None = None,
     ) -> str:
         """List lead forms
 
         Args:
-            account_id: Connected facebook account id. (required)
+            account_id: Connected facebook or linkedin ads account id. (required)
+            ad_account_id: LinkedIn only: the LinkedIn ad account id (used to resolve the owning organization). Required for LinkedIn.
             limit
             cursor"""
         client = _get_client()
         try:
             response = client.lead_gen.list_lead_forms(
-                account_id=account_id, limit=limit, cursor=cursor
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                limit=limit,
+                cursor=cursor,
             )
             return _format_response(response)
         except Exception as e:
@@ -9165,8 +9229,8 @@ def register_generated_tools(mcp, _get_client):
     def lead_gen_create_lead_form(
         account_id: str,
         name: str,
-        questions: list[dict[str, Any]] | None,
         privacy_policy_url: str,
+        questions: list[dict[str, Any]] | None = None,
         privacy_policy_link_text: str | None = None,
         follow_up_action_url: str | None = None,
         locale: str | None = None,
@@ -9176,23 +9240,25 @@ def register_generated_tools(mcp, _get_client):
         thank_you_button_type: str | None = None,
         thank_you_website_url: str | None = None,
         is_optimized_for_quality: bool | None = None,
+        platform_specific_data: dict[str, Any] | None = None,
     ) -> str:
         """Create a lead form
 
         Args:
             account_id: (required)
             name: (required)
-            questions: (required)
+            questions: Deprecated (Meta legacy shape): use platformSpecificData.questions.
             privacy_policy_url: (required)
-            privacy_policy_link_text
-            follow_up_action_url
-            locale
-            thank_you_title
-            thank_you_body
-            thank_you_button_text
-            thank_you_button_type
-            thank_you_website_url
-            is_optimized_for_quality"""
+            privacy_policy_link_text: Deprecated: use platformSpecificData.privacyPolicyLinkText.
+            follow_up_action_url: Deprecated: use platformSpecificData.followUpActionUrl.
+            locale: Deprecated: use platformSpecificData.locale.
+            thank_you_title: Deprecated: use platformSpecificData.thankYouTitle.
+            thank_you_body: Deprecated: use platformSpecificData.thankYouBody.
+            thank_you_button_text: Deprecated: use platformSpecificData.thankYouButtonText.
+            thank_you_button_type: Deprecated: use platformSpecificData.thankYouButtonType.
+            thank_you_website_url: Deprecated: use platformSpecificData.thankYouWebsiteUrl.
+            is_optimized_for_quality: Deprecated: use platformSpecificData.isOptimizedForQuality.
+            platform_specific_data: Form content; the shape is selected by the accountId's platform. Unknown fields are a 400 (strict-parsed)."""
         client = _get_client()
         try:
             response = client.lead_gen.create_lead_form(
@@ -9209,6 +9275,7 @@ def register_generated_tools(mcp, _get_client):
                 thank_you_button_type=thank_you_button_type,
                 thank_you_website_url=thank_you_website_url,
                 is_optimized_for_quality=is_optimized_for_quality,
+                platform_specific_data=platform_specific_data,
             )
             return _format_response(response)
         except Exception as e:
@@ -9226,8 +9293,8 @@ def register_generated_tools(mcp, _get_client):
         """Get a lead form
 
         Args:
-            form_id: (required)
-            account_id: (required)"""
+            form_id: Numeric form id (Meta leadgen_form id or LinkedIn leadForm id). (required)
+            account_id: Connected facebook or linkedin ads account id (selects the platform). (required)"""
         client = _get_client()
         try:
             response = client.lead_gen.get_lead_form(
@@ -9249,8 +9316,8 @@ def register_generated_tools(mcp, _get_client):
         """Archive a lead form
 
         Args:
-            form_id: (required)
-            account_id: (required)"""
+            form_id: Numeric form id (Meta leadgen_form id or LinkedIn leadForm id). (required)
+            account_id: Connected facebook or linkedin ads account id (selects the platform). (required)"""
         client = _get_client()
         try:
             response = client.lead_gen.archive_lead_form(
@@ -10362,7 +10429,7 @@ def register_generated_tools(mcp, _get_client):
             profile_id: (required)
             country: (required)
             submission_id: Idempotency token for this submission attempt. A retry/double-submit with the same token returns the same number; omit and each call creates a new number.
-            quantity: Provision several same-country numbers from one submission (1-5). The single verification covers all of them; each number is billed only when it activates. Numbers that fail to order are skipped (best-effort).
+            quantity: Provision several same-country numbers from one submission (1-5). The single verification covers all of them; each number is billed only when it activates. Numbers that fail to order are skipped (best-effort). With `areaCode`, a quantity above that area's live stock is rejected with a 400.
             reuse: Reuse a prior approved verification for this country (skips document/field collection; places the order immediately).
             reuse_option_id: Which reusable verification to use (GET reusable.options[].id). The unambiguous selection key. Omitted = the approved default. No match = 409.
             reuse_from: Legacy fallback for `reuseOptionId`: the source phone number (GET reusable.options[].fromPhoneNumber). Ambiguous when a number labels two verifications — prefer `reuseOptionId`. Omitted = the approved default. No match = 409.
@@ -15902,7 +15969,7 @@ def register_generated_tools(mcp, _get_client):
             profile_id: (required)
             country: (required)
             submission_id: Idempotency token for this submission attempt. A retry/double-submit with the same token returns the same number; omit and each call creates a new number.
-            quantity: Provision several same-country numbers from one submission (1-5). The single verification covers all of them; each number is billed only when it activates. Numbers that fail to order are skipped (best-effort).
+            quantity: Provision several same-country numbers from one submission (1-5). The single verification covers all of them; each number is billed only when it activates. Numbers that fail to order are skipped (best-effort). With `areaCode`, a quantity above that area's live stock is rejected with a 400.
             reuse: Reuse a prior approved verification for this country (skips document/field collection; places the order immediately).
             reuse_option_id: Which reusable verification to use (GET reusable.options[].id). The unambiguous selection key. Omitted = the approved default. No match = 409.
             reuse_from: Legacy fallback for `reuseOptionId`: the source phone number (GET reusable.options[].fromPhoneNumber). Ambiguous when a number labels two verifications — prefer `reuseOptionId`. Omitted = the approved default. No match = 409.

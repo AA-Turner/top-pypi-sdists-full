@@ -1,6 +1,6 @@
-import argparse
 import asyncio
 import sys
+import tempfile
 import threading
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -11,6 +11,7 @@ import httpx
 from starlette.routing import Route as StarletteRoute
 
 import duckduckgo_mcp_server.server
+from duckduckgo_mcp_server.server import _build_transport_security
 
 from duckduckgo_mcp_server.server import (
     RateLimiter,
@@ -22,6 +23,7 @@ from duckduckgo_mcp_server.server import (
     BlockedURLError,
     _validate_public_url,
     _is_search_block,
+    _resolve_ssl_verify,
 )
 
 try:
@@ -948,6 +950,121 @@ class TestMainCliArgs(unittest.TestCase):
             call_kwargs = mock_uvicorn_run.call_args.kwargs
             self.assertEqual(call_kwargs["host"], "127.0.0.1")
             self.assertEqual(call_kwargs["port"], 8000)
+
+
+class TestTransportSecurity(unittest.TestCase):
+    def test_build_returns_none_when_unset(self):
+        # Nothing configured → keep FastMCP's secure default (None).
+        self.assertIsNone(_build_transport_security([], [], False))
+
+    def test_build_allowlist_keeps_protection_on(self):
+        ts = _build_transport_security(["ex.com:*"], ["http://ex.com:*"], False)
+        self.assertTrue(ts.enable_dns_rebinding_protection)
+        self.assertEqual(ts.allowed_hosts, ["ex.com:*"])
+        self.assertEqual(ts.allowed_origins, ["http://ex.com:*"])
+
+    def test_build_disable_turns_protection_off(self):
+        ts = _build_transport_security([], [], True)
+        self.assertIsNotNone(ts)
+        self.assertFalse(ts.enable_dns_rebinding_protection)
+
+    def test_main_applies_allowed_hosts(self):
+        argv = [
+            "duckduckgo-mcp-server", "--transport", "streamable-http",
+            "--allowed-hosts", "ddg.example.com", "ddg.example.com:*",
+        ]
+        with patch.object(sys, "argv", argv), \
+             patch("duckduckgo_mcp_server.server.mcp") as mock_mcp, \
+             patch("uvicorn.run"):
+            _setup_mock_mcp_for_http(mock_mcp)
+            duckduckgo_mcp_server.server.main()
+            ts = mock_mcp.settings.transport_security
+            self.assertTrue(ts.enable_dns_rebinding_protection)
+            self.assertEqual(ts.allowed_hosts, ["ddg.example.com", "ddg.example.com:*"])
+
+    def test_main_disable_dns_rebinding_protection(self):
+        argv = [
+            "duckduckgo-mcp-server", "--transport", "sse",
+            "--disable-dns-rebinding-protection",
+        ]
+        with patch.object(sys, "argv", argv), \
+             patch("duckduckgo_mcp_server.server.mcp") as mock_mcp, \
+             patch("uvicorn.run"):
+            _setup_mock_mcp_for_http(mock_mcp)
+            duckduckgo_mcp_server.server.main()
+            ts = mock_mcp.settings.transport_security
+            self.assertFalse(ts.enable_dns_rebinding_protection)
+
+
+class TestSSLVerifyConfig(unittest.TestCase):
+    def test_resolve_ssl_verify(self):
+        # Default: verification on with the client's own trust store.
+        self.assertIs(_resolve_ssl_verify(""), True)
+        # A CA bundle path is passed through as the verify value.
+        self.assertEqual(_resolve_ssl_verify("/etc/proxy-ca.pem"), "/etc/proxy-ca.pem")
+        # Disabling verification wins over a CA bundle.
+        self.assertIs(_resolve_ssl_verify("/etc/proxy-ca.pem", verify_enabled=False), False)
+        self.assertIs(_resolve_ssl_verify("", verify_enabled=False), False)
+
+    def test_defaults_to_verified(self):
+        self.assertIs(DuckDuckGoSearcher().ssl_verify, True)
+        self.assertIs(WebContentFetcher().ssl_verify, True)
+
+    def test_searcher_passes_verify_to_httpx_client(self):
+        searcher = DuckDuckGoSearcher(backend="httpx", ssl_verify="/etc/proxy-ca.pem")
+        mock_resp = _mock_post_response("<html><body></body></html>")
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("httpx.AsyncClient", return_value=mock_client) as mock_cls:
+            asyncio.run(searcher.search("test", DummyCtx()))
+
+        self.assertEqual(mock_cls.call_args.kwargs.get("verify"), "/etc/proxy-ca.pem")
+
+    def test_fetcher_passes_verify_to_httpx_client(self):
+        fetcher = WebContentFetcher(allow_private_urls=True, ssl_verify=False)
+        mock_resp = MagicMock()
+        mock_resp.text = "<html><body><p>ok</p></body></html>"
+        mock_resp.status_code = 200
+        mock_resp.headers = {}
+        mock_resp.raise_for_status = MagicMock()
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("httpx.AsyncClient", return_value=mock_client) as mock_cls:
+            asyncio.run(fetcher.fetch_and_parse("https://example.com", DummyCtx()))
+
+        self.assertIs(mock_cls.call_args.kwargs.get("verify"), False)
+
+    def test_main_parses_ca_certs_flag(self):
+        with tempfile.NamedTemporaryFile(suffix=".pem") as ca_file:
+            argv = ["duckduckgo-mcp-server", "--ca-certs", ca_file.name]
+            with patch.object(sys, "argv", argv), \
+                 patch("duckduckgo_mcp_server.server.mcp") as mock_mcp:
+                duckduckgo_mcp_server.server.main()
+                mock_mcp.run.assert_called_once()
+            self.assertEqual(duckduckgo_mcp_server.server.fetcher.ssl_verify, ca_file.name)
+            self.assertEqual(duckduckgo_mcp_server.server.searcher.ssl_verify, ca_file.name)
+
+    def test_main_parses_no_ssl_verify_flag(self):
+        argv = ["duckduckgo-mcp-server", "--no-ssl-verify"]
+        with patch.object(sys, "argv", argv), \
+             patch("duckduckgo_mcp_server.server.mcp") as mock_mcp:
+            duckduckgo_mcp_server.server.main()
+            mock_mcp.run.assert_called_once()
+        self.assertIs(duckduckgo_mcp_server.server.fetcher.ssl_verify, False)
+        self.assertIs(duckduckgo_mcp_server.server.searcher.ssl_verify, False)
+
+    def test_main_rejects_missing_ca_certs_path(self):
+        argv = ["duckduckgo-mcp-server", "--ca-certs", "/nonexistent/ca-bundle.pem"]
+        with patch.object(sys, "argv", argv), \
+             patch("duckduckgo_mcp_server.server.mcp"):
+            with self.assertRaises(SystemExit):
+                duckduckgo_mcp_server.server.main()
 
 
 class TestConfiguration(unittest.TestCase):

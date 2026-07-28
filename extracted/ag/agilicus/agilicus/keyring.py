@@ -3,7 +3,6 @@ import keyring
 import base64
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-
 KEY_BYTES = 32
 _BLOCK_SIZE = 16
 

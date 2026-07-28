@@ -296,7 +296,7 @@ impl<T> LinkedList<T> {
     }
 }
 
-unsafe impl<#[may_dangle] T> Drop for LinkedList<T> {
+impl<T> Drop for LinkedList<T> {
     fn drop(&mut self) {
         struct DropGuard<'a, T>(&'a mut LinkedList<T>);
 

@@ -21,6 +21,9 @@ class RemoveInvalidPackage(LinterFix):
 
 
 class InvalidPackageFound(LinterIssue):
+    title = "All packages in requirements.txt should exist on PyPI"
+    type = "error"
+
     def __init__(self, package_name: str) -> None:
         self.label = (
             f"Package '{package_name}' was not found on PyPI. "
@@ -32,7 +35,6 @@ class InvalidPackageFound(LinterIssue):
 
 class InvalidPackageInRequirements(LinterRule):
     label = "All packages in requirements.txt should exist on PyPI"
-    type = "error"
 
     def find_issues(self) -> Sequence[LinterIssue]:
         requirements = RequirementsRepository.load()

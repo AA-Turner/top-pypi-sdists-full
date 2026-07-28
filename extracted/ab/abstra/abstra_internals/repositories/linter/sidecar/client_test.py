@@ -33,8 +33,8 @@ def _rules(*names: str) -> list:
     return [SimpleNamespace(name=name) for name in names]
 
 
-def _mk_check(name: str, type_: str = "bug") -> LinterCheck:
-    return LinterCheck(name=name, label=name, type=type_, issues=[], fix_with_ai=False)
+def _mk_check(name: str) -> LinterCheck:
+    return LinterCheck(name=name, label=name, issues=[])
 
 
 class _FakeInProcessRepo(LinterRepository):
@@ -82,22 +82,21 @@ CHECKS_FULL = [
     {
         "name": "RuleA",
         "label": "Rule A label",
-        "type": "error",
         "issues": [
             {
+                "title": "broken things",
                 "label": "broken thing",
+                "type": "error",
                 "fixes": [{"name": "FixIt", "label": "Fix it now"}],
+                "fixWithAi": True,
             }
         ],
-        "fixWithAi": True,
         "status": "ok",
     },
     {
         "name": "RuleB",
         "label": "Rule B label",
-        "type": "warning",
         "issues": [],
-        "fixWithAi": False,
         "status": "ok",
     },
 ]
@@ -106,9 +105,7 @@ CHECKS_PARTIAL = [
     {
         "name": "RuleA",
         "label": "Rule A label",
-        "type": "error",
         "issues": [],
-        "fixWithAi": True,
         "status": "ok",
     }
 ]
@@ -294,11 +291,12 @@ class ClientContractTest(ClientTestBase):
 
         self.assertEqual(check.name, "RuleA")
         self.assertEqual(check.label, "Rule A label")
-        self.assertEqual(check.type, "error")
-        self.assertTrue(check.fix_with_ai)
 
         issue = check.issues[0]
+        self.assertEqual(issue.make_title(), "broken things")
         self.assertEqual(issue.make_label(), "broken thing")
+        self.assertEqual(issue.type, "error")
+        self.assertTrue(issue.fix_with_ai)
         fix = issue.fixes[0]
         self.assertEqual(fix.name, "FixIt")
         self.assertEqual(fix.make_label(), "Fix it now")
@@ -341,23 +339,17 @@ class ClientContractTest(ClientTestBase):
                         {
                             "name": "ErrorWithIssues",
                             "label": "x",
-                            "type": "error",
-                            "issues": [{"label": "i", "fixes": []}],
-                            "fixWithAi": False,
+                            "issues": [{"label": "i", "type": "error", "fixes": []}],
                         },
                         {
-                            "name": "ErrorNoIssues",
+                            "name": "NoIssues",
                             "label": "x",
-                            "type": "error",
                             "issues": [],
-                            "fixWithAi": False,
                         },
                         {
                             "name": "WarningWithIssues",
                             "label": "x",
-                            "type": "warning",
-                            "issues": [{"label": "i", "fixes": []}],
-                            "fixWithAi": False,
+                            "issues": [{"label": "i", "type": "warning", "fixes": []}],
                         },
                     ]
                 }
@@ -557,6 +549,16 @@ class ClientDegradedModeTest(ClientTestBase):
         # Mirror refreshed from the same response
         self.assertEqual([c.to_dict() for c in repo.checks], CHECKS_FULL)
 
+    def test_deploy_gate_trusts_mirror_after_successful_run(self):
+        repo, fakes = self._make_repo()
+        repo.update_checks()  # run gate -> success, mirror populated
+        fakes[0].received.clear()
+        blocking = repo.get_blocking_checks_for_deploy()
+        # Trusted the fresh mirror — no deploy RPC to the child.
+        self.assertNotIn("blocking_checks_for_deploy", fakes[0].methods())
+        # Blocking derived from the mirror (RuleA has an error issue; RuleB none).
+        self.assertEqual([c.name for c in blocking], ["RuleA"])
+
 
 class ClientDeployGateFallbackTest(ClientTestBase):
     def test_slow_sidecar_falls_back_within_bounded_time(self):
@@ -608,7 +610,7 @@ class ClientDeployGateFallbackTest(ClientTestBase):
             deploy_fallback_factory=lambda: fallback,
         )
         self.addCleanup(repo.stop)
-        repo.checks = [_mk_check("some_info_rule", type_="info")]
+        repo.checks = [_mk_check("some_info_rule")]
         repo.get_blocking_checks_for_deploy()
         names = [c.name for c in repo.checks]
         self.assertIn("some_info_rule", names)

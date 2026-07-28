@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqladmin
-Version: 0.29.0
+Version: 0.30.0
 Summary: SQLAlchemy admin for FastAPI and Starlette
 Keywords: sqlalchemy,fastapi,starlette,admin
 Author: Amin Alaee
@@ -23,14 +23,19 @@ Requires-Dist: wtforms>=3.1,<3.3
 Requires-Dist: jinja2
 Requires-Dist: python-multipart
 Requires-Dist: sqlalchemy>=2.0
+Requires-Dist: itsdangerous ; extra == 'auth'
 Requires-Dist: itsdangerous ; extra == 'full'
+Requires-Dist: babel ; extra == 'full'
+Requires-Dist: babel ; extra == 'i18n'
 Maintainer: Miradil Zeynalli
 Maintainer-email: Miradil Zeynalli <miradil.zeynalli@gmail.com>
 Requires-Python: >=3.10
 Project-URL: Documentation, https://smithyhq.github.io/sqladmin/
 Project-URL: Issues, https://github.com/smithyhq/sqladmin/issues
 Project-URL: Source, https://github.com/smithyhq/sqladmin
+Provides-Extra: auth
 Provides-Extra: full
+Provides-Extra: i18n
 Description-Content-Type: text/markdown
 
 <p align="center">
@@ -88,9 +93,17 @@ Install using `pip`:
 $ pip install sqladmin
 ```
 
-This will install the full version of sqladmin with optional dependencies:
+Some features need extra packages, which are grouped into optional extras:
+
+| Extra | Installs | Enables |
+| --- | --- | --- |
+| `auth` | `itsdangerous` | Session-backed [authentication](https://smithyhq.github.io/sqladmin/authentication/) |
+| `i18n` | `babel` | [Internationalization](https://smithyhq.github.io/sqladmin/internationalization/) and localization |
+| `full` | both of the above | Everything |
 
 ```shell
+$ pip install "sqladmin[auth]"
+$ pip install "sqladmin[i18n]"
 $ pip install "sqladmin[full]"
 ```
 

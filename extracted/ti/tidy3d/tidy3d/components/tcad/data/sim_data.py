@@ -11,6 +11,7 @@ from pydantic import Field, model_validator
 from tidy3d.components.base import Tidy3dBaseModel
 from tidy3d.components.base_sim.data.sim_data import AbstractSimulationData
 from tidy3d.components.data.data_array import (
+    ConvergenceHistoryDataArray,
     FreqVoltageDataArray,
     SpatialDataArray,
     SteadyVoltageDataArray,
@@ -105,6 +106,44 @@ def _compute_monitor_axis_limits(
     return ax_min, ax_max
 
 
+class SteadyConvergenceData(Tidy3dBaseModel):
+    """Per-bias Newton convergence state for a steady-state charge sweep.
+
+    Example
+    -------
+
+    >>> import tidy3d as td
+    >>> V = [-1, 0, 1]
+    >>> converged = td.SteadyVoltageDataArray(data=[1, 1, 0], coords={"v": V})
+    >>> n_iters = td.SteadyVoltageDataArray(data=[42, 38, 100], coords={"v": V})
+    >>> conv = SteadyConvergenceData(converged=converged, n_iters=n_iters)
+    """
+
+    converged: SteadyVoltageDataArray | None = Field(
+        None,
+        title="Converged",
+        description="``True`` at biases where the Newton iteration met the configured "
+        "tolerance and ``False`` otherwise.",
+    )
+
+    n_iters: SteadyVoltageDataArray | None = Field(
+        None,
+        title="Newton iterations",
+        description="Number of Newton iterations taken at each bias. At a non-converged "
+        "bias this equals the cap if ``max_iters`` was hit, or the count of attempted "
+        "steps before divergence.",
+    )
+
+    residual_history: ConvergenceHistoryDataArray | None = Field(
+        None,
+        title="Per-pseudo-step residual trace",
+        description="Per-bias trace of the absolute residual norm. Dimensions are "
+        "``(v, pseudo_step, component)``; ragged biases are NaN-padded along "
+        "``pseudo_step`` to the longest trace -- use ``n_iters`` for the unpadded "
+        "length per bias.",
+    )
+
+
 class DeviceCharacteristics(Tidy3dBaseModel):
     """Stores device characteristics. For example, in steady-state it stores
     the steady DC capacitance (provided an array of voltages has been defined
@@ -133,7 +172,7 @@ class DeviceCharacteristics(Tidy3dBaseModel):
         "has converged, these result should be close to that of electrons. "
         "Units: fF (3D) or fF/μm (2D). For 2D simulations, multiply by the device depth "
         "to obtain the total capacitance.",
-        json_schema_extra={"units": "fF"},
+        json_schema_extra={"units": "fF", "units_2d": "fF/um"},
     )
 
     steady_dc_electron_capacitance: SteadyVoltageDataArray | None = Field(
@@ -143,7 +182,7 @@ class DeviceCharacteristics(Tidy3dBaseModel):
         "has converged, these result should be close to that of holes. "
         "Units: fF (3D) or fF/μm (2D). For 2D simulations, multiply by the device depth "
         "to obtain the total capacitance.",
-        json_schema_extra={"units": "fF"},
+        json_schema_extra={"units": "fF", "units_2d": "fF/um"},
     )
 
     steady_dc_current_voltage: SteadyVoltageDataArray | None = Field(
@@ -152,7 +191,7 @@ class DeviceCharacteristics(Tidy3dBaseModel):
         description="Device steady DC current-voltage relation for the device. "
         "Units: A (3D) or A/μm (2D). For 2D simulations, multiply by the device depth "
         "to obtain the total current.",
-        json_schema_extra={"units": "A"},
+        json_schema_extra={"units": "A", "units_2d": "A/um"},
     )
 
     steady_dc_resistance_voltage: SteadyVoltageDataArray | None = Field(
@@ -162,7 +201,7 @@ class DeviceCharacteristics(Tidy3dBaseModel):
         "as the derivative of the current-voltage relation :math:`\\frac{\\Delta V}{\\Delta I}`, and the result "
         "is given in Ohms. In 2D the resistance is given in :math:`\\Omega \\cdot \\mu\\text{m}`. "
         "For 2D simulations, multiply by the device depth (in μm) to obtain the resistance in Ω.",
-        json_schema_extra={"units": "Ω"},
+        json_schema_extra={"units": "Ω", "units_2d": "Ω*um"},
     )
 
     ac_current_voltage: FreqVoltageDataArray | None = Field(
@@ -173,8 +212,49 @@ class DeviceCharacteristics(Tidy3dBaseModel):
         "can be used to determine frequency-dependent device parameters like admittance. "
         "Units: A (3D) or A/μm (2D). For 2D simulations, multiply by the device depth "
         "(extrusion length) to obtain the total current.",
-        json_schema_extra={"units": "A"},
+        json_schema_extra={"units": "A", "units_2d": "A/um"},
     )
+
+    dc_convergence: SteadyConvergenceData | None = Field(
+        None,
+        title="Steady DC convergence state",
+        description="Per-bias Newton convergence state for the steady DC sweep. When "
+        "present, callers can mask the I-V/C-V curves by ``dc_convergence.converged`` "
+        "to drop biases where the solver did not converge.",
+    )
+
+    @model_validator(mode="after")
+    def add_attrs_to_data_arrays(self) -> Self:
+        """Copy context-free field metadata onto device-characteristic data arrays."""
+        self._add_data_array_attrs()
+        return self
+
+    def _add_data_array_attrs(self, is_2d: bool | None = None) -> None:
+        """Copy field metadata onto device-characteristic data arrays."""
+        # Skip nested Tidy3dBaseModel fields -- their `attrs` is frozen.
+        from tidy3d.components.data.data_array import DataArray as _DataArray
+
+        for field_name, field_info in type(self).model_fields.items():
+            data_array = getattr(self, field_name)
+            if data_array is None or not isinstance(data_array, _DataArray):
+                continue
+
+            metadata = (
+                field_info.json_schema_extra
+                if isinstance(field_info.json_schema_extra, dict)
+                else {}
+            )
+            units = metadata.get("units_2d" if is_2d else "units") if is_2d is not None else None
+            if units is None and field_info.title is None:
+                continue
+
+            data_array = data_array.copy(deep=False)
+            data_array.attrs = dict(data_array.attrs)
+            if units is not None:
+                data_array.attrs["units"] = units
+            if field_info.title is not None:
+                data_array.attrs["long_name"] = field_info.title
+            object.__setattr__(self, field_name, data_array)
 
 
 class AbstractHeatChargeSimulationData(AbstractSimulationData, ABC):
@@ -238,7 +318,6 @@ class AbstractHeatChargeSimulationData(AbstractSimulationData, ABC):
         Note
         ----
             For 3D simulations, the 2D mesh shown here would be the result of slicing the underlying unstructured tetrahedral grid with the selected plane.
-            If however the monitor sets `conformal=True`, the simulation mesh has been made to conform to the monitor plane, in which case the visualized mesh is exact.
 
         Returns
         -------
@@ -331,7 +410,9 @@ class HeatChargeSimulationData(AbstractHeatChargeSimulationData):
     ...         ),
     ...     ],
     ...     medium=td.Medium(permittivity=3.0, heat_spec=td.FluidSpec()),
-    ...     grid_spec=td.UniformUnstructuredGrid(dl=0.1),
+    ...     grid_spec=td.UniformUnstructuredGrid(
+    ...         dl=0.1, min_edges_per_circumference=15, min_edges_per_side=2
+    ...     ),
     ...     sources=[td.HeatSource(rate=1, structures=["box"])],
     ...     boundary_spec=[
     ...         td.HeatChargeBoundarySpec(
@@ -363,6 +444,18 @@ class HeatChargeSimulationData(AbstractHeatChargeSimulationData):
         title="Device characteristics",
         description="Data characterizing the device :class:`DeviceCharacteristics`.",
     )
+
+    @model_validator(mode="after")
+    def add_device_characteristic_units(self) -> Self:
+        """Copy dimensionality-aware units onto device-characteristic data arrays."""
+        if self.device_characteristics is None:
+            return self
+
+        device_characteristics = self.device_characteristics.copy(deep=False)
+        is_2d = any(size == 0 for size in self.simulation.size)
+        device_characteristics._add_data_array_attrs(is_2d=is_2d)
+        object.__setattr__(self, "device_characteristics", device_characteristics)
+        return self
 
     @equal_aspect
     @add_ax_if_none
@@ -431,7 +524,7 @@ class HeatChargeSimulationData(AbstractHeatChargeSimulationData):
         # field.name = field_name
         field_data = self._field_component_value(field, val)
 
-        if isinstance(monitor_data, (TemperatureData, VolumeMeshData)):
+        if isinstance(monitor_data, TemperatureData | VolumeMeshData):
             property_to_plot = "heat_conductivity"
         elif isinstance(monitor_data, SteadyPotentialData):
             property_to_plot = "electric_conductivity"
@@ -624,7 +717,9 @@ class VolumeMesherData(AbstractHeatChargeSimulationData):
     ...         ),
     ...     ],
     ...     medium=td.Medium(permittivity=3.0, heat_spec=td.FluidSpec()),
-    ...     grid_spec=td.UniformUnstructuredGrid(dl=0.1),
+    ...     grid_spec=td.UniformUnstructuredGrid(
+    ...         dl=0.1, min_edges_per_circumference=15, min_edges_per_side=2
+    ...     ),
     ...     sources=[td.HeatSource(rate=1, structures=["box"])],
     ...     boundary_spec=[
     ...         td.HeatChargeBoundarySpec(

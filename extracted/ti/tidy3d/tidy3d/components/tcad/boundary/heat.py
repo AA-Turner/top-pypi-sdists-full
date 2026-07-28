@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING
 
-from pydantic import Field, NonNegativeFloat, PositiveFloat
+from pydantic import Field, NonNegativeFloat, PositiveFloat, field_validator
 
 from tidy3d.components.base import Tidy3dBaseModel
 from tidy3d.components.material.tcad.heat import FluidMedium
@@ -16,6 +17,7 @@ from tidy3d.constants import (
     HEAT_TRANSFER_COEFF,
     KELVIN,
     MICROMETER,
+    THERMAL_RESISTANCE,
 )
 
 if TYPE_CHECKING:
@@ -172,3 +174,123 @@ class ConvectionBC(HeatChargeBC):
         description="Heat transfer coefficient value.",
         json_schema_extra={"units": HEAT_TRANSFER_COEFF},
     )
+
+    emissivity: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        title="Surface Emissivity",
+        description=(
+            "Optional surface emissivity. When set to a positive value, a gray-body "
+            "radiative exchange term is added to the convective flux, using the same "
+            "ambient temperature. An emissivity of 0 adds no radiative flux and is "
+            "equivalent to leaving the field unset. "
+            "See :class:`RadiationBC` for the definition of the radiative term and "
+            "the simulation types that support it."
+        ),
+    )
+
+
+class RadiationBC(HeatChargeBC):
+    """Gray-body surface radiation thermal boundary condition.
+
+    Notes
+    -----
+
+    The boundary radiates to (and absorbs from) a far-field ambient at
+    ``ambient_temperature`` following the Stefan-Boltzmann law
+
+    .. math::
+
+        q = \\varepsilon \\sigma \\left( T^4 - T_{amb}^4 \\right),
+
+    where :math:`\\varepsilon` is the surface emissivity and :math:`\\sigma` the
+    Stefan-Boltzmann constant. This boundary condition is applied by the heat solver
+    (heat and conduction+heat simulations). It is not yet supported in non-isothermal
+    charge (coupled charge+heat) simulations, which reject it at validation.
+
+    Example
+    -------
+    >>> import tidy3d as td
+    >>> bc = td.RadiationBC(ambient_temperature=300, emissivity=0.9)
+    """
+
+    ambient_temperature: PositiveFloat = Field(
+        title="Ambient Temperature",
+        description="Far-field ambient temperature the surface radiates to.",
+        json_schema_extra={"units": KELVIN},
+    )
+
+    emissivity: float = Field(
+        gt=0.0,
+        le=1.0,
+        title="Surface Emissivity",
+        description=(
+            "Surface emissivity (dimensionless, between 0 and 1). Must be strictly "
+            "positive: a zero-emissivity surface exchanges no radiative flux, so the "
+            "boundary condition would not constrain the temperature."
+        ),
+    )
+
+
+class ThermalContactResistance(HeatChargeBC):
+    """Interfacial thermal resistance (thermal contact / Kapitza resistance) between two
+    touching solids.
+
+    Notes
+    -----
+
+    The interface transmits the heat flux
+
+    .. math::
+
+        q'' = \\frac{1}{R} \\left( T_1 - T_2 \\right),
+
+    so the temperature is discontinuous across the interface: the temperature jump is
+    proportional to the heat flux crossing it. This models thin thermally-resistive
+    interfaces (imperfect bonding, grain boundaries, phonon mismatch between thin films)
+    without meshing them. This condition can only be placed on an interface between two
+    solids (:class:`StructureStructureInterface` or :class:`MediumMediumInterface`).
+
+    This boundary condition is applied by the heat solver, including when heat is coupled
+    with electrical conduction. It is not supported in non-isothermal charge (coupled
+    charge+heat) simulations, where the coupled thermal solve does not apply the
+    interfacial thermal resistance, so including it there raises a setup error.
+
+    Example
+    -------
+    >>> import tidy3d as td
+    >>> bc = td.ThermalContactResistance(resistance=3e3)  # K*um^2/W
+    >>> bc_si = td.ThermalContactResistance.from_si_units(resistance=3e-9)  # m^2*K/W
+    """
+
+    resistance: PositiveFloat = Field(
+        title="Interfacial Thermal Resistance",
+        description=f"Interfacial thermal resistance in units of {THERMAL_RESISTANCE}.",
+        json_schema_extra={"units": THERMAL_RESISTANCE},
+    )
+
+    @field_validator("resistance")
+    @classmethod
+    def _resistance_must_be_finite(cls, val: float) -> float:
+        """Reject non-finite resistance values."""
+        if not math.isfinite(val):
+            raise ValueError(
+                "'resistance' must be finite. To thermally decouple the two sides of an "
+                "interface, remove one of them from the heat simulation instead."
+            )
+        return val
+
+    @classmethod
+    def from_si_units(cls, resistance: PositiveFloat) -> Self:
+        """Create a :class:`ThermalContactResistance` using SI units.
+
+        Args:
+            resistance: Interfacial thermal resistance in [m^2*K/W].
+
+        Returns:
+            An instance of ThermalContactResistance with the value converted to Tidy3D's
+            internal unit system.
+        """
+        resistance_tidy = resistance * 1e12  # m^2*K/W -> K*um^2/W
+        return cls(resistance=resistance_tidy)

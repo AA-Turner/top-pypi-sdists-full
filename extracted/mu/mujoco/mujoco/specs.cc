@@ -225,7 +225,7 @@ static std::string addPrefixAndSuffix(const std::string& original_path,
   return addSuffixBeforeExtension(prefixed_path, suffix_to_add);
 }
 
-PYBIND11_MODULE(_specs, m) {
+PYBIND11_MODULE(_specs, m, pybind11::mod_gil_not_used()) {
   auto structs_m = py::module::import("mujoco._structs");
   py::function mjmodel_from_raw_ptr =
       structs_m.attr("MjModel").attr("_from_model_ptr");
@@ -545,7 +545,7 @@ PYBIND11_MODULE(_specs, m) {
       "encode",
       [](MjSpec& self, std::string filename,
          std::optional<py::object> model,
-         std::optional<std::string> content_type) -> int {
+         std::optional<std::string> content_type) -> mjtSize {
         raw::MjModel* m = nullptr;
         if (model.has_value() && !model->is_none()) {
           auto& wrapper =
@@ -572,8 +572,8 @@ PYBIND11_MODULE(_specs, m) {
         err[0] = '\0';
         const char* ct =
             content_type.has_value() ? content_type->c_str() : nullptr;
-        int nbytes = mj_encode(self.ptr, m, filename.c_str(), ct,
-                               vfs_ptr, err.data(), err.size());
+        mjtSize nbytes = mj_encode(self.ptr, m, filename.c_str(), ct,
+                                   vfs_ptr, err.data(), err.size());
 
         if (vfs_ptr) {
           mj_deleteVFS(vfs_ptr);
@@ -777,7 +777,7 @@ PYBIND11_MODULE(_specs, m) {
           std::string key = py::str(item.first);
           if (key == "align") {
             try {
-              out->align = kwargs["align"].cast<int>();
+              out->align = static_cast<mjtAlignFree>(kwargs["align"].cast<int>());
             } catch (const py::cast_error& e) {
               throw pybind11::value_error("align is the wrong type.");
             }
@@ -1554,6 +1554,19 @@ PYBIND11_MODULE(_specs, m) {
         }
       },
       py::arg("kv"));
+  mjsActuator.def(
+      "set_to_orientation",
+      [](raw::MjsActuator* self, double kp, double kv, double dampratio,
+         int ctrlspec) {
+        std::string err = mjs_setToOrientation(
+            self, kp, kv == -1 ? nullptr : &kv,
+            dampratio == -1 ? nullptr : &dampratio, ctrlspec);
+        if (!err.empty()) {
+          throw pybind11::value_error(err);
+        }
+      },
+      py::arg("kp"), py::arg("kv") = -1, py::arg("dampratio") = -1,
+      py::arg("ctrlspec") = 0);
   mjsActuator.def(
       "set_to_damper",
       [](raw::MjsActuator* self, double kv) {

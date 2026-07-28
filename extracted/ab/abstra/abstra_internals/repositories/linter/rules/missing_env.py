@@ -27,6 +27,9 @@ class AddEnvToEnvFile(LinterFix):
 
 
 class EnvInCodeNotInEnvFile(LinterIssue):
+    title = "Missing env vars"
+    type = "warning"
+
     def __init__(self, filename: Path, lineno: int, env_var: str):
         self.label = f"Env var {env_var} is used in {filename}:{lineno} but not defined in .env file"
         self.fixes = [AddEnvToEnvFile(env_var)]
@@ -34,7 +37,6 @@ class EnvInCodeNotInEnvFile(LinterIssue):
 
 class MissingEnv(PathScopedLinterRule):
     label: str = "Missing env vars"
-    type: str = "warning"
     internal_envs: Set[str] = {
         "ABSTRA_RUNNING_IN_BUNDLED_APP",
         "ABSTRA_BUNDLED_APP_PACKAGES_FOLDER",

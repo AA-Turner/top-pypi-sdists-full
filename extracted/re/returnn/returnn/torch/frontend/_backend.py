@@ -634,12 +634,27 @@ class TorchBackend(Backend[torch.Tensor]):
         :return: softmax over axis
         """
         out = tensor.copy_template("softmax")
+        mask = None
         if use_mask and axis.need_masking():
             tensor = tensor.copy()
             mask = tensor.get_sequence_mask_broadcast(axis=axis)
             inf_value = get_global_inf_value()
             tensor.raw_tensor = torch.where(mask, tensor.raw_tensor, -inf_value)
-        out_raw = torch.softmax(tensor.raw_tensor, dim=tensor.dims.index(axis))
+        axis_int = tensor.dims.index(axis)
+        any_valid = None
+        if mask is not None and rf.is_static_traceable():
+            # Bound-shape regime (e.g. torch_cuda_graph):
+            # zero-length filler seqs have FULLY masked rows,
+            # where the stable softmax would give NaN ((-inf)-(-inf)),
+            # poisoning anything that touches those rows. Define those rows as 0 instead.
+            # The 0 energies are substituted BEFORE the softmax (finite uniform row),
+            # so not even the softmax backward sees NaN
+            # (its grads for those rows are select-masked to 0 by the wheres either way).
+            any_valid = mask.any(dim=axis_int, keepdim=True)
+            tensor.raw_tensor = torch.where(any_valid, tensor.raw_tensor, torch.zeros_like(tensor.raw_tensor))
+        out_raw = torch.softmax(tensor.raw_tensor, dim=axis_int)
+        if any_valid is not None:
+            out_raw = torch.where(any_valid, out_raw, torch.zeros_like(out_raw))
         out.dtype = TorchBackend.get_dtype_name_raw(out_raw)
         out.raw_tensor = out_raw
         return out
@@ -653,12 +668,21 @@ class TorchBackend(Backend[torch.Tensor]):
         :return: log_softmax over axis
         """
         out = tensor.copy_template("log_softmax")
+        mask = None
         if use_mask and axis.need_masking():
             tensor = tensor.copy()
             mask = tensor.get_sequence_mask_broadcast(axis=axis)
             inf_value = get_global_inf_value()
             tensor.raw_tensor = torch.where(mask, tensor.raw_tensor, -inf_value)
-        out_raw = torch.log_softmax(tensor.raw_tensor, dim=tensor.dims.index(axis))
+        axis_int = tensor.dims.index(axis)
+        any_valid = None
+        if mask is not None and rf.is_static_traceable():
+            # see softmax above: fully-masked rows (zero-length filler seqs) -> -inf, not NaN
+            any_valid = mask.any(dim=axis_int, keepdim=True)
+            tensor.raw_tensor = torch.where(any_valid, tensor.raw_tensor, torch.zeros_like(tensor.raw_tensor))
+        out_raw = torch.log_softmax(tensor.raw_tensor, dim=axis_int)
+        if any_valid is not None:
+            out_raw = torch.where(any_valid, out_raw, torch.full_like(out_raw, -get_global_inf_value()))
         out.dtype = TorchBackend.get_dtype_name_raw(out_raw)
         out.raw_tensor = out_raw
         return out
@@ -968,7 +992,12 @@ class TorchBackend(Backend[torch.Tensor]):
     def parameter_assign(param: rf.Parameter, value: Tensor, *, op: str = "assign") -> None:
         """param assign"""
         raw_param = param.raw_tensor
-        assert isinstance(raw_param, torch.nn.Parameter)
+        if rf.is_static_traceable():
+            # under tracing, this can be a functionalized substitute (a plain Tensor, not nn.Parameter):
+            # make_fx/AOT with the params passed as function inputs
+            assert isinstance(raw_param, torch.Tensor)
+        else:
+            assert isinstance(raw_param, torch.nn.Parameter)
         value_raw = value.copy_compatible_to_dims_raw(param.dims)
         with torch.no_grad():
             if op == "assign":
@@ -1984,9 +2013,18 @@ class TorchBackend(Backend[torch.Tensor]):
                 # Device or per-element tensor bounds: affine transform of U[0,1) -> [minval, maxval),
                 # floored to int, fully on device
                 # (reading a device scalar syncs, and is illegal under CUDA-graph capture).
-                if any(
-                    isinstance(v, Tensor) and (v.dims or (v.raw_tensor is not None and v.device != "cpu"))
-                    for v in (minval, maxval)
+                # Under static traceable, int bounds also take the affine path (any device:
+                # cpu aten ops get traced all the same).
+                # Keeps aten.random_ out of traced programs:
+                # one uniform RNG mechanism (torch.rand/philox) for capture replay and Inductor,
+                # and its overload name "from" is a Python keyword,
+                # which breaks FX codegen (upstream PyTorch bug, SyntaxError in generated code).
+                if (
+                    any(
+                        isinstance(v, Tensor) and (v.dims or (v.raw_tensor is not None and v.device != "cpu"))
+                        for v in (minval, maxval)
+                    )
+                    or rf.is_static_traceable()
                 ):
                     if isinstance(minval, Tensor):
                         minval = minval.copy_compatible_to_dims_raw(out.dims) if minval.dims else minval.raw_tensor

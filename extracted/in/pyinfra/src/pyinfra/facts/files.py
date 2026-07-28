@@ -3,7 +3,9 @@ The files facts provide information about the filesystem and it's contents on th
 
 Facts need to be imported before use, eg
 
-from pyinfra.facts.files import File
+.. code:: python
+
+    from pyinfra.facts.files import File
 """
 
 from __future__ import annotations
@@ -11,7 +13,7 @@ from __future__ import annotations
 import re
 import stat
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING
 
 from typing_extensions import NotRequired, TypedDict, override
 from typing import Literal
@@ -218,7 +220,7 @@ class FileDict(TypedDict):
     link_target: NotRequired[str]
 
 
-class File(FactBase[Union[FileDict, Literal[False], None]]):
+class File(FactBase[FileDict | Literal[False] | None]):
     """
     Returns information about a file on the remote system:
 
@@ -368,7 +370,7 @@ class Socket(File):
 
 
 if TYPE_CHECKING:
-    FactBaseOptionalStr = FactBase[Optional[str]]
+    FactBaseOptionalStr = FactBase[str | None]
 else:
     FactBaseOptionalStr = FactBase
 
@@ -388,10 +390,10 @@ class HashFileFactBase(FactBaseOptionalStr):
         assert cls.__name__.endswith("File")
         hash_name = cls.__name__[:-4].upper()
         cls._regexes = (
-            # GNU coreutils style:
-            r"^([a-fA-F0-9]{%d})\s+%%s$" % digits,
+            # GNU coreutils style (two-stage template: %%s stays a literal %s placeholder):
+            r"^([a-fA-F0-9]{%d})\s+%%s$" % digits,  # noqa: UP031
             # BSD style:
-            r"^%s\s+\(%%s\)\s+=\s+([a-fA-F0-9]{%d})$" % (hash_name, digits),
+            r"^%s\s+\(%%s\)\s+=\s+([a-fA-F0-9]{%d})$" % (hash_name, digits),  # noqa: UP031
         )
 
     @override
@@ -489,6 +491,7 @@ class FindFilesBase(FactBase):
         fname: str | None = None,
         iname: str | None = None,
         regex: str | None = None,
+        path_match: str | None = None,
         args: list[str] | None = None,
         quote_path=True,
     ):
@@ -507,6 +510,9 @@ class FindFilesBase(FactBase):
 
         @param iname: Like -name, but the match is case insensitive.
         @param regex: True if the whole path of the file matches pattern using regular expression.
+        @param path_match: glob matched against the whole path via ``-path``. The pattern is
+                           always shell-quoted so the shell passes it literally and find itself
+                           does the globbing, which keeps glob matching without an unquoted path.
         @param args: additional arguments to pass to find
         @param quote_path: if the path should be quoted
         @return:
@@ -559,6 +565,10 @@ class FindFilesBase(FactBase):
         if regex is not None and "-regex" not in args:
             command.append("-regex")
             command.append(maybe_quote(regex))
+
+        if path_match is not None and "-path" not in args:
+            command.append("-path")
+            command.append(QuoteString(path_match))
 
         command.extend(args)
 

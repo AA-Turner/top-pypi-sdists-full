@@ -7,15 +7,11 @@ class MemoryCache:
     def __init__(self) -> None:
         self._cache: t.Dict[str, str] = {}
 
-    def get(
-        self, key: str, *, skip_local_cache: bool = False
-    ) -> t.Optional[str]:
+    def get(self, key: str, *, skip_local_cache: bool = False) -> t.Optional[str]:
         del skip_local_cache  # single-tier, nothing to skip
         return self._cache.get(key)
 
-    def put(
-        self, key: str, value: str, time_to_live: t.Optional[int] = None
-    ) -> None:
+    def put(self, key: str, value: str, time_to_live: t.Optional[int] = None) -> None:
         del time_to_live
         self._cache[key] = value
 
@@ -45,9 +41,7 @@ class TwoTierMemoryCache:
         self._local: t.Dict[str, str] = {}
         self._shared: t.Dict[str, str] = {}
 
-    def get(
-        self, key: str, *, skip_local_cache: bool = False
-    ) -> t.Optional[str]:
+    def get(self, key: str, *, skip_local_cache: bool = False) -> t.Optional[str]:
         if not skip_local_cache and key in self._local:
             return self._local[key]
         value = self._shared.get(key)
@@ -55,9 +49,7 @@ class TwoTierMemoryCache:
             self._local[key] = value
         return value
 
-    def put(
-        self, key: str, value: str, time_to_live: t.Optional[int] = None
-    ) -> None:
+    def put(self, key: str, value: str, time_to_live: t.Optional[int] = None) -> None:
         del time_to_live
         self._local[key] = value
         self._shared[key] = value

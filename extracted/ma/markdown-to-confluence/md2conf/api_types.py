@@ -51,9 +51,20 @@ class ConfluenceRepresentation(enum.Enum):
 
 @enum.unique
 class ConfluenceStatus(enum.Enum):
+    """
+    The status of the content.
+
+    Values `current` and `draft` are supported for both `GET` and `UPDATE` operations.
+    Other values can be returned by `GET` but not allowed for `UPDATE`.
+    """
+
     CURRENT = "current"
     DRAFT = "draft"
     ARCHIVED = "archived"
+    HISTORICAL = "historical"
+    TRASHED = "trashed"
+    DELETED = "deleted"
+    ANY = "any"
 
 
 @enum.unique
@@ -244,7 +255,7 @@ class ConfluenceVersionedContentProperty(ConfluenceContentProperty):
     """
     Represents a content property.
 
-    :param version: Version information about the property.
+    :param version: Version information for the property.
     """
 
     version: ConfluenceContentVersion
@@ -259,3 +270,38 @@ class ConfluenceIdentifiedContentProperty(ConfluenceVersionedContentProperty):
     """
 
     id: str
+
+
+@enum.unique
+class ConfluenceCommentStatus(enum.Enum):
+    """
+    Resolution status of an inline comment on a Confluence page.
+    """
+
+    OPEN = "open"
+    REOPENED = "reopened"
+    RESOLVED = "resolved"
+    DANGLING = "dangling"
+
+
+@dataclass(frozen=True)
+class ConfluenceComment:
+    """
+    Represents an inline comment on a Confluence page.
+
+    :param id: ID of the comment.
+    :param status: Content status of the comment (e.g. `current` or `draft`).
+    :param title: Title of the comment.
+    :param pageId: ID of the page the comment is in.
+    :param version: Version information for the comment.
+    :param body: Comment text.
+    :param resolutionStatus: Resolution status of the comment (e.g. `open` or `resolved`).
+    """
+
+    id: str
+    status: ConfluenceStatus
+    title: str
+    pageId: str
+    version: ConfluenceContentVersion
+    body: ConfluencePageBody
+    resolutionStatus: ConfluenceCommentStatus

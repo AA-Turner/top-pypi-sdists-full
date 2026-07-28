@@ -6,6 +6,8 @@ on:
     - opened
     - reopened
     - synchronize
+    - auto_merge_enabled
+    - auto_merge_disabled
     branches:
     - main
 
@@ -20,16 +22,16 @@ jobs:
 
     steps:
     - name: Wait all checks
-      uses: lewagon/wait-on-check-action@v1.4.0
+      uses: lewagon/wait-on-check-action@v1.8.0
       with:
-        ref: ${{ github.ref }}
+        ref: ${{ github.event.pull_request.head.sha }}
         check-name: final_check
         wait-interval: 10
         repo-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Dependabot metadata
       id: metadata
-      uses: dependabot/fetch-metadata@v2
+      uses: dependabot/fetch-metadata@v3
       with:
         github-token: "${{ secrets.GITHUB_TOKEN }}"
 
@@ -45,7 +47,7 @@ jobs:
       #   e.g. version-update:semver-major. 
       #   For all possible values, see the ignore documentation. 
       #   https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#ignore
-      if: steps.metadata.outputs.update-type == 'version-update:semver-patch'
+      if: contains(steps.metadata.outputs.update-type, 'version-update:semver')
       run: gh pr merge --auto --squash ${{ github.event.pull_request.html_url }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

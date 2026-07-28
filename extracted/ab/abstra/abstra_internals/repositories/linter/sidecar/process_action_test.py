@@ -21,7 +21,7 @@ class ProcessActionHookTest(unittest.TestCase):
     def test_default_handler_executes_immediately(self):
         with patch.object(process_actions, "execute_process_action") as execute:
             process_actions.request_process_action("restart_editor")
-        execute.assert_called_once_with("restart_editor")
+        execute.assert_called_once_with("restart_editor", reason=None)
 
     def test_registered_handler_intercepts_execution(self):
         collected = []
@@ -36,7 +36,14 @@ class ProcessActionHookTest(unittest.TestCase):
         process_actions.set_process_action_handler(None)
         with patch.object(process_actions, "execute_process_action") as execute:
             process_actions.request_process_action("restart_editor")
-        execute.assert_called_once_with("restart_editor")
+        execute.assert_called_once_with("restart_editor", reason=None)
+
+    def test_default_handler_forwards_reason(self):
+        with patch.object(process_actions, "execute_process_action") as execute:
+            process_actions.request_process_action(
+                "restart_editor", reason="UpdateAbstra"
+            )
+        execute.assert_called_once_with("restart_editor", reason="UpdateAbstra")
 
 
 class ExecuteProcessActionTest(unittest.TestCase):
@@ -54,6 +61,39 @@ class ExecuteProcessActionTest(unittest.TestCase):
             process_actions.execute_process_action("restart_editor", is_web=True)
         exit_.assert_called_once_with(0)
         execv.assert_not_called()
+
+    def test_web_mode_emits_restart_lifecycle_before_exit(self):
+        events = []
+        with (
+            patch("os._exit") as exit_,
+            patch.object(
+                process_actions.AbstraLogger,
+                "lifecycle",
+                side_effect=lambda msg, attrs: events.append((msg, attrs)),
+            ),
+        ):
+            process_actions.execute_process_action(
+                "restart_editor", is_web=True, reason="InstallPackage"
+            )
+        exit_.assert_called_once_with(0)
+        self.assertEqual(len(events), 1)
+        _, attrs = events[0]
+        self.assertEqual(attrs["stage"], "editor.restart_requested")
+        self.assertEqual(attrs["action"], "restart_editor")
+        self.assertEqual(attrs["reason"], "InstallPackage")
+
+    def test_local_mode_emits_no_lifecycle(self):
+        events = []
+        with (
+            patch("os.execv"),
+            patch.object(
+                process_actions.AbstraLogger,
+                "lifecycle",
+                side_effect=lambda msg, attrs: events.append((msg, attrs)),
+            ),
+        ):
+            process_actions.execute_process_action("restart_editor", is_web=False)
+        self.assertEqual(events, [])
 
     def test_unknown_action_is_a_noop(self):
         with patch("os.execv") as execv, patch("os._exit") as exit_:

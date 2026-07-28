@@ -104,16 +104,16 @@ class MultiplayerTrackingCamera:
   def initialize_episode(self, entity_positions):
     """Begin the episode with the camera set to its target pose."""
     target_pose = self._get_target_camera_pose(entity_positions)
-    self._camera.set_pose(*target_pose)
+    self._camera.set_pose(*target_pose)  # pyrefly: ignore[missing-attribute]
 
   def after_step(self, entity_positions):
     """Move camera toward its target poses."""
     target_pose = self._get_target_camera_pose(entity_positions)
-    cur_pose = self._camera.get_pose()
+    cur_pose = self._camera.get_pose()  # pyrefly: ignore[missing-attribute]
     smoothing_update_speed = self._smoothing_update_speed
     filtered_pose = [
         target_val * smoothing_update_speed + \
         current_val * (1 - smoothing_update_speed)
         for target_val, current_val in zip(target_pose, cur_pose)
     ]
-    self._camera.set_pose(*filtered_pose)
+    self._camera.set_pose(*filtered_pose)  # pyrefly: ignore[missing-attribute]

@@ -1,0 +1,307 @@
+---
+name: 🔬 Tests
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - click_extra/**
+      - tests/**
+      - pyproject.toml
+      - uv.lock
+      - .github/workflows/tests.yaml
+  pull_request:
+    branches-ignore:
+      # This filter matches the PR's *base* branch (always `main`), not its
+      # head, so it does not actually exclude these PRs — see
+      # https://github.com/actions/runner/issues/1591. The real skip is the
+      # `github.head_ref` check in the `metadata` job's `if:` below. Kept
+      # here as documentation of intent.
+      - major-version-increment
+      - minor-version-increment
+      - prepare-release
+    paths:
+      - click_extra/**
+      - tests/**
+      - pyproject.toml
+      - uv.lock
+      - .github/workflows/tests.yaml
+  schedule:
+    # Run tests monthly to catch regressions from dependency or environment changes.
+    - cron: "17 9 1 * *"
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.event.head_commit.message, '[changelog] Release') }}
+
+jobs:
+
+  metadata:
+    name: 🧬 Project metadata
+    # Real version-bump skip: the trigger's `branches-ignore` matches the PR's
+    # base branch (always `main`), not its head, so version-bump PRs slip
+    # through it. Skipping `metadata` propagates to every `needs: metadata` job
+    # below. The branch and commit-prefix lists mirror repomatic's
+    # `VERSION_BUMP_BRANCHES` and `MANUAL_VERSION_BUMP_COMMIT_PREFIXES`. The
+    # `[changelog] Post-release bump ` prefix is intentionally excluded: that
+    # push also carries the release commit, our only post-merge test of the
+    # release-frozen tree.
+    if: >
+      !contains(fromJSON('["major-version-increment","minor-version-increment","prepare-release"]'),
+      github.head_ref)
+      && !startsWith(github.event.head_commit.message || '', 'Bump major version to ')
+      && !startsWith(github.event.head_commit.message || '', 'Bump minor version to ')
+    runs-on: ubuntu-slim
+    outputs:
+      metadata: ${{ steps.metadata.outputs.metadata }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+      - name: Run repomatic metadata
+        id: metadata
+        run: >
+          uvx --no-progress 'repomatic==7.3.0' metadata
+          --format github-json --output "$GITHUB_OUTPUT"
+          coverage_cells test_matrix test_matrix_pr
+
+  once-tests:
+    name: 🔂 Once tests
+    needs:
+      - metadata
+    runs-on: ubuntu-slim
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+      - name: Install Python
+        run: uv --no-progress venv --python 3.14
+      - name: Install project
+        run: uv --no-progress sync --frozen --all-extras --group test
+
+      - name: Test wrapper on Click CLIs
+        run: |
+          uv --no-progress run --frozen --with flask -- click-extra             wrap  flask --help
+          uv --no-progress run --frozen --with flask -- click-extra --no-color  wrap  flask --help
+          uv --no-progress run --frozen --with flask -- click-extra             run   flask --help
+          uv --no-progress run --frozen --with flask -- click-extra                   flask --help
+          uv --no-progress run --frozen --with quart -- click-extra             wrap  quart --help
+          uv --no-progress run --frozen --with quart -- click-extra                   quart --help
+
+      - name: Self-test the CLI against its test suite
+        # Dogfood both the test-suite engine and click-extra's own config: the
+        # suite path is resolved from the [tool.click-extra.test-suite] section in
+        # pyproject.toml, discovered from the repo root, then run against the
+        # installed click-extra CLI.
+        run: uv --no-progress run --frozen -- click-extra test-suite --command click-extra --jobs max
+      - name: Self-test the CLI against its test suite via python -m
+        # Same suite as above, driven through the interpreter's `-m` entry
+        # point, so `__main__` stays exercised against the checkout.
+        run: uv --no-progress run --frozen -- click-extra test-suite --command "python -m click_extra" --jobs max
+
+      - name: Run once-only tests
+        # Produce the coverage XML artifact consumed by the Codecov upload below.
+        run: >
+          uv --no-progress run --frozen --
+          pytest -m once
+          --cov
+          --cov-report=term
+          --cov-report=xml
+
+      - name: Upload coverage to Codecov
+        # Same skip conditions as the matrix cells (data-only sync-repomatic
+        # PRs, fork PRs without secrets). No `coverage_cells` membership test:
+        # this job runs exactly once, and its upload keeps the lines only
+        # `once` tests cover counted in the merged report.
+        if: >
+          github.head_ref != 'sync-repomatic'
+          && env.CODECOV_TOKEN != ''
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        shell: bash
+        run: >
+          uvx --no-progress 'codecov-cli==11.3.1'
+          --auto-load-params-from githubactions
+          upload-process
+          --git-service github
+          --report-type coverage
+          --token "${CODECOV_TOKEN}"
+
+  test-package-install:
+    name: 📦 Package install
+    needs:
+      - metadata
+    # Installs click-extra from PyPI and GitHub (released and main branch
+    # versions), never the PR code, so running on pull requests would only
+    # couple PR status to external state.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-slim
+    steps:
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+      - name: Install Python
+        run: uv --no-progress venv --python 3.14
+
+      - name: Run stable CLI
+        run: |
+          uvx                                   click-extra --version
+          uv run  --with click-extra  --        click-extra --version
+          uv run  --with click-extra  -m        click_extra --version
+          uv run  --with click-extra  python -m click_extra --version
+
+      - name: Run dev CLI
+        run: |
+          uvx     --from git+https://github.com/kdeldycke/click-extra --        click-extra --version
+          uv run  --with git+https://github.com/kdeldycke/click-extra --        click-extra --version
+          uv run  --with git+https://github.com/kdeldycke/click-extra -m        click_extra --version
+          uv run  --with git+https://github.com/kdeldycke/click-extra python -m click_extra --version
+
+      - name: Run stable CLI via uv tool
+        run: |
+          uv --no-progress tool install click-extra
+          click-extra --version
+          uv --no-progress tool uninstall click-extra
+      - name: Run dev CLI via uv tool
+        run: |
+          uv --no-progress tool install git+https://github.com/kdeldycke/click-extra
+          click-extra --version
+          uv --no-progress tool uninstall click-extra
+
+      - name: Run CLI via pipx
+        run: |
+          uv --no-progress tool install pipx
+          pipx run                                                      click-extra --version
+          pipx run --spec click-extra                                   click-extra --version
+          pipx run --spec git+https://github.com/kdeldycke/click-extra  click-extra --version
+          uv --no-progress tool uninstall pipx
+
+      - name: Run stable CLI via pip
+        run: |
+          uv --no-progress pip install click-extra
+          .venv/bin/click-extra --version
+          uv --no-progress pip uninstall click-extra
+      - name: Run dev CLI via pip
+        run: |
+          uv --no-progress pip install git+https://github.com/kdeldycke/click-extra
+          .venv/bin/click-extra --version
+          uv --no-progress pip uninstall click-extra
+
+  tests:
+    needs:
+      - metadata
+    strategy:
+      fail-fast: false
+      # Matrix is pre-computed by repomatic metadata. PRs get a reduced matrix
+      # (fewer OS variants and Python versions) to save CI minutes.
+      matrix: >-
+        ${{ github.event_name != 'pull_request'
+        && fromJSON(needs.metadata.outputs.metadata).test_matrix
+        || fromJSON(needs.metadata.outputs.metadata).test_matrix_pr }}
+    name: |
+      ${{ matrix.state == 'stable' && '✅' || '⁉️' }}
+      ${{ matrix.os }} /
+      py${{ matrix.python-version }} /
+      Click ${{ matrix.click-version }} /
+      Cloup ${{ matrix.cloup-version }}
+    runs-on: ${{ matrix.os }}
+    # We keep going when a job flagged as not stable fails.
+    continue-on-error: ${{ matrix.state == 'unstable' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+      - name: Force native ARM64 Python on Windows ARM64
+        # Workaround for https://github.com/astral-sh/uv/issues/12906: uv defaults to x86_64 Python on ARM64 Windows,
+        # relying on transparent emulation. Native extensions with Rust (e.g., test-results-parser from codecov-cli)
+        # fail to compile because the ARM64 Rust toolchain lacks the x86_64-pc-windows-msvc target. Setting UV_PYTHON
+        # to an architecture-qualified specifier forces uv (and uvx) to use native ARM64 Python for all steps.
+        if: runner.os == 'Windows' && runner.arch == 'ARM64'
+        shell: bash
+        env:
+          PYTHON_VERSION: ${{ matrix.python-version }}
+        run: echo "UV_PYTHON=cpython-${PYTHON_VERSION}-aarch64" >> "$GITHUB_ENV"
+      - name: Install Python ${{ matrix.python-version }}
+        # If UV cannot find the requested Python version, it exits with code 2, which let the job pass unnoticed on
+        # Windows. So we force the shell to bash, even on Windows, and "set -e" to ensure any error in the install
+        # process is caught and fails the job. It works because Windows runners too Git Bash available).
+        shell: bash
+        env:
+          PYTHON_VERSION: ${{ matrix.python-version }}
+        run: |
+          set -e
+          uv --no-progress venv --python "${UV_PYTHON:-${PYTHON_VERSION}}"
+      - name: Force UTF-8 encoding on Windows
+        # Workaround for https://github.com/pallets/click/issues/2121: Windows GitHub Actions runners
+        # redirect command output to files, which sets the encoding to the system default (cp1252).
+        # Python CLI frameworks like Click then raise UnicodeEncodeError on non-ASCII output.
+        if: runner.os == 'Windows'
+        shell: bash
+        run: echo "PYTHONIOENCODING=utf8" >> "$GITHUB_ENV"
+      - name: Install project
+        # Install all extras, so we can check any incompatibility.
+        run: >
+          uv --no-progress sync --frozen --all-extras --group test
+
+      - name: Run local CLI
+        shell: bash
+        run: |
+          uv run -- click-extra         --version
+          uv run        -m click_extra  --version
+          uv run python -m click_extra  --version
+          uv run --with flask --with quart -- click-extra run flask --help
+          uv run --with flask --with quart -- click-extra run quart --help
+
+      - name: Unittests
+        # Produce the coverage XML artifact consumed by the Codecov upload below.
+        env:
+          CLICK_VERSION: ${{ matrix.click-version }}
+          CLOUP_VERSION: ${{ matrix.cloup-version }}
+        shell: bash
+        run: |
+          with_args=()
+          if [[ "${CLICK_VERSION}" != "released" && -n "${CLICK_VERSION}" ]]; then
+            with_args+=(--with "git+https://github.com/pallets/click.git@${CLICK_VERSION}")
+          fi
+          if [[ "${CLOUP_VERSION}" != "released" && -n "${CLOUP_VERSION}" ]]; then
+            with_args+=(--with "git+https://github.com/janluke/cloup.git@${CLOUP_VERSION}")
+          fi
+          uv --no-progress run --frozen "${with_args[@]}" -- \
+            pytest -m "not once" \
+            --cov \
+            --cov-report=term \
+            --cov-report=xml
+
+      - name: Upload coverage to Codecov
+        # Upload coverage only from the coverage-distinct cells: one runner per
+        # OS at released Python (the `coverage_cells` set, mirroring the PR
+        # matrix), restricted to released Click and Cloup. Coverage depends on
+        # OS family, Python version, and dependency versions, never CPU
+        # architecture: architecture twins, prerelease, and free-threaded cells
+        # produce coverage already captured by these cells, while the floor and
+        # dev Click/Cloup cells are kept out so the signal tracks the released
+        # dependency set (their version-compat branches count as uncovered).
+        #
+        # coverage_cells arrives as a space-joined string of `os|python-version`
+        # tokens (the GitHub list-output convention), so the membership test
+        # pads both operands with spaces to match a whole token, not a substring.
+        #
+        # Also skip sync-repomatic PRs (data-only changes with no coverable
+        # lines) and fork PRs (secrets are not available). The version-bump PR
+        # family is already filtered by the metadata job's `github.head_ref`
+        # gate above.
+        if: >
+          github.head_ref != 'sync-repomatic'
+          && env.CODECOV_TOKEN != ''
+          && matrix.click-version == 'released'
+          && matrix.cloup-version == 'released'
+          && contains(format(' {0} ', fromJSON(needs.metadata.outputs.metadata).coverage_cells),
+          format(' {0}|{1} ', matrix.os, matrix.python-version))
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        shell: bash
+        run: >
+          uvx --no-progress 'codecov-cli==11.3.1'
+          --auto-load-params-from githubactions
+          upload-process
+          --git-service github
+          --report-type coverage
+          --token "${CODECOV_TOKEN}"

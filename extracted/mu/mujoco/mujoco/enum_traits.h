@@ -235,6 +235,7 @@ struct mjtTrn {
     std::make_pair("mjTRN_TENDON", ::mjtTrn::mjTRN_TENDON),
     std::make_pair("mjTRN_SITE", ::mjtTrn::mjTRN_SITE),
     std::make_pair("mjTRN_BODY", ::mjtTrn::mjTRN_BODY),
+    std::make_pair("mjTRN_SO3", ::mjtTrn::mjTRN_SO3),
     std::make_pair("mjTRN_UNDEFINED", ::mjtTrn::mjTRN_UNDEFINED)};
 };
 
@@ -259,6 +260,7 @@ struct mjtGain {
     std::make_pair("mjGAIN_AFFINE", ::mjtGain::mjGAIN_AFFINE),
     std::make_pair("mjGAIN_MUSCLE", ::mjtGain::mjGAIN_MUSCLE),
     std::make_pair("mjGAIN_DCMOTOR", ::mjtGain::mjGAIN_DCMOTOR),
+    std::make_pair("mjGAIN_SO3", ::mjtGain::mjGAIN_SO3),
     std::make_pair("mjGAIN_USER", ::mjtGain::mjGAIN_USER)};
 };
 
@@ -270,7 +272,16 @@ struct mjtBias {
     std::make_pair("mjBIAS_AFFINE", ::mjtBias::mjBIAS_AFFINE),
     std::make_pair("mjBIAS_MUSCLE", ::mjtBias::mjBIAS_MUSCLE),
     std::make_pair("mjBIAS_DCMOTOR", ::mjtBias::mjBIAS_DCMOTOR),
+    std::make_pair("mjBIAS_SO3", ::mjtBias::mjBIAS_SO3),
     std::make_pair("mjBIAS_USER", ::mjtBias::mjBIAS_USER)};
+};
+
+struct mjtCtrlChart {
+  static constexpr char name[] = "mjtCtrlChart";
+  using type = ::mjtCtrlChart;
+  static constexpr auto values = std::array{
+    std::make_pair("mjCHART_EXPMAP", ::mjtCtrlChart::mjCHART_EXPMAP),
+    std::make_pair("mjCHART_QUAT", ::mjtCtrlChart::mjCHART_QUAT)};
 };
 
 struct mjtObj {
@@ -729,7 +740,9 @@ struct mjtMouse {
     std::make_pair("mjMOUSE_MOVE_H", ::mjtMouse::mjMOUSE_MOVE_H),
     std::make_pair("mjMOUSE_ZOOM", ::mjtMouse::mjMOUSE_ZOOM),
     std::make_pair("mjMOUSE_MOVE_V_REL", ::mjtMouse::mjMOUSE_MOVE_V_REL),
-    std::make_pair("mjMOUSE_MOVE_H_REL", ::mjtMouse::mjMOUSE_MOVE_H_REL)};
+    std::make_pair("mjMOUSE_MOVE_H_REL", ::mjtMouse::mjMOUSE_MOVE_H_REL),
+    std::make_pair("mjMOUSE_TURN_V", ::mjtMouse::mjMOUSE_TURN_V),
+    std::make_pair("mjMOUSE_TURN_H", ::mjtMouse::mjMOUSE_TURN_H)};
 };
 
 struct mjtPertBit {
@@ -1043,6 +1056,7 @@ static constexpr auto kAllEnums = std::make_tuple(
     mjtDyn{},
     mjtGain{},
     mjtBias{},
+    mjtCtrlChart{},
     mjtObj{},
     mjtSensor{},
     mjtStage{},

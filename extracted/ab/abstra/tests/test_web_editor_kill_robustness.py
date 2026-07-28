@@ -1,3 +1,4 @@
+import json
 import time
 import unittest
 from multiprocessing import Queue
@@ -10,6 +11,7 @@ from abstra_internals.repositories.consumer import (
     StopExecutionMessage,
     StopExecutionPayload,
 )
+from abstra_internals.repositories.models import RunSnippetMessage
 from abstra_internals.settings import SettingsController
 
 
@@ -166,6 +168,79 @@ class TestWebEditorKillRobustness(unittest.TestCase):
         # 2. Assert it called the pool (pool handles the logic of "not found")
         self.assertIn("ghost-id", self.pool_mock.killed_ids)
         self.assertIn(queue_msg, self.consumer_mock.acks)
+
+
+class SnippetPoolMock(MockExecutorPool):
+    def __init__(self):
+        super().__init__()
+        self.snippet_calls = []
+
+    def run_snippet(self, code, worker_id, title, requirements):
+        self.snippet_calls.append(code)
+        response = MagicMock()
+        response.success = True
+        response.error = None
+        response.logs = []
+        return response
+
+
+class TestRedeliveredSnippetGuard(unittest.TestCase):
+    def setUp(self):
+        SettingsController.set_root_path("/tmp")
+        SettingsController.set_server_port(3000)
+        self.consumer_mock = FaultyControlConsumer(Queue())
+
+        mock_main_controller = MagicMock()
+        mock_main_controller.repositories.mp_context.get_context.return_value = (
+            MagicMock()
+        )
+        mock_main_controller.repositories.producer = MagicMock()
+
+        self.controller = ConsumerController(
+            mock_main_controller,
+            self.consumer_mock,
+        )
+        self.pool_mock = SnippetPoolMock()
+        self.controller.executor_pool = self.pool_mock
+
+    def tearDown(self):
+        self.consumer_mock.stop_iter()
+        self.controller.shutdown()
+
+    def test_redelivered_snippet_is_not_executed(self):
+        # A snippet that killed the worker (e.g. OOM) is redelivered by the
+        # broker; running it again would just kill the worker in a loop. The
+        # message must be discarded, but the client must still get a failure
+        # reply instead of waiting for its reply timeout.
+        connection = MagicMock()
+        control_msg = RunSnippetMessage.create(code="print('boom')")
+        queue_msg = ControlQueueMessage(
+            message=control_msg,
+            delivery_tag=1,
+            redelivered=True,
+            connection=connection,
+        )
+
+        self.controller._handle_control_message(queue_msg)
+
+        self.assertEqual(self.pool_mock.snippet_calls, [])
+        self.assertIn(queue_msg, self.consumer_mock.acks)
+        self.assertNotIn(queue_msg, self.consumer_mock.nacks)
+
+        connection.send.assert_called_once()
+        result = json.loads(connection.send.call_args[0][0])
+        self.assertFalse(result["ok"])
+        self.assertIn("previous delivery", result["error"])
+
+    def test_fresh_snippet_is_executed_and_acked(self):
+        control_msg = RunSnippetMessage.create(code="print('hi')")
+        queue_msg = ControlQueueMessage(message=control_msg, delivery_tag=2)
+
+        self.controller._handle_control_message(queue_msg)
+
+        self.assertEqual(self.pool_mock.snippet_calls, ["print('hi')"])
+        self.assertIn(queue_msg, self.consumer_mock.acks)
+        self.assertNotIn(queue_msg, self.consumer_mock.nacks)
 
 
 if __name__ == "__main__":

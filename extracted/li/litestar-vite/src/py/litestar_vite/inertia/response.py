@@ -18,7 +18,7 @@ from litestar.utils.helpers import get_enum_string_value
 from litestar.utils.scope.state import ScopeState
 
 from litestar_vite.html_transform import inject_head_html, replace_element_outer_html
-from litestar_vite.inertia._utils import get_headers
+from litestar_vite.inertia._utils import InertiaHeaders, get_headers
 from litestar_vite.inertia.helpers import (
     PropFilter,
     _extract_once_prop_entries,  # pyright: ignore[reportPrivateUsage]
@@ -40,6 +40,7 @@ from litestar_vite.inertia.helpers import (
 )
 from litestar_vite.inertia.plugin import InertiaPlugin
 from litestar_vite.inertia.request import InertiaDetails, InertiaRequest
+from litestar_vite.inertia.state import consume_clear_history, persist_transient_state_for_redirect
 from litestar_vite.inertia.types import InertiaHeaderType, PageProps, ScrollPropsConfig
 from litestar_vite.plugin import VitePlugin
 
@@ -622,7 +623,7 @@ class InertiaResponse(Response[T]):
         vite_plugin = request.app.plugins.get(VitePlugin)
         inertia_plugin = request.app.plugins.get(InertiaPlugin)
         headers.update({
-            "Vary": "X-Inertia",
+            "Vary": InertiaHeaders.ENABLED.value,
             **get_headers(InertiaHeaderType(enabled=True, version=vite_plugin.asset_loader.version_id)),
         })
 
@@ -706,10 +707,11 @@ class InertiaExternalRedirect(Response[Any]):
             redirect_to: The URL to redirect to (can be external).
             **kwargs: Additional keyword arguments passed to the Response constructor.
         """
+        persist_transient_state_for_redirect(request)
         super().__init__(
             content=b"",
             status_code=HTTP_409_CONFLICT,
-            headers={"X-Inertia-Location": quote(redirect_to, safe="/#%[]=:;$&()+,!?*@'~")},
+            headers={InertiaHeaders.LOCATION.value: quote(redirect_to, safe="/#%[]=:;$&()+,!?*@'~")},
             **kwargs,
         )
 
@@ -733,6 +735,7 @@ class InertiaRedirect(Redirect):
             redirect_to: The URL to redirect to. Must be same-origin or relative.
             **kwargs: Additional keyword arguments passed to the Redirect constructor.
         """
+        persist_transient_state_for_redirect(request)
         safe_url = _get_redirect_url(request, redirect_to)
         if _should_use_fragment_redirect(request, safe_url):
             self._uses_inertia_fragment_redirect = True
@@ -740,7 +743,7 @@ class InertiaRedirect(Redirect):
                 self,
                 content=b"",
                 status_code=HTTP_409_CONFLICT,
-                headers={"X-Inertia-Redirect": quote(safe_url, safe="/#%[]=:;$&()+,!?*@'~")},
+                headers={InertiaHeaders.REDIRECT.value: quote(safe_url, safe="/#%[]=:;$&()+,!?*@'~")},
                 **kwargs,
             )
         else:
@@ -812,7 +815,7 @@ class InertiaBack(InertiaRedirect):
             request: The request object.
             **kwargs: Additional keyword arguments passed to the Redirect constructor.
         """
-        safe_url = _get_redirect_url(request, request.headers.get("Referer"))
+        safe_url = _get_redirect_url(request, request.headers.get(InertiaHeaders.REFERER.value))
         super().__init__(request=request, redirect_to=safe_url, **kwargs)
 
 
@@ -1110,14 +1113,14 @@ def _resolve_encrypt_history(encrypt_history: "bool | None", inertia_plugin: "In
 
 
 def _resolve_clear_history(clear_history: bool, request: "Request[Any, Any, Any]") -> bool:
-    if clear_history:
-        return True
+    local_clear_history = consume_clear_history(request)
+    session_clear_history = False
     with contextlib.suppress(AttributeError, ImproperlyConfiguredException):
-        return cast(
+        session_clear_history = cast(
             "bool",
             request.session.pop("_inertia_clear_history", False),  # pyright: ignore[reportUnknownMemberType,reportAttributeAccessIssue]
         )
-    return False
+    return clear_history or local_clear_history or session_clear_history
 
 
 def _merge_deferred_props(target: "dict[str, list[str]]", source: "Mapping[str, list[str]]") -> None:

@@ -8,12 +8,15 @@ from uuid import UUID
 from litestar import Litestar, get, post
 from litestar.params import FromPath, FromQuery
 
-from litestar_vite.codegen import escape_ts_string, generate_routes_ts, is_type_required, ts_type_for_param
+from litestar_vite.codegen import generate_routes_ts
 from litestar_vite.codegen._routes import (
     collect_semantic_aliases,
+    escape_ts_string,
     extract_path_params,
     extract_route_metadata,
+    is_type_required,
     make_unique_name,
+    ts_type_for_param,
 )
 from litestar_vite.codegen._ts import (
     collect_ref_names,
@@ -24,6 +27,15 @@ from litestar_vite.codegen._ts import (
     wrap_for_array,
 )
 from litestar_vite.config import PathConfig, TypeGenConfig, ViteConfig
+
+
+def test_typegen_outputs_requested_signature_has_no_dead_config_param() -> None:
+    import inspect
+
+    from litestar_vite.codegen._export import typegen_outputs_requested
+
+    params = list(inspect.signature(typegen_outputs_requested).parameters)
+    assert params == ["types_config"], params
 
 
 def testts_type_for_param_basic_types() -> None:

@@ -278,13 +278,9 @@ class ComposeEnvironmentsMessageTypeDef(TypedDict):
     GroupName: NotRequired[str]
     VersionLabels: NotRequired[Sequence[str]]
 
-OptionRestrictionRegexTypeDef = TypedDict(
-    "OptionRestrictionRegexTypeDef",
-    {
-        "Pattern": NotRequired[str],
-        "Label": NotRequired[str],
-    },
-)
+class OptionRestrictionRegexTypeDef(TypedDict):
+    Pattern: NotRequired[str]
+    Label: NotRequired[str]
 
 class ConfigurationOptionSettingTypeDef(TypedDict):
     ResourceName: NotRequired[str]

@@ -66,12 +66,12 @@ MATHEMATICAL FORMULATION & OPTIMIZATION THEORY:
        λ_{k+1} = max(0, λ_k - α * P^{-1} * A^H (A * λ_k - y))
 =============================================================================
 """
-
+import contextlib
 import numpy as np
 from tqdm import trange
 from typing import Optional, Union, Tuple
 
-from AOT_biomaps.AOT_Recon.ReconTools import get_array_module, forward_projection, backward_projection, check_stopping_criterion, estimate_lipschitz_constant
+from AOT_biomaps.AOT_Recon.ReconTools import get_array_module, get_device_context, forward_projection, backward_projection, check_stopping_criterion, estimate_lipschitz_constant
 from AOT_biomaps.AOT_Recon.ReconEnums import StopCriterionType
 from AOT_biomaps.AOT_Recon.AOT_Preconditioner.PreconditionerEnums import PreconditionerType
 from AOT_biomaps.AOT_Recon.AOT_Preconditioner.NoPreconditioner import NoPreconditioner
@@ -185,86 +185,91 @@ def PGD(
     """   
     xp = get_array_module(SMatrix)
     is_gpu = (xp.__name__ == 'cupy')
-    Z = SMatrix.Z
-    X = SMatrix.X
-    ZX = Z * X
 
-    if SMatrix.T != y.shape[0] or SMatrix.N != y.shape[1]:
-        raise ValueError(f"[AOT-biomaps] Shape of y {y.shape} does not match SMatrix dimensions (T={SMatrix.T}, N={SMatrix.N}).")
+    with get_device_context(SMatrix):
+        Z = SMatrix.Z
+        X = SMatrix.X
+        ZX = Z * X
 
-    data_dtype = xp.complex64 if SMatrix.isComplexSMatrix else xp.float32
+        if SMatrix.T != y.shape[0] or SMatrix.N != y.shape[1]:
+            raise ValueError(f"[AOT-biomaps] Shape of y {y.shape} does not match SMatrix dimensions (T={SMatrix.T}, N={SMatrix.N}).")
 
-    y_max = float(np.max(np.abs(y))) if SMatrix.isComplexSMatrix else float(np.max(y))
-    if y_max > 0:
-        y_norm = y / y_max 
+        data_dtype = xp.complex64 if SMatrix.isComplexSMatrix else xp.float32
 
-    y_flat = xp.asarray(y_norm.T.flatten().astype(data_dtype))
+        y_max = float(np.max(np.abs(y))) if SMatrix.isComplexSMatrix else float(np.max(y))
+        if y_max > 0:
+            y_norm = y / y_max 
 
-    # Preconditioner Initialization
-    if preconditioner_type == PreconditionerType.DIAGONAL:
-        preconditioner = DiagPreconditioner(SMatrix=SMatrix)
-        preconditioner.build() # Computes diag(AᴴA) and applies Tikhonov damping
-    else:
-        preconditioner = NoPreconditioner(SMatrix=SMatrix)
+        y_flat = xp.asarray(y_norm.T.flatten().astype(data_dtype))
 
-    lambda_flat = xp.zeros(ZX, dtype=xp.float32)        # λ: Actual image (always real)
-    residual_buffer = xp.empty_like(y_flat)
-
-    # Setup save indices
-    save_indices = np.unique(np.append(np.arange(0, numIterations, max(1, numIterations // max_saves)), numIterations - 1)).tolist()
-
-    saved_lambda = []
-    saved_indices_list = []
-    cost_history = [] if isCostFunction else None
-    window_history = []
-
-    alpha = calculate_step_size_PGD(SMatrix, preconditioner, numIterations_stepCalculation, show_logs) if alpha == "auto" else alpha
-
-    prec_str = preconditioner.get_name()
-    cplx_str = "COMPLEX (4-phases quadrature) " if SMatrix.isComplexSMatrix else "REAL "
-    description = f"[AOT-biomaps] {cplx_str} PGD 4-phases ({SMatrix.matrix_type.name}) --- {prec_str} --- {'WITH' if withTumor else 'WITHOUT'} TUMOR --- DEVICE: {SMatrix.device.upper()}"
-    iterator = trange(numIterations, desc=description) if show_logs else range(numIterations)
-
-    for it in iterator:
-        prev_lambda = lambda_flat.copy()
-        
-        Alambda_bar = forward_projection(SMatrix, lambda_flat)
-        xp.subtract(Alambda_bar, y_flat, out=residual_buffer) # residual = (A * λ_bar) - y
- 
-        # --- DATA FIDELITY GRADIENT WITH PRECONDITIONING --- Apply inverse preconditioner ONLY to the data fidelity term to protect L_prior stability : ∇f_prec = P⁻¹ ∇f_raw where ∇f_raw = Aᴴ(A * λ_bar - y)
-        grad_fidelity_prec = xp.ascontiguousarray(preconditioner.apply_inverse(xp.real(backward_projection(SMatrix, residual_buffer))), dtype=xp.float32)
-
-        # Update: λ = P_{>= 0}(λ - α * ∇f_prec)
-        if is_gpu:
-            pgd_update_kernel(lambda_flat, grad_fidelity_prec, float(alpha), lambda_flat)
+        # Preconditioner Initialization
+        if preconditioner_type == PreconditionerType.DIAGONAL:
+            preconditioner = DiagPreconditioner(SMatrix=SMatrix)
+            preconditioner.build() # Computes diag(AᴴA) and applies Tikhonov damping
         else:
-            grad_fidelity_prec *= float(alpha)
-            lambda_flat -= grad_fidelity_prec
-            np.maximum(lambda_flat, 0.0, out=lambda_flat)
+            preconditioner = NoPreconditioner(SMatrix=SMatrix)
 
-        if isCostFunction:
-            # F(x) = 0.5 * ||A * λ - y||²
-            cost_history.append(0.5 * float(xp.vdot(residual_buffer, residual_buffer).real)) if SMatrix.isComplexSMatrix else cost_history.append(0.5 * float(xp.vdot(residual_buffer, residual_buffer)))
+        lambda_flat = xp.zeros(ZX, dtype=xp.float32)        # λ: Actual image (always real)
+        residual_buffer = xp.empty_like(y_flat)
 
-        # Stopping Criterion
-        if stop_criterion != StopCriterionType.MAX_ITERATIONS:
-            ground_truth = SMatrix.experiment.OpticImage.phantom if withTumor else SMatrix.experiment.OpticImage.laser.intensity
-            gradient_for_stop = grad_fidelity_prec if stop_criterion == StopCriterionType.GRADIENT_NORM else None
-            isStop, val = check_stopping_criterion(SMatrix, lambda_flat, prev_lambda, stop_criterion, stop_threshold, window_size=stop_window_size, history=cost_history, ground_truth=ground_truth, gradient=gradient_for_stop, window_history=window_history)
-            if show_logs and show_criterion:
-                iterator.set_postfix_str(f"{stop_criterion.name}: {val:.2e}")
-            if isStop:
-                if show_logs: print(f"\n[AOT-biomaps] Stopping Criterion {stop_criterion.name} reached at iteration {it}.")
-                cost_history.pop() if isCostFunction else None
-                break
+        # Setup save indices
+        save_indices = np.unique(np.append(np.arange(0, numIterations, max(1, numIterations // max_saves)), numIterations - 1)).tolist()
 
-        if isSavingEachIteration and it in save_indices:
-            lambda_snapshot = lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X).copy()
-            saved_lambda.append(lambda_snapshot * y_max / SMatrix.normalization_factor)
-            saved_indices_list.append(it)
+        saved_lambda = []
+        saved_indices_list = []
+        cost_history = [] if isCostFunction else None
+        window_history = []
 
-    # Reshape and rescale the final result to true physical amplitude
-    final_result = lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X)
-    final_result *= y_max / SMatrix.normalization_factor
+        alpha = calculate_step_size_PGD(SMatrix, preconditioner, numIterations_stepCalculation, show_logs) if alpha == "auto" else alpha
+
+        prec_str = preconditioner.get_name()
+        cplx_str = "COMPLEX (4-phases quadrature) " if SMatrix.isComplexSMatrix else "REAL "
+        description = f"[AOT-biomaps] {cplx_str} PGD 4-phases ({SMatrix.matrix_type.name}) --- {prec_str} --- {'WITH' if withTumor else 'WITHOUT'} TUMOR --- DEVICE: {SMatrix.device.upper()}"
+        iterator = trange(numIterations, desc=description) if show_logs else range(numIterations)
+
+        for it in iterator:
+            prev_lambda = lambda_flat.copy()
+            
+            Alambda_bar = forward_projection(SMatrix, lambda_flat)
+            xp.subtract(Alambda_bar, y_flat, out=residual_buffer) # residual = (A * λ_bar) - y
     
-    return (saved_lambda, saved_indices_list, cost_history) if isSavingEachIteration else (final_result, None, cost_history)
+            # --- DATA FIDELITY GRADIENT WITH PRECONDITIONING --- Apply inverse preconditioner ONLY to the data fidelity term to protect L_prior stability : ∇f_prec = P⁻¹ ∇f_raw where ∇f_raw = Aᴴ(A * λ_bar - y)
+            grad_fidelity_prec = xp.ascontiguousarray(preconditioner.apply_inverse(xp.real(backward_projection(SMatrix, residual_buffer))), dtype=xp.float32)
+
+            # Update: λ = P_{>= 0}(λ - α * ∇f_prec)
+            if is_gpu:
+                pgd_update_kernel(lambda_flat, grad_fidelity_prec, float(alpha), lambda_flat)
+            else:
+                grad_fidelity_prec *= float(alpha)
+                lambda_flat -= grad_fidelity_prec
+                np.maximum(lambda_flat, 0.0, out=lambda_flat)
+
+            if isCostFunction:
+                # F(x) = 0.5 * ||A * λ - y||²
+                cost_history.append(0.5 * float(xp.vdot(residual_buffer, residual_buffer).real)) if SMatrix.isComplexSMatrix else cost_history.append(0.5 * float(xp.vdot(residual_buffer, residual_buffer)))
+
+            # Stopping Criterion
+            if stop_criterion != StopCriterionType.MAX_ITERATIONS:
+                if SMatrix.experiment.OpticImage is None:
+                    ground_truth = None
+                else:
+                    ground_truth = SMatrix.experiment.OpticImage.phantom if withTumor else SMatrix.experiment.OpticImage.laser.intensity
+                gradient_for_stop = grad_fidelity_prec if stop_criterion == StopCriterionType.GRADIENT_NORM else None
+                isStop, val = check_stopping_criterion(SMatrix, lambda_flat, prev_lambda, stop_criterion, stop_threshold, window_size=stop_window_size, history=cost_history, ground_truth=ground_truth, gradient=gradient_for_stop, window_history=window_history)
+                if show_logs and show_criterion:
+                    iterator.set_postfix_str(f"{stop_criterion.name}: {val:.2e}")
+                if isStop:
+                    if show_logs: print(f"\n[AOT-biomaps] Stopping Criterion {stop_criterion.name} reached at iteration {it}.")
+                    cost_history.pop() if isCostFunction else None
+                    break
+
+            if isSavingEachIteration and it in save_indices:
+                lambda_snapshot = lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X).copy()
+                saved_lambda.append(lambda_snapshot * y_max / SMatrix.normalization_factor)
+                saved_indices_list.append(it)
+
+        # Reshape and rescale the final result to true physical amplitude
+        final_result = lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X)
+        final_result *= y_max / SMatrix.normalization_factor
+        
+        return (saved_lambda, saved_indices_list, cost_history) if isSavingEachIteration else (final_result, None, cost_history)

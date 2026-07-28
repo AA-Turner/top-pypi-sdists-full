@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyinfra
-Version: 3.9.2
+Version: 3.10.0
 Summary: pyinfra automates/provisions/manages/deploys infrastructure.
 Project-URL: homepage, https://pyinfra.com
 Project-URL: documentation, https://docs.pyinfra.com

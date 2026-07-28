@@ -3,21 +3,28 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 import numpy as np
-from pydantic import Field, NonNegativeInt, field_validator, model_validator
+from pydantic import (
+    Field,
+    NonNegativeInt,
+    field_validator,
+    model_validator,
+)
 
 from tidy3d.components.autograd import TracedFloat, TracedPositiveFloat
 from tidy3d.components.autograd.derivative_utils import (
     transpose_interp_field_to_dataset,
 )
+from tidy3d.components.autograd.path_utils import AutogradRoute, format_traced_path
 from tidy3d.components.autograd.utils import get_static, negate_vjp_map
 from tidy3d.components.base import Tidy3dBaseModel, cached_property
 from tidy3d.components.data.dataset import FieldDataset
 from tidy3d.components.data.validators import validate_can_interpolate, validate_no_nans
 from tidy3d.components.mode_spec import ModeSpec
 from tidy3d.components.source.frame import PECFrame
+from tidy3d.components.thin_lens import AbstractThinLens
 from tidy3d.components.types import TYPE_TAG_STR, Axis, Direction
 from tidy3d.components.types.mode_spec import ModeSpecType
 from tidy3d.components.validators import (
@@ -37,7 +44,6 @@ from .adjoint_helpers import (
     assign_center_path_derivatives,
     parse_source_field_component,
     split_source_paths,
-    validate_no_collapsed_bounds_for_requested_center_axes,
     validate_no_zero_dim_center_paths,
 )
 from .base import Source
@@ -66,10 +72,9 @@ def _get_curl_coupled_source_adjoint_and_sign(
     injection_axis: int,
     e_adj: dict[str, Any],
     h_adj: dict[str, Any],
-    source_name: str,
 ) -> tuple[Any, float]:
     """Get adjoint field/sign for curl-coupled ``CustomFieldSource`` gradients."""
-    field_type, component_axis = parse_source_field_component(field_name, source_name=source_name)
+    field_type, component_axis = parse_source_field_component(field_name)
     if component_axis == injection_axis:
         raise ValueError(
             f"Field component '{field_name}' is normal to injection axis '{'xyz'[injection_axis]}'."
@@ -158,7 +163,10 @@ class BroadbandSource(Source, ABC):
         "field. For 'chebyshev', a Chebyshev interpolation is used with 'num_freqs' terms "
         "(max 20). For 'pole_residue', the mode solver samples at 'num_freqs' uniform "
         "frequencies and fits ceil((num_freqs - 1) / 3) poles; higher values provide denser "
-        "sampling and more poles for the fit (max 50).",
+        "sampling and more poles for the fit (max 50). "
+        "On ``TFSF`` sources this field is only honored for the constant-in-plane-k "
+        "angular spec (``FixedInPlaneKSpec``); the fixed-angle path (``FixedAngleSpec``) "
+        "derives its own frequency grid from ``run_time`` and the source pulse offset.",
         ge=1,
         le=50,
     )
@@ -313,6 +321,9 @@ class CustomFieldSource(FieldSource, PlanarSource):
         * `Defining spatially-varying sources <../../notebooks/CustomFieldSource.html>`_
     """
 
+    _supported_traced_source_fields: ClassVar[tuple[str, ...]] = ("field_dataset", "center")
+    _traced_source_dataset_key: ClassVar[str] = "field_dataset"
+
     field_dataset: FieldDataset | None = Field(
         None,
         title="Field Dataset",
@@ -354,19 +365,9 @@ class CustomFieldSource(FieldSource, PlanarSource):
         derivative_map: AutogradFieldMap = {}
         for field_path in dataset_paths:
             field_path = tuple(field_path)
-            if len(field_path) < 2:
-                raise ValueError(
-                    "Field source derivative paths must include dataset component names, "
-                    f"got '{field_path}'."
-                )
-
             field_name = field_path[1]
-            _, component_axis = parse_source_field_component(
-                field_name, source_name=type(self).__name__
-            )
-            field_data = getattr(self.field_dataset, field_name, None)
-            if field_data is None:
-                raise ValueError(f"Cannot find field '{field_name}' in field dataset.")
+            _, component_axis = parse_source_field_component(field_name)
+            field_data = getattr(self.field_dataset, field_name)
 
             if component_axis == self.injection_axis:
                 derivative_map[field_path] = np.zeros_like(field_data.data)
@@ -377,7 +378,6 @@ class CustomFieldSource(FieldSource, PlanarSource):
                 injection_axis=self.injection_axis,
                 e_adj=e_adj,
                 h_adj=h_adj,
-                source_name=type(self).__name__,
             )
 
             adjoint_on_dataset = transpose_interp_field_to_dataset(
@@ -406,9 +406,7 @@ class CustomFieldSource(FieldSource, PlanarSource):
 
         center_field_components = {}
         for field_name, field_data in self.field_dataset.field_components.items():
-            _, component_axis = parse_source_field_component(
-                field_name, source_name=type(self).__name__
-            )
+            _, component_axis = parse_source_field_component(field_name)
             if component_axis != self.injection_axis:
                 center_field_components[field_name] = field_data
 
@@ -418,7 +416,6 @@ class CustomFieldSource(FieldSource, PlanarSource):
                 injection_axis=self.injection_axis,
                 e_adj=e_adj,
                 h_adj=h_adj,
-                source_name=type(self).__name__,
             )
 
         vjp_center = accumulate_center_vjp(
@@ -429,10 +426,6 @@ class CustomFieldSource(FieldSource, PlanarSource):
             get_adjoint_and_sign=_get_adjoint_and_sign,
         )
 
-        validate_no_collapsed_bounds_for_requested_center_axes(
-            center_paths,
-            bounds=bounds,
-        )
         assign_center_path_derivatives(
             derivative_map,
             center_paths,
@@ -447,23 +440,7 @@ class CustomFieldSource(FieldSource, PlanarSource):
         e_adj = derivative_info.E_adj or {}
         h_adj = derivative_info.H_adj or {}
 
-        supported_roots = ("field_dataset", "center")
-        for field_path in derivative_info.paths:
-            self._validate_traced_source_path(
-                tuple(field_path),
-                dataset_key="field_dataset",
-                supported_roots=supported_roots,
-            )
-
-        dataset_paths, center_paths = split_source_paths(
-            derivative_info.paths,
-            primary_roots={"field_dataset"},
-        )
-        validate_no_zero_dim_center_paths(
-            center_paths,
-            source_size=tuple(self.size),
-            source_name=type(self).__name__,
-        )
+        dataset_paths, center_paths = split_source_paths(derivative_info.paths)
 
         derivative_map.update(
             self._compute_dataset_derivatives(
@@ -721,7 +698,30 @@ class FixedInPlaneKSpec(AbstractAngularSpec):
 
 class FixedAngleSpec(AbstractAngularSpec):
     """Plane wave is injected such that its propagation direction is frequency independent.
-    When using this option boundary conditions in tangential directions must be set to periodic.
+
+    Notes
+    -----
+
+        This spec has *different* physical implementations depending on the source type:
+
+        - On a :class:`PlaneWave`, ``Periodic`` boundary conditions must be used
+          in the transverse directions. Suited to infinite plane-wave illumination
+          of a periodic structure where the user wants the angle held fixed across
+          the source spectrum.
+
+        - On a :class:`TFSF`, the spec injects a frequency-independent oblique
+          plane-wave incidence into an isolated scatterer; ``BlochBoundary`` and
+          ``Periodic`` transverse boundaries are not allowed. Combining a
+          fixed-angle :class:`PlaneWave` and a fixed-angle :class:`TFSF` in the
+          same simulation is also not allowed.
+
+          .. note::
+
+              Fixed-angle :class:`TFSF` may be more sensitive than other
+              source types to dispersive media in the layered background
+              that extend into the transverse :class:`PML` boundaries. If
+              the field decay is not reached in such a setup, switching
+              the transverse boundaries to :class:`Absorber` is preferred.
     """
 
 
@@ -777,8 +777,11 @@ class PlaneWave(AngledFieldSource, PlanarSource, BroadbandSource):
     )
 
     @cached_property
-    def _is_fixed_angle(self) -> bool:
-        """Whether the plane wave is at a fixed non-zero angle."""
+    def _is_periodic_fixed_angle(self) -> bool:
+        """Whether this is a periodic fixed-angle source — i.e. a
+        :class:`PlaneWave` with :class:`FixedAngleSpec` and non-zero
+        ``angle_theta``. At ``angle_theta=0`` it is equivalent to a
+        regular plane wave."""
         return isinstance(self.angular_spec, FixedAngleSpec) and self.angle_theta != 0.0
 
     @cached_property
@@ -787,7 +790,7 @@ class PlaneWave(AngledFieldSource, PlanarSource, BroadbandSource):
         if self.num_freqs == 1:
             return np.array([self.source_time._freq0])
         freq_min, freq_max = self.source_time.frequency_range_sigma(sigma=CHEB_GRID_WIDTH)
-        if not self._is_fixed_angle:
+        if not self._is_periodic_fixed_angle:
             # For frequency-dependent angles (constat in-plane k), truncate minimum frequency at
             # the critical frequency of glancing incidence
             f_crit = self.source_time._freq0 * np.sin(self.angle_theta)
@@ -798,7 +801,7 @@ class PlaneWave(AngledFieldSource, PlanarSource, BroadbandSource):
     def _validate_source_frequency_range(self) -> Self:
         """Error if a broadband plane wave with constant in-plane k is defined such that
         the source frequency range is entirely below ``f_crit * CRITICAL_FREQUENCY_FACTOR."""
-        if self._is_fixed_angle or self.num_freqs == 1:
+        if self._is_periodic_fixed_angle or self.num_freqs == 1:
             return self
         _freq_min, freq_max = self.source_time.frequency_range_sigma(sigma=CHEB_GRID_WIDTH)
         f_crit = self.source_time._freq0 * np.sin(self.angle_theta)
@@ -1055,14 +1058,7 @@ def _compute_gaussian_like_derivatives(
     3) map dataset cotangents back to source parameters
     """
     derivative_map: AutogradFieldMap = {}
-    validated_paths = []
-
-    for field_path in derivative_info.paths:
-        field_path = tuple(field_path)
-        field_path = source.validate_traced_path(field_path)
-        validated_paths.append(field_path)
-
-    param_paths, center_paths = split_source_paths(validated_paths, primary_roots=None)
+    param_paths, center_paths = split_source_paths(derivative_info.paths)
 
     freqs = np.asarray(derivative_info.frequencies, dtype=float).reshape(-1)
     for freq in freqs:
@@ -1151,6 +1147,20 @@ class AbstractGaussianBeam(AngledFieldSource, PlanarSource, BroadbandSource, ABC
         """Compute derivatives for Gaussian-like beam source parameters."""
         return _compute_gaussian_like_derivatives(self, derivative_info)
 
+    def _resolve_autograd_route(self, field_path: PathType) -> AutogradRoute:
+        """Resolve and validate one traced Gaussian-like source path."""
+        return self.validate_traced_path(field_path)
+
+    @property
+    def _supported_traced_source_fields(self) -> tuple[str, ...]:
+        """Top-level source fields supported by Gaussian-like source VJPs."""
+        scalar_roots = self._common_scalar_roots | self._beam_scalar_roots
+        return (
+            "center",
+            *tuple(sorted(scalar_roots)),
+            *tuple(sorted(self._beam_tuple_roots)),
+        )
+
     @property
     def _common_scalar_roots(self) -> set[str]:
         return {"angle_theta", "angle_phi", "pol_angle"}
@@ -1212,31 +1222,41 @@ class AbstractGaussianBeam(AngledFieldSource, PlanarSource, BroadbandSource, ABC
             params[root] = value
         return params
 
-    def validate_traced_path(self, field_path: PathType) -> PathType:
+    def validate_traced_path(self, field_path: PathType) -> AutogradRoute:
         """Validate traced Gaussian-like source paths."""
         if not field_path:
-            raise ValueError(f"Empty traced source path encountered in '{type(self).__name__}'.")
+            raise AdjointError(
+                f"Empty traced source parameter encountered in '{type(self).__name__}'."
+            )
 
         root = field_path[0]
+        parameter = format_traced_path(field_path)
         scalar_allowed = self._common_scalar_roots | self._beam_scalar_roots
-        if root in scalar_allowed or root in self._beam_tuple_roots:
-            return field_path
+        supported_roots = self._supported_traced_source_fields
+
+        if root not in supported_roots:
+            raise AdjointError(
+                f"Unsupported traced source parameter '{parameter}' for '{type(self).__name__}'. "
+                f"This parameter is not supported. {self._traced_source_support_message()}"
+            )
 
         if root == "center":
-            try:
-                validate_no_zero_dim_center_paths(
-                    [field_path],
-                    source_size=tuple(self.size),
-                    source_name=type(self).__name__,
-                )
-            except AdjointError as err:
-                raise ValueError(str(err)) from err
-            return field_path
+            validate_no_zero_dim_center_paths(
+                [field_path],
+                source_size=tuple(self.size),
+                source_name=type(self).__name__,
+            )
+            return AutogradRoute(local_path=field_path)
 
-        raise ValueError(
-            f"Unsupported traced source path '{field_path}' for '{type(self).__name__}'. "
-            "Supported parameters are beam waists, beam distances, angle_theta, angle_phi, pol_angle, "
-            "and lateral center components."
+        if root in scalar_allowed:
+            return AutogradRoute(local_path=field_path)
+
+        if root in self._beam_tuple_roots:
+            return AutogradRoute(local_path=field_path)
+
+        raise AdjointError(
+            f"Unsupported traced source parameter '{parameter}' for '{type(self).__name__}'. "
+            f"This parameter is not supported. {self._traced_source_support_message()}"
         )
 
 
@@ -1402,6 +1422,76 @@ class AstigmaticGaussianBeam(AbstractGaussianBeam):
         )
 
 
+class ThinLensBeam(AbstractThinLens, AbstractGaussianBeam):
+    """Focused beam generated by a vectorial thin-lens angular spectrum.
+
+    The source uses the same analytic field injection machinery as Gaussian beams, but the field
+    profile is generated from a thin-lens pupil instead of a paraxial Gaussian waist model.
+    """
+
+    def _compute_derivatives(self, derivative_info: DerivativeInfo) -> AutogradFieldMap:
+        """Autograd derivatives are not implemented for thin-lens source parameters."""
+        raise NotImplementedError("Autograd derivatives are not implemented for ThinLensBeam.")
+
+    @property
+    def _supported_traced_source_fields(self) -> tuple[str, ...]:
+        """Thin-lens source parameter VJPs are deferred until adjoint support is wired."""
+        return ()
+
+    def _traced_source_support_message(self) -> str:
+        """Describe deferred thin-lens source-parameter support."""
+        return (
+            "ThinLensBeam source-parameter derivatives are not implemented yet; "
+            "thin-lens adjoint support is deferred."
+        )
+
+    @property
+    def _beam_scalar_roots(self) -> set[str]:
+        return set()
+
+    @property
+    def _beam_tuple_roots(self) -> set[str]:
+        return set()
+
+    def _beam_param_state(self) -> dict[str, Any]:
+        return {}
+
+    def compute_beam_fields_on_grid(
+        self,
+        *,
+        pose: BeamPose,
+        grid: BeamGrid,
+        normalize: bool,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, np.ndarray]:
+        """Compute thin-lens beam fields from compact pose/grid context."""
+        from tidy3d.components import beam as beam_module
+
+        profile = beam_module.ThinLensProfile(
+            center=pose.center,
+            size=self.size,
+            freqs=grid.freqs,
+            angle_theta=pose.angle_theta,
+            angle_phi=pose.angle_phi,
+            pol_angle=pose.pol_angle,
+            direction=pose.direction,
+            numerical_aperture=self.numerical_aperture,
+            waist_distance=self.waist_distance,
+            fill_lens=self.fill_lens,
+            lens_diameter=self.lens_diameter,
+            beam_diameter=self.beam_diameter,
+            num_plane_waves=self.num_plane_waves,
+            lens_offset=self.lens_offset,
+        )
+        return profile._beam_fields_on_component_grid(
+            x=grid.x,
+            y=grid.y,
+            z=grid.z,
+            background_n=grid.background_n,
+            normalize=normalize,
+        )
+
+
 class TFSF(AngledFieldSource, VolumeSource, BroadbandSource):
     """Total-field scattered-field (TFSF) source that can inject a plane wave in a finite region.
 
@@ -1427,6 +1517,21 @@ class TFSF(AngledFieldSource, VolumeSource, BroadbandSource):
         TFSF setup is detected. In some cases, however, the accuracy may be only weakly affected, and the warnings
         can be ignored.
 
+        For best cancellation, the grid should also be uniform *across* the TFSF box faces — not only
+        inside the box. A common pitfall is to use a :class:`MeshOverrideStructure` whose boundary
+        coincides with the TFSF box, which places a grid-resolution transition exactly at the source
+        plane (and, for angled incidence, at the side faces, which also inject the wave). This can
+        introduce a smooth frequency-dependent amplitude error in the cancellation, larger at shorter
+        wavelengths. To avoid it, extend the override box (or any other source of grid non-uniformity)
+        a few cells beyond the TFSF box in all directions; for oblique incidence the recommendation
+        applies to all three axes, since the side faces also contribute to the injection.
+
+        For oblique incidence, two angular specifications are available, mirroring :class:`PlaneWave`:
+        :class:`FixedInPlaneKSpec` (default; in-plane wavevector held fixed across the source bandwidth,
+        propagation direction is frequency-dependent and Bloch boundaries are required tangentially) and
+        :class:`FixedAngleSpec` (propagation direction held fixed across the source bandwidth; the TFSF
+        case forbids ``BlochBoundary`` and ``Periodic`` transverse boundaries).
+
     See Also
     --------
 
@@ -1434,6 +1539,14 @@ class TFSF(AngledFieldSource, VolumeSource, BroadbandSource):
         * `Defining a total-field scattered-field (TFSF) plane wave source <../../notebooks/TFSF.html>`_
         * `Nanoparticle Scattering <../../notebooks/PlasmonicNanoparticle.html>`_: To force a uniform grid in the TFSF region and avoid the warnings, a mesh override structure can be used as illustrated here.
     """
+
+    angular_spec: FixedInPlaneKSpec | FixedAngleSpec = Field(
+        default_factory=FixedInPlaneKSpec,
+        title="Angular Dependence Specification",
+        description="Specification of the TFSF plane-wave propagation-direction dependence on "
+        "wavelength.",
+        discriminator=TYPE_TAG_STR,
+    )
 
     num_freqs: int = Field(
         1,
@@ -1450,6 +1563,13 @@ class TFSF(AngledFieldSource, VolumeSource, BroadbandSource):
         title="Broadband Method",
         description="TFSF only supports the Chebyshev broadband method.",
     )
+
+    @cached_property
+    def _is_periodic_fixed_angle(self) -> bool:
+        """TFSF is not a periodic fixed-angle source — the predicate
+        gates the periodic fixed-angle path (used only by a fixed-angle
+        :class:`PlaneWave`)."""
+        return False
 
     injection_axis: Axis = Field(
         title="Injection Axis",

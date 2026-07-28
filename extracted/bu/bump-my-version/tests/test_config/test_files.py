@@ -4,16 +4,15 @@ import difflib
 import json
 from pathlib import Path
 
-from click.testing import CliRunner, Result
 import pytest
-from pytest import LogCaptureFixture, param, TempPathFactory
+from click.testing import CliRunner, Result
+from pytest import LogCaptureFixture, TempPathFactory, param
 
-from bumpversion.context import get_context
-from bumpversion import config
-from bumpversion.config.files import find_config_file, CONFIG_FILE_SEARCH_ORDER
 import bumpversion.config.utils
-
-from tests.conftest import inside_dir, get_config_data
+from bumpversion import config
+from bumpversion.config.files import CONFIG_FILE_SEARCH_ORDER, find_config_file
+from bumpversion.context import get_context
+from tests.conftest import get_config_data, inside_dir
 
 
 class TestFindConfigFile:
@@ -81,6 +80,13 @@ class TestReadConfigFile:
             with inside_dir(tmp_path):
                 assert config.read_config_file(cfg_file) == {}
                 assert "Configuration file not found" in caplog.text
+
+        def test_emits_warning_when_missing_file(self, tmp_path_factory: TempPathFactory, caplog: LogCaptureFixture) -> None:
+            """If an explicit config file is passed, it should be returned."""
+            caplog.set_level("INFO")
+            config.read_config_file()
+            assert caplog.records[0].levelname == "WARNING"
+            assert "No configuration file found" in caplog.records[0].message
 
         def test_returns_dict_of_cfg_file(self, fixtures_path: Path) -> None:
             """Files with a .cfg suffix is parsed into a dict and returned."""

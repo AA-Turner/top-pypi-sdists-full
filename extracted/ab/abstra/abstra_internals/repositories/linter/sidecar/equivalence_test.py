@@ -7,7 +7,7 @@ runs, path-scoped merge re-runs, and a real on-disk fix applied by name.
 
 The rule subset is restricted to deterministic, network-free rules (no PyPI,
 no pyrefly). A fake rule cannot cross the process boundary, so only real
-registered rules are used. EnvInBundle stays in the subset for serialization
+registered rules are used. BundleAnalyzer stays in the subset for serialization
 coverage, but its issue count is environment-dependent (global gitignore may
 ignore .env), so no absolute assertion is made on it — only Local×Sidecar
 equality.
@@ -36,8 +36,8 @@ SUBSET_NAMES = [
     "SyntaxErrors",
     "CssSyntax",
     "HtmlAndJinja2Syntax",
-    "EnvInBundle",
-    "MissingAbstraInRequirements",
+    "BundleAnalyzer",
+    "RequirementsAnalyzer",
 ]
 
 
@@ -55,7 +55,7 @@ def _normalize(checks):
     dicts = [c.to_dict() for c in checks]
     for d in dicts:
         d["issues"] = sorted(d["issues"], key=lambda i: i["label"])
-    return sorted(dicts, key=lambda d: (d["type"], d["name"]))
+    return sorted(dicts, key=lambda d: d["name"])
 
 
 class EquivalenceTest(unittest.TestCase):
@@ -119,7 +119,7 @@ class EquivalenceTest(unittest.TestCase):
         self.assertEqual(counts["SyntaxErrors"], 2)
         self.assertEqual(counts["CssSyntax"], 1)
         self.assertEqual(counts["HtmlAndJinja2Syntax"], 1)
-        self.assertEqual(counts["MissingAbstraInRequirements"], 1)
+        self.assertEqual(counts["RequirementsAnalyzer"], 1)
 
     def test_scoped_rerun_merges_equivalently(self):
         a, b = self._build_fixture()
@@ -153,16 +153,14 @@ class EquivalenceTest(unittest.TestCase):
 
         def _post_fix_check(repo):
             return next(
-                c.to_dict()
-                for c in repo.checks
-                if c.name == "MissingAbstraInRequirements"
+                c.to_dict() for c in repo.checks if c.name == "RequirementsAnalyzer"
             )
 
         # Local world
         local = LocalLinterRepository()
         local.update_specific_checks(_subset())
         ok_local = local.fix_issue_in_codebase(
-            "MissingAbstraInRequirements", "AddAbstraToRequirements"
+            "RequirementsAnalyzer", "AddAbstraToRequirements"
         )
         req_local = requirements.read_text()
         post_local = _post_fix_check(local)
@@ -173,7 +171,7 @@ class EquivalenceTest(unittest.TestCase):
         sidecar = self._make_sidecar()
         sidecar.update_specific_checks(_subset())
         ok_sidecar = sidecar.fix_issue_in_codebase(
-            "MissingAbstraInRequirements", "AddAbstraToRequirements"
+            "RequirementsAnalyzer", "AddAbstraToRequirements"
         )
         req_sidecar = requirements.read_text()
         post_sidecar = _post_fix_check(sidecar)

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import Mock
 
 import httpx
@@ -10,7 +12,12 @@ import respx
 from mixpanel.credentials import ServiceAccountCredentials
 
 from .remote_feature_flags import RemoteFeatureFlagsProvider
-from .types import RemoteFlagsConfig, RemoteFlagsResponse, SelectedVariant
+from .types import (
+    RemoteFlagsConfig,
+    RemoteFlagsResponse,
+    SelectedVariant,
+    VariantSource,
+)
 
 ENDPOINT = "https://api.mixpanel.com/flags"
 
@@ -154,7 +161,11 @@ class TestRemoteFeatureFlagsProviderAsync:
 
         result = await self._flags.aget_all_variants({"distinct_id": "user123"})
 
-        assert result == variants
+        assert set(result.keys()) == {"flag1", "flag2"}
+        assert result["flag1"].variant_value == "value1"
+        assert result["flag2"].variant_value == "value2"
+        # Every returned variant must be tagged with variant_source=REMOTE.
+        assert all(v.variant_source == VariantSource.REMOTE for v in result.values())
 
     @respx.mock
     async def test_aget_all_variants_returns_none_on_network_error(self):
@@ -266,6 +277,47 @@ class TestRemoteFeatureFlagsProviderSync:
         assert result == "control"
 
     @respx.mock
+    def test_get_variant_tags_fallback_with_backend_message_on_http_error(self):
+        """SDK-83: the backend's response message must propagate through
+        FallbackReason.message so the OpenFeature wrapper can forward it
+        as error_message instead of swallowing it into a bare GENERAL."""
+        respx.get(ENDPOINT).mock(
+            return_value=httpx.Response(
+                400, text="distinct_id must be provided in evalContext as a string"
+            )
+        )
+
+        fallback = SelectedVariant(variant_value="control")
+        result = self._flags.get_variant(
+            "test_flag", fallback, {"distinct_id": "user123"}, reportExposure=False
+        )
+
+        assert result.variant_source == VariantSource.FALLBACK
+        assert result.fallback_reason.kind == "BACKEND_ERROR"
+        assert "distinct_id must be provided" in result.fallback_reason.message
+
+    @respx.mock
+    def test_backend_error_message_never_leaks_token_or_distinct_id(self):
+        """Empty-body HTTP error must NOT expose the request URL — httpx's
+        default str(exc) formatting would include the query string, which
+        carries the project token and JSON-encoded context (SDK-83 security
+        review). Only the status code should surface downstream."""
+        respx.get(ENDPOINT).mock(return_value=httpx.Response(500, text=""))
+
+        fallback = SelectedVariant(variant_value="control")
+        result = self._flags.get_variant(
+            "test_flag", fallback, {"distinct_id": "user123"}, reportExposure=False
+        )
+
+        assert result.variant_source == VariantSource.FALLBACK
+        assert result.fallback_reason.kind == "BACKEND_ERROR"
+        message = result.fallback_reason.message
+        assert message == "HTTP 500"
+        assert "test-token" not in message
+        assert "distinct_id" not in message
+        assert "user123" not in message
+
+    @respx.mock
     def test_get_variant_value_is_fallback_if_bad_response_format(self):
         respx.get(ENDPOINT).mock(return_value=httpx.Response(200, text="invalid json"))
 
@@ -325,6 +377,96 @@ class TestRemoteFeatureFlagsProviderSync:
         )
         self.mock_tracker.assert_not_called()
 
+    def test_default_exposure_runs_inline_on_calling_thread(self):
+        """Smoke test: exposure_executor defaults to None, tracker runs inline."""
+        called_on: list[threading.Thread] = []
+
+        def tracker(_distinct_id, _event, _properties):
+            called_on.append(threading.current_thread())
+
+        provider = RemoteFeatureFlagsProvider(
+            "test-token", RemoteFlagsConfig(), "1.0.0", tracker
+        )
+        try:
+            provider.track_exposure_event(
+                "manual",
+                SelectedVariant(variant_key="treatment", variant_value="x"),
+                {"distinct_id": "user123"},
+            )
+            assert called_on == [threading.current_thread()]
+        finally:
+            provider.__exit__(None, None, None)
+
+    def test_track_exposure_event_routes_through_executor(self):
+        """Manual API also honors exposure_executor."""
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="exposure")
+        try:
+            tracker_done = threading.Event()
+            captured: list[threading.Thread] = []
+
+            def tracker(_distinct_id, _event, _properties):
+                captured.append(threading.current_thread())
+                tracker_done.set()
+
+            provider = RemoteFeatureFlagsProvider(
+                "test-token",
+                RemoteFlagsConfig(exposure_executor=executor),
+                "1.0.0",
+                Mock(side_effect=tracker),
+            )
+            try:
+                provider.track_exposure_event(
+                    "manual",
+                    SelectedVariant(variant_key="treatment", variant_value="x"),
+                    {"distinct_id": "user123"},
+                )
+                assert tracker_done.wait(timeout=2.0)
+                assert captured[0] is not threading.current_thread()
+                assert captured[0].name.startswith("exposure")
+            finally:
+                provider.__exit__(None, None, None)
+        finally:
+            executor.shutdown(wait=True)
+
+    @respx.mock
+    def test_exposure_executor_dispatches_tracker_off_calling_thread(self):
+        respx.get(ENDPOINT).mock(
+            return_value=create_success_response(
+                {
+                    "test_flag": SelectedVariant(
+                        variant_key="treatment", variant_value="treatment"
+                    )
+                }
+            )
+        )
+
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="exposure")
+        try:
+            calling_thread = threading.current_thread()
+            tracker_thread = threading.Event()
+            captured_thread: list[threading.Thread] = []
+
+            def tracker(_distinct_id, _event, _properties):
+                captured_thread.append(threading.current_thread())
+                tracker_thread.set()
+
+            tracker_mock = Mock(side_effect=tracker)
+            config = RemoteFlagsConfig(exposure_executor=executor)
+            provider = RemoteFeatureFlagsProvider(
+                "test-token", config, "1.0.0", tracker_mock
+            )
+            try:
+                provider.get_variant_value(
+                    "test_flag", "control", {"distinct_id": "user123"}
+                )
+                assert tracker_thread.wait(timeout=2.0), "tracker never ran"
+                assert captured_thread[0] is not calling_thread
+                assert captured_thread[0].name.startswith("exposure")
+            finally:
+                provider.__exit__(None, None, None)
+        finally:
+            executor.shutdown(wait=True)
+
     @respx.mock
     def test_is_enabled_returns_true_for_true_variant_value(self):
         respx.get(ENDPOINT).mock(
@@ -365,7 +507,10 @@ class TestRemoteFeatureFlagsProviderSync:
 
         result = self._flags.get_all_variants({"distinct_id": "user123"})
 
-        assert result == variants
+        assert set(result.keys()) == {"flag1", "flag2"}
+        assert result["flag1"].variant_value == "value1"
+        assert result["flag2"].variant_value == "value2"
+        assert all(v.variant_source == VariantSource.REMOTE for v in result.values())
 
     @respx.mock
     def test_get_all_variants_returns_none_on_network_error(self):
@@ -478,3 +623,31 @@ def test_remote_flags_fallback_to_token_without_credentials():
     assert provider._request_params_base["lib_version"] == "1.0.0"
 
     provider.shutdown()
+
+
+# SDK-85: sync __exit__ and shutdown() historically only closed
+# _sync_client, leaking _async_client's connection pool + background
+# transport. The two tests below fail on the pre-fix code.
+
+
+def test_sync_shutdown_closes_both_clients():
+    config = RemoteFlagsConfig()
+    provider = RemoteFeatureFlagsProvider("test-token", config, "1.0.0", Mock())
+
+    assert not provider._sync_client.is_closed
+    assert not provider._async_client.is_closed
+
+    provider.shutdown()
+
+    assert provider._sync_client.is_closed
+    assert provider._async_client.is_closed
+
+
+def test_sync_context_manager_exit_closes_both_clients():
+    config = RemoteFlagsConfig()
+    with RemoteFeatureFlagsProvider("test-token", config, "1.0.0", Mock()) as provider:
+        assert not provider._sync_client.is_closed
+        assert not provider._async_client.is_closed
+
+    assert provider._sync_client.is_closed
+    assert provider._async_client.is_closed

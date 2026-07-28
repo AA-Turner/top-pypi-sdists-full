@@ -320,6 +320,74 @@ async def test_has_queued_work_existence_contract(apgdriver: db.Driver) -> None:
     assert await q.queued_work(["foo"]) == 0
 
 
+async def test_dequeue_caps_picks_to_entrypoint_remaining_slots(apgdriver: db.Driver) -> None:
+    """One dequeue never picks more jobs for an entrypoint than its free slots."""
+    q = queries.Queries(apgdriver)
+
+    await q.enqueue(["tight"] * 10, [None] * 10, [0] * 10)
+    await q.enqueue(["loose"] * 10, [None] * 10, [0] * 10)
+
+    picked = await q.dequeue(
+        batch_size=10,
+        entrypoints={
+            "tight": queries.EntrypointExecutionParameter(2),
+            "loose": queries.EntrypointExecutionParameter(0),
+        },
+        queue_manager_id=uuid.uuid4(),
+        global_concurrency_limit=None,
+        heartbeat_timeout=timedelta(seconds=30),
+    )
+
+    tight = [job for job in picked if job.entrypoint == "tight"]
+    assert len(tight) <= 2
+    assert len(picked) == 10
+
+
+async def test_dequeue_hard_caps_worker_budget(apgdriver: db.Driver) -> None:
+    """A worker's picked total never exceeds global_concurrency_limit, even mid-batch."""
+    q = queries.Queries(apgdriver)
+    queue_manager_id = uuid.uuid4()
+
+    await q.enqueue(["fetch"] * 10, [None] * 10, [0] * 10)
+
+    async def dequeue() -> list[models.Job]:
+        return await q.dequeue(
+            batch_size=4,
+            entrypoints={"fetch": queries.EntrypointExecutionParameter(0)},
+            queue_manager_id=queue_manager_id,
+            global_concurrency_limit=5,
+            heartbeat_timeout=timedelta(seconds=30),
+        )
+
+    assert len(await dequeue()) == 4
+    assert len(await dequeue()) == 1
+    assert len(await dequeue()) == 0
+
+
+async def test_eligible_queued_work_excludes_deferred(apgdriver: db.Driver) -> None:
+    """eligible_queued_work ignores jobs whose execute_after is in the future."""
+    q = queries.Queries(apgdriver)
+
+    await q.enqueue("foo", None, 0)
+    await q.enqueue("foo", None, 0, execute_after=timedelta(seconds=30))
+
+    assert await q.queued_work(["foo"]) > 0
+    assert await q.eligible_queued_work(["foo"]) > 0
+
+    picked = await q.dequeue(
+        batch_size=10,
+        entrypoints={"foo": queries.EntrypointExecutionParameter(0)},
+        queue_manager_id=uuid.uuid4(),
+        global_concurrency_limit=1000,
+        heartbeat_timeout=timedelta(seconds=30),
+    )
+    assert len(picked) == 1
+
+    # Only the deferred job remains: still queued work, but none eligible.
+    assert await q.queued_work(["foo"]) > 0
+    assert await q.eligible_queued_work(["foo"]) == 0
+
+
 @pytest.mark.parametrize("N", (1, 2, 64))
 async def test_queue_retry_timer(
     apgdriver: db.Driver,
@@ -787,6 +855,109 @@ async def test_log_statistics(
     assert sum(x.count for x in stats if x.status == "picked") == N
     assert sum(x.count for x in stats if x.status == "successful") == N
     assert sum(x.count for x in stats) == 3 * N
+
+
+async def _unaggregated_count(q: queries.Queries) -> int:
+    rows = await q.driver.fetch(q.qbq.build_unaggregated_log_count_query())
+    return int(rows[0]["unaggregated"])
+
+
+async def _log_n_successful(q: queries.Queries, N: int) -> None:
+    await q.enqueue(["placeholder"] * N, [None] * N, [0] * N)
+    jobs = await q.dequeue(
+        entrypoints={"placeholder": queries.EntrypointExecutionParameter(0)},
+        batch_size=N,
+        queue_manager_id=uuid.uuid4(),
+        global_concurrency_limit=1000,
+        heartbeat_timeout=timedelta(seconds=30),
+    )
+    assert len(jobs) == N
+    for job in jobs:
+        await q.log_jobs([(job, "successful", None)])
+
+
+async def test_aggregate_logs_populates_statistics_without_read(apgdriver: db.Driver) -> None:
+    """aggregate_logs folds log rows into statistics with no log_statistics read."""
+    q = queries.Queries(apgdriver)
+    N = 5
+    await _log_n_successful(q, N)
+
+    assert await _unaggregated_count(q) > 0
+
+    await q.aggregate_logs()
+
+    assert await _unaggregated_count(q) == 0
+    stats = await q.driver.fetch(q.qbq.build_log_statistics_query(), None, None)
+    assert sum(int(r["count"]) for r in stats) == 3 * N  # queued + picked + successful
+
+
+async def test_aggregate_logs_advisory_lock_skips_when_held(
+    apgdriver: db.Driver,
+    dsn: str,
+) -> None:
+    """aggregate_logs no-ops while another session holds the aggregation advisory lock."""
+    q = queries.Queries(apgdriver)
+    N = 4
+    await _log_n_successful(q, N)
+
+    lock_key = f"hashtext('{q.qbq.qualified.statistics_table}')"
+
+    # Hold the advisory xact lock in a separate session for the duration.
+    holder = await asyncpg.connect(dsn=dsn)
+    try:
+        tx = holder.transaction()
+        await tx.start()
+        await holder.execute(f"SELECT pg_advisory_xact_lock({lock_key})")
+
+        # Lock held -> aggregation must be a no-op.
+        await q.aggregate_logs()
+        assert await _unaggregated_count(q) == 3 * N
+
+        await tx.rollback()  # release the lock
+    finally:
+        await holder.close()
+
+    # Lock free -> aggregation proceeds.
+    await q.aggregate_logs()
+    assert await _unaggregated_count(q) == 0
+
+
+async def test_upgrade_from_legacy_composite_index_still_aggregates(
+    apgdriver: db.Driver,
+) -> None:
+    """An install carrying #668's composite aggregation index upgrades and aggregates.
+
+    Reverting the index only matters if the migration SQL is sound: the
+    schema-qualified DROP must find the index, the CREATE must not collide, and
+    re-running upgrade must stay a no-op. Drive the real upgrade + aggregation
+    path against a seeded legacy composite so a broken migration fails here --
+    the index shape alone has no behavioral effect worth asserting.
+    """
+    log_table = DBSettings().queue_table_log
+    index = f"{log_table}_not_aggregated"
+    q = queries.Queries(apgdriver)
+
+    # Recreate the fattened index #668 shipped to fresh installs of its era.
+    await apgdriver.execute(f"DROP INDEX {index};")
+    await apgdriver.execute(
+        f"CREATE INDEX {index} ON {log_table} "
+        "(entrypoint, priority, status, created) WHERE not aggregated;"
+    )
+
+    # Upgrade rebuilds the index and stays idempotent across repeated runs.
+    await q.upgrade()
+    assert await q.table_has_index(log_table, index)
+    await q.upgrade()
+    assert await q.table_has_index(log_table, index)
+
+    # The aggregation path that relies on this index still folds log -> stats.
+    N = 5
+    await _log_n_successful(q, N)
+    assert await _unaggregated_count(q) > 0
+    await q.aggregate_logs()
+    assert await _unaggregated_count(q) == 0
+    stats = await q.driver.fetch(q.qbq.build_log_statistics_query(), None, None)
+    assert sum(int(r["count"]) for r in stats) == 3 * N  # queued + picked + successful
 
 
 async def test_enqueue_with_headers(apgdriver: db.Driver) -> None:

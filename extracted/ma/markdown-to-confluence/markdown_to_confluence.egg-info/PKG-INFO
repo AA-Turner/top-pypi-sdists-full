@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: markdown-to-confluence
-Version: 0.6.1
+Version: 0.6.2
 Summary: Publish Markdown files to Confluence wiki
 Author-email: Levente Hunyadi <hunyadi@gmail.com>
 Maintainer-email: Levente Hunyadi <hunyadi@gmail.com>
@@ -27,19 +27,20 @@ Requires-Dist: cattrs>=26.1
 Requires-Dist: lxml>=6.1
 Requires-Dist: markdown>=3.10
 Requires-Dist: orjson>=3.11
-Requires-Dist: pymdown-extensions>=10.21
+Requires-Dist: pymdown-extensions>=11.0
 Requires-Dist: pyyaml>=6.0
-Requires-Dist: requests>=2.33
+Requires-Dist: pathspec>=1.1
+Requires-Dist: requests>=2.34
 Requires-Dist: truststore>=0.10
-Requires-Dist: typing-extensions>=4.15; python_version < "3.11"
+Requires-Dist: typing-extensions>=4.16; python_version < "3.11"
 Provides-Extra: dev
-Requires-Dist: markdown-doc>=0.1.8; extra == "dev"
+Requires-Dist: markdown-doc>=0.1.9; extra == "dev"
 Requires-Dist: types-lxml>=2026.2.16; extra == "dev"
 Requires-Dist: types-markdown>=3.10; extra == "dev"
 Requires-Dist: types-pyyaml>=6.0; extra == "dev"
 Requires-Dist: types-requests>=2.33; extra == "dev"
-Requires-Dist: mypy[faster-cache]>=2.1; extra == "dev"
-Requires-Dist: ruff>=0.15; extra == "dev"
+Requires-Dist: mypy[faster-cache]>=2.3; extra == "dev"
+Requires-Dist: ruff>=0.16; extra == "dev"
 Provides-Extra: formulas
 Requires-Dist: matplotlib>=3.10; extra == "formulas"
 Dynamic: license-file
@@ -180,6 +181,7 @@ The tool requires appropriate permissions in Confluence in order to invoke endpo
 We recommend the following scopes for scoped API tokens:
 
 * `read:attachment:confluence`
+* `read:comment:confluence` (only required for checking comments)
 * `read:content:confluence`
 * `read:content-details:confluence`
 * `read:label:confluence`
@@ -435,7 +437,7 @@ Unfortunately, not every third-party app supports every alignment variant. For e
 
 When a link to an absolute URL fully occupies a paragraph, it is automatically transformed into a block-level *card*, showing a document preview. These previews are represented in Confluence by the HTML element `<a>` having an attribute `data-card-appearance` with the value `block`. Thus, the following Markdown syntax will produce equivalent Confluence Storage Format output when the source file is converted:
 
-```md
+```markdown
 [Project page](https://github.com/hunyadi/md2conf)
 
 <a href="https://github.com/hunyadi/md2conf" data-card-appearance="block">Project page</a>
@@ -536,12 +538,14 @@ The following table shows standard highlight colors (CSS `background-color`) tha
 
 ### HTML in Markdown
 
-*md2conf* relays HTML elements nested in Markdown content to Confluence (such as `e<sup>x</sup>` for superscript). However, Confluence uses an extension of XHTML, i.e. the content must qualify as valid XML too. In particular, unterminated tags (e.g. `<br>` or `<img ...>`) or inconsistent nesting (e.g. `<b><i></b></i>`) are not permitted, and will raise an XML parsing error. When an HTML element has no content such as `<br>` or `<img>`, use a self-closing tag:
+*md2conf* relays HTML elements nested in Markdown content to Confluence (such as `e<sup>x</sup>` for superscript). However, Confluence uses an extension of XHTML (so-called Confluence Storage Format), i.e. the content must qualify as valid XML too. In particular, unterminated tags (e.g. `<br>` or `<img ...>`) or inconsistent nesting (e.g. `<b><i></b></i>`) are not permitted, and will raise an XML parse error.
 
-```html
-<br/>
-<img src="image.png" width="24" height="24" />
-```
+Follow these guidelines to use HTML in Markdown safely:
+
+* When an HTML element has no content such as `<br>` or `<img>`, use a self-closing tag: e.g. `<br/>` or `<img src="image.png" width="24" height="24" />`.
+* When inline HTML appears in a Markdown paragraph, both the opening and the closing tag must be in the same paragraph, the element content cannot span over multiple Markdown paragraphs.
+* Block-level HTML elements (e.g. `<table>`), which can nest other elements, must appear at the top level. Their content is passed unaltered from Markdown input into Confluence Storage Format output.
+* If an HTML element must appear as typed, enclose the text in inline code (single tick) or a fenced code block (triple ticks).
 
 ### Links to attachments
 
@@ -551,7 +555,7 @@ If *md2conf* encounters a Markdown link that points to a file in the directory h
 
 Markdown links that point to an e-mail address may be converted into a *user mention* (e.g. `@hunyadi`). Mentions should follow the syntax below:
 
-```md
+```markdown
 [Levente Hunyadi](mailto:levente.hunyadi@example.com)
 ```
 
@@ -638,11 +642,30 @@ While the structure remains semantically correct, the visual separation is lost.
 
 ### Ignoring files
 
-Skip files and subdirectories in a directory with rules defined in `.mdignore`. Each rule should occupy a single line. Rules follow the syntax (and constraints) of [fnmatch](https://docs.python.org/3/library/fnmatch.html#fnmatch.fnmatch). Specifically, `?` matches any single character, and `*` matches zero or more characters. For example, use `up-*.md` to exclude Markdown files that start with `up-`. Lines that start with `#` are treated as comments.
+Skip files and subdirectories in a directory with rules defined in `.mdignore`. Each rule should occupy a single line. Rules follow the syntax of [`.gitignore` patterns](https://git-scm.com/docs/gitignore). Specifically:
 
-Files that don't have the extension `*.md` are skipped automatically. Hidden directories (whose name starts with `.`) are not recursed into. To skip an entire directory, add the name of the directory without a trailing `/`.
+* `*` matches zero or more characters (but not `/`)
+* `?` matches any single character (but not `/`)
+* `**` matches zero or more directories
+* Patterns with `/` match relative to the directory containing `.mdignore`
+* Patterns without `/` match at any nesting level within that directory and below
+* Lines starting with `#` are treated as comments
+* Patterns prefixed with `!` negate (un-ignore) previously matched files
 
-Relative paths to items in a nested directory are not supported. You must put `.mdignore` in the same directory where the items to be skipped reside.
+For example:
+* `up-*.md` excludes Markdown files starting with `up-` at any level
+* `build/` excludes the `build` directory and its contents
+* `*.tmp` excludes all files with `.tmp` extension
+* `docs/temp/` excludes files only within the `docs/temp/` path
+* `!important.txt` un-ignores `important.txt` even if `*.txt` was previously excluded
+
+Rules defined in `.mdignore` files cascade from parent directories to subdirectories. When *md2conf* traverses the directory hierarchy, it accumulates rules from all `.mdignore` files it encounters. This means:
+
+* Rules in a parent `.mdignore` apply to all subdirectories
+* Rules in a child `.mdignore` add to (and do not override) parent rules
+* Each directory can have its own `.mdignore` file
+
+Files that don't have the extension `*.md` are skipped automatically. Hidden directories (whose name starts with `.`) are not recursed into.
 
 If you add the `synchronized` attribute to JSON or YAML front-matter with the value `false`, the document content (including attachments) and metadata (e.g. tags) will not be synchronized with Confluence:
 
@@ -700,6 +723,12 @@ tags: ["markdown", "md", "wiki"]
 Any previously assigned labels are discarded. As per Confluence terminology, new labels have the `prefix` of `global`.
 
 If a document has no `tags` attribute, existing Confluence labels are left intact.
+
+### Comments
+
+Confluence users may add inline comments to pages. When synchronizing Markdown documents to Confluence pages, the generated content has no comments, and will cause all inline comments in the page to transition to the *resolved* state on an update. However, the configuration option `comments` allows us to check for open comments, and skip synchronizing the page when unresolved inline comments are found.
+
+> Inspecting inline comments requires the `read:comment:confluence` scope when connecting to Confluence with a scoped token.
 
 ### Content properties
 
@@ -801,6 +830,8 @@ options:
   --no-generated-by     Do not add 'generated by a tool' prompt to pages.
   --overwrite           Overwrite (manual) page changes that occurred since last synchronization. (default)
   --no-overwrite        Skip pages with (manual) changes that occurred since last synchronization.
+  --comments {remove,check-open}
+                        Behavior for inline comments when page is updated. (default: remove)
   --skip-update         Skip saving Confluence page ID in Markdown files.
   --keep-update         Inject published Confluence page ID in Markdown files. (default)
   --heading-anchors     Place an anchor at each section heading with GitHub-style same-page identifiers.
@@ -823,6 +854,8 @@ options:
                         Format for rendering Mermaid and draw.io diagrams. (default: png)
   --webui-links         Enable Confluence Web UI links. (Typically required for on-prem versions of Confluence.)
   --no-webui-links      Use hierarchical links including space and page ID. (default)
+  --user-mentions       Transform `mailto:` links into Confluence user mentions (`@...`) with name-based lookup. (default)
+  --no-user-mentions    Keep `mailto:` links as regular links.
   --use-panel           Transform admonitions and alerts into a Confluence custom panel.
   --no-use-panel        Use standard Confluence macro types for admonitions and alerts (info, tip, note and warning). (default)
   --force-valid-language
@@ -853,6 +886,7 @@ options:
 
 *md2conf* has a Python interface. Create a `ConnectionProperties` object to set connection parameters to the Confluence server, and a `ProcessorOptions` object to configure how Markdown files are converted into pages on a Confluence wiki site. Open a connection to the Confluence server with the context manager `ConfluenceAPI`, and instantiate a `Publisher` to start converting documents.
 
+<!-- fmt:off -->
 ```python
 from md2conf.api import ConfluenceAPI
 from md2conf.environment import ConnectionProperties
@@ -876,6 +910,7 @@ options = ProcessorOptions(
     title_prefix=str() or None,
     generated_by=Markdown() or None,
     overwrite=bool(),
+    comments='remove' or 'check-open',
     skip_update=bool(),
     converter=ConverterOptions(
         heading_anchors=bool(),
@@ -888,6 +923,7 @@ options = ProcessorOptions(
         render_latex=bool(),
         diagram_output_format='png' or 'svg',
         webui_links=bool(),
+        user_mentions=bool(),
         use_panel=bool(),
         force_valid_language=bool(),
         layout=LayoutOptions(
@@ -909,6 +945,7 @@ options = ProcessorOptions(
 with ConfluenceAPI(properties) as api:
     Publisher(api, options).process(mdpath)
 ```
+<!-- fmt:on -->
 
 ### Environment variables for external tools
 

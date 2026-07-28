@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import difflib
-import shutil
 import ssl
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse, urlunparse
@@ -11,18 +10,14 @@ from urllib.parse import urlparse, urlunparse
 import click
 import requests
 
-from tidy3d.config.loader import (
-    ConfigLoader,
-    canonical_config_directory,
-    legacy_config_directory,
-    migrate_legacy_config,
-)
+from tidy3d.config.loader import ConfigLoader
 from tidy3d.config.migrations import (
     CURRENT_CONFIG_VERSION,
     FORWARD_COMPAT_STRICT,
     forward_compat_mode,
 )
 from tidy3d.web.core.constants import HEADER_APIKEY
+from tidy3d.web.license import refresh_license_state
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -32,6 +27,10 @@ if TYPE_CHECKING:
 # Lazily loaded to keep `tidy3d config upgrade` usable even when the active
 # runtime config cannot be initialized during module import.
 config: Any = None
+
+
+class ConfigureError(RuntimeError):
+    """Error raised for rejected configuration updates."""
 
 
 def _get_config() -> Any:
@@ -56,16 +55,36 @@ def _get_manager_instance() -> Any:
 def get_description() -> str:
     """Return the currently configured API key (if any)."""
 
-    cfg = _get_config()
     try:
-        apikey = cfg.web.apikey
+        return _config_value(_get_config().web.apikey)
     except AttributeError:
         return ""
-    if apikey is None:
+
+
+def _config_value(value: object | None) -> str:
+    """Return a comparable string for a config value."""
+
+    if value is None:
         return ""
-    if hasattr(apikey, "get_secret_value"):
-        return apikey.get_secret_value()
-    return str(apikey)
+    if hasattr(value, "get_secret_value"):
+        return str(value.get_secret_value())
+    return str(value)
+
+
+def _license_auth_context(*, include_env: bool = True) -> tuple[str, str, str]:
+    """Return the license authentication context."""
+
+    cfg = _get_config()
+    profile = _config_value(cfg.profile)
+    if not include_env:
+        web_config = cfg.as_dict(include_env=False).get("web", {})
+        return (
+            profile,
+            _config_value(web_config.get("apikey")),
+            _config_value(web_config.get("api_endpoint")),
+        )
+
+    return profile, get_description(), _config_value(cfg.web.api_endpoint)
 
 
 @click.command()
@@ -84,6 +103,11 @@ def get_description() -> str:
     is_flag=True,
     help="Restore production defaults (removes nexus profile and clears default_profile)",
 )
+@click.option(
+    "--refresh-licenses",
+    is_flag=True,
+    help="Clear cached local license entitlements; the next local license check refetches them.",
+)
 def configure(
     apikey: str,
     nexus_url: str,
@@ -94,19 +118,24 @@ def configure(
     ssl_verify: bool,
     enable_caching: bool,
     restore_defaults: bool,
+    refresh_licenses: bool,
 ) -> None:
     """Configure API key and optional Nexus settings."""
-    configure_fn(
-        apikey,
-        nexus_url,
-        api_endpoint,
-        website_endpoint,
-        s3_region,
-        s3_endpoint,
-        ssl_verify,
-        enable_caching,
-        restore_defaults,
-    )
+    try:
+        configure_fn(
+            apikey=apikey,
+            nexus_url=nexus_url,
+            api_endpoint=api_endpoint,
+            website_endpoint=website_endpoint,
+            s3_region=s3_region,
+            s3_endpoint=s3_endpoint,
+            ssl_verify=ssl_verify,
+            enable_caching=enable_caching,
+            restore_defaults=restore_defaults,
+            refresh_licenses=refresh_licenses,
+        )
+    except ConfigureError as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 def configure_fn(
@@ -119,11 +148,13 @@ def configure_fn(
     ssl_verify: bool | None = None,
     enable_caching: bool | None = None,
     restore_defaults: bool = False,
+    refresh_licenses: bool = False,
 ) -> None:
     """Configure API key and optionally Nexus environment settings."""
-
     if restore_defaults:
         _restore_defaults()
+        if refresh_licenses:
+            _refresh_license_cache_for_configure(config_saved=True)
         return
 
     if nexus_url:
@@ -141,13 +172,16 @@ def configure_fn(
     )
 
     if has_nexus_config and bool(api_endpoint) != bool(website_endpoint):
-        click.echo(
-            "Error: Both --api-endpoint and --website-endpoint must be provided together "
-            "(or use --nexus-url to set both automatically)."
+        reason = (
+            "Both --api-endpoint and --website-endpoint must be provided together "
+            "(or use --nexus-url to set both automatically)"
         )
+        click.echo(f"Error: {reason}.")
+        if refresh_licenses:
+            _raise_rejected_configuration_update_with_skipped_refresh(reason=reason)
         return
 
-    if not apikey and not has_nexus_config:
+    if not apikey and not has_nexus_config and not refresh_licenses:
         current_apikey = get_description()
         message = f"Current API key: [{current_apikey}]\n" if current_apikey else ""
         apikey = click.prompt(f"{message}Please enter your api key", type=str)
@@ -162,13 +196,28 @@ def configure_fn(
         enable_caching=enable_caching,
     )
 
-    if apikey and not _validate_apikey(apikey, api_endpoint=api_endpoint, ssl_verify=ssl_verify):
-        return
+    if apikey:
+        try:
+            valid_apikey, _ = _validate_apikey(
+                apikey, api_endpoint=api_endpoint, ssl_verify=ssl_verify
+            )
+        except Exception as exc:
+            raise ConfigureError(
+                _configuration_update_failed_message(reason=exc, refresh_skipped=refresh_licenses)
+            ) from exc
+        if not valid_apikey:
+            if refresh_licenses:
+                _raise_rejected_configuration_update_with_skipped_refresh(
+                    reason="API key validation failed"
+                )
+            return
 
     if web_updates:
+        auth_context_before = _license_auth_context(include_env=False)
         _apply_web_updates(
             web_updates=web_updates, has_nexus_config=has_nexus_config, apikey=apikey
         )
+        auth_context_changed = _license_auth_context(include_env=False) != auth_context_before
 
         if has_nexus_config:
             _echo_nexus_saved(
@@ -178,6 +227,10 @@ def configure_fn(
             )
         else:
             click.echo("Configuration saved successfully.")
+        if refresh_licenses or auth_context_changed:
+            _refresh_license_cache_for_configure(config_saved=True)
+    elif refresh_licenses:
+        _refresh_license_cache_for_configure()
     elif not apikey and not has_nexus_config:
         click.echo("No configuration changes to apply.")
 
@@ -248,7 +301,9 @@ def _build_web_updates(
     return updates
 
 
-def _validate_apikey(apikey: str, *, api_endpoint: str | None, ssl_verify: bool | None) -> bool:
+def _validate_apikey(
+    apikey: str, *, api_endpoint: str | None, ssl_verify: bool | None
+) -> tuple[bool, str | None]:
     cfg = _get_config()
 
     def auth(req: requests.Request) -> requests.Request:
@@ -265,12 +320,14 @@ def _validate_apikey(apikey: str, *, api_endpoint: str | None, ssl_verify: bool 
         resp = requests.get(target_url, auth=auth, verify=False)
 
     if resp.status_code == 200:
-        return True
-    click.echo(
-        f"Error: API key validation failed against endpoint: {validation_endpoint}\n"
-        f"Status code: {resp.status_code}"
+        return True, None
+    reason = (
+        f"API key validation failed against endpoint: {validation_endpoint}; "
+        f"status code: {resp.status_code}"
     )
-    return False
+    click.echo(f"Error: API key validation failed against endpoint: {validation_endpoint}")
+    click.echo(f"Status code: {resp.status_code}")
+    return False, reason
 
 
 def _apply_web_updates(
@@ -293,6 +350,46 @@ def _apply_web_updates(
 
     cfg.update_section("web", **web_updates)
     cfg.save()
+
+
+def _refresh_license_cache_for_active_config() -> None:
+    cfg = _get_config()
+    removed = refresh_license_state(cfg.config_dir)
+    click.echo(
+        f"License cache refreshed ({removed} cached file(s) removed; "
+        "next local license check will fetch current entitlements)."
+    )
+
+
+def _refresh_license_cache_for_configure(*, config_saved: bool = False) -> None:
+    try:
+        _refresh_license_cache_for_active_config()
+    except Exception as exc:
+        if config_saved:
+            raise ConfigureError(
+                f"Configuration saved, but license cache refresh failed: {exc}"
+            ) from exc
+        raise ConfigureError(f"License cache refresh failed: {exc}") from exc
+
+
+def _raise_rejected_configuration_update_with_skipped_refresh(*, reason: object) -> None:
+    """Raise for rejected config changes that skip an explicit license refresh."""
+
+    message = _configuration_update_failed_message(reason=reason, refresh_skipped=True)
+    raise ConfigureError(message)
+
+
+def _configuration_update_failed_message(
+    reason: object | None = None,
+    *,
+    refresh_skipped: bool = False,
+) -> str:
+    message = "Configuration update failed"
+    if reason is not None:
+        message = f"{message}: {reason}"
+    if refresh_skipped:
+        message = f"{message}; license cache was not refreshed"
+    return f"{message}."
 
 
 def _echo_nexus_saved(
@@ -443,74 +540,10 @@ def config_upgrade(dry_run: bool, check: bool, profiles: tuple[str, ...]) -> Non
         click.echo(f"Upgraded {len(changed_paths)} configuration file(s).")
 
 
-def _run_config_migration(overwrite: bool, delete_legacy: bool) -> None:
-    legacy_dir = legacy_config_directory()
-    if not legacy_dir.exists():
-        click.echo("No legacy configuration directory found at '~/.tidy3d'; nothing to migrate.")
-        return
-
-    canonical_dir = canonical_config_directory()
-    try:
-        destination = migrate_legacy_config(overwrite=overwrite, remove_legacy=delete_legacy)
-    except FileExistsError:
-        if delete_legacy:
-            try:
-                shutil.rmtree(legacy_dir)
-            except OSError as exc:
-                click.echo(
-                    f"Destination '{canonical_dir}' already exists and the legacy directory "
-                    f"could not be removed. Error: {exc}"
-                )
-                return
-            click.echo(
-                f"Destination '{canonical_dir}' already exists. "
-                "Skipped copying legacy files and removed the legacy '~/.tidy3d' directory."
-            )
-            return
-        click.echo(
-            f"Destination '{canonical_dir}' already exists. "
-            "Use '--overwrite' to replace the existing files."
-        )
-        return
-    except RuntimeError as exc:
-        click.echo(str(exc))
-        return
-    except FileNotFoundError:
-        click.echo("No legacy configuration directory found; nothing to migrate.")
-        return
-
-    click.echo(f"Configuration migrated to '{destination}'.")
-    if delete_legacy:
-        click.echo("The legacy '~/.tidy3d' directory was removed.")
-    else:
-        click.echo(
-            f"The legacy directory remains at '{legacy_dir}'. "
-            "Remove it after confirming the new configuration works, or rerun with '--delete-legacy'."
-        )
-
-
-@click.command(name="config-migrate")
-@click.option(
-    "--overwrite",
-    is_flag=True,
-    help="Replace existing files in the destination configuration directory if they already exist.",
-)
-@click.option(
-    "--delete-legacy",
-    is_flag=True,
-    help="Remove the legacy '~/.tidy3d' directory after a successful migration.",
-)
-def config_migrate(overwrite: bool, delete_legacy: bool) -> None:
-    """Copy configuration files from '~/.tidy3d' to the canonical location."""
-
-    _run_config_migration(overwrite, delete_legacy)
-
-
 @click.group()
 def config_group() -> None:
     """Configuration utilities."""
 
 
-config_group.add_command(config_migrate, name="migrate")
 config_group.add_command(config_reset, name="reset")
 config_group.add_command(config_upgrade, name="upgrade")

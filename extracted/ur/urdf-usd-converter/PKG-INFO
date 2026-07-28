@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: urdf-usd-converter
-Version: 0.3.0
+Version: 0.3.1
 Summary: A URDF to OpenUSD Data Converter
 Project-URL: Documentation, https://github.com/newton-physics/urdf-usd-converter/#readme
 Project-URL: Repository, https://github.com/newton-physics/urdf-usd-converter

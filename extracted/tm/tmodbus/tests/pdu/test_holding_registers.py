@@ -27,17 +27,17 @@ class TestReadHoldingRegistersPDU:
     def test_read_holding_registers_encode_request(self) -> None:
         """Test encoding of Read Holding Registers PDU."""
         pdu = ReadHoldingRegistersPDU(start_address=1, quantity=10)
-        assert pdu.encode_request() == bytearray.fromhex("03 00 01 00 0A")
+        assert pdu.encode_request() == bytes.fromhex("03 00 01 00 0A")
 
     def test_read_holding_registers_decode_response(self) -> None:
         """Test decoding of Read Holding Registers PDU."""
         pdu = ReadHoldingRegistersPDU(start_address=1, quantity=2)
-        response_bytes = bytearray.fromhex("03 04 00 01 00 02")
+        response_bytes = bytes.fromhex("03 04 00 01 00 02")
         assert pdu.decode_response(response_bytes) == [1, 2]
 
         # Test with more registers
         pdu = ReadHoldingRegistersPDU(start_address=2, quantity=3)
-        response_bytes = bytearray.fromhex("03 06 00 03 00 04 00 05")
+        response_bytes = bytes.fromhex("03 06 00 03 00 04 00 05")
         assert pdu.decode_response(response_bytes) == [3, 4, 5]
 
     def test_read_holding_registers_invalid_response(self) -> None:
@@ -45,19 +45,19 @@ class TestReadHoldingRegistersPDU:
         pdu = ReadHoldingRegistersPDU(start_address=1, quantity=5)
 
         with pytest.raises(InvalidResponseError, match=r"Expected response to start with function code and byte count"):
-            pdu.decode_response(bytearray.fromhex("FF"))
+            pdu.decode_response(bytes.fromhex("FF"))
 
         # Invalid function code
         with pytest.raises(InvalidResponseError, match=r"Invalid function code: expected 0x03, received 0x04"):
-            pdu.decode_response(bytearray.fromhex("04 01 05"))
+            pdu.decode_response(bytes.fromhex("04 01 05"))
 
         # Invalid length
         with pytest.raises(InvalidResponseError, match=r"Invalid response PDU length: expected 10, got 5"):
-            pdu.decode_response(bytearray.fromhex("03 08 02 03 04"))
+            pdu.decode_response(bytes.fromhex("03 08 02 03 04"))
 
         # Invalid register count
         with pytest.raises(InvalidResponseError, match=r"Invalid register count: expected 5, got 4"):
-            pdu.decode_response(bytearray.fromhex("03 08 02 03 04 05 FF FF FF FF"))
+            pdu.decode_response(bytes.fromhex("03 08 02 03 04 05 FF FF FF FF"))
 
     def test_decode_request_too_short(self) -> None:
         """Test ReadHoldingRegistersPDU.decode_request raises on too-short request."""
@@ -371,16 +371,16 @@ class TestWriteSingleRegisterPDU:
     def test_write_single_register_encode_request(self) -> None:
         """Test encoding of Write Single Register PDU."""
         pdu = WriteSingleRegisterPDU(address=1, value=12345)
-        assert pdu.encode_request() == bytearray.fromhex("06 00 01 30 39")
+        assert pdu.encode_request() == bytes.fromhex("06 00 01 30 39")
 
     def test_write_single_register_decode_response(self) -> None:
         """Test decoding of Write Single Register PDU."""
         pdu = WriteSingleRegisterPDU(address=1, value=12345)
-        response_bytes = bytearray.fromhex("06 00 01 30 39")
+        response_bytes = bytes.fromhex("06 00 01 30 39")
         assert pdu.decode_response(response_bytes) == 12345
 
         with pytest.raises(InvalidResponseError, match="Expected response to match request"):
-            pdu.decode_response(bytearray.fromhex("07 00 01 30 39"))
+            pdu.decode_response(bytes.fromhex("07 00 01 30 39"))
 
 
 # ============================================================================
@@ -525,8 +525,13 @@ class TestWriteMultipleRegistersPDU:
         """Test valid initialization."""
         values = [0x1234, 0x5678, 0x9ABC]
         pdu = WriteMultipleRegistersPDU(start_address=100, values=values)
-        assert pdu.start_adress == 100  # Note: typo in source code
+        assert pdu.start_address == 100
         assert pdu.values == values
+
+    def test_get_expected_request_data_length(self) -> None:
+        """Test get_expected_request_data_length."""
+        assert WriteMultipleRegistersPDU.get_expected_request_data_length(b"\x00\x00\x00\x00") == 5
+        assert WriteMultipleRegistersPDU.get_expected_request_data_length(b"\x00\x00\x00\x00\x02") == 7
 
     @pytest.mark.parametrize(
         ("start_address", "values", "expected_error"),
@@ -559,16 +564,16 @@ class TestWriteMultipleRegistersPDU:
     def test_write_multiple_registers_encode_request(self) -> None:
         """Test encoding of Write Multiple Registers PDU."""
         pdu = WriteMultipleRegistersPDU(start_address=1, values=[12345, 255])
-        assert pdu.encode_request() == bytearray.fromhex("10 00 01 00 02 04 30 39 00 FF")
+        assert pdu.encode_request() == bytes.fromhex("10 00 01 00 02 04 30 39 00 FF")
 
     def test_write_multiple_registers_decode_response(self) -> None:
         """Test decoding of Write Multiple Registers PDU."""
         pdu = WriteMultipleRegistersPDU(start_address=1, values=[12345, 255])
-        response_bytes = bytearray.fromhex("10 00 01 00 02")
+        response_bytes = bytes.fromhex("10 00 01 00 02")
         assert pdu.decode_response(response_bytes) == 2
 
         with pytest.raises(InvalidResponseError, match="Device response does not match request"):
-            pdu.decode_response(bytearray.fromhex("11 00 01 00 02"))
+            pdu.decode_response(bytes.fromhex("11 00 01 00 02"))
 
     def test_encode_request(self) -> None:
         """Test encoding request."""
@@ -794,6 +799,19 @@ class TestMaskWriteRegisterPDU:
 
 class TestReadWriteMultipleRegistersPDU:
     """Tests for ReadWriteMultipleRegistersPDU."""
+
+    def test_get_expected_request_data_length(self) -> None:
+        """Test get_expected_request_data_length."""
+        # test incomplete message
+        assert ReadWriteMultipleRegistersPDU.get_expected_request_data_length(b"\x17\x00\x03\x00") == 9
+
+        # test complete message
+        assert (
+            ReadWriteMultipleRegistersPDU.get_expected_request_data_length(
+                b"\x17\x00\x03\x00\x06\x00\x0e\x00\x03\x06\x00\xff\x00\xff\x00\xff"
+            )
+            == 12
+        )
 
     def test_initialization_valid(self) -> None:
         """Test valid initialization."""

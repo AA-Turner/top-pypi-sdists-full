@@ -16,7 +16,7 @@ env:
 
 jobs:
   test-python:
-    name: test ${{ matrix.python-version }}
+    name: ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     continue-on-error: ${{ endsWith(matrix.python-version, 't') }}
     strategy:
@@ -36,22 +36,24 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
 
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@stable
 
       - uses: actions/setup-python@v6.2.0
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
 
-      - run: pip install virtualenv pytest pytest-asyncio hypothesis maturin
+      - run: pip install virtualenv
+      - run: pip install -r requirements-dev.txt
       - run: virtualenv --no-vcs-ignore .venv
+
       - run: maturin develop --features use-small-offset
-      - run: pytest -v
+      - run: pytest -v -n auto
         env:
           HYPOTHESIS_PROFILE: slow
 
   test-os:
-    name: test on ${{ matrix.os }}
+    name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}-latest
     strategy:
       fail-fast: false
@@ -61,16 +63,17 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
 
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@stable
 
       - uses: actions/setup-python@v6.2.0
         with:
           python-version: "3.13"
-          allow-prereleases: true
 
-      - run: pip install virtualenv pytest pytest-asyncio hypothesis maturin
+      - run: pip install virtualenv
+      - run: pip install -r requirements-dev.txt
       - run: virtualenv --no-vcs-ignore .venv
+
       - run: maturin develop --features use-small-offset
-      - run: pytest -v
+      - run: pytest -v -n auto
         env:
           HYPOTHESIS_PROFILE: slow

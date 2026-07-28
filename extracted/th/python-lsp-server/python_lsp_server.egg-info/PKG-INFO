@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-lsp-server
-Version: 1.14.0
+Version: 1.15.0
 Summary: Python Language Server for the Language Server Protocol
 Author: Python Language Server Contributors
 License-Expression: MIT
@@ -10,7 +10,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: docstring-to-markdown
 Requires-Dist: importlib_metadata>=4.8.3; python_version < "3.10"
-Requires-Dist: jedi<0.20.0,>=0.17.2
+Requires-Dist: jedi<0.21.0,>=0.17.2
 Requires-Dist: pluggy>=1.0.0
 Requires-Dist: python-lsp-jsonrpc<2.0.0,>=1.1.0
 Requires-Dist: ujson>=3.0.0
@@ -130,7 +130,7 @@ or Arch Linux
 
 ```
 sudo pacman -S python-lsp-server
-````
+```
 
 Only on Alpine Linux the package is named differently. You can install it there by typing this command in your terminal:
 

@@ -43,7 +43,7 @@ dependencies = [
   "pillow==12.2.0",
   "typing-extensions>=4.6.0"
 ]
-version = "1.5.0"
+version = "1.5.1"
 
 [tool.poetry]
 packages = [

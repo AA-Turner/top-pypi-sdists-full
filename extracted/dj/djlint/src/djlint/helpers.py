@@ -61,13 +61,23 @@ def is_ignored_block_opening(config: Config, item: str) -> bool:
     A valid ignored group opening tag will not be part of a
     single line block.
     """
-    inline = _last_item(config.ignored_blocks_inline_pattern.finditer(item))
-    last_index = (
-        inline.end()  # get the last index. The ignored opening should start after this.
-        if inline
-        else 0
+    inline = tuple(
+        match.span()
+        for match in config.ignored_blocks_inline_pattern.finditer(item)
     )
-    return bool(config.ignored_block_opening_pattern.search(item[last_index:]))
+    if not inline:
+        return bool(config.ignored_block_opening_pattern.search(item))
+
+    # an opening that is not part of a block closed on this line leaves a
+    # block open, even when a self-contained one follows it (<pre>a<!--b-->).
+    # Probe the marker's last character: some alternatives start one
+    # character early ("[^{]{#" matches the quote in class="{# x #}").
+    for match in config.ignored_block_opening_pattern.finditer(item):
+        if not _inside_non_overlapping_span(
+            inline, match.end() - 1, match.end()
+        ):
+            return True
+    return False
 
 
 @lru_cache(maxsize=_LINE_CACHE_SIZE)
@@ -447,8 +457,10 @@ def overlaps_ignored_block(config: Config, html: str, match: SpanMatch) -> bool:
     ):
         # don't require the match to be fully inside the ignored block.
         # poorly build html will probably span ignored blocks and should be ignored.
-        if (ignored_match_start <= match_start <= ignored_match_end) or (
-            ignored_match_start <= match_end <= ignored_match_end
+        # spans are half open, so a match that only touches an ignored block
+        # (e.g. `{% if x %}{# comment #}`) starts and ends outside of it.
+        if (ignored_match_start <= match_start < ignored_match_end) or (
+            ignored_match_start < match_end <= ignored_match_end
         ):
             return True
     return False
@@ -485,6 +497,11 @@ def inside_ignored_rule(
         ignored_rule_names,
         ignore_all_rules,
     ) in _inside_ignored_rule(html, ignored_rules=config.ignored_rule_patterns):
+        # spans are half open, so a match ending exactly where a pragma starts
+        # is outside of it. a bare pragma ignores every rule, so it only covers
+        # matches ending inside it; a match merely wrapping one (e.g. the whole
+        # `<div ... {# djlint:off #} ... >` tag) keeps being checked, otherwise
+        # rules that pair tags would lose track of it.
         if (
             (
                 match_start < ignored_match_end
@@ -492,7 +509,7 @@ def inside_ignored_rule(
             )
             and rule in ignored_rule_names
         ) or (
-            (ignored_match_start <= match_end <= ignored_match_end)
+            (ignored_match_start < match_end <= ignored_match_end)
             and ignore_all_rules
         ):
             return True

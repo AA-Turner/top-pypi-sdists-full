@@ -25,7 +25,7 @@ def _normalize(checks):
     dicts = [c.to_dict() for c in checks]
     for d in dicts:
         d["issues"] = sorted(d["issues"], key=lambda i: i["label"])
-    return sorted(dicts, key=lambda d: (d["type"], d["name"]))
+    return sorted(dicts, key=lambda d: d["name"])
 
 
 class _FrontScopedMixin(_MixinBase):

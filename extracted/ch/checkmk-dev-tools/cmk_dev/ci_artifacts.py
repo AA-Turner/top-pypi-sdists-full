@@ -14,8 +14,10 @@ import asyncio
 import json
 import logging
 import os
+import shutil
 import sys
 import time
+import zipfile
 from argparse import ArgumentParser
 from argparse import Namespace as Args
 from collections.abc import Mapping, MutableMapping, Sequence
@@ -24,7 +26,7 @@ from datetime import datetime
 from itertools import chain
 from pathlib import Path
 from subprocess import check_output
-from typing import Any, List, Literal, TypedDict, cast
+from typing import Any, List, Literal, Set, TypedDict, cast
 
 import requests
 from influxdb_client import InfluxDBClient  # type: ignore[attr-defined]
@@ -63,6 +65,7 @@ class FetchResult(TypedDict):
     artifacts: list[str]
 
 MAX_RETRY_ATTEMPTS = 3
+MAX_SINGLE_FILE_DOWNLOADS = 10  # max number of single files to be downloaded before using archive.zip + decompression
 
 
 def parse_args() -> Args:
@@ -322,8 +325,6 @@ def download_artifacts(
     # pylint: disable=protected-access
     # pylint: disable=too-many-locals
 
-    downloaded_artifacts, skipped_artifacts = [], []
-
     # https://bugs.launchpad.net/python-jenkins/+bug/1973243
     # https://bugs.launchpad.net/python-jenkins/+bug/2018576
 
@@ -364,6 +365,99 @@ def download_artifacts(
         p.relative_to(out_dir).as_posix() for p in out_dir.glob("**/*") if p.is_file()
     )
 
+    skipped_artifacts: List[str] = []
+    downloaded_artifacts: List[str] = []
+    if len(artifact_hashes) > MAX_SINGLE_FILE_DOWNLOADS:
+        downloaded_artifact = _download_compressed_artifacs(
+            client=client,
+            build=build,
+            existing_files=existing_files,
+            artifact_hashes=artifact_hashes,
+            out_dir=out_dir,
+            total_download_timeout=total_download_timeout,
+        )
+        downloaded_artifacts.append(downloaded_artifact)
+        downloaded_artifacts.extend(_decompress_artifacts(
+            artifact=out_dir / downloaded_artifact,
+            out_dir=out_dir,
+        ))
+    else:
+        downloaded_artifacts, skipped_artifacts, existing_files = _download_individual_artifacts(
+            client=client,
+            build=build,
+            existing_files=existing_files,
+            artifact_hashes=artifact_hashes,
+            out_dir=out_dir,
+            total_download_timeout=total_download_timeout,
+        )
+
+    if not no_remove_others:
+        for path in existing_files - set(downloaded_artifacts) - set(skipped_artifacts):
+            log().debug("Remove superfluous file %s", path)
+            with suppress(FileNotFoundError):
+                (out_dir / path).unlink()
+    log().info(
+        "%d artifacts available in '%s' (%d skipped, because they were up to date locally)",
+        len(downloaded_artifacts) + len(skipped_artifacts),
+        out_dir,
+        len(skipped_artifacts),
+    )
+
+    return downloaded_artifacts, skipped_artifacts
+
+def _download_compressed_artifacs(
+    client: Jenkins,
+    build: Build,
+    existing_files: Set[str],
+    artifact_hashes: Mapping[str, str],
+    out_dir: Path,
+    total_download_timeout: int = 240,
+) -> str:
+
+    # https://ci.lan.tribe29.com/job/checkmk/job/master/job/cv/job/test-gerrit-single-k8s/710903/artifact/*zip*/archive.zip
+    artifact = "archive.zip"
+    artifact_filename = out_dir / artifact
+
+    # ignore the returned value of the function as it would be like "/*zip*/archive.zip"
+    _download_single_file(
+        client=client,
+        build=build,
+        artifact=f"/*zip*/{artifact}",
+        artifact_filename=artifact_filename,
+        total_download_timeout=total_download_timeout,
+    )
+
+    return artifact
+
+def _decompress_artifacts(artifact: Path, out_dir: Path, decompressed_folder_name: str = "archive") -> List[str]:
+    with zipfile.ZipFile(artifact, "r") as zip_ref:
+        zip_ref.extractall(out_dir)
+
+    # The extracted folder is always named "archive"
+    archive_dir = out_dir / decompressed_folder_name
+
+    downloaded_artifacts = []
+
+    # Move all contents of the decompressed archive folder up one level
+    if archive_dir.exists() and archive_dir.is_dir():
+        for item in archive_dir.iterdir():
+            shutil.copytree(str(item), str(out_dir / item.name), dirs_exist_ok=True)
+            downloaded_artifacts += [str(f.relative_to(out_dir)) for f in (out_dir / item.name).rglob("*") if f.is_file()]
+
+        shutil.rmtree(archive_dir)
+
+    return downloaded_artifacts
+
+def _download_individual_artifacts(
+    client: Jenkins,
+    build: Build,
+    existing_files: Set[str],
+    artifact_hashes: Mapping[str, str],
+    out_dir: Path,
+    total_download_timeout: int = 240,
+) -> tuple[List[str], List[str], Set[str]]:
+    downloaded_artifacts, skipped_artifacts = [], []
+
     for artifact in build.artifacts:
         existing_files -= {artifact}
         fp_hash = artifact_hashes[artifact]
@@ -384,54 +478,62 @@ def download_artifacts(
                 fp_hash,
             )
 
-        for attempts_left in reversed(range(MAX_RETRY_ATTEMPTS + 1)):
-            time_start = time.time()
-            try:
-                with client._session.get(f"{build.url}artifact/{artifact}", stream=True) as reply:
-                    log().debug("download: %s", artifact)
-                    reply.raise_for_status()
-                    artifact_filename.parent.mkdir(parents=True, exist_ok=True)
-                    current_dl_duration = 0.0
-                    with open(artifact_filename, "wb") as out_file:
-                        for chunk in reply.iter_content(chunk_size=8192):
-                            if (
-                                current_dl_duration := (time.time() - time_start)
-                            ) > total_download_timeout:
-                                raise TimeoutError(
-                                    f"Downloading of {reply.url} took longer than {total_download_timeout}s"
-                                )
-                            if chunk:  # Filter out keep-alive chunks
-                                out_file.write(chunk)
-                    log().debug(
-                        "download: %s - successful (took %.2fs)", artifact, current_dl_duration
-                    )
-                    downloaded_artifacts.append(artifact)
-                break
-            except (
-                requests.exceptions.ChunkedEncodingError,
-                requests.exceptions.ConnectionError,
-                TimeoutError,
-            ) as exc:
-                if not attempts_left:
-                    raise
-                log().warning(
-                    "download_artifacts() caught %r (%s retries left)", exc, attempts_left
+        downloaded_artifacts.append(
+            _download_single_file(
+                client=client,
+                build=build,
+                artifact=artifact,
+                artifact_filename=artifact_filename,
+                total_download_timeout=total_download_timeout,
+            )
+        )
+
+    return downloaded_artifacts, skipped_artifacts, existing_files
+
+def _download_single_file(
+    client: Jenkins,
+    build: Build,
+    artifact: str,
+    artifact_filename: Path,
+    total_download_timeout: int = 240,
+) -> str:
+    downloaded_artifact: str = ""
+
+    for attempts_left in reversed(range(MAX_RETRY_ATTEMPTS + 1)):
+        time_start = time.time()
+        try:
+            with client._session.get(f"{build.url}artifact/{artifact}", stream=True) as reply:
+                log().debug("download: %s", artifact)
+                reply.raise_for_status()
+                artifact_filename.parent.mkdir(parents=True, exist_ok=True)
+                current_dl_duration = 0.0
+                with open(artifact_filename, "wb") as out_file:
+                    for chunk in reply.iter_content(chunk_size=8192):
+                        if (
+                            current_dl_duration := (time.time() - time_start)
+                        ) > total_download_timeout:
+                            raise TimeoutError(
+                                f"Downloading of {reply.url} took longer than {total_download_timeout}s"
+                            )
+                        if chunk:  # Filter out keep-alive chunks
+                            out_file.write(chunk)
+                log().debug(
+                    "download: %s - successful (took %.2fs)", artifact, current_dl_duration
                 )
+                downloaded_artifact = artifact
+            break
+        except (
+            requests.exceptions.ChunkedEncodingError,
+            requests.exceptions.ConnectionError,
+            TimeoutError,
+        ) as exc:
+            if not attempts_left:
+                raise
+            log().warning(
+                "download_artifacts() caught %r (%s retries left)", exc, attempts_left
+            )
 
-    if not no_remove_others:
-        for path in existing_files - set(downloaded_artifacts) - set(skipped_artifacts):
-            log().debug("Remove superfluous file %s", path)
-            with suppress(FileNotFoundError):
-                (out_dir / path).unlink()
-    log().info(
-        "%d artifacts available in '%s' (%d skipped, because they were up to date locally)",
-        len(downloaded_artifacts) + len(skipped_artifacts),
-        out_dir,
-        len(skipped_artifacts),
-    )
-
-    return downloaded_artifacts, skipped_artifacts
-
+    return downloaded_artifact
 
 def path_hashes_match(actual: PathHashes, required: PathHashes) -> bool:
     """Returns True if two given path hash mappings are semantically equal, i.e. at least one hash

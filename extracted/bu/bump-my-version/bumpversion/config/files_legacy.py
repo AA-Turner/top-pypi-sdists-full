@@ -12,7 +12,7 @@ from bumpversion.ui import get_indented_logger
 logger = get_indented_logger(__name__)
 
 
-def read_ini_file(file_path: Path) -> Dict[str, Any]:  # noqa: C901
+def read_ini_file(file_path: Path) -> Dict[str, Any]:  # ruff: ignore[complex-structure]
     """
     Parse an INI file and return a dictionary of sections and their options.
 

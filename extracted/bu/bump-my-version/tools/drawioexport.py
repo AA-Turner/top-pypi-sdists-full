@@ -101,7 +101,7 @@ def export_file(
         "--scale",
         "2",
     ]
-    result = subprocess.run(cmd, check=False)  # noqa: S603
+    result = subprocess.run(cmd, check=False)  # ruff: ignore[subprocess-without-shell-equals-true]
     return result.returncode
 
 

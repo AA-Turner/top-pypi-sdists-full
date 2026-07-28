@@ -275,12 +275,13 @@ class NodeVisitor(ABC):
 
 
 _DISALLOWED_CHAR_REGEXP = re.compile(r"[^\sa-z0-9_-]")
+_PUNCTUATION_REMOVE_REGEXP = re.compile(r"[^\s\w-]")
 _SPACE_COLLAPSE_REGEXP = re.compile(r"\s+")
 
 
 def title_to_identifier(title: str) -> str:
     """
-    Converts a section heading title to a GitHub-style Markdown same-page anchor.
+    Converts a section heading title to a Markdown same-page anchor.
 
     :param title: Heading title text without formatting.
     """
@@ -294,9 +295,9 @@ def title_to_identifier(title: str) -> str:
     return s
 
 
-def title_to_slug(title: str) -> str:
+def title_to_ascii_slug(title: str) -> str:
     """
-    Converts a section heading title to a GitHub-style Markdown same-page anchor with accent removal.
+    Converts a section heading title to a Markdown same-page anchor with accent removal.
 
     :param title: Heading title text without formatting.
     """
@@ -304,7 +305,7 @@ def title_to_slug(title: str) -> str:
     s = title.strip()
     # normalize to NFD (decomposes accents)
     s = unicodedata.normalize("NFD", s)
-    # remove nonspacing combining diacritic marks (zero advance width) (Unicode category `Mn`)
+    # remove non-spacing combining diacritic marks (zero advance width) (Unicode category `Mn`)
     s = "".join(ch for ch in s if unicodedata.category(ch) != "Mn")
     # transform to lowercase
     s = s.lower()
@@ -313,6 +314,23 @@ def title_to_slug(title: str) -> str:
     # collapse whitespace to hyphens
     s = _SPACE_COLLAPSE_REGEXP.sub("-", s)
 
+    return s
+
+
+def title_to_slug(title: str) -> str:
+    """
+    Converts a section heading title to a Markdown same-page anchor retaining Unicode word characters.
+
+    :param title: Heading title text without formatting.
+    :returns: A slug compatible with GitHub and GitLab flavor Markdown.
+    """
+
+    # normalize equivalent Unicode sequences and transform letters to lowercase
+    s = unicodedata.normalize("NFC", title.strip()).lower()
+    # remove punctuation except spaces, hyphens and Unicode word characters
+    s = _PUNCTUATION_REMOVE_REGEXP.sub("", s)
+    # collapse whitespace to hyphens
+    s = _SPACE_COLLAPSE_REGEXP.sub("-", s)
     return s
 
 
@@ -621,7 +639,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             return None
 
         if url.startswith("mailto:"):
-            link_mention = self._transform_mention(url)
+            link_mention = self._transform_mention(anchor)
             if link_mention is not None:
                 return link_mention
 
@@ -770,7 +788,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             return None
 
         if url.startswith("mailto:"):
-            link_mention = self._transform_mention(url)
+            link_mention = self._transform_mention(anchor)
             if link_mention is not None:
                 return link_mention
 
@@ -779,16 +797,25 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
         return None
 
-    def _transform_mention(self, url: str) -> ElementType | None:
-        "Inserts a user mention."
+    def _transform_mention(self, anchor: ElementType) -> ElementType | None:
+        """
+        Inserts a user mention.
+        """
 
-        if url.startswith("mailto:"):
-            email = url[len("mailto:") :]
-            account_id = self.user_metadata.get(email)
-            if account_id is not None:
-                # <ac:link><ri:user ri:account-id="012345:6789abcd-ef01-2345-6789-abcdef012345" /></ac:link>
-                return AC_ELEM("link", {}, RI_ELEM("user", {RI_ATTR("account-id"): account_id}))
-        return None
+        url = anchor.get("href")
+        if url is None or not url.startswith("mailto:"):
+            raise DocumentError(anchor, "user mention anchor lacks attribute `href` with scheme `mailto:`")
+
+        if not self.options.user_mentions:
+            return None
+
+        email = url[len("mailto:") :]
+        account_id = self.user_metadata.get(email)
+        if account_id is None:
+            return None
+
+        # <ac:link><ri:user ri:account-id="012345:6789abcd-ef01-2345-6789-abcdef012345" /></ac:link>
+        return AC_ELEM("link", {}, RI_ELEM("user", {RI_ATTR("account-id"): account_id}))
 
     def _transform_image(self, context: FormattingContext, image: ElementType) -> ElementType:
         "Inserts an attached or external image."

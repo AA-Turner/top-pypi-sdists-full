@@ -1,2 +1,2 @@
-version = '1.20260726.165256'
-long_version = '1.20260726.165256+git.59f6cc4'
+version = '1.20260727.152347'
+long_version = '1.20260727.152347+git.0a6a2cb'

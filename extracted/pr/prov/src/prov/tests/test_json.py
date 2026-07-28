@@ -6,9 +6,11 @@ pytest-native ``fmt`` matrix (see ``conftest.py`` and the ``test_statements``/
 only the genuinely JSON-specific cases.
 """
 
+import json
+
 import pytest
 
-from prov.model import ProvDocument
+from prov.model import PROV_QUALIFIEDNAME, Literal, ProvDocument, ProvMembership
 from prov.serializers.provjson import ProvJSONEncoder, ProvJSONException
 
 
@@ -86,3 +88,64 @@ def test_third_record_with_same_identifier_appends_to_existing_list():
     reloaded = ProvDocument.deserialize(content=json_str, format="json")
 
     assert len(reloaded.get_record("ex:a1")) == 3
+
+
+def test_qualified_name_encodes_as_xsd_qname():
+    # #168: the submission's examples type QualifiedName values as xsd:QName.
+    document = ProvDocument()
+    document.add_namespace("ex", "http://example.org/")
+    document.entity("ex:e1", {"ex:a": document.valid_qualified_name("ex:v")})
+    container = json.loads(document.serialize(format="json"))
+    assert container["entity"]["ex:e1"]["ex:a"] == {"$": "ex:v", "type": "xsd:QName"}
+
+
+def test_legacy_prov_qualified_name_type_still_decodes():
+    # 2.x emitted prov:QUALIFIED_NAME; documents in the wild must keep parsing.
+    content = (
+        '{"prefix": {"ex": "http://example.org/"},'
+        ' "entity": {"ex:e1": {"ex:a": {"$": "ex:v", "type": "prov:QUALIFIED_NAME"}}}}'
+    )
+    document = ProvDocument.deserialize(content=content, format="json")
+    expected = ProvDocument()
+    expected.add_namespace("ex", "http://example.org/")
+    expected.entity("ex:e1", {"ex:a": expected.valid_qualified_name("ex:v")})
+    assert document == expected
+
+
+def test_had_member_multi_entity_hack_survives_attribute_order():
+    # #275 regression: the multi-entity `hadMember` hack (a JSON list of
+    # more than one `prov:entity` value on a single membership record)
+    # must produce one membership relation per entity regardless of
+    # whether "prov:entity" or "prov:collection" comes first in the
+    # record's JSON object -- key order carries no semantics in PROV-JSON
+    # and json.load() preserves source order. This library's own encoder
+    # always emits "prov:collection" before "prov:entity" (matching
+    # ProvMembership.FORMAL_ATTRIBUTES), so a corpus built only from
+    # round-tripping this library's own output can never exercise the
+    # reverse order.
+    json_content = """{
+    "prefix": {"ex": "http://example.org/"},
+    "hadMember": {
+        "_:id1": {
+            "prov:entity": ["ex:e1", "ex:e2"],
+            "prov:collection": "ex:coll"
+        }
+    }
+}"""
+    document = ProvDocument.deserialize(content=json_content, format="json")
+    memberships = list(document.get_records(ProvMembership))
+    entities = {rel.get_attribute("prov:entity").pop() for rel in memberships}
+    assert len(memberships) == 2
+    assert {str(e) for e in entities} == {"ex:e1", "ex:e2"}
+
+
+def test_unresolvable_qualified_name_literal_stays_opaque():
+    # A prov:QUALIFIED_NAME literal whose prefix has no in-scope namespace
+    # cannot be resolved to a QualifiedName; it must stay an opaque Literal
+    # rather than crash or silently guess a namespace (#238, #257 lock).
+    document = ProvDocument()
+    document.add_namespace("ex", "http://example.org/")
+    document.entity("ex:e1", {"ex:a": Literal("unknown:v", PROV_QUALIFIEDNAME)})
+    content = document.serialize(format="json")
+    reloaded = ProvDocument.deserialize(content=content, format="json")
+    assert reloaded == document

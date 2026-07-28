@@ -32,14 +32,19 @@ NAMESPACES = {
 # to the "ex" namespace registered on each document, so it resolves cleanly.
 EX_NS = Namespace("ex", NAMESPACES["ex"])
 
-# Local parts used for identifiers and prefixes are kept to a simple ascii
-# alphabet. #223: PROV-N does not escape qname metacharacters (' ) , ( : ; [ ] =)
-# in local parts. PROV-N is write-only and therefore out of the round-trip
-# property, but keeping identifier local parts simple avoids depending on that
-# behaviour at all. Non-ASCII deliberately lives in the string attribute
-# *values* below (criterion 1), never in identifiers.
+# Local parts used for identifiers and prefixes. #223's PROV-N metacharacters
+# (' ) , ( : ; [ ] =) are included in the alphabet here so that QualifiedName
+# *values* (see attr_values below) containing them keep round-tripping
+# cleanly through the json/xml/rdf serializers this property exercises,
+# including in trailing position (#294). PROV-N escaping itself (get_provn(),
+# not covered by this property -- see module docstring) is exercised
+# separately by the hand-written cases in test_provn_escaping.py. Non-ASCII
+# deliberately lives in the string attribute *values* below (criterion 1),
+# never in identifiers.
 local_part = st.text(
-    alphabet=string.ascii_lowercase + string.digits, min_size=1, max_size=8
+    alphabet=string.ascii_lowercase + string.digits + "='(),:;[]",
+    min_size=1,
+    max_size=8,
 )
 
 # Text attribute values may contain non-ASCII. Surrogates (Cs) cannot be encoded
@@ -48,32 +53,28 @@ local_part = st.text(
 # not a serializer behaviour we could round-trip; RDF handles every Cc codepoint
 # unchanged). Excluding both is a generation-validity narrowing (not a serializer
 # behaviour change) — the values that remain still cover the full non-ASCII range.
-# min_size=1: an *empty*-string attribute value is dropped entirely by the XML
-# serializer (the attribute vanishes on round trip), while JSON and RDF preserve
-# it — #224, a genuine XML round-trip bug deferred to 3.0, excluded here rather
-# than fixed under the 2.x output freeze.
 text_values = st.text(
     alphabet=st.characters(exclude_categories=("Cs", "Cc")),
-    min_size=1,
+    min_size=0,
     max_size=30,
 )
 
 attr_values = st.one_of(
     text_values,  # str, including non-ASCII
-    st.integers(min_value=-(2**31), max_value=2**31),
+    # xsd:int range (PROV-DM's canonical datatype for a plain Python int,
+    # #249): magnitudes beyond it are excluded because the serializers still
+    # tag every plain int xsd:int regardless of magnitude until their
+    # magnitude-aware reverse maps land (roadmap step 37), so a generated
+    # int outside int32 would round-trip back as a kept xsd:int Literal
+    # instead of the original bare int (#235's lossless-collapse rule).
+    st.integers(min_value=-(2**31), max_value=2**31 - 1),
     st.booleans(),
-    # Floats. PROV types a Python ``float`` as xsd:float (single precision), and
-    # RDF canonicalises xsd:float to a short decimal, so an arbitrary float does
-    # NOT survive the RDF round trip (e.g. 0.1 and large-magnitude values come
-    # back changed) even with width=32 — #225, a genuine RDF float-precision loss
-    # deferred to 3.0. JSON/XML keep the full repr and are unaffected. We
-    # therefore restrict generation to eighth-step dyadic rationals of modest
-    # magnitude (|v| <= 8192): exactly representable in float32 with a short
-    # exact decimal, empirically round-tripping cleanly through all three
-    # formats while still exercising the xsd:float datatype with fractional
-    # values. #77 (no Decimal values are generated) is covered for the same
-    # reason: xsd:decimal fidelity is lost through RDF.
-    st.integers(min_value=-(8192 * 8), max_value=8192 * 8).map(lambda n: n / 8.0),
+    # Floats. RDF now emits xsd:double values at full repr() precision (#225),
+    # matching JSON/XML, so any finite float round-trips cleanly. NaN and
+    # infinity are excluded deliberately: they are not equal to themselves
+    # (NaN) or require format-specific INF/NaN lexical handling we don't
+    # exercise here, not because of a round-trip bug.
+    st.floats(allow_nan=False, allow_infinity=False),
     # Timezone-aware UTC datetimes; PROV serialises these as xsd:dateTime.
     st.datetimes(min_value=datetime(1900, 1, 1), max_value=datetime(2100, 1, 1)).map(
         lambda dt: dt.replace(tzinfo=timezone.utc)
@@ -83,15 +84,69 @@ attr_values = st.one_of(
 )
 
 
-def _attribute_dict(draw) -> dict:
-    """Draw a dict of ``ex:<key> -> value`` other-attributes.
+# Attribute keys draw from `local_part` too, but with their *trailing*
+# character restricted -- the failing shape found for #341 is an attribute
+# key whose local part ends in one of `= ' , : ; [ ]`, decoded in a
+# namespace that no *other*, cleanly-splitting qualified name has already
+# registered by that point in decoding. Two separate weaknesses combine to
+# cause it:
+#
+# 1. rdflib's ``compute_qname()`` raises when a #223 metacharacter is the
+#    very last character of an IRI, since nothing follows it to serve as a
+#    local part. Decoding an *identifier* tolerates this: ``_resolve_iri``
+#    falls back to splitting at the last "/" or "#" itself whenever
+#    ``compute_qname()`` raises, so the true namespace still gets
+#    registered from decoding that identifier.
+# 2. Decoding an attribute *key* has no such fallback: its predicate is
+#    resolved via ``mandatory_valid_qname``, reached from
+#    ``ProvRecord.add_attributes`` while emitting decoded records
+#    (``ProvRDFSerializer._emit_decoded_records``), which only matches an
+#    *already-registered* namespace. So a key ending in one of those seven
+#    characters -- every #223 metacharacter except `(` and `)` -- fails
+#    outright unless some other qualified name under the same namespace has
+#    already been decoded from an IRI that splits cleanly, registering the
+#    true namespace first.
+#
+# A qualified name whose own local part carries the metacharacter
+# *mid-string* (e.g. "http://example.org/e:0") does not help: rdflib
+# mis-splits it into an over-narrow namespace ("http://example.org/e:")
+# instead of raising, so it never registers the true one -- but it does no
+# active harm either, since a clean sibling elsewhere in the same namespace
+# still rescues the key regardless. This excludes only the shape that
+# actually fails: identifiers, mid-string occurrences in other keys, and
+# QualifiedName *values* are all unaffected and keep full #223/#294
+# coverage. `(` and `)` are unaffected too -- rdflib splits them correctly
+# regardless of position -- so they stay reachable as key endings. Excluding
+# trailing-metacharacter key endings entirely is slightly more conservative
+# than the true rule (such a key is actually safe whenever its namespace
+# happens to already be registered), but the generator cannot guarantee that
+# in general, so this is a generation-validity narrowing, not a serializer
+# change.
+_KEY_SAFE_ENDING = string.ascii_lowercase + string.digits + "()"
 
-    #218: multiple values / mixed datatypes on a *single* attribute key lose
-    datatype fidelity through RDF. Using a dict guarantees unique keys, so no
-    key is ever emitted twice with differing datatypes.
+attribute_key_part = st.builds(
+    lambda body, ending: body + ending,
+    body=st.text(
+        alphabet=string.ascii_lowercase + string.digits + "='(),:;[]", max_size=7
+    ),
+    ending=st.text(alphabet=_KEY_SAFE_ENDING, min_size=1, max_size=1),
+)
+
+
+def _attribute_dict(draw) -> list[tuple[str, object]]:
+    """Draw a list of ``(ex:<key>, value)`` other-attribute pairs.
+
+    A key may be drawn more than once, each occurrence with an independently
+    drawn (possibly differently-typed) value: mixed-datatype attribute sets
+    now round-trip through RDF with their asserted datatypes intact (#218).
     """
-    keys = draw(st.lists(local_part, min_size=0, max_size=4, unique=True))
-    return {f"ex:k{key}": draw(attr_values) for key in keys}
+    keys = draw(st.lists(attribute_key_part, min_size=0, max_size=4, unique=True))
+    pairs: list[tuple[str, object]] = []
+    for key in keys:
+        name = f"ex:k{key}"
+        for value in draw(st.lists(attr_values, min_size=1, max_size=2)):
+            pairs.append((name, value))
+    return pairs
 
 
 def _draw_ids(draw, tag: str) -> list[str]:
@@ -147,19 +202,22 @@ def _populate(draw, container: ProvBundle) -> list[str]:
     # another bundle's identifier), so `prov_documents` emits it separately once
     # a sub-bundle has been drawn.
     #
-    # #217: PROV-O cannot represent two relations of the same kind between the
+    # PROV-O cannot represent two relations of the same kind between the
     # same primary endpoints that differ only in a *qualifying* formal attribute
     # (e.g. prov:time) — one collapses or loses an attribute on the RDF round
-    # trip. Anonymity alone does NOT avoid this. We therefore keep at most one
-    # relation of each kind per (endpoint1, endpoint2) pair (the `fresh` guard
-    # below), which is exactly the construct #217 tracks; excluding it is a
-    # generation-validity narrowing, not a serializer change. The guard is
-    # deliberately conservative — broader than #217's exact same-identifier
-    # shape — because it also forecloses #226-style collapse: it suppresses e.g.
-    # two `association`s sharing (activity, agent) but differing by `plan`.
-    # Those non-delegation qualified variants (association `plan`, start/end
-    # `starter`/`ender`) were verified to round-trip cleanly, so the guard
-    # forecloses #217/#226-style loss without masking any other known bug.
+    # trip. Anonymity alone does NOT avoid this. This is the permanent,
+    # documented PROV-O representational limitation explained in
+    # docs/reference/conformance.md (no conformant encoding exists for it).
+    # We therefore keep at most one relation of each kind per (endpoint1,
+    # endpoint2) pair (the `fresh` guard below), which is exactly that
+    # construct; excluding it is a generation-validity narrowing, not a
+    # serializer change. The guard is deliberately conservative — broader than
+    # the exact same-identifier shape — because it also forecloses #226-style
+    # collapse: it suppresses e.g. two `association`s sharing (activity, agent)
+    # but differing by `plan`. Those non-delegation qualified variants
+    # (association `plan`, start/end `starter`/`ender`) were verified to
+    # round-trip cleanly, so the guard forecloses this loss without masking
+    # any other known bug.
     seen: set[tuple[str, str, str]] = set()
 
     def fresh(kind: str, e1: str, e2: str) -> bool:
@@ -208,17 +266,13 @@ def _populate(draw, container: ProvBundle) -> list[str]:
     for _ in range(times()):
         g1, g2 = pick(agents), pick(agents)
         if fresh("deleg", g1, g2):
-            # No qualifying activity: #226. Qualified delegation is lost through
-            # RDF when two anonymous delegations share the same delegate AND
-            # qualifying activity but differ in responsible — the
-            # qualifiedDelegation blank nodes are keyed on (delegate, activity),
-            # which the endpoint-pair `fresh` guard cannot prevent (distinct from
-            # #217, which is about relations sharing an explicit identifier).
-            # Every other relation qualifier (relation prov:time,
-            # association plan, start/end starter/ender) round-trips fine and is
-            # kept. Omitting only delegation's activity keeps the relation type
-            # in the corpus without depending on that RDF-lossy construct.
-            container.delegation(g1, g2)
+            # Qualifying activity restored (#250 fix): each qualifiedDelegation
+            # blank node now carries its own prov:agent triple, so two anonymous
+            # delegations sharing the same delegate AND qualifying activity but
+            # differing in responsible no longer collapse on the RDF round trip
+            # (#226) — decoding matches the node by its own influencer instead
+            # of an ambiguous "last node seen" guess.
+            container.delegation(g1, g2, pick(activities))
     for _ in range(times()):
         x1, x2 = pick(all_ids), pick(all_ids)
         if fresh("infl", x1, x2):

@@ -5,7 +5,7 @@ from __future__ import annotations
 import functools
 import pathlib
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import autograd.numpy as np
 import shapely
@@ -13,6 +13,17 @@ from pydantic import Field, NonNegativeFloat, field_validator, model_validator
 
 from tidy3d.compat import _package_is_older_than
 from tidy3d.components.autograd import TracedCoordinate, TracedFloat, TracedSize, get_static
+from tidy3d.components.autograd.path_utils import (
+    AutogradRoute,
+    format_traced_paths,
+    indexed_traced_paths,
+    raise_unsupported_traced_path,
+    raise_with_traced_path_context,
+    resolve_delegated_autograd_route,
+    traced_paths,
+    validate_traced_path,
+)
+from tidy3d.components.autograd.types import PathType
 from tidy3d.components.base import Tidy3dBaseModel, cached_property
 from tidy3d.components.geometry.bound_ops import bounds_intersection, bounds_union
 from tidy3d.components.geometry.float_utils import increment_float
@@ -36,6 +47,7 @@ from tidy3d.components.viz import (
 )
 from tidy3d.constants import LARGE_NUMBER, MICROMETER, RADIAN, fp_eps, inf
 from tidy3d.exceptions import (
+    AdjointError,
     SetupError,
     Tidy3dError,
     Tidy3dImportError,
@@ -47,7 +59,7 @@ from tidy3d.log import log
 from tidy3d.packaging import verify_packages_import
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Sequence
+    from collections.abc import Callable, Iterable
     from os import PathLike
 
     import pydantic
@@ -77,6 +89,23 @@ POLY_TOLERANCE_RATIO = 1e-12
 POLY_DISTANCE_TOLERANCE = 8e-12
 # Tolerance for validating linear-only transforms (no translation)
 LINEAR_TRANSFORM_TOL = 1e-12
+GDS_MAX_COORDINATE_INDEX = 2**31 - 1
+
+
+def _raise_unsupported_traced_geometry_path(
+    geometry_name: str,
+    field_path: tuple[Any, ...],
+    *,
+    supported_parameters: tuple[str, ...] = (),
+) -> None:
+    """Raise a user-facing validation error for an unsupported geometry trace."""
+    raise_unsupported_traced_path(
+        parameter_kind="geometry",
+        owner_kind="geometry type",
+        owner_name=geometry_name,
+        field_path=field_path,
+        supported_parameters=supported_parameters,
+    )
 
 
 _shapely_operations = {
@@ -143,6 +172,13 @@ def check_transform_invertible(transform: MatrixReal4x4, index: int | None = Non
 
 class Geometry(Tidy3dBaseModel, ABC):
     """Abstract base class, defines where something exists in space."""
+
+    _traced_supported_paths: ClassVar[tuple[PathType, ...]] = ()
+
+    @classmethod
+    def _traced_autograd_supported_parameters(cls) -> tuple[str, ...]:
+        """Return user-facing supported parameter names for setup validation."""
+        return format_traced_paths(cls._traced_supported_paths)
 
     @cached_property
     def plot_params(self) -> PlotParams:
@@ -818,25 +854,7 @@ class Geometry(Tidy3dBaseModel, ABC):
         """Returns a copy of shape with inf vertices replaced by large numbers if polygon."""
         if not any(np.isinf(b) for b in shape.bounds):
             return shape
-
-        def _processed_coords(coords: Sequence[tuple[Any, ...]]) -> list[tuple[float, ...]]:
-            evaluated = Geometry._evaluate_inf(np.array(coords))
-            return [tuple(point) for point in evaluated.tolist()]
-
-        if shape.geom_type == "Polygon":
-            shell = _processed_coords(shape.exterior.coords)
-            holes = [_processed_coords(g.coords) for g in shape.interiors]
-            return shapely.Polygon(shell, holes)
-        if shape.geom_type in {"Point", "LineString", "LinearRing"}:
-            return shape.__class__(Geometry._evaluate_inf(np.array(shape.coords)))
-        if shape.geom_type in {
-            "MultiPoint",
-            "MultiLineString",
-            "MultiPolygon",
-            "GeometryCollection",
-        }:
-            return shape.__class__([Geometry.evaluate_inf_shape(g) for g in shape.geoms])
-        return shape
+        return shapely.transform(shape, Geometry._evaluate_inf, include_z=None)
 
     @staticmethod
     def pop_axis(coord: tuple[Any, Any, Any], axis: int) -> tuple[Any, tuple[Any, Any]]:
@@ -906,6 +924,52 @@ class Geometry(Tidy3dBaseModel, ABC):
         axis_label, position = list(xyz_filtered.items())[0]
         axis = "xyz".index(axis_label)
         return axis, position
+
+    @staticmethod
+    def _validate_gds_precision(
+        *,
+        polygons: list[Any],
+        gds_precision: float,
+        context: str,
+    ) -> float:
+        """Validate that the requested GDS precision is safe for the written polygons."""
+        if not np.isfinite(gds_precision) or gds_precision <= 0:
+            raise SetupError(
+                f"Requested 'gds_precision={gds_precision:.6g} um' in {context} must be "
+                "positive and finite."
+            )
+
+        if not polygons:
+            return gds_precision
+
+        max_abs_coord = 0.0
+        for polygon in polygons:
+            bbox = polygon.bounding_box()
+            if bbox is None:
+                continue
+            for point in bbox:
+                for value in point:
+                    coordinate = float(value)
+                    if not np.isfinite(coordinate):
+                        raise SetupError(
+                            f"Cannot export non-finite GDS coordinate '{coordinate}' in "
+                            f"{context}. Use finite geometry bounds before exporting to GDS."
+                        )
+                    max_abs_coord = max(max_abs_coord, abs(coordinate))
+
+        if max_abs_coord <= 0:
+            return gds_precision
+
+        min_safe_precision = float(np.nextafter(max_abs_coord / GDS_MAX_COORDINATE_INDEX, np.inf))
+        if gds_precision >= min_safe_precision:
+            return gds_precision
+
+        raise SetupError(
+            f"Requested 'gds_precision={gds_precision:.6g} um' in {context} is too fine for "
+            f"the export bounds (+/-{max_abs_coord:.6g} um). The minimum safe precision is "
+            f"'{min_safe_precision:.6g} um' to stay within the signed 32-bit GDS coordinate "
+            "range. Use a larger 'gds_precision'."
+        )
 
     @staticmethod
     def parse_two_xyz_kwargs(**xyz: Any) -> list[tuple[Axis, float]]:
@@ -1377,6 +1441,7 @@ class Geometry(Tidy3dBaseModel, ABC):
         dilation: float = 0.0,
         sidewall_angle: float = 0,
         reference_plane: PlanePosition = "middle",
+        merge_adjacent: bool = False,
     ) -> Geometry:
         """Import a ``gdstk.Cell`` and extrude it into a GeometryGroup.
 
@@ -1406,6 +1471,9 @@ class Geometry(Tidy3dBaseModel, ABC):
             ``"middle"`` (polygons correspond to the center of the slab bounds), ``"bottom"``
             (minimal slab bound position), or ``"top"`` (maximal slab bound position). This value
             has no effect if ``sidewall_angle == 0``.
+        merge_adjacent : bool = False
+            Merge polygons that become fractured into multiple adjacent GDS polygons, for example
+            due to the GDS vertex limit. Enable to import those fragments as a single merged shape.
 
         Returns
         -------
@@ -1423,22 +1491,74 @@ class Geometry(Tidy3dBaseModel, ABC):
                 )
             raise Tidy3dImportError("Argument 'gds_cell' must be an instance of 'gdstk.Cell'.")
 
-        gds_loader_fn = Geometry.load_gds_vertices_gdstk
+        def iter_import_shapes(shape: Shapely) -> Iterable[Shapely]:
+            if shape.is_empty:
+                return
+            if shape.geom_type in {"MultiPolygon", "GeometryCollection"}:
+                for subshape in shape.geoms:
+                    yield from iter_import_shapes(subshape)
+            else:
+                yield shape
+
+        def cleaned_shape(vertices: NDArray, consolidated_logger: Any) -> Shapely | None:
+            shape = shapely.set_precision(shapely.Polygon(vertices).buffer(0), POLY_GRID_SIZE)
+            if shape.is_empty:
+                consolidated_logger.warning(
+                    "A GDS polygon collapsed during topology cleanup in "
+                    "'Geometry.from_gds()' and will be skipped."
+                )
+                return None
+            return shape
+
         geometries = []
         with log as consolidated_logger:
-            for vertices in gds_loader_fn(gds_cell, gds_layer, gds_dtype, gds_scale):
-                # buffer(0) is necessary to merge self-intersections
-                shape = shapely.set_precision(shapely.Polygon(vertices).buffer(0), POLY_GRID_SIZE)
+            gds_loader_fn = Geometry.load_gds_vertices_gdstk
+            all_vertices = gds_loader_fn(gds_cell, gds_layer, gds_dtype, gds_scale)
+
+            if merge_adjacent:
+                shapes = []
+                for vertices in all_vertices:
+                    shape = cleaned_shape(vertices, consolidated_logger)
+                    if shape is not None:
+                        shapes.append(shape)
+
+                if len(shapes) > 1:
+                    shapes = [shapely.set_precision(shapely.union_all(shapes), POLY_GRID_SIZE)]
+
+                import_shapes = (
+                    import_shape for shape in shapes for import_shape in iter_import_shapes(shape)
+                )
+            else:
+                import_shapes = (
+                    import_shape
+                    for vertices in all_vertices
+                    for shape in [cleaned_shape(vertices, consolidated_logger)]
+                    if shape is not None
+                    for import_shape in iter_import_shapes(shape)
+                )
+
+            for import_shape in import_shapes:
                 try:
                     geometries.append(
                         from_shapely(
-                            shape, axis, slab_bounds, dilation, sidewall_angle, reference_plane
+                            import_shape,
+                            axis,
+                            slab_bounds,
+                            dilation,
+                            sidewall_angle,
+                            reference_plane,
                         )
                     )
                 except ValidationError as error:
                     consolidated_logger.warning(str(error))
                 except Tidy3dError as error:
                     consolidated_logger.warning(str(error))
+        if not geometries:
+            raise SetupError(
+                "Couldn't import any valid geometries from 'gds_cell' at "
+                f"gds_layer={gds_layer} with specified gds_dtype={gds_dtype}. "
+                "All polygons were skipped during cleanup or failed conversion."
+            )
         return geometries[0] if len(geometries) == 1 else GeometryGroup(geometries=geometries)
 
     @staticmethod
@@ -1579,6 +1699,7 @@ class Geometry(Tidy3dBaseModel, ABC):
         gds_layer: NonNegativeInt = 0,
         gds_dtype: NonNegativeInt = 0,
         gds_cell_name: str = "MAIN",
+        gds_precision: PositiveFloat = 1e-3,
     ) -> None:
         """Export a Geometry object's planar slice to a .gds file.
 
@@ -1598,6 +1719,12 @@ class Geometry(Tidy3dBaseModel, ABC):
             Data-type index to use for the shapes stored in the .gds file.
         gds_cell_name : str = 'MAIN'
             Name of the cell created in the .gds file to store the geometry.
+        gds_precision : float = 1e-3
+            Coordinate precision for the written GDS file in micrometers. The default matches
+            the gdstk default of ``1e-9`` meters. If the requested precision is too fine for the
+            written slice coordinates, export raises :class:`.SetupError`. The minimum safe value
+            scales with the maximum absolute written planar coordinate as
+            ``max_abs_coord / (2**31 - 1)``.
         """
         try:
             import gdstk
@@ -1610,9 +1737,22 @@ class Geometry(Tidy3dBaseModel, ABC):
                 )
             ) from e
 
-        library = gdstk.Library()
+        polygons = self.to_gdstk(
+            x=x,
+            y=y,
+            z=z,
+            gds_layer=gds_layer,
+            gds_dtype=gds_dtype,
+        )
+        gds_precision = self._validate_gds_precision(
+            polygons=polygons,
+            gds_precision=gds_precision,
+            context="Geometry.to_gds_file()",
+        )
+        library = gdstk.Library(unit=1e-6, precision=gds_precision * 1e-6)
         cell = library.new_cell(gds_cell_name)
-        self.to_gds(cell, x=x, y=y, z=z, gds_layer=gds_layer, gds_dtype=gds_dtype)
+        if polygons:
+            cell.add(*polygons)
         fname = pathlib.Path(fname)
         fname.parent.mkdir(parents=True, exist_ok=True)
         library.write_gds(fname)
@@ -1620,6 +1760,17 @@ class Geometry(Tidy3dBaseModel, ABC):
     def _compute_derivatives(self, derivative_info: DerivativeInfo) -> AutogradFieldMap:
         """Compute the adjoint derivatives for this object."""
         raise NotImplementedError(f"Can't compute derivative for 'Geometry': '{type(self)}'.")
+
+    def _resolve_autograd_route(self, field_path: tuple[Any, ...]) -> AutogradRoute:
+        """Resolve and validate one traced geometry path for adjoint routing."""
+        return validate_traced_path(
+            parameter_kind="geometry",
+            owner_kind="geometry type",
+            owner_name=type(self).__name__,
+            field_path=field_path,
+            supported_paths=self._traced_supported_paths,
+            supported_parameters=type(self)._traced_autograd_supported_parameters(),
+        )
 
     def _as_union(self) -> list[Geometry]:
         """Return a list of geometries that, united, make up the given geometry."""
@@ -1636,7 +1787,7 @@ class Geometry(Tidy3dBaseModel, ABC):
         if isinstance(other, int):
             return self
         if not isinstance(other, Geometry):
-            return NotImplemented  # type: ignore[return-value]
+            return NotImplemented
         return GeometryGroup(geometries=self._as_union() + other._as_union())
 
     def __radd__(self, other: int | Geometry) -> Self | GeometryGroup:
@@ -1645,7 +1796,7 @@ class Geometry(Tidy3dBaseModel, ABC):
         if isinstance(other, int):
             return self
         if not isinstance(other, Geometry):
-            return NotImplemented  # type: ignore[return-value]
+            return NotImplemented
         return GeometryGroup(geometries=other._as_union() + self._as_union())
 
     def __or__(self, other: Geometry) -> GeometryGroup:
@@ -1669,7 +1820,7 @@ class Geometry(Tidy3dBaseModel, ABC):
     def __sub__(self, other: Geometry) -> ClipOperation:
         """Difference of geometries"""
         if not isinstance(other, Geometry):
-            return NotImplemented  # type: ignore[return-value]
+            return NotImplemented
         return ClipOperation(operation="difference", geometry_a=self, geometry_b=other)
 
     def __xor__(self, other: Geometry) -> ClipOperation:
@@ -2078,6 +2229,13 @@ class Box(SimplePlaneIntersection, Centered):
     -------
     >>> b = Box(center=(1,2,3), size=(2,2,2))
     """
+
+    _traced_supported_paths: ClassVar[tuple[PathType, ...]] = traced_paths(
+        "center",
+        "size",
+        *indexed_traced_paths("center", 3),
+        *indexed_traced_paths("size", 3),
+    )
 
     size: TracedSize = Field(
         title="Size",
@@ -3282,18 +3440,6 @@ class ClipOperation(Geometry):
         description="Second operand for the set operation. It can also be any geometry type.",
     )
 
-    @field_validator("geometry_a", "geometry_b")
-    @classmethod
-    def _geometries_untraced(cls, val: GeometryType) -> GeometryType:
-        """Make sure that ``ClipOperation`` geometries do not contain tracers."""
-        traced = val._strip_traced_fields()
-        if traced:
-            raise ValidationError(
-                f"{val.type} contains traced fields {list(traced.keys())}. Note that "
-                "'ClipOperation' does not currently support automatic differentiation."
-            )
-        return val
-
     @staticmethod
     def to_polygon_list(base_geometry: Shapely, cleanup: bool = False) -> list[Shapely]:
         """Return a list of valid polygons from a shapely geometry, discarding points, lines, and
@@ -3588,6 +3734,76 @@ class ClipOperation(Geometry):
         new_geom_b = self.geometry_b._update_from_bounds(bounds=bounds, axis=axis)
         return self.updated_copy(geometry_a=new_geom_a, geometry_b=new_geom_b)
 
+    def _resolve_autograd_route(self, field_path: tuple[Any, ...]) -> AutogradRoute:
+        """Resolve and validate one traced ClipOperation path for adjoint routing."""
+        return resolve_delegated_autograd_route(
+            parameter_kind="geometry",
+            owner_kind="geometry type",
+            owner_name=type(self).__name__,
+            field_path=field_path,
+            delegates={"geometry_a": self.geometry_a, "geometry_b": self.geometry_b},
+            supported_parameters=(
+                "geometry_a.<parameter>",
+                "geometry_b.<parameter>",
+            ),
+        )
+
+    def _compute_derivatives(self, derivative_info: DerivativeInfo) -> AutogradFieldMap:
+        """Compute adjoint derivatives by accumulating contributions from both operands."""
+        geometry_paths = {"geometry_a": [], "geometry_b": []}
+        for path in derivative_info.paths:
+            geometry_key, *sub_path = path
+            geometry_paths[geometry_key].append(tuple(sub_path))
+
+        if derivative_info.clipped_geometry is None:
+            raise ValidationError(
+                "ClipOperation derivative evaluation requires `clipped_geometry`."
+            )
+
+        geometry_map = {
+            "geometry_a": self.geometry_a,
+            "geometry_b": self.geometry_b,
+        }
+        grad_vjps = {}
+
+        # Reuse interpolation data for both operands to avoid duplicate setup.
+        interpolators = derivative_info.interpolators or derivative_info.create_interpolators()
+
+        with derivative_info.cache_min_spacing_from_permittivity():
+            for geometry_key, geometry in geometry_map.items():
+                paths = geometry_paths[geometry_key]
+                if not paths:
+                    continue
+
+                geometry_info = derivative_info.updated_copy(
+                    paths=paths,
+                    bounds=geometry.bounds,
+                    bounds_intersect=self.bounds_intersection(
+                        geometry.bounds, derivative_info.simulation_bounds
+                    ),
+                    deep=False,
+                    interpolators=interpolators,
+                )
+
+                vjp_dict_geometry = geometry._compute_derivatives(geometry_info)
+
+                for geo_path, geo_vjp in vjp_dict_geometry.items():
+                    full_path = (geometry_key, *geo_path)
+                    if full_path in grad_vjps:
+                        existing = grad_vjps[full_path]
+                        if isinstance(existing, (list, tuple)) and isinstance(
+                            geo_vjp, (list, tuple)
+                        ):
+                            grad_vjps[full_path] = type(existing)(
+                                x + y for x, y in zip(existing, geo_vjp)
+                            )
+                        else:
+                            grad_vjps[full_path] = existing + geo_vjp
+                    else:
+                        grad_vjps[full_path] = geo_vjp
+
+        return grad_vjps
+
 
 class GeometryGroup(Geometry):
     """A collection of Geometry objects that can be called as a single geometry object."""
@@ -3820,6 +4036,28 @@ class GeometryGroup(Geometry):
             geometry._update_from_bounds(bounds=bounds, axis=axis) for geometry in self.geometries
         )
         return self.updated_copy(geometries=new_geometries)
+
+    def _resolve_autograd_route(self, field_path: tuple[Any, ...]) -> AutogradRoute:
+        """Resolve and validate one traced GeometryGroup path for adjoint routing."""
+        if len(field_path) < 2 or field_path[0] != "geometries":
+            _raise_unsupported_traced_geometry_path(
+                type(self).__name__,
+                field_path,
+                supported_parameters=("geometries[index].<parameter>",),
+            )
+
+        index = field_path[1]
+        sub_path = field_path[2:]
+        try:
+            self.geometries[index]._resolve_autograd_route(sub_path)
+        except AdjointError as err:
+            raise_with_traced_path_context(
+                err,
+                parameter_kind="geometry",
+                local_path=sub_path,
+                full_path=field_path,
+            )
+        return AutogradRoute(local_path=field_path)
 
     def _compute_derivatives(self, derivative_info: DerivativeInfo) -> AutogradFieldMap:
         """Compute the adjoint derivatives for this object."""

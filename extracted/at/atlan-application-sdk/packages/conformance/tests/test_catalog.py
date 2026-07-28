@@ -146,8 +146,8 @@ def test_catalog_app_scoped_rules_are_the_expected_set() -> None:
     # (BLDX-1499).
     # P025: app-name alignment — only apps have an atlan.yaml and .env.example;
     # the SDK has neither, so this check is meaningless there (BLDX-1491).
-    # P029/P030: SDR-readiness — only apps declare self_deployed_runtime; the SDK
-    # itself never does, so these are APP-scoped (DISTR-752).
+    # P029/P030 + P037/P038/P039: SDR-readiness — only apps declare
+    # self_deployed_runtime; the SDK itself never does, so these are APP-scoped.
     # P032–P035: preflight-gate authoring — only apps register @task activities,
     # define Handler.preflight_check, construct PreflightCheck results, and declare
     # the entrypoint Input contracts the gate rebuilds metadata from; the SDK
@@ -249,6 +249,9 @@ def test_catalog_app_scoped_rules_are_the_expected_set() -> None:
         "P033",
         "P034",
         "P035",
+        "P037",
+        "P038",
+        "P039",
         "T002",
         "T003",
         "T004",
@@ -259,6 +262,7 @@ def test_catalog_app_scoped_rules_are_the_expected_set() -> None:
         "T015",
         "T016",
         "T017",
+        "T018",
         "O002",
         "O003",
         "O004",
@@ -406,6 +410,11 @@ def test_catalog_p_series_present() -> None:
     P036 is HandRolledProcessIsolation — a bare ProcessPoolExecutor /
     multiprocessing child instead of the run_fault_isolated() / run_best_effort()
     seam (CNCT-85).
+    P037 is SdrAgentJsonNotConsumed (credentials resolved by GUID only, agent_json
+    ignored), P038 is SdrArtifactMisrooted (object-store prefix rooted from an
+    empty-defaulting input field), and P039 is SdrAgentJsonDroppedByInputContract
+    (the generated extract-input contract silently drops the forwarded agent_json)
+    — the follow-on SDR-readiness rules.
     A stray or renumbered P-id would slip past a subset check while
     breaking fleet-wide ``# conformance: ignore[Pxxx]`` suppressions.
     """
@@ -448,6 +457,9 @@ def test_catalog_p_series_present() -> None:
         "P034",
         "P035",
         "P036",
+        "P037",
+        "P038",
+        "P039",
     }
     missing = expected - p_ids
     assert not missing, f"Missing P-series rules: {missing}"
@@ -468,10 +480,12 @@ def test_catalog_t_series_present() -> None:
     """The T-series test-quality rules are all present: T001 (integration
     marking), T002/T003 (SDR test-quality), T004 (dev-entrypoint), T005-T009
     (assertion/collection quality), T010-T013 (tier structure), T014/T015
-    (coverage-config), and T016/T017 (e2e-CI queue isolation)."""
+    (coverage-config), T016/T017 (e2e-CI queue isolation), T018
+    (integration tier deselected by addopts), and T019 (asyncio test-loop scope
+    unset relative to a broadened fixture loop scope)."""
     rules = load_catalog()
     t_ids = {r.id for r in rules if r.id.startswith("T")}
-    expected = {f"T{n:03d}" for n in range(1, 18)}
+    expected = {f"T{n:03d}" for n in range(1, 20)}
     missing = expected - t_ids
     assert not missing, f"Missing T-series rules: {missing}"
     extra = t_ids - expected

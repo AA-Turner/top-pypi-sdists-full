@@ -1,6 +1,7 @@
 """Tests for optional Jinja dependency support."""
 
 import gc
+import importlib
 import sys
 import time
 from pathlib import Path
@@ -16,37 +17,50 @@ from litestar_vite.exceptions import MissingDependencyError
 pytestmark = pytest.mark.anyio
 
 
+def _react_scaffold_context() -> "object":
+    """Build a minimal React scaffolding context.
+
+    Returns:
+        A TemplateContext for the React template.
+    """
+    from litestar_vite.scaffolding import TemplateContext
+    from litestar_vite.scaffolding.templates import get_template
+
+    framework = get_template("react")
+    assert framework is not None
+    return TemplateContext(
+        project_name="test-project", framework=framework, use_typescript=True, vite_port=5173, litestar_port=8000
+    )
+
+
 # =====================================================
 # Optional Jinja Support Tests
 # =====================================================
 
 
 def test_optional_jinja_missing_dependency_error_creation() -> None:
-    """Test MissingDependencyError can be created with package name."""
-    exception = MissingDependencyError("jinja2", "jinja")
+    """MissingDependencyError names both the extra and the real PyPI package."""
+    exception = MissingDependencyError(package="jinja2", extra="jinja")
     error_msg = str(exception)
-    assert "jinja2" in error_msg
-    assert "litestar-vite[jinja]" in error_msg
-    assert "pip install" in error_msg
+    assert "'jinja2' is not installed" in error_msg
+    assert "pip install litestar-vite[jinja]" in error_msg
+    assert "pip install jinja2" in error_msg
 
 
-@patch("litestar_vite.commands.JINJA_INSTALLED", False)
-def test_optional_jinja_init_vite_without_jinja_raises_clear_error(tmp_path: Path) -> None:
-    """Test init_vite raises clear error when Jinja is missing."""
-    # This should raise MissingDependencyError with helpful message
+def test_optional_jinja_missing_dependency_error_without_extra() -> None:
+    """Dependencies with no matching extra only get the direct install hint."""
+    error_msg = str(MissingDependencyError(package="gcsfs"))
+    assert "pip install gcsfs" in error_msg
+    assert "litestar-vite[" not in error_msg
+
+
+@patch("litestar_vite.scaffolding.generator.JINJA_INSTALLED", False)
+def test_optional_jinja_scaffolding_without_jinja_raises_clear_error(tmp_path: Path) -> None:
+    """Scaffolding raises a clear error when Jinja is missing."""
+    from litestar_vite.scaffolding import generate_project
+
     with pytest.raises(MissingDependencyError, match="Package 'jinja2' is not installed but required"):
-        from litestar_vite.commands import init_vite
-
-        init_vite(
-            root_path=tmp_path,
-            resource_path=tmp_path / "resources",
-            asset_url="/assets/",
-            static_path=tmp_path / "public",
-            bundle_path=tmp_path / "dist",
-            enable_ssr=False,
-            vite_port=5173,
-            litestar_port=8000,
-        )
+        generate_project(tmp_path, _react_scaffold_context())  # type: ignore[arg-type]
 
 
 def test_optional_jinja_plugin_with_jinja_available() -> None:
@@ -99,25 +113,20 @@ def test_optional_jinja_plugin_import_without_jinja_contrib() -> None:
     assert result is app_config
 
 
-@patch("litestar_vite.commands.JINJA_INSTALLED", False)
+@patch("litestar_vite.scaffolding.generator.JINJA_INSTALLED", False)
 def test_optional_jinja_cli_without_jinja_shows_helpful_error(tmp_path: Path) -> None:
-    """Test CLI commands show helpful error messages when Jinja features are used without dependency."""
+    """``litestar assets init`` surfaces install instructions when jinja2 is absent.
+
+    The CLI reaches scaffolding through the same ``generate_project`` symbol it imports
+    at module scope, so the guard must hold for the exact object the CLI calls rather
+    than for a separate wrapper.
+    """
+    from litestar_vite.cli import generate_project as cli_generate_project
+
     with pytest.raises(MissingDependencyError) as exc_info:
-        from litestar_vite.commands import init_vite
+        cli_generate_project(tmp_path, _react_scaffold_context())  # type: ignore[arg-type]
 
-        init_vite(
-            root_path=tmp_path,
-            resource_path=tmp_path / "resources",
-            asset_url="/assets/",
-            static_path=tmp_path / "public",
-            bundle_path=tmp_path / "dist",
-            enable_ssr=False,
-            vite_port=5173,
-            litestar_port=8000,
-        )
-
-        # Should mention installation instructions
-        assert "litestar-vite[jinja]" in str(exc_info.value)
+    assert "pip install litestar-vite[jinja]" in str(exc_info.value)
 
 
 def test_optional_jinja_template_config_check_isinstance_safety() -> None:
@@ -268,12 +277,14 @@ def test_backward_compatibility_plugin_api_unchanged() -> None:
 
 
 def test_conditional_imports_type_checking_handle_missing_jinja() -> None:
-    """Test that TYPE_CHECKING imports don't cause issues when Jinja is missing."""
-    # This tests the TYPE_CHECKING block in commands.py
-    import litestar_vite.commands
+    """Scaffolding is importable regardless of Jinja availability.
 
-    # Module should be importable regardless of Jinja availability
-    assert litestar_vite.commands is not None
+    ``jinja2`` is imported lazily inside ``render_template``, so importing the
+    scaffolding package must never require the ``jinja`` extra.
+    """
+    import litestar_vite.scaffolding.generator
+
+    assert litestar_vite.scaffolding.generator is not None
 
 
 def test_conditional_imports_runtime_imports_fail_gracefully() -> None:
@@ -282,9 +293,7 @@ def test_conditional_imports_runtime_imports_fail_gracefully() -> None:
     with patch.dict(sys.modules, {"jinja2": None}):
         with pytest.raises((ImportError, ModuleNotFoundError)):
             # This should fail when trying to actually use jinja2
-            from jinja2 import Environment
-
-            Environment()
+            importlib.import_module("jinja2")
 
 
 # =====================================================
@@ -499,13 +508,13 @@ def test_production_serverless_environment_scenario() -> None:
     start_time = time.time()
 
     # Fast cold start simulation
-    from litestar_vite import ViteConfig, VitePlugin
+    package = importlib.import_module("litestar_vite")
 
     cold_start_time = time.time() - start_time
 
     # Should start quickly for serverless environments
     assert cold_start_time < 0.5, f"Cold start too slow for serverless: {cold_start_time}s"
 
-    config = ViteConfig()
-    plugin = VitePlugin(config=config)
+    config = package.ViteConfig()
+    plugin = package.VitePlugin(config=config)
     assert plugin is not None

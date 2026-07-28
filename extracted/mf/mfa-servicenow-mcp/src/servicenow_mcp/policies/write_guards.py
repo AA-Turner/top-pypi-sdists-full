@@ -281,7 +281,17 @@ MUTATING_TOOL_PREFIXES = (
 # Mutating tools whose NAME matches no prefix above. Any new tool that writes
 # but doesn't match a prefix MUST be listed here, or it silently bypasses the
 # confirm gate AND the allow_writes read-only guard (the scaffold_page bug).
-MUTATING_TOOL_NAMES = frozenset({"sn_batch", "sn_write", "scaffold_page"})
+MUTATING_TOOL_NAMES = frozenset(
+    {
+        "sn_batch",
+        "sn_write",
+        "scaffold_page",
+        # Clicks Save in an authenticated browser session. No Table API call is
+        # involved, which is exactly why the name-prefix gate would miss it —
+        # and why it belongs here: the record gets created either way.
+        "act_in_debug_window",
+    }
+)
 
 # manage_<X>: per-tool set of action values that are read-only (no confirm).
 # Bundles whose actions are all writes don't appear here — the prefix gate
@@ -360,9 +370,34 @@ def _fail_closed() -> bool:
     return os.getenv(ENV_WRITE_GUARDS_FAIL, "").strip().lower() in _FAIL_CLOSED_VALUES
 
 
+# Tools that read by default but can mutate when a particular argument is
+# supplied. The classic name-prefix gate cannot see this: the tool name is the
+# same either way.
+#
+# inspect_debug_window(evaluate=...) evaluates a JS EXPRESSION in the signed-in
+# window. It is meant for questions ("what is $scope.data.items.length"), and
+# the parser rejects statement bodies — but `fetch(...)` is an expression too,
+# so it cannot be promised side-effect-free. Rather than pretend, the argument
+# flips the call to a write, which is what makes allow_writes=false a real
+# guarantee instead of a naming convention.
+ARG_TRIGGERED_WRITE_ARGS: Dict[str, frozenset] = {
+    "inspect_debug_window": frozenset({"evaluate"}),
+}
+
+
+def is_arg_triggered_write(tool_name: str, arguments: Dict[str, Any]) -> bool:
+    """True when an otherwise-read-only tool was called with a mutating argument."""
+    triggers = ARG_TRIGGERED_WRITE_ARGS.get(tool_name)
+    if not triggers:
+        return False
+    return any(arguments.get(name) for name in triggers)
+
+
 def _is_read_only(tool_name: str, arguments: Dict[str, Any]) -> bool:
     """True if this call doesn't mutate ServiceNow data."""
     if tool_name in MUTATING_TOOL_NAMES:
+        return False
+    if is_arg_triggered_write(tool_name, arguments):
         return False
     if tool_name.startswith("manage_"):
         read_actions = MANAGE_READ_ACTIONS.get(tool_name)
@@ -882,8 +917,15 @@ def update_set_context(
         )
         us_scope_id, us_scope_name = _ref_pair(usrec.get("application")) if usrec else ("", "")
 
+        # The record's own name, not the picker's "Name [App]" label: the label
+        # is not what sys_update_set stores and cannot be passed back to
+        # update_set_name. The sys_id rides along because two sets in different
+        # applications are routinely given the same name, and then the name
+        # identifies nothing.
+        us_name = str((usrec or {}).get("name") or "").strip() or us.get("name") or us["sys_id"]
         ctx: Dict[str, Any] = {
-            "update_set": us.get("name") or us.get("sys_id"),
+            "update_set": us_name,
+            "update_set_id": us["sys_id"],
             "update_set_scope": us_scope_name or us_scope_id or "unknown",
         }
 

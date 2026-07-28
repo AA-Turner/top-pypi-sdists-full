@@ -5,4 +5,4 @@
 # the root directory of this source tree.
 
 __title__ = "ogx_client"
-__version__ = "1.2.1"
+__version__ = "1.2.2"

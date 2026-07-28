@@ -32,7 +32,7 @@ def with_param_axis_error(f):
   @functools.wraps(f)
   def wrapper(*a, **k):
     old = layer_norm.ERROR_IF_PARAM_AXIS_NOT_EXPLICIT
-    layer_norm.ERROR_IF_PARAM_AXIS_NOT_EXPLICIT = True
+    layer_norm.ERROR_IF_PARAM_AXIS_NOT_EXPLICIT = True  # pyrefly: ignore[bad-assignment]
     try:
       return f(*a, **k)
     finally:
@@ -255,6 +255,40 @@ class LayerNormTest(parameterized.TestCase):
     self.assertEqual(ln.params_dict()["layer_norm/scale"].shape, param_shape)
     self.assertEqual(ln.params_dict()["layer_norm/offset"].shape, param_shape)
 
+  @staticmethod
+  def _ln_f(axis, param_axis, create_scale=True, create_offset=True):
+    def f(x):
+      ln = layer_norm.LayerNorm(
+          axis=axis,
+          create_scale=create_scale,
+          create_offset=create_offset,
+          param_axis=param_axis)
+      return ln(x)
+    return transform.transform(f)
+
+  def test_layernorm_dtype_propagation_float64(self):
+    """Input dtype -> output dtype; params dtype match input."""
+    fwd = LayerNormTest._ln_f(axis=-1, param_axis=-1)
+    x = jnp.arange(12, dtype=float).reshape(3, 4)
+    params = fwd.init(jax.random.PRNGKey(0), x)
+    y = fwd.apply(params, None, x)
+    self.assertEqual(y.dtype, x.dtype)
+    w = params["layer_norm"]["scale"]; b = params["layer_norm"]["offset"]
+    self.assertEqual(w.dtype, x.dtype)
+    self.assertEqual(b.dtype, x.dtype)
+    m = jnp.mean(y, axis=-1); v = jnp.var(y, axis=-1)
+    np.testing.assert_allclose(m, jnp.zeros_like(m), rtol=1e-6, atol=1e-6)
+    np.testing.assert_allclose(v, jnp.ones_like(v),  rtol=1e-5, atol=1e-5)
+
+  def test_layernorm_jit_consistency_and_axis_tuple(self):
+    """axis as tuple + param_axis, eager == jit apply."""
+    fwd = self._ln_f(axis=(-1,), param_axis=-1)
+    x = jnp.arange(2*3*4, dtype=jnp.float32).reshape(2, 3, 4)
+    params = fwd.init(jax.random.PRNGKey(0), x)
+    eager = fwd.apply(params, None, x)
+    jit_apply = jax.jit(lambda p, z: fwd.apply(p, None, z))
+    jitted = jit_apply(params, x)
+    np.testing.assert_allclose(eager, jitted, rtol=1e-6, atol=1e-6)
 
 if __name__ == "__main__":
   absltest.main()

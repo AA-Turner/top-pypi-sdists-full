@@ -552,6 +552,10 @@ class BingoTerminal:
         self._detect_network_env()
         # v6.2.330: http_request SSL 연속 실패 카운터 — 2회 이상 시 curl 전환 유도
         self._http_ssl_fail_count: int = 0
+        # v6.2.331: 보고서 중복 생성 방지 플래그
+        self._report_generated: bool = False
+        # v6.2.331: 세션 중 타겟 HTML/JS에서 발견된 허용 도메인 집합
+        self._session_allowed_domains: set[str] = set()
 
         # /retry 용 마지막 실행 결과 캐시
         self._last_exec_result: str = ""
@@ -4105,13 +4109,12 @@ class BingoTerminal:
                     if not cmd:
                         output = "[ERROR] No command provided"
                     else:
-                        # Target drift guard: check URLs in bash commands
-                        drift_blocked = self._check_target_drift_in_text(cmd)
-                        if drift_blocked:
-                            output = drift_blocked
-                            self.console.print(f"[{THEME['dim']}]  🚫 Target drift blocked in bash_exec[/]")
-                            results.append({"id": tc.id, "name": name, "output": output})
-                            continue
+                        # v6.2.332: macOS grep -P → grep -E 자동 변환 (BSD grep -P 미지원)
+                        import platform as _plt
+                        if _plt.system() == "Darwin" and "grep" in cmd and "-P" in cmd:
+                            cmd = re.sub(r'(\s-\w*)P\b', lambda m: m.group(1) + 'E', cmd)
+                        # v6.2.333: drift 차단이 아닌 자동 교정 — URL 도메인을 타겟으로 치환
+                        cmd = self._rewrite_urls_to_target(cmd)
                         # VPN DNS bypass: rewrite curl/wget/dig commands to use external DNS
                         if _vpn_spoof:
                             cmd = self._rewrite_dns_commands(cmd)
@@ -4128,19 +4131,36 @@ class BingoTerminal:
                         # Check for 198.18.x.x contamination
                         if _vpn_spoof and re.search(r"\b198\.1[89]\.\d+\.\d+\b", output):
                             output += "\n\n[WARNING] VPN virtual IP detected in output — DNS leak detected"
+                        # v6.2.331: bash_exec 출력에서 도메인 추출 → 세션 허용 집합 등록 (Bug1)
+                        try:
+                            import tldextract as _tld
+                            _tgt_raw = getattr(self, "_current_target", "") or ""
+                            _tgt_host = _tgt_raw.split("//")[-1].split("/")[0]
+                            _tgt_ext = _tld.extract(_tgt_host)
+                            _tgt_regd = f"{_tgt_ext.domain}.{_tgt_ext.suffix}" if _tgt_ext.domain and _tgt_ext.suffix else _tgt_host
+                            for _dm in re.findall(r'https?://([a-zA-Z0-9][-a-zA-Z0-9.]*\.[a-zA-Z]{2,})', output):
+                                _ext = _tld.extract(_dm)
+                                _regd = f"{_ext.domain}.{_ext.suffix}" if _ext.domain and _ext.suffix else _dm
+                                if _regd and _regd != _tgt_regd:
+                                    self._session_allowed_domains.add(_regd)
+                                    self._session_allowed_domains.add(_dm)
+                        except Exception:
+                            pass
+                        # v6.2.331: bash_exec 출력을 FactRegistry에 등록 (Bug4)
+                        try:
+                            _pg = self._phantom_guard
+                            if _pg is not None and hasattr(_pg, "pre_register_exec_output"):
+                                _pg.pre_register_exec_output(output)
+                        except Exception:
+                            pass
                 elif name == "python_exec":
                     code = args.get("code", "")
                     timeout = args.get("timeout", 180)
                     if not code:
                         output = "[ERROR] No code provided"
                     else:
-                        # Target drift guard: check URLs in python code
-                        drift_blocked = self._check_target_drift_in_text(code)
-                        if drift_blocked:
-                            output = drift_blocked
-                            self.console.print(f"[{THEME['dim']}]  🚫 Target drift blocked in python_exec[/]")
-                            results.append({"id": tc.id, "name": name, "output": output})
-                            continue
+                        # v6.2.333: drift 차단 → 자동 교정 (URL 도메인을 타겟으로 치환)
+                        code = self._rewrite_urls_to_target(code)
                         # VPN DNS leak guard: block hardcoded 198.18.x.x IPs in python code
                         if _vpn_spoof:
                             # Remove line comments before checking
@@ -4180,62 +4200,45 @@ class BingoTerminal:
                             output += "\n\n[WARNING] VPN virtual IP detected in output — DNS leak detected"
                 elif name == "http_request":
                     import httpx as _httpx
+                    import re
+                    from urllib.parse import urlparse, urlunparse
                     method = args.get("method", "GET")
-                    url = args.get("url", "")
+                    # v6.2.333: executor-owned URL — model provides path only, executor binds target
+                    path = args.get("path", "")
+                    _legacy_url = args.get("url", "")
+                    if not path and _legacy_url:
+                        _lp = urlparse(_legacy_url)
+                        path = _lp.path + (f"?{_lp.query}" if _lp.query else "")
+                    if not path:
+                        path = "/"
+                    if not path.startswith("/"):
+                        path = "/" + path
                     headers = args.get("headers") or {}
                     body = args.get("body")
                     follow = args.get("follow_redirects", False)
-                    # POST requests to WAF-protected endpoints often hang — use shorter timeout
                     default_timeout = 10 if method in ("POST", "PUT", "PATCH") else 30
                     timeout = args.get("timeout", default_timeout)
-                    if not url:
-                        output = "[ERROR] No URL provided"
+                    target_raw = getattr(self, "_current_target", "")
+                    if not target_raw:
+                        output = "[ERROR] No target set — use /target first"
                     else:
-                        # Target drift guard: block requests to different domains
-                        import re
-                        from urllib.parse import urlparse
-                        import tldextract
+                        _tp = urlparse(target_raw if target_raw.startswith("http") else f"https://{target_raw}")
+                        _target_host = _tp.hostname or ""
+                        _target_scheme = _tp.scheme or "https"
+                        url = f"{_target_scheme}://{_target_host}{path}"
                         parsed = urlparse(url)
-                        request_host = parsed.hostname or ""
-                        target_url = getattr(self, "_current_target", "")
-                        if target_url:
-                            target_parsed = urlparse(target_url if target_url.startswith("http") else f"http://{target_url}")
-                            target_host = target_parsed.hostname or ""
-                            req_ext = tldextract.extract(request_host)
-                            tgt_ext = tldextract.extract(target_host)
-                            req_domain = f"{req_ext.domain}.{req_ext.suffix}" if req_ext.domain and req_ext.suffix else request_host
-                            tgt_domain = f"{tgt_ext.domain}.{tgt_ext.suffix}" if tgt_ext.domain and tgt_ext.suffix else target_host
-                            _resolved_ip = getattr(self, "_target_resolved_ip", None)
-                            _is_target_ip = (request_host == _resolved_ip) if _resolved_ip else False
-                            _is_cf_domain = bool(_resolved_ip and self._is_cf_ip(_resolved_ip))
-                            if req_domain != tgt_domain and request_host != target_host:
-                                if _is_target_ip and self._check_ip_direct_accessible(request_host):
-                                    pass  # resolved IP + accessible
-                                elif _is_cf_domain and self._check_ip_direct_accessible(request_host, domain=target_host):
-                                    pass  # CF domain: origin IP verified via Host header
-                                else:
-                                    _reason = "IP direct access blocked (domain-binding)" if _is_target_ip else "Target drift blocked"
-                                    output = f"[ERROR] {_reason}: {url}\nSession target: {target_url}\nAttempted: {request_host} ({req_domain})\nAllowed: {target_host} ({tgt_domain})"
-                                    self.console.print(f"[{THEME['dim']}]  🚫 {_reason}: {request_host}[/]")
-                                    results.append({"id": tc.id, "name": name, "output": output})
-                                    continue
                         self.console.print(
                             f"[{THEME['dim']}]  ⚙ http_request: {method} {url[:100]}[/]"
                         )
-                        # VPN DNS bypass: resolve via external DNS and replace hostname with real IP
+                        # VPN DNS bypass: resolve via external DNS
                         if _vpn_spoof:
-                            from urllib.parse import urlunparse
-                            original_host = parsed.hostname
-                            if original_host:
-                                real_ip = self._resolve_via_external_dns(original_host)
-                                if real_ip:
-                                    # Replace hostname with real IP
-                                    netloc = real_ip
-                                    if parsed.port:
-                                        netloc = f"{real_ip}:{parsed.port}"
-                                    url = urlunparse((parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
-                                    # Preserve original Host header for virtual hosting
-                                    headers["Host"] = original_host
+                            real_ip = self._resolve_via_external_dns(_target_host)
+                            if real_ip:
+                                netloc = real_ip
+                                if parsed.port:
+                                    netloc = f"{real_ip}:{parsed.port}"
+                                url = urlunparse((parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
+                                headers["Host"] = _target_host
                         with _httpx.Client(
                             verify=False, timeout=timeout,
                             follow_redirects=follow,
@@ -4243,9 +4246,21 @@ class BingoTerminal:
                             resp = client.request(method, url, headers=headers, content=body)
                             resp_headers = "\n".join(f"{k}: {v}" for k, v in resp.headers.items())
                             output = f"HTTP/{resp.http_version} {resp.status_code}\n{resp_headers}\n\n{resp.text[:6000]}"
-                            # Check for 198.18.x.x contamination in response
                             if _vpn_spoof and ("198.18." in output or "198.19." in output):
-                                output += "\n\n[WARNING] VPN virtual IP detected in response — may indicate DNS leak"
+                                output += "\n\n[WARNING] VPN virtual IP detected in response — DNS leak"
+                            # 응답에서 발견된 연관 도메인 등록 (CDN 정적자산 용도)
+                            try:
+                                import tldextract as _tld2
+                                _tgt_ext2 = _tld2.extract(_target_host)
+                                _tgt_regd2 = f"{_tgt_ext2.domain}.{_tgt_ext2.suffix}" if _tgt_ext2.domain and _tgt_ext2.suffix else _target_host
+                                for _dm2 in re.findall(r'https?://([a-zA-Z0-9][-a-zA-Z0-9.]*\.[a-zA-Z]{2,})', resp.text[:6000]):
+                                    _ext2 = _tld2.extract(_dm2)
+                                    _regd2 = f"{_ext2.domain}.{_ext2.suffix}" if _ext2.domain and _ext2.suffix else _dm2
+                                    if _regd2 and _regd2 != _tgt_regd2:
+                                        self._session_allowed_domains.add(_regd2)
+                                        self._session_allowed_domains.add(_dm2)
+                            except Exception:
+                                pass
                 else:
                     output = f"[ERROR] Unknown tool: {name}"
             except subprocess.TimeoutExpired:
@@ -4327,6 +4342,74 @@ class BingoTerminal:
         self._ip_accessibility_cache = cache
         return result
 
+    def _rewrite_urls_to_target(self, text: str) -> str:
+        """Rewrite non-target URLs to canonical target domain (structural anti-hallucination).
+
+        Instead of BLOCKING drift URLs, REWRITE them so the model's intent (path/method)
+        is preserved but always directed at the actual target. This makes it structurally
+        impossible for drift-domain data to be misattributed as target findings.
+        """
+        if not hasattr(self, "_current_target") or not self._current_target:
+            return text
+        import re
+        from urllib.parse import urlparse
+        import tldextract
+
+        target_parsed = urlparse(self._current_target if self._current_target.startswith("http") else f"https://{self._current_target}")
+        target_host = target_parsed.hostname or ""
+        target_scheme = target_parsed.scheme or "https"
+        tgt_ext = tldextract.extract(target_host)
+        tgt_domain = f"{tgt_ext.domain}.{tgt_ext.suffix}" if tgt_ext.domain and tgt_ext.suffix else target_host
+
+        _OSINT_ALLOWED = {
+            "google.com", "google.co.kr", "bing.com", "shodan.io",
+            "censys.io", "crt.sh", "archive.org", "web.archive.org",
+            "virustotal.com", "urlscan.io", "securitytrails.com",
+            "exploit-db.com", "github.com", "pastebin.com",
+            "dnsdb.info", "bgp.he.net", "whois.domaintools.com",
+        }
+        _session_allowed = getattr(self, "_session_allowed_domains", set())
+        _STATIC_RE = re.compile(r'\.(css|js|png|jpg|jpeg|gif|svg|woff2?|ttf|eot|ico|webp|map)(\?|$|[\s\'"])')
+        _rewritten = []
+
+        url_pattern = r'(https?://)([a-zA-Z0-9][-a-zA-Z0-9.]*[a-zA-Z0-9])(/[^\s\'"<>]*)?'
+
+        def _rewrite(m):
+            scheme = m.group(1)
+            host = m.group(2)
+            path = m.group(3) or ""
+
+            # IP address → keep
+            if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', host):
+                return m.group(0)
+
+            req_ext = tldextract.extract(host)
+            req_domain = f"{req_ext.domain}.{req_ext.suffix}" if req_ext.domain and req_ext.suffix else host
+
+            # Target domain → keep
+            if req_domain == tgt_domain or host == target_host:
+                return m.group(0)
+
+            # OSINT tools → keep
+            if req_domain in _OSINT_ALLOWED:
+                return m.group(0)
+
+            # CDN/session-allowed + static file extension → keep
+            if req_domain in _session_allowed or host in _session_allowed:
+                if _STATIC_RE.search(path):
+                    return m.group(0)
+
+            # Everything else → rewrite domain to target
+            _rewritten.append(host)
+            return f"{target_scheme}://{target_host}{path}"
+
+        result = re.sub(url_pattern, _rewrite, text)
+        if _rewritten:
+            unique = set(_rewritten)
+            for h in unique:
+                self.console.print(f"[{THEME['dim']}]  🔄 URL 교정: {h} → {target_host}[/]")
+        return result
+
     def _check_target_drift_in_text(self, text: str) -> str | None:
         """Check if text contains URLs pointing to different domains than session target."""
         if not hasattr(self, "_current_target") or not self._current_target:
@@ -4346,6 +4429,8 @@ class BingoTerminal:
             "exploit-db.com", "github.com", "pastebin.com",
             "dnsdb.info", "bgp.he.net", "whois.domaintools.com",
         }
+        # v6.2.331: 세션 중 타겟 HTML/JS에서 발견된 허용 도메인 (CDN, 결제 API 등)
+        _session_allowed = getattr(self, "_session_allowed_domains", set())
 
         _resolved_ip = getattr(self, "_target_resolved_ip", None)
         _is_cf_domain = bool(_resolved_ip and self._is_cf_ip(_resolved_ip))
@@ -4363,6 +4448,20 @@ class BingoTerminal:
             if req_domain == tgt_domain or found_host == target_host:
                 continue
             if req_domain in _OSINT_ALLOWED:
+                continue
+            # v6.2.332: CDN/연관 도메인 — 정적 자산만 허용, API/로그인 차단
+            if req_domain in _session_allowed or found_host in _session_allowed:
+                _full_url = match.group(0)
+                _cdn_path = _full_url.split(found_host, 1)[-1].split("?")[0].lower() if found_host in _full_url else ""
+                _cdn_api = bool(re.search(r'/api/|/login|/admin|/auth|/user/|/account|/register|/logout|/signin|/signup|/pass|/member', _cdn_path))
+                _cdn_post = bool(re.search(r'-X\s*(POST|PUT|DELETE|PATCH)\b|--data\b|--json\b|-d\s+["\'{]', text, re.IGNORECASE))
+                if _cdn_api or _cdn_post:
+                    return (
+                        f"[ERROR] CDN/연관 도메인 API 접근 차단: {found_host}\n"
+                        f"타겟: {self._current_target}\n"
+                        f"CDN 도메인({found_host})은 정적 자산(CSS/JS/img) 조회만 허용됩니다.\n"
+                        f"API/로그인 테스트는 실제 타겟({target_host})에 직접 수행하세요."
+                    )
                 continue
             # CF 도메인: 새 IP가 Host헤더로 origin 검증되면 허용
             if _is_cf_domain and re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', found_host):
@@ -8793,7 +8892,7 @@ class BingoTerminal:
 
         _fc_mode = self._get_fc_tools() is not None
         _fc_nudge_count = 0
-        _FC_NUDGE_MAX = 10  # Increased: discovery phases often need multiple prose iterations
+        _FC_NUDGE_MAX = 3  # v6.2.331: 3회 연속 도구 미호출 시 강제 종료 (기존 10회)
         _http_ssl_fail_count = 0  # Track consecutive http_request SSL failures
 
         while True:
@@ -8844,15 +8943,29 @@ class BingoTerminal:
                         self._finalize_runtime("hard_loop_cap_reached")
                         break
                     if _fc_nudge_count > _FC_NUDGE_MAX:
-                        # Model persistently refuses to use tool calls — fall through to legacy
-                        _fc_mode = False
-                        continue
+                        # 3회 연속 도구 미호출 → 보고서 생성 후 종료 (v6.2.331)
+                        _lang_idle = getattr(self.config, "lang", "en")
+                        _idle_msg = {
+                            "ko": "⛔ 도구 호출 없이 텍스트만 3회 연속 — 더 이상 진행 불가. 보고서를 생성합니다.",
+                            "zh": "⛔ 连续3次无工具调用 — 无法继续，正在生成报告。",
+                            "en": "⛔ 3 consecutive text-only turns — cannot continue. Generating report.",
+                        }.get(_lang_idle, "⛔ Idle loop detected — generating report.")
+                        self.console.print(f"\n[{THEME['error']}]{_idle_msg}[/]")
+                        self._finalize_runtime("useful_action_frontier_exhausted")
+                        break
                     _lang = getattr(self.config, "lang", "en")
-                    _fc_nudge = {
-                        "ko": "실행할 명령이 있으면 bash_exec/python_exec/http_request 도구를 사용하세요. 코드블록은 실행되지 않습니다.",
-                        "zh": "请使用 bash_exec/python_exec/http_request 工具执行命令，代码块不会被执行。",
-                        "en": "Use bash_exec/python_exec/http_request tools to execute. Code blocks in text are not executed.",
-                    }.get(_lang, "Use tools to execute commands. Text code blocks are not executed.")
+                    if _fc_nudge_count >= 2:
+                        _fc_nudge = {
+                            "ko": "⚠️ 경고: 도구 없이 텍스트만 생성 중입니다. 지금 즉시 bash_exec 또는 http_request로 명령을 실행하세요.",
+                            "zh": "⚠️ 警告：连续无工具调用。立即用 bash_exec 或 http_request 执行命令，不需要文字说明。",
+                            "en": "⚠️ WARNING: Text-only output detected. Call bash_exec or http_request NOW with a concrete command.",
+                        }.get(_lang, "⚠️ Call a tool NOW. No more prose.")
+                    else:
+                        _fc_nudge = {
+                            "ko": "실행할 명령이 있으면 bash_exec/python_exec/http_request 도구를 사용하세요. 코드블록은 실행되지 않습니다.",
+                            "zh": "请使用 bash_exec/python_exec/http_request 工具执行命令，代码块不会被执行。",
+                            "en": "Use bash_exec/python_exec/http_request tools to execute. Code blocks in text are not executed.",
+                        }.get(_lang, "Use tools to execute commands. Text code blocks are not executed.")
                     self.history.append(Message(role="user", content=_fc_nudge))
                     from ..models.registry import ModelRegistry as _MR_fc
                     _mc_fc = self.config.get_active_model_config()
@@ -11733,6 +11846,10 @@ class BingoTerminal:
 
     def _auto_generate_report(self, terminal_reason: str = "completed", provider_failure=None) -> None:
         """Write one deterministic report from the canonical evidence snapshot."""
+        # v6.2.331: 동일 세션에서 두 번 호출 방지
+        if getattr(self, "_report_generated", False):
+            return
+        self._report_generated = True
         from pathlib import Path
         # datetime 클래스는 파일 최상단 'from datetime import datetime'으로 이미 임포트됨.
         # 여기서 'import datetime' (모듈)을 하면 클래스를 덮어써서

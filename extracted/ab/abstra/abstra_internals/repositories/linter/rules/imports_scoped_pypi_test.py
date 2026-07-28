@@ -7,8 +7,8 @@ hits the network; everything else is a cache hit.
 
 from unittest.mock import Mock, patch
 
-from abstra_internals.repositories.linter.rules.imports_requirements_analyzer import (
-    ImportsRequirementsAnalyzer,
+from abstra_internals.repositories.linter.rules.imports_analyzer import (
+    ImportsAnalyzer,
     InvalidImport,
     MissingPackageInRequirements,
 )
@@ -42,9 +42,7 @@ class TestScopedVerifiesPyPI(BaseTest):
                 PyPIVerificationCache, "verify_package_exists", return_value=False
             ),
         ):
-            issues = ImportsRequirementsAnalyzer().find_issues(
-                path=self.script.file_path
-            )
+            issues = ImportsAnalyzer().find_issues(path=self.script.file_path)
         self.assertTrue(_has(issues, InvalidImport))
 
     def test_scoped_flags_missing_when_on_pypi(self):
@@ -56,9 +54,7 @@ class TestScopedVerifiesPyPI(BaseTest):
                 PyPIVerificationCache, "verify_package_exists", return_value=True
             ),
         ):
-            issues = ImportsRequirementsAnalyzer().find_issues(
-                path=self.script.file_path
-            )
+            issues = ImportsAnalyzer().find_issues(path=self.script.file_path)
         self.assertTrue(_has(issues, MissingPackageInRequirements))
 
     def test_scoped_verifies_new_name_once_then_uses_cache(self):
@@ -72,9 +68,9 @@ class TestScopedVerifiesPyPI(BaseTest):
                 PyPIVerificationCache, "_query_pypi", Mock(return_value=False)
             ) as query,
         ):
-            cold = ImportsRequirementsAnalyzer().find_issues(path=self.script.file_path)
+            cold = ImportsAnalyzer().find_issues(path=self.script.file_path)
             after_cold = query.call_count
-            warm = ImportsRequirementsAnalyzer().find_issues(path=self.script.file_path)
+            warm = ImportsAnalyzer().find_issues(path=self.script.file_path)
             after_warm = query.call_count
         self.assertEqual(after_cold, 1)
         self.assertEqual(after_warm, 1)
@@ -90,7 +86,7 @@ class TestScopedVerifiesPyPI(BaseTest):
                 PyPIVerificationCache, "verify_package_exists", return_value=False
             ),
         ):
-            issues = ImportsRequirementsAnalyzer().find_issues()
+            issues = ImportsAnalyzer().find_issues()
         self.assertTrue(_has(issues, InvalidImport))
 
     def test_scoped_still_flags_installed_missing_from_requirements(self):
@@ -102,7 +98,5 @@ class TestScopedVerifiesPyPI(BaseTest):
                 return_value={"pandas": ["pandas"]},
             ),
         ):
-            issues = ImportsRequirementsAnalyzer().find_issues(
-                path=self.script.file_path
-            )
+            issues = ImportsAnalyzer().find_issues(path=self.script.file_path)
         self.assertTrue(_has(issues, MissingPackageInRequirements))

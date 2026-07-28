@@ -30,7 +30,6 @@ from . import agilicus_api
 from .model_helpers import model_enum_to_list
 from .resource_helpers import standard_page_fields
 
-
 CONNECTION_MAPPING_OPTS = ("default", "one-to-one")
 FORWARDING_MODE_CHOICES = model_enum_to_list(agilicus_api.ExternalNetworkForwardingMode)
 

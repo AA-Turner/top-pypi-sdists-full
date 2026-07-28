@@ -44,6 +44,7 @@ from daytona_api_client.models.ssh_access_dto import SshAccessDto
 from daytona_api_client.models.ssh_access_validation_dto import SshAccessValidationDto
 from daytona_api_client.models.toolbox_proxy_url import ToolboxProxyUrl
 from daytona_api_client.models.trace_span import TraceSpan
+from daytona_api_client.models.update_last_activity import UpdateLastActivity
 from daytona_api_client.models.update_sandbox_network_settings import UpdateSandboxNetworkSettings
 from daytona_api_client.models.update_sandbox_secrets import UpdateSandboxSecrets
 from daytona_api_client.models.update_sandbox_state_dto import UpdateSandboxStateDto
@@ -359,8 +360,9 @@ class SandboxApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> Sandbox:
-        """Create sandbox backup
+        """(Deprecated) Create sandbox backup
 
+        Deprecated: backups are managed automatically. This endpoint is a no-op kept for compatibility.
 
         :param sandbox_id_or_name: ID or name of the sandbox (required)
         :type sandbox_id_or_name: str
@@ -387,6 +389,7 @@ class SandboxApi:
         :type _host_index: int, optional
         :return: Returns the result object.
         """ # noqa: E501
+        warnings.warn("POST /sandbox/{sandboxIdOrName}/backup is deprecated.", DeprecationWarning)
 
         _param = self._create_backup_serialize(
             sandbox_id_or_name=sandbox_id_or_name,
@@ -429,8 +432,9 @@ class SandboxApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[Sandbox]:
-        """Create sandbox backup
+        """(Deprecated) Create sandbox backup
 
+        Deprecated: backups are managed automatically. This endpoint is a no-op kept for compatibility.
 
         :param sandbox_id_or_name: ID or name of the sandbox (required)
         :type sandbox_id_or_name: str
@@ -457,6 +461,7 @@ class SandboxApi:
         :type _host_index: int, optional
         :return: Returns the result object.
         """ # noqa: E501
+        warnings.warn("POST /sandbox/{sandboxIdOrName}/backup is deprecated.", DeprecationWarning)
 
         _param = self._create_backup_serialize(
             sandbox_id_or_name=sandbox_id_or_name,
@@ -499,8 +504,9 @@ class SandboxApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Create sandbox backup
+        """(Deprecated) Create sandbox backup
 
+        Deprecated: backups are managed automatically. This endpoint is a no-op kept for compatibility.
 
         :param sandbox_id_or_name: ID or name of the sandbox (required)
         :type sandbox_id_or_name: str
@@ -527,6 +533,7 @@ class SandboxApi:
         :type _host_index: int, optional
         :return: Returns the result object.
         """ # noqa: E501
+        warnings.warn("POST /sandbox/{sandboxIdOrName}/backup is deprecated.", DeprecationWarning)
 
         _param = self._create_backup_serialize(
             sandbox_id_or_name=sandbox_id_or_name,
@@ -5645,6 +5652,280 @@ class SandboxApi:
 
 
     @validate_call
+    def get_sandbox_signing_key(
+        self,
+        sandbox_id: Annotated[StrictStr, Field(description="ID of the sandbox")],
+        x_daytona_organization_id: Annotated[Optional[StrictStr], Field(description="Use with JWT to specify the organization ID")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> str:
+        """Get the signing key for a sandbox
+
+
+        :param sandbox_id: ID of the sandbox (required)
+        :type sandbox_id: str
+        :param x_daytona_organization_id: Use with JWT to specify the organization ID
+        :type x_daytona_organization_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_sandbox_signing_key_serialize(
+            sandbox_id=sandbox_id,
+            x_daytona_organization_id=x_daytona_organization_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "str",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_sandbox_signing_key_with_http_info(
+        self,
+        sandbox_id: Annotated[StrictStr, Field(description="ID of the sandbox")],
+        x_daytona_organization_id: Annotated[Optional[StrictStr], Field(description="Use with JWT to specify the organization ID")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[str]:
+        """Get the signing key for a sandbox
+
+
+        :param sandbox_id: ID of the sandbox (required)
+        :type sandbox_id: str
+        :param x_daytona_organization_id: Use with JWT to specify the organization ID
+        :type x_daytona_organization_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_sandbox_signing_key_serialize(
+            sandbox_id=sandbox_id,
+            x_daytona_organization_id=x_daytona_organization_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "str",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_sandbox_signing_key_without_preload_content(
+        self,
+        sandbox_id: Annotated[StrictStr, Field(description="ID of the sandbox")],
+        x_daytona_organization_id: Annotated[Optional[StrictStr], Field(description="Use with JWT to specify the organization ID")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get the signing key for a sandbox
+
+
+        :param sandbox_id: ID of the sandbox (required)
+        :type sandbox_id: str
+        :param x_daytona_organization_id: Use with JWT to specify the organization ID
+        :type x_daytona_organization_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_sandbox_signing_key_serialize(
+            sandbox_id=sandbox_id,
+            x_daytona_organization_id=x_daytona_organization_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "str",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_sandbox_signing_key_serialize(
+        self,
+        sandbox_id,
+        x_daytona_organization_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if sandbox_id is not None:
+            _path_params['sandboxId'] = sandbox_id
+        # process the query parameters
+        # process the header parameters
+        if x_daytona_organization_id is not None:
+            _header_params['X-Daytona-Organization-ID'] = x_daytona_organization_id
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'bearer', 
+            'oauth2'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/sandbox/{sandboxId}/signing-key',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
     def get_sandbox_trace_spans(
         self,
         sandbox_id: Annotated[StrictStr, Field(description="ID of the sandbox")],
@@ -7182,6 +7463,7 @@ class SandboxApi:
         name: Annotated[Optional[StrictStr], Field(description="Filter by name prefix (case-insensitive)")] = None,
         labels: Annotated[Optional[StrictStr], Field(description="JSON encoded labels to filter by")] = None,
         include_errored_deleted: Annotated[Optional[StrictBool], Field(description="Include results with errored state and deleted desired state")] = None,
+        include_warm: Annotated[Optional[StrictBool], Field(description="Include unclaimed warm pool sandboxes (excluded by default)")] = None,
         states: Annotated[Optional[List[SandboxState]], Field(description="List of states to filter by.")] = None,
         snapshots: Annotated[Optional[List[StrictStr]], Field(description="List of snapshot names to filter by")] = None,
         region_ids: Annotated[Optional[List[StrictStr]], Field(description="List of regions IDs to filter by")] = None,
@@ -7198,6 +7480,8 @@ class SandboxApi:
         created_at_before: Annotated[Optional[datetime], Field(description="Include items created before this timestamp")] = None,
         last_event_after: Annotated[Optional[datetime], Field(description="Include items with last event after this timestamp")] = None,
         last_event_before: Annotated[Optional[datetime], Field(description="Include items with last event before this timestamp")] = None,
+        auto_destroy_at_after: Annotated[Optional[datetime], Field(description="Include items scheduled for auto destroy after this timestamp")] = None,
+        auto_destroy_at_before: Annotated[Optional[datetime], Field(description="Include items scheduled for auto destroy before this timestamp")] = None,
         sort: Annotated[Optional[SandboxListSortField], Field(description="Field to sort by")] = None,
         order: Annotated[Optional[SandboxListSortDirection], Field(description="Direction to sort by")] = None,
         _request_timeout: Union[
@@ -7231,6 +7515,8 @@ class SandboxApi:
         :type labels: str
         :param include_errored_deleted: Include results with errored state and deleted desired state
         :type include_errored_deleted: bool
+        :param include_warm: Include unclaimed warm pool sandboxes (excluded by default)
+        :type include_warm: bool
         :param states: List of states to filter by.
         :type states: List[SandboxState]
         :param snapshots: List of snapshot names to filter by
@@ -7263,6 +7549,10 @@ class SandboxApi:
         :type last_event_after: datetime
         :param last_event_before: Include items with last event before this timestamp
         :type last_event_before: datetime
+        :param auto_destroy_at_after: Include items scheduled for auto destroy after this timestamp
+        :type auto_destroy_at_after: datetime
+        :param auto_destroy_at_before: Include items scheduled for auto destroy before this timestamp
+        :type auto_destroy_at_before: datetime
         :param sort: Field to sort by
         :type sort: SandboxListSortField
         :param order: Direction to sort by
@@ -7297,6 +7587,7 @@ class SandboxApi:
             name=name,
             labels=labels,
             include_errored_deleted=include_errored_deleted,
+            include_warm=include_warm,
             states=states,
             snapshots=snapshots,
             region_ids=region_ids,
@@ -7313,6 +7604,8 @@ class SandboxApi:
             created_at_before=created_at_before,
             last_event_after=last_event_after,
             last_event_before=last_event_before,
+            auto_destroy_at_after=auto_destroy_at_after,
+            auto_destroy_at_before=auto_destroy_at_before,
             sort=sort,
             order=order,
             _request_auth=_request_auth,
@@ -7345,6 +7638,7 @@ class SandboxApi:
         name: Annotated[Optional[StrictStr], Field(description="Filter by name prefix (case-insensitive)")] = None,
         labels: Annotated[Optional[StrictStr], Field(description="JSON encoded labels to filter by")] = None,
         include_errored_deleted: Annotated[Optional[StrictBool], Field(description="Include results with errored state and deleted desired state")] = None,
+        include_warm: Annotated[Optional[StrictBool], Field(description="Include unclaimed warm pool sandboxes (excluded by default)")] = None,
         states: Annotated[Optional[List[SandboxState]], Field(description="List of states to filter by.")] = None,
         snapshots: Annotated[Optional[List[StrictStr]], Field(description="List of snapshot names to filter by")] = None,
         region_ids: Annotated[Optional[List[StrictStr]], Field(description="List of regions IDs to filter by")] = None,
@@ -7361,6 +7655,8 @@ class SandboxApi:
         created_at_before: Annotated[Optional[datetime], Field(description="Include items created before this timestamp")] = None,
         last_event_after: Annotated[Optional[datetime], Field(description="Include items with last event after this timestamp")] = None,
         last_event_before: Annotated[Optional[datetime], Field(description="Include items with last event before this timestamp")] = None,
+        auto_destroy_at_after: Annotated[Optional[datetime], Field(description="Include items scheduled for auto destroy after this timestamp")] = None,
+        auto_destroy_at_before: Annotated[Optional[datetime], Field(description="Include items scheduled for auto destroy before this timestamp")] = None,
         sort: Annotated[Optional[SandboxListSortField], Field(description="Field to sort by")] = None,
         order: Annotated[Optional[SandboxListSortDirection], Field(description="Direction to sort by")] = None,
         _request_timeout: Union[
@@ -7394,6 +7690,8 @@ class SandboxApi:
         :type labels: str
         :param include_errored_deleted: Include results with errored state and deleted desired state
         :type include_errored_deleted: bool
+        :param include_warm: Include unclaimed warm pool sandboxes (excluded by default)
+        :type include_warm: bool
         :param states: List of states to filter by.
         :type states: List[SandboxState]
         :param snapshots: List of snapshot names to filter by
@@ -7426,6 +7724,10 @@ class SandboxApi:
         :type last_event_after: datetime
         :param last_event_before: Include items with last event before this timestamp
         :type last_event_before: datetime
+        :param auto_destroy_at_after: Include items scheduled for auto destroy after this timestamp
+        :type auto_destroy_at_after: datetime
+        :param auto_destroy_at_before: Include items scheduled for auto destroy before this timestamp
+        :type auto_destroy_at_before: datetime
         :param sort: Field to sort by
         :type sort: SandboxListSortField
         :param order: Direction to sort by
@@ -7460,6 +7762,7 @@ class SandboxApi:
             name=name,
             labels=labels,
             include_errored_deleted=include_errored_deleted,
+            include_warm=include_warm,
             states=states,
             snapshots=snapshots,
             region_ids=region_ids,
@@ -7476,6 +7779,8 @@ class SandboxApi:
             created_at_before=created_at_before,
             last_event_after=last_event_after,
             last_event_before=last_event_before,
+            auto_destroy_at_after=auto_destroy_at_after,
+            auto_destroy_at_before=auto_destroy_at_before,
             sort=sort,
             order=order,
             _request_auth=_request_auth,
@@ -7508,6 +7813,7 @@ class SandboxApi:
         name: Annotated[Optional[StrictStr], Field(description="Filter by name prefix (case-insensitive)")] = None,
         labels: Annotated[Optional[StrictStr], Field(description="JSON encoded labels to filter by")] = None,
         include_errored_deleted: Annotated[Optional[StrictBool], Field(description="Include results with errored state and deleted desired state")] = None,
+        include_warm: Annotated[Optional[StrictBool], Field(description="Include unclaimed warm pool sandboxes (excluded by default)")] = None,
         states: Annotated[Optional[List[SandboxState]], Field(description="List of states to filter by.")] = None,
         snapshots: Annotated[Optional[List[StrictStr]], Field(description="List of snapshot names to filter by")] = None,
         region_ids: Annotated[Optional[List[StrictStr]], Field(description="List of regions IDs to filter by")] = None,
@@ -7524,6 +7830,8 @@ class SandboxApi:
         created_at_before: Annotated[Optional[datetime], Field(description="Include items created before this timestamp")] = None,
         last_event_after: Annotated[Optional[datetime], Field(description="Include items with last event after this timestamp")] = None,
         last_event_before: Annotated[Optional[datetime], Field(description="Include items with last event before this timestamp")] = None,
+        auto_destroy_at_after: Annotated[Optional[datetime], Field(description="Include items scheduled for auto destroy after this timestamp")] = None,
+        auto_destroy_at_before: Annotated[Optional[datetime], Field(description="Include items scheduled for auto destroy before this timestamp")] = None,
         sort: Annotated[Optional[SandboxListSortField], Field(description="Field to sort by")] = None,
         order: Annotated[Optional[SandboxListSortDirection], Field(description="Direction to sort by")] = None,
         _request_timeout: Union[
@@ -7557,6 +7865,8 @@ class SandboxApi:
         :type labels: str
         :param include_errored_deleted: Include results with errored state and deleted desired state
         :type include_errored_deleted: bool
+        :param include_warm: Include unclaimed warm pool sandboxes (excluded by default)
+        :type include_warm: bool
         :param states: List of states to filter by.
         :type states: List[SandboxState]
         :param snapshots: List of snapshot names to filter by
@@ -7589,6 +7899,10 @@ class SandboxApi:
         :type last_event_after: datetime
         :param last_event_before: Include items with last event before this timestamp
         :type last_event_before: datetime
+        :param auto_destroy_at_after: Include items scheduled for auto destroy after this timestamp
+        :type auto_destroy_at_after: datetime
+        :param auto_destroy_at_before: Include items scheduled for auto destroy before this timestamp
+        :type auto_destroy_at_before: datetime
         :param sort: Field to sort by
         :type sort: SandboxListSortField
         :param order: Direction to sort by
@@ -7623,6 +7937,7 @@ class SandboxApi:
             name=name,
             labels=labels,
             include_errored_deleted=include_errored_deleted,
+            include_warm=include_warm,
             states=states,
             snapshots=snapshots,
             region_ids=region_ids,
@@ -7639,6 +7954,8 @@ class SandboxApi:
             created_at_before=created_at_before,
             last_event_after=last_event_after,
             last_event_before=last_event_before,
+            auto_destroy_at_after=auto_destroy_at_after,
+            auto_destroy_at_before=auto_destroy_at_before,
             sort=sort,
             order=order,
             _request_auth=_request_auth,
@@ -7666,6 +7983,7 @@ class SandboxApi:
         name,
         labels,
         include_errored_deleted,
+        include_warm,
         states,
         snapshots,
         region_ids,
@@ -7682,6 +8000,8 @@ class SandboxApi:
         created_at_before,
         last_event_after,
         last_event_before,
+        auto_destroy_at_after,
+        auto_destroy_at_before,
         sort,
         order,
         _request_auth,
@@ -7733,6 +8053,10 @@ class SandboxApi:
         if include_errored_deleted is not None:
             
             _query_params.append(('includeErroredDeleted', include_errored_deleted))
+            
+        if include_warm is not None:
+            
+            _query_params.append(('includeWarm', include_warm))
             
         if states is not None:
             
@@ -7833,6 +8157,32 @@ class SandboxApi:
                 )
             else:
                 _query_params.append(('lastEventBefore', last_event_before))
+            
+        if auto_destroy_at_after is not None:
+            if isinstance(auto_destroy_at_after, datetime):
+                _query_params.append(
+                    (
+                        'autoDestroyAtAfter',
+                        auto_destroy_at_after.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('autoDestroyAtAfter', auto_destroy_at_after))
+            
+        if auto_destroy_at_before is not None:
+            if isinstance(auto_destroy_at_before, datetime):
+                _query_params.append(
+                    (
+                        'autoDestroyAtBefore',
+                        auto_destroy_at_before.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('autoDestroyAtBefore', auto_destroy_at_before))
             
         if sort is not None:
             
@@ -10223,6 +10573,280 @@ class SandboxApi:
 
 
     @validate_call
+    def rotate_signing_key(
+        self,
+        sandbox_id: Annotated[StrictStr, Field(description="ID of the sandbox")],
+        x_daytona_organization_id: Annotated[Optional[StrictStr], Field(description="Use with JWT to specify the organization ID")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> str:
+        """Rotate the signing key, invalidating all previously signed URLs
+
+
+        :param sandbox_id: ID of the sandbox (required)
+        :type sandbox_id: str
+        :param x_daytona_organization_id: Use with JWT to specify the organization ID
+        :type x_daytona_organization_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._rotate_signing_key_serialize(
+            sandbox_id=sandbox_id,
+            x_daytona_organization_id=x_daytona_organization_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "str",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def rotate_signing_key_with_http_info(
+        self,
+        sandbox_id: Annotated[StrictStr, Field(description="ID of the sandbox")],
+        x_daytona_organization_id: Annotated[Optional[StrictStr], Field(description="Use with JWT to specify the organization ID")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[str]:
+        """Rotate the signing key, invalidating all previously signed URLs
+
+
+        :param sandbox_id: ID of the sandbox (required)
+        :type sandbox_id: str
+        :param x_daytona_organization_id: Use with JWT to specify the organization ID
+        :type x_daytona_organization_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._rotate_signing_key_serialize(
+            sandbox_id=sandbox_id,
+            x_daytona_organization_id=x_daytona_organization_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "str",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def rotate_signing_key_without_preload_content(
+        self,
+        sandbox_id: Annotated[StrictStr, Field(description="ID of the sandbox")],
+        x_daytona_organization_id: Annotated[Optional[StrictStr], Field(description="Use with JWT to specify the organization ID")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Rotate the signing key, invalidating all previously signed URLs
+
+
+        :param sandbox_id: ID of the sandbox (required)
+        :type sandbox_id: str
+        :param x_daytona_organization_id: Use with JWT to specify the organization ID
+        :type x_daytona_organization_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._rotate_signing_key_serialize(
+            sandbox_id=sandbox_id,
+            x_daytona_organization_id=x_daytona_organization_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "str",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _rotate_signing_key_serialize(
+        self,
+        sandbox_id,
+        x_daytona_organization_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if sandbox_id is not None:
+            _path_params['sandboxId'] = sandbox_id
+        # process the query parameters
+        # process the header parameters
+        if x_daytona_organization_id is not None:
+            _header_params['X-Daytona-Organization-ID'] = x_daytona_organization_id
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'bearer', 
+            'oauth2'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/sandbox/{sandboxId}/signing-key/rotate',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
     def set_auto_archive_interval(
         self,
         sandbox_id_or_name: Annotated[StrictStr, Field(description="ID or name of the sandbox")],
@@ -12240,6 +12864,7 @@ class SandboxApi:
         self,
         sandbox_id: Annotated[StrictStr, Field(description="ID of the sandbox")],
         x_daytona_organization_id: Annotated[Optional[StrictStr], Field(description="Use with JWT to specify the organization ID")] = None,
+        update_last_activity: Optional[UpdateLastActivity] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -12260,6 +12885,8 @@ class SandboxApi:
         :type sandbox_id: str
         :param x_daytona_organization_id: Use with JWT to specify the organization ID
         :type x_daytona_organization_id: str
+        :param update_last_activity:
+        :type update_last_activity: UpdateLastActivity
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -12285,6 +12912,7 @@ class SandboxApi:
         _param = self._update_last_activity_serialize(
             sandbox_id=sandbox_id,
             x_daytona_organization_id=x_daytona_organization_id,
+            update_last_activity=update_last_activity,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -12310,6 +12938,7 @@ class SandboxApi:
         self,
         sandbox_id: Annotated[StrictStr, Field(description="ID of the sandbox")],
         x_daytona_organization_id: Annotated[Optional[StrictStr], Field(description="Use with JWT to specify the organization ID")] = None,
+        update_last_activity: Optional[UpdateLastActivity] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -12330,6 +12959,8 @@ class SandboxApi:
         :type sandbox_id: str
         :param x_daytona_organization_id: Use with JWT to specify the organization ID
         :type x_daytona_organization_id: str
+        :param update_last_activity:
+        :type update_last_activity: UpdateLastActivity
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -12355,6 +12986,7 @@ class SandboxApi:
         _param = self._update_last_activity_serialize(
             sandbox_id=sandbox_id,
             x_daytona_organization_id=x_daytona_organization_id,
+            update_last_activity=update_last_activity,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -12380,6 +13012,7 @@ class SandboxApi:
         self,
         sandbox_id: Annotated[StrictStr, Field(description="ID of the sandbox")],
         x_daytona_organization_id: Annotated[Optional[StrictStr], Field(description="Use with JWT to specify the organization ID")] = None,
+        update_last_activity: Optional[UpdateLastActivity] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -12400,6 +13033,8 @@ class SandboxApi:
         :type sandbox_id: str
         :param x_daytona_organization_id: Use with JWT to specify the organization ID
         :type x_daytona_organization_id: str
+        :param update_last_activity:
+        :type update_last_activity: UpdateLastActivity
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -12425,6 +13060,7 @@ class SandboxApi:
         _param = self._update_last_activity_serialize(
             sandbox_id=sandbox_id,
             x_daytona_organization_id=x_daytona_organization_id,
+            update_last_activity=update_last_activity,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -12445,6 +13081,7 @@ class SandboxApi:
         self,
         sandbox_id,
         x_daytona_organization_id,
+        update_last_activity,
         _request_auth,
         _content_type,
         _headers,
@@ -12474,9 +13111,24 @@ class SandboxApi:
             _header_params['X-Daytona-Organization-ID'] = x_daytona_organization_id
         # process the form parameters
         # process the body parameter
+        if update_last_activity is not None:
+            _body_params = update_last_activity
 
 
 
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
 
         # authentication setting
         _auth_settings: List[str] = [

@@ -5802,11 +5802,7 @@ class PerformanceDashboardAccessValidationCode(pycarlo.lib.types.Enum):
 
 
 class PerformanceInsightCategory(pycarlo.lib.types.Enum):
-    """Finding type of a cost/performance insight.      Mirrors the ai-
-    agent ``CostInsight.category`` contract; the GraphQL enum is
-    derived from this via ``graphene.Enum.from_enum``. Unknown values
-    emitted by     a newer agent are coerced to ``None`` rather than
-    surfaced.
+    """Finding type of a cost/performance insight.
 
     Enumeration Choices:
 
@@ -7126,6 +7122,28 @@ class ResponseMetadataType(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("MONITOR_RECOMMENDATIONS", "QUERY_RESPONSE")
+
+
+class RestRequestMethod(pycarlo.lib.types.Enum):
+    """Enumeration Choices:
+
+    * `GET`None
+    * `POST`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("GET", "POST")
+
+
+class RestResponseFormat(pycarlo.lib.types.Enum):
+    """Enumeration Choices:
+
+    * `JSON`None
+    * `SSE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("JSON", "SSE")
 
 
 class ReusableCapability(pycarlo.lib.types.Enum):
@@ -12384,6 +12402,7 @@ class GetConversationThreadV2Input(sgqlc.types.Input):
         "preview_char_limit",
         "chunk_char_size",
         "include_internal_steps",
+        "timeout_seconds",
     )
     agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
     """Agent name"""
@@ -12413,6 +12432,12 @@ class GetConversationThreadV2Input(sgqlc.types.Input):
     include_internal_steps = sgqlc.types.Field(Boolean, graphql_name="includeInternalSteps")
     """Whether to include internal step summaries in the response.
     Defaults to false.
+    """
+
+    timeout_seconds = sgqlc.types.Field(Int, graphql_name="timeoutSeconds")
+    """Optional warehouse statement-timeout budget (seconds) for
+    hydrating span content. Omit to use the standard default; heavy
+    batch reads may raise it up to 170s (clamped server-side).
     """
 
 
@@ -32638,15 +32663,18 @@ class EstimatedCredits(sgqlc.types.Type):
 
 
 class EstimatedSavingsOutput(sgqlc.types.Type):
-    """An estimated monthly monetary saving for an insight."""
+    """An estimated monetary saving for an insight."""
 
     __schema__ = schema
-    __field_names__ = ("amount", "currency")
+    __field_names__ = ("amount", "currency", "period")
     amount = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="amount")
-    """Estimated monthly saving amount."""
+    """Estimated saving amount, per 'period'."""
 
     currency = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="currency")
     """ISO currency code of the amount, e.g. 'USD'."""
+
+    period = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="period")
+    """Period the saving is expressed over, e.g. 'month'."""
 
 
 class EtlContainer(sgqlc.types.Type):
@@ -41365,6 +41393,7 @@ class Mutation(sgqlc.types.Type):
         "delete_ci_gate_repo_override",
         "delete_github_installation",
         "link_github_action_trigger_app_installation",
+        "register_github_action_trigger_app_installation_request",
         "delete_github_action_trigger_app_installation",
         "update_github_action_trigger_dispatch_config",
         "delete_github_action_trigger_dispatch_config",
@@ -47424,6 +47453,29 @@ class Mutation(sgqlc.types.Type):
     * `code` (`String!`): OAuth authorization code passed from GitHub
     * `installation_id` (`String!`): GitHub App installation id from
       the Setup URL callback
+    """
+
+    register_github_action_trigger_app_installation_request = sgqlc.types.Field(
+        "RegisterGithubActionTriggerAppInstallationRequest",
+        graphql_name="registerGithubActionTriggerAppInstallationRequest",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "code",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="code", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Records a pending Monte Carlo Action Trigger GitHub
+    App install request so the integration links automatically once a
+    GitHub organization admin approves it
+
+    Arguments:
+
+    * `code` (`String!`): OAuth authorization code passed from GitHub
     """
 
     delete_github_action_trigger_app_installation = sgqlc.types.Field(
@@ -60120,10 +60172,9 @@ class Mutation(sgqlc.types.Type):
     * `recovery_code_confirmation` (`String`): One of the account's
       active SSO recovery codes, confirming the admin has saved them;
       the submitted code is consumed. Required on the first SSO enable
-      when the account uses SSO recovery codes (generate a set with
-      generateSsoRecoveryCodes first). Editing an existing
-      configuration needs no confirmation as long as an active set
-      exists.
+      — generate a set with generateSsoRecoveryCodes first. Editing an
+      existing configuration needs no confirmation as long as an
+      active set exists.
     """
 
     delete_saml_identity_provider = sgqlc.types.Field(
@@ -66776,8 +66827,8 @@ class PerformancePageInsightOutput(sgqlc.types.Type):
     """UUIDs of the warehouses this insight references."""
 
     estimated_savings = sgqlc.types.Field(EstimatedSavingsOutput, graphql_name="estimatedSavings")
-    """Estimated monthly cost saving if the insight's recommendation is
-    acted on. Null when the insight has no quantifiable saving.
+    """Estimated cost saving if the insight's recommendation is acted on.
+    Null when the insight has no quantifiable saving.
     """
 
 
@@ -68453,6 +68504,7 @@ class Query(sgqlc.types.Type):
         "get_transform_functions",
         "get_warehouse_supported_llm_models",
         "run_custom_query",
+        "run_custom_rest_request",
         "get_table_monitor_validation_statuses",
         "get_table_monitor_configuration",
         "get_default_monitor_configuration",
@@ -71476,6 +71528,58 @@ class Query(sgqlc.types.Type):
       a value if you want to validate the query conforms to the
       expected result type before returning a result. By default, it
       returnsa COUNT(*) of the provided query.
+    """
+
+    run_custom_rest_request = sgqlc.types.Field(
+        "RestRequestResponse",
+        graphql_name="runCustomRestRequest",
+        args=sgqlc.types.ArgDict(
+            (
+                ("dw_id", sgqlc.types.Arg(UUID, graphql_name="dwId", default=None)),
+                ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
+                (
+                    "method",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(RestRequestMethod), graphql_name="method", default=None
+                    ),
+                ),
+                (
+                    "path",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="path", default=None
+                    ),
+                ),
+                ("body", sgqlc.types.Arg(JSONString, graphql_name="body", default=None)),
+                (
+                    "response_format",
+                    sgqlc.types.Arg(
+                        RestResponseFormat, graphql_name="responseFormat", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Run a REST API request against the warehouse
+    connection's platform API (e.g. the Snowflake REST API, including
+    Cortex Agents). The request is executed by the data collector
+    using the connection's credentials, and the target host always
+    derives from the connection itself — only a relative path can be
+    provided. The request will not be executed and results will be
+    withheld if the warehouse has granular data sampling configured or
+    if the current user does not have access to raw customer data.
+    Currently supported for Snowflake connections only.
+
+    Arguments:
+
+    * `dw_id` (`UUID`): warehouse UUID
+    * `connection_id` (`UUID`): connection UUID
+    * `method` (`RestRequestMethod!`): HTTP method.
+    * `path` (`String!`): Relative API path starting with '/', e.g.
+      /api/v2/databases/DB/schemas/SCH/agents/MY_AGENT:run
+    * `body` (`JSONString`): JSON request body (for POST requests).
+    * `response_format` (`RestResponseFormat`): How the response is
+      interpreted: JSON passes the payload through (default); SSE
+      consumes the event stream and returns a parsed event list.
     """
 
     get_table_monitor_validation_statuses = sgqlc.types.Field(
@@ -89453,9 +89557,10 @@ class Query(sgqlc.types.Type):
       archived Slack Channels
     * `ignore_cached` (`Boolean`): Specify whether to ignore the
       cached versions and attempt to pull directly from Slack API.
-    * `team_id` (`String`): Specify a team ID to filter Slack Channels
-      by, If this value is not set then slack channels with empty
-      team_id will be returned.
+    * `team_id` (`String`): Optional team ID to filter Slack channels
+      by. If omitted, returns channels for every workspace the account
+      still has an active Slack credential for; channels belonging to
+      a disconnected workspace are excluded.
     """
 
     get_slack_channels_v2 = sgqlc.types.Field(
@@ -89485,7 +89590,13 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """Arguments:
+    """Cached Slack channels for every workspace the account still has an
+    active Slack connection for; channels of a disconnected workspace
+    are excluded. The same channel_id can recur across workspaces
+    (distinguished by team_id), so a picker keyed on channel_id alone
+    must deduplicate at the presentation layer.
+
+    Arguments:
 
     * `order_by` (`String`): Ordering
     * `offset` (`Int`)None
@@ -93219,6 +93330,26 @@ class RefreshSlackAppScopes(sgqlc.types.Type):
     """The refreshed bot scopes now recorded for the installation"""
 
 
+class RegisterGithubActionTriggerAppInstallationRequest(sgqlc.types.Type):
+    """Record a pending Monte Carlo Action Trigger GitHub App install
+    request.  Called from the FE post-install callback when the user
+    isn't a GitHub org admin and could only request the installation
+    (GitHub redirects with ``setup_action=request`` and an OAuth
+    ``code``, but no ``installation_id``). Once a GitHub organization
+    admin approves the request, the installation is linked to this
+    account automatically — the approving admin does not need a Monte
+    Carlo account.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+    """True if the pending install request was recorded. False when a
+    pending request for the same GitHub identity is held by another
+    user and was left unchanged.
+    """
+
+
 class RegisterGithubAppInstallationRequest(sgqlc.types.Type):
     """Called from the FE as part of the post-installation callback in
     case the user requested approval from her Github admin, instead of
@@ -93498,6 +93629,48 @@ class ResponseURL(sgqlc.types.Type):
 
     created_at = sgqlc.types.Field(DateTime, graphql_name="createdAt")
     """Report creation time in UTC"""
+
+
+class RestRequestResponse(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "status_code",
+        "response",
+        "events",
+        "has_error",
+        "error",
+        "sampling_disabled",
+        "idempotent_status",
+    )
+    status_code = sgqlc.types.Field(Int, graphql_name="statusCode")
+    """HTTP status code returned by the platform API."""
+
+    response = sgqlc.types.Field(JSONString, graphql_name="response")
+    """Raw JSON response payload (when responseFormat is JSON)."""
+
+    events = sgqlc.types.Field(JSONString, graphql_name="events")
+    """Parsed list of server-sent events (when responseFormat is SSE);
+    incremental delta events are filtered out.
+    """
+
+    has_error = sgqlc.types.Field(Boolean, graphql_name="hasError")
+    """If true, an error occurred while executing the request; the error
+    field might include additional details.
+    """
+
+    error = sgqlc.types.Field(String, graphql_name="error")
+    """An error description if an error occurred while executing the
+    request.
+    """
+
+    sampling_disabled = sgqlc.types.Field(Boolean, graphql_name="samplingDisabled")
+    """Indicates the request was not executed and results were withheld:
+    either the warehouse has granular data sampling configured (REST
+    requests cannot be checked per-table) or the current user does not
+    have access to raw customer data.
+    """
+
+    idempotent_status = sgqlc.types.Field(IdempotentStatus, graphql_name="idempotentStatus")
 
 
 class RestartAgent(sgqlc.types.Type):

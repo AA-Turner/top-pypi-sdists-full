@@ -1,8 +1,18 @@
-"""Unit tests for skchat.redact -- mask_fqid(), mask_fingerprint(), mask_ip(), and mask_email()."""
+"""Unit tests for skchat.redact -- mask_fqid(), mask_fingerprint(), mask_ip(), mask_email(),
+mask_token(), scrub(), and redact_dict()."""
 
 from __future__ import annotations
 
-from skchat.redact import REDACTED_PLACEHOLDER, mask_email, mask_fingerprint, mask_fqid, mask_ip
+from skchat.redact import (
+    REDACTED_PLACEHOLDER,
+    mask_email,
+    mask_fingerprint,
+    mask_fqid,
+    mask_ip,
+    mask_token,
+    redact_dict,
+    scrub,
+)
 
 # ---------------------------------------------------------------------------
 # mask_fqid
@@ -165,3 +175,179 @@ class TestMaskEmail:
 
     def test_non_string_input(self):
         assert mask_email(12345) == REDACTED_PLACEHOLDER
+
+
+# ---------------------------------------------------------------------------
+# mask_token
+# ---------------------------------------------------------------------------
+
+
+class TestMaskToken:
+    def test_anthropic_key(self):
+        key = "sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG"
+        assert mask_token(key) == "sk-ant-<redacted>"
+
+    def test_npm_token(self):
+        token = "npm_1234567890abcdefghijklmnopqrstuvwxyz"
+        assert mask_token(token) == "npm_<redacted>"
+
+    def test_github_personal_access_token(self):
+        token = "ghp_1234567890abcdefghijklmnopqrstuvwx"
+        assert mask_token(token) == "ghp_<redacted>"
+
+    def test_github_oauth_token(self):
+        token = "gho_1234567890abcdefghijklmnopqrstuvwx"
+        assert mask_token(token) == "gho_<redacted>"
+
+    def test_github_server_token(self):
+        token = "ghs_1234567890abcdefghijklmnopqrstuvwx"
+        assert mask_token(token) == "ghs_<redacted>"
+
+    def test_aws_access_key_id(self):
+        assert mask_token("AKIAIOSFODNN7EXAMPLE") == "AKIA<redacted>"
+
+    def test_standalone_hex_run(self):
+        run = "deadbeefcafebabe0123456789abcdef"
+        assert mask_token(run) == "deadbe<redacted>"
+
+    def test_standalone_hex_run_below_min_length_unchanged(self):
+        # Below the 24-char floor, don't guess -- too likely to be a plain id.
+        run = "deadbeefca"
+        assert mask_token(run) == run
+
+    def test_standalone_base64_like_run(self):
+        run = "QwErTy1234ZxCvBnM7890LkJh"
+        assert mask_token(run) == "QwErTy<redacted>"
+
+    def test_plain_lowercase_word_unchanged(self):
+        # Same length class as a token but no digit/case mix -> not flagged.
+        word = "abcdefghijklmnopqrstuvwxyz"
+        assert mask_token(word) == word
+
+    def test_pure_digit_run_is_valid_hex(self):
+        # Decimal digits are a subset of hex chars, so a long digit run
+        # (e.g. a numeric secret) is still caught by the hex-run check.
+        run = "123456789012345678901234"
+        assert mask_token(run) == "123456<redacted>"
+
+    def test_plain_sentence_unchanged(self):
+        text = "the quick brown fox jumps over the lazy dog and eats"
+        assert mask_token(text) == text
+
+    def test_none_input(self):
+        assert mask_token(None) == REDACTED_PLACEHOLDER
+
+    def test_empty_string(self):
+        assert mask_token("") == REDACTED_PLACEHOLDER
+
+    def test_whitespace_only(self):
+        assert mask_token("   ") == REDACTED_PLACEHOLDER
+
+    def test_non_string_input(self):
+        assert mask_token(12345) == REDACTED_PLACEHOLDER
+
+
+# ---------------------------------------------------------------------------
+# scrub
+# ---------------------------------------------------------------------------
+
+
+class TestScrub:
+    def test_line_with_multiple_mixed_secrets(self):
+        line = (
+            "peer 192.168.0.41:8080 (capauth:lumina@skworld.io, alice@x.com) "
+            "key AABB1122CCDD3344EEFF5566AABB1122CCDD3344 connected"
+        )
+        scrubbed = scrub(line)
+        assert scrubbed == (
+            "peer ***.***.***.41:8080 (capauth:l****a@skworld.io, a***e@x.com) "
+            "key ********************************CCDD3344 connected"
+        )
+        assert "192.168.0.41" not in scrubbed
+        assert "lumina@skworld.io" not in scrubbed
+        assert "alice@x.com" not in scrubbed
+        assert "AABB1122CCDD3344EEFF5566AABB1122CCDD3344" not in scrubbed
+
+    def test_clean_line_unchanged(self):
+        line = "daemon started, polling inbox every 5 seconds"
+        assert scrub(line) == line
+
+    def test_empty_string(self):
+        assert scrub("") == ""
+
+    def test_none_input(self):
+        assert scrub(None) == ""
+
+    def test_non_string_input(self):
+        assert scrub(12345) == ""
+
+
+# ---------------------------------------------------------------------------
+# redact_dict
+# ---------------------------------------------------------------------------
+
+
+class TestRedactDict:
+    def test_mixed_value_dict(self):
+        mapping = {
+            "peer": "lumina@skworld.io",
+            "ip": "192.168.0.41",
+            "count": 3,
+            "ok": True,
+            "note": None,
+        }
+        assert redact_dict(mapping) == {
+            "peer": "l****a@skworld.io",
+            "ip": "***.***.***.41",
+            "count": 3,
+            "ok": True,
+            "note": None,
+        }
+
+    def test_nested_dict(self):
+        mapping = {
+            "sender": "chef@skworld.io",
+            "meta": {
+                "remote": "192.168.0.41:8080",
+                "inner": {"fqid": "capauth:lumina@skworld.io"},
+            },
+        }
+        assert redact_dict(mapping) == {
+            "sender": "c**f@skworld.io",
+            "meta": {
+                "remote": "***.***.***.41:8080",
+                "inner": {"fqid": "capauth:l****a@skworld.io"},
+            },
+        }
+
+    def test_non_string_values_copied_unchanged(self):
+        mapping = {"n": 42, "f": 1.5, "lst": ["chef@skworld.io"], "none": None, "flag": False}
+        result = redact_dict(mapping)
+        assert result == mapping
+        assert result["lst"] is mapping["lst"]
+
+    def test_clean_string_value_unchanged(self):
+        assert redact_dict({"msg": "daemon started"}) == {"msg": "daemon started"}
+
+    def test_empty_dict(self):
+        assert redact_dict({}) == {}
+
+    def test_none_input(self):
+        assert redact_dict(None) == {}
+
+    def test_non_mapping_input(self):
+        assert redact_dict("not-a-dict") == {}
+        assert redact_dict(12345) == {}
+        assert redact_dict(["a", "b"]) == {}
+
+    def test_does_not_mutate_input(self):
+        mapping = {"peer": "lumina@skworld.io", "nested": {"ip": "192.168.0.41"}}
+        original = {"peer": "lumina@skworld.io", "nested": {"ip": "192.168.0.41"}}
+        redact_dict(mapping)
+        assert mapping == original
+
+    def test_returns_new_dict_not_same_object(self):
+        mapping = {"a": "clean text"}
+        result = redact_dict(mapping)
+        assert result is not mapping
+        assert result["a"] == "clean text"

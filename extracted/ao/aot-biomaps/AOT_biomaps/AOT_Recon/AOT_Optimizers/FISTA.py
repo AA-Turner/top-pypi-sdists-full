@@ -60,12 +60,12 @@ MATHEMATICAL FRAMEWORK & OPTIMIZATION THEORY:
        λ_{k+1} = max(0, λ_bar_k - α * ∇F(λ_bar_k))
 =============================================================================
 """ 
-
+import contextlib
 import numpy as np
 from tqdm import trange
 from typing import Optional, Union, Tuple
 
-from AOT_biomaps.AOT_Recon.ReconTools import get_array_module, forward_projection, backward_projection, get_potential_function, check_stopping_criterion, estimate_lipschitz_constant
+from AOT_biomaps.AOT_Recon.ReconTools import get_array_module, get_device_context, forward_projection, backward_projection, get_potential_function, check_stopping_criterion, estimate_lipschitz_constant
 from AOT_biomaps.AOT_Recon.ReconEnums import PotentialType, PotentialShapeType, StopCriterionType
 from AOT_biomaps.AOT_Recon.AOT_Preconditioner.PreconditionerEnums import PreconditionerType
 from AOT_biomaps.AOT_Recon.AOT_Preconditioner.NoPreconditioner import NoPreconditioner
@@ -218,126 +218,131 @@ def FISTA(
     """
     xp = get_array_module(SMatrix)
     is_gpu = (xp.__name__ == 'cupy')
-    Z, X = SMatrix.Z, SMatrix.X
-    ZX = Z * X
 
-    if SMatrix.T != y.shape[0] or SMatrix.N != y.shape[1]:
-        raise ValueError(f"[AOT-biomaps] Shape mismatch: y={y.shape}, SMatrix T={SMatrix.T}, N={SMatrix.N}.")
+    with get_device_context(SMatrix):
+        Z, X = SMatrix.Z, SMatrix.X
+        ZX = Z * X
 
-    # Adapt data dtype based on whether the matrix is complex (4-phase quadrature) or real
-    data_dtype = xp.complex64 if SMatrix.isComplexSMatrix else xp.float32
+        if SMatrix.T != y.shape[0] or SMatrix.N != y.shape[1]:
+            raise ValueError(f"[AOT-biomaps] Shape mismatch: y={y.shape}, SMatrix T={SMatrix.T}, N={SMatrix.N}.")
 
-    # Normalize data y
-    y_max = float(np.max(np.abs(y))) if SMatrix.isComplexSMatrix else float(np.max(y))
-    if y_max > 0:
-        y_norm = y / y_max 
+        # Adapt data dtype based on whether the matrix is complex (4-phase quadrature) or real
+        data_dtype = xp.complex64 if SMatrix.isComplexSMatrix else xp.float32
 
-    y_flat = xp.asarray(y_norm.T.flatten().astype(data_dtype)) # can be complex or real
+        # Normalize data y
+        y_max = float(np.max(np.abs(y))) if SMatrix.isComplexSMatrix else float(np.max(y))
+        if y_max > 0:
+            y_norm = y / y_max 
 
-    # Scale β and δ strictly according to amplitude physics
-    beta_phys = beta
-    delta_phys = delta
+        y_flat = xp.asarray(y_norm.T.flatten().astype(data_dtype)) # can be complex or real
 
-    if potential_type == PotentialType.QUADRATIC:
-        # Quadratic gradient scales naturally with image amplitude. No y_max division.
-        beta = beta_phys / (SMatrix.normalization_factor)
-    elif potential_type == PotentialType.HUBER:
-        # Huber linear gradient is sign(x), invariant to amplitude. Division by y_max is required.
-        beta = beta_phys / (SMatrix.normalization_factor * y_max)
-        delta = delta_phys * (SMatrix.normalization_factor / y_max)
-    elif potential_type == PotentialType.RELATIVE_DIFFERENCE:
-        # RDP incorporates relative normalization.
-        beta = beta_phys / (SMatrix.normalization_factor * y_max)
+        # Scale β and δ strictly according to amplitude physics
+        beta_phys = beta
+        delta_phys = delta
 
-    # Preconditioner Initialization
-    if preconditioner_type == PreconditionerType.DIAGONAL:
-        preconditioner = DiagPreconditioner(SMatrix=SMatrix)
-        preconditioner.build() # Computes diag(AᴴA) and applies Tikhonov damping
-    else:
-        preconditioner = NoPreconditioner(SMatrix=SMatrix)
-    
-    # Variables initialization
-    lambda_flat = xp.zeros(ZX, dtype=xp.float32)        # λ: Actual image (always real)
-    lambda_bar = xp.zeros(ZX, dtype=xp.float32)         # λ_bar : Extrapolation point (always real)
-    t = 1.0                                             # t_k: Momentum tracker
-    
-    residual_buffer = xp.empty_like(y_flat)
-    alpha_val = calculate_step_size_FISTA(SMatrix, preconditioner, potential_type, beta, delta, numIterations_stepCalculation, show_logs) if alpha == "auto" else alpha
-    alpha_vec = xp.full(ZX, alpha_val, dtype=xp.float32)
+        if potential_type == PotentialType.QUADRATIC:
+            # Quadratic gradient scales naturally with image amplitude. No y_max division.
+            beta = beta_phys / (SMatrix.normalization_factor)
+        elif potential_type == PotentialType.HUBER:
+            # Huber linear gradient is sign(x), invariant to amplitude. Division by y_max is required.
+            beta = beta_phys / (SMatrix.normalization_factor * y_max)
+            delta = delta_phys * (SMatrix.normalization_factor / y_max)
+        elif potential_type == PotentialType.RELATIVE_DIFFERENCE:
+            # RDP incorporates relative normalization.
+            beta = beta_phys / (SMatrix.normalization_factor * y_max)
 
-
-    save_indices = np.unique(np.append(np.arange(0, numIterations, max(1, numIterations // max_saves)), numIterations - 1)).tolist()
-    saved_lambda = []
-    saved_indices_list = []
-    cost_history = [] if isCostFunction else None
-    window_history = []
-
-    prec_str = preconditioner.get_name()
-    cplx_str = "COMPLEX (4-phases quadrature) " if SMatrix.isComplexSMatrix else "REAL "
-    delta_str = f" / δ={delta:.2e}" if potential_type == PotentialType.HUBER else ""
-    description = f"[AOT-biomaps] {cplx_str}FISTA --- {prec_str} ({SMatrix.matrix_type.name}) with {potential_type.name} β={beta:.2e}{delta_str} --- {'WITH' if withTumor else 'WITHOUT'} TUMOR --- DEVICE: {SMatrix.device.upper()}"
-    
-    iterator = trange(numIterations, desc=description) if show_logs else range(numIterations)
-
-    # ==========================================================
-    # MAIN OPTIMIZATION LOOP
-    # ==========================================================
-    for it in iterator:
-        prev_lambda = lambda_flat.copy()
-
-        Alambda_bar = forward_projection(SMatrix, lambda_bar)   
-        xp.subtract(Alambda_bar, y_flat, out=residual_buffer) # residual = (A * λ_bar) - y
-
-        # --- PRIOR GRADIENT --- ∇U(λ_bar)
-        grad_U, _, _ = get_potential_function(potential_type, SMatrix, lambda_bar, beta=beta, delta=delta, shape=potential_shape, radius=potential_radius, compute_grad=True, compute_hess=False, compute_energy=isCostFunction, use_surrogate_hessian=False)
-
-        # --- DATA FIDELITY GRADIENT WITH PRECONDITIONING --- Apply inverse preconditioner ONLY to the data fidelity term to protect L_prior stability : ∇f_prec = P⁻¹ ∇f_raw where ∇f_raw = Aᴴ(A * λ_bar - y)
-        grad_fidelity_prec = xp.ascontiguousarray(preconditioner.apply_inverse(xp.real(backward_projection(SMatrix, residual_buffer))), dtype=xp.float32) # if preconditioner is none, this is just the identity operation. Always real-valued.
-
-        # --- TOTAL GRADIENT --- 
-        # ∇F(λ_bar) = P⁻¹ ∇f(λ_bar) + ∇U(λ_bar)
-        total_grad = grad_fidelity_prec + grad_U
-
-        # --- NESTEROV MOMENTUM ---
-        # t_{k+1} = (1 + √(1 + 4 t_k²)) / 2
-        t_next = (1.0 + np.sqrt(1.0 + 4.0 * t * t)) / 2.0
-        momentum = (t - 1.0) / t_next
-
-        # --- FISTA UPDATE (GRADIENT DESCENT + PROJECTION + EXTRAPOLATION) ---
-        if is_gpu:
-            fista_update_kernel(prev_lambda, lambda_bar, total_grad.astype(xp.float32, copy=False), alpha_vec, float(momentum), lambda_flat, lambda_bar)
+        # Preconditioner Initialization
+        if preconditioner_type == PreconditionerType.DIAGONAL:
+            preconditioner = DiagPreconditioner(SMatrix=SMatrix)
+            preconditioner.build() # Computes diag(AᴴA) and applies Tikhonov damping
         else:
-            lambda_flat = lambda_bar - alpha_vec * total_grad # x_{k+1} = max(0, λ_bar - α ∇F(λ_bar))
-            np.maximum(lambda_flat, 0.0, out=lambda_flat)
-            lambda_bar = lambda_flat + float(momentum) * (lambda_flat - prev_lambda) # λ_bar_{k+1} = λ_{k+1} + momentum * (λ_{k+1} - λ_k)
-            
-        t = t_next
+            preconditioner = NoPreconditioner(SMatrix=SMatrix)
+        
+        # Variables initialization
+        lambda_flat = xp.zeros(ZX, dtype=xp.float32)        # λ: Actual image (always real)
+        lambda_bar = xp.zeros(ZX, dtype=xp.float32)         # λ_bar : Extrapolation point (always real)
+        t = 1.0                                             # t_k: Momentum tracker
+        
+        residual_buffer = xp.empty_like(y_flat)
+        alpha_val = calculate_step_size_FISTA(SMatrix, preconditioner, potential_type, beta, delta, numIterations_stepCalculation, show_logs) if alpha == "auto" else alpha
+        alpha_vec = xp.full(ZX, alpha_val, dtype=xp.float32)
 
-        if isCostFunction:
-            Ax = forward_projection(SMatrix, lambda_flat)
-            _, _, U_x = get_potential_function(potential_type, SMatrix, lambda_flat, beta=beta, delta=delta, shape=potential_shape, radius=potential_radius, compute_grad=False, compute_hess=False, compute_energy=True, use_surrogate_hessian=False)
-            fidelity = 0.5 * float(xp.vdot(Ax - y_flat, Ax - y_flat).real)
-            # F(x) = ½ ||A * λ - y||² + U(x)
-            cost_history.append(fidelity + U_x)
 
-        if stop_criterion != StopCriterionType.MAX_ITERATIONS:
-            ground_truth = SMatrix.experiment.OpticImage.phantom if withTumor else SMatrix.experiment.OpticImage.laser.intensity
-            gradient_for_stop = total_grad if stop_criterion == StopCriterionType.GRADIENT_NORM else None
-            isStop, val = check_stopping_criterion(SMatrix, lambda_flat, prev_lambda, stop_criterion, stop_threshold, window_size=stop_window_size, history=cost_history, ground_truth=ground_truth, gradient=gradient_for_stop, window_history=window_history)
-            if show_logs and show_criterion:
-                iterator.set_postfix_str(f"{stop_criterion.name}: {val:.2e}")
-            if isStop:
-                if show_logs: print(f"\n[AOT-biomaps] Stopping Criterion {stop_criterion.name} reached at iteration {it}.")
-                cost_history.pop() if isCostFunction else None
-                break
-            
-        if isSavingEachIteration and it in save_indices:
-            lambda_snapshot = lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X).copy()
-            saved_lambda.append(lambda_snapshot * y_max / SMatrix.normalization_factor)
-            saved_indices_list.append(it)
+        save_indices = np.unique(np.append(np.arange(0, numIterations, max(1, numIterations // max_saves)), numIterations - 1)).tolist()
+        saved_lambda = []
+        saved_indices_list = []
+        cost_history = [] if isCostFunction else None
+        window_history = []
 
-    # Reshape and rescale the final result to true physical amplitude
-    final_result = lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X)
-    final_result *= y_max / SMatrix.normalization_factor
-    
-    return (saved_lambda, saved_indices_list, cost_history) if isSavingEachIteration else (final_result, None, cost_history)
+        prec_str = preconditioner.get_name()
+        cplx_str = "COMPLEX (4-phases quadrature) " if SMatrix.isComplexSMatrix else "REAL "
+        delta_str = f" / δ={delta:.2e}" if potential_type == PotentialType.HUBER else ""
+        description = f"[AOT-biomaps] {cplx_str}FISTA --- {prec_str} ({SMatrix.matrix_type.name}) with {potential_type.name} β={beta:.2e}{delta_str} --- {'WITH' if withTumor else 'WITHOUT'} TUMOR --- DEVICE: {SMatrix.device.upper()}"
+        
+        iterator = trange(numIterations, desc=description) if show_logs else range(numIterations)
+
+        # ==========================================================
+        # MAIN OPTIMIZATION LOOP
+        # ==========================================================
+        for it in iterator:
+            prev_lambda = lambda_flat.copy()
+
+            Alambda_bar = forward_projection(SMatrix, lambda_bar)   
+            xp.subtract(Alambda_bar, y_flat, out=residual_buffer) # residual = (A * λ_bar) - y
+
+            # --- PRIOR GRADIENT --- ∇U(λ_bar)
+            grad_U, _, _ = get_potential_function(potential_type, SMatrix, lambda_bar, beta=beta, delta=delta, shape=potential_shape, radius=potential_radius, compute_grad=True, compute_hess=False, compute_energy=isCostFunction, use_surrogate_hessian=False)
+
+            # --- DATA FIDELITY GRADIENT WITH PRECONDITIONING --- Apply inverse preconditioner ONLY to the data fidelity term to protect L_prior stability : ∇f_prec = P⁻¹ ∇f_raw where ∇f_raw = Aᴴ(A * λ_bar - y)
+            grad_fidelity_prec = xp.ascontiguousarray(preconditioner.apply_inverse(xp.real(backward_projection(SMatrix, residual_buffer))), dtype=xp.float32) # if preconditioner is none, this is just the identity operation. Always real-valued.
+
+            # --- TOTAL GRADIENT --- 
+            # ∇F(λ_bar) = P⁻¹ ∇f(λ_bar) + ∇U(λ_bar)
+            total_grad = grad_fidelity_prec + grad_U
+
+            # --- NESTEROV MOMENTUM ---
+            # t_{k+1} = (1 + √(1 + 4 t_k²)) / 2
+            t_next = (1.0 + np.sqrt(1.0 + 4.0 * t * t)) / 2.0
+            momentum = (t - 1.0) / t_next
+
+            # --- FISTA UPDATE (GRADIENT DESCENT + PROJECTION + EXTRAPOLATION) ---
+            if is_gpu:
+                fista_update_kernel(prev_lambda, lambda_bar, total_grad.astype(xp.float32, copy=False), alpha_vec, float(momentum), lambda_flat, lambda_bar)
+            else:
+                lambda_flat = lambda_bar - alpha_vec * total_grad # x_{k+1} = max(0, λ_bar - α ∇F(λ_bar))
+                np.maximum(lambda_flat, 0.0, out=lambda_flat)
+                lambda_bar = lambda_flat + float(momentum) * (lambda_flat - prev_lambda) # λ_bar_{k+1} = λ_{k+1} + momentum * (λ_{k+1} - λ_k)
+                
+            t = t_next
+
+            if isCostFunction:
+                Ax = forward_projection(SMatrix, lambda_flat)
+                _, _, U_x = get_potential_function(potential_type, SMatrix, lambda_flat, beta=beta, delta=delta, shape=potential_shape, radius=potential_radius, compute_grad=False, compute_hess=False, compute_energy=True, use_surrogate_hessian=False)
+                fidelity = 0.5 * float(xp.vdot(Ax - y_flat, Ax - y_flat).real)
+                # F(x) = ½ ||A * λ - y||² + U(x)
+                cost_history.append(fidelity + U_x)
+
+            if stop_criterion != StopCriterionType.MAX_ITERATIONS:
+                if SMatrix.experiment.OpticImage is None:
+                    ground_truth = None
+                else:
+                    ground_truth = SMatrix.experiment.OpticImage.phantom if withTumor else SMatrix.experiment.OpticImage.laser.intensity
+                gradient_for_stop = total_grad if stop_criterion == StopCriterionType.GRADIENT_NORM else None
+                isStop, val = check_stopping_criterion(SMatrix, lambda_flat, prev_lambda, stop_criterion, stop_threshold, window_size=stop_window_size, history=cost_history, ground_truth=ground_truth, gradient=gradient_for_stop, window_history=window_history)
+                if show_logs and show_criterion:
+                    iterator.set_postfix_str(f"{stop_criterion.name}: {val:.2e}")
+                if isStop:
+                    if show_logs: print(f"\n[AOT-biomaps] Stopping Criterion {stop_criterion.name} reached at iteration {it}.")
+                    cost_history.pop() if isCostFunction else None
+                    break
+                
+            if isSavingEachIteration and it in save_indices:
+                lambda_snapshot = lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X).copy()
+                saved_lambda.append(lambda_snapshot * y_max / SMatrix.normalization_factor)
+                saved_indices_list.append(it)
+
+        # Reshape and rescale the final result to true physical amplitude
+        final_result = lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X)
+        final_result *= y_max / SMatrix.normalization_factor
+        
+        return (saved_lambda, saved_indices_list, cost_history) if isSavingEachIteration else (final_result, None, cost_history)

@@ -373,6 +373,7 @@ from agilicus_api.model.http_rule_condition import HttpRuleCondition
 from agilicus_api.model.http_rule_condition_type import HttpRuleConditionType
 from agilicus_api.model.hypothetical_license_details import HypotheticalLicenseDetails
 from agilicus_api.model.hypothetical_license_details_query import HypotheticalLicenseDetailsQuery
+from agilicus_api.model.iso8601_duration import ISO8601Duration
 from agilicus_api.model.icon import Icon
 from agilicus_api.model.icon_dimensions import IconDimensions
 from agilicus_api.model.icon_purpose import IconPurpose
@@ -797,6 +798,7 @@ from agilicus_api.model.ssh_resource_spec import SSHResourceSpec
 from agilicus_api.model.ssh_resource_stats import SSHResourceStats
 from agilicus_api.model.ssh_resource_status import SSHResourceStatus
 from agilicus_api.model.ssh_username import SSHUsername
+from agilicus_api.model.scope_class_lifetime_policy import ScopeClassLifetimePolicy
 from agilicus_api.model.scope_condition import ScopeCondition
 from agilicus_api.model.secure_agent import SecureAgent
 from agilicus_api.model.secure_agent_connector import SecureAgentConnector
@@ -892,8 +894,15 @@ from agilicus_api.model.timeframe_condition import TimeframeCondition
 from agilicus_api.model.timeframe_policy_template import TimeframePolicyTemplate
 from agilicus_api.model.timeperiod_policy_template import TimeperiodPolicyTemplate
 from agilicus_api.model.token import Token
+from agilicus_api.model.token_create_policy_answer import TokenCreatePolicyAnswer
+from agilicus_api.model.token_create_policy_eval import TokenCreatePolicyEval
+from agilicus_api.model.token_create_policy_input import TokenCreatePolicyInput
+from agilicus_api.model.token_create_policy_result import TokenCreatePolicyResult
+from agilicus_api.model.token_create_policy_token_info import TokenCreatePolicyTokenInfo
 from agilicus_api.model.token_introspect import TokenIntrospect
 from agilicus_api.model.token_introspect_options import TokenIntrospectOptions
+from agilicus_api.model.token_lifetime_policy import TokenLifetimePolicy
+from agilicus_api.model.token_policy import TokenPolicy
 from agilicus_api.model.token_reissue_request import TokenReissueRequest
 from agilicus_api.model.token_revoke import TokenRevoke
 from agilicus_api.model.token_scope import TokenScope

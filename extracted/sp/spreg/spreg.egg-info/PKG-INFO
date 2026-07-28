@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spreg
-Version: 1.9.0
+Version: 1.9.1
 Summary: PySAL Spatial Econometric Regression in Python
 Author-email: Luc Anselin <anselin@uchicago.edu>, Serge Rey <sjsrey@gmail.com>, Pedo Amaral <pedrovma@gmail.com>
 Maintainer: pysal contributors
@@ -13,14 +13,25 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: GIS
-Requires-Python: >=3.9
+Requires-Python: >=3.12
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: scipy>=0.11
-Requires-Dist: numpy>=1.23
-Requires-Dist: pandas
-Requires-Dist: libpysal>=4.0.0
-Requires-Dist: scikit-learn>=0.22
+Requires-Dist: libpysal>=4.12
+Requires-Dist: numpy>=2.0.0
+Requires-Dist: pandas>=2.3
+Requires-Dist: scikit-learn>=1.5
+Requires-Dist: scipy>=1.14
+Provides-Extra: plus
+Requires-Dist: bokeh; extra == "plus"
+Requires-Dist: folium; extra == "plus"
+Requires-Dist: geojson; extra == "plus"
+Requires-Dist: geopandas>=1.1; extra == "plus"
+Requires-Dist: matplotlib>=3.10; extra == "plus"
+Requires-Dist: mplleaflet; extra == "plus"
+Requires-Dist: numba>=0.60; extra == "plus"
+Requires-Dist: numexpr; extra == "plus"
+Requires-Dist: seaborn; extra == "plus"
+Requires-Dist: statsmodels; extra == "plus"
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
 Provides-Extra: docs

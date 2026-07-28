@@ -7,7 +7,7 @@ import warnings
 from abc import ABC
 from collections.abc import Callable
 from math import isclose
-from typing import TYPE_CHECKING, Any, get_args
+from typing import TYPE_CHECKING, Any, TypeVar, get_args
 
 import autograd.numpy as np
 import xarray as xr
@@ -15,7 +15,9 @@ from pydantic import Field, model_validator
 
 from tidy3d.components.autograd.source_factory import (
     current_component_data_array,
+    diffraction_source_from_angles,
     diffraction_source_from_data,
+    gaussian_source_from_monitor,
     mode_source_from_monitor,
 )
 from tidy3d.components.autograd.source_factory import (
@@ -37,11 +39,13 @@ from tidy3d.components.data.utils import (
 from tidy3d.components.diffraction import diffraction_amplitude_norm
 from tidy3d.components.geometry.base import Box
 from tidy3d.components.grid.grid import Coords, Grid
+from tidy3d.components.grid.yee_areas import colocated_widths_1d, yee_primal_dual_widths_1d
 from tidy3d.components.medium import Medium, MediumType
 from tidy3d.components.monitor import (
     AstigmaticGaussianOverlapMonitor,
     AuxFieldTimeMonitor,
     DiffractionMonitor,
+    DipoleEmissionMonitor,
     DirectivityMonitor,
     FieldMonitor,
     FieldProjectionAngleMonitor,
@@ -55,9 +59,13 @@ from tidy3d.components.monitor import (
     MediumMonitor,
     ModeMonitor,
     ModeSolverMonitor,
+    ModeTimeMonitor,
     PermittivityMonitor,
+    PointCloudFieldMonitor,
+    PointCloudPermittivityMonitor,
     SurfaceFieldMonitor,
     SurfaceFieldTimeMonitor,
+    ThinLensOverlapMonitor,
 )
 from tidy3d.components.source.current import CustomCurrentSource
 from tidy3d.components.source.field import CustomFieldSource
@@ -81,6 +89,8 @@ from tidy3d.log import log
 from .data_array import (
     DataArray,
     DiffractionDataArray,
+    DipoleEmissionDataArray,
+    DipoleEmissionPositionDataArray,
     EMEFreqModeDataArray,
     FieldProjectionAngleDataArray,
     FieldProjectionCartesianDataArray,
@@ -92,7 +102,9 @@ from .data_array import (
     GroupIndexDataArray,
     MixedModeDataArray,
     ModeAmpsDataArray,
+    ModeAmpsTimeDataArray,
     ModeDispersionDataArray,
+    ModeIndexDataArray,
     TimeDataArray,
     _TracedDataset,
 )
@@ -106,9 +118,65 @@ from .dataset import (
     MediumDataset,
     ModeSolverDataset,
     PermittivityDataset,
+    PointCloudFieldDataset,
+    PointCloudPermittivityDataset,
 )
+from .em_fields import frequency_normalized_field_components
+
+SourceT = TypeVar("SourceT")
+DataArrayCoordValue = float | int | str
+DataArrayEntry = tuple[tuple[int, ...], tuple[DataArrayCoordValue, ...], complex]
+
+
+def _values_in_dim_order(data_array: DataArray, dim_order: tuple[str, ...]) -> np.ndarray:
+    """Return data values with axes ordered by ``dim_order``."""
+    data_dims = tuple(data_array.dims)
+    if set(data_dims) != set(dim_order) or len(data_dims) != len(dim_order):
+        raise DataError(f"Expected data dimensions {dim_order}, got {data_dims}.")
+
+    axis_order = tuple(data_dims.index(dim) for dim in dim_order)
+    return np.transpose(data_array.values, axes=axis_order)
+
+
+def _iter_nonzero_data_array_entries(
+    data_array: DataArray,
+    dim_order: tuple[str, ...],
+    *,
+    skip_nan: bool,
+) -> Iterator[DataArrayEntry]:
+    """Iterate nonzero entries with indices and coords ordered by ``dim_order``."""
+    values = _values_in_dim_order(data_array, dim_order)
+    is_valid = values != 0.0
+    if skip_nan:
+        is_valid = is_valid & ~np.isnan(values)
+
+    coords = tuple(data_array.coords[dim].values for dim in dim_order)
+    for index in zip(*np.nonzero(is_valid)):
+        coord_values = tuple(
+            dim_coords[axis_index] for dim_coords, axis_index in zip(coords, index)
+        )
+        yield index, coord_values, complex(values[index])
+
+
+def _make_adjoint_sources_from_modal_amps(
+    amps: DataArray,
+    source_from_amp: Callable[[float, str, int, complex], SourceT],
+    *,
+    skip_nan: bool,
+) -> list[SourceT]:
+    """Build sources for nonzero ``(f, direction, mode_index)`` amplitudes."""
+    return [
+        source_from_amp(freq, direction, mode_index, amp_complex)
+        for _, (freq, direction, mode_index), amp_complex in _iter_nonzero_data_array_entries(
+            amps,
+            ("f", "direction", "mode_index"),
+            skip_nan=skip_nan,
+        )
+    ]
+
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator, Sequence
     from os import PathLike
     from typing import Literal, SupportsComplex
 
@@ -132,7 +200,7 @@ if TYPE_CHECKING:
         TrackFreq,
     )
 
-    from .data_array import ModeIndexDataArray, ScalarFieldDataArray, ScalarFieldTimeDataArray
+    from .data_array import ScalarFieldDataArray, ScalarFieldTimeDataArray
     from .dataset import Dataset
     from .unstructured.surface import TriangularSurfaceDataset
 
@@ -229,7 +297,7 @@ class AbstractFieldData(MonitorData, AbstractFieldDataset, ABC):
         | PermittivityMonitor
         | ModeMonitor
         | MediumMonitor
-    )
+    ) = Field(discriminator=TYPE_TAG_STR)
 
     symmetry: tuple[Symmetry, Symmetry, Symmetry] = Field(
         (0, 0, 0),
@@ -482,32 +550,6 @@ class ElectromagneticFieldData(AbstractFieldData, ElectromagneticFieldDataset, A
 
         return tangential_dims
 
-    def _find_enclosing_boundary(
-        self, field_coord: float, boundaries: np.ndarray, side: str
-    ) -> float:
-        """Find the grid boundary just outside a field coordinate.
-
-        Parameters
-        ----------
-        field_coord : float
-            The field coordinate to find enclosing boundary for.
-        boundaries : np.ndarray
-            Array of grid boundaries from grid_expanded.
-        side : str
-            "lower" to find boundary below/at, "upper" to find boundary above/at.
-
-        Returns
-        -------
-        float
-            The grid boundary just outside the field coordinate.
-        """
-        if side == "lower":
-            idx = np.searchsorted(boundaries, field_coord, side="right") - 1
-            return boundaries[max(0, idx)]
-        else:  # "upper"
-            idx = np.searchsorted(boundaries, field_coord, side="left")
-            return boundaries[min(len(boundaries) - 1, idx)]
-
     def _diff_area_at_yee_positions(
         self, truncate_to_monitor_bounds: bool = False
     ) -> tuple[DataArray, DataArray, DataArray, DataArray]:
@@ -523,9 +565,11 @@ class ElectromagneticFieldData(AbstractFieldData, ElectromagneticFieldDataset, A
         Parameters
         ----------
         truncate_to_monitor_bounds : bool = False
-            If True, clamp integration region to monitor bounds (for flux calculations).
-            If False, use grid_expanded bounds enclosing field data (for dot/outer_dot).
-            When monitor bounds are np.inf, always uses grid_expanded fallback.
+            If True (flux), clamp the integration region to the monitor bounds, further clamped to
+            the halo-free colocation grid extent so the integral covers exactly one period
+            regardless of monitor size, including ``size=inf``.
+            If False (dot/outer_dot), integrate the full grid_expanded extent enclosing the field
+            data.
 
         Returns
         -------
@@ -545,68 +589,32 @@ class ElectromagneticFieldData(AbstractFieldData, ElectromagneticFieldDataset, A
 
         cell_sizes = {}
         dual_sizes = {}
-        # Use full grid boundaries (not colocation_boundaries) for finding integration limits.
-        # This is needed because colocation_boundaries drops first/last for non-colocated monitors,
-        # but the actual field data may extend to those edges.
+        # Field data lives at the grid_expanded positions, which extend one interpolation/halo
+        # cell beyond the simulation grid. The per-axis widths come from the shared Yee-width
+        # helper; the 1D-degenerate (single-cell) collapse to unit width is handled inside it.
         full_bounds = self.grid_expanded.boundaries.to_dict
 
         for axis in plane_inds:
             dim = dims[axis]
-            # Use full grid boundaries, dropping last boundary
-            grid_boundaries = full_bounds[dim][:-1]
-
-            # Do not apply the spurious dl along a dimension where the simulation is 2D.
-            # Instead, we just set the boundaries such that the cell size along the zero dimension is 1,
-            # such that quantities like flux will come out in units of W / um.
-            if grid_boundaries.size == 1:
-                dual_sizes[dim] = np.array([1.0])
-                cell_sizes[dim] = np.array([1.0])
-                continue
-
-            mnt_min = mnt_bounds[0, axis]
-            mnt_max = mnt_bounds[1, axis]
-
-            # Compute field data coordinates from grid_expanded boundaries
-            full_boundaries = full_bounds[dim]
-            field_data_centers = (full_boundaries[:-1] + full_boundaries[1:]) / 2
-            field_data_boundaries = full_boundaries[:-1]
-
-            # Determine integration bounds
             if truncate_to_monitor_bounds:
-                # Use monitor bounds, handling inf by finding grid boundary outside field data
-                if np.isinf(mnt_min):
-                    integration_min = self._find_enclosing_boundary(
-                        field_data_centers[0], full_boundaries, "lower"
-                    )
-                else:
-                    integration_min = mnt_min
-
-                if np.isinf(mnt_max):
-                    integration_max = self._find_enclosing_boundary(
-                        field_data_centers[-1], full_boundaries, "upper"
-                    )
-                else:
-                    integration_max = mnt_max
+                # Flux: clamp the monitor bounds to the colocation (halo-free) grid extent -- the
+                # same extent the colocated ``_diff_area`` integrates -- so the flux covers
+                # exactly one period and stays size-invariant, matching the colocated result by
+                # construction. All truncate=True callers operate on staggered field data
+                # (``monitor.colocate`` is ``False``), so ``colocation_boundaries`` drops the
+                # halo symmetrically; revisit this clamp if a ``colocate=True`` caller appears.
+                domain_bounds = self.colocation_boundaries.to_dict[dim]
+                bounds_kwargs = {
+                    "mnt_min": mnt_bounds[0, axis],
+                    "mnt_max": mnt_bounds[1, axis],
+                    "valid_bounds": (float(domain_bounds[0]), float(domain_bounds[-1])),
+                }
             else:
-                # Use grid_expanded bounds that enclose all field data
-                integration_min = self._find_enclosing_boundary(
-                    field_data_centers[0], full_boundaries, "lower"
-                )
-                integration_max = self._find_enclosing_boundary(
-                    field_data_centers[-1], full_boundaries, "upper"
-                )
-
-            # Build coordinate arrays for size calculation
-            centers = np.concatenate([[integration_min], field_data_centers])
-            boundaries = np.concatenate([field_data_boundaries, [integration_max]])
-
-            # Dual sizes: distances between cell centers, clamped
-            dual_coords = np.clip(centers, integration_min, integration_max)
-            dual_sizes[dim] = dual_coords[1:] - dual_coords[:-1]
-
-            # Cell/primal sizes: distances between boundaries, clamped
-            cell_coords = np.clip(boundaries, integration_min, integration_max)
-            cell_sizes[dim] = cell_coords[1:] - cell_coords[:-1]
+                # dot/outer_dot: integrate the full grid_expanded extent enclosing the data.
+                bounds_kwargs = {}
+            cell_sizes[dim], dual_sizes[dim] = yee_primal_dual_widths_1d(
+                full_bounds[dim], **bounds_kwargs
+            )
 
         dim1 = self._tangential_dims[0]
         dim2 = self._tangential_dims[1]
@@ -713,39 +721,22 @@ class ElectromagneticFieldData(AbstractFieldData, ElectromagneticFieldDataset, A
         """For a 2D monitor data, return the area of each cell in the plane, for use in numerical
         integrations. This assumes that data is colocated to grid boundaries, and uses the
         difference in the surrounding grid centers to compute the area.
+
+        Truncating the cells to the monitor bounds implicitly makes extra pixels which may be
+        present have size 0, so they are not included in the integration; for pixels intersected
+        by the monitor edge, the size is truncated to the part covered by the monitor. Together
+        with integrand values defined at cell boundaries, this realizes the trapezoidal rule with
+        the first and last values interpolated to the exact monitor start/end location, provided
+        the integrand is zero outside of the monitor geometry -- usually the case for flux and
+        dot computations.
         """
-
-        # Monitor values are interpolated to bounds
         bounds = self._plane_grid_boundaries
-        # Coords to compute cell sizes around the interpolation locations
-        coords = [bs.copy() for bs in self._plane_grid_centers]
-
-        # Append the first and last boundary
         _, plane_inds = self.monitor.pop_axis([0, 1, 2], self.monitor.size.index(0.0))
-        coords[0] = np.array([bounds[0][0], *coords[0].tolist(), bounds[0][-1]])
-        coords[1] = np.array([bounds[1][0], *coords[1].tolist(), bounds[1][-1]])
-
-        """Truncate coords to monitor boundaries. This implicitly makes extra pixels which may be
-        present have size 0 and so won't be included in the integration. For pixels intersected
-        by the monitor edge, the size is truncated to the part covered by the monitor. When using
-        the differential area sizes defined in this way together with integrand values
-        defined at cell boundaries, the integration is equivalent to trapezoidal rule with the first
-        and last values interpolated to the exact monitor start/end location, if the integrand
-        is zero outside of the monitor geometry. This should usually be the case for flux and dot
-        computations"""
         mnt_bounds = np.array(self.monitor.bounds)
         mnt_bounds = mnt_bounds[:, plane_inds].T
-        coords[0][np.argwhere(coords[0] < mnt_bounds[0, 0])] = mnt_bounds[0, 0]
-        coords[0][np.argwhere(coords[0] > mnt_bounds[0, 1])] = mnt_bounds[0, 1]
-        coords[1][np.argwhere(coords[1] < mnt_bounds[1, 0])] = mnt_bounds[1, 0]
-        coords[1][np.argwhere(coords[1] > mnt_bounds[1, 1])] = mnt_bounds[1, 1]
 
-        # Do not apply the spurious dl along a dimension where the simulation is 2D.
-        # Instead, we just set the boundaries such that the cell size along the zero dimension is 1,
-        # such that quantities like flux will come out in units of W / um.
-        sizes_dim0 = coords[0][1:] - coords[0][:-1] if bounds[0].size > 1 else [1.0]
-        sizes_dim1 = coords[1][1:] - coords[1][:-1] if bounds[1].size > 1 else [1.0]
-
+        sizes_dim0 = colocated_widths_1d(bounds[0], mnt_bounds[0, 0], mnt_bounds[0, 1])
+        sizes_dim1 = colocated_widths_1d(bounds[1], mnt_bounds[1, 0], mnt_bounds[1, 1])
         return DataArray(np.outer(sizes_dim0, sizes_dim1), dims=self._tangential_dims)
 
     def _tangential_corrected(self, fields: dict[str, DataArray]) -> dict[str, DataArray]:
@@ -873,14 +864,48 @@ class ElectromagneticFieldData(AbstractFieldData, ElectromagneticFieldDataset, A
     @property
     def intensity(self) -> ScalarFieldDataArray:
         """Return the sum of the squared absolute electric field components."""
-        self._check_fields_stored(["Ex", "Ey", "Ez"])
+        return self.field_intensity()
 
+    def field_intensity(
+        self, components: str | Sequence[str] = ("Ex", "Ey", "Ez")
+    ) -> ScalarFieldDataArray:
+        """Return the sum of the squared absolute selected electric field components.
+
+        The selected components must be stored in the data, and the intensity is evaluated using
+        the same symmetry-expanded and colocated fields as :attr:`intensity`. For non-colocated
+        monitors, fields are interpolated to the colocated grid before they are summed.
+        """
+        components = (components,) if isinstance(components, str) else tuple(components)
+        if not components:
+            raise ValueError("At least one electric field component must be specified.")
+
+        valid_components = ("Ex", "Ey", "Ez")
+        invalid_components = tuple(cmp for cmp in components if cmp not in valid_components)
+        if invalid_components:
+            raise ValueError(
+                "Invalid electric field component(s) for intensity: "
+                f"{invalid_components}. Valid components are {valid_components}."
+            )
+        duplicate_components = tuple(
+            cmp for idx, cmp in enumerate(components) if cmp in components[:idx]
+        )
+        if duplicate_components:
+            raise ValueError(
+                "Duplicate electric field component(s) for intensity: "
+                f"{duplicate_components}. Each component may be specified at most once."
+            )
+
+        self._check_fields_stored(list(components))
         drop_dims = ["xyz"[dim] for dim in self.monitor.zero_dims]
         fields = self._colocated_fields
-        components = ("Ex", "Ey", "Ez")
         if any(cmp not in fields for cmp in components):
-            raise KeyError("Can't compute intensity, all E field components must be present.")
-        intensity = sum(fields[cmp].abs ** 2 for cmp in components)
+            raise KeyError(
+                "Can't compute intensity, all selected E field components must be present."
+            )
+
+        intensity = fields[components[0]].abs ** 2
+        for cmp in components[1:]:
+            intensity = intensity + fields[cmp].abs ** 2
         return intensity.squeeze(dim=drop_dims, drop=True)
 
     @property
@@ -941,7 +966,7 @@ class ElectromagneticFieldData(AbstractFieldData, ElectromagneticFieldDataset, A
     def _compute_complex_flux(self) -> FluxDataArray | FreqModeDataArray:
         """Compute complex flux."""
 
-        if self.monitor.use_colocated_integration:
+        if getattr(self.monitor, "use_colocated_integration", self.monitor.colocate):
             fields = self._colocated_tangential_fields
             dS = self._diff_area.to_numpy()
             dS_numpy = (dS, dS)
@@ -1216,9 +1241,9 @@ class ElectromagneticFieldData(AbstractFieldData, ElectromagneticFieldDataset, A
             In the non-conjugated definition, modes are orthogonal, but the interpretation of the
             dot product as power carried by a given mode is no longer valid.
         """
-        use_colocated = (
-            self.monitor.use_colocated_integration or field_data.monitor.use_colocated_integration
-        )
+        use_colocated = getattr(
+            self.monitor, "use_colocated_integration", self.monitor.colocate
+        ) or getattr(field_data.monitor, "use_colocated_integration", field_data.monitor.colocate)
         if not use_colocated:
             fields_self = self._tangential_fields
             fields_other = field_data._tangential_fields
@@ -1462,7 +1487,7 @@ class ElectromagneticFieldData(AbstractFieldData, ElectromagneticFieldDataset, A
 
         See also
         --------
-        :member:`dot`
+        :meth:`dot`
         """
 
         tan_dims = self._tangential_dims
@@ -1470,9 +1495,9 @@ class ElectromagneticFieldData(AbstractFieldData, ElectromagneticFieldDataset, A
         if not all(a == b for a, b in zip(tan_dims, field_data._tangential_dims)):
             raise DataError("Tangential dimensions must match between the two monitors.")
 
-        use_colocated = (
-            self.monitor.use_colocated_integration or field_data.monitor.use_colocated_integration
-        )
+        use_colocated = getattr(
+            self.monitor, "use_colocated_integration", self.monitor.colocate
+        ) or getattr(field_data.monitor, "use_colocated_integration", field_data.monitor.colocate)
         if not use_colocated:
             fields_self = self._tangential_fields
             fields_other = field_data._tangential_fields
@@ -1842,12 +1867,10 @@ class FieldData(FieldDataset, ElectromagneticFieldData):
 
     def normalize(self, source_spectrum_fn: Callable[[float], complex]) -> FieldDataset:
         """Return copy of self after normalization is applied using source spectrum function."""
-        fields_norm = {}
-        for field_name, field_data in self.field_components.items():
-            src_amps = source_spectrum_fn(field_data.f)
-            fields_norm[field_name] = (field_data / src_amps).astype(field_data.dtype)
-
-        return self.copy(deep=False, update=fields_norm)
+        return self.copy(
+            deep=False,
+            update=frequency_normalized_field_components(self.field_components, source_spectrum_fn),
+        )
 
     def to_source(
         self, source_time: SourceTimeType, center: Coordinate, size: Size = None, **kwargs: Any
@@ -1941,6 +1964,163 @@ class FieldData(FieldDataset, ElectromagneticFieldData):
         return sources
 
 
+class PointCloudFieldData(MonitorData, PointCloudFieldDataset):
+    """
+    Data associated with a :class:`.PointCloudFieldMonitor`: scalar components of E, H, and
+    ``D / epsilon_0`` at point-cloud coordinates, where ``epsilon_0`` is the vacuum
+    permittivity.
+
+    Example
+    -------
+    >>> from tidy3d import IndexedFreqDataArray, PointCloudFieldMonitor, PointDataArray
+    >>> points = PointDataArray(
+    ...     [[0.0, 0.0, 0.0], [0.1, 0.2, 0.3]],
+    ...     coords={"index": [0, 1], "axis": [0, 1, 2]},
+    ... )
+    >>> field = IndexedFreqDataArray(
+    ...     np.ones((2, 1)) + 0j,
+    ...     coords={"index": [0, 1], "f": [200e12]},
+    ... )
+    >>> monitor = PointCloudFieldMonitor(points=points, freqs=[200e12], fields=["Ex"], name="pc")
+    >>> data = PointCloudFieldData(monitor=monitor, points=points, Ex=field)
+    """
+
+    monitor: PointCloudFieldMonitor = Field(
+        ..., title="Monitor", description="Frequency-domain point-cloud field monitor."
+    )
+
+    _contains_monitor_fields = enforce_monitor_fields_present()
+
+    @model_validator(mode="after")
+    def _frequencies_match_monitor(self) -> Self:
+        """Ensure stored field frequency coordinates match the associated monitor."""
+        monitor_freqs = np.asarray(self.monitor.freqs)
+        for field_name, field_data in self.field_components.items():
+            field_freqs = np.asarray(field_data.coords["f"].values)
+            if not np.array_equal(field_freqs, monitor_freqs):
+                self._raise_validation_error_at_loc(
+                    f"Field component '{field_name}' has frequency coordinates that do not "
+                    "match the associated point-cloud field monitor frequencies.",
+                    field_name,
+                )
+        return self
+
+    def normalize(self, source_spectrum_fn: Callable[[float], complex]) -> PointCloudFieldData:
+        """Return copy of self after normalization is applied using source spectrum function."""
+        return self.copy(
+            deep=False,
+            update=frequency_normalized_field_components(self.field_components, source_spectrum_fn),
+        )
+
+    def _make_adjoint_sources(self, dataset_names: list[str], fwidth: float) -> list[Source]:
+        """Reject adjoint use until a batched point-cloud adjoint source is available."""
+        if not dataset_names:
+            return []
+
+        raise Tidy3dNotImplementedError(
+            "Adjoint objectives depending on PointCloudFieldData are currently unsupported."
+        )
+
+
+class PointCloudPermittivityData(MonitorData, PointCloudPermittivityDataset):
+    """Data associated with a :class:`.PointCloudPermittivityMonitor`.
+
+    Diagonal permittivity components are indexed by requested point row and frequency. The ``points``
+    array stores the requested coordinates, while each component value is sampled from its nearest
+    native Yee-grid location.
+    """
+
+    monitor: PointCloudPermittivityMonitor = Field(
+        ..., title="Monitor", description="Frequency-domain point-cloud permittivity monitor."
+    )
+
+    @model_validator(mode="after")
+    def _frequencies_match_monitor(self) -> Self:
+        """Ensure stored component frequency coordinates match the associated monitor."""
+        monitor_freqs = np.asarray(self.monitor.freqs)
+        for component_name, component_data in self.field_components.items():
+            component_freqs = np.asarray(component_data.coords["f"].values)
+            if not np.array_equal(component_freqs, monitor_freqs):
+                self._raise_validation_error_at_loc(
+                    f"Permittivity component '{component_name}' has frequency coordinates that "
+                    "do not match the associated point-cloud permittivity monitor frequencies.",
+                    component_name,
+                )
+        return self
+
+    def normalize(
+        self, source_spectrum_fn: Callable[[float], complex]
+    ) -> PointCloudPermittivityData:
+        """Return copy of self; permittivity data is not source-normalized."""
+        return self.copy(deep=False)
+
+    def _make_adjoint_sources(self, dataset_names: list[str], fwidth: float) -> list[Source]:
+        """Reject adjoint use until a batched point-cloud adjoint source is available."""
+        if not dataset_names:
+            return []
+
+        raise Tidy3dNotImplementedError(
+            "Adjoint objectives depending on PointCloudPermittivityData are currently unsupported."
+        )
+
+
+class DipoleEmissionData(MonitorData):
+    """Data associated with a :class:`.DipoleEmissionMonitor`.
+
+    The default arrays are summed over all sampled dipole positions using the
+    monitor position- and axis-dependent ``position_weights``. Optional
+    position-resolved arrays are present only when ``store_position_indexes`` is
+    nonempty.
+    """
+
+    monitor: DipoleEmissionMonitor = Field(
+        ..., title="Monitor", description="Dipole-emission monitor."
+    )
+
+    radiation_intensity: DipoleEmissionDataArray = Field(
+        ...,
+        title="Radiation Intensity",
+        description=(
+            "Radiated angular power density per squared electric dipole moment "
+            "with dipole moment expressed in C*um."
+        ),
+    )
+
+    radiation_intensity_at_positions: DipoleEmissionPositionDataArray | None = Field(
+        None,
+        title="Position-Resolved Radiation Intensity",
+        description="Radiation intensity at selected stored position indexes.",
+    )
+
+    @model_validator(mode="after")
+    def _frequencies_match_monitor(self) -> Self:
+        """Ensure stored frequency coordinates match the associated monitor."""
+        monitor_freqs = np.asarray(self.monitor.freqs)
+        arrays = {
+            "radiation_intensity": self.radiation_intensity,
+            "radiation_intensity_at_positions": self.radiation_intensity_at_positions,
+        }
+        for array_name, array in arrays.items():
+            if array is None:
+                continue
+            freqs = np.asarray(array.coords["f"].values)
+            if not np.array_equal(freqs, monitor_freqs):
+                self._raise_validation_error_at_loc(
+                    "Radiation-intensity frequency coordinates must match the monitor.",
+                    array_name,
+                )
+        return self
+
+    def _make_adjoint_sources(self, dataset_names: list[str], fwidth: float) -> list[Source]:
+        """Reject adjoint use until dipole-emission adjoint sources are available."""
+        if not dataset_names:
+            return []
+
+        raise Tidy3dNotImplementedError(
+            "Adjoint objectives depending on DipoleEmissionData are currently unsupported."
+        )
+
+
 class FieldTimeData(FieldTimeDataset, ElectromagneticFieldData):
     """
     Data associated with a :class:`.FieldTimeMonitor`: scalar components of E and H fields.
@@ -1991,7 +2171,7 @@ class FieldTimeData(FieldTimeDataset, ElectromagneticFieldData):
         dim1, dim2 = self._tangential_dims
         tangential_dims = self._tangential_dims
 
-        if self.monitor.use_colocated_integration:
+        if getattr(self.monitor, "use_colocated_integration", self.monitor.colocate):
             fields = self._colocated_tangential_fields
             dS = self._diff_area.to_numpy()
             dS_numpy = (dS, dS)
@@ -2103,7 +2283,7 @@ class ElectromagneticSurfaceFieldData(
 ):
     """Collection of vector fields on a surface with some symmetry properties."""
 
-    monitor: SurfaceFieldMonitor | SurfaceFieldTimeMonitor
+    monitor: SurfaceFieldMonitor | SurfaceFieldTimeMonitor = Field(discriminator=TYPE_TAG_STR)
 
     _contains_monitor_fields = enforce_monitor_fields_present()
 
@@ -2201,8 +2381,8 @@ class SurfaceFieldData(ElectromagneticSurfaceFieldData):
     -------
     >>> from tidy3d import PointDataArray, IndexedSurfaceFieldDataArray, TriangularSurfaceDataset, CellDataArray
     >>> import tidy3d as td
-    >>> old_logging_level = td.config.logging_level
-    >>> td.config.logging_level = "ERROR"
+    >>> old_logging_level = td.config.logging.level
+    >>> td.config.logging.level = "ERROR"
     >>> points = PointDataArray([[0, 0, 0], [0, 1, 0], [1, 1, 1]], dims=["index", "axis"])
     >>> cells = CellDataArray([[0, 1, 2]], dims=["cell_index", "vertex_index"])
     >>> values = PointDataArray([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dims=["index", "axis"])
@@ -2213,7 +2393,7 @@ class SurfaceFieldData(ElectromagneticSurfaceFieldData):
     ...     size=(2,4,6), freqs=[1e10], name='field', fields=['E', 'H']
     ... )
     >>> data = SurfaceFieldData(monitor=monitor, E=field, H=field, normal=normal)
-    >>> td.config.logging_level = old_logging_level
+    >>> td.config.logging.level = old_logging_level
     """
 
     monitor: SurfaceFieldMonitor = Field(
@@ -2255,8 +2435,8 @@ class SurfaceFieldTimeData(ElectromagneticSurfaceFieldData):
     -------
     >>> from tidy3d import PointDataArray, IndexedSurfaceFieldTimeDataArray, TriangularSurfaceDataset, CellDataArray
     >>> import tidy3d as td
-    >>> old_logging_level = td.config.logging_level
-    >>> td.config.logging_level = "ERROR"
+    >>> old_logging_level = td.config.logging.level
+    >>> td.config.logging.level = "ERROR"
     >>> points = PointDataArray([[0, 0, 0], [0, 1, 0], [1, 1, 1]], dims=["index", "axis"])
     >>> cells = CellDataArray([[0, 1, 2]], dims=["cell_index", "vertex_index"])
     >>> values = PointDataArray([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dims=["index", "axis"])
@@ -2267,7 +2447,7 @@ class SurfaceFieldTimeData(ElectromagneticSurfaceFieldData):
     ...     size=(2,4,6), interval=100, name='field', fields=['E', 'H']
     ... )
     >>> data = SurfaceFieldTimeData(monitor=monitor, E=field, H=field, normal=normal)
-    >>> td.config.logging_level = old_logging_level
+    >>> td.config.logging.level = old_logging_level
     """
 
     monitor: SurfaceFieldTimeMonitor = Field(
@@ -2393,8 +2573,12 @@ class AbstractOverlapData(ElectromagneticFieldData):
 
 
 class FieldOverlapData(AbstractOverlapData):
-    monitor: GaussianOverlapMonitor | AstigmaticGaussianOverlapMonitor = Field(
-        title="Monitor", description="Monitor associated with the data."
+    monitor: GaussianOverlapMonitor | AstigmaticGaussianOverlapMonitor | ThinLensOverlapMonitor = (
+        Field(
+            discriminator=TYPE_TAG_STR,
+            title="Monitor",
+            description="Monitor associated with the data.",
+        )
     )
 
     def _make_adjoint_sources(self, dataset_names: list[str], fwidth: float) -> list[Source]:
@@ -2414,21 +2598,23 @@ class FieldOverlapData(AbstractOverlapData):
 
     def _make_adjoint_sources_amps(self, fwidth: float) -> list[Source]:
         """Generate adjoint sources for ``FieldOverlapData.amps``."""
-        coords = self.amps.coords
-        adjoint_sources = []
 
-        for freq in coords["f"]:
-            for direction in coords["direction"]:
-                for mode_index in coords["mode_index"]:
-                    amp_single = self.amps.sel(f=freq, direction=direction, mode_index=mode_index)
+        def source_from_amp(
+            freq: float, direction: str, _mode_index: int, coefficient: complex
+        ) -> Source:
+            return gaussian_source_from_monitor(
+                monitor=self.monitor,
+                freq=freq,
+                direction=direction,
+                coefficient=coefficient,
+                fwidth=fwidth,
+            )
 
-                    amp_complex = self.get_amplitude(amp_single)
-                    if (abs(amp_complex) == 0.0) or np.isnan(amp_complex):
-                        continue
-
-                    adjoint_sources.append(self._adjoint_source_amp(amp=amp_single, fwidth=fwidth))
-
-        return adjoint_sources
+        return _make_adjoint_sources_from_modal_amps(
+            self.amps,
+            source_from_amp,
+            skip_nan=True,
+        )
 
     def _adjoint_source_amp(self, amp: DataArray, fwidth: float) -> Source:
         """Generate an adjoint Gaussian-like source for a single overlap amplitude."""
@@ -2437,7 +2623,6 @@ class FieldOverlapData(AbstractOverlapData):
         direction = coords["direction"]
 
         amp_complex = self.get_amplitude(amp)
-        from tidy3d.components.autograd.source_factory import gaussian_source_from_monitor
 
         return gaussian_source_from_monitor(
             monitor=self.monitor,
@@ -3021,23 +3206,23 @@ class ModeData(ModeSolverDataset, AbstractOverlapData):
     def _make_adjoint_sources_amps(self, fwidth: float) -> list[ModeSource]:
         """Generate adjoint sources for ``ModeMonitorData.amps``."""
 
-        coords = self.amps.coords
+        def source_from_amp(
+            freq: float, direction: str, mode_index: int, coefficient: complex
+        ) -> ModeSource:
+            return mode_source_from_monitor(
+                monitor=self.monitor,
+                freq=freq,
+                direction=direction,
+                mode_index=mode_index,
+                coefficient=coefficient,
+                fwidth=fwidth,
+            )
 
-        adjoint_sources = []
-
-        # TODO: speed up with ufunc?
-        for freq in coords["f"]:
-            for direction in coords["direction"]:
-                for mode_index in coords["mode_index"]:
-                    amp_single = self.amps.sel(f=freq, direction=direction, mode_index=mode_index)
-
-                    if abs(self.get_amplitude(amp_single)) == 0.0:
-                        continue
-
-                    adjoint_source = self._adjoint_source_amp(amp=amp_single, fwidth=fwidth)
-                    adjoint_sources.append(adjoint_source)
-
-        return adjoint_sources
+        return _make_adjoint_sources_from_modal_amps(
+            self.amps,
+            source_from_amp,
+            skip_nan=False,
+        )
 
     def _adjoint_source_amp(self, amp: DataArray, fwidth: float) -> ModeSource:
         """Generate an adjoint ``ModeSource`` for a single amplitude."""
@@ -3756,11 +3941,12 @@ class FluxData(MonitorData):
 
         raise NotImplementedError(
             "Could not formulate adjoint source for 'FluxMonitor' output. To compute derivatives "
-            "with respect to flux data, please use a 'FieldMonitor' and call '.flux' on the "
-            "resulting 'FieldData' object. Using 'FluxMonitor' directly is not supported as "
-            "the full field information is required to construct the adjoint source for this "
-            "problem. The 'FluxData' does not contain the information necessary for gradient "
-            "computation."
+            "with respect to flux data, hidden field data must be stored during the autograd "
+            "forward run. Set 'FluxMonitor.enable_adjoint=True' and rerun the forward "
+            "simulation, or use a 'FieldMonitor' and call '.flux' on the resulting "
+            "'FieldData' object. See "
+            "https://docs.flexcompute.com/projects/tidy3d/en/latest/api/_autosummary/"
+            "tidy3d.FluxMonitor.html."
         )
 
     def normalize(self, source_spectrum_fn: Callable[[DataArray], NDArray]) -> FluxData:
@@ -3800,6 +3986,56 @@ class FluxTimeData(MonitorData):
         title="Flux",
         description="Flux values in the time-domain.",
     )
+
+
+class ModeTimeData(MonitorData):
+    """Data associated with a :class:`.ModeTimeMonitor`: modal amplitude time series at a
+    waveguide cross-section.
+
+    Example
+    -------
+    >>> from tidy3d import ModeAmpsTimeDataArray, ModeIndexDataArray, ModeSpec
+    >>> direction = ["+", "-"]
+    >>> t = [0, 1e-12, 2e-12]
+    >>> mode_index = np.arange(3)
+    >>> freqs = [2e14]
+    >>> amp_coords = dict(direction=direction, t=t, mode_index=mode_index)
+    >>> amp_data = ModeAmpsTimeDataArray(
+    ...     (1+1j) * np.random.random((2, 3, 3)), coords=amp_coords
+    ... )
+    >>> n_complex = ModeIndexDataArray(
+    ...     (1.5 + 0.01j) * np.ones((1, 3)), coords=dict(f=freqs, mode_index=mode_index)
+    ... )
+    >>> monitor = ModeTimeMonitor(
+    ...     size=(2, 2, 0),
+    ...     mode_spec=ModeSpec(num_modes=3),
+    ...     interval=1,
+    ...     name='mode_time',
+    ... )
+    >>> data = ModeTimeData(monitor=monitor, amps=amp_data, n_complex=n_complex)
+    """
+
+    monitor: ModeTimeMonitor = Field(
+        title="Monitor",
+        description="Time-domain mode monitor associated with the data.",
+    )
+
+    amps: ModeAmpsTimeDataArray = Field(
+        title="Mode Amplitudes",
+        description="Complex-valued modal amplitudes with dimensions (direction, t, mode_index).",
+    )
+
+    n_complex: ModeIndexDataArray = Field(
+        ...,
+        title="Complex Effective Index",
+        description="Complex effective propagation indices of the monitored modes at the single "
+        "frequency at which the mode profiles are solved (``ModeTimeMonitor.freq_spec``). Useful "
+        "for identifying which amplitudes correspond to which physical modes.",
+    )
+
+    def normalize(self, source_spectrum_fn: Callable[[float], complex]) -> ModeTimeData:
+        """Time-domain amplitudes do not require frequency normalization."""
+        return self
 
 
 ProjFieldType = (
@@ -4732,7 +4968,7 @@ class DiffractionData(AbstractFieldProjectionData):
         )
 
     @property
-    def angles(self) -> tuple[DataArray]:
+    def angles(self) -> tuple[DataArray, DataArray]:
         """The (theta, phi) angles corresponding to each allowed pair of diffraction
         orders storeds as data arrays. Disallowed angles are set to ``np.nan``.
         """
@@ -4838,32 +5074,37 @@ class DiffractionData(AbstractFieldProjectionData):
         """Make adjoint sources for outputs that depend on DiffractionData.`amps`."""
 
         amps = self.amps
-        coords = amps.coords
-
+        theta_data, phi_data = self.angles
+        theta_values = _values_in_dim_order(theta_data, ("orders_x", "orders_y", "f"))
+        phi_values = _values_in_dim_order(phi_data, ("orders_x", "orders_y", "f"))
+        bck_eps_values = tuple(
+            self.medium.eps_model(float(freq)) for freq in amps.coords["f"].values
+        )
         adjoint_sources = []
 
-        # TODO: speed up with ufunc?
-        # loop over all coordinates in the diffraction amplitudes
-        for freq in coords["f"]:
-            for pol in coords["polarization"]:
-                for order_x in coords["orders_x"]:
-                    for order_y in coords["orders_y"]:
-                        amp_single = amps.sel(
-                            f=freq,
-                            polarization=pol,
-                            orders_x=order_x,
-                            orders_y=order_y,
-                        )
-
-                        # ignore any amplitudes of 0.0 or nan
-                        amp_complex = self.get_amplitude(amp_single)
-                        if (abs(amp_complex) == 0.0) or np.isnan(amp_complex):
-                            continue
-
-                        # compute a plane wave for this amplitude (if propagating / not None)
-                        adjoint_source = self.adjoint_source_amp(amp=amp_single, fwidth=fwidth)
-                        if adjoint_source is not None:
-                            adjoint_sources.append(adjoint_source)
+        for (
+            (freq_index, _, order_x_index, order_y_index),
+            (freq, pol, order_x, order_y),
+            amp_complex,
+        ) in _iter_nonzero_data_array_entries(
+            amps,
+            ("f", "polarization", "orders_x", "orders_y"),
+            skip_nan=True,
+        ):
+            adjoint_source = diffraction_source_from_angles(
+                monitor=self.monitor,
+                freq=freq,
+                order_x=int(order_x),
+                order_y=int(order_y),
+                angle_theta=theta_values[order_x_index, order_y_index, freq_index],
+                angle_phi=phi_values[order_x_index, order_y_index, freq_index],
+                polarization=pol,
+                coefficient=amp_complex,
+                fwidth=fwidth,
+                bck_eps=bck_eps_values[freq_index],
+            )
+            if adjoint_source is not None:
+                adjoint_sources.append(adjoint_source)
 
         return adjoint_sources
 

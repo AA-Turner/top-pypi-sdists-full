@@ -7,6 +7,7 @@ d_owner/org_id:
     - r:audit_logs/org_id
 d_member/org_id:
     - r:organization/org_id
+    - r:organization_name/org_id
 ws_viewer/org_id,ws_id:
     - r:workspace/org_id,ws_id
     - r:workspace_data/org_id,ws_id
@@ -36,6 +37,7 @@ ws_editor/org_id,ws_id:
     - w:workspace_data/org_id,ws_id
     - w:workspace_routing_sandbox/org_id,ws_id
     - r:workspace_decision_history/org_id,ws_id
+    - r:decision_history/org_id,ws_id,{env=*}
     - r+w:workspace_connection_resource/org_id,ws_id
     - w+d:workspace_agent_management/org_id,ws_id,{type=*}
     - r:workspace_endpoint/org_id,ws_id
@@ -80,6 +82,22 @@ ws_admin/org_id,ws_id:
     - r+w:workspace_case_queue/org_id,ws_id
     - r:workspace_case_analytics/org_id,ws_id
     - r+w:workspace_case_dashboard/org_id,ws_id,*
+flow_viewer/org_id,ws_id,flow_folder_id:
+    - r:flows/org_id,ws_id,flow_folder_id,{env=*}
+    - r:decision_history/org_id,ws_id,{env=sandbox}
+flow_execute_sandbox/org_id,ws_id,flow_folder_id:
+    - execute:flows/org_id,ws_id,flow_folder_id,{env=sandbox}
+    - execute:flows/org_id,ws_id,flow_folder_id,{env=test}
+flow_execute_live/org_id,ws_id,flow_folder_id:
+    - execute:flows/org_id,ws_id,flow_folder_id,{env=live}
+flow_editor/org_id,ws_id,flow_folder_id:
+    - flow_viewer/org_id,ws_id,flow_folder_id
+    - flow_execute_sandbox/org_id,ws_id,flow_folder_id
+    - w:flows/org_id,ws_id,flow_folder_id,{env=*}
+    - d:flows/org_id,ws_id,flow_folder_id,{env=*}
+flow_deployer/org_id,ws_id,flow_folder_id:
+    - flow_editor/org_id,ws_id,flow_folder_id
+    - deploy:flows/org_id,ws_id,flow_folder_id,{env=*}
 
 # roles assignable via admin panel
 oncall_group:
@@ -173,6 +191,7 @@ api_key_history_admin/org_id,ws_id:
 api_key_audit_logs/org_id,ws_id:
     - ws_viewer/org_id,ws_id
     - r:organization/org_id
+    - r:organization_name/org_id
     - r:audit_logs/org_id
 api_key_ws_viewer/org_id,ws_id:
     - ws_viewer/org_id,ws_id
@@ -203,6 +222,7 @@ scim_provisioner/org_id:
 org_member/org_id:
     - r:organization/org_id
     - r:runtime_artifacts/org_id
+    - r:organization_name/org_id
 org_admin/org_id:
     - org_member/org_id
     - d_api_key/org_id

@@ -37,8 +37,17 @@ try:
 except ImportError:
   tree = None
 
+# take/set_current_trace are in jax.extend.core starting in JAX v0.10.0.
+if hasattr(jax_core, 'take_current_trace'):
+  take_current_trace = jax_core.take_current_trace
+else:
+  take_current_trace = jax.core.take_current_trace  # pyrefly: ignore[missing-attribute]
+if hasattr(jax_core, 'set_current_trace'):
+  set_current_trace = jax_core.set_current_trace
+else:
+  set_current_trace = jax.core.set_current_trace  # pyrefly: ignore[missing-attribute]
 
-graph_stack = data_structures.ThreadLocalStack['Graph']()
+graph_stack = data_structures.ThreadLocalStack['Graph']()  # pyrefly: ignore[not-a-type]
 Node = collections.namedtuple('Node', 'id,title,outputs')
 Edge = collections.namedtuple('Edge', 'a,b')
 
@@ -53,7 +62,7 @@ class Graph(NamedTuple):
 
   @classmethod
   def create(cls, title: str | None = None):
-    return Graph(title=title, nodes=[], edges=[], subgraphs=[])
+    return Graph(title=title, nodes=[], edges=[], subgraphs=[])  # pyrefly: ignore[bad-argument-type]
 
   def evolve(self, **kwargs) -> 'Graph':
     return Graph(**{**self._asdict(), **kwargs})
@@ -153,7 +162,11 @@ def to_graph(fun):
 
     with graph_stack(graph), \
          module.hook_methods(method_hook):
-      tag = jax.core.TraceTag()
+      # TraceTag is in jax.extend.core starting in JAX v0.10.0.
+      if hasattr(jax_core, 'TraceTag'):
+        tag = jax_core.TraceTag()
+      else:
+        tag = jax.core.TraceTag()  # pyrefly: ignore[missing-attribute]
       out_flat = _interpret_subtrace(flat_fun, tag).call_wrapped(*args_flat)
     out = jax.tree.unflatten(out_tree(), out_flat)
 
@@ -164,9 +177,9 @@ def to_graph(fun):
 
 @lu.transformation
 def _interpret_subtrace(tag, *in_vals):
-  with jax.core.take_current_trace() as parent_trace:
+  with take_current_trace() as parent_trace:
     trace = DotTrace(parent_trace, tag)
-    with jax.core.set_current_trace(trace):
+    with set_current_trace(trace):
       in_tracers = [DotTracer(trace, val) for val in in_vals]
       outs = yield in_tracers, {}
       yield [trace.to_val(t) for t in outs]
@@ -176,12 +189,8 @@ class DotTracer(jax.core.Tracer):
   """JAX tracer used in DotTrace."""
 
   def __init__(self, trace, val):
-    self._trace = trace
+    super().__init__(trace, jax.typeof(val))
     self.val = val
-
-  @property
-  def aval(self):
-    return jax.typeof(self.val)
 
   def full_lower(self):
     return self
@@ -201,9 +210,18 @@ class DotTrace(jax.core.Trace):
     else:
       return val
 
+  def stage_value(self, val):
+    val_out = self.parent_trace.stage_value(val)
+    return DotTracer(self, val_out)
+
   def process_primitive(self, primitive, tracers, params):
     vals = [self.to_val(t) for t in tracers]
-    val_out = primitive.bind_with_trace(self.parent_trace, vals, params)
+    if jax.__version_info__ >= (0, 9, 2):
+      avals = [jax.typeof(t) for t in tracers]
+      val_out = primitive.bind_with_trace(
+          self.parent_trace, vals, avals, params)
+    else:
+      val_out = primitive.bind_with_trace(self.parent_trace, vals, params)
     if primitive is jax_core.primitives.jit_p:
       f = jax_core.jaxpr_as_fun(params['jaxpr'])
       f.__name__ = params['name']
@@ -224,7 +242,7 @@ class DotTrace(jax.core.Trace):
     if (call_primitive in (jax_core.primitives.jit_p,) and
         params.get('inline', False)):
       f = _interpret_subtrace(f, self.tag)
-      with jax.core.set_current_trace(self.parent_trace):
+      with set_current_trace(self.parent_trace):
         vals_out = f.call_wrapped(*[self.to_val(t) for t in tracers])
         return [DotTracer(self, v) for v in vals_out]
 
@@ -232,7 +250,7 @@ class DotTrace(jax.core.Trace):
     graph_stack.peek().subgraphs.append(graph)
     with graph_stack(graph):
       f = _interpret_subtrace(f, self.tag)
-      with jax.core.set_current_trace(self.parent_trace):
+      with set_current_trace(self.parent_trace):
         vals_out = f.call_wrapped(*[self.to_val(t) for t in tracers])
         return [DotTracer(self, v) for v in vals_out]
 
@@ -242,14 +260,14 @@ class DotTrace(jax.core.Trace):
                               symbolic_zeros):
     # Drop the custom differentiation rule.
     del primitive, jvp, symbolic_zeros  # Unused.
-    with jax.core.set_current_trace(self.parent_trace):
+    with set_current_trace(self.parent_trace):
       return fun.call_wrapped(*tracers)
 
   def process_custom_vjp_call(self, primitive, fun, fwd, bwd, tracers,
                               out_trees, symbolic_zeros):
     # Drop the custom differentiation rule.
     del primitive, fwd, bwd, out_trees, symbolic_zeros  # Unused.
-    with jax.core.set_current_trace(self.parent_trace):
+    with set_current_trace(self.parent_trace):
       return fun.call_wrapped(*tracers)
 
 

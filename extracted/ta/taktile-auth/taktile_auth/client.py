@@ -60,12 +60,8 @@ class AuthClient:
         self,
         url: str = _get_auth_server_url(settings.ENV),
         cache: t.Optional[Cache] = None,
-        cache_speedup_time: datetime.timedelta = datetime.timedelta(
-            minutes=settings.CACHE_SPEEDUP_TIME_MINUTES
-        ),
-        cache_fallback_time: datetime.timedelta = datetime.timedelta(
-            minutes=settings.CACHE_FALLBACK_TIME_MINUTES
-        ),
+        cache_speedup_time: datetime.timedelta = datetime.timedelta(minutes=settings.CACHE_SPEEDUP_TIME_MINUTES),
+        cache_fallback_time: datetime.timedelta = datetime.timedelta(minutes=settings.CACHE_FALLBACK_TIME_MINUTES),
         salt: t.Optional[str] = None,
         cert: t.Optional[t.Tuple[str, str]] = None,
         # PEP-295 recursion accounting. Explicit ``recursion_check_enabled``
@@ -91,14 +87,11 @@ class AuthClient:
             # Miswired: feature flag flipped on but no counter to
             # accumulate hops in.
             logger.error(
-                "recursion_check_enabled=True but no recursion_counter "
-                "provided; PEP-295 hop counting disabled"
+                "recursion_check_enabled=True but no recursion_counter provided; PEP-295 hop counting disabled"
             )
         elif recursion_check_enabled:
             assert recursion_counter is not None  # narrows type for mypy
-            self._recursion_gate = RecursionGate(
-                counter=recursion_counter, mode=recursion_mode
-            )
+            self._recursion_gate = RecursionGate(counter=recursion_counter, mode=recursion_mode)
 
     def _extract_key(self, jwk: t.Any, kid: str) -> t.Any:
         for k in jwk["keys"]:
@@ -122,12 +115,8 @@ class AuthClient:
             if cached:
                 timestamp, jwks = json.loads(cached)
                 insert_time = datetime.datetime.fromtimestamp(timestamp)
-                if (
-                    datetime.datetime.utcnow()
-                    < insert_time
-                    + datetime.timedelta(
-                        minutes=settings.CACHE_PUBLIC_KEY_SPEEDUP_TIME_MINUTES
-                    )
+                if datetime.datetime.utcnow() < insert_time + datetime.timedelta(
+                    minutes=settings.CACHE_PUBLIC_KEY_SPEEDUP_TIME_MINUTES
                 ):
                     return self._extract_key(jwks, kid)
 
@@ -140,10 +129,7 @@ class AuthClient:
                 except Exception:
                     won_marker = True
                 if not won_marker:
-                    logger.info(
-                        "Public key refresh already in progress, "
-                        "using cached key"
-                    )
+                    logger.info("Public key refresh already in progress, using cached key")
                     return self._extract_key(jwks, kid)
                 logger.info(
                     "Public key cache stale, refreshing from %s",
@@ -168,9 +154,7 @@ class AuthClient:
         else:
             jwks = response.json()
             if self._cache is not None:
-                now = int(
-                    datetime.datetime.timestamp(datetime.datetime.utcnow())
-                )
+                now = int(datetime.datetime.timestamp(datetime.datetime.utcnow()))
                 expires = datetime.datetime.utcnow() + datetime.timedelta(
                     minutes=settings.CACHE_PUBLIC_KEY_FALLBACK_TIME_MINUTES
                 )
@@ -223,21 +207,15 @@ class AuthClient:
         t0 = time.perf_counter()
         success = True
         try:
-            self._record_recursion_hop(
-                session_state=session_state, weight=weight
-            )
+            self._record_recursion_hop(session_state=session_state, weight=weight)
 
             if session_state.jwt:
                 return (
-                    self.decode_id_token(
-                        token=session_state.jwt, key=key, kid=kid
-                    ),
+                    self.decode_id_token(token=session_state.jwt, key=key, kid=kid),
                     session_state,
                 )
 
-            if cache_response := self._get_from_cache(
-                session_state=session_state, key=key
-            ):
+            if cache_response := self._get_from_cache(session_state=session_state, key=key):
                 session_state.jwt = cache_response.token
                 should_refresh = not cache_response.is_in_speedup_window
 
@@ -251,9 +229,7 @@ class AuthClient:
                     )
                     if cache_response:
                         session_state.jwt = cache_response.token
-                        should_refresh = (
-                            not cache_response.is_in_speedup_window
-                        )
+                        should_refresh = not cache_response.is_in_speedup_window
             else:
                 should_refresh = False
 
@@ -275,10 +251,7 @@ class AuthClient:
                     won_marker = True
 
                 if not won_marker:
-                    logger.info(
-                        "JWT refresh already in progress, "
-                        "using cached token"
-                    )
+                    logger.info("JWT refresh already in progress, using cached token")
                     should_refresh = False
                 else:
                     logger.info("JWT cache stale, refreshing from taktile-api")
@@ -290,16 +263,11 @@ class AuthClient:
                     method = "refresh"
                     session_state.jwt = tapi_response.token
                     if self._cache:
-                        expires = (
-                            datetime.datetime.utcnow()
-                            + self._cache_fallback_time
-                        )
+                        expires = datetime.datetime.utcnow() + self._cache_fallback_time
                         self._cache.put(
                             self._get_cache_key(str(session_state.api_key)),
                             tapi_response.token,
-                            time_to_live=int(
-                                datetime.datetime.timestamp(expires)
-                            ),
+                            time_to_live=int(datetime.datetime.timestamp(expires)),
                         )
                 elif isinstance(
                     tapi_response,
@@ -325,15 +293,11 @@ class AuthClient:
                     AuthClient.JWTResponseForbiddenFailure,
                 ):
                     raise InvalidAuthException(
-                        "Invalid authentication credentials"
-                        " provided. Check again your"
-                        " credentials."
+                        "Invalid authentication credentials provided. Check again your credentials."
                     ) from tapi_response.exception
 
             return (
-                self.decode_id_token(
-                    token=session_state.jwt, key=key, kid=kid
-                ),
+                self.decode_id_token(token=session_state.jwt, key=key, kid=kid),
                 session_state,
             )
         except Exception:
@@ -363,14 +327,9 @@ class AuthClient:
 
         cache_key = self._get_cache_key(str(session_state.api_key))
         try:
-            cached_jwt = self._cache.get(
-                cache_key, skip_local_cache=skip_local_cache
-            )
+            cached_jwt = self._cache.get(cache_key, skip_local_cache=skip_local_cache)
         except TypeError:
-            logger.warning(
-                "Cache does not support skip_local_cache, "
-                "falling back to local cache"
-            )
+            logger.warning("Cache does not support skip_local_cache, falling back to local cache")
             cached_jwt = self._cache.get(cache_key)
 
         if not cached_jwt:
@@ -384,13 +343,9 @@ class AuthClient:
 
         issue_time = datetime.datetime.fromtimestamp(float(token.iat))
 
-        is_in_speedup_window = (
-            datetime.datetime.utcnow() < issue_time + self._cache_speedup_time
-        )
+        is_in_speedup_window = datetime.datetime.utcnow() < issue_time + self._cache_speedup_time
 
-        return AuthClient.CacheResponse(
-            token=cached_jwt, is_in_speedup_window=is_in_speedup_window
-        )
+        return AuthClient.CacheResponse(token=cached_jwt, is_in_speedup_window=is_in_speedup_window)
 
     def fetch_jwt(
         self,
@@ -448,16 +403,15 @@ class AuthClient:
         except requests.exceptions.Timeout as exc:
             return AuthClient.JWTResponseAllowedFailure(exception=exc)
         except requests.exceptions.HTTPError as exc:
-            if (
-                exc.response.status_code in (404, 429, 499)
-                or exc.response.status_code >= 500
-            ):
+            if exc.response.status_code in (404, 429, 499) or exc.response.status_code >= 500:
                 return AuthClient.JWTResponseAllowedFailure(exception=exc)
             return AuthClient.JWTResponseForbiddenFailure(exception=exc)
         except Exception as exc:
             return AuthClient.JWTResponseForbiddenFailure(exception=exc)
 
-    def _refresh_jwt(self, *, session_state: SessionState) -> t.Union[
+    def _refresh_jwt(
+        self, *, session_state: SessionState
+    ) -> t.Union[
         JWTResponseSuccess,
         JWTResponseAllowedFailure,
         JWTResponseForbiddenFailure,
@@ -471,9 +425,7 @@ class AuthClient:
         salt = self._salt if self._salt else ""
         return blake2b(f"{salt}{key}".encode()).hexdigest()
 
-    def _record_recursion_hop(
-        self, *, session_state: SessionState, weight: int
-    ) -> None:
+    def _record_recursion_hop(self, *, session_state: SessionState, weight: int) -> None:
         """PEP-295 hop accounting.
 
         - **First hop** (no inbound prefix): the auth check originates

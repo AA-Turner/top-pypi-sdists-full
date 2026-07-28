@@ -734,19 +734,26 @@ LANGUAGE js AS
             },
         )
         self.validate_all(
-            "SELECT ARRAY_AGG(DISTINCT x IGNORE NULLS ORDER BY a, b DESC LIMIT 10) AS x",
+            "SELECT ARRAY_AGG(DISTINCT x IGNORE NULLS ORDER BY x LIMIT 10) AS x",
             write={
-                "bigquery": "SELECT ARRAY_AGG(DISTINCT x IGNORE NULLS ORDER BY a, b DESC LIMIT 10) AS x",
-                "duckdb": "SELECT ARRAY_AGG(DISTINCT x ORDER BY a NULLS FIRST, b DESC LIMIT 10) AS x",
-                "spark": "SELECT COLLECT_LIST(DISTINCT x ORDER BY a, b DESC LIMIT 10) IGNORE NULLS AS x",
+                "bigquery": "SELECT ARRAY_AGG(DISTINCT x IGNORE NULLS ORDER BY x LIMIT 10) AS x",
+                "duckdb": UnsupportedError,
+                "spark": "SELECT COLLECT_LIST(DISTINCT x ORDER BY x LIMIT 10) IGNORE NULLS AS x",
             },
         )
         self.validate_all(
-            "SELECT ARRAY_AGG(DISTINCT x IGNORE NULLS ORDER BY a, b DESC LIMIT 1, 10) AS x",
+            "SELECT ARRAY_AGG(x IGNORE NULLS) AS x",
             write={
-                "bigquery": "SELECT ARRAY_AGG(DISTINCT x IGNORE NULLS ORDER BY a, b DESC LIMIT 1, 10) AS x",
-                "duckdb": "SELECT ARRAY_AGG(DISTINCT x ORDER BY a NULLS FIRST, b DESC LIMIT 1, 10) AS x",
-                "spark": "SELECT COLLECT_LIST(DISTINCT x ORDER BY a, b DESC LIMIT 1, 10) IGNORE NULLS AS x",
+                "bigquery": "SELECT ARRAY_AGG(x IGNORE NULLS) AS x",
+                "duckdb": "SELECT ARRAY_AGG(x) FILTER(WHERE x IS NOT NULL) AS x",
+            },
+        )
+        self.validate_all(
+            "SELECT ARRAY_AGG(DISTINCT x IGNORE NULLS ORDER BY x) AS x",
+            write={
+                "bigquery": "SELECT ARRAY_AGG(DISTINCT x IGNORE NULLS ORDER BY x) AS x",
+                "duckdb": "SELECT ARRAY_AGG(DISTINCT x ORDER BY x NULLS FIRST) FILTER(WHERE x IS NOT NULL) AS x",
+                "spark": "SELECT COLLECT_LIST(DISTINCT x) IGNORE NULLS AS x",
             },
         )
         self.validate_all(
@@ -1624,9 +1631,17 @@ LANGUAGE js AS
             "SELECT * FROM a WHERE b IN UNNEST([1, 2, 3])",
             write={
                 "bigquery": "SELECT * FROM a WHERE b IN UNNEST([1, 2, 3])",
+                "duckdb": "SELECT * FROM a WHERE CASE WHEN [1, 2, 3] IS NULL OR ARRAY_LENGTH([1, 2, 3]) = 0 THEN FALSE WHEN ARRAY_CONTAINS([1, 2, 3], b) THEN TRUE WHEN b IS NULL OR ARRAY_LENGTH([1, 2, 3]) <> LIST_COUNT([1, 2, 3]) THEN NULL ELSE FALSE END",
                 "presto": "SELECT * FROM a WHERE b IN (SELECT UNNEST(ARRAY[1, 2, 3]))",
                 "hive": "SELECT * FROM a WHERE b IN (SELECT EXPLODE(ARRAY(1, 2, 3)))",
                 "spark": "SELECT * FROM a WHERE b IN (SELECT EXPLODE(ARRAY(1, 2, 3)))",
+            },
+        )
+        self.validate_all(
+            "SELECT * FROM a WHERE b NOT IN UNNEST([1, 2, 3])",
+            write={
+                "bigquery": "SELECT * FROM a WHERE NOT b IN UNNEST([1, 2, 3])",
+                "duckdb": "SELECT * FROM a WHERE NOT CASE WHEN [1, 2, 3] IS NULL OR ARRAY_LENGTH([1, 2, 3]) = 0 THEN FALSE WHEN ARRAY_CONTAINS([1, 2, 3], b) THEN TRUE WHEN b IS NULL OR ARRAY_LENGTH([1, 2, 3]) <> LIST_COUNT([1, 2, 3]) THEN NULL ELSE FALSE END",
             },
         )
         self.validate_all(
@@ -2125,10 +2140,39 @@ WHERE
         )
 
         self.validate_all(
-            "SELECT ARRAY_CONCAT_AGG(1)",
+            "SELECT ARRAY_CONCAT_AGG(arr) FROM (SELECT [1, 2] AS arr) AS t",
             write={
-                "snowflake": "SELECT ARRAY_FLATTEN(ARRAY_AGG(1))",
-                "bigquery": "SELECT ARRAY_CONCAT_AGG(1)",
+                "bigquery": "SELECT ARRAY_CONCAT_AGG(arr) FROM (SELECT [1, 2] AS arr) AS t",
+                "snowflake": "SELECT ARRAY_FLATTEN(ARRAY_AGG(arr)) FROM (SELECT [1, 2] AS arr) AS t",
+                "duckdb": "SELECT FLATTEN(ARRAY_AGG(arr) FILTER(WHERE NOT arr IS NULL)) FROM (SELECT [1, 2] AS arr) AS t",
+            },
+        )
+        self.validate_all(
+            "SELECT ARRAY_CONCAT_AGG(arr ORDER BY y) FROM (SELECT [1, 2] AS arr, 1 AS y) AS t",
+            write={
+                "bigquery": "SELECT ARRAY_CONCAT_AGG(arr ORDER BY y) FROM (SELECT [1, 2] AS arr, 1 AS y) AS t",
+                "duckdb": "SELECT FLATTEN(ARRAY_AGG(arr ORDER BY y NULLS FIRST) FILTER(WHERE NOT arr IS NULL)) FROM (SELECT [1, 2] AS arr, 1 AS y) AS t",
+            },
+        )
+        self.validate_all(
+            "SELECT ARRAY_CONCAT_AGG(arr LIMIT 2) FROM (SELECT [1, 2] AS arr) AS t",
+            write={
+                "bigquery": "SELECT ARRAY_CONCAT_AGG(arr LIMIT 2) FROM (SELECT [1, 2] AS arr) AS t",
+                "duckdb": UnsupportedError,
+            },
+        )
+        self.validate_all(
+            "SELECT ARRAY_CONCAT_AGG(arr ORDER BY y DESC LIMIT 2) FROM (SELECT [1, 2] AS arr, 1 AS y) AS t",
+            write={
+                "bigquery": "SELECT ARRAY_CONCAT_AGG(arr ORDER BY y DESC LIMIT 2) FROM (SELECT [1, 2] AS arr, 1 AS y) AS t",
+                "duckdb": UnsupportedError,
+            },
+        )
+        self.validate_all(
+            "SELECT * FROM a LEFT JOIN b ON a.key = b.key AND a.val IN UNNEST(b.arr)",
+            write={
+                "bigquery": "SELECT * FROM a LEFT JOIN b ON a.key = b.key AND a.val IN UNNEST(b.arr)",
+                "duckdb": "SELECT * FROM a LEFT JOIN b ON a.key = b.key AND CASE WHEN b.arr IS NULL OR ARRAY_LENGTH(b.arr) = 0 THEN FALSE WHEN ARRAY_CONTAINS(b.arr, a.val) THEN TRUE WHEN a.val IS NULL OR ARRAY_LENGTH(b.arr) <> LIST_COUNT(b.arr) THEN NULL ELSE FALSE END",
             },
         )
         self.validate_all(

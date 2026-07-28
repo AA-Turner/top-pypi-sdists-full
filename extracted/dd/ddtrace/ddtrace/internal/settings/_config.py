@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from copy import deepcopy
 import re
 import sys
@@ -7,6 +9,7 @@ from typing import Literal  # noqa:F401
 from typing import Optional  # noqa:F401
 from typing import Union  # noqa:F401
 
+from ddtrace.internal import _service_state
 from ddtrace.internal import gitmetadata
 from ddtrace.internal.constants import _PROPAGATION_BEHAVIOR_DEFAULT
 from ddtrace.internal.constants import _PROPAGATION_BEHAVIOR_IGNORE
@@ -17,6 +20,7 @@ from ddtrace.internal.constants import DEFAULT_MAX_PAYLOAD_SIZE
 from ddtrace.internal.constants import DEFAULT_PROCESSING_INTERVAL
 from ddtrace.internal.constants import DEFAULT_REUSE_CONNECTIONS
 from ddtrace.internal.constants import DEFAULT_SAMPLING_RATE_LIMIT
+from ddtrace.internal.constants import DEFAULT_SERVICE_NAME
 from ddtrace.internal.constants import DEFAULT_TIMEOUT
 from ddtrace.internal.constants import PROPAGATION_STYLE_ALL
 from ddtrace.internal.evp_proxy.constants import DEFAULT_EVP_EVENT_SIZE_LIMIT
@@ -24,7 +28,6 @@ from ddtrace.internal.evp_proxy.constants import DEFAULT_EVP_PAYLOAD_SIZE_LIMIT
 from ddtrace.internal.logger import get_log_injection_state
 from ddtrace.internal.logger import get_logger
 from ddtrace.internal.native import config as _native_config
-from ddtrace.internal.schema import DEFAULT_SPAN_SERVICE_NAME
 from ddtrace.internal.serverless import in_aws_lambda
 from ddtrace.internal.serverless import in_azure_function
 from ddtrace.internal.serverless import in_gcp_function
@@ -204,9 +207,11 @@ INTEGRATION_CONFIGS = frozenset(
         "openai_agents",
         "mcp",
         "mlflow",
+        "pytorch",
         "ray",
         "aiokafka",
         "google_cloud_pubsub",
+        "mistralai",
     }
 )
 
@@ -410,6 +415,11 @@ def _default_config() -> dict[str, _ConfigItem]:
             envs=["DD_LLMOBS_ML_APP"],
             modifier=lambda x: x,
         ),
+        "_llmobs_sample_rate": _ConfigItem(
+            default=1.0,
+            envs=["DD_LLMOBS_SAMPLE_RATE"],
+            modifier=float,
+        ),
     }
 
 
@@ -514,17 +524,31 @@ class Config(object):
         self.service = _get_config("DD_SERVICE", self.tags.get("service", None), otel_env="OTEL_SERVICE_NAME")
 
         self._is_user_provided_service = self.service is not None
+        _service_state.set_is_user_provided_service(self._is_user_provided_service)
 
         self._inferred_base_service = detect_service(sys.argv)
 
+        # AIDEV-NOTE: Mirrors ddtrace.internal.schema's span-service-name-schema resolution
+        # (v0 vs v1) without importing that package, which would recreate the
+        # _config -> schema -> span_attribute_schema -> _config circular import.
+        _span_service_name_schema_version = env.get("DD_TRACE_SPAN_ATTRIBUTE_SCHEMA", default="v0")
+        if _span_service_name_schema_version not in ("v0", "v1"):
+            _span_service_name_schema_version = "v0"
+        if _span_service_name_schema_version == "v0" and not asbool(
+            env.get("DD_TRACE_REMOVE_INTEGRATION_SERVICE_NAMES_ENABLED", default=False)
+        ):
+            default_span_service_name = self._inferred_base_service or None
+        else:
+            default_span_service_name = self._inferred_base_service or DEFAULT_SERVICE_NAME
+
         if self.service is None and in_aws_lambda():
-            self.service = _get_config("AWS_LAMBDA_FUNCTION_NAME", DEFAULT_SPAN_SERVICE_NAME)
+            self.service = _get_config("AWS_LAMBDA_FUNCTION_NAME", default_span_service_name)
         if self.service is None and in_gcp_function():
-            self.service = _get_config(["K_SERVICE", "FUNCTION_NAME"], DEFAULT_SPAN_SERVICE_NAME)
+            self.service = _get_config(["K_SERVICE", "FUNCTION_NAME"], default_span_service_name)
         if self.service is None and in_azure_function():
-            self.service = _get_config("WEBSITE_SITE_NAME", DEFAULT_SPAN_SERVICE_NAME)
-        if self.service is None and DEFAULT_SPAN_SERVICE_NAME:
-            self.service = _get_config("DD_SERVICE", DEFAULT_SPAN_SERVICE_NAME)
+            self.service = _get_config("WEBSITE_SITE_NAME", default_span_service_name)
+        if self.service is None and default_span_service_name:
+            self.service = _get_config("DD_SERVICE", default_span_service_name)
 
         self._extra_services: set[str] = set()
         self.version = _get_config("DD_VERSION", self.tags.get("version"))
@@ -684,7 +708,6 @@ class Config(object):
         self._dd_app_key = _get_config("DD_APP_KEY", report_telemetry=False)
         self._dd_site = _get_config("DD_SITE", "datadoghq.com")
 
-        self._llmobs_sample_rate = _get_config("DD_LLMOBS_SAMPLE_RATE", 1.0, float)
         self._llmobs_agentless_enabled = _get_config("DD_LLMOBS_AGENTLESS_ENABLED", None, asbool)
         self._llmobs_instrumented_proxy_urls = _get_config(
             "DD_LLMOBS_INSTRUMENTED_PROXY_URLS", None, lambda x: set(x.strip().split(","))
@@ -770,6 +793,14 @@ class Config(object):
             self._integration_configs[name] = IntegrationConfig(self, name)
             return self._integration_configs[name]
         raise AttributeError(f"{type(self)} object has no attribute {name}, {name} is not a valid configuration")
+
+    def __reduce__(self) -> tuple[Any, tuple[Any, ...]]:
+        # (AIPTS-1715): The config object is a process-global singleton.
+        # If pickled by value, the config would drag its entire state
+        # into the payload, recursing in __getattr__.
+        # We have to pickle it by reference instead, so that the singleton can be re-resolved
+        # in the destination process when being unpickled.
+        return (_get_global_config, ())
 
     def _add_extra_service(self, service_name: str) -> None:
         if self._extra_services_queue is None:
@@ -882,6 +913,11 @@ class Config(object):
 
     def _lower(self, value):
         return value.lower()
+
+
+def _get_global_config() -> Config:
+    """Re-resolve the process-global config singleton when unpickling."""
+    return config
 
 
 config = Config()

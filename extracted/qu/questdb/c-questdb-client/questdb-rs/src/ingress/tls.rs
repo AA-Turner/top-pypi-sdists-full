@@ -1,10 +1,20 @@
 use crate::error::{Result, fmt};
 use crate::ingress::CertificateAuthority;
+#[cfg(any(
+    feature = "_sender-tcp",
+    feature = "_sender-http",
+    feature = "_sender-qwp-ws"
+))]
 use rustls::RootCertStore;
 use rustls_pki_types::CertificateDer;
 use rustls_pki_types::pem::PemObject;
 use std::fs::File;
 use std::path::Path;
+#[cfg(any(
+    feature = "_sender-tcp",
+    feature = "_sender-http",
+    feature = "_sender-qwp-ws"
+))]
 use std::sync::Arc;
 
 #[cfg(feature = "insecure-skip-verify")]
@@ -62,14 +72,28 @@ mod danger {
     }
 }
 
-#[cfg(feature = "tls-webpki-certs")]
+#[cfg(all(
+    feature = "tls-webpki-certs",
+    any(
+        feature = "_sender-tcp",
+        feature = "_sender-http",
+        feature = "_sender-qwp-ws"
+    ),
+))]
 fn add_webpki_roots(root_store: &mut RootCertStore) {
     root_store
         .roots
         .extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned())
 }
 
-#[cfg(feature = "tls-native-certs")]
+#[cfg(all(
+    feature = "tls-native-certs",
+    any(
+        feature = "_sender-tcp",
+        feature = "_sender-http",
+        feature = "_sender-qwp-ws"
+    ),
+))]
 fn unpack_os_native_certs(
     res: rustls_native_certs::CertificateResult,
 ) -> crate::Result<Vec<rustls::pki_types::CertificateDer<'static>>> {
@@ -88,7 +112,14 @@ fn unpack_os_native_certs(
     Ok(res.certs)
 }
 
-#[cfg(feature = "tls-native-certs")]
+#[cfg(all(
+    feature = "tls-native-certs",
+    any(
+        feature = "_sender-tcp",
+        feature = "_sender-http",
+        feature = "_sender-qwp-ws"
+    ),
+))]
 fn add_os_roots(root_store: &mut RootCertStore) -> crate::Result<()> {
     let os_certs = unpack_os_native_certs(rustls_native_certs::load_native_certs())?;
 
@@ -103,7 +134,7 @@ fn add_os_roots(root_store: &mut RootCertStore) -> crate::Result<()> {
     Ok(())
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum TlsSettings {
     #[cfg(feature = "insecure-skip-verify")]
     SkipVerify,
@@ -117,6 +148,17 @@ pub(crate) enum TlsSettings {
     #[cfg(all(feature = "tls-webpki-certs", feature = "tls-native-certs"))]
     WebpkiAndOsRoots,
 
+    /// PEM-encoded trust bundle or pre-extracted DER bytes from a
+    /// JKS/PKCS#12 keystore. By the time we land here both flavours
+    /// look identical to rustls — just a list of DER certs.
+    #[cfg_attr(
+        not(any(
+            feature = "_sender-tcp",
+            feature = "_sender-http",
+            feature = "_sender-qwp-ws"
+        )),
+        allow(dead_code)
+    )]
     PemFile(Vec<CertificateDer<'static>>),
 }
 
@@ -128,6 +170,13 @@ impl TlsSettings {
 
         ca: CertificateAuthority,
         roots: Option<&Path>,
+
+        // QWP/WebSocket only — unlocks `tls_roots` when it's a JKS
+        // or PKCS#12 keystore instead of a PEM bundle. Other ingress
+        // transports always pass `None`; the parameter is wired
+        // through unconditionally so this function signature stays
+        // identical across feature configurations.
+        keystore_password: Option<&str>,
     ) -> Result<Option<Self>> {
         if !enabled {
             return Ok(None);
@@ -137,6 +186,12 @@ impl TlsSettings {
         if !verify_hostname {
             return Ok(Some(TlsSettings::SkipVerify));
         }
+
+        // Without the keystore feature compiled in, the caller can
+        // never set `keystore_password` to `Some(_)`. Silence the
+        // dead-code lint without faking a use.
+        #[cfg(not(feature = "_keystore-roots"))]
+        let _ = keystore_password;
 
         Ok(Some(match (ca, roots) {
             #[cfg(feature = "tls-webpki-certs")]
@@ -180,6 +235,16 @@ impl TlsSettings {
             }
 
             (CertificateAuthority::PemFile, Some(pem_file)) => {
+                #[cfg(feature = "_keystore-roots")]
+                if let Some(pwd) = keystore_password {
+                    // tls_roots names a JKS / PKCS#12 keystore; the
+                    // password unlocks it. Trusted-certificate entries
+                    // become rustls roots.
+                    let der_certs = crate::keystore_roots::load_truststore_certs(pem_file, pwd)
+                        .map_err(|e| fmt!(TlsError, "{}", e))?;
+                    return Ok(Some(TlsSettings::PemFile(der_certs)));
+                }
+
                 let certfile = File::open(pem_file).map_err(|io_err| {
                     fmt!(
                         TlsError,
@@ -211,6 +276,11 @@ impl TlsSettings {
     }
 }
 
+#[cfg(any(
+    feature = "_sender-tcp",
+    feature = "_sender-http",
+    feature = "_sender-qwp-ws"
+))]
 pub(crate) fn configure_tls(tls: TlsSettings) -> Result<Arc<rustls::ClientConfig>> {
     let mut root_store = RootCertStore::empty();
 
@@ -240,13 +310,18 @@ pub(crate) fn configure_tls(tls: TlsSettings) -> Result<Arc<rustls::ClientConfig
         }
     }
 
+    #[cfg_attr(
+        not(any(feature = "tls-key-log", feature = "insecure-skip-verify")),
+        allow(unused_mut)
+    )]
     let mut config = rustls::ClientConfig::builder()
         .with_root_certificates(root_store)
         .with_no_client_auth();
 
-    // TLS log file for debugging.
-    // Set the SSLKEYLOGFILE env variable to a writable location.
-    config.key_log = Arc::new(rustls::KeyLogFile::new());
+    #[cfg(feature = "tls-key-log")]
+    {
+        config.key_log = Arc::new(rustls::KeyLogFile::new());
+    }
 
     #[cfg(feature = "insecure-skip-verify")]
     if !verify_hostname {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.26.10
+Version: 0.26.12
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -14,14 +14,13 @@ Requires-Dist: requests<3.0.0,>=2.32.4; extra == "core"
 Requires-Dist: datarobot[core]<4.0.0,>=3.17.0; extra == "core"
 Requires-Dist: datarobot-predict<2.0.0,>=1.13.2; extra == "core"
 Requires-Dist: openai<3.0.0,>=2.0.0; extra == "core"
-Requires-Dist: ragas<0.5.0,>=0.4.3; extra == "core"
 Requires-Dist: pyjwt<3.0.0,>=2.12.0; extra == "core"
 Requires-Dist: opentelemetry-instrumentation-requests<1.0.0,>=0.64b0; extra == "core"
 Requires-Dist: opentelemetry-instrumentation-aiohttp-client<1.0.0,>=0.64b0; extra == "core"
 Requires-Dist: opentelemetry-instrumentation-httpx<1.0.0,>=0.64b0; extra == "core"
 Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.62.1; extra == "core"
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.64b0; extra == "core"
-Requires-Dist: datarobot-moderations[all]==11.2.33; extra == "core"
+Requires-Dist: datarobot-moderations[all]<12.0.0,>=11.2.47; extra == "core"
 Requires-Dist: ag-ui-protocol==0.1.15; extra == "core"
 Requires-Dist: pyarrow<24.0.0,>=23.0.1; extra == "core"
 Requires-Dist: colorama<1.0.0,>=0.4.6; extra == "core"
@@ -31,14 +30,13 @@ Requires-Dist: requests<3.0.0,>=2.32.4; extra == "crewai"
 Requires-Dist: datarobot[core]<4.0.0,>=3.17.0; extra == "crewai"
 Requires-Dist: datarobot-predict<2.0.0,>=1.13.2; extra == "crewai"
 Requires-Dist: openai<3.0.0,>=2.0.0; extra == "crewai"
-Requires-Dist: ragas<0.5.0,>=0.4.3; extra == "crewai"
 Requires-Dist: pyjwt<3.0.0,>=2.12.0; extra == "crewai"
 Requires-Dist: opentelemetry-instrumentation-requests<1.0.0,>=0.64b0; extra == "crewai"
 Requires-Dist: opentelemetry-instrumentation-aiohttp-client<1.0.0,>=0.64b0; extra == "crewai"
 Requires-Dist: opentelemetry-instrumentation-httpx<1.0.0,>=0.64b0; extra == "crewai"
 Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.62.1; extra == "crewai"
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.64b0; extra == "crewai"
-Requires-Dist: datarobot-moderations[all]==11.2.33; extra == "crewai"
+Requires-Dist: datarobot-moderations[all]<12.0.0,>=11.2.47; extra == "crewai"
 Requires-Dist: ag-ui-protocol==0.1.15; extra == "crewai"
 Requires-Dist: pyarrow<24.0.0,>=23.0.1; extra == "crewai"
 Requires-Dist: colorama<1.0.0,>=0.4.6; extra == "crewai"
@@ -57,14 +55,13 @@ Requires-Dist: requests<3.0.0,>=2.32.4; extra == "langgraph"
 Requires-Dist: datarobot[core]<4.0.0,>=3.17.0; extra == "langgraph"
 Requires-Dist: datarobot-predict<2.0.0,>=1.13.2; extra == "langgraph"
 Requires-Dist: openai<3.0.0,>=2.0.0; extra == "langgraph"
-Requires-Dist: ragas<0.5.0,>=0.4.3; extra == "langgraph"
 Requires-Dist: pyjwt<3.0.0,>=2.12.0; extra == "langgraph"
 Requires-Dist: opentelemetry-instrumentation-requests<1.0.0,>=0.64b0; extra == "langgraph"
 Requires-Dist: opentelemetry-instrumentation-aiohttp-client<1.0.0,>=0.64b0; extra == "langgraph"
 Requires-Dist: opentelemetry-instrumentation-httpx<1.0.0,>=0.64b0; extra == "langgraph"
 Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.62.1; extra == "langgraph"
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.64b0; extra == "langgraph"
-Requires-Dist: datarobot-moderations[all]==11.2.33; extra == "langgraph"
+Requires-Dist: datarobot-moderations[all]<12.0.0,>=11.2.47; extra == "langgraph"
 Requires-Dist: ag-ui-protocol==0.1.15; extra == "langgraph"
 Requires-Dist: pyarrow<24.0.0,>=23.0.1; extra == "langgraph"
 Requires-Dist: colorama<1.0.0,>=0.4.6; extra == "langgraph"
@@ -80,14 +77,13 @@ Requires-Dist: requests<3.0.0,>=2.32.4; extra == "llamaindex"
 Requires-Dist: datarobot[core]<4.0.0,>=3.17.0; extra == "llamaindex"
 Requires-Dist: datarobot-predict<2.0.0,>=1.13.2; extra == "llamaindex"
 Requires-Dist: openai<3.0.0,>=2.0.0; extra == "llamaindex"
-Requires-Dist: ragas<0.5.0,>=0.4.3; extra == "llamaindex"
 Requires-Dist: pyjwt<3.0.0,>=2.12.0; extra == "llamaindex"
 Requires-Dist: opentelemetry-instrumentation-requests<1.0.0,>=0.64b0; extra == "llamaindex"
 Requires-Dist: opentelemetry-instrumentation-aiohttp-client<1.0.0,>=0.64b0; extra == "llamaindex"
 Requires-Dist: opentelemetry-instrumentation-httpx<1.0.0,>=0.64b0; extra == "llamaindex"
 Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.62.1; extra == "llamaindex"
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.64b0; extra == "llamaindex"
-Requires-Dist: datarobot-moderations[all]==11.2.33; extra == "llamaindex"
+Requires-Dist: datarobot-moderations[all]<12.0.0,>=11.2.47; extra == "llamaindex"
 Requires-Dist: ag-ui-protocol==0.1.15; extra == "llamaindex"
 Requires-Dist: pyarrow<24.0.0,>=23.0.1; extra == "llamaindex"
 Requires-Dist: colorama<1.0.0,>=0.4.6; extra == "llamaindex"
@@ -216,14 +212,13 @@ Requires-Dist: requests<3.0.0,>=2.32.4; extra == "dragent"
 Requires-Dist: datarobot[core]<4.0.0,>=3.17.0; extra == "dragent"
 Requires-Dist: datarobot-predict<2.0.0,>=1.13.2; extra == "dragent"
 Requires-Dist: openai<3.0.0,>=2.0.0; extra == "dragent"
-Requires-Dist: ragas<0.5.0,>=0.4.3; extra == "dragent"
 Requires-Dist: pyjwt<3.0.0,>=2.12.0; extra == "dragent"
 Requires-Dist: opentelemetry-instrumentation-requests<1.0.0,>=0.64b0; extra == "dragent"
 Requires-Dist: opentelemetry-instrumentation-aiohttp-client<1.0.0,>=0.64b0; extra == "dragent"
 Requires-Dist: opentelemetry-instrumentation-httpx<1.0.0,>=0.64b0; extra == "dragent"
 Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.62.1; extra == "dragent"
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.64b0; extra == "dragent"
-Requires-Dist: datarobot-moderations[all]==11.2.33; extra == "dragent"
+Requires-Dist: datarobot-moderations[all]<12.0.0,>=11.2.47; extra == "dragent"
 Requires-Dist: ag-ui-protocol==0.1.15; extra == "dragent"
 Requires-Dist: pyarrow<24.0.0,>=23.0.1; extra == "dragent"
 Requires-Dist: colorama<1.0.0,>=0.4.6; extra == "dragent"
@@ -335,7 +330,6 @@ These are explicitly excluded via `[tool.uv] exclude-dependencies` in `pyproject
 | Package | Pulled in by | Reason excluded |
 |---------|-------------|-----------------|
 | `build` | `crewai` | Python build system; runtime unnecessary |
-| `diskcache` | `ragas` | Optional disk caching backend; not used |
 | `flask` | `nvidia-nat 1.6.0` | Web framework; not used |
 | `kubernetes` | `crewai-tools` | K8s client; not used |
 | `lancedb` | `crewai` | Optional vector DB backend; not used |
@@ -346,7 +340,6 @@ These are explicitly excluded via `[tool.uv] exclude-dependencies` in `pyproject
 | `pymilvus` | `langchain-milvus` | Milvus client; not used |
 | `python-docx` | `crewai-tools` | Word doc parser; not used |
 | `pytube` | `crewai-tools` | YouTube downloader; not used |
-| `scikit-network` | `ragas` | Graph analysis library; not used |
 | `stagehand` | `crewai-tools` | Playwright web automation; not used |
 | `uv` | `crewai` | Package manager bundled as a runtime dep; not needed |
 | `youtube-transcript-api` | `crewai-tools` | YouTube transcripts; not used |

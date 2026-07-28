@@ -1,0 +1,1616 @@
+# Copyright Kevin Deldycke <kevin@deldycke.com> and contributors.
+#
+# This program is Free Software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
+from __future__ import annotations
+
+import csv
+import json
+from pathlib import PurePosixPath
+
+import hjson
+import pytest
+import tabulate
+import tomlkit
+import xmltodict
+import yaml
+from boltons.strutils import strip_ansi
+from extra_platforms import is_windows
+from tabulate import tabulate_formats
+
+# tabulate 0.10 introduced the ``colon_grid`` format and changed the asciidoc
+# cell-alignment marker from ``8<`` to ``<8``. Older releases (still shipped
+# by some distributions) need a different fixture.
+TABULATE_HAS_COLON_GRID = "colon_grid" in tabulate_formats
+
+from click_extra import (
+    Color,
+    columns_option,
+    command,
+    echo,
+    group,
+    option,
+    option_group,
+    pass_context,
+    sort_by_option,
+    style,
+    table_format_option,
+)
+from click_extra.pytest import command_decorators
+from click_extra.table import (
+    SERIALIZATION_FORMATS,
+    STYLED_FORMATS,
+    ColumnsOption,
+    ColumnSpec,
+    SortByOption,
+    TableFormat,
+    _apply_default,
+    _column_sort_key,
+    _setup_tabulate,
+    _strip_none,
+    column_sort_key,
+    print_data,
+    print_table,
+    render_table,
+    serialize_data,
+)
+
+
+@pytest.mark.once
+def test_table_formats_definition():
+    """Check all table formats are accounted for and properly named."""
+    # Click Extra registers its custom formats (``aligned``, ``colon_grid``
+    # backport) into tabulate lazily, on first render. Trigger that setup so the
+    # registry below reflects the fully-configured state.
+    _setup_tabulate()
+
+    # Formats from tabulate.
+    tabulate_formats = [
+        (f.upper(), f.replace("_", "-"))
+        for f in tabulate._table_formats  # type: ignore[attr-defined]
+    ]
+
+    # Formats derived from CSV dialects.
+    csv_dialects = [
+        (f"CSV_{d.replace('-', '_').upper()}", f"csv-{d}") for d in csv.list_dialects()
+    ]
+
+    # Formats inherited from previous legacy cli-helpers dependency.
+    cli_helpers_formats = [("CSV", "csv"), ("VERTICAL", "vertical")]
+
+    # Structured data serialization formats.
+    serialization_formats = [
+        ("HJSON", "hjson"),
+        ("JSON", "json"),
+        ("JSON5", "json5"),
+        ("JSONC", "jsonc"),
+        ("TOML", "toml"),
+        ("XML", "xml"),
+        ("YAML", "yaml"),
+    ]
+
+    table_formats = {(f.name, f.value) for f in TableFormat}
+
+    # All tabulate formats are listed in our TableFormat enum.
+    assert set(tabulate_formats) <= table_formats
+
+    # All CSV variants are listed in our TableFormat enum.
+    assert set(csv_dialects) <= table_formats
+
+    # All legacy cli-helpers formats are listed in our TableFormat enum.
+    assert set(cli_helpers_formats) <= table_formats
+
+    # All serialization formats are listed in our TableFormat enum.
+    assert set(serialization_formats) <= table_formats
+
+    # No duplicates.
+    all_formats = (
+        set(tabulate_formats)
+        | set(csv_dialects)
+        | set(cli_helpers_formats)
+        | set(serialization_formats)
+    )
+    assert len(all_formats) == len(table_formats)
+    assert all_formats == table_formats
+
+    # Sorted alphabetically by format name.
+    assert [f.name for f in TableFormat] == sorted(f.name for f in TableFormat)
+
+
+@pytest.mark.parametrize(
+    ("cmd_decorator", "cmd_type"),
+    command_decorators(with_types=True),
+)
+def test_unrecognized_format(invoke, cmd_decorator, cmd_type):
+    @cmd_decorator
+    @table_format_option
+    def table_cli():
+        echo("It works!")
+
+    result = invoke(table_cli, "--table-format", "random", color=False)
+    assert not result.stdout
+
+    group_help = " COMMAND [ARGS]..." if "group" in cmd_type else ""
+    assert result.stderr == (
+        f"Usage: table-cli [OPTIONS]{group_help}\n"
+        "Try 'table-cli --help' for help.\n\n"
+        "Error: Invalid value for '--table-format': 'random' is not one of "
+        "'aligned', 'asciidoc', 'colon-grid', 'csv', 'csv-excel', 'csv-excel-tab', "
+        "'csv-unix', 'double-grid', 'double-outline', 'fancy-grid', 'fancy-outline', 'github', "
+        "'grid', 'heavy-grid', 'heavy-outline', 'hjson', 'html', 'jira', 'json', 'json5', 'jsonc', 'latex', "
+        "'latex-booktabs', 'latex-longtable', 'latex-raw', 'mediawiki', 'mixed-grid', "
+        "'mixed-outline', 'moinmoin', 'orgtbl', 'outline', 'pipe', 'plain', 'presto', "
+        "'pretty', 'psql', 'rounded-grid', 'rounded-outline', 'rst', 'simple', "
+        "'simple-grid', 'simple-outline', 'textile', 'toml', 'tsv', 'unsafehtml', 'vertical', 'xml', 'yaml', "
+        "'youtrack'.\n"
+    )
+
+    assert result.exit_code == 2
+
+
+aligned_table = """\
+Day    Temperature
+1      42.9
+2
+Friday Hot 🥵
+"""
+
+asciidoc_table = (
+    f'[cols="{"<8,<13" if TABULATE_HAS_COLON_GRID else "8<,13<"}",options="header"]\n'
+    "|====\n"
+    "| Day    | Temperature \n"
+    "| 1      | 42.9        \n"
+    "| 2      |             \n"
+    "| Friday | Hot 🥵      \n"
+    "|====\n"
+)
+
+colon_grid_table = """\
++--------+-------------+
+| Day    | Temperature |
++:=======+:============+
+| 1      | 42.9        |
++--------+-------------+
+| 2      |             |
++--------+-------------+
+| Friday | Hot 🥵      |
++--------+-------------+
+"""
+
+csv_table = """\
+Day,Temperature\r
+1,42.9\r
+2,\r
+Friday,Hot 🥵\r
+"""
+
+csv_excel_table = csv_table
+
+csv_excel_tab_table = """\
+Day\tTemperature\r
+1\t42.9\r
+2\t\r
+Friday\tHot 🥵\r
+"""
+
+csv_unix_table = """\
+"Day","Temperature"
+"1","42.9"
+"2",""
+"Friday","Hot 🥵"
+"""
+
+double_grid_table = """\
+╔════════╦═════════════╗
+║ Day    ║ Temperature ║
+╠════════╬═════════════╣
+║ 1      ║ 42.9        ║
+╠════════╬═════════════╣
+║ 2      ║             ║
+╠════════╬═════════════╣
+║ Friday ║ Hot 🥵      ║
+╚════════╩═════════════╝
+"""
+
+double_outline_table = """\
+╔════════╦═════════════╗
+║ Day    ║ Temperature ║
+╠════════╬═════════════╣
+║ 1      ║ 42.9        ║
+║ 2      ║             ║
+║ Friday ║ Hot 🥵      ║
+╚════════╩═════════════╝
+"""
+
+fancy_grid_table = """\
+╒════════╤═════════════╕
+│ Day    │ Temperature │
+╞════════╪═════════════╡
+│ 1      │ 42.9        │
+├────────┼─────────────┤
+│ 2      │             │
+├────────┼─────────────┤
+│ Friday │ Hot 🥵      │
+╘════════╧═════════════╛
+"""
+
+fancy_outline_table = """\
+╒════════╤═════════════╕
+│ Day    │ Temperature │
+╞════════╪═════════════╡
+│ 1      │ 42.9        │
+│ 2      │             │
+│ Friday │ Hot 🥵      │
+╘════════╧═════════════╛
+"""
+
+github_table = """\
+| Day    | Temperature |
+| :----- | :---------- |
+| 1      | 42.9        |
+| 2      |             |
+| Friday | Hot 🥵      |
+"""
+
+grid_table = """\
++--------+-------------+
+| Day    | Temperature |
++========+=============+
+| 1      | 42.9        |
++--------+-------------+
+| 2      |             |
++--------+-------------+
+| Friday | Hot 🥵      |
++--------+-------------+
+"""
+
+heavy_grid_table = """\
+┏━━━━━━━━┳━━━━━━━━━━━━━┓
+┃ Day    ┃ Temperature ┃
+┣━━━━━━━━╋━━━━━━━━━━━━━┫
+┃ 1      ┃ 42.9        ┃
+┣━━━━━━━━╋━━━━━━━━━━━━━┫
+┃ 2      ┃             ┃
+┣━━━━━━━━╋━━━━━━━━━━━━━┫
+┃ Friday ┃ Hot 🥵      ┃
+┗━━━━━━━━┻━━━━━━━━━━━━━┛
+"""
+
+heavy_outline_table = """\
+┏━━━━━━━━┳━━━━━━━━━━━━━┓
+┃ Day    ┃ Temperature ┃
+┣━━━━━━━━╋━━━━━━━━━━━━━┫
+┃ 1      ┃ 42.9        ┃
+┃ 2      ┃             ┃
+┃ Friday ┃ Hot 🥵      ┃
+┗━━━━━━━━┻━━━━━━━━━━━━━┛
+"""
+
+hjson_table = """\
+[
+  {
+    Day: 1
+    Temperature: 42.9
+  }
+  {
+    Day: 2
+    Temperature: null
+  }
+  {
+    Day: Friday
+    Temperature: Hot 🥵
+  }
+]
+"""
+
+html_table = """\
+<table>
+<thead>
+<tr><th>Day   </th><th>Temperature</th></tr>
+</thead>
+<tbody>
+<tr><td>1     </td><td>42.9       </td></tr>
+<tr><td>2     </td><td>           </td></tr>
+<tr><td><span style="color: blue">Friday</span></td>\
+<td><span style="color: red; font-weight: bold">Hot 🥵</span>     </td></tr>
+</tbody>
+</table>
+"""
+
+json_table = """\
+[
+  {
+    "Day": 1,
+    "Temperature": 42.9
+  },
+  {
+    "Day": 2,
+    "Temperature": null
+  },
+  {
+    "Day": "Friday",
+    "Temperature": "Hot 🥵"
+  }
+]
+"""
+
+json5_table = json_table
+
+jsonc_table = json_table
+
+jira_table = """\
+|| Day    || Temperature ||
+| 1      | 42.9        |
+| 2      |             |
+| {color:blue}Friday{color} | {color:red}*Hot 🥵*{color}      |
+"""
+
+latex_table = """\
+\\begin{tabular}{ll}
+\\hline
+ Day    & Temperature \\\\
+\\hline
+ 1      & 42.9        \\\\
+ 2      &             \\\\
+ \\textcolor{blue}{Friday} & \\textcolor{red}{\\textbf{Hot 🥵}}      \\\\
+\\hline
+\\end{tabular}
+"""
+
+latex_booktabs_table = """\
+\\begin{tabular}{ll}
+\\toprule
+ Day    & Temperature \\\\
+\\midrule
+ 1      & 42.9        \\\\
+ 2      &             \\\\
+ \\textcolor{blue}{Friday} & \\textcolor{red}{\\textbf{Hot 🥵}}      \\\\
+\\bottomrule
+\\end{tabular}
+"""
+
+latex_longtable_table = """\
+\\begin{longtable}{ll}
+\\hline
+ Day    & Temperature \\\\
+\\hline
+\\endhead
+ 1      & 42.9        \\\\
+ 2      &             \\\\
+ \\textcolor{blue}{Friday} & \\textcolor{red}{\\textbf{Hot 🥵}}      \\\\
+\\hline
+\\end{longtable}
+"""
+
+latex_raw_table = """\
+\\begin{tabular}{ll}
+\\hline
+ Day    & Temperature \\\\
+\\hline
+ 1      & 42.9        \\\\
+ 2      &             \\\\
+ \\textcolor{blue}{Friday} & \\textcolor{red}{\\textbf{Hot 🥵}}      \\\\
+\\hline
+\\end{tabular}
+"""
+
+mediawiki_table = """\
+{| class="wikitable" style="text-align: left;"
+|+ <!-- caption -->
+|-
+! Day    !! Temperature
+|-
+| 1      || 42.9
+|-
+| 2      ||
+|-
+| <span style="color: blue">Friday</span> || \
+<span style="color: red; font-weight: bold">Hot 🥵</span>
+|}
+"""
+
+mixed_grid_table = """\
+┍━━━━━━━━┯━━━━━━━━━━━━━┑
+│ Day    │ Temperature │
+┝━━━━━━━━┿━━━━━━━━━━━━━┥
+│ 1      │ 42.9        │
+├────────┼─────────────┤
+│ 2      │             │
+├────────┼─────────────┤
+│ Friday │ Hot 🥵      │
+┕━━━━━━━━┷━━━━━━━━━━━━━┙
+"""
+
+mixed_outline_table = """\
+┍━━━━━━━━┯━━━━━━━━━━━━━┑
+│ Day    │ Temperature │
+┝━━━━━━━━┿━━━━━━━━━━━━━┥
+│ 1      │ 42.9        │
+│ 2      │             │
+│ Friday │ Hot 🥵      │
+┕━━━━━━━━┷━━━━━━━━━━━━━┙
+"""
+
+moinmoin_table = """\
+|| ''' Day    ''' || ''' Temperature ''' ||
+||  1       ||  42.9         ||
+||  2       ||               ||
+||  Friday  ||  Hot 🥵       ||
+"""
+
+orgtbl_table = """\
+| Day    | Temperature |
+|--------+-------------|
+| 1      | 42.9        |
+| 2      |             |
+| Friday | Hot 🥵      |
+"""
+
+outline_table = """\
++--------+-------------+
+| Day    | Temperature |
++========+=============+
+| 1      | 42.9        |
+| 2      |             |
+| Friday | Hot 🥵      |
++--------+-------------+
+"""
+
+pipe_table = """\
+| Day    | Temperature |
+| :----- | :---------- |
+| 1      | 42.9        |
+| 2      |             |
+| Friday | Hot 🥵      |
+"""
+
+plain_table = """\
+Day     Temperature
+1       42.9
+2
+Friday  Hot 🥵
+"""
+
+presto_table = """\
+ Day    | Temperature
+--------+-------------
+ 1      | 42.9
+ 2      |
+ Friday | Hot 🥵
+"""
+
+pretty_table = """\
++--------+-------------+
+|  Day   | Temperature |
++--------+-------------+
+|   1    |    42.9     |
+|   2    |             |
+| Friday |   Hot 🥵    |
++--------+-------------+
+"""
+
+psql_table = """\
++--------+-------------+
+| Day    | Temperature |
+|--------+-------------|
+| 1      | 42.9        |
+| 2      |             |
+| Friday | Hot 🥵      |
++--------+-------------+
+"""
+
+rounded_grid_table = """\
+╭────────┬─────────────╮
+│ Day    │ Temperature │
+├────────┼─────────────┤
+│ 1      │ 42.9        │
+├────────┼─────────────┤
+│ 2      │             │
+├────────┼─────────────┤
+│ Friday │ Hot 🥵      │
+╰────────┴─────────────╯
+"""
+
+rounded_outline_table = """\
+╭────────┬─────────────╮
+│ Day    │ Temperature │
+├────────┼─────────────┤
+│ 1      │ 42.9        │
+│ 2      │             │
+│ Friday │ Hot 🥵      │
+╰────────┴─────────────╯
+"""
+
+rst_table = """\
+======  ===========
+Day     Temperature
+======  ===========
+1       42.9
+2
+Friday  Hot 🥵
+======  ===========
+"""
+
+simple_table = """\
+Day     Temperature
+------  -----------
+1       42.9
+2
+Friday  Hot 🥵
+"""
+
+simple_grid_table = """\
+┌────────┬─────────────┐
+│ Day    │ Temperature │
+├────────┼─────────────┤
+│ 1      │ 42.9        │
+├────────┼─────────────┤
+│ 2      │             │
+├────────┼─────────────┤
+│ Friday │ Hot 🥵      │
+└────────┴─────────────┘
+"""
+
+simple_outline_table = """\
+┌────────┬─────────────┐
+│ Day    │ Temperature │
+├────────┼─────────────┤
+│ 1      │ 42.9        │
+│ 2      │             │
+│ Friday │ Hot 🥵      │
+└────────┴─────────────┘
+"""
+
+textile_table = """\
+|_.  Day    |_. Temperature |
+|<. 1       |<. 42.9        |
+|<. 2       |<.             |
+|<. %{color: blue}Friday%  |<. %{color: red; font-weight: bold}Hot 🥵%      |
+"""
+
+toml_table = """\
+[[record]]
+Day = 1
+Temperature = 42.9
+
+[[record]]
+Day = 2
+
+[[record]]
+Day = "Friday"
+Temperature = "Hot 🥵"
+"""
+
+tsv_table = "Day   \tTemperature\n1     \t42.9\n2\nFriday\tHot 🥵\n"
+
+unsafehtml_table = """\
+<table>
+<thead>
+<tr><th>Day   </th><th>Temperature</th></tr>
+</thead>
+<tbody>
+<tr><td>1     </td><td>42.9       </td></tr>
+<tr><td>2     </td><td>           </td></tr>
+<tr><td><span style="color: blue">Friday</span></td>\
+<td><span style="color: red; font-weight: bold">Hot 🥵</span>     </td></tr>
+</tbody>
+</table>
+"""
+
+vertical_table = (
+    "***************************[ 1. row ]***************************\n"
+    "Day         | 1\n"
+    "Temperature | 42.9\n"
+    "***************************[ 2. row ]***************************\n"
+    "Day         | 2\n"
+    "Temperature | \n"
+    "***************************[ 3. row ]***************************\n"
+    "Day         | Friday\n"
+    "Temperature | Hot 🥵\n"
+)
+
+xml_table = """\
+<records>
+\t<record>
+\t\t<Day>1</Day>
+\t\t<Temperature>42.9</Temperature>
+\t</record>
+\t<record>
+\t\t<Day>2</Day>
+\t</record>
+\t<record>
+\t\t<Day>Friday</Day>
+\t\t<Temperature>Hot 🥵</Temperature>
+\t</record>
+</records>
+"""
+
+yaml_table = """\
+- Day: 1
+  Temperature: 42.9
+- Day: 2
+  Temperature: null
+- Day: Friday
+  Temperature: Hot 🥵
+"""
+
+youtrack_table = """\
+||  Day     ||  Temperature  ||
+|  1       |  42.9         |
+|  2       |               |
+|  Friday  |  Hot 🥵       |
+"""
+
+expected_renderings = {
+    TableFormat.ALIGNED: aligned_table,
+    TableFormat.ASCIIDOC: asciidoc_table,
+    TableFormat.COLON_GRID: colon_grid_table,
+    TableFormat.CSV: csv_table,
+    TableFormat.CSV_EXCEL: csv_excel_table,
+    TableFormat.CSV_EXCEL_TAB: csv_excel_tab_table,
+    TableFormat.CSV_UNIX: csv_unix_table,
+    TableFormat.DOUBLE_GRID: double_grid_table,
+    TableFormat.DOUBLE_OUTLINE: double_outline_table,
+    TableFormat.FANCY_GRID: fancy_grid_table,
+    TableFormat.FANCY_OUTLINE: fancy_outline_table,
+    TableFormat.GITHUB: github_table,
+    TableFormat.GRID: grid_table,
+    TableFormat.HEAVY_GRID: heavy_grid_table,
+    TableFormat.HEAVY_OUTLINE: heavy_outline_table,
+    TableFormat.HJSON: hjson_table,
+    TableFormat.HTML: html_table,
+    TableFormat.JIRA: jira_table,
+    TableFormat.JSON: json_table,
+    TableFormat.JSON5: json5_table,
+    TableFormat.JSONC: jsonc_table,
+    TableFormat.LATEX: latex_table,
+    TableFormat.LATEX_BOOKTABS: latex_booktabs_table,
+    TableFormat.LATEX_LONGTABLE: latex_longtable_table,
+    TableFormat.LATEX_RAW: latex_raw_table,
+    TableFormat.MEDIAWIKI: mediawiki_table,
+    TableFormat.MIXED_GRID: mixed_grid_table,
+    TableFormat.MIXED_OUTLINE: mixed_outline_table,
+    TableFormat.MOINMOIN: moinmoin_table,
+    TableFormat.ORGTBL: orgtbl_table,
+    TableFormat.OUTLINE: outline_table,
+    TableFormat.PIPE: pipe_table,
+    TableFormat.PLAIN: plain_table,
+    TableFormat.PRESTO: presto_table,
+    TableFormat.PRETTY: pretty_table,
+    TableFormat.PSQL: psql_table,
+    TableFormat.ROUNDED_GRID: rounded_grid_table,
+    TableFormat.ROUNDED_OUTLINE: rounded_outline_table,
+    TableFormat.RST: rst_table,
+    TableFormat.SIMPLE: simple_table,
+    TableFormat.SIMPLE_GRID: simple_grid_table,
+    TableFormat.SIMPLE_OUTLINE: simple_outline_table,
+    TableFormat.TEXTILE: textile_table,
+    TableFormat.TOML: toml_table,
+    TableFormat.TSV: tsv_table,
+    TableFormat.UNSAFEHTML: unsafehtml_table,
+    TableFormat.VERTICAL: vertical_table,
+    TableFormat.XML: xml_table,
+    TableFormat.YAML: yaml_table,
+    TableFormat.YOUTRACK: youtrack_table,
+}
+
+
+def test_all_table_formats_have_test_rendering():
+    """Check all table formats have a rendering test fixture defined."""
+    # Nothing missing or extra.
+    assert len(TableFormat) == len(expected_renderings.keys())
+    # Same order.
+    assert list(TableFormat) == list(expected_renderings.keys())
+    # Same content.
+    assert set(TableFormat) == set(expected_renderings.keys())
+
+
+def _table_format_marks(format_name):
+    """Skip ``colon_grid`` when tabulate <0.10 aliases it to ``grid``."""
+    if format_name is TableFormat.COLON_GRID and not TABULATE_HAS_COLON_GRID:
+        return (
+            pytest.mark.skip(reason="colon_grid is aliased to grid on tabulate <0.10"),
+        )
+    return ()
+
+
+@pytest.mark.parametrize("cmd_decorator", command_decorators(no_groups=True))
+@pytest.mark.parametrize(
+    "option_decorator", (table_format_option, table_format_option())
+)
+@pytest.mark.parametrize(
+    ("format_name", "expected"),
+    [
+        pytest.param(k, v, id=str(k), marks=_table_format_marks(k))
+        for k, v in expected_renderings.items()
+    ],
+)
+def test_all_table_rendering(
+    invoke, cmd_decorator, option_decorator, format_name, expected
+):
+    @cmd_decorator
+    @option_decorator
+    @pass_context
+    def table_cli(ctx):
+        format_id = ctx.meta["click_extra.table_format"]
+        echo(f"Table format: {format_id}")
+
+        headers = ("Day", "Temperature")
+        data = (
+            (1, 42.9),
+            (2, None),
+            (style("Friday", fg=Color.blue), style("Hot 🥵", fg=Color.red, bold=True)),
+        )
+
+        ctx.print_table(data, headers)
+
+    result = invoke(table_cli, "--table-format", format_name, color=False)
+    if not is_windows():
+        expected = expected.replace("\r\n", "\n")
+    assert result.stdout == f"Table format: {format_name}\n{expected}"
+    assert not result.stderr
+    assert result.exit_code == 0
+
+
+@pytest.mark.parametrize(
+    "format_id",
+    [
+        pytest.param(f, id=str(f))
+        for f in TableFormat
+        if f.is_markup and not f.supports_styling
+    ],
+)
+def test_markup_strips_ansi_by_default(invoke, format_id):
+    """Markup formats without native styling strip ANSI codes by default."""
+
+    @command
+    @table_format_option
+    @pass_context
+    def table_cli(ctx):
+        data = ((style("hello", fg=Color.red),),)
+        ctx.print_table(data, headers=("greeting",))
+
+    # color=True tells the CliRunner to preserve ANSI in captured output so we
+    # can inspect what print_table actually wrote.
+    result = invoke(table_cli, "--table-format", format_id, color=True)
+    assert result.exit_code == 0
+    assert result.stdout == strip_ansi(result.stdout)
+
+
+@pytest.mark.parametrize(
+    "format_id",
+    [
+        pytest.param(f, id=str(f))
+        for f in TableFormat
+        if f.is_markup and not f.supports_styling and f not in SERIALIZATION_FORMATS
+    ],
+)
+def test_markup_preserves_ansi_with_color_flag(invoke, format_id):
+    """``--color`` overrides ANSI stripping for non-styled markup formats."""
+
+    @command
+    @table_format_option
+    @pass_context
+    def table_cli(ctx):
+        data = ((style("hello", fg=Color.red),),)
+        ctx.print_table(data, headers=("greeting",))
+
+    result = invoke(table_cli, "--color", "--table-format", format_id, color=True)
+    assert result.exit_code == 0
+    assert result.stdout != strip_ansi(result.stdout)
+
+
+def test_color_flag_from_parent_group_preserves_ansi(invoke):
+    """A ``--color`` forced on a parent group reaches the subcommand's table.
+
+    Mirrors the layout of the ``click-extra`` demo CLI: the color and table
+    options live on the group, while the table is printed from a subcommand
+    whose context does not own those parameters.
+    """
+
+    @group
+    def cli():
+        pass
+
+    @cli.command()
+    @pass_context
+    def sub(ctx):
+        data = ((style("hello", fg=Color.red),),)
+        assert ctx.parent is not None
+        ctx.parent.print_table(data, headers=("greeting",))
+
+    result = invoke(cli, "--color", "--table-format", "github", "sub", color=True)
+    assert result.exit_code == 0
+    assert result.stdout != strip_ansi(result.stdout)
+
+
+STYLED_MARKUP_SAMPLES = {
+    TableFormat.HTML: '<span style="color: red">hello</span>',
+    TableFormat.JIRA: "{color:red}hello{color}",
+    TableFormat.LATEX: "\\textcolor{red}{hello}",
+    TableFormat.LATEX_BOOKTABS: "\\textcolor{red}{hello}",
+    TableFormat.LATEX_LONGTABLE: "\\textcolor{red}{hello}",
+    TableFormat.LATEX_RAW: "\\textcolor{red}{hello}",
+    TableFormat.MEDIAWIKI: '<span style="color: red">hello</span>',
+    TableFormat.TEXTILE: "%{color: red}hello%",
+    TableFormat.UNSAFEHTML: '<span style="color: red">hello</span>',
+}
+"""Expected native styling of a red ``hello`` cell, per styled format."""
+
+
+def test_styled_formats_all_have_samples():
+    assert set(STYLED_MARKUP_SAMPLES) == set(STYLED_FORMATS)
+
+
+@pytest.mark.parametrize("flags", ((), ("--color",)), ids=("default", "forced-color"))
+@pytest.mark.parametrize(
+    ("format_id", "styled_cell"),
+    [pytest.param(k, v, id=str(k)) for k, v in STYLED_MARKUP_SAMPLES.items()],
+)
+def test_styled_formats_translate_ansi(invoke, format_id, styled_cell, flags):
+    """Styled formats translate ANSI codes to native markup, by default and
+    under a forced ``--color`` alike."""
+
+    @command
+    @table_format_option
+    @pass_context
+    def table_cli(ctx):
+        data = ((style("hello", fg=Color.red),),)
+        ctx.print_table(data, headers=("greeting",))
+
+    result = invoke(table_cli, *flags, "--table-format", format_id, color=True)
+    assert result.exit_code == 0
+    assert styled_cell in result.stdout
+    # Raw ANSI codes never leak into the translated markup.
+    assert "\x1b" not in result.stdout
+
+
+@pytest.mark.parametrize(
+    "format_id",
+    [pytest.param(f, id=str(f)) for f in STYLED_FORMATS],
+)
+def test_styled_formats_strip_ansi_with_no_color(invoke, format_id):
+    """Disabling colors renders styled formats plain, with no translation."""
+
+    @command
+    @table_format_option
+    @pass_context
+    def table_cli(ctx):
+        data = ((style("hello", fg=Color.red),),)
+        ctx.print_table(data, headers=("greeting",))
+
+    result = invoke(table_cli, "--no-color", "--table-format", format_id, color=True)
+    assert result.exit_code == 0
+    assert "hello" in result.stdout
+    assert "\x1b" not in result.stdout
+    for marker in ("<span", "{color:", "\\textcolor", "%{"):
+        assert marker not in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("table_format", "data"),
+    (
+        pytest.param(TableFormat.JSON, {"a": {"b": [1, 2, 3]}}, id="json"),
+        pytest.param(TableFormat.JSON5, {"key": "value"}, id="json5"),
+        pytest.param(TableFormat.JSONC, [1, 2, 3], id="jsonc"),
+    ),
+)
+def test_serialize_json_compatible(table_format, data):
+    result = serialize_data(data, table_format)
+    assert json.loads(result) == data
+
+
+@pytest.mark.parametrize(
+    ("table_format", "data", "loader"),
+    (
+        pytest.param(
+            TableFormat.HJSON,
+            {"name": "test", "count": 42},
+            hjson.loads,
+            id="hjson",
+        ),
+        pytest.param(
+            TableFormat.TOML,
+            {"section": {"key": "value"}},
+            tomlkit.loads,
+            id="toml",
+        ),
+        pytest.param(
+            TableFormat.YAML,
+            {"managers": {"brew": {"version": "4.0"}}},
+            yaml.safe_load,
+            id="yaml",
+        ),
+    ),
+)
+def test_serialize_roundtrip(table_format, data, loader):
+    result = serialize_data(data, table_format)
+    assert loader(result) == data
+
+
+def test_serialize_toml_list_wrapping():
+    """Top-level lists are wrapped under a ``record`` key for TOML."""
+    data = [{"id": "a"}, {"id": "b"}]
+    result = serialize_data(data, TableFormat.TOML)
+    parsed = tomlkit.loads(result)
+    assert parsed == {"record": data}
+
+
+@pytest.mark.parametrize(
+    "table_format",
+    (
+        pytest.param(TableFormat.TOML, id="toml"),
+        pytest.param(TableFormat.XML, id="xml"),
+    ),
+)
+def test_serialize_strips_none(table_format):
+    """TOML and XML have no null type. ``None`` values are omitted."""
+    data = {"present": "yes", "absent": None}
+    result = serialize_data(data, table_format)
+    assert "absent" not in result
+
+
+def test_serialize_xml():
+    data = {"item": {"name": "test"}}
+    result = serialize_data(data, TableFormat.XML)
+    parsed = xmltodict.parse(f"<root>{result}</root>")
+    assert parsed["root"]["records"]["item"]["name"] == "test"
+
+
+def test_serialize_xml_list_wrapping():
+    """Top-level lists are wrapped under a ``record`` key for XML."""
+    data = [{"id": "a"}, {"id": "b"}]
+    result = serialize_data(data, TableFormat.XML)
+    parsed = xmltodict.parse(f"<root>{result}</root>")
+    records = parsed["root"]["records"]["record"]
+    assert len(records) == 2
+    assert records[0]["id"] == "a"
+
+
+def test_serialize_xml_custom_root_element():
+    data = {"key": "value"}
+    result = serialize_data(data, TableFormat.XML, root_element="mpm")
+    assert "<mpm>" in result
+
+
+def test_serialize_default_callback():
+    """Custom types are converted via the ``default`` callback."""
+    data = {"path": PurePosixPath("/usr/bin"), "name": "test"}
+    result = serialize_data(
+        data,
+        TableFormat.JSON,
+        default=lambda obj: str(obj) if isinstance(obj, PurePosixPath) else obj,
+    )
+    parsed = json.loads(result)
+    assert parsed == {"path": "/usr/bin", "name": "test"}
+
+
+def test_serialize_unsupported_format_raises():
+    with pytest.raises(ValueError, match="Unsupported"):
+        serialize_data({"a": 1}, TableFormat.PLAIN)
+
+
+@pytest.mark.parametrize(
+    ("data", "expected"),
+    (
+        pytest.param({"a": 1, "b": None}, {"a": 1}, id="flat-dict"),
+        pytest.param(
+            {"a": {"b": None, "c": 2}, "d": [{"e": None, "f": 3}]},
+            {"a": {"c": 2}, "d": [{"f": 3}]},
+            id="nested",
+        ),
+        pytest.param("hello", "hello", id="passthrough-string"),
+        pytest.param(42, 42, id="passthrough-int"),
+    ),
+)
+def test_strip_none(data, expected):
+    assert _strip_none(data) == expected
+
+
+def test_apply_default_native_types_unchanged():
+    data = {"s": "a", "i": 1, "f": 1.5, "b": True, "n": None}
+    assert _apply_default(data, lambda x: x) == data
+
+
+@pytest.mark.parametrize(
+    ("data", "expected"),
+    (
+        pytest.param({"p": PurePosixPath("/tmp")}, {"p": "/tmp"}, id="dict"),
+        pytest.param(
+            [PurePosixPath("/a"), [PurePosixPath("/b")]],
+            ["/a", ["/b"]],
+            id="nested-lists",
+        ),
+    ),
+)
+def test_apply_default_custom_type_converted(data, expected):
+    result = _apply_default(data, lambda obj: str(obj))
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    ("func", "args", "kwargs", "match"),
+    (
+        pytest.param(
+            print_data,
+            ({"a": 1}, TableFormat.YAML),
+            {},
+            "pip install click-extra",
+            id="print-data-default-package",
+        ),
+        pytest.param(
+            print_data,
+            ({"a": 1}, TableFormat.YAML),
+            {"package": "my-project"},
+            "pip install my-project",
+            id="print-data-custom-package",
+        ),
+        pytest.param(
+            print_table,
+            ([["a"]], ["col"], TableFormat.YAML),
+            {},
+            "pip install click-extra",
+            id="print-table",
+        ),
+    ),
+)
+def test_missing_dependency_clean_error(monkeypatch, func, args, kwargs, match):
+    """Missing optional dependency produces a clean error, no traceback."""
+    monkeypatch.setitem(__import__("sys").modules, "yaml", None)
+    with pytest.raises(SystemExit, match=match):
+        func(*args, **kwargs)
+
+
+@pytest.mark.parametrize(
+    ("data", "headers", "sort_key", "expected_fruits"),
+    (
+        pytest.param(
+            [["banana", "3"], ["apple", "1"], ["cherry", "2"]],
+            ["Fruit", "Count"],
+            lambda row: row[0],
+            ["apple", "banana", "cherry"],
+            id="with-sort-key",
+        ),
+        pytest.param(
+            [["banana"], ["apple"]],
+            ["Fruit"],
+            None,
+            ["banana", "apple"],
+            id="preserves-original-order",
+        ),
+    ),
+)
+def test_render_table_sort(data, headers, sort_key, expected_fruits):
+    result = render_table(
+        data,
+        headers=headers,
+        table_format=TableFormat.JSON,
+        sort_key=sort_key,
+    )
+    parsed = json.loads(result)
+    assert [r["Fruit"] for r in parsed] == expected_fruits
+
+
+@pytest.mark.parametrize(
+    ("headers", "data", "expected"),
+    (
+        pytest.param(
+            ["Name", "Name"],
+            [["Alice", "Bob"]],
+            [{"Name": "Bob"}],
+            id="duplicate-header-names-last-wins",
+        ),
+        pytest.param(
+            ["", "Value"],
+            [["key", "val"]],
+            [{"": "key", "Value": "val"}],
+            id="empty-header-name",
+        ),
+        pytest.param(
+            ["\x1b[31mRed\x1b[0m", "Plain"],
+            [["\x1b[32mgreen\x1b[0m", "text"]],
+            [{"\x1b[31mRed\x1b[0m": "\x1b[32mgreen\x1b[0m", "Plain": "text"}],
+            id="ansi-in-headers-and-cells",
+        ),
+        pytest.param(
+            ["🎯 Target", "📊 Score"],
+            [["alpha", "100"]],
+            [{"🎯 Target": "alpha", "📊 Score": "100"}],
+            id="emoji-in-headers",
+        ),
+    ),
+)
+def test_render_table_header_edge_cases(headers, data, expected):
+    """Edge cases for header handling in structured format rendering."""
+    result = render_table(data, headers=headers, table_format=TableFormat.JSON)
+    assert json.loads(result) == expected
+
+
+@pytest.mark.parametrize(
+    ("header_defs", "rows", "sort_columns", "cell_key", "expected_first_col"),
+    (
+        pytest.param(
+            [("Name", "name"), ("Age", "age"), ("City", None)],
+            [["Bob", "30", "NYC"], ["Alice", "25", "LA"], ["Charlie", "25", "SF"]],
+            ("age",),
+            None,
+            ["Alice", "Charlie", "Bob"],
+            id="primary-sort",
+        ),
+        pytest.param(
+            [("Name", "name"), ("Age", "age")],
+            [["Bob", "25"], ["Alice", "30"]],
+            None,
+            None,
+            ["Alice", "Bob"],
+            id="default-order",
+        ),
+        pytest.param(
+            [("Name", "name"), ("Count", "count")],
+            [["a", "10"], ["b", "2"], ["c", "1"]],
+            ("count",),
+            lambda v: (0, int(v)) if v and v.isdigit() else (1, v or ""),
+            ["c", "b", "a"],
+            id="custom-cell-key",
+        ),
+        pytest.param(
+            [("First", "name"), ("Last", "name")],
+            [["Bob", "Smith"], ["Alice", "Jones"]],
+            ("name",),
+            None,
+            ["Alice", "Bob"],
+            id="duplicate-keys-last-index-wins",
+        ),
+        pytest.param(
+            [("Name", ""), ("Age", "age")],
+            [["Bob", "25"], ["Alice", "30"]],
+            ("",),
+            None,
+            ["Alice", "Bob"],
+            id="empty-key-falls-back-to-default",
+        ),
+        pytest.param(
+            [("Name", "name")],
+            [["\x1b[31mBob\x1b[0m"], ["\x1b[32mAlice\x1b[0m"]],
+            ("name",),
+            None,
+            ["\x1b[32mAlice\x1b[0m", "\x1b[31mBob\x1b[0m"],
+            id="ansi-stripped-for-sort",
+        ),
+        pytest.param(
+            [("Fruit", "fruit")],
+            [["🍒 cherry"], ["🍌 banana"], ["🍎 apple"]],
+            ("fruit",),
+            None,
+            ["🍌 banana", "🍎 apple", "🍒 cherry"],
+            id="emoji-in-cells",
+        ),
+        pytest.param(
+            [("City", "city"), ("Name", "name"), ("Age", "age")],
+            [
+                ["NYC", "Alice", "30"],
+                ["LA", "Bob", "25"],
+                ["SF", "Alice", "25"],
+            ],
+            ("name", "age"),
+            None,
+            ["SF", "NYC", "LA"],
+            id="multi-column-priority",
+        ),
+    ),
+)
+def test_column_sort_key(header_defs, rows, sort_columns, cell_key, expected_first_col):
+    key = _column_sort_key(header_defs, sort_columns, cell_key)
+    result = sorted(rows, key=key)
+    assert [r[0] for r in result] == expected_first_col
+
+
+@pytest.mark.parametrize(
+    ("header_defs", "expected_choices", "expected_default"),
+    (
+        pytest.param(
+            (("Name", "name"), ("Age", "age"), ("Notes", None)),
+            ["name", "age"],
+            ("name",),
+            id="none-key-excluded",
+        ),
+        pytest.param(
+            (("ID", "id"), ("Label", "label")),
+            ["id", "label"],
+            ("id",),
+            id="first-sortable-as-default",
+        ),
+        pytest.param(
+            (("First", "name"), ("Last", "name"), ("Age", "age")),
+            ["name", "name", "age"],
+            ("name",),
+            id="duplicate-keys",
+        ),
+        pytest.param(
+            (("Notes", ""), ("Name", "name")),
+            ["name"],
+            ("name",),
+            id="empty-key-excluded",
+        ),
+    ),
+)
+def test_sort_by_option_choices_and_default(
+    header_defs, expected_choices, expected_default
+):
+    """SortByOption choices and default are derived from column definitions."""
+    opt = SortByOption(*header_defs)
+    assert list(opt.type.choices) == expected_choices  # type: ignore[attr-defined]
+    assert opt.default == expected_default
+
+
+def test_sort_by_option_wires_context(invoke):
+    """SortByOption publishes the sort key that ctx.print_table applies."""
+    sort_opt = SortByOption(("Fruit", "fruit"), ("Count", "count"))
+
+    @command(params=[sort_opt])
+    @table_format_option
+    @pass_context
+    def cli(ctx):
+        headers = ("Fruit", "Count")
+        data = [["banana", "3"], ["apple", "1"], ["cherry", "2"]]
+        ctx.print_table(data, headers)
+
+    result = invoke(cli, "--table-format", "json", "--sort-by", "fruit", color=False)
+    assert result.exit_code == 0
+    parsed = json.loads(result.stdout)
+    assert [r["Fruit"] for r in parsed] == ["apple", "banana", "cherry"]
+
+
+def test_print_table_from_subcommand_context(invoke):
+    """A group-level --table-format reaches ctx.print_table in subcommands.
+
+    ``ctx.meta`` is shared along the context chain, so the ``print_table``
+    context method works from a subcommand without reaching for the root
+    context.
+    """
+
+    @group
+    @table_format_option
+    def cli():
+        pass
+
+    @cli.command()
+    @pass_context
+    def sub(ctx):
+        ctx.print_table([["a", "1"]], ("Letter", "Number"))
+
+    result = invoke(cli, "--table-format", "json", "sub", color=False)
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == [{"Letter": "a", "Number": "1"}]
+
+
+def test_print_table_without_table_option(invoke):
+    """ctx.print_table works with no --table-format in the chain.
+
+    Falls back to the default rendering format, like the module-level
+    :func:`print_table` invoked without an explicit format.
+    """
+
+    @command
+    @pass_context
+    def cli(ctx):
+        ctx.print_table([["a", "1"]], ("Letter", "Number"))
+
+    result = invoke(cli, color=False)
+    assert result.exit_code == 0
+    assert "Letter" in result.stdout
+    assert "a" in result.stdout
+
+
+def test_render_table_context_method_honors_sort_by(invoke):
+    """ctx.render_table applies the --sort-by selection, like ctx.print_table."""
+    sort_opt = SortByOption(("Fruit", "fruit"), ("Count", "count"))
+
+    @command(params=[sort_opt])
+    @table_format_option
+    @pass_context
+    def cli(ctx):
+        rendered = ctx.render_table(
+            [["banana", "3"], ["apple", "1"]], ("Fruit", "Count")
+        )
+        echo(rendered)
+
+    result = invoke(cli, "--table-format", "json", "--sort-by", "fruit", color=False)
+    assert result.exit_code == 0
+    parsed = json.loads(result.stdout)
+    assert [r["Fruit"] for r in parsed] == ["apple", "banana"]
+
+
+def test_sort_by_option_multi_column(invoke):
+    """Multiple --sort-by options define sort priority."""
+    sort_opt = SortByOption(
+        ("City", "city"),
+        ("Name", "name"),
+        ("Age", "age"),
+    )
+
+    @command(params=[sort_opt])
+    @table_format_option
+    @pass_context
+    def cli(ctx):
+        headers = ("City", "Name", "Age")
+        data = [
+            ["NYC", "Alice", "30"],
+            ["LA", "Bob", "25"],
+            ["SF", "Alice", "25"],
+        ]
+        ctx.print_table(data, headers)
+
+    result = invoke(
+        cli,
+        "--table-format",
+        "json",
+        "--sort-by",
+        "name",
+        "--sort-by",
+        "age",
+        color=False,
+    )
+    assert result.exit_code == 0
+    parsed = json.loads(result.stdout)
+    assert [r["City"] for r in parsed] == ["SF", "NYC", "LA"]
+
+
+def test_sort_by_option_decorator(invoke):
+    """The sort_by_option decorator wires sorting like a direct SortByOption."""
+
+    @command
+    @sort_by_option(("Fruit", "fruit"), ("Count", "count"))
+    @pass_context
+    def cli(ctx):
+        headers = ("Fruit", "Count")
+        data = [["banana", "3"], ["apple", "1"], ["cherry", "2"]]
+        ctx.print_table(data, headers)
+
+    sort_opts = [p for p in cli.params if isinstance(p, SortByOption)]
+    assert len(sort_opts) == 1
+    assert sort_opts[0].opts == ["--sort-by"]
+
+    result = invoke(cli, "--table-format", "json", "--sort-by", "fruit", color=False)
+    assert result.exit_code == 0
+    parsed = json.loads(result.stdout)
+    assert [r["Fruit"] for r in parsed] == ["apple", "banana", "cherry"]
+
+
+def test_sort_by_option_decorator_in_option_group(invoke):
+    """The sort_by_option decorator composes with @option_group."""
+
+    @command
+    @option_group(
+        "Sorting",
+        sort_by_option(("Fruit", "fruit"), ("Count", "count")),
+        option("--reverse", is_flag=True),
+    )
+    @pass_context
+    def cli(ctx, reverse):
+        echo("ok")
+
+    sort_opt = next(p for p in cli.params if isinstance(p, SortByOption))
+    assert sort_opt.group is not None  # type: ignore[attr-defined]
+    assert sort_opt.group.title == "Sorting"  # type: ignore[attr-defined]
+
+    result = invoke(cli, "--help", color=False)
+    assert result.exit_code == 0
+    assert "Sorting" in result.stdout
+    assert "--sort-by" in result.stdout
+
+
+def test_sort_by_option_columns_registry(invoke):
+    """A ColumnSpec registry passed via columns= drives choices and ordering."""
+    cols = (ColumnSpec("fruit", "Fruit"), ColumnSpec("count", "Count"))
+    sort_opt = SortByOption(columns=cols)
+    assert list(
+        sort_opt.type.choices  # type: ignore[attr-defined]
+    ) == ["fruit", "count"]
+    assert sort_opt.header_defs == (("Fruit", "fruit"), ("Count", "count"))
+
+    @command(params=[sort_opt])
+    @table_format_option
+    @pass_context
+    def cli(ctx):
+        ctx.print_table([["banana", "3"], ["apple", "1"]], ("Fruit", "Count"))
+
+    result = invoke(cli, "--table-format", "json", "--sort-by", "fruit", color=False)
+    assert result.exit_code == 0
+    assert [r["Fruit"] for r in json.loads(result.stdout)] == ["apple", "banana"]
+
+
+def test_sort_by_option_accepts_column_spec_varargs():
+    """ColumnSpec instances also work positionally, normalized to (label, id)."""
+    cols = (ColumnSpec("fruit", "Fruit"), ColumnSpec("count", "Count"))
+    assert SortByOption(*cols).header_defs == (("Fruit", "fruit"), ("Count", "count"))
+
+
+def test_sort_by_option_rejects_positional_and_columns():
+    """Column definitions cannot be passed both positionally and via columns=."""
+    with pytest.raises(TypeError, match="positionally or via columns="):
+        SortByOption(("Fruit", "fruit"), columns=[ColumnSpec("fruit", "Fruit")])
+
+
+def test_sort_by_and_columns_share_registry():
+    """The same ColumnSpec registry configures both --columns and --sort-by."""
+    cols = (ColumnSpec("fruit", "Fruit"), ColumnSpec("count", "Count"))
+
+    @command
+    @columns_option(columns=cols)
+    @sort_by_option(columns=cols)
+    @pass_context
+    def cli(ctx):
+        ctx.print_table([["banana", "3"]], [c.label for c in cols])
+
+    sort_opt = next(p for p in cli.params if isinstance(p, SortByOption))
+    cols_opt = next(p for p in cli.params if isinstance(p, ColumnsOption))
+    assert list(
+        sort_opt.type.choices  # type: ignore[attr-defined]
+    ) == ["fruit", "count"]
+    assert [c.id for c in cols_opt.columns] == list(
+        sort_opt.type.choices  # type: ignore[attr-defined]
+    )
+
+
+@pytest.mark.parametrize(
+    ("header_defs", "sort_columns", "rows", "expected_first_col"),
+    (
+        pytest.param(
+            [("Name", "name"), ("Age", "age")],
+            ("age", "name", "age"),
+            [["Bob", "30"], ["Alice", "25"], ["Charlie", "25"]],
+            ["Alice", "Charlie", "Bob"],
+            id="duplicate-requests-deduplicated",
+        ),
+        pytest.param(
+            [ColumnSpec("name", "Name"), ("Age", "age")],
+            ("name",),
+            [["Bob", "30"], ["Alice", "25"]],
+            ["Alice", "Bob"],
+            id="column-spec-defs",
+        ),
+        pytest.param(
+            [("Name", "name"), ("Notes", None)],
+            ("version", "name"),
+            [["Bob", "x"], ["Alice", "y"]],
+            ["Alice", "Bob"],
+            id="fields-not-carried-skipped",
+        ),
+    ),
+)
+def test_column_sort_key_field_mapping(
+    header_defs, sort_columns, rows, expected_first_col
+):
+    """The public key builder maps requested fields onto the carried columns."""
+    key = column_sort_key(header_defs, sort_columns)
+    assert key is not None
+    assert [r[0] for r in sorted(rows, key=key)] == expected_first_col
+
+
+@pytest.mark.parametrize(
+    "sort_columns",
+    (
+        pytest.param((), id="empty-selection"),
+        pytest.param(None, id="no-selection"),
+        pytest.param(("version", "manager_id"), id="fields-not-carried"),
+    ),
+)
+def test_column_sort_key_none_when_not_carried(sort_columns):
+    """No requested field carried by the table: rows must keep their order."""
+    assert column_sort_key([("Name", "name"), ("Notes", None)], sort_columns) is None
+
+
+def test_render_table_rich_headers_render_labels():
+    """ColumnSpec and (label, column_id) header entries render their labels."""
+    result = render_table(
+        [["a", "1"]],
+        [ColumnSpec("fruit", "Fruit"), ("Count", "count")],
+        table_format=TableFormat.JSON,
+    )
+    assert json.loads(result) == [{"Fruit": "a", "Count": "1"}]
+
+
+def test_sort_by_option_field_vocabulary():
+    """Bare column IDs declare a table-less field vocabulary."""
+    opt = SortByOption("fruit", "count")
+    assert opt.field_vocabulary is True
+    assert opt.header_defs == ((None, "fruit"), (None, "count"))
+    assert list(opt.type.choices) == ["fruit", "count"]  # type: ignore[attr-defined]
+    assert opt.default == ("fruit",)
+
+    # An explicit empty default declares no default sort, unlike None which
+    # derives the first sortable ID.
+    assert SortByOption("fruit", "count", default=()).default == ()
+
+
+def test_sort_by_option_labeled_defs_not_vocabulary():
+    """Labeled definitions keep the declaration-time baked-sort behavior."""
+    assert SortByOption(("Fruit", "fruit")).field_vocabulary is False
+    assert SortByOption(columns=(ColumnSpec("fruit", "Fruit"),)).field_vocabulary is (
+        False
+    )
+
+
+def test_sort_by_option_rejects_mixed_defs():
+    """Bare IDs and labeled definitions cannot be mixed."""
+    with pytest.raises(
+        TypeError, match="bare column IDs or labeled column definitions"
+    ):
+        SortByOption("fruit", ("Count", "count"))
+
+
+def test_sort_by_group_heterogeneous_tables(invoke):
+    """A group-level field vocabulary sorts each subcommand's table independently.
+
+    Each table sorts by the selected fields it carries; a table carrying none
+    of them keeps its original row order.
+    """
+
+    @group
+    @sort_by_option("fruit", "price", default=())
+    def cli():
+        pass
+
+    @cli.command()
+    def fruits():
+        print_table(
+            [["banana", "3"], ["apple", "1"]],
+            [("Fruit", "fruit"), ("Count", None)],
+            table_format=TableFormat.JSON,
+        )
+
+    @cli.command()
+    def cities():
+        print_table(
+            [["NYC", "8M"], ["LA", "4M"]],
+            [("City", "city"), ("Population", None)],
+            table_format=TableFormat.JSON,
+        )
+
+    # The fruits table carries the selected field: rows sort by it.
+    result = invoke(cli, "--sort-by", "fruit", "fruits", color=False)
+    assert result.exit_code == 0
+    assert [r["Fruit"] for r in json.loads(result.stdout)] == ["apple", "banana"]
+
+    # The cities table carries none of the vocabulary: original order kept.
+    result = invoke(cli, "--sort-by", "fruit", "cities", color=False)
+    assert result.exit_code == 0
+    assert [r["City"] for r in json.loads(result.stdout)] == ["NYC", "LA"]
+
+    # No selection at all: original order kept everywhere.
+    result = invoke(cli, "fruits", color=False)
+    assert result.exit_code == 0
+    assert [r["Fruit"] for r in json.loads(result.stdout)] == ["banana", "apple"]
+
+
+def test_print_table_explicit_sort_key_wins(invoke):
+    """An explicit sort_key bypasses the context ``--sort-by`` resolution."""
+
+    @command
+    @sort_by_option("fruit")
+    def cli():
+        print_table(
+            [["banana"], ["apple"], ["cherry"]],
+            [("Fruit", "fruit")],
+            table_format=TableFormat.JSON,
+            # Sort by reversed name: ananab < elppa < yrrehc.
+            sort_key=lambda row: (row[0] or "")[::-1],
+        )
+
+    result = invoke(cli, "--sort-by", "fruit", color=False)
+    assert result.exit_code == 0
+    parsed = json.loads(result.stdout)
+    assert [r["Fruit"] for r in parsed] == ["banana", "apple", "cherry"]

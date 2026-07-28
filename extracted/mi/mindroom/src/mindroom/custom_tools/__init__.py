@@ -1,1 +1,0 @@
-"""MindRoom custom tools package."""

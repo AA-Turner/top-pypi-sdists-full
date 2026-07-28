@@ -10,6 +10,7 @@ from langchain_core.language_models import LangSmithParams
 from langchain_core.messages import AIMessageChunk
 from langchain_core.outputs import ChatGenerationChunk, ChatResult
 from langchain_core.utils import from_env, secret_from_env
+from langchain_core.utils._gateway import _apply_gateway_config
 from langchain_openai.chat_models.base import BaseChatOpenAI
 from pydantic import ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
@@ -164,7 +165,7 @@ class ChatBaseten(BaseChatOpenAI):
 
     # Option 1: Use Model APIs with model slug (recommended)
     chat = ChatBaseten(
-        model="zai-org/GLM-5",
+        model="zai-org/GLM-5.2",
         temperature=0.7,
         max_tokens=256,
         # Uses default baseten_api_base for Model APIs
@@ -201,7 +202,7 @@ class ChatBaseten(BaseChatOpenAI):
                 "prompt_tokens": 31,
                 "total_tokens": 36,
             },
-            "model_name": "zai-org/GLM-5",
+            "model_name": "zai-org/GLM-5.2",
             "finish_reason": "stop",
         },
     )
@@ -342,7 +343,7 @@ class ChatBaseten(BaseChatOpenAI):
             "prompt_tokens": 28,
             "total_tokens": 33,
         },
-        "model_name": "zai-org/GLM-5",
+        "model_name": "zai-org/GLM-5.2",
         "finish_reason": "stop",
     }
     ```
@@ -438,6 +439,21 @@ class ChatBaseten(BaseChatOpenAI):
         if baseten_api_base is not None:
             normalized["baseten_api_base"] = baseten_api_base
 
+        # Apply LangSmith gateway settings for the shared Model APIs endpoint.
+        # A dedicated `model_url` points at a specific deployment, not the
+        # gateway, so it opts out of gateway resolution entirely.
+        if not normalized.get("model_url"):
+            _apply_gateway_config(
+                normalized,
+                cls,
+                base_url_field="baseten_api_base",
+                api_key_field="baseten_api_key",
+                provider_path="baseten/v1",
+                base_url_env=["BASETEN_BASE_URL", "BASETEN_API_BASE"],
+                api_key_env="BASETEN_API_KEY",
+                default_base_url=DEFAULT_API_BASE,
+            )
+
         return normalized
 
     @property
@@ -486,7 +502,7 @@ class ChatBaseten(BaseChatOpenAI):
         else:
             base_url = self.baseten_api_base
             if not self.model_name:
-                self.model_name = "zai-org/GLM-5"
+                self.model_name = "zai-org/GLM-5.2"
 
         api_key = (
             self.baseten_api_key.get_secret_value()

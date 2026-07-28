@@ -14,6 +14,7 @@ from tidy3d.components.material.tcad.charge import (
     SemiconductorMedium,
 )
 from tidy3d.components.material.tcad.heat import (
+    AnisotropicConductivity,
     FluidMedium,
     FluidSpec,
     SolidMedium,
@@ -77,10 +78,12 @@ from tidy3d.components.tcad.data.sim_data import (
     DeviceCharacteristics,
     HeatChargeSimulationData,
     HeatSimulationData,
+    SteadyConvergenceData,
     VolumeMesherData,
 )
 from tidy3d.components.tcad.data.types import (
     SteadyCapacitanceData,
+    SteadyChargeResidualData,
     SteadyCurrentDensityData,
     SteadyElectricFieldData,
     SteadyEnergyBandData,
@@ -89,7 +92,11 @@ from tidy3d.components.tcad.data.types import (
     TemperatureData,
 )
 from tidy3d.components.tcad.doping import ConstantDoping, CustomDoping, GaussianDoping
-from tidy3d.components.tcad.generation_recombination import FossumCarrierLifetime
+from tidy3d.components.tcad.generation_recombination import (
+    FossumCarrierLifetime,
+    PalankovskiQuayApproxCarrierLifetime,
+    SurfaceShockleyReedHallRecombination,
+)
 from tidy3d.components.tcad.grid import (
     DistanceUnstructuredGrid,
     GridRefinementLine,
@@ -99,6 +106,7 @@ from tidy3d.components.tcad.grid import (
 from tidy3d.components.tcad.mesher import VolumeMesher
 from tidy3d.components.tcad.monitors.charge import (
     SteadyCapacitanceMonitor,
+    SteadyChargeResidualMonitor,
     SteadyCurrentDensityMonitor,
     SteadyElectricFieldMonitor,
     SteadyEnergyBandMonitor,
@@ -125,12 +133,16 @@ from tidy3d.components.tcad.types import (
     HurkxDirectBandToBandTunneling,
     InsulatingBC,
     IsotropicEffectiveDOS,
+    MasettiMobility,
     MultiValleyEffectiveDOS,
+    RadiationBC,
     RadiativeRecombination,
     SelberherrImpactIonization,
     ShockleyReedHallRecombination,
     SlotboomBandGapNarrowing,
+    SurfaceRecombinationBC,
     TemperatureBC,
+    ThermalContactResistance,
     UniformHeatSource,
     VarshniEnergyBandGap,
     VoltageBC,
@@ -152,6 +164,7 @@ from .components.beam import (
     AstigmaticGaussianBeamProfile,
     GaussianBeamProfile,
     PlaneWaveBeamProfile,
+    ThinLensProfile,
 )
 
 # boundary
@@ -182,14 +195,20 @@ from .components.boundary import (
 from .components.data.data_array import (
     CellDataArray,
     ChargeDataArray,
+    ConvergenceHistoryDataArray,
     DiffractionDataArray,
+    DipoleEmissionDataArray,
+    DipoleEmissionPositionDataArray,
     EMECoefficientDataArray,
     EMEFluxDataArray,
+    EMEInterfaceCellIndexDataArray,
+    EMEInterfaceDiagnosticDataArray,
     EMEInterfaceSMatrixDataArray,
     EMEModeIndexDataArray,
     EMEScalarFieldDataArray,
     EMEScalarModeFieldDataArray,
     EMESMatrixDataArray,
+    EMETraceMetricDataArray,
     FieldProjectionAngleDataArray,
     FieldProjectionCartesianDataArray,
     FieldProjectionKSpaceDataArray,
@@ -211,6 +230,7 @@ from .components.data.data_array import (
     IndexedTimeDataArray,
     IndexedVoltageDataArray,
     ModeAmpsDataArray,
+    ModeAmpsTimeDataArray,
     ModeIndexDataArray,
     PointDataArray,
     ScalarFieldDataArray,
@@ -219,6 +239,7 @@ from .components.data.data_array import (
     ScalarModeFieldDataArray,
     SpatialDataArray,
     SpatialVoltageDataArray,
+    SphericalAngleDataArray,
     SteadyVoltageDataArray,
 )
 from .components.data.dataset import (
@@ -227,11 +248,14 @@ from .components.data.dataset import (
     MediumDataset,
     ModeSolverDataset,
     PermittivityDataset,
+    PointCloudFieldDataset,
+    PointCloudPermittivityDataset,
 )
 from .components.data.monitor_data import (
     AbstractFieldProjectionData,
     AuxFieldTimeData,
     DiffractionData,
+    DipoleEmissionData,
     DirectivityData,
     FieldData,
     FieldOverlapData,
@@ -244,7 +268,10 @@ from .components.data.monitor_data import (
     MediumData,
     ModeData,
     ModeSolverData,
+    ModeTimeData,
     PermittivityData,
+    PointCloudFieldData,
+    PointCloudPermittivityData,
     SurfaceFieldData,
     SurfaceFieldTimeData,
 )
@@ -256,7 +283,9 @@ from .components.data.utils import (
 )
 from .components.eme.data.dataset import (
     EMECoefficientDataset,
+    EMEDiagnosticsData,
     EMEFieldDataset,
+    EMEInterfaceDiagnostics,
     EMEInterfaceSMatrixDataset,
     EMEModeSolverDataset,
     EMEOverlapDataset,
@@ -268,6 +297,7 @@ from .components.eme.data.stage import (
     EMEStageCellModes,
     EMEStageCellOverlap,
     EMEStageCellSMatrix,
+    EMEStageInterfaceDiagnostics,
     EMEStageInterfaceOverlap,
     EMEStageInterfaceSMatrix,
 )
@@ -394,6 +424,7 @@ from .components.monitor import (
     AstigmaticGaussianOverlapMonitor,
     AuxFieldTimeMonitor,
     DiffractionMonitor,
+    DipoleEmissionMonitor,
     DirectivityMonitor,
     FieldMonitor,
     FieldProjectionAngleMonitor,
@@ -407,10 +438,14 @@ from .components.monitor import (
     MediumMonitor,
     ModeMonitor,
     ModeSolverMonitor,
+    ModeTimeMonitor,
     Monitor,
     PermittivityMonitor,
+    PointCloudFieldMonitor,
+    PointCloudPermittivityMonitor,
     SurfaceFieldMonitor,
     SurfaceFieldTimeMonitor,
+    ThinLensOverlapMonitor,
 )
 
 # nonlinear
@@ -455,6 +490,7 @@ from .components.source.field import (
     GaussianBeam,
     ModeSource,
     PlaneWave,
+    ThinLensBeam,
 )
 from .components.source.frame import (
     PECFrame,
@@ -504,6 +540,9 @@ from .log import log, set_logging_console, set_logging_file
 from .material_library.material_library import material_library
 from .material_library.parametric_materials import Graphene
 
+# lumped port impedance specification
+from .plugins.smatrix.ports.base_lumped import ImpedanceSpec
+
 # updater
 from .updater import Updater
 
@@ -515,7 +554,7 @@ def set_logging_level(level: str) -> None:
     """Raise a warning here instead of setting the logging level."""
     raise DeprecationWarning(
         "``set_logging_level`` no longer supported. "
-        f"To set the logging level, call ``tidy3d.config.logging_level = {level}``."
+        f"To set the logging level, call ``tidy3d.config.logging.level = {level}``."
     )
 
 
@@ -551,6 +590,7 @@ __all__ = [
     "AbstractFieldProjectionData",
     "AbstractMedium",
     "AdmittanceNetwork",
+    "AnisotropicConductivity",
     "AnisotropicMedium",
     "AntennaMetricsData",
     "ApodizationSpec",
@@ -599,6 +639,7 @@ __all__ = [
     "ContinuousWaveTimeModulation",
     "ContourPathAveraging",
     "ConvectionBC",
+    "ConvergenceHistoryDataArray",
     "Coords",
     "Coords1D",
     "CornerFinderSpec",
@@ -638,6 +679,10 @@ __all__ = [
     "DiffractionData",
     "DiffractionDataArray",
     "DiffractionMonitor",
+    "DipoleEmissionData",
+    "DipoleEmissionDataArray",
+    "DipoleEmissionMonitor",
+    "DipoleEmissionPositionDataArray",
     "DirectivityData",
     "DirectivityMonitor",
     "DistanceUnstructuredGrid",
@@ -649,6 +694,7 @@ __all__ = [
     "EMECoefficientDataset",
     "EMECoefficientMonitor",
     "EMECompositeGrid",
+    "EMEDiagnosticsData",
     "EMEExplicitGrid",
     "EMEFieldData",
     "EMEFieldDataset",
@@ -656,6 +702,9 @@ __all__ = [
     "EMEFluxDataArray",
     "EMEFreqSweep",
     "EMEGrid",
+    "EMEInterfaceCellIndexDataArray",
+    "EMEInterfaceDiagnosticDataArray",
+    "EMEInterfaceDiagnostics",
     "EMEInterfaceSMatrixDataArray",
     "EMEInterfaceSMatrixDataset",
     "EMELengthSweep",
@@ -677,8 +726,10 @@ __all__ = [
     "EMEStageCellModes",
     "EMEStageCellOverlap",
     "EMEStageCellSMatrix",
+    "EMEStageInterfaceDiagnostics",
     "EMEStageInterfaceOverlap",
     "EMEStageInterfaceSMatrix",
+    "EMETraceMetricDataArray",
     "EMEUniformGrid",
     "FieldData",
     "FieldDataset",
@@ -746,6 +797,7 @@ __all__ = [
     "HuraySurfaceRoughness",
     "HurkxDirectBandToBandTunneling",
     "ImpedanceCalculator",
+    "ImpedanceSpec",
     "IndexPerturbation",
     "IndexedDataArray",
     "IndexedFieldDataArray",
@@ -774,6 +826,7 @@ __all__ = [
     "LumpedCircuitComponent",
     "LumpedElement",
     "LumpedResistor",
+    "MasettiMobility",
     "Medium",
     "Medium2D",
     "MediumData",
@@ -788,6 +841,7 @@ __all__ = [
     "MicrowaveModeSpec",
     "ModeABCBoundary",
     "ModeAmpsDataArray",
+    "ModeAmpsTimeDataArray",
     "ModeData",
     "ModeIndexDataArray",
     "ModeInterpSpec",
@@ -800,6 +854,8 @@ __all__ = [
     "ModeSortSpec",
     "ModeSource",
     "ModeSpec",
+    "ModeTimeData",
+    "ModeTimeMonitor",
     "ModulationSpec",
     "Monitor",
     "MultiPhysicsMedium",
@@ -816,6 +872,7 @@ __all__ = [
     "PMCMedium",
     "PMLParams",
     "PMLTypes",
+    "PalankovskiQuayApproxCarrierLifetime",
     "ParameterPerturbation",
     "Periodic",
     "PermittivityData",
@@ -826,6 +883,12 @@ __all__ = [
     "PerturbationPoleResidue",
     "PlaneWave",
     "PlaneWaveBeamProfile",
+    "PointCloudFieldData",
+    "PointCloudFieldDataset",
+    "PointCloudFieldMonitor",
+    "PointCloudPermittivityData",
+    "PointCloudPermittivityDataset",
+    "PointCloudPermittivityMonitor",
     "PointDataArray",
     "PointDipole",
     "PolarizedAveraging",
@@ -834,6 +897,7 @@ __all__ = [
     "Q_e",
     "QuasiUniformGrid",
     "RLCNetwork",
+    "RadiationBC",
     "RadiativeRecombination",
     "RectangularLumpedElement",
     "RotationAroundAxis",
@@ -864,11 +928,15 @@ __all__ = [
     "SpatialDataArray",
     "SpatialVoltageDataArray",
     "Sphere",
+    "SphericalAngleDataArray",
     "StablePML",
     "Staircasing",
     "SteadyCapacitanceData",
     "SteadyCapacitanceMonitor",
     "SteadyChargeDCAnalysis",
+    "SteadyChargeResidualData",
+    "SteadyChargeResidualMonitor",
+    "SteadyConvergenceData",
     "SteadyCurrentDensityData",
     "SteadyCurrentDensityMonitor",
     "SteadyElectricFieldData",
@@ -891,10 +959,16 @@ __all__ = [
     "SurfaceFieldTimeMonitor",
     "SurfaceImpedance",
     "SurfaceImpedanceFitterParam",
+    "SurfaceRecombinationBC",
+    "SurfaceShockleyReedHallRecombination",
     "TemperatureBC",
     "TemperatureData",
     "TemperatureMonitor",
     "TetrahedralGridDataset",
+    "ThermalContactResistance",
+    "ThinLensBeam",
+    "ThinLensOverlapMonitor",
+    "ThinLensProfile",
     "Tidy3dBaseModel",
     "Transformed",
     "TriangleMesh",

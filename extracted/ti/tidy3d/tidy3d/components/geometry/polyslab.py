@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from copy import copy
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import autograd.numpy as np
 import shapely
@@ -14,18 +14,20 @@ from numpy.polynomial.legendre import leggauss as _leggauss
 from pydantic import Field, field_validator, model_validator
 
 from tidy3d.components.autograd import TracedArrayFloat2D, get_static
-from tidy3d.components.autograd.types import TracedFloat
+from tidy3d.components.autograd.path_utils import traced_paths
+from tidy3d.components.autograd.types import PathType, TracedFloat
 from tidy3d.components.autograd.utils import hasbox
 from tidy3d.components.base import cached_property
 from tidy3d.components.transformation import ReflectionFromPlane, RotationAroundAxis
-from tidy3d.components.types import ArrayFloat1D
+from tidy3d.components.types import TYPE_TAG_STR, ArrayFloat1D
 from tidy3d.config import config
 from tidy3d.constants import LARGE_NUMBER, MICROMETER, fp_eps
-from tidy3d.exceptions import SetupError, Tidy3dImportError, ValidationError
+from tidy3d.exceptions import AdjointError, SetupError, Tidy3dImportError, ValidationError
 from tidy3d.log import log
 from tidy3d.packaging import verify_packages_import
 
 from . import base, triangulation
+from .vertex_utils import remove_adjacent_duplicate_vertices
 
 if TYPE_CHECKING:
     from gdstk import Cell
@@ -35,6 +37,7 @@ if TYPE_CHECKING:
     from tidy3d.compat import Self
     from tidy3d.components.autograd import AutogradFieldMap
     from tidy3d.components.autograd.derivative_utils import DerivativeInfo
+    from tidy3d.components.autograd.path_utils import AutogradRoute
     from tidy3d.components.types import (
         ArrayFloat2D,
         ArrayLike,
@@ -457,6 +460,13 @@ class PolySlab(base.Planar):
     ... )
     """
 
+    _traced_supported_paths: ClassVar[tuple[PathType, ...]] = traced_paths(
+        "vertices",
+        "sidewall_angle",
+        ("slab_bounds", 0),
+        ("slab_bounds", 1),
+    )
+
     slab_bounds: tuple[TracedFloat, TracedFloat] = Field(
         title="Slab Bounds",
         description="Minimum and maximum positions of the slab along axis dimension.",
@@ -518,24 +528,12 @@ class PolySlab(base.Planar):
     @field_validator("vertices")
     @classmethod
     def correct_shape(cls, val: ArrayFloat2D) -> ArrayFloat2D:
-        """Makes sure vertices size is correct.  Make sure no intersecting edges."""
+        """Makes sure vertices size is correct."""
         # overall shape of vertices
         if val.shape[1] != 2:
             raise SetupError(
                 "PolySlab.vertices must be a 2 dimensional array shaped (N, 2). "
                 f"Given array with shape of {val.shape}."
-            )
-        # make sure no polygon splitting, islands, 0 area
-        poly_heal = shapely.make_valid(cls.make_shapely_polygon(val))
-        if poly_heal.area < _MIN_POLYGON_AREA:
-            raise SetupError("The polygon almost collapses to a 1D curve.")
-
-        if not poly_heal.geom_type == "Polygon" or len(poly_heal.interiors) > 0:
-            raise SetupError(
-                "Polygon is self-intersecting, resulting in "
-                "polygon splitting or generation of holes/islands. "
-                "A general treatment to self-intersecting polygon will be available "
-                "in future releases."
             )
         return val
 
@@ -596,6 +594,53 @@ class PolySlab(base.Planar):
             )
         return self
 
+    @cached_property
+    def _polygon_not_degenerate_or_self_intersecting(self) -> bool:
+        """Raise if the polygon encloses no area or is self-intersecting."""
+        vertices = get_static(self.vertices)
+
+        if self.bulges is None or np.allclose(self.bulges, 0) or vertices.shape[0] < 3:
+            # make sure no polygon splitting, islands, 0 area
+            poly_heal = shapely.make_valid(self.make_shapely_polygon(vertices))
+            if poly_heal.area < _MIN_POLYGON_AREA:
+                self._raise_validation_error_at_loc(
+                    SetupError("The polygon almost collapses to a 1D curve."),
+                    "vertices",
+                )
+            if not poly_heal.geom_type == "Polygon" or len(poly_heal.interiors) > 0:
+                self._raise_validation_error_at_loc(
+                    SetupError(
+                        "Polygon is self-intersecting, resulting in "
+                        "polygon splitting or generation of holes/islands. "
+                        "A general treatment to self-intersecting polygon will be available "
+                        "in future releases."
+                    ),
+                    "vertices",
+                )
+            return True
+
+        # with arc segments, the chord polygon can be degenerate (e.g. collinear
+        # vertices) while the arc contour encloses a finite area; gate on the
+        # bulge-aware signed area instead. Self-intersection of the arc contour
+        # is checked in '_validate_no_self_intersection_with_arcs'.
+        if abs(PolySlab._signed_area_with_bulges(vertices, self.bulges)) < _MIN_POLYGON_AREA:
+            self._raise_validation_error_at_loc(
+                SetupError("The polygon almost collapses to a 1D curve."),
+                "vertices",
+            )
+        return True
+
+    @model_validator(mode="after")
+    def _validate_polygon_not_degenerate_or_self_intersecting(self: Self) -> Self:
+        """Polygon must enclose a finite area and not be self-intersecting.
+
+        The check is cached on the instance so it runs once: embedding into a parent
+        model (e.g. 'GeometryGroup') revalidates the same instance and would otherwise
+        repeat the expensive shapely work for every embedding.
+        """
+        _ = self._polygon_not_degenerate_or_self_intersecting
+        return self
+
     @model_validator(mode="after")
     def _vertical_sidewall_no_dilation_with_arc(self: Self) -> Self:
         """In the presence of arc segments, for now sidwall is limited to vertical, and no dilation allowed."""
@@ -641,6 +686,21 @@ class PolySlab(base.Planar):
         # Check if the resulting polygon is valid
         poly = shapely.Polygon(discretized)
         if not poly.is_valid or not poly.is_simple:
+            # when the straight-edge polygon is itself self-intersecting, the
+            # vertex order -- not the bulge values -- is the actionable input
+            chord_heal = shapely.make_valid(self.make_shapely_polygon(self.vertices))
+            if chord_heal.area >= _MIN_POLYGON_AREA and (
+                chord_heal.geom_type != "Polygon" or len(chord_heal.interiors) > 0
+            ):
+                self._raise_validation_error_at_loc(
+                    SetupError(
+                        "Polygon is self-intersecting, resulting in "
+                        "polygon splitting or generation of holes/islands. "
+                        "A general treatment to self-intersecting polygon will be available "
+                        "in future releases."
+                    ),
+                    "vertices",
+                )
             self._raise_validation_error_at_loc(
                 SetupError(
                     "Polygon with arc segments is self-intersecting. "
@@ -1051,8 +1111,9 @@ class PolySlab(base.Planar):
             vertices = vertices[has_nonzero_length]
             bulges = bulges[has_nonzero_length]
 
-        # Check winding and reverse if CW
-        if PolySlab._area(vertices) < 0:
+        # Check winding and reverse if CW; arc segments contribute to the signed
+        # area so winding stays well-defined even for collinear chord vertices
+        if PolySlab._signed_area_with_bulges(vertices, bulges) < 0:
             vertices = vertices[::-1]
             bulges = -np.roll(bulges[::-1], -1)
 
@@ -1449,7 +1510,7 @@ class PolySlab(base.Planar):
         position: float,
         axis: int,
         exclude_on_vertices: bool = False,
-    ) -> tuple[NDArray, NDArray, NDArray]:
+    ) -> tuple[NDArray, NDArray]:
         """Finds pairs of forward and backwards vertices where polygon intersects position at axis,
         Find intersection point (in y) assuming straight line,and intersecting angle between plane
         and edges. (For unslanted polyslab).
@@ -1545,7 +1606,7 @@ class PolySlab(base.Planar):
 
     def _find_intersecting_ys_angle_slant(
         self, vertices: NDArray, position: float, axis: int
-    ) -> tuple[NDArray, NDArray, NDArray]:
+    ) -> tuple[NDArray, NDArray]:
         """Finds pairs of forward and backwards vertices where polygon intersects position at axis,
         Find intersection point (in y) assuming straight line,and intersecting angle between plane
         and edges. (For slanted polyslab)
@@ -1738,6 +1799,28 @@ class PolySlab(base.Planar):
         return np.sum(term1 - term2) * 0.5
 
     @staticmethod
+    def _signed_area_with_bulges(vertices: NDArray, bulges: ArrayFloat1D) -> float:
+        """Compute the signed polygon area including arc segment contributions.
+
+        Parameters
+        ----------
+        vertices : np.ndarray
+            Shape (N, 2) defining the polygon vertices in the xy-plane.
+        bulges : ArrayFloat1D
+            Shape (N,) bulge values for each edge.
+
+        Returns
+        -------
+        float
+            Signed polygon area (positive for CCW orientation).
+        """
+        area = PolySlab._area(vertices)
+        bulge_data = _PolyBulgeUtil._compute_bulge_data(vertices, bulges)
+        if np.any(bulge_data["arc_mask"]):
+            area += _PolyBulgeUtil._arc_segment_area(bulge_data)
+        return area
+
+    @staticmethod
     def _perimeter(vertices: NDArray) -> float:
         """Compute the polygon perimeter.
 
@@ -1791,10 +1874,7 @@ class PolySlab(base.Planar):
         np.ndarray
             Vertices of polygon.
         """
-
-        vertices_f = np.roll(vertices, shift=-1, axis=0)
-        vertices_diff = np.linalg.norm(vertices - vertices_f, axis=1)
-        return vertices[~np.isclose(vertices_diff, 0, rtol=_IS_CLOSE_RTOL)]
+        return remove_adjacent_duplicate_vertices(vertices, rtol=_IS_CLOSE_RTOL)
 
     @staticmethod
     def _proper_vertices(vertices: ArrayFloat2D) -> NDArray:
@@ -2128,6 +2208,17 @@ class PolySlab(base.Planar):
 
     """ Autograd code """
 
+    def _resolve_autograd_route(self, field_path: tuple[Any, ...]) -> AutogradRoute:
+        """Resolve and validate one traced PolySlab path for adjoint routing."""
+        if self._has_arc_segments:
+            raise AdjointError(
+                "Automatic differentiation with respect to PolySlab geometry parameters is not "
+                "supported when vertices include non-zero bulge values. Use straight-edged "
+                "polyslabs for inverse design optimization."
+            )
+
+        return super()._resolve_autograd_route(field_path)
+
     def _compute_derivatives(self, derivative_info: DerivativeInfo) -> AutogradFieldMap:
         """
         Return VJPs while handling several edge-cases:
@@ -2138,13 +2229,6 @@ class PolySlab(base.Planar):
           gradients; this includes the +/- inf cases.
         - A 2d simulation collapses the surface integral to a line integral
         """
-        if self._has_arc_segments:
-            raise NotImplementedError(
-                "Adjoint derivatives are not supported for 'PolySlab' with non-zero "
-                "bulge (arc segment) values. Please use straight-edged polyslabs for "
-                "inverse design optimization."
-            )
-
         vjps: AutogradFieldMap = {}
 
         intersect_min, intersect_max = map(np.asarray, derivative_info.bounds_intersect)
@@ -2199,8 +2283,6 @@ class PolySlab(base.Planar):
                 if idx == 0:
                     v *= -1
                 vjps[path] = v
-            else:
-                raise ValueError(f"No derivative defined w.r.t. 'PolySlab' field '{path}'.")
 
         return vjps
 
@@ -2501,6 +2583,16 @@ class PolySlab(base.Planar):
         # pre-compute values that are constant across z slices
         n_z = len(z_centers)
         z_centers_arr = np.asarray(z_centers, dtype=_dtype)
+        d_all = -(z_centers_arr - z_ref) * tan_th  # (n_z,)
+        # _shift_vertices() treats positive distances as outward offsets for CCW polygons.
+        # Preserve the caller's vertex order, but flip the offset for CW inputs so the
+        # physical sidewall slices match the outward normals used by the VJP integrand.
+        offset_sign = 1.0 if PolySlab._area(get_static(vertices)) > 0 else -1.0
+        slice_vertices = np.asarray(
+            [self._shift_vertices(vertices, offset_sign * dist)[0] for dist in d_all],
+            dtype=_dtype,
+        )
+        slice_next_vertices = np.roll(slice_vertices, -1, axis=1)
 
         # slanted local basis (constant across z for non-slanted case)
         # for slanted: rz = axis_vec + dprime * n2d, but dprime is constant
@@ -2541,20 +2633,21 @@ class PolySlab(base.Planar):
             if not np.isclose(T2_norm, 0.0):
                 T2_vec = T2_vec / T2_norm
 
-            # batch compute offsets for all z slices at once
-            d_all = -(z_centers_arr - z_ref) * tan_th  # (n_z,)
-            offsets_3d = d_all[:, None] * n2d  # (n_z, 3) - faster than np.outer
+            # batch compute true offset-polygon segment starts and ends for all z slices
+            # rather than translating the reference edge, which over-samples near vertices
+            # when the cross-section shrinks.
+            segment_vertices = slice_vertices[:, ei, :]
+            segment_next_vertices = slice_next_vertices[:, ei, :]
+            segment_edges = segment_next_vertices - segment_vertices
+            segment_lengths = np.linalg.norm(segment_edges, axis=1)
 
-            # batch compute segment starts and ends for all z slices
             segment_starts = np.empty((n_z, 3), dtype=_dtype)
             segment_ends = np.empty((n_z, 3), dtype=_dtype)
             plane_axes = [i for i in range(3) if i != self.axis]
             segment_starts[:, self.axis] = z_centers_arr
-            segment_starts[:, plane_axes] = v0
-            segment_starts += offsets_3d
+            segment_starts[:, plane_axes] = segment_vertices
             segment_ends[:, self.axis] = z_centers_arr
-            segment_ends[:, plane_axes] = v1
-            segment_ends += offsets_3d
+            segment_ends[:, plane_axes] = segment_next_vertices
 
             # batch clip all z slices at once
             is_within_bounds, t_starts, t_ends = self._clip_edges_to_bounds_batch(
@@ -2583,9 +2676,14 @@ class PolySlab(base.Planar):
 
             # process each z slice
             for zi, t0, t1 in zip(valid_indices, t0_valid, t1_valid):
-                if (t0, t1) not in sample_cache:
-                    sample_cache[(t0, t1)] = self._adaptive_edge_samples(
-                        L,
+                L_slice = segment_lengths[zi]
+                if L_slice < 1e-12:
+                    continue
+
+                sample_cache_key = (t0, t1, np.round(L_slice, 10))
+                if sample_cache_key not in sample_cache:
+                    sample_cache[sample_cache_key] = self._adaptive_edge_samples(
+                        L_slice,
                         denom_edge,
                         t0,
                         t1,
@@ -2594,21 +2692,21 @@ class PolySlab(base.Planar):
                         _dtype=_dtype,
                     )
 
-                s_list, w_list = sample_cache[(t0, t1)]
+                s_list, w_list = sample_cache[sample_cache_key]
                 if len(s_list) == 0:
                     continue
 
                 zc = z_centers_arr[zi]
-                offset3d = offsets_3d[zi]
+                segment_v0 = segment_vertices[zi]
+                segment_edge = segment_edges[zi]
 
-                pts2d = v0 + s_list[:, None] * edge_vec  # faster than np.outer
+                pts2d = segment_v0 + s_list[:, None] * segment_edge  # faster than np.outer
 
                 # inline unpop_axis_vect for xyz computation
                 n_pts = len(s_list)
                 xyz = np.empty((n_pts, 3), dtype=_dtype)
                 xyz[:, self.axis] = zc
                 xyz[:, plane_axes] = pts2d
-                xyz += offset3d
 
                 n_patches = n_pts
                 new_size_needed = patch_idx + n_patches
@@ -2630,7 +2728,7 @@ class PolySlab(base.Planar):
                 normals[sl] = N_vec
                 perps1[sl] = T1_vec
                 perps2[sl] = T2_vec
-                Ls[sl] = L
+                Ls[sl] = L_slice
                 s_vals[sl] = s_list
                 s_weights[sl] = w_list
                 zc_vals[sl] = zc
@@ -2688,7 +2786,12 @@ class PolySlab(base.Planar):
         if is_2d:
             return 0.0
 
-        vertices, next_v, edges, basis = self._edge_geometry_arrays()
+        # The scalar sidewall-angle VJP should not depend on the user's input winding.
+        # Use the canonical reference polygon; vertex VJPs keep the raw ordering.
+        vertices, next_v, edges, basis = self._edge_geometry_arrays(
+            vertices=self.reference_polygon,
+            is_ccw=True,
+        )
 
         dx = derivative_info.adaptive_vjp_spacing()
 
@@ -3016,18 +3119,24 @@ class PolySlab(base.Planar):
         return vjp_per_vertex
 
     def _edge_geometry_arrays(
-        self, dtype: np.dtype = config.adjoint.gradient_dtype_float
+        self,
+        dtype: np.dtype = config.adjoint.gradient_dtype_float,
+        vertices: NDArray | None = None,
+        is_ccw: bool | None = None,
     ) -> tuple[NDArray, NDArray, NDArray, dict[str, NDArray]]:
         """Return (vertices, next_v, edges, basis) arrays for sidewall edge geometry."""
-        vertices = np.asarray(self.vertices, dtype=dtype)
+        if vertices is None:
+            vertices = self.vertices
+        vertices = np.asarray(vertices, dtype=dtype)
         next_v = np.roll(vertices, -1, axis=0)
         edges = next_v - vertices
-        basis = self.edge_basis_vectors(edges)
+        basis = self.edge_basis_vectors(edges, is_ccw=is_ccw)
         return vertices, next_v, edges, basis
 
     def edge_basis_vectors(
         self,
         edges: NDArray,  # (N, 2)
+        is_ccw: bool | None = None,
     ) -> dict[str, NDArray]:  # (N, 3)
         """Normalized basis vectors for ``normal`` direction, ``slab`` tangent direction and ``edge``."""
 
@@ -3056,7 +3165,9 @@ class PolySlab(base.Planar):
 
         # normalized vectors pointing in normal direction of edge
         # cross yields inward normal when the extrusion axis is y, so negate once for axis==1
-        sign = (-1 if self.axis == 1 else 1) * (-1 if not self.is_ccw else 1)
+        if is_ccw is None:
+            is_ccw = self.is_ccw
+        sign = (-1 if self.axis == 1 else 1) * (-1 if not is_ccw else 1)
         normals_norm_xyz = sign * np.cross(edges_norm_xyz, slabs_norm_xyz)
 
         return {
@@ -3263,8 +3374,6 @@ class ComplexPolySlabBase(PolySlab):
             List of :class:`.PolySlab` objects sharing ``axis`` and  slab bound properties.
         """
 
-        # TODO: change for 2.0
-        # handle reference plane kwarg
         all_vertices = PolySlab._load_gds_vertices(gds_cell, gds_layer, gds_dtype, gds_scale)
         polyslabs = [
             cls(
@@ -3306,7 +3415,7 @@ class ComplexPolySlabBase(PolySlab):
         sub_polyslab_list = []
         num_division_count = 0
         # initialize sub-polyslab parameters
-        sub_polyslab_dict = self.model_dump(exclude={"type"}).copy()
+        sub_polyslab_dict = self.model_dump(exclude={TYPE_TAG_STR}).copy()
         if math.isclose(self.sidewall_angle, 0):
             return [PolySlab.model_validate(sub_polyslab_dict)]
 

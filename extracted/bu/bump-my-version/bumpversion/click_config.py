@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 
 import httpx2 as httpx
 from click import Context, Option
-from click.decorators import FC, _param_memo  # noqa: PLC2701
+from click.decorators import FC, _param_memo  # ruff: ignore[import-private-name]
 
 from bumpversion.exceptions import BadInputError, BumpVersionError
 from bumpversion.ui import get_indented_logger

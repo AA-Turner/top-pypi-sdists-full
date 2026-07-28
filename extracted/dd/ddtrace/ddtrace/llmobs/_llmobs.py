@@ -18,7 +18,6 @@ import urllib.parse
 import ddtrace
 from ddtrace import config
 from ddtrace import patch
-from ddtrace._trace.apm_filter import APMTracingEnabledFilter
 from ddtrace._trace.context import Context
 from ddtrace._trace.processor import _NoopTraceProcessor
 from ddtrace._trace.sampler import RateSampler
@@ -52,6 +51,7 @@ from ddtrace.internal.utils.formats import parse_tags_str
 from ddtrace.llmobs import _telemetry as telemetry
 from ddtrace.llmobs._constants import ANNOTATIONS_CONTEXT_ID
 from ddtrace.llmobs._constants import CACHED_LLMOBS_EVENT_CTX_KEY
+from ddtrace.llmobs._constants import CACHED_LLMOBS_EXPORT_MODE_CTX_KEY
 from ddtrace.llmobs._constants import CLAUDE_AGENT_SDK_APM_SPAN_NAME
 from ddtrace.llmobs._constants import CREWAI_APM_SPAN_NAME
 from ddtrace.llmobs._constants import DEFAULT_PROJECT_NAME
@@ -77,7 +77,6 @@ from ddtrace.llmobs._constants import INSTRUMENTATION_METHOD_ANNOTATED
 from ddtrace.llmobs._constants import LANGCHAIN_APM_SPAN_NAME
 from ddtrace.llmobs._constants import LITELLM_APM_SPAN_NAME
 from ddtrace.llmobs._constants import LLMOBS_STRUCT
-from ddtrace.llmobs._constants import LLMOBS_SUBMITTED_TAG_KEY
 from ddtrace.llmobs._constants import ML_APP
 from ddtrace.llmobs._constants import PROMPT_TRACKING_INSTRUMENTATION_METHOD
 from ddtrace.llmobs._constants import PROPAGATED_LLMOBS_TRACE_ID_KEY
@@ -126,6 +125,7 @@ from ddtrace.llmobs._experiment import _pydantic_async_evaluator_wrapper
 from ddtrace.llmobs._experiment import _pydantic_async_report_evaluator_wrapper
 from ddtrace.llmobs._experiment import _pydantic_evaluator_wrapper
 from ddtrace.llmobs._experiment import _pydantic_report_evaluator_wrapper
+from ddtrace.llmobs._integration_api import register_llmobs_service
 from ddtrace.llmobs._processor import LLMObsProcessor
 from ddtrace.llmobs._prompt_optimization import PromptOptimization
 from ddtrace.llmobs._prompt_optimization import validate_dataset
@@ -333,12 +333,19 @@ class LLMObsSpan:
                 return None
             if span.get_tag("no_input") == "1":
                 span.input = []
+            # Redact or drop sensitive top-level metadata
+            span.metadata.pop("tool_config", None)
             return span
+
+    ``metadata`` exposes the span's top-level metadata for redaction. Internal Datadog
+    fields (such as cost and agent manifest data) are never included and cannot be
+    modified through this object.
     """
 
     input: list[Message] = field(default_factory=list)
     output: list[Message] = field(default_factory=list)
     _tags: dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def get_tag(self, key: str) -> Optional[str]:
         """Get a tag from the span.
@@ -432,7 +439,20 @@ def _normalize_llmobs_meta(
     empty optional fields.
     """
     llmobs_meta[LLMOBS_STRUCT.SPAN] = _SpanField(kind=span_kind)
-    llmobs_meta.setdefault(LLMOBS_STRUCT.METADATA, {})
+
+    current_metadata = llmobs_meta.get(LLMOBS_STRUCT.METADATA)
+    if not isinstance(current_metadata, dict):
+        current_metadata = {}
+    preserved_dd = current_metadata.get(LLMOBS_STRUCT.METADATA_DD)
+    user_metadata = llmobs_span.metadata
+    if not isinstance(user_metadata, dict):
+        log.warning("LLMObs span processor set non-dict metadata (%r); ignoring.", type(user_metadata))
+        user_metadata = current_metadata
+    # Drop any user-supplied `_dd` so internal metadata cannot be spoofed, then restore the real one.
+    new_metadata = {k: v for k, v in user_metadata.items() if k != LLMOBS_STRUCT.METADATA_DD}
+    if preserved_dd is not None:
+        new_metadata[LLMOBS_STRUCT.METADATA_DD] = preserved_dd
+    llmobs_meta[LLMOBS_STRUCT.METADATA] = new_metadata
 
     model_name = llmobs_meta.pop(LLMOBS_STRUCT.MODEL_NAME, None)
     model_provider = llmobs_meta.pop(LLMOBS_STRUCT.MODEL_PROVIDER, None)
@@ -519,9 +539,13 @@ class LLMObs(Service):
         self._llmobs_context_provider = LLMObsContextProvider()
         self._user_span_processor = span_processor
         agentless_enabled = should_use_agentless(user_defined_agentless_enabled=config._llmobs_agentless_enabled)
-        if not asbool(_env.get("DD_APM_TRACING_ENABLED", "true")):
-            # APMTracingEnabledFilter drops every trace, so ship events directly to LLMObs.
-            self._export_mode = LLMObsExportMode.LLMOBS_DIRECT
+        if _env.get("DD_LLMOBS_OVERRIDE_ORIGIN", "") or not asbool(_env.get("DD_APM_TRACING_ENABLED", "true")):
+            # An override origin means events must always go directly to the LLMObs writer's
+            # intake, since the APM_AGENT(LESS) modes route the event alongside the APM trace,
+            # which never respects the override. APMTracingEnabledFilter also drops every trace.
+            self._export_mode = (
+                LLMObsExportMode.LLMOBS_AGENTLESS if agentless_enabled else LLMObsExportMode.LLMOBS_AGENT_PROXY
+            )
         elif agentless_enabled:
             self._export_mode = LLMObsExportMode.APM_AGENTLESS
         else:
@@ -568,12 +592,6 @@ class LLMObs(Service):
     def _on_span_finish(self, span: Span) -> None:
         if not self.enabled or span.span_type != SpanTypes.LLM:
             return
-        # Record telemetry once per LLM span here (the only LLM-guarded hook that runs for every
-        # export mode), tagged with the mode's intake. The rescue processor must not record: it
-        # runs on every APM trace chunk (would count non-LLM spans) and is skipped entirely in
-        # LLMOBS_DIRECT mode (trace dropped upstream).
-        telemetry.record_span_created(span, self._export_mode, self._llmobs_span_writer._agentless)
-
         span_kind = get_llmobs_span_kind(span)
         if span_kind == "llm":
             core.dispatch(DISPATCH_ON_LLM_SPAN_FINISH, (span,))
@@ -597,22 +615,8 @@ class LLMObs(Service):
         if self._evaluator_runner and span_kind == "llm":
             self._evaluator_runner.enqueue(span_event, span)
 
-        if self._export_mode == LLMObsExportMode.LLMOBS_DIRECT or not self.tracer.enabled:
-            # Rescue chain won't run (trace dropped, or tracer disabled): ship via the writer.
-            # Tag + scrub before enqueue so an APM-side extract can't duplicate the payload.
-            span.set_tag(LLMOBS_SUBMITTED_TAG_KEY, "1")
-            span._remove_struct_tag(LLMOBS_STRUCT.KEY)
-            self._llmobs_span_writer.enqueue(span_event)
-            return
-
-        if self._export_mode == LLMObsExportMode.APM_AGENT:
-            # Agent drops unsampled spans before intake, so cache the event for the rescue
-            # processor to re-ship on a predicted drop (root priority <= 0).
-            span._set_ctx_item(CACHED_LLMOBS_EVENT_CTX_KEY, span_event)
-            return
-
-        # APM_AGENTLESS: rides the trace straight to intake at 100% (no Agent to drop it);
-        # leave meta_struct in place, no rescue needed.
+        span._set_ctx_item(CACHED_LLMOBS_EXPORT_MODE_CTX_KEY, self._export_mode)
+        span._set_ctx_item(CACHED_LLMOBS_EVENT_CTX_KEY, span_event)
 
     def _apply_user_span_processor(self, span: Span, llmobs_span: LLMObsSpan) -> Optional[LLMObsSpan]:
         """Run the user span processor.
@@ -669,6 +673,10 @@ class LLMObs(Service):
         llmobs_output = llmobs_meta.get(LLMOBS_STRUCT.OUTPUT) or _MetaIO()
 
         llmobs_span, input_type, output_type = _build_llmobs_span(span_kind, llmobs_input, llmobs_output)
+        original_metadata = llmobs_meta.get(LLMOBS_STRUCT.METADATA)
+        if not isinstance(original_metadata, dict):
+            original_metadata = {}
+        llmobs_span.metadata = {k: v for k, v in original_metadata.items() if k != LLMOBS_STRUCT.METADATA_DD}
         user_processed_span = self._apply_user_span_processor(span, llmobs_span)
         if user_processed_span is None:
             log.debug("LLMObs span %s dropped by user processor", span)
@@ -780,10 +788,7 @@ class LLMObs(Service):
         if self.enabled:
             # Rebind: the processor holds the pre-fork writer whose worker thread is dead
             # after fork(), so leaving it would silently buffer rescued events in the child.
-            self.tracer._span_aggregator.llmobs_processor = LLMObsProcessor(
-                self._llmobs_span_writer,
-                self._export_mode,
-            )
+            self.tracer._span_aggregator.llmobs_processor = LLMObsProcessor(self._llmobs_span_writer, self.tracer)
             self._start_service()
 
     def _start_service(self) -> None:
@@ -856,6 +861,7 @@ class LLMObs(Service):
         env: Optional[str] = None,
         service: Optional[str] = None,
         span_processor: Optional[Callable[[LLMObsSpan], Optional[LLMObsSpan]]] = None,
+        sample_rate: Optional[float] = None,
         _tracer: Optional[Tracer] = None,
         _auto: bool = False,
     ) -> None:
@@ -874,6 +880,9 @@ class LLMObs(Service):
         :param str service: Your service name.
         :param Callable[[LLMObsSpan], Optional[LLMObsSpan]] span_processor: A function that takes an LLMObsSpan and
             returns an LLMObsSpan or None. If None is returned, the span will be omitted and not sent to LLMObs.
+        :param float sample_rate: The proportion of LLMObs traces to sample, between 0.0 and 1.0 (inclusive).
+            Takes precedence over the DD_LLMOBS_SAMPLE_RATE environment variable. Defaults to that env var, or 1.0
+            (sample everything) if neither is set or within the valid range.
         """
         if cls.enabled:
             log.debug("%s already enabled", cls.__name__)
@@ -894,6 +903,21 @@ class LLMObs(Service):
         config.service = service or config.service
         config._llmobs_ml_app = ml_app or config._llmobs_ml_app
         config._llmobs_instrumented_proxy_urls = instrumented_proxy_urls or config._llmobs_instrumented_proxy_urls
+        # Validate and fallback sample rates (inline arg --> env var --> 1.0)
+        if sample_rate is not None and 0.0 <= sample_rate <= 1.0:
+            config._llmobs_sample_rate = sample_rate
+        else:
+            if sample_rate is not None:
+                log.warning(
+                    "Invalid LLMObs sample rate argument (%r outside valid range [0.0, 1.0]); ignoring it.",
+                    sample_rate,
+                )
+            if not 0.0 <= config._llmobs_sample_rate <= 1.0:
+                log.warning(
+                    "Invalid LLMObs sample rate (%r outside valid range [0.0, 1.0]). Falling back to 1.0.",
+                    config._llmobs_sample_rate,
+                )
+                config._llmobs_sample_rate = 1.0
 
         error = None
         start_ns = time.time_ns()
@@ -933,10 +957,6 @@ class LLMObs(Service):
             # override the default _instance with a new tracer
             cls._instance = cls(tracer=_tracer, span_processor=span_processor)
 
-            # Add APM trace filter to drop all APM traces when DD_APM_TRACING_ENABLED is falsy
-            apm_filter = APMTracingEnabledFilter()
-            cls._instance.tracer._span_aggregator.dd_processors.append(apm_filter)
-
             cls.enabled = True
             # Align config._llmobs_enabled with effective state for user-initiated calls.
             # When _auto=True, the caller (RC handler, env-var auto-start) has already
@@ -953,7 +973,7 @@ class LLMObs(Service):
                 # Recreate the APM writer at v0.4; v0.5 strips meta_struct.
                 cls._instance.tracer._span_aggregator.reset(llmobs_enabled=True, reset_buffer=False)
             cls._instance.tracer._span_aggregator.llmobs_processor = LLMObsProcessor(
-                cls._instance._llmobs_span_writer, cls._instance._export_mode
+                cls._instance._llmobs_span_writer, cls._instance.tracer
             )
             cls._instance.start()
 
@@ -1019,6 +1039,7 @@ class LLMObs(Service):
                 _auto,
                 config._llmobs_instrumented_proxy_urls,
                 config._llmobs_ml_app,
+                config._llmobs_sample_rate,
             )
 
     @staticmethod
@@ -1119,6 +1140,9 @@ class LLMObs(Service):
         inner_exp._id = str(experiment_id)
         inner_exp._project_id = experiment_meta._project_id
         inner_exp._dataset_id = dataset_id
+        if experiment_meta._dataset is not None:
+            inner_exp._tags["dataset_name"] = experiment_meta._dataset.name
+            inner_exp._dataset_version = experiment_meta._dataset._version
 
         return SyncExperiment(name=experiment_meta.name, _experiment=inner_exp, _result=result)
 
@@ -2500,19 +2524,23 @@ class LLMObs(Service):
                                                         information for an LLM call
         :param input_data: A single input string, dictionary, or a list of dictionaries based on the span kind:
                            - llm spans: accepts a string, or a dictionary of form {"content": "...", "role": "...",
-                                        "tool_calls": ..., "tool_results": ...}, where "tool_calls" are an optional
-                                        list of tool call dictionaries with required keys: "name", "arguments", and
-                                        optional keys: "tool_id", "type", and "tool_results" are an optional list of
-                                        tool result dictionaries with required key: "result", and optional keys:
-                                        "name", "tool_id", "type" for function calling scenarios.
+                                        "tool_calls": ..., "tool_results": ..., "audio_parts": ...}, where "tool_calls"
+                                        are an optional list of tool call dictionaries with required keys: "name",
+                                        "arguments", and optional keys: "tool_id", "type", and "tool_results" are an
+                                        optional list of tool result dictionaries with required key: "result", and
+                                        optional keys: "name", "tool_id", "type" for function calling scenarios.
+                                        "audio_parts" is an optional list of audio dictionaries, each with a required
+                                        "mime_type" and one of "content" (base64-encoded audio) or "attachment_key".
                            - embedding spans: accepts a string, list of strings, or a dictionary of form
                                               {"text": "...", ...} or a list of dictionaries with the same signature.
                            - other: any JSON serializable type.
         :param output_data: A single output string, dictionary, or a list of dictionaries based on the span kind:
                            - llm spans: accepts a string, or a dictionary of form {"content": "...", "role": "...",
-                                        "tool_calls": ...}, where "tool_calls" are an optional list of tool call
-                                        dictionaries with required keys: "name", "arguments", and optional keys:
-                                        "tool_id", "type" for function calling scenarios.
+                                        "tool_calls": ..., "audio_parts": ...}, where "tool_calls" are an optional list
+                                        of tool call dictionaries with required keys: "name", "arguments", and optional
+                                        keys: "tool_id", "type" for function calling scenarios. "audio_parts" is an
+                                        optional list of audio dictionaries, each with a required "mime_type" and one of
+                                        "content" (base64-encoded audio) or "attachment_key".
                            - retrieval spans: a dictionary containing any of the key value pairs
                                               {"name": str, "id": str, "text": str, "score": float},
                                               or a list of dictionaries with the same signature.
@@ -3167,5 +3195,10 @@ class LLMObs(Service):
         cls._instance._activate_llmobs_distributed_context(request_headers, context, _soft_fail=False)
 
 
-# initialize the default llmobs instance
+# Initialize the default LLMObs instance before exposing the service to integrations.
 LLMObs._instance = LLMObs()
+
+# BaseLLMIntegration depends on this lightweight API instead of importing this
+# module during integration auto-patching. Register only after LLMObs is fully
+# initialized so integrations can be imported during an experiment import.
+register_llmobs_service(LLMObs)

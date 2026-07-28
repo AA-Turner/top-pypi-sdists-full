@@ -7,6 +7,7 @@ from tidy3d.components.monitor import (
     AstigmaticGaussianOverlapMonitor,
     AuxFieldTimeMonitor,
     DiffractionMonitor,
+    DipoleEmissionMonitor,
     DirectivityMonitor,
     FieldMonitor,
     FieldProjectionAngleMonitor,
@@ -19,9 +20,13 @@ from tidy3d.components.monitor import (
     MediumMonitor,
     ModeMonitor,
     ModeSolverMonitor,
+    ModeTimeMonitor,
     PermittivityMonitor,
+    PointCloudFieldMonitor,
+    PointCloudPermittivityMonitor,
     SurfaceFieldMonitor,
     SurfaceFieldTimeMonitor,
+    ThinLensOverlapMonitor,
 )
 
 # types of monitors that are accepted by simulation
@@ -35,6 +40,7 @@ MonitorType = (
     | FluxTimeMonitor
     | ModeMonitor
     | ModeSolverMonitor
+    | ModeTimeMonitor
     | FieldProjectionAngleMonitor
     | FieldProjectionCartesianMonitor
     | FieldProjectionKSpaceMonitor
@@ -44,6 +50,10 @@ MonitorType = (
     | MicrowaveModeSolverMonitor
     | GaussianOverlapMonitor
     | AstigmaticGaussianOverlapMonitor
+    | ThinLensOverlapMonitor
+    | DipoleEmissionMonitor
+    | PointCloudFieldMonitor
+    | PointCloudPermittivityMonitor
     | SurfaceFieldMonitor
     | SurfaceFieldTimeMonitor
 )

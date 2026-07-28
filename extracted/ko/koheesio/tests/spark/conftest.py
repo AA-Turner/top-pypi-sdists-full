@@ -61,9 +61,35 @@ def checkpoint_folder(tmp_path_factory, random_uuid, logger):
 
 
 @pytest.fixture(scope="session")
-def spark(warehouse_path, random_uuid):
-    """Spark session fixture with Delta enabled."""
-    builder = SparkSession.builder.appName("test_session" + random_uuid)
+def _xdist_worker_id() -> str:
+    """This xdist worker's id (`gw0`, `gw1`, ...) or `"main"` when xdist is off."""
+    return os.environ.get("PYTEST_XDIST_WORKER", "main")
+
+
+@pytest.fixture(scope="session")
+def _spark_worker_dirs(tmp_path_factory: pytest.TempPathFactory, _xdist_worker_id: str) -> dict[str, str]:
+    """Per-xdist-worker scratch dirs so parallel Spark drivers don't collide.
+
+    When pytest-xdist runs `-n 2`, both workers call
+    `configure_spark_with_delta_pip` in `spark()` at session start. They race
+    on the shared `~/.ivy2` lockfile while resolving Delta JARs — the losing
+    Ivy resolver aborts, its JVM exits before Py4J writes back its port, and
+    pytest surfaces
+        `RuntimeError: Java gateway process exited before sending its port number`.
+
+    Giving each worker its own Ivy cache and its own `spark.local.dir` lets
+    the two drivers boot in parallel without contention.
+    """
+    ivy_dir = tmp_path_factory.mktemp(f"ivy-{_xdist_worker_id}")
+    local_dir = tmp_path_factory.mktemp(f"spark-local-{_xdist_worker_id}")
+    return {"ivy": ivy_dir.as_posix(), "local": local_dir.as_posix()}
+
+
+@pytest.fixture(scope="session")
+def spark(warehouse_path, random_uuid, _xdist_worker_id, _spark_worker_dirs):
+    """Spark session fixture with Delta enabled, isolated per xdist worker."""
+    app_name = f"test_session_{_xdist_worker_id}_{random_uuid}"
+    builder = SparkSession.builder.appName(app_name)
 
     if os.environ.get("SPARK_REMOTE") == "local":
         # SPARK_TESTING is set in environment variables
@@ -87,6 +113,16 @@ def spark(warehouse_path, random_uuid):
         .config("spark.sql.session.timeZone", "UTC")
         .config("spark.sql.execution.arrow.pyspark.enabled", "true")
         .config("spark.sql.execution.arrow.pyspark.fallback.enabled", "true")
+        # Per-xdist-worker isolation — see `_spark_worker_dirs` docstring.
+        .config("spark.jars.ivy", _spark_worker_dirs["ivy"])
+        .config("spark.local.dir", _spark_worker_dirs["local"])
+        # Bind loopback with ephemeral ports so two drivers can coexist.
+        .config("spark.driver.host", "127.0.0.1")
+        .config("spark.driver.bindAddress", "127.0.0.1")
+        .config("spark.driver.port", "0")
+        .config("spark.blockManager.port", "0")
+        # Disable the Spark UI so parallel drivers don't fight for port 4040.
+        .config("spark.ui.enabled", "false")
     )
 
     spark_session = builder.getOrCreate()
@@ -240,12 +276,15 @@ SparkContextData = namedtuple("SparkContextData", ["spark", "options_dict"])
 """A named tuple containing the Spark session and the options dictionary used to create the DataFrame"""
 
 
-@pytest.fixture(scope="class")
+@pytest.fixture(scope="function")
 def dummy_spark(spark, sample_df_with_strings) -> SparkContextData:
     """SparkSession fixture that makes any call to SparkSession.read.load() return a DataFrame with strings.
 
     Because of the use of `type(spark.read)`, this fixture automatically alters its behavior for either a remote or
     regular Spark session.
+
+    Note: This fixture uses function scope to ensure each test gets a fresh options_dict,
+    preventing state leakage between tests.
 
     Example
     -------

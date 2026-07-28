@@ -22,6 +22,11 @@ from abstra_internals.repositories.producer import WebEditorControlProducerRepos
 
 RESTART_EDITOR = "restart_editor"
 
+# User-facing warning appended to issue labels whose fix pip-installs and thus
+# triggers restart_editor_and_workers. Lives here so every rule that installs
+# packages warns with the same copy.
+RESTART_NOTICE = "Installing will restart the editor and may take up to 2 minutes."
+
 _handler_lock = threading.Lock()
 _handler: Optional[Callable[[str], None]] = None
 
@@ -34,16 +39,20 @@ def set_process_action_handler(handler: Optional[Callable[[str], None]]) -> None
         _handler = handler
 
 
-def request_process_action(action: str) -> None:
+def request_process_action(action: str, reason: Optional[str] = None) -> None:
     with _handler_lock:
         handler = _handler
     if handler is not None:
+        # The collector RPC only ships the action string, so `reason` is lost
+        # on the sidecar path; the direct path keeps it for lifecycle logging.
         handler(action)
         return
-    execute_process_action(action)
+    execute_process_action(action, reason=reason)
 
 
-def execute_process_action(action: str, is_web: Optional[bool] = None) -> None:
+def execute_process_action(
+    action: str, is_web: Optional[bool] = None, reason: Optional[str] = None
+) -> None:
     if action != RESTART_EDITOR:
         AbstraLogger.warning(f"[ProcessAction] Unknown process action: {action}")
         return
@@ -54,6 +63,14 @@ def execute_process_action(action: str, is_web: Optional[bool] = None) -> None:
         is_web = EDITOR_MODE == "web"
 
     if is_web:
+        AbstraLogger.lifecycle(
+            "[Editor] Exiting for an intentional restart",
+            {
+                "stage": "editor.restart_requested",
+                "action": action,
+                "reason": reason,
+            },
+        )
         # sys.exit() doesn't work because Flask runs in threaded mode;
         # os._exit() terminates directly and the kubelet restarts the pod.
         AbstraLogger.warning("[ProcessAction] Exiting editor for the pod to restart")
@@ -90,4 +107,4 @@ def restart_editor_and_workers(log_prefix: str) -> None:
             )
 
     AbstraLogger.warning(f"{log_prefix} Requesting editor restart")
-    request_process_action(RESTART_EDITOR)
+    request_process_action(RESTART_EDITOR, reason=log_prefix.strip("[]"))

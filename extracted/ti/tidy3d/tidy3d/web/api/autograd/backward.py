@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -13,7 +14,7 @@ from tidy3d.components.autograd import get_static
 from tidy3d.components.autograd.derivative_utils import DerivativeInfo
 from tidy3d.components.autograd.utils import accumulate_field_map as _accumulate_field_map
 from tidy3d.components.data.data_array import FreqDataArray
-from tidy3d.components.geometry.bound_ops import bounds_intersection
+from tidy3d.components.geometry.bound_ops import bounds_contains, bounds_intersection
 from tidy3d.components.source.adjoint_helpers import (
     collapse_source_adjoint_to_dataset_frequency,
 )
@@ -23,6 +24,7 @@ from tidy3d.exceptions import AdjointError
 from tidy3d.log import log
 from tidy3d.packaging import disable_local_subpixel
 
+from .flux_monitor import expand_flux_monitor_vjps
 from .utils import E_to_D, filter_vjp_map, get_derivative_maps, scale_field_data
 
 if TYPE_CHECKING:
@@ -32,14 +34,33 @@ if TYPE_CHECKING:
     from tidy3d.components.data.data_array import ScalarFieldDataArray
     from tidy3d.components.geometry.base import Box
     from tidy3d.components.geometry.utils import GeometryType
+    from tidy3d.components.monitor import Monitor
 
-    from .types import CustomVJPConfig, NumericalStructureConfig
+    from .context import AdjointPostprocessInputs
+    from .types import DerivativeView, NumericalStructureConfig
 
 
 # Scaling factor for chunk-dependent memory growth on top of the baseline estimate.
 ADJOINT_MEMORY_MULTIPLIER = 6.0
 # Baseline factor for the always-live forward/adjoint field and permittivity datasets.
 ADJOINT_MEMORY_BASELINE_MULTIPLIER = 2.0
+
+
+@dataclass(frozen=True)
+class AdjointSetupResult:
+    """Result of setting up adjoint simulations for a VJP map."""
+
+    simulations: list[td.Simulation]
+    all_sources_underflowed: bool = False
+
+
+def make_adjoint_monitors(
+    simulation: td.Simulation,
+    sim_fields_keys: list[tuple],
+) -> list[Monitor]:
+    """Return the structure adjoint monitors used by adjoint simulations."""
+    monitors_fld, monitors_eps = simulation._make_adjoint_monitors(sim_fields_keys)
+    return [*monitors_fld, *monitors_eps]
 
 
 def _resolve_freq_chunk_size(
@@ -70,7 +91,9 @@ def setup_adj(
     sim_fields_keys: list[tuple],
     max_num_adjoint_per_fwd: int,
     already_filtered: bool = False,
-) -> list[td.Simulation]:
+    sim_data_fwd: td.SimulationData | None = None,
+    return_result: bool = False,
+) -> list[td.Simulation] | AdjointSetupResult:
     """Construct an adjoint simulation from a set of data_fields for the VJP."""
 
     td.log.info("Running custom vjp (adjoint) pipeline.")
@@ -80,11 +103,18 @@ def setup_adj(
 
     # if all entries are zero, there is no adjoint sim to run
     if not data_fields_vjp:
-        return []
+        result = AdjointSetupResult([])
+        return result if return_result else result.simulations
+
+    data_fields_vjp, sim_data_for_adj = expand_flux_monitor_vjps(
+        data_fields_vjp=data_fields_vjp,
+        sim_data_orig=sim_data_orig,
+        sim_data_fwd=sim_data_fwd,
+    )
 
     # start with the full simulation data structure and either zero out the fields
     # that have no tracer data for them or insert the tracer data
-    full_sim_data_dict = sim_data_orig._strip_traced_fields(
+    full_sim_data_dict = sim_data_for_adj._strip_traced_fields(
         include_untraced_data_arrays=True, starting_paths=(("data",),)
     )
     for path, value in full_sim_data_dict.items():
@@ -94,20 +124,18 @@ def setup_adj(
             full_sim_data_dict[path] = 0 * value
 
     # insert the raw VJP data into the .data of the original SimulationData
-    sim_data_vjp = sim_data_orig._insert_traced_fields(field_mapping=full_sim_data_dict)
+    sim_data_vjp = sim_data_for_adj._insert_traced_fields(field_mapping=full_sim_data_dict)
 
     # make adjoint simulation from that SimulationData
     data_vjp_paths = set(data_fields_vjp.keys())
 
-    num_monitors = len(sim_data_orig.simulation.monitors)
-    adjoint_monitors = sim_data_orig.simulation._with_adjoint_monitors(sim_fields_keys).monitors[
-        num_monitors:
-    ]
+    adjoint_monitors = make_adjoint_monitors(sim_data_orig.simulation, sim_fields_keys)
 
-    sims_adj = sim_data_vjp._make_adjoint_sims(
+    adjoint_setup_result = sim_data_vjp._make_adjoint_sims_with_result(
         data_vjp_paths=data_vjp_paths,
         adjoint_monitors=adjoint_monitors,
     )
+    sims_adj = adjoint_setup_result.simulations
 
     if len(sims_adj) > max_num_adjoint_per_fwd:
         raise AdjointError(
@@ -118,7 +146,11 @@ def setup_adj(
             "setup, increase the 'max_num_adjoint_per_fwd' parameter in the run function, and re-run."
         )
 
-    return sims_adj
+    result = AdjointSetupResult(
+        sims_adj,
+        all_sources_underflowed=adjoint_setup_result.all_sources_underflowed,
+    )
+    return result if return_result else result.simulations
 
 
 def _slice_field_data(
@@ -156,7 +188,7 @@ def _get_freq_coords(field_data: td.FieldData) -> np.ndarray:
 
 def _estimate_dataset_bytes(dataset: td.PermittivityData | td.FieldData) -> int:
     """Estimate total byte size of field components in a dataset."""
-    return int(sum(np.asarray(comp.values).nbytes for comp in dataset.field_components.values()))
+    return sum(np.asarray(comp.values).nbytes for comp in dataset.field_components.values())
 
 
 def _require_freq_ascending(
@@ -240,13 +272,15 @@ def _to_sim_fields_vjp(
 @disable_local_subpixel
 def postprocess_adj(
     sim_data_adj: td.SimulationData,
-    sim_data_orig: td.SimulationData,
-    sim_data_fwd: td.SimulationData,
-    sim_fields_keys: list[tuple],
-    numerical_structure_map: dict[int, NumericalStructureConfig] | None = None,
-    custom_vjp: tuple[CustomVJPConfig, ...] | None = None,
+    *,
+    postprocess_inputs: AdjointPostprocessInputs,
 ) -> AutogradFieldMap:
     """Postprocess some data from the adjoint simulation into the VJP for the original sim flds."""
+    sim_data_orig = postprocess_inputs.sim_data_orig
+    sim_data_fwd = postprocess_inputs.sim_data_fwd
+    sim_fields_keys = postprocess_inputs.sim_fields_keys
+    numerical_structure_map = postprocess_inputs.numerical_structure_map
+    custom_vjp = postprocess_inputs.custom_vjp
 
     def get_all_paths(match_structure_index: int) -> tuple[tuple[Any, ...], ...]:
         """Get traced autograd paths for one structure index.
@@ -410,8 +444,8 @@ def _warn_if_nonuniform_gaussian_source_background(
     """Warn if Gaussian source bounds contain non-uniform epsilon at sampled frequencies."""
     lower, upper = bounds_intersect
     source_box = td.Box(
-        center=tuple(0.5 * (float(lower[axis]) + float(upper[axis])) for axis in range(3)),
-        size=tuple(float(upper[axis]) - float(lower[axis]) for axis in range(3)),
+        center=tuple(0.5 * (lower[axis] + upper[axis]) for axis in range(3)),
+        size=tuple(upper[axis] - lower[axis] for axis in range(3)),
     )
     for freq in source_freqs:
         eps_volume = np.asarray(
@@ -434,6 +468,26 @@ def _warn_if_nonuniform_gaussian_source_background(
                 "Using center-sampled refractive index for gradient computation."
             )
             break
+
+
+def _geometry_contains_clip_operation(geometry: GeometryType) -> bool:
+    """Return True when ``geometry`` contains a ClipOperation at any depth."""
+    if geometry is None:
+        return False
+
+    if isinstance(geometry, td.ClipOperation):
+        return True
+
+    if isinstance(geometry, td.Transformed):
+        return _geometry_contains_clip_operation(geometry.geometry)
+
+    if isinstance(geometry, td.GeometryArray):
+        return _geometry_contains_clip_operation(geometry.geometry)
+
+    if isinstance(geometry, td.GeometryGroup):
+        return any(_geometry_contains_clip_operation(g) for g in geometry.geometries)
+
+    return False
 
 
 def _process_source_gradients(
@@ -486,8 +540,7 @@ def _process_source_gradients(
     bounds_intersect = bounds_intersection(sim_data_orig.simulation.bounds, bounds)
 
     center = tuple(
-        0.5 * (float(bounds_intersect[0][axis]) + float(bounds_intersect[1][axis]))
-        for axis in range(3)
+        0.5 * (bounds_intersect[0][axis] + bounds_intersect[1][axis]) for axis in range(3)
     )
     point_box = td.Box(center=center, size=(0.0, 0.0, 0.0))
     source_freqs = np.asarray(next(iter(e_adj.values())).coords["f"].data).reshape(-1)
@@ -625,6 +678,9 @@ def _process_structure_gradients(
     )
 
     structure = sim_data_fwd.simulation.structures[structure_index]
+    clipped_geometry = (
+        structure.geometry if _geometry_contains_clip_operation(structure.geometry) else None
+    )
 
     # auto permittivity detection
     sim_orig = sim_data_orig.simulation
@@ -659,13 +715,29 @@ def _process_structure_gradients(
         ]
         return xr.concat(eps_by_f, dim="f").assign_coords(f=adjoint_frequencies)
 
-    updated_epsilon_full = functools.partial(
-        updated_epsilon_full_impl,
-        adjoint_frequencies=adjoint_frequencies,
-        structure_index=structure_index,
-        eps_box=plane_eps,
-        sim_orig=sim_orig,
-    )
+    def make_updated_epsilon(
+        select_adjoint_freqs: FreqDataArray | None,
+    ) -> Callable[[GeometryType], ScalarFieldDataArray]:
+        updated_epsilon_full = functools.partial(
+            updated_epsilon_full_impl,
+            adjoint_frequencies=adjoint_frequencies,
+            structure_index=structure_index,
+            eps_box=plane_eps,
+            sim_orig=sim_orig,
+        )
+
+        def updated_epsilon_wrapper(
+            replacement_geometry: GeometryType,
+            select_adjoint_freqs: FreqDataArray | None,
+            updated_epsilon_full: Callable | None,
+        ) -> ScalarFieldDataArray:
+            return updated_epsilon_full(replacement_geometry).sel(f=select_adjoint_freqs)
+
+        return functools.partial(
+            updated_epsilon_wrapper,
+            select_adjoint_freqs=select_adjoint_freqs,
+            updated_epsilon_full=updated_epsilon_full,
+        )
 
     n_freqs = len(adjoint_frequencies)
     H_info_exists = np.all([f"H{dim}" in fld_fwd.field_components for dim in "xyz"])
@@ -760,17 +832,8 @@ def _process_structure_gradients(
                 if key.startswith("H")
             }
 
-        def updated_epsilon_wrapper(
-            replacement_geometry: GeometryType,
-            select_adjoint_freqs: FreqDataArray | None,
-            updated_epsilon_full: Callable | None,
-        ) -> ScalarFieldDataArray:
-            return updated_epsilon_full(replacement_geometry).sel(f=select_adjoint_freqs)
-
-        updated_epsilon = functools.partial(
-            updated_epsilon_wrapper,
+        updated_epsilon = make_updated_epsilon(
             select_adjoint_freqs=select_adjoint_freqs,
-            updated_epsilon_full=updated_epsilon_full,
         )
 
         # create derivative info with sliced data
@@ -794,6 +857,7 @@ def _process_structure_gradients(
             is_medium_pec=structure.medium.is_pec,
             background_medium_is_pec=structure.background_medium
             and structure.background_medium.is_pec,
+            clipped_geometry=clipped_geometry,
         )
 
         if structure_paths:
@@ -804,7 +868,117 @@ def _process_structure_gradients(
             _accumulate_field_map(vjp_value_map, vjp_chunk)
 
         if use_numerical_vjp:
-            gradients = numerical_vjp_fn(numerical_params_static, derivative_info=derivative_info)
+
+            def _derivative_helper_impl(
+                helper_derivative_info: DerivativeInfo,
+                *,
+                derivative_view: DerivativeView | None = None,
+                chunk_derivative_info: DerivativeInfo,
+            ) -> AutogradFieldMap:
+                requested_sections = {
+                    path[0]
+                    for path in helper_derivative_info.paths
+                    if len(path) > 0 and path[0] in ("geometry", "medium")
+                }
+
+                target_geometry = structure.geometry
+                target_medium = structure.medium
+                if derivative_view is not None:
+                    if derivative_view.geometry is not None:
+                        target_geometry = derivative_view.geometry
+                    if "geometry" in requested_sections:
+                        if derivative_view.geometry is None:
+                            log.warning(
+                                "derivative_helper received geometry paths but "
+                                "derivative_view.geometry is None; falling back to the original "
+                                "structure geometry.",
+                                log_once=True,
+                            )
+                    if derivative_view.medium is not None:
+                        target_medium = derivative_view.medium
+                    if "medium" in requested_sections:
+                        if derivative_view.medium is None:
+                            log.warning(
+                                "derivative_helper received medium paths but "
+                                "derivative_view.medium is None; falling back to the original "
+                                "structure medium.",
+                                log_once=True,
+                            )
+
+                target_structure = structure.updated_copy(
+                    geometry=target_geometry,
+                    medium=target_medium,
+                )
+                target_is_medium_pec = target_structure.medium.is_pec
+                target_background_medium_is_pec = bool(
+                    target_structure.background_medium and target_structure.background_medium.is_pec
+                )
+                if target_is_medium_pec and not chunk_derivative_info.is_medium_pec:
+                    raise AdjointError(
+                        "derivative_helper cannot switch to a PEC medium in derivative_view when "
+                        "the original structure was non-PEC because the required magnetic-field "
+                        "derivative data were not collected."
+                    )
+                if (
+                    target_background_medium_is_pec
+                    and not chunk_derivative_info.background_medium_is_pec
+                ):
+                    raise AdjointError(
+                        "derivative_helper cannot switch to a PEC background medium in "
+                        "derivative_view when the original structure background was non-PEC "
+                        "because the required magnetic-field derivative data were not collected."
+                    )
+                target_bounds = target_structure.geometry.bounds
+                if derivative_view is not None and derivative_view.geometry is not None:
+                    if not bounds_contains(struct_bounds, target_bounds):
+                        raise AdjointError(
+                            "derivative_helper derivative_view.geometry bounds must be contained "
+                            "within the original structure bounds because derivative fields are "
+                            "evaluated on the original monitor volume."
+                        )
+                # Numerical VJP helpers can request paths that did not go through setup_run().
+                for helper_path in helper_derivative_info.paths:
+                    target_structure._resolve_autograd_route(tuple(helper_path))
+                shared_interpolators = helper_derivative_info.interpolators
+                if shared_interpolators is None:
+                    # Reuse per-chunk interpolators to avoid rebuilding in helper loops.
+                    shared_interpolators = chunk_derivative_info.create_interpolators()
+                # Do not replace eps_data or forward/adjoint fields here: derivative_view only
+                # changes derivative dispatch geometry/medium and does not rerun simulations.
+                helper_derivative_info_use = helper_derivative_info.updated_copy(
+                    bounds=target_bounds,
+                    bounds_intersect=bounds_intersection(sim_orig.bounds, target_bounds),
+                    updated_epsilon=make_updated_epsilon(
+                        select_adjoint_freqs=helper_derivative_info.frequencies,
+                    ),
+                    is_medium_pec=target_is_medium_pec,
+                    background_medium_is_pec=target_background_medium_is_pec,
+                    clipped_geometry=(
+                        target_structure.geometry
+                        if _geometry_contains_clip_operation(target_structure.geometry)
+                        else None
+                    ),
+                    interpolators=shared_interpolators,
+                    deep=False,
+                )
+                return target_structure._compute_derivatives(helper_derivative_info_use)
+
+            derivative_helper = functools.partial(
+                _derivative_helper_impl,
+                chunk_derivative_info=derivative_info,
+            )
+
+            if numerical_structure._uses_derivative_helper:
+                gradients = numerical_vjp_fn(
+                    numerical_params_static,
+                    derivative_info=derivative_info,
+                    derivative_helper=derivative_helper,
+                )
+            else:
+                gradients = numerical_vjp_fn(
+                    numerical_params_static,
+                    derivative_info=derivative_info,
+                )
 
             if not isinstance(gradients, dict):
                 raise AdjointError(

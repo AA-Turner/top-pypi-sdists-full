@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import base64
-import csv
 import datetime
-import io
 import json
 import os
 import pkgutil
@@ -13,8 +10,6 @@ from tempfile import mkdtemp
 from typing import Any, Literal, Optional
 
 import flask
-import openpyxl
-import pypdfium2 as pdfium
 
 from abstra_internals.cloud_api import (
     get_api_key_info,
@@ -98,11 +93,6 @@ from abstra_internals.utils.file_search import (
 from abstra_internals.utils.validate import validate_json
 
 MAX_LINES = 500
-HARD_MAX_LINES = 50
-HARD_MAX_PDF_PAGES = 3
-
-READ_DOCUMENT_MAX_IMAGE_DIMENSION = 1568
-READ_DOCUMENT_JPEG_QUALITY = 80
 
 # Per browser-op cap on the dedicated browser thread. Kept below the MCP
 # client's tool timeout (300s) so a stuck op fails here (and resets the
@@ -497,192 +487,6 @@ class MainController:
             return None
         return Settings.root_path.joinpath(file).read_text(encoding="utf-8")
 
-    def _read_spreadsheet_file(
-        self,
-        file_path: Path,
-        sheet_name: str | None = None,
-        start_line: int | None = None,
-        end_line: int | None = None,
-    ) -> dict[str, Any] | None:
-        try:
-            wb = openpyxl.load_workbook(file_path, data_only=True)
-        except Exception as e:
-            AbstraLogger.error(f"Failed to read spreadsheet {file_path}: {e}")
-            return None
-
-        if not sheet_name:
-            summary_lines = []
-            for name in wb.sheetnames:
-                ws = wb[name]
-                rows = ws.max_row or 0
-                cols = ws.max_column or 0
-                summary_lines.append(f"- {name}: {rows} rows, {cols} columns")
-            sheets = list(wb.sheetnames)
-            wb.close()
-            return {
-                "content": "Sheets in this file:\n"
-                + "\n".join(summary_lines)
-                + "\n\nUse sheet_name parameter to read a specific sheet.",
-                "type": "spreadsheet_summary",
-                "sheets": sheets,
-            }
-
-        if sheet_name not in wb.sheetnames:
-            available = ", ".join(wb.sheetnames)
-            wb.close()
-            return {
-                "content": f'Error: Sheet "{sheet_name}" not found. Available sheets: {available}',
-                "error": True,
-            }
-
-        ws = wb[sheet_name]
-        total_rows = ws.max_row or 0
-
-        actual_start = max(1, start_line or 1)
-        actual_end = min(total_rows, end_line or total_rows)
-
-        if actual_start > total_rows:
-            wb.close()
-            return {
-                "content": "",
-                "start_line": actual_start,
-                "end_line": actual_start - 1,
-                "total_lines": total_rows,
-                "has_more": False,
-                "truncated": False,
-                "sheet_name": sheet_name,
-            }
-
-        truncated = False
-        if actual_end - actual_start + 1 > HARD_MAX_LINES:
-            actual_end = actual_start + HARD_MAX_LINES - 1
-            truncated = True
-
-        # Only iterate the rows we need
-        output = io.StringIO()
-        writer = csv.writer(output)
-        for row in ws.iter_rows(
-            min_row=actual_start, max_row=actual_end, values_only=True
-        ):
-            cells = [cell if cell is not None else "" for cell in row]
-            while cells and cells[-1] == "":
-                cells.pop()
-            if cells:
-                writer.writerow(cells)
-        wb.close()
-
-        content = output.getvalue().rstrip("\n")
-
-        return {
-            "content": content,
-            "start_line": actual_start,
-            "end_line": actual_end,
-            "total_lines": total_rows,
-            "has_more": actual_end < total_rows,
-            "truncated": truncated,
-            "sheet_name": sheet_name,
-        }
-
-    def _read_pdf_file(
-        self,
-        file_path: Path,
-        start_page: int | None = None,
-        end_page: int | None = None,
-    ) -> dict[str, Any] | None:
-        try:
-            doc = pdfium.PdfDocument(str(file_path))
-            total_pages = len(doc)
-
-            actual_start = max(1, start_page or 1)
-            requested_end = end_page or actual_start + HARD_MAX_PDF_PAGES - 1
-            actual_end = min(
-                requested_end,
-                total_pages,
-                actual_start + HARD_MAX_PDF_PAGES - 1,
-            )
-
-            pages_text = []
-            for i in range(actual_start - 1, actual_end):
-                page = doc[i]
-                text_page = page.get_textpage()
-                text = text_page.get_text_range()
-                pages_text.append(f"--- Page {i + 1} ---\n{text}")
-                text_page.close()
-
-            doc.close()
-
-            has_more = actual_end < total_pages
-            content = "\n\n".join(pages_text)
-            content += (
-                f"\n\n[Pages {actual_start}-{actual_end} of {total_pages}"
-                + (", use start_page/end_page to read more" if has_more else "")
-                + "]"
-            )
-
-            return {
-                "content": content,
-                "total_pages": total_pages,
-                "start_page": actual_start,
-                "end_page": actual_end,
-                "has_more": has_more,
-            }
-        except Exception as e:
-            AbstraLogger.error(f"Failed to read PDF {file_path}: {e}")
-            return None
-
-    def _downscale_image_to_jpeg(self, file_path: Path) -> bytes | None:
-        """Downscale + JPEG re-encode to cap token cost. Returns None if the
-        image can't be decoded, so the caller can fall back to the raw bytes."""
-        try:
-            from PIL import Image
-
-            from abstra_internals.utils.image import constrain_image_size
-
-            with Image.open(file_path) as img:
-                img.load()
-                img = constrain_image_size(
-                    img, max_dimension=READ_DOCUMENT_MAX_IMAGE_DIMENSION
-                )
-                if img.mode not in ("RGB", "L"):
-                    img = img.convert("RGB")
-                buffer = io.BytesIO()
-                img.save(buffer, format="JPEG", quality=READ_DOCUMENT_JPEG_QUALITY)
-                return buffer.getvalue()
-        except Exception as e:
-            AbstraLogger.warning(f"Could not downscale image {file_path}: {e}")
-            return None
-
-    def _read_image_file(
-        self,
-        file_path: Path,
-    ) -> dict[str, Any] | None:
-        try:
-            jpeg_bytes = self._downscale_image_to_jpeg(file_path)
-            if jpeg_bytes is not None:
-                mime_type = "image/jpeg"
-                image_data = base64.b64encode(jpeg_bytes).decode("utf-8")
-            else:
-                # Fallback: pass the original bytes through unchanged.
-                ext = file_path.suffix.lower()
-                mime_type = {
-                    ".png": "image/png",
-                    ".gif": "image/gif",
-                    ".webp": "image/webp",
-                }.get(ext, "image/jpeg")
-                image_data = base64.b64encode(file_path.read_bytes()).decode("utf-8")
-
-            data_uri = f"data:{mime_type};base64,{image_data}"
-
-            return {
-                "__imageContent": True,
-                "mimeType": mime_type,
-                "dataUri": data_uri,
-                "description": f"Image file: {file_path.name}",
-            }
-        except Exception as e:
-            AbstraLogger.error(f"Failed to read image {file_path}: {e}")
-            return None
-
     def read_file_with_pagination(
         self,
         file: str,
@@ -695,7 +499,7 @@ class MainController:
         Read text content of a code or text file with line-range pagination.
 
         Use this to read project code and text files. For documents (spreadsheets,
-        PDFs, images, CSVs), use read_document instead. For finding files by name, use
+        PDFs, images, CSVs), use execute_code_snippet instead. For finding files by name, use
         find_files_by_pattern. For searching inside files, use search_file_with_context
         (single file) or grep_codebase (all files). For listing directory contents, use
         list_directory.
@@ -760,67 +564,6 @@ class MainController:
         return self._read_file_lines_with_pagination(
             file_path, start_line, end_line, max_lines, encoding
         )
-
-    def read_document(
-        self,
-        file: str,
-        start_line: int | None = None,
-        end_line: int | None = None,
-        sheet_name: str | None = None,
-        start_page: int | None = None,
-        end_page: int | None = None,
-        encoding: str = "utf-8",
-    ):
-        """
-        Read a document file (spreadsheets, PDFs, images, CSVs, or other non-code files).
-
-        Use this to read documents. It supports:
-        - Spreadsheets (xlsx/xls): call without sheet_name to get a summary of sheets,
-          with sheet_name to get CSV content of that sheet (paginated by lines, hard limit: 50 lines per call)
-        - PDFs: renders pages as images, page-based pagination with start_page/end_page (hard limit: 3 pages per call)
-        - Images: returns the image data for visual inspection
-        - Other files: reads as text with line-based pagination (hard limit: 50 lines per call)
-
-        For reading project code files, use read_file_with_pagination instead.
-
-        Args:
-            file (str): Relative path to the file from the project root directory.
-                Should include the file extension.
-            start_line (Optional[int]): 1-indexed line number for text/spreadsheet pagination.
-                If None, starts from the beginning. Defaults to None.
-            end_line (Optional[int]): 1-indexed end line for text/spreadsheet pagination.
-                Hard limit: 50 lines per call.
-            sheet_name (Optional[str]): Sheet name for xlsx/xls files. Omit to get summary.
-            start_page (Optional[int]): 1-indexed start page for PDFs.
-                If None, starts from page 1. Defaults to None.
-            end_page (Optional[int]): 1-indexed end page for PDFs.
-                Hard limit: 3 pages per call.
-            encoding (str): File encoding. Defaults to "utf-8".
-
-        Copywritings:
-            Read document
-            Reading document...
-            Reading {file}...
-        """
-        file_path = Settings.root_path.joinpath(file)
-
-        if not file_path.exists():
-            return {"error": f"File not found at path: {file}"}
-
-        suffix = file_path.suffix.lower()
-
-        if suffix in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
-            return self._read_image_file(file_path)
-        elif suffix in (".xlsx", ".xls"):
-            return self._read_spreadsheet_file(
-                file_path, sheet_name, start_line, end_line
-            )
-        elif suffix == ".pdf":
-            return self._read_pdf_file(file_path, start_page, end_page)
-        else:
-            return self._read_file_lines_with_pagination(
-                file_path, start_line, end_line, HARD_MAX_LINES, encoding
-            )
 
     def check_file_exists(self, file_path: str):
         """
@@ -1646,6 +1389,7 @@ class MainController:
                 f.write(code_content)
             safe_track_edit(target_file)
             move(str(temp_file), target_file)
+            temp_file.parent.rmdir()
 
         if test_data := changes.pop("test_data", None):
             self.write_test_data(test_data)
@@ -2802,14 +2546,27 @@ class MainController:
             result["error"] = error
         return result
 
-    def execute_code_snippet(self, code: str, title: str = "Debug Snippet"):
+    def execute_code_snippet(
+        self,
+        code: str,
+        title: str = "Debug Snippet",
+        requirements: list[str] | None = None,
+    ):
         """Run a Python code snippet immediately in the project's runtime environment.
 
         Use for: testing code before writing to files, debugging, running one-off queries,
         verifying API connections, or any auxiliary task.
 
-        The snippet runs with full access to installed packages and project files.
+        The snippet can read the project's own files and installed packages.
         Use print() statements for output — the return value is the captured stdout/stderr.
+
+        If the snippet needs libraries the project doesn't already have (e.g. a
+        parser for a file the user uploaded), pass them in `requirements` (e.g.
+        ["openpyxl", "pandas==2.2.3"]). They are installed into an isolated Smart
+        Chat environment scoped to snippets — they do NOT modify the project's
+        requirements.txt and never ship to production. Use
+        `add_and_install_requirement` only when the user's project genuinely needs
+        a dependency at runtime.
 
         After testing, use the MCP file tools to write the working code to a stage file.
 
@@ -2819,7 +2576,9 @@ class MainController:
         """
         from abstra_internals.repositories.models import RunSnippetMessage
 
-        message = RunSnippetMessage.create(code=code, title=title)
+        message = RunSnippetMessage.create(
+            code=code, title=title, requirements=requirements
+        )
         conn = self.repositories.producer.enqueue_control(message)
 
         try:
@@ -2925,16 +2684,17 @@ class MainController:
 
         flat_issues = []
         for check in checks:
-            if type and check.type != type:
-                continue
             if compiled_pattern and not compiled_pattern.search(check.name):
                 continue
             for issue in check.issues:
+                if type and issue.type != type:
+                    continue
                 flat_issues.append(
                     {
                         "rule_name": check.name,
                         "rule_label": check.label,
-                        "type": check.type,
+                        "type": issue.type,
+                        "issue_title": issue.make_title(),
                         "issue_label": issue.make_label(),
                         "fixes": [fix.name for fix in issue.fixes],
                     }

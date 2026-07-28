@@ -1,6 +1,6 @@
 [project]
 name = "tidy3d"
-version = "2.11.2"
+version = "2.12.0"
 description = "A fast FDTD solver"
 readme = "README.md"
 requires-python = ">=3.10,<3.15"
@@ -22,27 +22,29 @@ dependencies = [
   "h5netcdf>=1.0.2,<2.0.0",
   "h5py>=3.0.0,<3.17; python_version < '3.14'",
   "h5py>=3.16.0,<3.17; python_version >= '3.14'",
-  "rich>=13.0,<15.0",
+  "rich>=13.0,<16.0",
   "numpy>=2.2.6,<2.5.0",
   "matplotlib>=3.10.0,<4.0.0",
-  "shapely>=2.0,<3.0",
+  "shapely>=2.1.0,<3.0",
   "pandas>=2.2,<4.0",
   "pydantic>=2.10.3,<3",
   "pydantic-settings>=2.10.0,<3.0.0",
   "PyYAML>=6.0.3,<7.0.0",
   "dask>=2025.12.0,<2027.0.0",
   "toml>=0.10.2,<0.11.0",
-  "tomlkit>=0.13.2,<0.15.0",
+  "tomlkit>=0.13.2,<0.16.0",
   "autograd>=1.7.0,<2.0.0",
-  "scipy>=1.14,<2.0",
+  "scipy>=1.14,<2.0,!=1.15.0,!=1.15.1,!=1.15.2",
   "boto3>=1.28.0,<2.0.0",
   "requests>=2.31.0,<3.0.0",
   "pyjwt>=2.10.1,<3.0.0",
+  "cryptography==48.0.1; platform_system == 'Darwin' and platform_machine == 'x86_64'",
   "click>=8.1.0,<9.0.0",
   "responses>=0.25.8,<0.27.0",
   "joblib>=1.5.3,<2.0.0",
   "typing-extensions>=4.15.0,<5.0.0",
   "filelock>=3.20.1,<4.0.0",
+  "fastmcp>=3.4.4,<4",
 ]
 
 [project.urls]
@@ -54,10 +56,12 @@ Documentation = "https://docs.flexcompute.com/projects/tidy3d/en/latest/"
 [project.optional-dependencies]
 dev = [
   "bayesian-optimization>=2.0.0,<4.0.0",
+  "colour-science>=0.4.7,<0.5.0; python_version >= '3.11'",
   "coverage>=7.13.1,<8.0.0",
   "dill>=0.4.0,<0.5.0",
   "gdstk>=0.9.49,<1.1",
   "grcwa>=0.1.2,<0.2.0",
+  "hvplot>=0.12.0,<1.0.0",
   "ipython>=8.38.0,<9.0.0",
   "torch>=2.2.0,<3.0.0; sys_platform == 'darwin'",
   "torch>=2.2.0,<3.0.0; sys_platform != 'darwin'",
@@ -65,28 +69,25 @@ dev = [
   "jupyter>=1.1.1,<2.0.0",
   "myst-parser>=4.0.1,<5.0.0",
   "memory_profiler>=0.61.0,<0.62.0",
-  "mypy==1.13.0",
   "nbconvert>=7.17.0,<8.0.0",
   "nbdime>=4.0.2,<5.0.0",
   "nbsphinx>=0.8.7,<0.10.0",
-  "networkx>=2.6.3,<3.0.0",
-  "optax>=0.2.2,<0.3.0",
-  "orbax-checkpoint<0.11.33",
+  "networkx>=2.6.3,<4.0.0",
   "psutil>=7.2.1,<8.0.0",
   "pre-commit>=4,<5",
-  "pydata-sphinx-theme>=0.13.3,<0.16.0",
-  "pygad==3.3.1",
+  "pyrefly==1.1.1",
+  "pydata-sphinx-theme>=0.13.3,<0.20.0",
+  "pygad==3.7.0",
   "pylint>=4.0.4,<5.0.0",
   "pyswarms>=1.3.0,<2.0.0",
   "pytest>=8.1,<10.0.0",
   "pytest-timeout>=2.4.0,<3.0.0",
   "pytest-xdist>=3.6.1,<4.0.0",
-  "pytest-cov>=6.0.0,<7.0.0",
+  "pytest-cov>=6.0.0,<8.0.0",
   "pytest-env>=1.1.5,<2.0.0",
   "pytest-testmon>=2.1.3,<3.0.0",
-  "rtree==1.2.0",
+  "rtree==1.4.1",
   "ruff==0.14.1",
-  "sax>=0.11,<0.12",
   "signac>=2.3.0,<3.0.0",
   "sphinx>=6,<9.0.0",
   "sphinx-book-theme>=1.0.1,<2.0.0",
@@ -101,12 +102,13 @@ dev = [
   "tox>=4.33.0,<5.0.0",
   "towncrier>=25.8.0,<26.0.0",
   "trimesh>=4.6,<5.0.0",
-  "scikit-rf>=1.9.0,<2.0.0",
+  "scikit-rf>=1.9.0,<3.0.0",
   "vtk>=9.6.0,<10.0.0",
-  "pyvista>=0.45,<0.48.0",
+  "pyvista[jupyter]>=0.45,<0.48.0",
+  "jupyter-bokeh>=4.0.5,<5.0.0",
   "trame>=3.0.0,<4.0.0",
   "trame-vtk>=2.0.0,<3.0.0",
-  "trame-vuetify>=2.0.0,<3.0.0",
+  "trame-vuetify>=2.0.0,<4.0.0",
   "nest-asyncio>=1.6.0,<2.0.0",
   "cma>=4.4.1,<5.0.0",
   "diff-cover>=10.1.0,<11.0.0",
@@ -115,7 +117,6 @@ dev = [
   "libcst>=1.5.0,<2.0.0",
 ]
 tests = [
-  "orbax-checkpoint<0.11.33",
   "psutil>=7.2.1,<8.0.0",
   "pre-commit>=4,<5",
   "pylint>=4.0.4,<5.0.0",
@@ -123,14 +124,13 @@ tests = [
   "pytest-timeout>=2.4.0,<3.0.0",
   "pytest-xdist>=3.6.1,<4.0.0",
   "pytest-env>=1.1.5,<2.0.0",
-  "pytest-cov>=6.0.0,<7.0.0",
+  "pytest-cov>=6.0.0,<8.0.0",
   "pytest-testmon>=2.1.3,<3.0.0",
   "trimesh>=4.6,<5.0.0",
-  "networkx>=2.6.3,<3.0.0",
-  "rtree==1.2.0",
+  "networkx>=2.6.3,<4.0.0",
+  "rtree==1.4.1",
 ]
 docs = [
-  "orbax-checkpoint<0.11.33",
   "jupyter>=1.1.1,<2.0.0",
   "jinja2>=3.1.2,<4.0.0",
   "nbconvert>=7.17.0,<8.0.0",
@@ -141,16 +141,14 @@ docs = [
   "sphinx-copybutton>=0.5.2,<0.6.0",
   "sphinx-favicon>=1.0.1,<2.0.0",
   "sphinx-book-theme>=1.0.1,<2.0.0",
-  "pydata-sphinx-theme>=0.13.3,<0.16.0",
+  "pydata-sphinx-theme>=0.13.3,<0.20.0",
   "tmm>=0.2.0,<0.3.0",
   "gdstk>=0.9.49,<1.1",
   "grcwa>=0.1.2,<0.2.0",
   "sphinx-sitemap>=2.5.1,<3.0.0",
   "sphinx-notfound-page>=1.1.0,<2.0.0",
   "nbdime>=4.0.2,<5.0.0",
-  "optax>=0.2.2,<0.3.0",
   "signac>=2.3.0,<3.0.0",
-  "sax>=0.11,<0.12",
   "pylint>=4.0.4,<5.0.0",
   "sphinx-tabs>=3.4.7,<4.0.0",
   "sphinxemoji>=0.3.2,<0.4.0",
@@ -159,11 +157,11 @@ docs = [
   "openpyxl>=3.1.5,<4.0.0",
 ]
 gdstk = ["gdstk>=0.9.49,<1.1"]
-scikit-rf = ["scikit-rf>=1.9.0,<2.0.0"]
+scikit-rf = ["scikit-rf>=1.9.0,<3.0.0"]
 trimesh = [
   "trimesh>=4.6,<5.0.0",
-  "networkx>=2.6.3,<3.0.0",
-  "rtree==1.2.0",
+  "networkx>=2.6.3,<4.0.0",
+  "rtree==1.4.1",
 ]
 vtk = ["vtk>=9.6.0,<10.0.0"]
 pyvista = [
@@ -171,14 +169,14 @@ pyvista = [
   "vtk>=9.6.0,<10.0.0",
   "trame>=3.0.0,<4.0.0",
   "trame-vtk>=2.0.0,<3.0.0",
-  "trame-vuetify>=2.0.0,<3.0.0",
+  "trame-vuetify>=2.0.0,<4.0.0",
   "nest-asyncio>=1.6.0,<2.0.0",
 ]
 ruff = ["ruff==0.14.1"]
 heatcharge = [
   "trimesh>=4.6,<5.0.0",
-  "networkx>=2.6.3,<3.0.0",
-  "rtree==1.2.0",
+  "networkx>=2.6.3,<4.0.0",
+  "rtree==1.4.1",
   "vtk>=9.6.0,<10.0.0",
 ]
 pytorch = [
@@ -187,10 +185,10 @@ pytorch = [
 ]
 design = [
   "bayesian-optimization>=2.0.0,<4.0.0",
-  "pygad==3.3.1",
+  "pygad==3.7.0",
   "pyswarms>=1.3.0,<2.0.0",
 ]
-extras = ["tidy3d-extras==2.11.2"]
+extras = ["tidy3d-extras==2.12.0"]
 
 [project.scripts]
 tidy3d = "tidy3d.web.cli:tidy3d_cli"
@@ -270,7 +268,7 @@ packages = ["tidy3d"]
 [tool.ruff]
 target-version = "py310"
 line-length = 100
-extend-exclude = ["docs/faq/", "docs/notebooks/"]
+extend-exclude = ["docs/faq/"]
 
 [tool.ruff.lint]
 extend-select = [
@@ -325,9 +323,8 @@ banned-module-level-imports = ["scipy", "matplotlib"]
 ]
 
 [tool.pytest.ini_options]
-# TODO: remove --assert=plain when https://github.com/scipy/scipy/issues/22236 is resolved
 addopts = """
---cov=tidy3d --doctest-modules -n auto --dist worksteal --assert=plain -m 'not numerical and not perf and not generate_profile and not performance_profile'
+--cov=tidy3d --doctest-modules -n auto --dist worksteal -m 'not numerical and not perf and not generate_profile and not performance_profile'
 """
 markers = [
   "numerical: marks numerical tests for adjoint gradients that require running simulations (deselect with '-m \"not numerical\"')",
@@ -346,35 +343,31 @@ norecursedirs = [
   "tests/_test_notebooks",
   "tests/_test_tidy3d_extras",
   "tidy3d/web",
-  "docs/notebooks",
   "docs/faq",
 ]
 filterwarnings = "ignore::DeprecationWarning"
 testpaths = ["tidy3d", "tests", "docs"]
 python_files = "*.py"
 
-[tool.mypy]
-python_version = "3.10"
-files = [
-  "tidy3d",
-]
-ignore_missing_imports = true
-follow_imports = "skip"
-disallow_untyped_defs = true
-disable_error_code = [
-  "arg-type",
-  "assignment",
-  "attr-defined",
-  "call-arg",
-  "call-overload",
-  "import-untyped",
-  "index",
-  "misc",
-  "operator",
-  "override",
-  "return-value",
-  "union-attr",
-  "valid-type",
-  "var-annotated",
-]
-enable_error_code = ["no-untyped-def"]
+[tool.pyrefly]
+project-includes = ["tidy3d"]
+python-version = "3.10.0"
+preset = "off"
+ignore-missing-imports = ["*"]
+
+[tool.pyrefly.errors]
+implicit-any-parameter = "error"
+unannotated-return = "error"
+deprecated = "error"
+redundant-cast = "error"
+redundant-condition = "error"
+invalid-literal = "error"
+unnecessary-type-conversion = "error"
+bad-raise = "error"
+bad-keyword-argument = "error"
+invalid-syntax = "error"
+implicit-any-attribute = "error"
+invalid-argument = "error"
+implicitly-defined-attribute = "error"
+bad-override-param-name = "error"
+not-required-key-access = "error"

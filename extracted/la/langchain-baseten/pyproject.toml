@@ -19,11 +19,11 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-version = "0.2.1"
+version = "0.2.3"
 requires-python = ">=3.10.0,<4.0.0"
 dependencies = [
-    "langchain-core>=1.2.18,<2.0.0",
-    "langchain-openai>=1.1.11,<2.0.0",
+    "langchain-core>=1.5.1,<2.0.0",
+    "langchain-openai>=1.4.1,<2.0.0",
     "baseten-performance-client>=0.0.11",
 ]
 

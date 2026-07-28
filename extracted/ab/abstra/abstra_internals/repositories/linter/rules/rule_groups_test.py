@@ -3,12 +3,21 @@ from unittest.mock import patch
 
 from abstra_internals.controllers.codebase_events import CodebaseEventController
 from abstra_internals.repositories.linter.models import (
+    LinterCheck,
     LinterIssue,
     LinterRule,
     PathScopedLinterRule,
     linter_path_key,
 )
-from abstra_internals.repositories.linter.repository import LocalLinterRepository
+from abstra_internals.repositories.linter.repository import (
+    RUN_FAILED,
+    RUN_NEVER,
+    RUN_RUNNING,
+    RUN_SUCCESS,
+    LinterRunGate,
+    LocalLinterRepository,
+    check_is_blocking,
+)
 from abstra_internals.repositories.linter.rules import (
     rules,
     run_after_abstra_json_change,
@@ -211,6 +220,8 @@ class _FakeScopedRule(PathScopedLinterRule):
     def _issue(self, label, path_key):
         issue = LinterIssue()
         issue.label = label
+        issue.title = label
+        issue.type = "warning"
         issue.fixes = []
         issue.path = path_key
         return issue
@@ -376,3 +387,237 @@ class ScheduleLintScopeAccumulationTest(BaseTest):
             self._cls._schedule_lint(rules=run_after_py_change, scope=Path("b.py"))
             name = run_after_py_change[0].name
             self.assertIsNone(self._cls._pending_scopes[name])
+
+
+class ScheduleLintGateWindowTest(BaseTest):
+    """_schedule_lint opens one gate window per debounce batch (a single pend,
+    however many events coalesce) and _run_pending_lint closes it only after
+    every partitioned group ran — so the deploy gate can never observe a
+    settled SUCCESS produced by an older pass while scheduled work remains."""
+
+    def setUp(self):
+        super().setUp()
+        self._cls = CodebaseEventController
+        self._cls.configure(self.controller.repositories, controller_driven=True)
+        self.repos = self.controller.repositories
+        self.gate = self.repos.linter.run_gate
+
+    def tearDown(self):
+        if self._cls._lint_timer is not None:
+            self._cls._lint_timer.cancel()
+            self._cls._lint_timer = None
+        self._cls._pending_rules = {}
+        self._cls._pending_scopes = {}
+        self._cls._pending_full = False
+        self._cls._controller_driven = False
+        self._cls._repositories = None
+        super().tearDown()
+
+    def _drain(self, **update_patches):
+        from abstra_internals.controllers.linter_events import LinterEventController
+
+        with patch.multiple(self.repos.linter, **update_patches):
+            with patch.object(LinterEventController, "broadcast"):
+                self._cls._run_pending_lint()
+
+    def test_coalesced_schedules_pend_once_and_resolve_after_run(self):
+        with patch.object(self._cls, "_run_pending_lint"):
+            self._cls._schedule_lint(rules=run_after_py_change, scope=Path("a.py"))
+            self._cls._schedule_lint(rules=run_after_py_change, scope=Path("b.py"))
+        self.assertFalse(self.gate.wait_settled(0))  # window open while debouncing
+        self._drain(update_specific_checks=lambda *a, **k: [])
+        # A second pend for the same window would leave the gate stuck here.
+        self.assertTrue(self.gate.wait_settled(0))
+        self.assertEqual(self.gate.status, RUN_SUCCESS)
+
+    def test_unrelated_pass_completing_does_not_settle_open_window(self):
+        # Regression for the debounce clobber: an in-flight pass (started
+        # before the edit) completing must not settle the edit's window.
+        with patch.object(self._cls, "_run_pending_lint"):
+            self._cls._schedule_lint(rules=run_after_py_change, scope=Path("a.py"))
+        self.gate.mark_pending()
+        self.gate.mark_success()
+        self.assertFalse(self.gate.wait_settled(0))
+        self.assertEqual(self.gate.status, RUN_RUNNING)
+
+    def test_gate_not_settled_between_partitioned_groups(self):
+        from types import SimpleNamespace
+
+        settled_between_groups = []
+
+        def fake_update(target_rules, paths=None):
+            # What the real repository does around each call:
+            self.gate.mark_pending()
+            self.gate.mark_success()
+            settled_between_groups.append(self.gate.wait_settled(0))
+            return []
+
+        with patch.object(self._cls, "_run_pending_lint"):
+            self._cls._schedule_lint(
+                rules=[SimpleNamespace(name="A")], scope=Path("a.py")
+            )
+            self._cls._schedule_lint(rules=[SimpleNamespace(name="B")])
+        self._drain(update_specific_checks=fake_update)
+        # Two groups (unscoped + path-scoped); the window must stay open
+        # after each group's own pend/resolve cycle.
+        self.assertEqual(settled_between_groups, [False, False])
+        self.assertTrue(self.gate.wait_settled(0))
+        self.assertEqual(self.gate.status, RUN_SUCCESS)
+
+    def test_failed_run_settles_window_failed(self):
+        def boom(*args, **kwargs):
+            raise RuntimeError("rule stack exploded")
+
+        with patch.object(self._cls, "_run_pending_lint"):
+            self._cls._schedule_lint(rules=run_after_py_change, scope=Path("a.py"))
+        self._drain(update_specific_checks=boom)
+        self.assertTrue(self.gate.wait_settled(0))
+        self.assertEqual(self.gate.status, RUN_FAILED)
+
+
+class CheckIsBlockingTest(BaseTest):
+    """Blocking is purely per-issue: a check blocks if any of its issues is an
+    error. A failed check has no issues, so it blocks unconditionally (there is
+    no rule-level severity to classify a crash by)."""
+
+    def _issue(self, type_):
+        issue = LinterIssue()
+        issue.label = "x"
+        issue.title = "x"
+        issue.fixes = []
+        issue.type = type_
+        return issue
+
+    def _check(self, issues, status="ok"):
+        return LinterCheck(name="R", label="R", issues=issues, status=status)
+
+    def test_error_issue_blocks(self):
+        self.assertTrue(check_is_blocking(self._check([self._issue("error")])))
+
+    def test_warning_issue_does_not_block(self):
+        self.assertFalse(check_is_blocking(self._check([self._issue("warning")])))
+
+    def test_mixed_issues_block(self):
+        check = self._check([self._issue("warning"), self._issue("error")])
+        self.assertTrue(check_is_blocking(check))
+
+    def test_no_issues_does_not_block(self):
+        self.assertFalse(check_is_blocking(self._check([])))
+
+    def test_failed_check_always_blocks(self):
+        self.assertTrue(check_is_blocking(self._check([], status="failed")))
+
+
+class LinterRunGateTest(BaseTest):
+    def test_starts_never_run_and_settled(self):
+        gate = LinterRunGate()
+        self.assertEqual(gate.status, RUN_NEVER)
+        self.assertTrue(gate.wait_settled(0))
+
+    def test_pending_clears_settled(self):
+        gate = LinterRunGate()
+        gate.mark_pending()
+        self.assertEqual(gate.status, RUN_RUNNING)
+        self.assertFalse(gate.wait_settled(0.01))
+
+    def test_success_and_failed_resolve_settled(self):
+        gate = LinterRunGate()
+        gate.mark_pending()
+        gate.mark_success()
+        self.assertEqual(gate.status, RUN_SUCCESS)
+        self.assertTrue(gate.wait_settled(0))
+        gate.mark_pending()
+        gate.mark_failed()
+        self.assertEqual(gate.status, RUN_FAILED)
+        self.assertTrue(gate.wait_settled(0))
+
+    def test_waiter_wakes_when_pass_completes(self):
+        import threading
+
+        gate = LinterRunGate()
+        gate.mark_pending()
+        threading.Timer(0.05, gate.mark_success).start()
+        self.assertTrue(gate.wait_settled(2.0))
+        self.assertEqual(gate.status, RUN_SUCCESS)
+
+    def test_completing_pass_does_not_settle_while_another_is_pending(self):
+        # Regression: pending passes are counted. A pass completing while
+        # another is scheduled must not read as settled, or a deploy would
+        # trust a mirror that misses the newest edit.
+        gate = LinterRunGate()
+        gate.mark_pending()  # in-flight pass
+        gate.mark_pending()  # edit scheduled during it
+        gate.mark_success()  # in-flight pass completes first
+        self.assertFalse(gate.wait_settled(0))
+        self.assertEqual(gate.status, RUN_RUNNING)
+        gate.mark_success()  # scheduled pass completes
+        self.assertTrue(gate.wait_settled(0))
+        self.assertEqual(gate.status, RUN_SUCCESS)
+
+    def test_any_failure_in_window_settles_failed(self):
+        gate = LinterRunGate()
+        gate.mark_pending()
+        gate.mark_pending()
+        gate.mark_failed()
+        gate.mark_success()
+        self.assertTrue(gate.wait_settled(0))
+        self.assertEqual(gate.status, RUN_FAILED)
+
+    def test_failed_window_is_not_sticky(self):
+        gate = LinterRunGate()
+        gate.mark_pending()
+        gate.mark_failed()
+        gate.mark_pending()
+        gate.mark_success()
+        self.assertTrue(gate.wait_settled(0))
+        self.assertEqual(gate.status, RUN_SUCCESS)
+
+
+class DeployGateStateTest(BaseTest):
+    """The deploy gate trusts a fresh SUCCESS mirror, waits out a pending pass,
+    and only re-lints when the last pass failed or never ran."""
+
+    def _check(self):
+        return LinterCheck(name="R", label="R", issues=[])
+
+    def test_success_trusts_mirror_without_rerun(self):
+        repo = LocalLinterRepository()
+        repo.checks = [self._check()]
+        repo.run_gate.mark_success()
+        with patch.object(repo, "_run_rules") as spy:
+            repo.get_blocking_checks_for_deploy()
+            spy.assert_not_called()
+
+    def test_failed_reruns(self):
+        repo = LocalLinterRepository()
+        repo.checks = [self._check()]
+        repo.run_gate.mark_failed()
+        with patch.object(repo, "_run_rules") as spy:
+            repo.get_blocking_checks_for_deploy()
+            spy.assert_called_once()
+
+    def test_never_run_reruns(self):
+        repo = LocalLinterRepository()
+        with patch.object(repo, "_run_rules") as spy:
+            repo.get_blocking_checks_for_deploy()
+            spy.assert_called_once()
+
+    def test_success_but_empty_mirror_reruns(self):
+        repo = LocalLinterRepository()
+        repo.run_gate.mark_success()
+        with patch.object(repo, "_run_rules") as spy:
+            repo.get_blocking_checks_for_deploy()
+            spy.assert_called_once()
+
+    def test_pending_pass_is_awaited_then_trusted(self):
+        import threading
+
+        repo = LocalLinterRepository()
+        repo.checks = [self._check()]
+        repo.run_gate.mark_pending()
+        # A concurrent pass completes shortly after; deploy must wait for it and
+        # then trust the mirror rather than re-linting.
+        threading.Timer(0.05, repo.run_gate.mark_success).start()
+        with patch.object(repo, "_run_rules") as spy:
+            repo.get_blocking_checks_for_deploy()
+            spy.assert_not_called()

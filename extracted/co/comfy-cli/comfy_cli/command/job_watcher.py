@@ -140,9 +140,16 @@ def watch_job(
 def _poll_local_once(state: jobs_state.JobState, *, host: str | None, port: int | None) -> bool:
     """Update ``state`` in-place from a local ComfyUI server. Return True if terminal."""
     from comfy_cli.command import jobs as jobs_module
+    from comfy_cli.local_address import resolve_local_host_port
 
-    h = host or state.host or "127.0.0.1"
-    p = port or state.port or 8188
+    # Per-job recorded state (state.host/port, captured when the job was
+    # submitted) still wins over the env var, so a watcher keeps polling the
+    # server it was launched against: flag > state > COMFY_LOCAL_URL > default.
+    h, p = resolve_local_host_port(host or state.host, port or state.port)
+    # Bracket IPv6 literals so ``_snapshot`` builds a well-formed URL (it takes
+    # an already-bracketed host, like the `jobs` resolver produces).
+    if ":" in h and not h.startswith("["):
+        h = f"[{h}]"
     try:
         snap = jobs_module._snapshot(h, p, state.prompt_id)
     except Exception as e:  # noqa: BLE001 — never crash the watcher on transient errors
@@ -214,7 +221,7 @@ def _poll_cloud_once(state: jobs_state.JobState, *, client: Any = None) -> bool:
     state.status = _CLOUD_STATUS_MAP.get(raw, raw)
 
     if state.status == "completed":
-        # Cloud's /api/job/<id>/status sometimes includes outputs directly;
+        # Cloud's /api/jobs/<id> detail response sometimes includes outputs directly;
         # if not, fetch from history. Match the snapshot logic in jobs.py.
         outputs = record.get("outputs")
         if isinstance(outputs, list) and outputs:

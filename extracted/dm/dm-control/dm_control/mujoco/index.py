@@ -219,10 +219,16 @@ def _get_size_name_to_element_names(model):
   # For example, the element names for "nv" axis come from "njnt".
   for size_name, address_field_name in _RAGGED_ADDRS.items():
     donor = 'n' + address_field_name.split('_')[0]
-    if donor == 'nactuator':
-      donor = 'nu'
     if donor in size_name_to_element_names:
       size_name_to_element_names[size_name] = size_name_to_element_names[donor]
+
+  # nu (controls) and nout (force outputs) inherit actuator names from
+  # nactuator. For SISO models nu == nactuator == nout; for MIMO models this
+  # gives each control/output the name of its owning actuator.
+  if 'nactuator' in size_name_to_element_names:
+    for alias in ('nu', 'nout'):
+      size_name_to_element_names[alias] = (
+          size_name_to_element_names['nactuator'])
 
   # Mocap bodies are a special subset of bodies.
   mocap_body_names = [None] * model.nmocap

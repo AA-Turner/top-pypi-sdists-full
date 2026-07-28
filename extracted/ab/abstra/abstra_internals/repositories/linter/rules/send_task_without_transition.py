@@ -16,6 +16,10 @@ from abstra_internals.utils.ast_cache import ASTCache
 
 
 class SendTaskWithoutTransitionFound(LinterIssue):
+    title = "send_task calls should have a matching transition"
+    type = "warning"
+    fix_with_ai = True
+
     def __init__(
         self,
         task_type: str,
@@ -33,8 +37,6 @@ class SendTaskWithoutTransitionFound(LinterIssue):
 
 class SendTaskWithoutTransition(PathScopedLinterRule):
     label: str = "send_task calls should have a matching transition"
-    type: str = "warning"
-    fix_with_ai: bool = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         project = (current_lint_context() or LintContext()).project

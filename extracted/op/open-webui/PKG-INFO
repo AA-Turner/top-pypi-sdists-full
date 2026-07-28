@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: open-webui
-Version: 0.10.2
+Version: 0.11.0
 Summary: Open WebUI
 Author-email: Timothy Jaeryang Baek <tim@openwebui.com>
 License: Open WebUI License
@@ -67,6 +67,7 @@ Classifier: Topic :: Multimedia
 Requires-Python: <3.13.0a1,>=3.11
 Requires-Dist: accelerate==1.13.0
 Requires-Dist: aiocache==0.12.3
+Requires-Dist: aiodns==4.0.4
 Requires-Dist: aiofiles==25.1.0
 Requires-Dist: aiohttp==3.13.5
 Requires-Dist: aiosqlite==0.22.1
@@ -103,14 +104,17 @@ Requires-Dist: google-auth-oauthlib==1.4.0
 Requires-Dist: google-cloud-storage==3.9.0
 Requires-Dist: google-genai==1.66.0
 Requires-Dist: googleapis-common-protos==1.75.0
+Requires-Dist: hiredis==3.4.0
 Requires-Dist: httpx[brotli,cli,http2,socks,zstd]==0.28.1
 Requires-Dist: itsdangerous==2.2.0
+Requires-Dist: joserfc==1.7.4
 Requires-Dist: langchain-classic==1.0.7
 Requires-Dist: langchain-community==0.4.2
 Requires-Dist: langchain-text-splitters==1.1.2
 Requires-Dist: langchain==1.2.10
 Requires-Dist: ldap3==2.9.1
 Requires-Dist: loguru==0.7.3
+Requires-Dist: lxml==6.1.1
 Requires-Dist: markdown==3.10.2
 Requires-Dist: mcp==1.27.2
 Requires-Dist: msoffcrypto-tool==6.0.0
@@ -120,6 +124,7 @@ Requires-Dist: openai==2.29.0
 Requires-Dist: opencv-python-headless==4.13.0.92
 Requires-Dist: openpyxl==3.1.5
 Requires-Dist: opensearch-py==3.2.0
+Requires-Dist: orjson==3.11.9
 Requires-Dist: pandas==3.0.3
 Requires-Dist: pillow==12.2.0
 Requires-Dist: psutil==7.2.2
@@ -133,17 +138,17 @@ Requires-Dist: pymdown-extensions==10.21.3
 Requires-Dist: pymysql==1.2.0
 Requires-Dist: pypandoc==1.17
 Requires-Dist: pypdf==6.7.5
-Requires-Dist: python-jose==3.5.0
 Requires-Dist: python-mimeparse==2.0.0
-Requires-Dist: python-multipart==0.0.27
+Requires-Dist: python-multipart==0.0.32
 Requires-Dist: python-pptx==1.0.2
 Requires-Dist: python-socketio==5.16.2
 Requires-Dist: pytube==15.0.0
 Requires-Dist: pytz==2026.2
 Requires-Dist: pyxlsb==1.0.10
 Requires-Dist: rank-bm25==0.2.2
-Requires-Dist: rapidocr-onnxruntime==1.4.4
-Requires-Dist: redis==8.0.0
+Requires-Dist: rapidocr==3.9.2
+Requires-Dist: redis==8.0.1
+Requires-Dist: regex==2026.5.9
 Requires-Dist: requests==2.34.2
 Requires-Dist: restrictedpython==8.2
 Requires-Dist: sentence-transformers==5.5.1
@@ -154,7 +159,7 @@ Requires-Dist: starlette-compress==1.7.1
 Requires-Dist: starsessions[redis]==2.2.1
 Requires-Dist: tiktoken==0.13.0
 Requires-Dist: transformers==5.5.4
-Requires-Dist: uvicorn[standard]==0.41.0
+Requires-Dist: uvicorn[standard]==0.51.0
 Requires-Dist: validators==0.35.0
 Requires-Dist: xlrd==2.0.2
 Requires-Dist: youtube-transcript-api==1.2.4
@@ -163,7 +168,6 @@ Requires-Dist: azure-search-documents==12.0.0; extra == 'all'
 Requires-Dist: colbert-ai==0.2.22; extra == 'all'
 Requires-Dist: docker~=7.1.0; extra == 'all'
 Requires-Dist: elasticsearch==9.4.1; extra == 'all'
-Requires-Dist: gcp-storage-emulator>=2024.8.3; extra == 'all'
 Requires-Dist: moto[s3]>=5.0.26; extra == 'all'
 Requires-Dist: oracledb==3.4.2; extra == 'all'
 Requires-Dist: pgvector==0.4.2; extra == 'all'
@@ -173,7 +177,7 @@ Requires-Dist: psycopg2-binary==2.9.12; extra == 'all'
 Requires-Dist: pymilvus==2.6.14; extra == 'all'
 Requires-Dist: pymongo==4.17.0; extra == 'all'
 Requires-Dist: pytest-docker~=3.2.5; extra == 'all'
-Requires-Dist: pytest~=8.3.2; extra == 'all'
+Requires-Dist: pytest~=8.4.1; extra == 'all'
 Requires-Dist: qdrant-client==1.18.0; extra == 'all'
 Requires-Dist: unstructured==0.22.31; extra == 'all'
 Requires-Dist: weaviate-client==4.20.3; extra == 'all'
@@ -281,11 +285,9 @@ Want to learn more about Open WebUI's features? Check out our [Open WebUI docume
 
 Open WebUI is the core, surrounded by companion apps and infrastructure that extend what your AI can do, where it can reach, and how you run it:
 
-- ⚡ **Open Terminal** ([open-webui/open-terminal](https://github.com/open-webui/open-terminal)): A self-hosted computing environment that plugs into Open WebUI, giving the AI a place to write code, run it, read output, fix errors, and iterate inside the chat.
+- 💻 **Open WebUI Computer** ([open-webui/computer](https://github.com/open-webui/computer)): A standalone, mobile-first computer and coding agent that runs on the machine you own. Files, terminal, and git in a browser tab, reachable from your phone. Connect it into Open WebUI as a model, or reach it from Telegram, WhatsApp, and more.
 
-- 🔒 **Terminals** · Enterprise ([open-webui/terminals](https://github.com/open-webui/terminals)): Per-user isolated containers with separate credentials, resource limits, and network rules. Automatic lifecycle management on Docker or Kubernetes.
-
-- 💻 **cptr** ([open-webui/computer](https://github.com/open-webui/computer)): A standalone, mobile-first computer and coding agent that runs on the machine you own. Files, terminal, and git in a browser tab, reachable from your phone. Connect it into Open WebUI as a model, or reach it from Telegram, WhatsApp, and more.
+- ⚡ **Open Terminal** and **Terminals (Enterprise)** ([open-webui/open-terminal](https://github.com/open-webui/open-terminal) & [open-webui/terminals](https://github.com/open-webui/terminals)): A self-hosted computing environment that plugs into Open WebUI, giving the AI a place to write code, run it, read output, fix errors, and iterate inside the chat. Terminals gives you per-user isolated containers with separate credentials, resource limits, and network rules. Automatic lifecycle management on Docker or Kubernetes.
 
 - 🔄 **oikb** ([open-webui/oikb](https://github.com/open-webui/oikb)): Feed your Knowledge Bases from 45+ sources (GitHub, Confluence, ServiceNow, Salesforce, Jira, Slack, SharePoint, Notion, and more), keeping the tools your team already uses continuously in sync.
 

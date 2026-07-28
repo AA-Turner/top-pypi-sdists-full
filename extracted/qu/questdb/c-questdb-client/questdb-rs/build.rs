@@ -22,7 +22,7 @@
  *
  ******************************************************************************/
 
-#[cfg(feature = "json_tests")]
+#[cfg(feature = "json-tests")]
 pub mod json_tests {
     use indoc::indoc;
     use serde::{Deserialize, Serialize};
@@ -297,27 +297,58 @@ pub mod json_tests {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    #[cfg(not(any(feature = "tls-webpki-certs", feature = "tls-native-certs")))]
+    #[cfg(all(
+        any(
+            feature = "_sender-tcp",
+            feature = "_sender-http",
+            feature = "_sender-qwp-ws",
+            feature = "sync-reader-qwp-ws"
+        ),
+        not(any(feature = "tls-webpki-certs", feature = "tls-native-certs"))
+    ))]
     compile_error!(
         "At least one of `tls-webpki-certs` or `tls-native-certs` features must be enabled."
     );
 
-    #[cfg(not(any(feature = "_sender-tcp", feature = "_sender-http")))]
+    #[cfg(not(any(
+        feature = "_sender-tcp",
+        feature = "_sender-http",
+        feature = "_sender-qwp-udp",
+        feature = "_sender-qwp-ws",
+        feature = "sync-reader-qwp-ws"
+    )))]
     compile_error!(
-        "At least one of `sync-sender-tcp` or `sync-sender-http` features must be enabled"
+        "At least one of `sync-sender-tcp`, `sync-sender-http`, `sync-sender-qwp-udp`, `sync-sender-qwp-ws` or `sync-reader-qwp-ws` features must be enabled"
     );
 
-    #[cfg(not(any(feature = "aws-lc-crypto", feature = "ring-crypto")))]
+    #[cfg(all(
+        any(
+            feature = "_sender-tcp",
+            feature = "_sender-http",
+            feature = "_sender-qwp-ws",
+            feature = "sync-reader-qwp-ws"
+        ),
+        not(any(feature = "aws-lc-crypto", feature = "ring-crypto"))
+    ))]
     compile_error!(
         "You must enable exactly one of the `aws-lc-crypto` or `ring-crypto` features, but none are enabled."
     );
 
-    #[cfg(all(feature = "aws-lc-crypto", feature = "ring-crypto"))]
+    #[cfg(all(
+        any(
+            feature = "_sender-tcp",
+            feature = "_sender-http",
+            feature = "_sender-qwp-ws",
+            feature = "sync-reader-qwp-ws"
+        ),
+        feature = "aws-lc-crypto",
+        feature = "ring-crypto"
+    ))]
     compile_error!(
         "You must enable exactly one of the `aws-lc-crypto` or `ring-crypto` features, but both are enabled."
     );
 
-    #[cfg(feature = "json_tests")]
+    #[cfg(feature = "json-tests")]
     {
         println!("cargo:rerun-if-changed=build.rs");
         println!("cargo:rerun-if-changed=Cargo.lock");

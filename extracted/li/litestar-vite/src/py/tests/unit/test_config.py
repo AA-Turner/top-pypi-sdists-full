@@ -4,6 +4,7 @@ from typing import Any, cast
 import pytest
 
 from litestar_vite.config import (
+    JINJA_INSTALLED,
     DeployConfig,
     ExternalDevServer,
     PathConfig,
@@ -13,6 +14,7 @@ from litestar_vite.config import (
     ViteConfig,
 )
 from litestar_vite.config._inertia import InertiaConfig, InertiaSSRConfig
+from litestar_vite.config._runtime import _cached_resolve_proxy_mode
 from litestar_vite.executor import BunExecutor, NodeenvExecutor, NodeExecutor
 
 # C2 narrowed ViteConfig.mode to a Literal union; parametrize over `str` for
@@ -176,8 +178,6 @@ def test_resolve_proxy_mode_cached_by_env(monkeypatch: pytest.MonkeyPatch) -> No
     """Verify proxy-mode env parsing is cached by normalized value."""
     monkeypatch.setenv("VITE_PROXY_MODE", "vite")
 
-    from litestar_vite.config._runtime import _cached_resolve_proxy_mode
-
     _cached_resolve_proxy_mode.cache_clear()
 
     RuntimeConfig()
@@ -311,8 +311,6 @@ def test_mode_auto_detection_template_with_jinja(tmp_path: Path) -> None:
     config = ViteConfig(paths=PathConfig(resource_dir=resource_dir))
 
     # Should default to template if Jinja2 is available, otherwise spa
-    from litestar_vite.config import JINJA_INSTALLED
-
     if JINJA_INSTALLED:
         assert config.mode == "template"
     else:
@@ -977,13 +975,24 @@ def test_vite_config_aliases_normalize_to_canonical(input_mode: str, canonical_m
     assert config.mode == canonical_mode
 
 
-def test_vite_config_external_mode_with_dev_server_deprecates(recwarn: pytest.WarningsRecorder) -> None:
-    """mode='external' + external_dev_server: warns deprecation, normalizes to framework."""
+def test_vite_config_external_mode_with_dev_server_normalizes_silently(recwarn: pytest.WarningsRecorder) -> None:
+    """mode='external' is a permanent alias: normalizes to framework without warning."""
     config = ViteConfig(
         mode="external", runtime=RuntimeConfig(external_dev_server=ExternalDevServer(target="http://localhost:4200"))
     )
     assert config.mode == "framework"
-    assert any(issubclass(w.category, DeprecationWarning) for w in recwarn.list)
+    assert not [w for w in recwarn.list if issubclass(w.category, DeprecationWarning)]
+
+
+def test_vite_config_external_mode_matches_framework_with_dev_server() -> None:
+    """``mode='external'`` and ``mode='framework'`` are equivalent given the same dev server."""
+    dev_server = ExternalDevServer(target="http://localhost:4200")
+    external = ViteConfig(mode="external", runtime=RuntimeConfig(external_dev_server=dev_server))
+    framework = ViteConfig(mode="framework", runtime=RuntimeConfig(external_dev_server=dev_server))
+
+    assert external.mode == framework.mode == "framework"
+    assert external.runtime.external_dev_server == framework.runtime.external_dev_server
+    assert external.proxy_mode == framework.proxy_mode
 
 
 def test_vite_config_external_mode_without_dev_server_raises() -> None:

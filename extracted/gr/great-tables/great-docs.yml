@@ -3,14 +3,14 @@
 
 display_name: Great Tables
 
+# Site URL
+site_url: "https://posit-dev.github.io/great-tables/"
+
 # Docstring Parser
 parser: numpy
 
 # Dynamic Introspection
 dynamic: true
-
-# Site
-site_url: "https://posit-dev.github.io/great-tables/"
 
 # Logo
 logo:
@@ -99,8 +99,14 @@ reference:
         - GT.tab_spanner_delim
         - GT.tab_stub
         - GT.tab_stubhead
+        - GT.tab_stub_indent
         - GT.tab_footnote
         - GT.tab_source_note
+        - GT.rm_header
+        - GT.rm_stubhead
+        - GT.rm_spanners
+        - GT.rm_footnotes
+        - GT.rm_source_notes
         - GT.tab_style
         - GT.tab_options
 
@@ -117,6 +123,7 @@ reference:
         - GT.fmt_integer
         - GT.fmt_scientific
         - GT.fmt_engineering
+        - GT.fmt_number_si
         - GT.fmt_percent
         - GT.fmt_partsper
         - GT.fmt_currency
@@ -275,6 +282,7 @@ reference:
         - vals.fmt_integer
         - vals.fmt_scientific
         - vals.fmt_engineering
+        - vals.fmt_number_si
         - vals.fmt_percent
         - vals.fmt_partsper
         - vals.fmt_currency

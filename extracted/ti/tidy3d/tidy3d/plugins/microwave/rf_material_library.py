@@ -15,6 +15,7 @@ from tidy3d.components.medium import (
     SurfaceImpedanceFitterParam,
     SurfaceRoughnessType,
 )
+from tidy3d.components.types import TYPE_TAG_STR
 from tidy3d.constants import (
     CONDUCTIVITY,
     HERTZ,
@@ -202,12 +203,12 @@ class VariantItemFreqRangeDielectric(AbstractVariantItemFreqRange):
         if isinstance(self.eps_real, (list, tuple, np.ndarray)):
             eps_real_avg = float(np.mean(self.eps_real))
         else:
-            eps_real_avg = float(self.eps_real)
+            eps_real_avg = self.eps_real
 
         if isinstance(self.loss_tangent, (list, tuple, np.ndarray)):
             loss_tangent_avg = float(np.mean(self.loss_tangent))
         else:
-            loss_tangent_avg = float(self.loss_tangent)
+            loss_tangent_avg = self.loss_tangent
 
         log.warning(
             f"Requested frequency_range {frequency_range} is outside the stored "
@@ -270,6 +271,7 @@ class VariantItemFreqRangeMetal(AbstractVariantItemFreqRange):
 
     roughness: SurfaceRoughnessType | None = Field(
         None,
+        discriminator=TYPE_TAG_STR,
         title="Surface Roughness Model",
         description="Surface roughness model that applies a frequency-dependent scaling "
         "factor to surface impedance, accounting for increased losses at higher frequencies "

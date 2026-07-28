@@ -12,14 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import argparse
+import importlib.metadata as importlib_metadata
 import logging.config
-import sys
 from typing import Any, List, Tuple
-
-if sys.version_info >= (3, 10):
-    import importlib.metadata as importlib_metadata
-else:
-    import importlib_metadata
 
 import rich
 import rich.highlighter
@@ -76,15 +71,16 @@ def configure_output() -> None:
 
 def list_dependencies_and_versions() -> List[Tuple[str, str]]:
     deps = [
-        "keyring",  # optional for non-desktop use
-        "packaging",
+        "readme-renderer",
         "requests",
         "requests-toolbelt",
         "urllib3",
+        "keyring",  # optional for non-desktop use
+        "rfc3986",
+        "rich",
+        "packaging",
         "id",
     ]
-    if sys.version_info < (3, 10):
-        deps.append("importlib-metadata")
 
     result: List[Tuple[str, str]] = []
     for dep in deps:

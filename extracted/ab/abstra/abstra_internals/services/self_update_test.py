@@ -9,11 +9,15 @@ from unittest import mock
 from abstra_internals.services.self_update import (
     SHIM_MARKER_ENV,
     VERSIONS_DIRNAME,
-    current_pointer,
+    activate_pending_update,
     flip,
+    get_current_pointer,
+    get_pending_version,
     perform_staged_update,
     prune,
     stage,
+    stage_and_prune_locked,
+    try_update_lock,
 )
 
 PY_TAG = f"{sys.version_info.major}.{sys.version_info.minor}"
@@ -123,7 +127,7 @@ class TestFlip(SlotTestBase):
 
         previous = flip(self.userbase, slot)
 
-        pointer = current_pointer(self.userbase)
+        pointer = get_current_pointer(self.userbase)
         self.assertIsNone(previous)
         self.assertTrue(pointer.is_symlink())
         self.assertEqual(
@@ -140,12 +144,12 @@ class TestFlip(SlotTestBase):
 
         self.assertEqual(previous, slot_a)
         self.assertEqual(
-            Path(os.readlink(current_pointer(self.userbase))).parents[2], slot_b
+            Path(os.readlink(get_current_pointer(self.userbase))).parents[2], slot_b
         )
 
     def test_overwrites_leftover_tmp_symlink(self):
         slot = make_slot(self.userbase, "1.0.0")
-        pointer = current_pointer(self.userbase)
+        pointer = get_current_pointer(self.userbase)
         tmp_link = pointer.with_name(pointer.name + ".tmp")
         os.symlink(self.userbase / "stale-target", tmp_link)
 
@@ -203,7 +207,7 @@ class TestPerformStagedUpdate(SlotTestBase):
 
         new_slot = self.userbase / VERSIONS_DIRNAME / "2.0.0"
         self.assertEqual(
-            Path(os.readlink(current_pointer(self.userbase))).parents[2], new_slot
+            Path(os.readlink(get_current_pointer(self.userbase))).parents[2], new_slot
         )
         # Previous slot is kept for cheap rollback; older ones are pruned.
         self.assertTrue(previous.is_dir())
@@ -223,7 +227,7 @@ class TestPerformStagedUpdate(SlotTestBase):
                     perform_staged_update("2.0.0")
 
         self.assertEqual(
-            Path(os.readlink(current_pointer(self.userbase))).parents[2], active
+            Path(os.readlink(get_current_pointer(self.userbase))).parents[2], active
         )
         self.assertTrue(active.is_dir())
 
@@ -231,8 +235,141 @@ class TestPerformStagedUpdate(SlotTestBase):
 class TestPointerLayout(SlotTestBase):
     def test_pointer_name_encodes_python_minor_version(self):
         self.assertEqual(
-            current_pointer(self.userbase).name, f"abstra-current-py{PY_TAG}"
+            get_current_pointer(self.userbase).name, f"abstra-current-py{PY_TAG}"
         )
+
+
+class TestPendingVersion(SlotTestBase):
+    def test_none_without_slots(self):
+        self.assertIsNone(get_pending_version(self.userbase))
+
+    def test_slot_without_pointer_is_pending(self):
+        # Never-flipped (first update): a staged slot with no pointer is pending.
+        make_slot(self.userbase, "3.31.14")
+        self.assertEqual(get_pending_version(self.userbase), "3.31.14")
+
+    def test_none_when_pointer_at_newest(self):
+        slot = make_slot(self.userbase, "3.31.14")
+        flip(self.userbase, slot)
+        self.assertIsNone(get_pending_version(self.userbase))
+
+    def test_newest_slot_beyond_pointer_is_pending(self):
+        active = make_slot(self.userbase, "3.31.13")
+        flip(self.userbase, active)
+        make_slot(self.userbase, "3.31.14")  # staged, not flipped
+        self.assertEqual(get_pending_version(self.userbase), "3.31.14")
+
+    def test_compares_by_version_not_lexicographically(self):
+        active = make_slot(self.userbase, "3.9.0")
+        flip(self.userbase, active)
+        make_slot(self.userbase, "3.31.14")
+        # "3.31.14" < "3.9.0" as strings, but 3.31.14 is the newer version.
+        self.assertEqual(get_pending_version(self.userbase), "3.31.14")
+
+    def test_ignores_staging_dirs(self):
+        (self.userbase / VERSIONS_DIRNAME / ".staging-3.31.14").mkdir(parents=True)
+        self.assertIsNone(get_pending_version(self.userbase))
+
+
+class TestActivatePendingUpdate(SlotTestBase):
+    def test_flips_pending_and_returns_version(self):
+        active = make_slot(self.userbase, "3.31.13")
+        flip(self.userbase, active)
+        make_slot(self.userbase, "3.31.14")
+
+        env = {SHIM_MARKER_ENV: "1", "PYTHONUSERBASE": str(self.userbase)}
+        with mock.patch.dict(os.environ, env):
+            activated = activate_pending_update()
+
+        self.assertEqual(activated, "3.31.14")
+        pointed = Path(os.readlink(get_current_pointer(self.userbase))).parents[2]
+        self.assertEqual(pointed, self.userbase / VERSIONS_DIRNAME / "3.31.14")
+        # Previous kept for rollback; nothing older to prune here.
+        self.assertTrue((self.userbase / VERSIONS_DIRNAME / "3.31.13").is_dir())
+
+    def test_noop_when_nothing_pending(self):
+        active = make_slot(self.userbase, "3.31.14")
+        flip(self.userbase, active)
+
+        env = {SHIM_MARKER_ENV: "1", "PYTHONUSERBASE": str(self.userbase)}
+        with mock.patch.dict(os.environ, env):
+            self.assertIsNone(activate_pending_update())
+
+    def test_none_without_userbase(self):
+        env = {k: v for k, v in os.environ.items() if k != "PYTHONUSERBASE"}
+        with mock.patch.dict(os.environ, env, clear=True):
+            self.assertIsNone(activate_pending_update())
+
+
+class TestStageAndPruneLocked(SlotTestBase):
+    def test_stages_and_keeps_active_and_new_pruning_intermediate(self):
+        # Running X (a slot the pointer targets), X+1 staged but not flipped;
+        # staging X+2 must delete X+1 and keep BOTH the active X and the new X+2.
+        active = make_slot(self.userbase, "3.31.13")
+        flip(self.userbase, active)
+        make_slot(self.userbase, "3.31.14")  # intermediate, never activated
+
+        recorded = []
+        with mock.patch(CHECK_CALL_TARGET, side_effect=fake_pip_install(recorded)):
+            staged = stage_and_prune_locked(self.userbase, "3.31.15")
+
+        self.assertTrue(staged)
+        versions = self.userbase / VERSIONS_DIRNAME
+        self.assertTrue((versions / "3.31.13").is_dir())  # active kept
+        self.assertTrue((versions / "3.31.15").is_dir())  # new kept
+        self.assertFalse((versions / "3.31.14").exists())  # intermediate pruned
+        # It does NOT flip: the pointer still targets the active version.
+        self.assertEqual(
+            Path(os.readlink(get_current_pointer(self.userbase))).parents[2], active
+        )
+
+    def test_keeps_new_only_when_no_active_pointer(self):
+        # Running X from /packages (no pointer). X isn't a slot; staging X+2 with
+        # an intermediate X+1 present prunes X+1, keeps only the new slot.
+        make_slot(self.userbase, "3.31.14")  # intermediate staged, no pointer
+
+        recorded = []
+        with mock.patch(CHECK_CALL_TARGET, side_effect=fake_pip_install(recorded)):
+            stage_and_prune_locked(self.userbase, "3.31.15")
+
+        versions = self.userbase / VERSIONS_DIRNAME
+        self.assertTrue((versions / "3.31.15").is_dir())
+        self.assertFalse((versions / "3.31.14").exists())
+
+    def test_idempotent_when_already_pending(self):
+        make_slot(self.userbase, "3.31.15")  # already the pending (no pointer)
+
+        recorded = []
+        with mock.patch(CHECK_CALL_TARGET, side_effect=fake_pip_install(recorded)):
+            staged = stage_and_prune_locked(self.userbase, "3.31.15")
+
+        self.assertFalse(staged)
+        self.assertEqual(recorded, [])  # no re-install
+
+
+class TestTryUpdateLock(SlotTestBase):
+    def test_serializes_threads_within_the_same_process(self):
+        # The fcntl file lock is a no-op between threads of one process; this is
+        # the intra-process guard that stops the editor's own threads (boot
+        # lint, on-connect check, periodic checker, the button) from racing into
+        # stage() and clobbering the shared staging dir. While one context holds
+        # it, a second acquire in the same process must yield False.
+        with try_update_lock(self.userbase) as first:
+            self.assertTrue(first)
+            with try_update_lock(self.userbase) as second:
+                self.assertFalse(second)
+
+    def test_reacquirable_after_release(self):
+        with try_update_lock(self.userbase) as acquired:
+            self.assertTrue(acquired)
+        with try_update_lock(self.userbase) as acquired:
+            self.assertTrue(acquired)
+
+    def test_thread_lock_only_without_userbase(self):
+        # Desktop / non-slotted: no shared FS to guard, so only the thread lock
+        # applies and the context is always acquired.
+        with try_update_lock(None) as acquired:
+            self.assertTrue(acquired)
 
 
 if __name__ == "__main__":

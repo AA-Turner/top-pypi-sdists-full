@@ -3,11 +3,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
-from pydantic import Field, PositiveFloat, model_validator
+from pydantic import Field, NonNegativeFloat, PositiveFloat, model_validator
 
 from tidy3d.components.base import Tidy3dBaseModel
 from tidy3d.components.data.data_array import SpatialDataArray
 from tidy3d.constants import PERCMCUBE, SECOND
+from tidy3d.log import log
 
 if TYPE_CHECKING:
     from tidy3d.compat import Self
@@ -15,16 +16,31 @@ if TYPE_CHECKING:
 
 class FossumCarrierLifetime(Tidy3dBaseModel):
     """
-    Parameters for the Fossum carrier lifetime model
+    Doping- and temperature-dependent SRH carrier lifetime.
 
     Notes
     -----
 
-        This model expresses the carrier lifetime as a function of the temperature and doping concentration.
+        This model expresses the Shockley-Read-Hall carrier lifetime as a
+        function of absolute temperature :math:`T` and total ionized dopant
+        concentration :math:`N = N_D + N_A`:
 
         .. math::
 
-            \\tau = \\frac{\\tau_{300} \\left( T/300 \\right)^\\alpha_T}{A + B (N/N_0) + C (N/N_0)^\\alpha}
+            \\tau(N, T) = \\frac{\\tau_{300}\\,(T/300)^{\\alpha_T}}{A + B\\,(N/N_0) + C\\,(N/N_0)^{\\alpha}}
+
+        The model is physically meaningful only with :math:`A = 1`; a
+        warning is emitted if any other value is provided. The
+        :math:`B\\,(N/N_0)` term is the linear doping form introduced by
+        Fossum [1]_, which alone gives
+        :math:`\\tau \\propto 1/(1 + N/N_0)`. The
+        :math:`C\\,(N/N_0)^{\\alpha}` term adds a higher-order doping
+        contribution; typical exponents are :math:`\\alpha = 1`
+        (Fossum-shaped) or :math:`\\alpha = 2`, which reproduces the
+        Auger-like high-doping behaviour obtained by collapsing the
+        SRH + Auger parallel combination of Roulston et al. [2]_ into a
+        single denominator. The :math:`(T/300)^{\\alpha_T}` factor is the
+        empirical temperature scaling of Klaassen [3]_.
 
     Example
     -------
@@ -42,7 +58,19 @@ class FossumCarrierLifetime(Tidy3dBaseModel):
     References
     ----------
 
-        Fossum, J. G., and D. S. Lee. "A physical model for the dependence of carrier lifetime on doping density in nondegenerate silicon." Solid-State Electronics 25.8 (1982): 741-747.
+        .. [1] Fossum, J. G., and D. S. Lee. "A physical model for the
+               dependence of carrier lifetime on doping density in
+               nondegenerate silicon." Solid-State Electronics 25.8 (1982):
+               741-747.
+
+        .. [2] Roulston, D. J., N. D. Arora, and S. G. Chamberlain.
+               "Modeling and measurement of minority-carrier lifetime versus
+               doping in diffused layers of n+-p silicon diodes." IEEE
+               Transactions on Electron Devices ED-29.2 (1982): 284-291.
+
+        .. [3] Klaassen, D. B. M. "A unified mobility model for device
+               simulation - II. Temperature dependence of carrier mobility
+               and lifetime." Solid-State Electronics 35.7 (1992): 961-967.
 
     """
 
@@ -83,8 +111,112 @@ class FossumCarrierLifetime(Tidy3dBaseModel):
         description="Exponent constant",
     )
 
+    @model_validator(mode="after")
+    def _warn_if_A_not_one(self: Self) -> Self:
+        """Warn if ``A`` is set to a value other than 1.
 
-CarrierLifetimeType = FossumCarrierLifetime
+        All published parameterizations of this lifetime form (Fossum,
+        Roulston, Klaassen, Schenk) take ``A = 1``; other values have no
+        physical interpretation in the literature.
+        """
+        if self.A != 1:
+            log.warning(
+                f"'FossumCarrierLifetime.A' is set to {self.A}, but A=1 is "
+                "the only value consistent with the published "
+                "parameterizations of this model. Other values have no "
+                "physical interpretation."
+            )
+        return self
+
+
+class PalankovskiQuayApproxCarrierLifetime(Tidy3dBaseModel):
+    """
+    Doping- and temperature-dependent SRH carrier lifetime, Palankovski–Quay
+    empirical (Scharfetter-style) approximation.
+
+    Notes
+    -----
+
+        This model expresses the Shockley-Read-Hall carrier lifetime as a
+        function of absolute temperature :math:`T` and total ionized dopant
+        concentration :math:`N = N_D + N_A`:
+
+        .. math::
+
+            \\tau(N, T) = \\tau_{max}\\, \\left(\\frac{N}{N_{ref}}\\right)^{-\\gamma}\\, \\left(\\frac{300}{T}\\right)^{-\\alpha_T}
+
+        This is the empirical Scharfetter-style form (Palankovski & Quay
+        [1]_, eqs. 3.157/3.158) combined with the temperature factor of
+        eqs. 3.160/3.161. The book fixes the temperature exponent at
+        :math:`(300/T)^{3/2}` (i.e. :math:`\\alpha_T = -3/2`); the parameter
+        is exposed here so users can override it. Material-specific values
+        for :math:`\\tau_{max}`, :math:`N_{ref}`, and :math:`\\gamma` are
+        tabulated for Si, SiGe, GaAs, InGaAs, and InAlAs in Table 3.38 of
+        the reference.
+
+        The trap-assisted band-to-band tunneling enhancement
+        :math:`1/(1+r_\\nu)` and the surface-recombination term
+        :math:`s_\\nu/y` from the book's full physics-based form are not
+        included in this approximation.
+
+        For numerical stability — the unclamped form diverges as
+        :math:`N \\to 0`, which is unphysical (:math:`\\tau_{max}` is the
+        intrinsic-region upper bound) and would produce NaN in the SRH
+        Jacobian — the backend evaluator floors :math:`N` at :math:`N_{ref}`
+        before applying the doping factor. The formula above therefore
+        applies verbatim for :math:`N \\ge N_{ref}`; for :math:`N < N_{ref}`
+        the lifetime saturates at
+        :math:`\\tau_{max}\\,(300/T)^{-\\alpha_T}`.
+
+    Example
+    -------
+        >>> import tidy3d as td
+        >>> default_Si = td.PalankovskiQuayApproxCarrierLifetime(
+        ...   tau_max=1e-5,
+        ...   N_ref=1e16,
+        ...   gamma=1.0,
+        ...   alpha_T=-1.5,
+        ... )
+
+    References
+    ----------
+
+        .. [1] Palankovski, Vassil, and Rüdiger Quay. Analysis and
+               simulation of heterostructure devices. Springer Science &
+               Business Media, 2004.
+
+    """
+
+    tau_max: PositiveFloat = Field(
+        title="Reference lifetime",
+        description="Reference lifetime :math:`\\tau_{max}` from the "
+        "Palankovski-Quay empirical form (book Table 3.38).",
+        json_schema_extra={"units": SECOND},
+    )
+
+    N_ref: PositiveFloat = Field(
+        title="Reference doping concentration",
+        description="Reference doping concentration :math:`N_{ref}` in the "
+        "Scharfetter doping-dependence factor.",
+        json_schema_extra={"units": PERCMCUBE},
+    )
+
+    gamma: float = Field(
+        1.0,
+        title="Doping exponent",
+        description="Dimensionless exponent :math:`\\gamma` of the doping-dependence factor.",
+    )
+
+    alpha_T: float = Field(
+        -1.5,
+        title="Temperature exponent",
+        description="Dimensionless temperature exponent :math:`\\alpha_T`. "
+        "The Palankovski-Quay model fixes this at :math:`-3/2`; users may "
+        "override it.",
+    )
+
+
+CarrierLifetimeType = FossumCarrierLifetime | PalankovskiQuayApproxCarrierLifetime
 
 
 class AugerRecombination(Tidy3dBaseModel):
@@ -247,11 +379,12 @@ class DistributedGeneration(Tidy3dBaseModel):
 
 class HurkxDirectBandToBandTunneling(Tidy3dBaseModel):
     """
-    This class defines a direct band-to-band tunneling recombination model based on the Hurkx model
-    as described in [1]_.
+    This class defines a direct band-to-band tunneling recombination model based on the Hurkx model.
 
     Notes
     -----
+
+    The model is described in [1]_.
 
     The direct band-to-band tunneling recombination rate :math:`R^{\\text{BTBT}}` is primarily defined by the
     material's bandgap energy :math:`E_g` and the electric field :math:`F`.
@@ -304,6 +437,111 @@ class HurkxDirectBandToBandTunneling(Tidy3dBaseModel):
         "semiconductors :math:`\\sigma` is typically 2.0, while for indirect "
         "semiconductors :math:`\\sigma` is typically 2.5.",
     )
+
+
+class SurfaceShockleyReedHallRecombination(Tidy3dBaseModel):
+    """
+    Surface Shockley-Read-Hall (SRH) recombination at a single trap level.
+
+    Notes
+    -----
+
+        Extended SRH form evaluated per unit area at a semiconductor interface:
+
+        .. math::
+
+           R_s = \\frac{n p - n_{i,\\mathrm{eff}}^2}
+                       {(n + n_1)/S_p + (p + p_1)/S_n}
+
+        with :math:`n_1 = n_{i,\\mathrm{eff}}\\,e^{(E_t - E_F^i)/kT}` and
+        :math:`p_1 = n_{i,\\mathrm{eff}}\\,e^{(E_F^i - E_t)/kT}`, where
+        ``E_t`` is the trap level relative to the intrinsic Fermi level
+        :math:`E_F^i`.  The default ``E_t = 0`` (mid-gap) is the
+        velocity-form shorthand used in most low-injection passivation
+        analyses, for which :math:`n_1 = p_1 = n_{i,\\mathrm{eff}}`.
+
+        Conventions follow Altermatt 2011 (J. Comput. Electron. 10:314):
+        :math:`n_{i,\\mathrm{eff}}` is the bandgap-narrowing-corrected
+        effective intrinsic concentration, and the same value enters both the
+        numerator and the trap-level concentrations :math:`n_1, p_1`.
+
+        Typical surface recombination velocities for crystalline silicon:
+
+        * ideal Al2O3 / SiNx passivation: ``S < 10`` cm/s
+        * thermal SiO2: ``S ~ 10 - 100`` cm/s
+        * bare Si surface (no passivation): ``S ~ 1e6`` cm/s
+
+    Example
+    -------
+        >>> import tidy3d as td
+        >>> # Si/SiO2 interface, mid-gap traps (default), moderate passivation
+        >>> sr = td.SurfaceShockleyReedHallRecombination(S_n=1e3, S_p=1e3)
+        >>> # Same interface with explicit near-mid-gap trap energy
+        >>> sr = td.SurfaceShockleyReedHallRecombination(S_n=1e3, S_p=1e3, E_t=0.05)
+
+    References
+    ----------
+        .. [1] P. P. Altermatt, "Models for numerical device simulations of
+               crystalline silicon solar cells - a review," J. Comput. Electron.
+               10:314 (2011).
+    """
+
+    S_n: NonNegativeFloat = Field(
+        title="Electron surface recombination velocity",
+        description="Electron surface recombination velocity at the interface. "
+        "Zero corresponds to ideal passivation on the electron channel.",
+        json_schema_extra={"units": "cm/s"},
+    )
+    S_p: NonNegativeFloat = Field(
+        title="Hole surface recombination velocity",
+        description="Hole surface recombination velocity at the interface. "
+        "Zero corresponds to ideal passivation on the hole channel.",
+        json_schema_extra={"units": "cm/s"},
+    )
+    E_t: float = Field(
+        0.0,
+        title="Trap level relative to intrinsic Fermi",
+        description="Energy of the interface trap level relative to the "
+        "intrinsic Fermi level. ``0`` corresponds to mid-gap (the most common "
+        "case); positive values are above intrinsic. Must lie inside the "
+        "band gap for the recombination rate to be physical.",
+        json_schema_extra={"units": "eV"},
+    )
+
+    @model_validator(mode="after")
+    def _validate_trap_level_in_gap(self) -> Self:
+        """Warn if the trap energy is outside any physically reasonable
+        band gap. ``E_t`` is referenced to the intrinsic Fermi level in
+        eV, so values much larger than half a typical bandgap are almost
+        certainly a unit mistake (eV vs. Joules) or a sign convention
+        error, producing unphysical ``n_1``, ``p_1`` values."""
+        if abs(self.E_t) > 1.5:
+            log.warning(
+                f"SurfaceShockleyReedHallRecombination 'E_t' = {self.E_t:.3e} eV "
+                "is outside the typical semiconductor band gap (|E_t| > 1.5 eV). "
+                "'E_t' is referenced to the intrinsic Fermi level in eV; "
+                "double-check units and sign convention."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_at_least_one_velocity_positive(self) -> Self:
+        """Warn if both surface recombination velocities are zero. The
+        BC then contributes no recombination flux and reduces to an
+        electrostatic interface; use this only for a charged
+        ``SurfaceRecombinationBC`` with no carrier recombination flux.
+        Otherwise prefer ``InsulatingBC``."""
+        if self.S_n == 0.0 and self.S_p == 0.0:
+            log.warning(
+                "SurfaceShockleyReedHallRecombination has S_n = S_p = 0 and "
+                "will not contribute any recombination flux. Use this only "
+                "for a charged 'SurfaceRecombinationBC' with no carrier "
+                "recombination flux; otherwise prefer 'InsulatingBC'."
+            )
+        return self
+
+
+SurfaceRecombinationModelType = SurfaceShockleyReedHallRecombination
 
 
 class SelberherrImpactIonization(Tidy3dBaseModel):

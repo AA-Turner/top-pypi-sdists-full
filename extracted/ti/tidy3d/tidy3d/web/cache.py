@@ -25,10 +25,10 @@ from tidy3d.web.core.http_util import get_version as _get_protocol_version
 from tidy3d.web.core.types import TaskType
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator, Iterator
 
     from tidy3d.components.mode.mode_solver import ModeSolver
-    from tidy3d.components.types.workflow import WorkflowDataType, WorkflowType
+    from tidy3d.components.types.workflow import WorkflowDataType, WorkflowOperationType
     from tidy3d.web.core.constants import TaskId
 
 CACHE_ARTIFACT_NAME = "simulation_data.hdf5"
@@ -97,6 +97,7 @@ class CacheEntryMetadata(BaseModel):
     versions: Any
     task_id: str
     path: str
+    artifact_type: str | None = None
 
     model_config = ConfigDict(extra="allow", validate_assignment=True)
 
@@ -195,7 +196,7 @@ class LocalCache:
             self.sync_stats()
 
     @contextmanager
-    def _with_interprocess_lock(self) -> Iterator[None]:
+    def _with_interprocess_lock(self) -> Generator[None, None, None]:
         depth = getattr(self._file_lock_state, "depth", 0)
         if depth > 0:
             self._file_lock_state.depth = depth + 1
@@ -215,7 +216,7 @@ class LocalCache:
                 self._file_lock_state.depth = 0
 
     @contextmanager
-    def _with_cache_state_lock(self) -> Iterator[None]:
+    def _with_cache_state_lock(self) -> Generator[None, None, None]:
         """Lock boundary for entry-point operations; helpers assume this is held."""
         self._run_pending_sync()
         with self._lock:
@@ -340,7 +341,11 @@ class LocalCache:
     def list(self) -> list[dict[str, Any]]:
         """Return metadata for all cache entries."""
         with self._with_cache_state_lock():
-            entries = [entry.metadata.model_dump(mode="json") for entry in self._iter_entries()]
+            entries = []
+            for entry in self._iter_entries():
+                metadata = entry.metadata.model_dump(mode="json")
+                metadata.pop("artifact_type", None)
+                entries.append(metadata)
         return entries
 
     def clear(self, hard: bool = False) -> None:
@@ -461,7 +466,7 @@ class LocalCache:
         max_size_bytes = int(self.max_size_gb * (1024**3))
 
         try:
-            incoming_size_int = int(incoming_size)
+            incoming_size_int = incoming_size
         except (TypeError, ValueError):
             incoming_size_int = 0
         if incoming_size_int < 0:
@@ -487,7 +492,7 @@ class LocalCache:
 
         existing_size = stats.total_size
         try:
-            replacing_size_int = int(replacing_size)
+            replacing_size_int = replacing_size
         except (TypeError, ValueError):
             replacing_size_int = 0
         if incoming_key and incoming_key in existing_keys:
@@ -609,7 +614,7 @@ class LocalCache:
 
     def try_fetch(
         self,
-        simulation: WorkflowType,
+        simulation: WorkflowOperationType,
         verbose: bool = False,
     ) -> CacheEntry | None:
         """
@@ -619,13 +624,31 @@ class LocalCache:
         try:
             simulation_hash = simulation._hash_self()
             workflow_type = Tidy3dStub(simulation=simulation).get_type()
+            return self.try_fetch_with_hash(
+                simulation_hash=simulation_hash,
+                workflow_type=workflow_type,
+                verbose=verbose,
+            )
+        except Exception as e:
+            log.error("Failed to fetch cache results: " + str(e))
+        return None
 
+    def try_fetch_with_hash(
+        self,
+        *,
+        simulation_hash: str,
+        workflow_type: str,
+        verbose: bool = False,
+        artifact_type: str | None = None,
+    ) -> CacheEntry | None:
+        """Fetch a cached artifact by explicit workflow hash and namespace."""
+        try:
             versions = _get_protocol_version()
-
             cache_key = build_cache_key(
                 simulation_hash=simulation_hash,
                 version=versions,
                 workflow_type=workflow_type,
+                artifact_type=artifact_type,
             )
 
             entry = self._fetch(cache_key)
@@ -648,7 +671,7 @@ class LocalCache:
         task_id: TaskId,
         path: str,
         workflow_type: str,
-        simulation: WorkflowType | None = None,
+        simulation: WorkflowOperationType | None = None,
     ) -> bool:
         """
         Stores completed workflow results in the local cache using a canonical cache key.
@@ -699,17 +722,38 @@ class LocalCache:
                         "Failed storing local cache entry: Could not find simulation data in stub_data."
                     )
                     return False
-            simulation_hash = simulation_obj._hash_self() if simulation_obj is not None else None
+            simulation_hash = simulation_obj._hash_self()
             if not simulation_hash:
                 log.debug("Failed storing local cache entry: Could not hash simulation.")
                 return False
 
+            return self.store_result_with_hash(
+                task_id=task_id,
+                path=path,
+                workflow_type=workflow_name,
+                simulation_hash=simulation_hash,
+            )
+        except Exception as e:
+            log.error(f"Could not store cache entry: {e}")
+            return False
+
+    def store_result_with_hash(
+        self,
+        task_id: TaskId,
+        path: str,
+        workflow_type: str,
+        simulation_hash: str,
+        artifact_type: str | None = None,
+    ) -> bool:
+        """Store a completed workflow result using a validated explicit origin hash."""
+        try:
             version = _get_protocol_version()
 
             cache_key = build_cache_key(
                 simulation_hash=simulation_hash,
                 version=version,
-                workflow_type=workflow_name,
+                workflow_type=workflow_type,
+                artifact_type=artifact_type,
             )
 
             metadata = build_entry_metadata(
@@ -718,6 +762,7 @@ class LocalCache:
                 task_id=task_id,
                 version=version,
                 path=Path(path),
+                artifact_type=artifact_type,
             )
 
             self._store(
@@ -845,6 +890,7 @@ def build_cache_key(
     simulation_hash: str,
     version: str,
     workflow_type: str,
+    artifact_type: str | None = None,
 ) -> str:
     """Construct a deterministic cache key.
 
@@ -858,6 +904,8 @@ def build_cache_key(
         "versions": _canonicalize(version),
         "workflow_type": workflow_type,
     }
+    if artifact_type is not None:
+        payload["artifact_type"] = artifact_type
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
@@ -869,6 +917,7 @@ def build_entry_metadata(
     task_id: str,
     version: str,
     path: Path,
+    artifact_type: str | None = None,
 ) -> CacheEntryMetadata:
     """Create metadata object for a cache entry."""
 
@@ -884,6 +933,7 @@ def build_entry_metadata(
         versions=_canonicalize(version),
         task_id=task_id,
         path=str(path),
+        artifact_type=artifact_type,
     )
 
 

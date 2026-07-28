@@ -62,8 +62,19 @@ global___ChangeContractRequest = ChangeContractRequest
 class ChangeContractResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    INVOICE_ID_FIELD_NUMBER: builtins.int
+    invoice_id: builtins.int
+    """The invoice created for an immediate change (a prorated upgrade charge).
+    Unset when the change is deferred to the next billing period or applies no
+    charge (e.g. a PAYG-only change), which the caller returns as an empty 204.
+    """
     def __init__(
         self,
+        *,
+        invoice_id: builtins.int | None = ...,
     ) -> None: ...
+    def HasField(self, field_name: typing.Literal["_invoice_id", b"_invoice_id", "invoice_id", b"invoice_id"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_invoice_id", b"_invoice_id", "invoice_id", b"invoice_id"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_invoice_id", b"_invoice_id"]) -> typing.Literal["invoice_id"] | None: ...
 
 global___ChangeContractResponse = ChangeContractResponse

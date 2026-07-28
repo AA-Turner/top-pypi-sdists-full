@@ -13882,11 +13882,13 @@ AbstraLibApiEditorLintersRuleName = str
 
 AbstraLibApiEditorLintersRuleLabel = str
 
-AbstraLibApiEditorLintersRuleType = typing.Union[typing.Literal["warning"], typing.Literal["error"]]
-
-AbstraLibApiEditorLintersRuleTypeValues:typing.List[AbstraLibApiEditorLintersRuleType] = ["warning", "error"]
+AbstraLibApiEditorLintersIssueTitle = str
 
 AbstraLibApiEditorLintersIssueLabel = str
+
+AbstraLibApiEditorLintersIssueType = typing.Union[typing.Literal["warning"], typing.Literal["error"]]
+
+AbstraLibApiEditorLintersIssueTypeValues:typing.List[AbstraLibApiEditorLintersIssueType] = ["warning", "error"]
 
 AbstraLibApiEditorLintersFixName = str
 
@@ -13916,31 +13918,40 @@ AbstraLibApiEditorLintersIssueFixesItem = AbstraLibApiEditorLintersFix
 
 AbstraLibApiEditorLintersIssueFixes = typing.List[AbstraLibApiEditorLintersIssueFixesItem]
 
+AbstraLibApiEditorLintersIssueFixWithAi = bool
+
 
 @dataclass
 class AbstraLibApiEditorLintersIssue:
+    title: AbstraLibApiEditorLintersIssueTitle
     label: AbstraLibApiEditorLintersIssueLabel
+    type: AbstraLibApiEditorLintersIssueType
     fixes: AbstraLibApiEditorLintersIssueFixes
+    fix_with_ai: AbstraLibApiEditorLintersIssueFixWithAi
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
+        data['title'] = self.title
         data['label'] = self.label
+        data['type'] = self.type
         data['fixes'] = [item.to_dict() for item in self.fixes]
+        data['fixWithAi'] = self.fix_with_ai
         return data
 
     @classmethod
     def from_dict(cls, data: typing.Dict[str, typing.Any]) -> "AbstraLibApiEditorLintersIssue":
         return cls(
+            title=str(data['title']),
             label=str(data['label']),
+            type=data['type'],
             fixes=[AbstraLibApiEditorLintersFix.from_dict(item) for item in data['fixes']],
+            fix_with_ai=bool(data['fixWithAi']),
         )
 
 
 AbstraLibApiEditorLintersRuleIssuesItem = AbstraLibApiEditorLintersIssue
 
 AbstraLibApiEditorLintersRuleIssues = typing.List[AbstraLibApiEditorLintersRuleIssuesItem]
-
-AbstraLibApiEditorLintersRuleFixWithAi = bool
 
 AbstraLibApiEditorLintersRuleStatus = typing.Union[typing.Literal["ok"], typing.Literal["failed"]]
 
@@ -13951,18 +13962,14 @@ AbstraLibApiEditorLintersRuleStatusValues:typing.List[AbstraLibApiEditorLintersR
 class AbstraLibApiEditorLintersRule:
     name: AbstraLibApiEditorLintersRuleName
     label: AbstraLibApiEditorLintersRuleLabel
-    type: AbstraLibApiEditorLintersRuleType
     issues: AbstraLibApiEditorLintersRuleIssues
-    fix_with_ai: AbstraLibApiEditorLintersRuleFixWithAi
     status: typing.Optional[AbstraLibApiEditorLintersRuleStatus] = field(default_factory=lambda: None)
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data['name'] = self.name
         data['label'] = self.label
-        data['type'] = self.type
         data['issues'] = [item.to_dict() for item in self.issues]
-        data['fixWithAi'] = self.fix_with_ai
         if self.status is not None:
             data['status'] = self.status
         return data
@@ -13972,9 +13979,7 @@ class AbstraLibApiEditorLintersRule:
         return cls(
             name=str(data['name']),
             label=str(data['label']),
-            type=data['type'],
             issues=[AbstraLibApiEditorLintersIssue.from_dict(item) for item in data['issues']],
-            fix_with_ai=bool(data['fixWithAi']),
             status=None if data.get('status') is None else data['status'],
         )
 
@@ -14315,18 +14320,23 @@ AbstraLibApiEditorStatusMessageUpdateLabel = str
 
 AbstraLibApiEditorStatusMessageUpdateRestarts = bool
 
+AbstraLibApiEditorStatusMessageUpdateDeferred = bool
+
 
 @dataclass
 class AbstraLibApiEditorStatusMessageUpdate:
     available: AbstraLibApiEditorStatusMessageUpdateAvailable
     label: AbstraLibApiEditorStatusMessageUpdateLabel
     restarts: AbstraLibApiEditorStatusMessageUpdateRestarts
+    deferred: typing.Optional[AbstraLibApiEditorStatusMessageUpdateDeferred] = field(default_factory=lambda: None)
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data['available'] = self.available
         data['label'] = self.label
         data['restarts'] = self.restarts
+        if self.deferred is not None:
+            data['deferred'] = self.deferred
         return data
 
     @classmethod
@@ -14335,6 +14345,74 @@ class AbstraLibApiEditorStatusMessageUpdate:
             available=bool(data['available']),
             label=str(data['label']),
             restarts=bool(data['restarts']),
+            deferred=None if data.get('deferred') is None else bool(data['deferred']),
+        )
+
+
+AbstraLibApiEditorStatusMessageRestartStatusRequired = bool
+
+AbstraLibApiEditorStatusMessageRestartStatusAbstraUpdateTargetVersion = str
+
+
+@dataclass
+class AbstraLibApiEditorStatusMessageRestartStatusAbstraUpdate:
+    target_version: AbstraLibApiEditorStatusMessageRestartStatusAbstraUpdateTargetVersion
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        data = {}
+        data['target_version'] = self.target_version
+        return data
+
+    @classmethod
+    def from_dict(cls, data: typing.Dict[str, typing.Any]) -> "AbstraLibApiEditorStatusMessageRestartStatusAbstraUpdate":
+        return cls(
+            target_version=str(data['target_version']),
+        )
+
+
+AbstraLibApiEditorStatusMessageRestartStatusDependenciesPackagesItem = str
+
+AbstraLibApiEditorStatusMessageRestartStatusDependenciesPackages = typing.List[AbstraLibApiEditorStatusMessageRestartStatusDependenciesPackagesItem]
+
+
+@dataclass
+class AbstraLibApiEditorStatusMessageRestartStatusDependencies:
+    packages: AbstraLibApiEditorStatusMessageRestartStatusDependenciesPackages
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        data = {}
+        data['packages'] = self.packages
+        return data
+
+    @classmethod
+    def from_dict(cls, data: typing.Dict[str, typing.Any]) -> "AbstraLibApiEditorStatusMessageRestartStatusDependencies":
+        return cls(
+            packages=[str(item) for item in data['packages']],
+        )
+
+
+
+@dataclass
+class AbstraLibApiEditorStatusMessageRestartStatus:
+    required: AbstraLibApiEditorStatusMessageRestartStatusRequired
+    abstra_update: typing.Optional[AbstraLibApiEditorStatusMessageRestartStatusAbstraUpdate] = field(default_factory=lambda: None)
+    dependencies: typing.Optional[AbstraLibApiEditorStatusMessageRestartStatusDependencies] = field(default_factory=lambda: None)
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        data = {}
+        data['required'] = self.required
+        if self.abstra_update is not None:
+            data['abstra_update'] = self.abstra_update.to_dict()
+        if self.dependencies is not None:
+            data['dependencies'] = self.dependencies.to_dict()
+        return data
+
+    @classmethod
+    def from_dict(cls, data: typing.Dict[str, typing.Any]) -> "AbstraLibApiEditorStatusMessageRestartStatus":
+        return cls(
+            required=bool(data['required']),
+            abstra_update=None if data.get('abstra_update') is None else AbstraLibApiEditorStatusMessageRestartStatusAbstraUpdate.from_dict(data['abstra_update']),
+            dependencies=None if data.get('dependencies') is None else AbstraLibApiEditorStatusMessageRestartStatusDependencies.from_dict(data['dependencies']),
         )
 
 
@@ -14343,11 +14421,14 @@ class AbstraLibApiEditorStatusMessageUpdate:
 class AbstraLibApiEditorStatusMessage:
     version: AbstraLibApiEditorStatusMessageVersion
     update: AbstraLibApiEditorStatusMessageUpdate
+    restart_status: typing.Optional[AbstraLibApiEditorStatusMessageRestartStatus] = field(default_factory=lambda: None)
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data['version'] = self.version
         data['update'] = self.update.to_dict()
+        if self.restart_status is not None:
+            data['restart_status'] = self.restart_status.to_dict()
         return data
 
     @classmethod
@@ -14355,6 +14436,7 @@ class AbstraLibApiEditorStatusMessage:
         return cls(
             version=str(data['version']),
             update=AbstraLibApiEditorStatusMessageUpdate.from_dict(data['update']),
+            restart_status=None if data.get('restart_status') is None else AbstraLibApiEditorStatusMessageRestartStatus.from_dict(data['restart_status']),
         )
 
 

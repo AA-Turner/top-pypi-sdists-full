@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: simple-parsing
-Version: 0.1.8
+Version: 0.1.9
 Summary: A small utility to simplify and clean up argument parsing scripts.
 Author-email: Fabrice Normandin <fabrice.normandin@gmail.com>
 License: MIT License

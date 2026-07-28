@@ -76,6 +76,8 @@ FILES_FOLDER = os.getenv("ABSTRA_FILES_FOLDER")
 WORKER_FILES_FOLDER = os.getenv("ABSTRA_WORKER_FILES_FOLDER", "/files")
 DISABLED_STAGES_FOLDER = os.getenv("ABSTRA_DISABLED_STAGES_FOLDER")
 
+SMARTCHAT_PACKAGES_FOLDER = os.getenv("ABSTRA_SMARTCHAT_PACKAGES_FOLDER")
+
 # CLAMAV DOWNLOAD SCANNING
 CLAMAV_SCAN_ENABLED = (
     os.getenv("ABSTRA_CLAMAV_SCAN_ENABLED", "false").strip().lower() == "true"
@@ -100,6 +102,41 @@ WEB_EDITOR_HEARTBEAT_INTERVAL_SECONDS = int(
 )
 WEB_EDITOR_HEARTBEAT_STALENESS_SECONDS = int(
     os.getenv("ABSTRA_WEB_EDITOR_HEARTBEAT_STALENESS_SECONDS", 259200)
+)
+
+# EDITOR STALL WATCHDOG (measures whole-process scheduling stalls on the
+# web editor — see services/editor_stall_watchdog.py)
+# Defaults: probe every 0.5 s; record stalls of 2 s or more. Consecutive
+# stalls are batched into one event, flushed when the process recovers or
+# every 60 s while the burst lasts (bounds log volume, drops no data).
+
+
+def _float_env(name: str, default: float, minimum: float) -> float:
+    """Defensive parse for tuning knobs: this module is imported by every
+    abstra entrypoint, so a malformed value must fall back to the default
+    instead of crashing the boot. Values below `minimum` are clamped — an
+    interval of 0 would busy-loop the watchdog thread at 100% CPU.
+    """
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    if not (value >= minimum):  # also catches NaN
+        return minimum
+    return value
+
+
+EDITOR_STALL_WATCHDOG_INTERVAL_SECONDS = _float_env(
+    "ABSTRA_EDITOR_STALL_WATCHDOG_INTERVAL_SECONDS", default=0.5, minimum=0.25
+)
+EDITOR_STALL_WATCHDOG_THRESHOLD_SECONDS = _float_env(
+    "ABSTRA_EDITOR_STALL_WATCHDOG_THRESHOLD_SECONDS", default=2.0, minimum=0.5
+)
+EDITOR_STALL_WATCHDOG_BATCH_WINDOW_SECONDS = _float_env(
+    "ABSTRA_EDITOR_STALL_WATCHDOG_BATCH_WINDOW_SECONDS", default=60, minimum=1.0
 )
 
 # FORMS CONFIG

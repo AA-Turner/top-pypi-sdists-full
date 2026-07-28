@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-enterprise
-Version: 8.7.1
+Version: 8.7.2
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -165,6 +165,10 @@ Change Log
 Unreleased
 ----------
 * nothing unreleased
+
+[8.7.2] - 2026-07-27
+---------------------
+* chore: upgrade python requirements
 
 [8.7.1] - 2026-07-17
 ---------------------

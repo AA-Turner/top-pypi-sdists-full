@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: piccolo
-Version: 1.35.0
+Version: 1.36.0
 Summary: A fast, user friendly ORM and query builder which supports asyncio.
 Home-page: https://github.com/piccolo-orm/piccolo
 Author: Daniel Townsend
@@ -25,9 +25,9 @@ Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: black
-Requires-Dist: colorama>=0.4.0
+Requires-Dist: colorama>=0.4.6
 Requires-Dist: Jinja2>=2.11.0
-Requires-Dist: targ>=0.3.7
+Requires-Dist: targ>=0.7.0
 Requires-Dist: inflection>=0.5.1
 Requires-Dist: typing-extensions>=4.3.0
 Requires-Dist: pydantic[email]==2.*

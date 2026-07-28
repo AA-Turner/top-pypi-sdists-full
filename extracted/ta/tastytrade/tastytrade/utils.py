@@ -27,7 +27,7 @@ class PriceEffect(StrEnum):
     NONE = "None"
 
 
-def intuitive_iterable(var: Iterable[str]) -> Iterable[str]:
+def intuitive_iterable(var: Iterable[str]) -> list[str]:
     """
     Make passing a raw string safe, since type checkers can't easily warn here.
 
@@ -36,7 +36,7 @@ def intuitive_iterable(var: Iterable[str]) -> Iterable[str]:
     """
     if isinstance(var, str):
         return [var]
-    return var
+    return list(var)
 
 
 def now_in_new_york() -> datetime:
@@ -94,11 +94,11 @@ def get_third_friday(day: date | None = None) -> date:
     return day
 
 
-def get_tasty_monthly() -> date:
+def get_tasty_monthly(day: date | None = None) -> date:
     """
     Gets the monthly expiration closest to 45 days from the current date.
     """
-    day = today_in_new_york()
+    day = day or today_in_new_york()
     exp1 = get_third_friday(day + timedelta(weeks=4))
     exp2 = get_third_friday(day + timedelta(weeks=8))
     day45 = day + timedelta(days=45)

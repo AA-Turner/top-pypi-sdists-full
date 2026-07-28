@@ -139,6 +139,35 @@ is the single source of truth -- handlers never re-derive tier logic here.
                                           ``/tier-spec-path-batch``; unknown
                                           destinations bucket into
                                           ``unknown[]`` instead of 404ing.
+  GET  /api/entitlement/next-tier-capacity-headroom -- scalar "one rung up"
+                                          sibling of ``/capacity-headroom``:
+                                          per-axis headroom envelope for the
+                                          tier immediately above the resolved
+                                          entitlement given caller-supplied
+                                          usage. Envelope shape mirrors
+                                          ``/next-tier-unlocks`` (current-tier
+                                          context + null-at-ceiling), inner
+                                          ``headroom`` matches
+                                          ``/capacity-headroom-at`` byte-for-
+                                          byte. Fills the "next-tier" slot on
+                                          the capacity-headroom axis
+                                          alongside the caps-only
+                                          ``/next-tier-capacity-diff`` and
+                                          the marginal-features
+                                          ``/next-tier-unlocks``.
+  GET  /api/entitlement/previous-tier-capacity-headroom -- downgrade twin of
+                                          ``/next-tier-capacity-headroom``:
+                                          per-axis headroom envelope for the
+                                          tier immediately below the resolved
+                                          entitlement given caller-supplied
+                                          usage. Axes whose inner
+                                          ``over_limit`` flips ``True`` are
+                                          exactly the ones the caller would
+                                          lose headroom on. Envelope shape
+                                          matches
+                                          ``/next-tier-capacity-headroom``
+                                          byte-for-key with ``direction``
+                                          echoing ``"downgrade"``.
   GET  /api/entitlement/preview-batch  -- plural sibling of ``/preview``:
                                          the full ``Entitlement.to_dict``
                                          shape rendered for every purchasable
@@ -872,6 +901,182 @@ def api_entitlement_capacity_headroom_at():
     except Exception as exc:
         logger.warning("api_entitlement_capacity_headroom_at: error: %s", exc)
         return jsonify({"error": "capacity-headroom-at failed"}), 500
+
+
+def _neighbour_tier_headroom_envelope(
+    *, direction: str, headroom: dict | None
+) -> dict:
+    """Shared envelope for ``/next-tier-capacity-headroom`` +
+    ``/previous-tier-capacity-headroom``.
+
+    Wraps the raw :func:`clawmetry.entitlements.capacity_headroom_at` row
+    in the same "current-tier context + null-at-boundary" shape as
+    ``/next-tier-unlocks`` / ``/previous-tier-unlocks`` (see
+    ``api_entitlement_next_tier_unlocks``) so an upgrade / downgrade card
+    can bind against ``headroom`` as the payload with the boundary case
+    surfacing as ``headroom=null`` at HTTP 200 -- callers never have to
+    branch on status code.
+    """
+    from clawmetry import entitlements as _ent
+
+    try:
+        ent = _ent.get_entitlement()
+        return {
+            "current_tier": ent.tier,
+            "current_tier_label": _ent.tier_label(ent.tier),
+            "current_tier_rank": _ent.tier_rank(ent.tier),
+            "direction": direction,
+            "headroom": headroom,
+            "grace": bool(ent.grace),
+            "enforced": _ent.is_enforced(),
+        }
+    except Exception:
+        return {
+            "current_tier": "oss",
+            "current_tier_label": "OSS",
+            "current_tier_rank": 0,
+            "direction": direction,
+            "headroom": None,
+            "grace": True,
+            "enforced": False,
+        }
+
+
+@bp_entitlement.route("/api/entitlement/next-tier-capacity-headroom")
+def api_entitlement_next_tier_capacity_headroom():
+    """``GET /api/entitlement/next-tier-capacity-headroom?channels=<int>
+    &retention_days=<int>&nodes=<int>`` -- per-axis headroom envelope for
+    the tier immediately above the resolved entitlement, given the caller-
+    supplied per-axis usage.
+
+    Scalar "one rung up" sibling of ``/api/entitlement/capacity-headroom``.
+    Composes ``next_purchasable_tier()`` + ``capacity_headroom_at(next)``
+    so an upgrade-CTA card can render "here's what your gauges would look
+    like on <next tier>" off ONE call instead of a resolve + at-tier
+    round-trip. Sits alongside the caps-only
+    ``/api/entitlement/next-tier-capacity-diff`` (which reports cap
+    deltas without folding in current usage) and the marginal-features
+    ``/api/entitlement/next-tier-unlocks``.
+
+    Response shape (matches ``/api/entitlement/next-tier-unlocks``'s
+    envelope byte-for-key so an upgrade-CTA can bind the two off one
+    fetch shape)::
+
+        {
+          "current_tier":       "<resolved tier id>",
+          "current_tier_label": "<human>",
+          "current_tier_rank":  <int>,
+          "direction":          "upgrade",
+          "headroom":           <capacity-headroom-at row> | null,
+          "grace":              <bool>,
+          "enforced":           <bool>,
+        }
+
+    Each ``<capacity-headroom-at row>`` -- when non-null -- matches
+    ``/api/entitlement/capacity-headroom-at`` byte-for-byte (``tier``
+    echoing the next-tier id, per-axis rows in the
+    :func:`entitlements._headroom_row` shape) so an existing
+    ``/capacity-headroom-at`` renderer consumes the ``headroom`` field
+    unchanged.
+
+    ``headroom`` is ``null`` (still HTTP 200) when the resolved
+    entitlement is already on the top rung (no next-purchasable tier),
+    so the CTA can hide itself off ``headroom == null`` instead of
+    branching on status code. Same per-axis "None means axis not
+    supplied" posture as ``/api/entitlement/capacity-headroom`` -- an
+    axis the caller didn't pass stays ``None`` on the inner row. Same
+    bad-arg short-circuit as ``/capacity-headroom`` (blank / non-int /
+    negative axis stays ``None``).
+
+    Decoupled from grace vs enforce on the headroom side --
+    ``capacity_headroom_at`` walks the static per-tier caps, so the
+    inner rows are byte-identical across modes. The "next tier"
+    identity itself still tracks the live resolver, so an operator
+    moving from ``cloud_starter`` to ``cloud_pro`` sees the target
+    flip once activation lands.
+
+    Never 5xxs: on a resolver / delegation failure returns the neutral
+    grace envelope (``current_tier=oss``, ``headroom=null``) so a
+    paywall tile keeps rendering.
+    """
+    try:
+        from clawmetry import entitlements as _ent
+
+        kwargs: dict[str, int] = {}
+        for name in ("channels", "retention_days", "nodes"):
+            present, ok, val, _raw = _parse_capacity_arg(name)
+            if present and ok and val is not None and val >= 0:
+                kwargs[name] = val
+        row = _ent.next_tier_capacity_headroom(**kwargs)
+        return jsonify(
+            _neighbour_tier_headroom_envelope(
+                direction="upgrade", headroom=row
+            )
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_next_tier_capacity_headroom: error: %s", exc
+        )
+        return jsonify(
+            _neighbour_tier_headroom_envelope(
+                direction="upgrade", headroom=None
+            )
+        )
+
+
+@bp_entitlement.route("/api/entitlement/previous-tier-capacity-headroom")
+def api_entitlement_previous_tier_capacity_headroom():
+    """``GET /api/entitlement/previous-tier-capacity-headroom?channels=<int>
+    &retention_days=<int>&nodes=<int>`` -- per-axis headroom envelope for
+    the tier immediately below the resolved entitlement, given the caller-
+    supplied per-axis usage.
+
+    Downgrade twin of ``/api/entitlement/next-tier-capacity-headroom``.
+    Composes ``previous_purchasable_tier()`` +
+    ``capacity_headroom_at(prev)`` so a downgrade-preview card can show
+    "here's what would break on <prev tier>" -- axes whose inner
+    ``over_limit`` flips ``True`` are exactly the ones the caller would
+    lose headroom on. Sits alongside the caps-only
+    ``/api/entitlement/previous-tier-capacity-diff`` and the marginal-
+    features ``/api/entitlement/previous-tier-unlocks``.
+
+    Envelope shape matches
+    ``/api/entitlement/next-tier-capacity-headroom`` byte-for-key --
+    with ``direction`` echoing ``"downgrade"`` -- so a single renderer
+    can consume both. Inner ``headroom`` (when non-null) matches
+    ``/api/entitlement/capacity-headroom-at`` byte-for-byte.
+
+    ``headroom`` is ``null`` (still HTTP 200) when the resolved
+    entitlement is already on the bottom rung (no previous-purchasable
+    tier) so the downgrade card can hide itself off ``headroom == null``
+    instead of branching on status code. Same per-axis "None means axis
+    not supplied" posture, bad-arg short-circuit, and grace / enforce
+    invariance as ``/api/entitlement/next-tier-capacity-headroom``.
+    Never 5xxs.
+    """
+    try:
+        from clawmetry import entitlements as _ent
+
+        kwargs: dict[str, int] = {}
+        for name in ("channels", "retention_days", "nodes"):
+            present, ok, val, _raw = _parse_capacity_arg(name)
+            if present and ok and val is not None and val >= 0:
+                kwargs[name] = val
+        row = _ent.previous_tier_capacity_headroom(**kwargs)
+        return jsonify(
+            _neighbour_tier_headroom_envelope(
+                direction="downgrade", headroom=row
+            )
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_previous_tier_capacity_headroom: error: %s", exc
+        )
+        return jsonify(
+            _neighbour_tier_headroom_envelope(
+                direction="downgrade", headroom=None
+            )
+        )
 
 
 @bp_entitlement.route("/api/entitlement/capacity-headroom-batch")
@@ -3183,6 +3388,130 @@ def api_entitlement_required_tier():
                 "allowed": True,
             }
         )
+
+
+def _has_axis_fallback(axis: str, key: str) -> dict:
+    """OSS-free / never-5xx shape for the ``/api/entitlement/has-*``
+    endpoints, matching the never-crash posture of
+    ``/api/entitlement/required-tier`` and ``/api/entitlement/lock-reason``.
+
+    Same 8-key envelope as the happy-path branch so a frontend can bind
+    ``allowed`` off the URL without a branch on the underlying resolver
+    state. ``axis`` is ``"feature"`` or ``"runtime"`` -- the key name of
+    the input arg -- so a single helper serves both sibling endpoints.
+    """
+    return {
+        axis: key,
+        f"has_{axis}": False,
+        "allowed": False,
+        "required_tier": None,
+        "required_tier_label": None,
+        "required_tier_rank": -1,
+        "current_tier": "oss",
+        "current_tier_rank": 0,
+        "upgrade_required": False,
+    }
+
+
+def _has_axis_body(axis: str, resolver_min_tier, resolver_allow) -> dict:
+    """Happy-path body builder for the ``/api/entitlement/has-*``
+    endpoints -- scalar boolean plus the surrounding required-tier
+    envelope so a paywall tile can bind ``has_feature`` /
+    ``has_runtime`` directly off the URL without a follow-up hit to
+    ``/api/entitlement/required-tier``.
+
+    Envelope keys are byte-stable across ``has_feature`` /
+    ``has_runtime`` (parameterised via ``axis``) and match the tier
+    columns on the sibling ``/required-tier`` body so a cross-endpoint
+    consistency invariant (same tier answer for the same key) can be
+    pinned in tests.
+    """
+    from clawmetry import entitlements as _ent
+
+    key = (request.args.get(axis) or "").strip().lower()
+    ent = _ent.get_entitlement()
+    if axis == "feature":
+        has_flag = _ent.has_feature(key)
+        required = _ent.min_tier_for_feature(key) if key else None
+    else:
+        has_flag = _ent.has_runtime(key)
+        required = _ent.min_tier_for_runtime(key) if key else None
+    # `resolver_*` params kept in the signature so tests can monkeypatch
+    # a single seam if the resolver ever grows a second entry point.
+    _ = (resolver_min_tier, resolver_allow)
+    cur_rank = _ent.tier_rank(ent.tier)
+    req_rank = _ent.tier_rank(required) if required else -1
+    required_label = _ent.tier_label(required) if required else None
+    return {
+        axis: key,
+        f"has_{axis}": bool(has_flag),
+        "allowed": bool(has_flag),
+        "required_tier": required,
+        "required_tier_label": required_label,
+        "required_tier_rank": req_rank,
+        "current_tier": ent.tier,
+        "current_tier_rank": cur_rank,
+        "upgrade_required": bool(required) and req_rank > cur_rank,
+    }
+
+
+@bp_entitlement.route("/api/entitlement/has-feature")
+def api_entitlement_has_feature():
+    """``GET /api/entitlement/has-feature?feature=<id>`` -- boolean-gate
+    scalar sibling of ``/api/entitlement/required-tier?feature=<id>``.
+
+    Returns ONE boolean (``has_feature``) plus the surrounding tier
+    envelope (``current_tier``, ``required_tier``, ``upgrade_required``)
+    so a paywall tile can bind ``allowed`` directly off this URL without
+    parsing the full required-tier body. Grace-safe: while
+    :attr:`Entitlement.grace` is ``True`` (the current rollout state)
+    ``has_feature`` reports ``True`` for every KNOWN feature id, so
+    wiring this into a gate today changes NO current behavior.
+    Unknown / empty / non-string ids collapse to ``has_feature=False``
+    without an HTTP 4xx (the never-crash posture matches the sibling
+    ``/api/entitlement/required-tier`` and ``/api/entitlement/lock-reason``
+    endpoints). Never 5xx.
+    """
+    try:
+        from clawmetry import entitlements as _ent
+
+        return jsonify(
+            _has_axis_body(
+                "feature",
+                _ent.min_tier_for_feature,
+                _ent.has_feature,
+            )
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_has_feature: error: %s", exc)
+        key = (request.args.get("feature") or "").strip().lower()
+        return jsonify(_has_axis_fallback("feature", key))
+
+
+@bp_entitlement.route("/api/entitlement/has-runtime")
+def api_entitlement_has_runtime():
+    """``GET /api/entitlement/has-runtime?runtime=<id>`` -- runtime-axis
+    mirror of ``/api/entitlement/has-feature``.
+
+    Same 8-key envelope with ``runtime`` / ``has_runtime`` in the
+    axis-specific slots. Grace-safe: ``has_runtime`` reports ``True``
+    for every known runtime id while grace is on; unknown / empty ids
+    collapse to ``False``. Never 5xx.
+    """
+    try:
+        from clawmetry import entitlements as _ent
+
+        return jsonify(
+            _has_axis_body(
+                "runtime",
+                _ent.min_tier_for_runtime,
+                _ent.has_runtime,
+            )
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_has_runtime: error: %s", exc)
+        key = (request.args.get("runtime") or "").strip().lower()
+        return jsonify(_has_axis_fallback("runtime", key))
 
 
 @bp_entitlement.route("/api/entitlement/lock-reason")
@@ -7711,6 +8040,1164 @@ def api_license_pubkey():
         )
 
 
+def _license_expiry_snapshot() -> dict:
+    """Shared helper: read once, derive the trio the two expiry endpoints
+    both need (``days_left``, ``has_license``, ``expired``). Lives in the
+    handler layer -- not in :mod:`clawmetry.license` -- because
+    ``has_license`` is an install-state fact rather than a license-payload
+    fact, and both endpoints below need the pair together.
+
+    Never raises: any underlying failure collapses to
+    ``{days_left: None, has_license: False, expired: False}`` so callers
+    keep the "OSS-free" branch shape.
+    """
+    try:
+        from clawmetry import license as _lic
+
+        info = _lic.current_license_info()
+    except Exception as exc:
+        logger.debug("_license_expiry_snapshot: underlying read failed: %s", exc)
+        return {"days_left": None, "has_license": False, "expired": False}
+    if not isinstance(info, dict):
+        return {"days_left": None, "has_license": False, "expired": False}
+    days = info.get("days_left")
+    days_left = days if isinstance(days, int) else None
+    status = info.get("status")
+    return {
+        "days_left": days_left,
+        "has_license": True,
+        "expired": status == "expired",
+    }
+
+
+@bp_entitlement.route("/api/license/days-until-expiry")
+def api_license_days_until_expiry():
+    """``GET /api/license/days-until-expiry`` -- scalar countdown for a
+    renewal banner / days-left badge that wants ONE number rather than the
+    whole ``/api/license/status`` envelope.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "days_left": <int|null>,   # None if no license OR no exp claim
+          "has_license": <bool>,     # is a license file installed at all?
+          "expired": <bool>          # True iff days_left < 0
+        }
+
+    ``days_left`` sign matches :func:`clawmetry.license.days_until_expiry`:
+    zero on the day of expiry, negative once expired, ``null`` for no
+    license or perpetual (no-exp) key. A dashboard tile can bind directly
+    off this URL without parsing the full license envelope; a caller who
+    also wants ``tier``/``sub``/``pubkey_fingerprint_sha256`` should keep
+    hitting ``/api/license/status``.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{days_left: null, has_license: false, expired: false}`` (the
+    OSS-free branch shape), matching the "never crash on bad input"
+    posture of the surrounding license endpoints.
+    """
+    try:
+        return jsonify(_license_expiry_snapshot())
+    except Exception as exc:
+        logger.warning("api_license_days_until_expiry: error: %s", exc)
+        return jsonify({"days_left": None, "has_license": False, "expired": False})
+
+
+@bp_entitlement.route("/api/license/expiring-within")
+def api_license_expiring_within():
+    """``GET /api/license/expiring-within?days=<N>`` -- boolean gate for
+    "should I show a renewal warning right now?" UIs.
+
+    Query parameters:
+      * ``days`` (int, required) -- the renewal-window threshold. Negative
+        or non-numeric input degrades to ``expiring_within=false`` (nothing
+        expires within -5 days) rather than a 4xx, matching the surrounding
+        endpoints' never-5xx / never-4xx posture. Defaults to ``30`` when
+        omitted so a bare hit still returns a sensible answer.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "expiring_within": <bool>,
+          "days_left": <int|null>,
+          "threshold_days": <int>,
+          "has_license": <bool>,
+          "expired": <bool>
+        }
+
+    ``expiring_within`` is ``True`` iff a license is installed AND its
+    ``exp`` claim is between 0 and ``threshold_days`` inclusive. An
+    already-expired license returns ``expiring_within=false`` on purpose
+    -- the caller wants "warn about upcoming renewal" separate from "loud
+    banner about an expired install", and the ``expired`` field carries
+    the latter signal so both banners can drive off one URL.
+
+    Mirrors :func:`clawmetry.license.is_expiring_within` -- the HTTP shape
+    layers ``days_left`` / ``threshold_days`` / ``has_license`` /
+    ``expired`` on top of that bool so a paywall widget never needs a
+    second call to ``/api/license/status`` to render the accompanying
+    "expires in N days" copy.
+    """
+    raw = request.args.get("days", "30")
+    try:
+        threshold = int(raw)
+    except (TypeError, ValueError):
+        # Bad input degrades to false -- nothing "expires within garbage".
+        snap = _license_expiry_snapshot()
+        return jsonify(
+            {
+                "expiring_within": False,
+                "days_left": snap["days_left"],
+                "threshold_days": 0,
+                "has_license": snap["has_license"],
+                "expired": snap["expired"],
+            }
+        )
+    if threshold < 0:
+        threshold = 0
+    try:
+        snap = _license_expiry_snapshot()
+    except Exception as exc:
+        logger.warning("api_license_expiring_within: error: %s", exc)
+        snap = {"days_left": None, "has_license": False, "expired": False}
+    days_left = snap["days_left"]
+    within = (
+        snap["has_license"]
+        and isinstance(days_left, int)
+        and 0 <= days_left <= threshold
+    )
+    return jsonify(
+        {
+            "expiring_within": bool(within),
+            "days_left": days_left,
+            "threshold_days": threshold,
+            "has_license": snap["has_license"],
+            "expired": snap["expired"],
+        }
+    )
+
+
+def _license_tier_snapshot() -> dict:
+    """Shared helper: read once, derive the trio the two tier endpoints
+    both need (``tier``, ``has_license``, ``valid``). Lives in the
+    handler layer -- not in :mod:`clawmetry.license` -- because
+    ``has_license`` is an install-state fact rather than a license-payload
+    fact, and both endpoints below need the pair together so a UI cannot
+    catch them disagreeing on ``has_license`` for the same install.
+
+    Never raises: any underlying failure collapses to
+    ``{tier: None, has_license: False, valid: False}`` so callers keep
+    the "OSS-free" branch shape.
+    """
+    try:
+        from clawmetry import license as _lic
+
+        info = _lic.current_license_info()
+        tier = _lic.license_tier()
+    except Exception as exc:
+        logger.debug("_license_tier_snapshot: underlying read failed: %s", exc)
+        return {"tier": None, "has_license": False, "valid": False}
+    if not isinstance(info, dict):
+        return {"tier": None, "has_license": False, "valid": False}
+    return {
+        "tier": tier,
+        "has_license": True,
+        "valid": bool(info.get("valid")),
+    }
+
+
+@bp_entitlement.route("/api/license/tier")
+def api_license_tier():
+    """``GET /api/license/tier`` -- scalar view of the installed license's
+    tier claim, for a paywall tile / tier badge that wants ONE string
+    rather than the whole ``/api/license/status`` envelope.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "tier": <str|null>,        # normalised (lowercased, stripped) tier
+          "has_license": <bool>,     # is a license file installed at all?
+          "valid": <bool>            # signature-valid AND not expired
+        }
+
+    ``tier`` mirrors :func:`clawmetry.license.license_tier`: ``None`` for
+    no license, invalid signature, or expired install -- an expired Pro
+    key deliberately collapses to ``null`` so a paywall tile that keys
+    off this field cannot keep rendering "Pro" for a lapsed customer.
+    A caller who wants ``sub`` / ``nodes`` / ``exp`` alongside should
+    keep hitting ``/api/license/status``.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{tier: null, has_license: false, valid: false}`` (the OSS-free
+    branch shape), matching the "never crash on bad input" posture of
+    the surrounding license endpoints.
+    """
+    try:
+        return jsonify(_license_tier_snapshot())
+    except Exception as exc:
+        logger.warning("api_license_tier: error: %s", exc)
+        return jsonify({"tier": None, "has_license": False, "valid": False})
+
+
+@bp_entitlement.route("/api/license/is-tier")
+def api_license_is_tier():
+    """``GET /api/license/is-tier?tier=<name>`` -- boolean gate for
+    "am I on tier <X> right now?" UIs.
+
+    Query parameters:
+      * ``tier`` (str, required) -- the tier to test against. Compared
+        case-insensitively after strip, matching
+        :func:`clawmetry.license.is_tier`. Missing / empty input degrades
+        to ``is_tier=false`` rather than a 4xx, matching the surrounding
+        endpoints' never-5xx / never-4xx posture.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "is_tier": <bool>,
+          "tier": <str|null>,          # currently-installed tier
+          "requested_tier": <str>,     # normalised echo of the query
+          "has_license": <bool>,
+          "valid": <bool>              # signature-valid AND not expired
+        }
+
+    ``is_tier`` is ``True`` iff a license is installed, signature-valid,
+    NOT expired, and its normalised tier byte-equals ``requested_tier``.
+    An expired Pro install returns ``is_tier=false`` even for
+    ``?tier=pro`` on purpose -- the caller wants "am I entitled right
+    now" not "was I ever entitled", and the ``valid`` field carries the
+    "signed but lapsed" signal so a paywall UI can drive both banners
+    off one URL.
+
+    Mirrors :func:`clawmetry.license.is_tier` -- the HTTP shape layers
+    ``tier`` / ``requested_tier`` / ``has_license`` / ``valid`` on top
+    of that bool so a widget never needs a second call to
+    ``/api/license/status`` to render the accompanying "you're on X"
+    copy.
+    """
+    raw = request.args.get("tier", "") or ""
+    try:
+        requested = str(raw).strip().lower()
+    except Exception:
+        requested = ""
+    try:
+        snap = _license_tier_snapshot()
+    except Exception as exc:
+        logger.warning("api_license_is_tier: error: %s", exc)
+        snap = {"tier": None, "has_license": False, "valid": False}
+    match = bool(
+        requested
+        and snap["valid"]
+        and isinstance(snap["tier"], str)
+        and snap["tier"] == requested
+    )
+    return jsonify(
+        {
+            "is_tier": match,
+            "tier": snap["tier"],
+            "requested_tier": requested,
+            "has_license": snap["has_license"],
+            "valid": snap["valid"],
+        }
+    )
+
+
+def _license_gate_snapshot() -> dict:
+    """Shared one-shot read of the installed-license state for the boolean-gate
+    endpoints below.
+
+    Reads :func:`clawmetry.license.current_license_info` ONCE so the paired
+    ``/api/license/is-expired`` and ``/api/license/is-perpetual`` endpoints
+    can't disagree on ``has_license`` / ``status`` for the same key -- a UI
+    that binds both in the same tile always sees a consistent snapshot.
+
+    Never raises. Any introspection failure (import error, corrupt install,
+    cryptography-lib mismatch) collapses to the no-license shape so the
+    endpoint stack never 5xxs; the "expired" / "perpetual" gates degrade to
+    ``False`` on that branch, matching the module-level scalar helpers'
+    OSS-free posture.
+    """
+    info = None
+    try:
+        from clawmetry import license as _lic
+
+        info = _lic.current_license_info()
+    except Exception as exc:
+        logger.debug("_license_gate_snapshot: error: %s", exc)
+        info = None
+    has_license = info is not None
+    status = info.get("status") if info else None
+    exp = info.get("exp") if info else None
+    return {
+        "has_license": has_license,
+        "status": status,
+        "has_exp": bool(has_license and exp is not None),
+        # An "invalid-signature" branch collapses ``exp`` to ``None`` on
+        # purpose (we don't trust an unsigned body) -- rule it out here so a
+        # forged file can't masquerade as "perpetual" via the gate endpoint.
+        "expired": bool(has_license and status == "expired"),
+        "perpetual": bool(has_license and status != "invalid" and exp is None),
+    }
+
+
+@bp_entitlement.route("/api/license/is-expired")
+def api_license_is_expired():
+    """``GET /api/license/is-expired`` -- boolean gate for "already past the
+    ``exp`` claim".
+
+    Payload:
+
+      * ``expired`` -- ``True`` iff an installed, signature-valid license
+        carries an ``exp`` claim in the past. ``False`` for every other state
+        (no license, invalid signature, perpetual key, active / future ``exp``)
+        so a paywall tile can bind directly to this scalar without threading
+        the full ``/api/license/status`` envelope through.
+      * ``has_license`` -- ``True`` iff a license file is on disk and
+        introspection succeeded, mirroring the ``/api/license/status`` "does a
+        file exist" branch so a UI can distinguish "expired" from "never had
+        one" without a second request.
+      * ``status`` -- passes through ``current_license_info().status``
+        (``"active"`` / ``"expired"`` / ``"invalid"`` / ``None``) so a shared
+        renderer can decide whether to show the loud "expired" banner (from
+        the boolean gate) or the quieter "invalid signature" warning
+        (``status == "invalid"``) alongside it.
+
+    Never 5xxs. Underlying introspection failure degrades to
+    ``{"expired": False, "has_license": False, "status": null}`` at HTTP 200,
+    matching the never-crash posture of ``/api/license/status`` and the
+    surrounding entitlement gate endpoints.
+    """
+    try:
+        snap = _license_gate_snapshot()
+        return jsonify(
+            {
+                "expired": snap["expired"],
+                "has_license": snap["has_license"],
+                "status": snap["status"],
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_license_is_expired: error: %s", exc)
+        return jsonify({"expired": False, "has_license": False, "status": None})
+
+
+@bp_entitlement.route("/api/license/is-perpetual")
+def api_license_is_perpetual():
+    """``GET /api/license/is-perpetual`` -- boolean gate for "lifetime key,
+    no renewal needed".
+
+    Payload:
+
+      * ``perpetual`` -- ``True`` iff an installed, signature-valid license
+        carries NO ``exp`` claim. A UI reading this can hide the renewal
+        counter and render a "Lifetime" badge instead of "Expires in
+        N days". ``False`` for every other state -- no license, invalid
+        signature (we refuse to infer "perpetual" from an untrusted body),
+        and any signed key with an ``exp`` claim.
+      * ``has_license`` -- ``True`` iff a license file is on disk and
+        introspection succeeded, mirroring ``/api/license/is-expired`` so the
+        paired endpoints agree on this key.
+      * ``has_exp`` -- ``True`` iff the installed license carries an ``exp``
+        claim (regardless of active-vs-expired). The complement of
+        ``perpetual`` on the "signature-valid, on-disk" subset -- a UI
+        showing an expiry-date tile can hide it when ``has_exp == False``.
+
+    Never 5xxs. Underlying introspection failure degrades to
+    ``{"perpetual": False, "has_license": False, "has_exp": False}`` at HTTP
+    200.
+    """
+    try:
+        snap = _license_gate_snapshot()
+        return jsonify(
+            {
+                "perpetual": snap["perpetual"],
+                "has_license": snap["has_license"],
+                "has_exp": snap["has_exp"],
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_license_is_perpetual: error: %s", exc)
+        return jsonify({"perpetual": False, "has_license": False, "has_exp": False})
+
+
+@bp_entitlement.route("/api/license/pro-installed")
+def api_license_pro_installed():
+    """``GET /api/license/pro-installed`` -- scalar gate for "is the paid
+    wheel actually importable right now?".
+
+    Payload:
+
+      * ``installed`` -- ``True`` iff Python can currently import
+        ``clawmetry-pro``. Complements ``/api/license/tier`` (which reads
+        the license *claim*): a healthy Pro node needs both a signed
+        Pro-tier license AND the wheel on-disk, and splitting them lets
+        an operator diagnose "activated but wheel missing"
+        (``CLAWMETRY_OFFLINE=1`` install, air-gapped node, failed
+        download) apart from "wheel installed but licence expired"
+        (paid feature stops unlocking on renewal lapse).
+      * ``version`` -- the ``importlib.metadata`` version string when
+        installed, else ``None``. A UI can render ``vX.Y.Z`` next to a
+        green "Pro installed" badge without a second call.
+
+    Wrapper around :func:`clawmetry.license.pro_installed` /
+    :func:`clawmetry.license.pro_installed_version`.
+
+    Never 5xxs. Any underlying introspection failure degrades to
+    ``{"installed": False, "version": None}`` at HTTP 200, matching the
+    never-crash posture of the paired scalar license endpoints.
+    """
+    try:
+        from clawmetry import license as _lic
+
+        version = _lic.pro_installed_version()
+        return jsonify(
+            {
+                "installed": bool(version),
+                "version": version,
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_license_pro_installed: error: %s", exc)
+        return jsonify({"installed": False, "version": None})
+
+
+@bp_entitlement.route("/api/license/pro-installation")
+def api_license_pro_installation():
+    """``GET /api/license/pro-installation`` -- combined install-state view
+    for the ``clawmetry-pro`` wheel.
+
+    Payload -- the same envelope
+    :func:`clawmetry.license.pro_installation_info` returns:
+
+      * ``installed`` -- ``True`` iff ``clawmetry-pro`` is currently
+        importable.
+      * ``version`` -- live ``importlib.metadata`` version string when
+        installed, else ``None``.
+      * ``marker`` -- ``~/.clawmetry/pro_installed.json`` sidecar written
+        at provision time (``installed_at`` unix seconds, ``source``,
+        ``node_id``, and the ``version`` recorded at write time). ``{}``
+        when the marker file is missing / unreadable.
+
+    Live version and marker can disagree in normal operation (marker
+    present but wheel was pip-uninstalled; wheel present but marker
+    never written on a pre-marker install), and that disagreement is
+    exactly what an operator debugging a paywall glitch needs to see, so
+    both are surfaced side-by-side rather than collapsed into a single
+    boolean.
+
+    Never 5xxs. Any underlying introspection failure degrades to
+    ``{"installed": False, "version": None, "marker": {}}`` at HTTP 200.
+    """
+    try:
+        from clawmetry import license as _lic
+
+        return jsonify(_lic.pro_installation_info())
+    except Exception as exc:
+        logger.warning("api_license_pro_installation: error: %s", exc)
+        return jsonify({"installed": False, "version": None, "marker": {}})
+
+
+def _license_nodes_snapshot() -> dict:
+    """Shared helper: read once, derive the trio the two node-limit endpoints
+    both need (``nodes``, ``has_license``, ``valid``). Lives in the handler
+    layer -- not in :mod:`clawmetry.license` -- because ``has_license`` is
+    an install-state fact rather than a license-payload fact, and both
+    endpoints below need the pair together so a UI cannot catch them
+    disagreeing on ``has_license`` for the same install.
+
+    Never raises: any underlying failure collapses to
+    ``{nodes: None, has_license: False, valid: False}`` so callers keep the
+    "OSS-free" branch shape.
+    """
+    try:
+        from clawmetry import license as _lic
+
+        info = _lic.current_license_info()
+        nodes = _lic.license_nodes()
+    except Exception as exc:
+        logger.debug("_license_nodes_snapshot: underlying read failed: %s", exc)
+        return {"nodes": None, "has_license": False, "valid": False}
+    if not isinstance(info, dict):
+        return {"nodes": None, "has_license": False, "valid": False}
+    return {
+        "nodes": nodes,
+        "has_license": True,
+        "valid": bool(info.get("valid")),
+    }
+
+
+@bp_entitlement.route("/api/license/nodes")
+def api_license_nodes():
+    """``GET /api/license/nodes`` -- scalar view of the installed license's
+    node-coverage count, for a fleet-capacity tile that wants ONE integer
+    rather than the whole ``/api/license/status`` envelope.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "nodes": <int|null>,       # covered node count (None if untrusted)
+          "has_license": <bool>,     # is a license file installed at all?
+          "valid": <bool>            # signature-valid AND not expired
+        }
+
+    ``nodes`` mirrors :func:`clawmetry.license.license_nodes`: ``None`` for
+    no license, invalid signature, or expired install -- an expired Pro key
+    deliberately collapses to ``null`` so a fleet-capacity tile that keys
+    off this field cannot keep rendering the paid coverage on a lapsed
+    customer. A caller who wants the raw ``nodes`` claim even on an expired
+    key (support: "how many nodes was this SUPPOSED to cover?") should keep
+    hitting ``/api/license/status``.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{nodes: null, has_license: false, valid: false}`` (the OSS-free
+    branch shape), matching the "never crash on bad input" posture of the
+    surrounding license endpoints.
+    """
+    try:
+        return jsonify(_license_nodes_snapshot())
+    except Exception as exc:
+        logger.warning("api_license_nodes: error: %s", exc)
+        return jsonify({"nodes": None, "has_license": False, "valid": False})
+
+
+@bp_entitlement.route("/api/license/within-node-limit")
+def api_license_within_node_limit():
+    """``GET /api/license/within-node-limit?nodes=<N>`` -- boolean gate for
+    "does a fleet of N nodes fit under the installed license?" UIs.
+
+    Query parameters:
+      * ``nodes`` (int, required) -- the fleet size to test against.
+        Non-numeric or missing input degrades to ``within_limit=false``
+        rather than a 4xx, matching the surrounding endpoints' never-5xx /
+        never-4xx posture. Values below 1 also collapse to ``false`` (a
+        fleet of "connect zero nodes" is meaningless).
+
+    Response shape (always HTTP 200)::
+
+        {
+          "within_limit": <bool>,
+          "nodes": <int|null>,           # currently-covered node count
+          "requested_nodes": <int>,      # normalised echo of the query
+          "has_license": <bool>,
+          "valid": <bool>                # signature-valid AND not expired
+        }
+
+    ``within_limit`` is ``True`` iff a license is installed, signature-
+    valid, NOT expired, its ``nodes`` claim resolves to a positive
+    integer, AND ``requested_nodes`` is between 1 and that limit
+    inclusive. An expired Pro install returns ``within_limit=false`` on
+    purpose -- the caller wants "am I entitled right now" not "was I ever
+    entitled", and the ``valid`` field carries the "signed but lapsed"
+    signal so a paywall UI can drive both banners off one URL.
+
+    Mirrors :func:`clawmetry.license.is_within_node_limit` -- the HTTP
+    shape layers ``nodes`` / ``requested_nodes`` / ``has_license`` /
+    ``valid`` on top of that bool so a fleet widget never needs a second
+    call to ``/api/license/status`` to render the accompanying "N of M
+    nodes covered" copy.
+    """
+    raw = request.args.get("nodes", "")
+    try:
+        requested = int(raw)
+    except (TypeError, ValueError):
+        snap = _license_nodes_snapshot()
+        return jsonify(
+            {
+                "within_limit": False,
+                "nodes": snap["nodes"],
+                "requested_nodes": 0,
+                "has_license": snap["has_license"],
+                "valid": snap["valid"],
+            }
+        )
+    if requested < 1:
+        snap = _license_nodes_snapshot()
+        return jsonify(
+            {
+                "within_limit": False,
+                "nodes": snap["nodes"],
+                "requested_nodes": max(requested, 0),
+                "has_license": snap["has_license"],
+                "valid": snap["valid"],
+            }
+        )
+    try:
+        snap = _license_nodes_snapshot()
+    except Exception as exc:
+        logger.warning("api_license_within_node_limit: error: %s", exc)
+        snap = {"nodes": None, "has_license": False, "valid": False}
+    limit = snap["nodes"]
+    within = (
+        snap["has_license"]
+        and snap["valid"]
+        and isinstance(limit, int)
+        and 1 <= requested <= limit
+    )
+    return jsonify(
+        {
+            "within_limit": bool(within),
+            "nodes": limit,
+            "requested_nodes": requested,
+            "has_license": snap["has_license"],
+            "valid": snap["valid"],
+        }
+    )
+
+
+def _license_presence_snapshot() -> dict:
+    """Shared one-shot read for the two install-state gate endpoints below.
+
+    Reads :func:`clawmetry.license.has_license` and
+    :func:`clawmetry.license.current_license_info` together so the paired
+    ``/api/license/present`` and ``/api/license/valid`` endpoints can't
+    disagree on ``present`` / ``status`` for the same install -- a UI that
+    binds both in the same tile always sees a consistent snapshot.
+
+    Returned dict::
+
+        {
+          "present": <bool>,              # is a license file on disk at all?
+          "valid": <bool>,                # signature-valid AND not expired
+          "status": <str|null>,           # "active"/"expired"/"invalid"/None
+        }
+
+    Never raises. Any introspection failure (import error, corrupt install,
+    cryptography-lib mismatch) collapses to
+    ``{present: False, valid: False, status: None}`` so the endpoint stack
+    never 5xxs, matching the OSS-free posture of the surrounding license
+    endpoints.
+    """
+    try:
+        from clawmetry import license as _lic
+
+        present = bool(_lic.has_license())
+        info = _lic.current_license_info() if present else None
+    except Exception as exc:
+        logger.debug("_license_presence_snapshot: error: %s", exc)
+        return {"present": False, "valid": False, "status": None}
+    status = info.get("status") if isinstance(info, dict) else None
+    valid = bool(isinstance(info, dict) and info.get("valid"))
+    return {
+        "present": present,
+        "valid": valid,
+        "status": status,
+    }
+
+
+@bp_entitlement.route("/api/license/present")
+def api_license_present():
+    """``GET /api/license/present`` -- bare install-state gate for
+    "does this operator have ANY license file at all?".
+
+    Response shape (always HTTP 200)::
+
+        {
+          "present": <bool>,       # is a license file on disk at LICENSE_PATH?
+          "valid": <bool>,          # signature-valid AND not expired
+          "status": <str|null>     # "active"/"expired"/"invalid"/None
+        }
+
+    ``present`` mirrors :func:`clawmetry.license.has_license`: ``True`` iff
+    a file exists at :data:`~clawmetry.license.LICENSE_PATH`, regardless of
+    whether it verifies or whether ``exp`` is in the past. That's the
+    signal a dashboard uses to render a subtly-different empty state for
+    "Free (never activated)" vs "Free (license expired / broken)" -- an
+    entitlement gate wanting "is this node currently entitled?" should
+    bind ``/api/license/valid`` instead.
+
+    ``valid`` / ``status`` are surfaced alongside so a UI can drive the
+    "you have a file but it's not trustworthy" banner off the same
+    request without a second call to ``/api/license/status``.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{present: false, valid: false, status: null}`` (the OSS-free branch
+    shape), matching the "never crash on bad input" posture of the
+    surrounding license endpoints.
+    """
+    try:
+        return jsonify(_license_presence_snapshot())
+    except Exception as exc:
+        logger.warning("api_license_present: error: %s", exc)
+        return jsonify({"present": False, "valid": False, "status": None})
+
+
+@bp_entitlement.route("/api/license/valid")
+def api_license_valid():
+    """``GET /api/license/valid`` -- top-level entitlement gate for
+    "is this node currently entitled?".
+
+    Response shape (always HTTP 200)::
+
+        {
+          "valid": <bool>,          # signature-valid AND not expired
+          "present": <bool>,       # is a license file on disk at all?
+          "status": <str|null>     # "active"/"expired"/"invalid"/None
+        }
+
+    ``valid`` mirrors :func:`clawmetry.license.is_license_valid`: ``True``
+    iff a license is installed, its signature verifies, and its ``exp``
+    claim is not in the past. Every "not entitled" reason -- no file,
+    forged signature, lapsed key -- collapses to ``valid=False`` so a
+    paywall tile can bind directly to this scalar without threading the
+    full ``/api/license/status`` envelope through.
+
+    ``present`` and ``status`` are surfaced alongside so a UI can render
+    the accompanying "you have a broken file" or "your key expired" copy
+    from the same request. An expired install returns
+    ``{valid: false, present: true, status: "expired"}``; an invalid
+    signature returns ``{valid: false, present: true, status: "invalid"}``;
+    an OSS-free node returns ``{valid: false, present: false, status: null}``.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{valid: false, present: false, status: null}`` (the OSS-free branch
+    shape), matching the "never crash on bad input" posture of the
+    surrounding license endpoints.
+    """
+    try:
+        return jsonify(_license_presence_snapshot())
+    except Exception as exc:
+        logger.warning("api_license_valid: error: %s", exc)
+        return jsonify({"valid": False, "present": False, "status": None})
+
+
+def _license_subject_snapshot() -> dict:
+    """Shared helper: read once, derive the trio the two subject endpoints
+    both need (``subject``, ``has_license``, ``valid``). Lives in the
+    handler layer -- not in :mod:`clawmetry.license` -- because
+    ``has_license`` is an install-state fact rather than a license-payload
+    fact, and both endpoints below need the pair together so a UI cannot
+    catch them disagreeing on ``has_license`` for the same install.
+
+    Never raises: any underlying failure collapses to
+    ``{subject: None, has_license: False, valid: False}`` so callers keep
+    the "OSS-free" branch shape.
+    """
+    try:
+        from clawmetry import license as _lic
+
+        info = _lic.current_license_info()
+        subject = _lic.license_subject()
+    except Exception as exc:
+        logger.debug("_license_subject_snapshot: underlying read failed: %s", exc)
+        return {"subject": None, "has_license": False, "valid": False}
+    if not isinstance(info, dict):
+        return {"subject": None, "has_license": False, "valid": False}
+    return {
+        "subject": subject,
+        "has_license": True,
+        "valid": bool(info.get("valid")),
+    }
+
+
+@bp_entitlement.route("/api/license/subject")
+def api_license_subject():
+    """``GET /api/license/subject`` -- scalar view of the installed license's
+    ``sub`` claim (the customer identifier -- typically an account id or a
+    contact email), for a "Licensed to <X>" badge / support-context tile
+    that wants ONE string rather than the whole ``/api/license/status``
+    envelope.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "subject": <str|null>,     # customer identifier (None if untrusted)
+          "has_license": <bool>,     # is a license file installed at all?
+          "valid": <bool>            # signature-valid AND not expired
+        }
+
+    ``subject`` mirrors :func:`clawmetry.license.license_subject`: ``None``
+    for no license, invalid signature, or expired install -- an expired
+    Pro key deliberately collapses to ``null`` so a support tile that keys
+    off this field cannot keep rendering the paid customer on a lapsed
+    install. A caller who wants the raw ``sub`` claim even on an expired
+    key (support: "who was this key issued to?") should keep hitting
+    ``/api/license/status``.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{subject: null, has_license: false, valid: false}`` (the OSS-free
+    branch shape), matching the "never crash on bad input" posture of
+    the surrounding license endpoints.
+    """
+    try:
+        return jsonify(_license_subject_snapshot())
+    except Exception as exc:
+        logger.warning("api_license_subject: error: %s", exc)
+        return jsonify({"subject": None, "has_license": False, "valid": False})
+
+
+@bp_entitlement.route("/api/license/is-subject")
+def api_license_is_subject():
+    """``GET /api/license/is-subject?subject=<value>`` -- boolean gate for
+    "is this license issued to subject <X> right now?" UIs.
+
+    Query parameters:
+      * ``subject`` (str, required) -- the subject to test against.
+        Compared case-insensitively after strip, matching
+        :func:`clawmetry.license.is_subject`. Missing / empty input
+        degrades to ``is_subject=false`` rather than a 4xx, matching the
+        surrounding endpoints' never-5xx / never-4xx posture.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "is_subject": <bool>,
+          "subject": <str|null>,          # currently-active subject claim
+          "requested_subject": <str>,     # normalised echo of the query
+          "has_license": <bool>,
+          "valid": <bool>                 # signature-valid AND not expired
+        }
+
+    ``is_subject`` is ``True`` iff a license is installed, signature-
+    valid, NOT expired, its ``sub`` claim resolves to a non-empty string,
+    AND ``requested_subject`` matches that string case-insensitively. An
+    expired Pro install returns ``is_subject=false`` on purpose -- the
+    caller wants "is this key still bound to <X>?" not "was it ever", and
+    the ``valid`` field carries the "signed but lapsed" signal so a
+    multi-tenant dispatcher can drive both branches off one URL.
+
+    Mirrors :func:`clawmetry.license.is_subject` -- the HTTP shape layers
+    ``subject`` / ``requested_subject`` / ``has_license`` / ``valid`` on
+    top of that bool so an audit widget never needs a second call to
+    ``/api/license/status`` to render the accompanying "Licensed to X"
+    copy.
+    """
+    raw = request.args.get("subject", "") or ""
+    requested = raw.strip()
+    if not requested:
+        snap = _license_subject_snapshot()
+        return jsonify(
+            {
+                "is_subject": False,
+                "subject": snap["subject"],
+                "requested_subject": "",
+                "has_license": snap["has_license"],
+                "valid": snap["valid"],
+            }
+        )
+    try:
+        snap = _license_subject_snapshot()
+    except Exception as exc:
+        logger.warning("api_license_is_subject: error: %s", exc)
+        snap = {"subject": None, "has_license": False, "valid": False}
+    actual = snap["subject"]
+    matches = (
+        snap["has_license"]
+        and snap["valid"]
+        and isinstance(actual, str)
+        and actual.lower() == requested.lower()
+    )
+    return jsonify(
+        {
+            "is_subject": bool(matches),
+            "subject": actual,
+            "requested_subject": requested,
+            "has_license": snap["has_license"],
+            "valid": snap["valid"],
+        }
+    )
+
+
+def _license_permissions_snapshot() -> dict:
+    """Shared helper: read once, derive the trio the two permission-hygiene
+    endpoints both need (``permissions_safe``, ``file_mode``,
+    ``has_license``). Lives in the handler layer -- not in
+    :mod:`clawmetry.license` -- because ``has_license`` is an install-state
+    fact rather than a license-payload fact, and both endpoints below need
+    the trio together so a UI cannot catch them disagreeing on
+    ``has_license`` for the same install.
+
+    Deliberately independent of signature validity: the on-disk mode is a
+    file-hygiene fact, not a license-payload fact, so a tampered or expired
+    key file still surfaces its real ``file_mode`` here -- exactly the
+    state a "tighten file permissions" affordance needs to render.
+
+    Never raises: any underlying failure collapses to
+    ``{permissions_safe: None, file_mode: None, has_license: False}`` so
+    callers keep the "OSS-free" branch shape.
+    """
+    try:
+        from clawmetry import license as _lic
+
+        has = _lic.has_license() if hasattr(_lic, "has_license") else os.path.isfile(
+            _lic.LICENSE_PATH
+        )
+        perms = _lic.license_permissions_safe()
+        mode = _lic.license_file_mode()
+    except Exception as exc:
+        logger.debug("_license_permissions_snapshot: underlying read failed: %s", exc)
+        return {"permissions_safe": None, "file_mode": None, "has_license": False}
+    return {
+        "permissions_safe": perms,
+        "file_mode": mode,
+        "has_license": bool(has),
+    }
+
+
+@bp_entitlement.route("/api/license/permissions-safe")
+def api_license_permissions_safe():
+    """``GET /api/license/permissions-safe`` -- tri-state scalar of the
+    installed license file's on-disk permission hygiene, for a
+    security-posture tile that wants ONE field rather than the whole
+    ``/api/license/status`` envelope.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "permissions_safe": <bool|null>,   # None = no license file
+          "file_mode": <str|null>,           # e.g. "0600"; null on Windows
+          "has_license": <bool>              # is a license file installed?
+        }
+
+    ``permissions_safe`` mirrors
+    :func:`clawmetry.license.license_permissions_safe`:
+
+      * ``null`` when there is no license file (Free install -- nothing to
+        protect).
+      * ``true`` when the file exists AND has no group/world mode bits set
+        (POSIX), OR when running on Windows where POSIX mode bits do not
+        apply.
+      * ``false`` when the file exists on POSIX AND has any of the
+        group/other bits set -- exactly the state a "tighten file
+        permissions" affordance should highlight.
+
+    Deliberately orthogonal to signature validity: a tampered or expired
+    license file still surfaces its real ``permissions_safe`` here, so a
+    security-posture tile can render the hygiene banner even when the
+    payload branches (``tier`` / ``sub`` / ``nodes``) have collapsed to
+    ``null`` under the "refuse untrusted claims" posture used elsewhere.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{permissions_safe: null, file_mode: null, has_license: false}`` (the
+    OSS-free branch shape), matching the never-crash posture of the
+    surrounding license endpoints.
+    """
+    try:
+        return jsonify(_license_permissions_snapshot())
+    except Exception as exc:
+        logger.warning("api_license_permissions_safe: error: %s", exc)
+        return jsonify(
+            {"permissions_safe": None, "file_mode": None, "has_license": False}
+        )
+
+
+@bp_entitlement.route("/api/license/file-mode")
+def api_license_file_mode():
+    """``GET /api/license/file-mode`` -- scalar view of the installed
+    license file's POSIX mode, for a debug row / operator-hint tile that
+    wants the raw octal (e.g. ``"0644"``) rather than the whole
+    ``/api/license/status`` envelope.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "file_mode": <str|null>,           # e.g. "0600"; null on Windows
+          "permissions_safe": <bool|null>,   # None = no license file
+          "has_license": <bool>              # is a license file installed?
+        }
+
+    ``file_mode`` mirrors :func:`clawmetry.license.license_file_mode`:
+
+      * ``null`` when there is nothing meaningful to surface (no license
+        file on disk, OR running on Windows where POSIX mode bits do not
+        apply).
+      * A four-character octal string like ``"0600"`` (safe), ``"0644"``
+        (world-readable), or ``"0666"`` (world-writable) otherwise --
+        stable format matching ``chmod`` so an operator can copy-paste
+        the digits into a ``chmod 0600 <path>`` fix.
+
+    Pairs with ``/api/license/permissions-safe`` the way
+    ``/api/license/nodes`` pairs with ``/api/license/within-node-limit``
+    -- this endpoint surfaces the raw octal for a debug row, that endpoint
+    answers the yes/no question a security tile needs without the caller
+    having to parse octal themselves. The two endpoints share
+    :func:`_license_permissions_snapshot` so a UI binding both sees a
+    consistent snapshot.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{file_mode: null, permissions_safe: null, has_license: false}``.
+    """
+    try:
+        snap = _license_permissions_snapshot()
+        return jsonify(
+            {
+                "file_mode": snap["file_mode"],
+                "permissions_safe": snap["permissions_safe"],
+                "has_license": snap["has_license"],
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_license_file_mode: error: %s", exc)
+        return jsonify(
+            {"file_mode": None, "permissions_safe": None, "has_license": False}
+        )
+
+
+def _license_issued_snapshot() -> dict:
+    """Shared helper: read once, derive the quartet the two ``iat``-derived
+    endpoints both need (``issued_at``, ``age_days``, ``has_license``,
+    ``valid``). Lives in the handler layer -- not in
+    :mod:`clawmetry.license` -- because ``has_license`` is an install-state
+    fact rather than a license-payload fact, and both endpoints below need
+    the pair together so a UI cannot catch them disagreeing on
+    ``has_license`` for the same install.
+
+    Deliberately lenient on expiry, matching the ``license_issued_at`` /
+    ``license_age_days`` posture: a signed-but-lapsed key still surfaces
+    its real ``issued_at`` / ``age_days`` so a support/audit tile can
+    render "issued 800 days ago" without special-casing the expired
+    branch. The ``valid`` field independently carries the "signature-valid
+    AND not expired" signal for callers that DO want to hide the row on
+    lapsed keys.
+
+    Never raises: any underlying failure collapses to
+    ``{issued_at: None, age_days: None, has_license: False, valid: False}``
+    so callers keep the "OSS-free" branch shape.
+    """
+    try:
+        from clawmetry import license as _lic
+
+        info = _lic.current_license_info()
+        issued = _lic.license_issued_at()
+        age = _lic.license_age_days()
+    except Exception as exc:
+        logger.debug("_license_issued_snapshot: underlying read failed: %s", exc)
+        return {
+            "issued_at": None,
+            "age_days": None,
+            "has_license": False,
+            "valid": False,
+        }
+    if not isinstance(info, dict):
+        return {
+            "issued_at": None,
+            "age_days": None,
+            "has_license": False,
+            "valid": False,
+        }
+    return {
+        "issued_at": issued,
+        "age_days": age,
+        "has_license": True,
+        "valid": bool(info.get("valid")),
+    }
+
+
+@bp_entitlement.route("/api/license/issued-at")
+def api_license_issued_at():
+    """``GET /api/license/issued-at`` -- scalar view of the installed
+    license's ``iat`` claim (epoch seconds), for a "license issued: <date>"
+    row that wants ONE integer rather than the whole
+    ``/api/license/status`` envelope.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "issued_at": <int|null>,   # epoch seconds; None if untrusted
+          "age_days": <int|null>,    # days since issuance
+          "has_license": <bool>,     # is a license file installed at all?
+          "valid": <bool>            # signature-valid AND not expired
+        }
+
+    ``issued_at`` mirrors :func:`clawmetry.license.license_issued_at`:
+
+      * ``null`` when there is no license file, on the invalid-signature
+        branch (payload cannot be trusted -- an attacker could stuff any
+        ``iat`` into an unsigned body), OR when the signed payload has
+        no ``iat`` claim.
+      * A positive epoch integer otherwise, unmodified from the signed
+        payload.
+
+    Deliberately lenient on expiry, unlike ``/api/license/nodes`` and
+    ``/api/license/tier``: a signed-but-lapsed key still surfaces its
+    real ``issued_at`` so a support tile can render "issued 800 days ago"
+    on an expired key. The ``valid`` field independently carries the
+    "signature-valid AND not expired" signal for callers that DO want to
+    hide the row on lapsed keys.
+
+    Pairs with ``/api/license/age-days`` -- this endpoint surfaces the
+    raw epoch for a debug row, that endpoint answers the "how old" gate a
+    UI tile needs without the caller having to do the arithmetic. The two
+    endpoints share :func:`_license_issued_snapshot` so a UI binding both
+    sees a consistent snapshot.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{issued_at: null, age_days: null, has_license: false, valid: false}``
+    (the OSS-free branch shape), matching the never-crash posture of the
+    surrounding license endpoints.
+    """
+    try:
+        return jsonify(_license_issued_snapshot())
+    except Exception as exc:
+        logger.warning("api_license_issued_at: error: %s", exc)
+        return jsonify(
+            {
+                "issued_at": None,
+                "age_days": None,
+                "has_license": False,
+                "valid": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/license/age-days")
+def api_license_age_days():
+    """``GET /api/license/age-days`` -- scalar view of the installed
+    license's age (days since the ``iat`` claim), for a support/audit
+    tile that wants ONE integer rather than computing
+    ``(now - iat) // 86400`` at the call site.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "age_days": <int|null>,    # days since issuance; None if untrusted
+          "issued_at": <int|null>,   # epoch seconds
+          "has_license": <bool>,     # is a license file installed at all?
+          "valid": <bool>            # signature-valid AND not expired
+        }
+
+    ``age_days`` mirrors :func:`clawmetry.license.license_age_days`:
+
+      * ``null`` when there is no license file, on the invalid-signature
+        branch, or when the signed payload has no ``iat`` claim.
+      * A non-negative integer otherwise -- zero on the day of issuance,
+        growing monotonically thereafter. Clamped to ``max(0, ...)`` so a
+        clock-skew ``iat`` in the future never renders as a negative age.
+
+    Days are floor-divided from seconds ``(now - iat) // 86400``,
+    matching how ``/api/license/days-until-expiry`` derives its
+    counterpart from ``(exp - now)`` so the two scalars never disagree at
+    the day boundary.
+
+    Deliberately lenient on expiry (see ``/api/license/issued-at``): a
+    signed-but-lapsed key still surfaces its real ``age_days``. The
+    ``valid`` field independently carries the "signature-valid AND not
+    expired" signal for callers that want to hide the row on lapsed keys.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{age_days: null, issued_at: null, has_license: false, valid: false}``.
+    """
+    try:
+        snap = _license_issued_snapshot()
+        return jsonify(
+            {
+                "age_days": snap["age_days"],
+                "issued_at": snap["issued_at"],
+                "has_license": snap["has_license"],
+                "valid": snap["valid"],
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_license_age_days: error: %s", exc)
+        return jsonify(
+            {
+                "age_days": None,
+                "issued_at": None,
+                "has_license": False,
+                "valid": False,
+            }
+        )
+
+
 @bp_entitlement.route("/api/paywall/event", methods=["POST"])
 def api_paywall_event():
     body: dict = {}
@@ -8199,6 +9686,95 @@ def api_paywall_events_count():
             {
                 "count": 0,
                 "in_window": 0,
+                "filters": {},
+                "time_window": {"since": None, "until": None},
+            }
+        )
+
+
+_PAYWALL_DISTINCT_DIMS = ("event", "feature", "harness", "source", "plan_chosen")
+
+
+@bp_entitlement.route("/api/paywall/events/distinct")
+def api_paywall_events_distinct():
+    """``GET /api/paywall/events/distinct`` -- sorted distinct values per
+    categorical dimension currently in the ring.
+
+    Populates filter-dropdown options for the paywall-events dashboard:
+    a UI wanting to render "Filter by feature: [ dropdown ]" needs to
+    know which features have actually fired at least one beacon this
+    session so the dropdown never lists dead options. This endpoint
+    hands back exactly that list for each of the five categorical
+    dimensions in one round-trip.
+
+    Same categorical filter query params + semantics as the sibling
+    paywall-events endpoints -- ``?event=`` / ``?feature=`` /
+    ``?harness=`` / ``?source=`` / ``?plan_chosen=``, case-sensitive
+    exact match, ``AND`` combined, blank / missing = "not supplied".
+    Filters narrow the ring BEFORE the distinct set is computed, so a
+    caller can drive a "further narrow by:" dropdown UX -- passing
+    ``?event=paywall_cta_click`` returns only the features that
+    actually co-occur with CTA clicks in the current ring.
+
+    Same time-window params as ``/api/paywall/events/{summary,recent,count}``::
+
+      ?since=<float-epoch-seconds>
+      ?until=<float-epoch-seconds>
+
+    Half-open ``[since, until)``; either bound may be omitted or blank.
+    Bad bounds (non-numeric, NaN, negative) collapse to "not supplied"
+    so an operator typo cannot silently drop every row.
+
+    Body shape::
+
+        {
+          "distinct": {
+            "event":       [<str>, ...],   # sorted ascending, non-empty only
+            "feature":     [<str>, ...],
+            "harness":     [<str>, ...],
+            "source":      [<str>, ...],
+            "plan_chosen": [<str>, ...],
+          },
+          "in_window": <int>,            # ring size right now, unfiltered
+          "matched":   <int>,            # rows the distinct set covers (post-filter, post-window)
+          "filters":   {"<key>": "<value>", ...},   # echo of applied categorical filters
+          "time_window": {"since": <float|null>, "until": <float|null>}
+                                                    # echo of resolved bounds
+        }
+
+    The per-dimension lists are byte-equal to the sorted keys of
+    ``/api/paywall/events/summary``'s corresponding ``by_*`` dict for
+    the same filter + window inputs -- pinned in the test suite so the
+    two views cannot silently drift. On a fully-unfiltered request
+    ``matched`` byte-equals ``in_window``.
+
+    Ships in GRACE. Never 5xxs -- on any failure returns the neutral
+    empty envelope so a paywall-dashboard dropdown keeps rendering
+    (empty options are correct: the store has nothing to offer).
+    """
+    try:
+        from clawmetry import _paywall_events as _pe
+
+        filter_kwargs = {
+            key: request.args.get(key, "") or None
+            for key in _PAYWALL_DISTINCT_DIMS
+        }
+        window_kwargs = {
+            key: request.args.get(key, "") or None
+            for key in ("since", "until")
+        }
+        # The store treats blank / whitespace strings as "not supplied"
+        # and does its own numeric coercion on the time bounds, so the
+        # response's ``filters`` / ``time_window`` echoes come from the
+        # store's normalised view rather than the raw query string.
+        return jsonify(_pe.distinct_values(**filter_kwargs, **window_kwargs))
+    except Exception as exc:
+        logger.warning("api_paywall_events_distinct: error: %s", exc)
+        return jsonify(
+            {
+                "distinct": {k: [] for k in _PAYWALL_DISTINCT_DIMS},
+                "in_window": 0,
+                "matched": 0,
                 "filters": {},
                 "time_window": {"since": None, "until": None},
             }

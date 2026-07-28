@@ -24,7 +24,7 @@ class InertiaPlugin(InitPlugin):
     """Inertia plugin.
 
     This plugin configures Litestar for Inertia.js support, including:
-    - Session middleware requirement validation
+    - Optional session-backed redirect state
     - Exception handler for Inertia responses
     - InertiaRequest and InertiaResponse as default classes
     - Type encoders for StaticProp and DeferredProp
@@ -52,7 +52,6 @@ class InertiaPlugin(InitPlugin):
 
         app = Litestar(
             plugins=[InertiaPlugin(InertiaConfig())],
-            middleware=[ServerSideSessionConfig().middleware],
         )
     """
 
@@ -107,17 +106,10 @@ class InertiaPlugin(InitPlugin):
         Args:
             app_config: The :class:`AppConfig <litestar.config.app.AppConfig>` instance.
 
-        Raises:
-            ImproperlyConfiguredException: If the Inertia plugin is not properly configured.
-
         Returns:
             The :class:`AppConfig <litestar.config.app.AppConfig>` instance.
         """
-        from litestar.exceptions import HTTPException, ImproperlyConfiguredException, ValidationException
-        from litestar.middleware import DefineMiddleware
-        from litestar.middleware.session import SessionMiddleware
-        from litestar.security.session_auth.middleware import MiddlewareWrapper
-        from litestar.utils.predicates import is_class_and_subclass
+        from litestar.exceptions import HTTPException, ValidationException
 
         from litestar_vite.inertia.exception_handler import (
             _register_exception_handlers,  # pyright: ignore[reportPrivateUsage]
@@ -125,20 +117,12 @@ class InertiaPlugin(InitPlugin):
         )
         from litestar_vite.inertia.helpers import DeferredProp, StaticProp
         from litestar_vite.inertia.middleware import InertiaMiddleware
+        from litestar_vite.inertia.precognition import create_precognition_exception_handler
         from litestar_vite.inertia.request import InertiaRequest
         from litestar_vite.inertia.response import InertiaBack, InertiaResponse
 
         if app_config.response_class is InertiaResponse:  # pyright: ignore[reportUnknownMemberType]
             return app_config
-
-        for mw in app_config.middleware:
-            if isinstance(mw, DefineMiddleware) and is_class_and_subclass(
-                mw.middleware, (MiddlewareWrapper, SessionMiddleware)
-            ):
-                break
-        else:
-            msg = "The Inertia plugin require a session middleware."
-            raise ImproperlyConfiguredException(msg)
 
         # Register exception handlers
         exception_handlers: "dict[type[Exception] | int, Any]" = {
@@ -151,8 +135,6 @@ class InertiaPlugin(InitPlugin):
         # For successful validation to return 204 (without executing the handler),
         # use the @precognition decorator on your route handlers.
         if self.config.precognition:
-            from litestar_vite.inertia.precognition import create_precognition_exception_handler
-
             exception_handlers[ValidationException] = create_precognition_exception_handler(
                 fallback_handler=exception_to_http_response
             )
@@ -194,11 +176,11 @@ class InertiaPlugin(InitPlugin):
 
 
 def _request_from_context(kwargs: "dict[str, Any]") -> "Request[Any, Any, Any] | None":
+    from litestar_vite.inertia.middleware import get_current_inertia_request
+
     request = kwargs.get("request")
     if request is not None:
         return cast("Request[Any, Any, Any]", request)
-
-    from litestar_vite.inertia.middleware import get_current_inertia_request
 
     return get_current_inertia_request()
 
@@ -234,6 +216,7 @@ def _as_inertia_prop_mapping(data: "Any") -> "Mapping[str, Any] | None":
 
 
 async def _resolve_inertia_response_data(data: "Any", request: "Request[Any, Any, Any]") -> "Any":
+    from litestar_vite.inertia.helpers import is_pagination_container
     from litestar_vite.inertia.response import InertiaResponse
 
     if isinstance(data, InertiaResponse):
@@ -241,8 +224,6 @@ async def _resolve_inertia_response_data(data: "Any", request: "Request[Any, Any
         return cast("InertiaResponse[Any]", data)
     if isinstance(data, Response):
         return cast("Response[Any]", data)
-
-    from litestar_vite.inertia.helpers import is_pagination_container
 
     content: "Any"
     if data is None or isinstance(data, Mapping) or is_pagination_container(data):

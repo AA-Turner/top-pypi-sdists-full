@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tmodbus
-Version: 0.4.1
+Version: 0.5.0
 Summary: A modern, strongly typed Modbus client library.
 Project-URL: HomePage, https://github.com/wlcrs/tmodbus
 Project-URL: Documentation, https://tmodbus.readthedocs.org
@@ -22,10 +22,11 @@ Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: System :: Networking
 Classifier: Typing :: Typed
 Requires-Python: >=3.12
+Requires-Dist: tenacity!=8.4.0,>=8.2.0
 Provides-Extra: async-serial
 Requires-Dist: serialx; extra == 'async-serial'
-Provides-Extra: smart
-Requires-Dist: tenacity!=8.4.0,>=8.2.0; extra == 'smart'
+Provides-Extra: security
+Requires-Dist: cryptography>=38.0; extra == 'security'
 Description-Content-Type: text/markdown
 
 # tModbus
@@ -48,8 +49,9 @@ We choose to use the terminology _client_ and _server_ instead, as it is more cl
 - Pure Python library with minimal dependencies
 - Fully **t**yped
 - Full **t**est coverage
-- Support for Modbus TCP, RTU, ASCII and RTU-over-TCP clients
-- Support for TCP over SSL connections
+- Support for Modbus TCP, RTU, ASCII, RTU-over-TCP and UDP clients
+- Support for Modbus TCP, RTU, ASCII, RTU-over-TCP and UDP servers
+- Support for TCP over SSL/TLS client and server connections, including Modbus/TCP Security (mbaps) with mutual authentication and role-based access control (RBAC)
 - Auto reconnect and retry functionality (which can be enabled optionally)
 - Extensible with custom Modbus functions and exception codes
 - Open source (BSD)
@@ -92,10 +94,9 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-
 ```
 
-Various examples for Modbus RTU and TCP can be found in the [examples](./examples) folder.
+Various client and server examples (including Modbus Security) can be found in the [examples](./examples) folder.
 
 ## Dependencies
 

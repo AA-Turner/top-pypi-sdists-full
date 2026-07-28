@@ -1,18 +1,3 @@
-# This file is part of beets.
-# Copyright 2016, Fabrice Laporte.
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-
-
 """Write paths of imported files in various formats to ease later import in a
 music player. Also allow printing the new file locations to stdout in case
 one wants to manually add music to a player by its path.
@@ -24,7 +9,14 @@ import re
 
 from beets import config
 from beets.plugins import BeetsPlugin
-from beets.util import bytestring_path, link, mkdirall, normpath, syspath
+from beets.util import (
+    FilesystemError,
+    bytestring_path,
+    link,
+    mkdirall,
+    normpath,
+    syspath,
+)
 
 M3U_DEFAULT_NAME = "imported.m3u"
 
@@ -128,7 +120,12 @@ class ImportFeedsPlugin(BeetsPlugin):
             for path in paths:
                 dest = os.path.join(feedsdir, os.path.basename(path))
                 if not os.path.exists(syspath(dest)):
-                    link(path, dest)
+                    try:
+                        link(path, dest)
+                    except FilesystemError as exc:
+                        self._log.warning(
+                            "could not create symlink for {}: {}", path, exc
+                        )
 
         if "echo" in formats:
             self._log.info("Location of imported music:")

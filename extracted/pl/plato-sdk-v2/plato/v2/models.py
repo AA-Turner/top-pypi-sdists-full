@@ -165,3 +165,15 @@ class SandboxState(BaseModel):
 
     # Network
     network_connected: bool = False
+
+    # Chronos session attachment: when set, this sandbox's job was added to
+    # the Plato session backing an existing Chronos session (via add-job)
+    # instead of a fresh standalone session, so lifecycle commands must stay
+    # job-scoped to avoid touching the shared session's other envs.
+    attached: bool = False
+    chronos_session_id: str | None = None
+    # WireGuard mesh IP of the sandbox VM within the shared session's network.
+    # Present for attached sandboxes (the session always has a mesh and add-job
+    # joins the VM before ready). From VMs in the same session, SSH/tunnels use
+    # this directly — in-VPC, no gateway NAT round-trip.
+    mesh_ip: str | None = None

@@ -16,6 +16,7 @@ from requests import RequestException, Session
 from .api_base import ConfluenceSessionShared
 from .api_types import (
     ConfluenceAttachment,
+    ConfluenceComment,
     ConfluenceContentProperty,
     ConfluenceContentVersion,
     ConfluenceIdentifiedContentProperty,
@@ -227,6 +228,19 @@ class ConfluenceSessionV1(ConfluenceSessionShared):
                 LOGGER.warning("Attachment already deleted: %s", attachment_id)
             else:
                 raise
+
+    @property
+    @override
+    def supports_attachment_content_properties(self) -> bool:
+        return False
+
+    @override
+    def get_content_property_for_attachment(self, attachment_id: str, key: str) -> ConfluenceIdentifiedContentProperty | None:
+        raise NotImplementedError("attachment content properties are not supported")
+
+    @override
+    def update_content_property_for_attachment(self, attachment_id: str, property: ConfluenceContentProperty) -> None:
+        raise NotImplementedError("attachment content properties are not supported")
 
     @override
     def get_page_properties_by_title(self, title: str, *, space_id: str | None = None, space_key: str | None = None) -> ConfluencePageProperties:
@@ -469,3 +483,9 @@ class ConfluenceSessionV1(ConfluenceSessionShared):
             ConfluenceVersionedContentProperty(key=property.key, value=property.value, version=ConfluenceContentVersion(number=version)),
             ConfluenceIdentifiedContentProperty,
         )
+
+    @override
+    def get_comments(self, page_id: str) -> list[ConfluenceComment]:
+        # path = f"/content/{page_id}/child/comment"
+        # items = self._fetch_v1(path)
+        return []

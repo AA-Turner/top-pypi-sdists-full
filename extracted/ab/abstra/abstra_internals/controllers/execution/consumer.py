@@ -223,6 +223,13 @@ class ConsumerController:
     def _handle_control_message(self, msg: ControlQueueMessage) -> None:
         try:
             control_msg = msg.message
+            if (
+                isinstance(control_msg, (RunSnippetMessage, RunSnippetSandboxedMessage))
+                and msg.redelivered
+            ):
+                self._discard_redelivered_snippet(msg, control_msg)
+                return
+
             if isinstance(control_msg, StopExecutionMessage):
                 self.executor_pool.kill_execution(control_msg.payload.execution_id)
             elif isinstance(control_msg, RunSnippetMessage):
@@ -239,11 +246,48 @@ class ConsumerController:
             )
             self.consumer.threadsafe_nack(msg)
 
+    def _discard_redelivered_snippet(
+        self,
+        msg: ControlQueueMessage,
+        control_msg: Union[RunSnippetMessage, RunSnippetSandboxedMessage],
+    ) -> None:
+        # A snippet that took the worker down (e.g. OOM) is redelivered by the
+        # broker; running it again would just kill the worker in a loop. Reply
+        # with a failure so the client doesn't wait for its reply timeout.
+        AbstraLogger.lifecycle(
+            f"[ConsumerController] Discarding redelivered snippet [{msg.delivery_tag}]",
+            {"stage": "runtime.snippet.redelivered_discarded"},
+        )
+        result = {
+            "ok": False,
+            "error": "Snippet did not complete on a previous delivery "
+            "(the worker likely ran out of memory running it)",
+            "logs": [],
+        }
+        control_msg.connection = msg.connection
+        try:
+            if isinstance(control_msg, RunSnippetSandboxedMessage):
+                self._send_snippet_result(
+                    control_msg,
+                    result,
+                    is_session=True,
+                    queue_expire_ms=control_msg.queue_expire_ms,
+                    auto_start_consumer=False,
+                )
+            else:
+                self._send_snippet_result(control_msg, result)
+        except Exception as e:
+            AbstraLogger.error(
+                f"[ConsumerController] Failed to send redelivered-snippet failure result: {e}"
+            )
+        self.consumer.threadsafe_ack(msg)
+
     def _handle_run_snippet(self, msg: RunSnippetMessage) -> None:
         response = self.executor_pool.run_snippet(
             code=msg.payload.code,
             worker_id=self.worker_id,
             title=msg.payload.title,
+            requirements=msg.payload.requirements,
         )
 
         result = {
@@ -269,6 +313,7 @@ class ConsumerController:
             mp_context=self.main_controller.repositories.mp_context.get_context(),
             repositories_factory=build_prod_repositories,
             timeout_s=int(msg.timeout_ms / 1000) if msg.timeout_ms else None,
+            requirements=msg.payload.requirements,
         )
 
         result = {

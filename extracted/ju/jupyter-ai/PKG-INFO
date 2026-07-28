@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyter_ai
-Version: 3.1.0
+Version: 3.1.1
 Summary: A set of extensions providing agentic AI in JupyterLab
 Project-URL: Documentation, https://jupyter-ai.readthedocs.io/en/stable/
 Project-URL: Source, https://github.com/jupyterlab/jupyter-ai
@@ -51,7 +51,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
-Requires-Dist: jupyter-ai-acp-client<0.3.0,>=0.2.0
+Requires-Dist: jupyter-ai-acp-client<0.3.0,>=0.2.1
 Requires-Dist: jupyter-ai-chat-commands<0.1.0,>=0.0.4
 Requires-Dist: jupyter-ai-persona-manager<0.2.0,>=0.1.2
 Requires-Dist: jupyter-ai-router<0.1.0,>=0.0.5

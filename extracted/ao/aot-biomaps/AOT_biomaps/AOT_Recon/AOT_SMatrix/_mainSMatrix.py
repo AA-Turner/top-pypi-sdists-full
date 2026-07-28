@@ -14,6 +14,7 @@ from typing import Optional, Union
 
 from AOT_biomaps.AOT_Recon.ReconEnums import SMatrixType
 from AOT_biomaps.AOT_Recon.ReconTools import check_gpu_available
+from AOT_biomaps.Config import config
 
 # Check for CuPy availability
 try:
@@ -44,9 +45,18 @@ class SMatrix(ABC):
         """
         # Determine device
         if device is None:
-            self.device = 'gpu:0' if CUPY_AVAILABLE else 'cpu'
+            self.device = f'gpu:{config.select_best_gpu()}' if CUPY_AVAILABLE else 'cpu'
         else:
-            self.device = device
+            if type(device) is not str:
+                print(f"[AOT-biomaps] Error occurred while setting device. Must be 'cpu' or 'gpu:<index>'. Falling back to auto-detection.")
+                self.device = f'gpu:{config.select_best_gpu()}' if CUPY_AVAILABLE else 'cpu'
+            elif device not in ['cpu'] and not device.startswith('gpu:'):
+                print(f"[AOT-biomaps] Error occurred while setting device. Must be 'cpu' or 'gpu:<index>'. Falling back to auto-detection.")
+                self.device = f'gpu:{config.select_best_gpu()}' if CUPY_AVAILABLE else 'cpu'
+            else:
+                self.device = device
+        if self.device.startswith('gpu'):
+            self.gpu_index = int(self.device.split(':')[-1])
 
         self.experiment = experiment
         self.isComplexSMatrix = isComplexSMatrix

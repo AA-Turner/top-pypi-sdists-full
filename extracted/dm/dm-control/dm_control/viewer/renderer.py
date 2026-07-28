@@ -481,7 +481,7 @@ class SceneCamera:
     # to be called very often, so in order to avoid the overhead, all arguments
     # are assumed to be valid.
     mujoco.mjv_moveCamera(self._model.ptr, action, viewport_offset[0],
-                          viewport_offset[1], self._scene.ptr, self._camera.ptr)
+                          viewport_offset[1], self._camera.ptr)
 
   def new_perturbation(self, body_id):
     """Creates a proxy that allows to manipulate the specified object."""

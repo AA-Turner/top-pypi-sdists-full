@@ -142,7 +142,7 @@ class PnpmProvider(BinProvider):
             node_modules_dir = str(self.install_root / "node_modules")
             env["NODE_MODULES_DIR"] = node_modules_dir
             env["NODE_MODULE_DIR"] = node_modules_dir
-            env["NODE_PATH"] = ":" + node_modules_dir
+            env["NODE_PATH"] = node_modules_dir
         return env
 
     def get_cache_info(
@@ -775,7 +775,41 @@ class PnpmProvider(BinProvider):
         if not package or modules_dir is None:
             return None
         package_dir = modules_dir / package
-        return package_dir if package_dir.is_dir() else None
+        if package_dir.is_dir():
+            return package_dir
+        if not self._project_declares_package(package):
+            return None
+        virtual_store = modules_dir / ".pnpm"
+        if not virtual_store.is_dir():
+            return None
+        for candidate in sorted(
+            virtual_store.glob(f"*/node_modules/{package}/package.json"),
+        ):
+            package_dir = candidate.parent
+            if package_dir.is_dir():
+                return package_dir
+        return None
+
+    def _project_declares_package(self, package: str) -> bool:
+        if self.install_root is None:
+            return True
+        package_json = self.install_root / "package.json"
+        try:
+            project = json.loads(package_json.read_text())
+        except (OSError, json.JSONDecodeError):
+            return False
+        if not isinstance(project, dict):
+            return False
+        dependency_groups = (
+            "dependencies",
+            "devDependencies",
+            "optionalDependencies",
+            "peerDependencies",
+        )
+        return any(
+            isinstance(project.get(group), dict) and package in project[group]
+            for group in dependency_groups
+        )
 
     def _installed_package_json(self, bin_name: str) -> dict:
         package_dir = self._installed_package_dir(bin_name)
@@ -828,6 +862,53 @@ class PnpmProvider(BinProvider):
         # Idempotent refresh: skip when shim already runs the target.
         # Rewriting on every load() bumps mtime and churns the inode,
         # which invalidates fingerprint caches unnecessarily.
+        if link_path.is_file() and not link_path.is_symlink():
+            try:
+                if link_path.read_text() == wrapper:
+                    return TypeAdapter(HostBinPath).validate_python(link_path)
+            except OSError:
+                pass
+        if link_path.exists() or link_path.is_symlink():
+            link_path.unlink(missing_ok=True)
+        link_path.write_text(wrapper)
+        link_path.chmod(0o755)
+        return TypeAdapter(HostBinPath).validate_python(link_path)
+
+    def _refresh_pnpm_exec_link(
+        self,
+        bin_name: BinName | HostBinPath,
+        package: str,
+        no_cache: bool = False,
+        require_declared: bool = True,
+    ) -> HostBinPath | None:
+        """Recreate a managed shim that asks this pnpm project to run a binary."""
+        if self.bin_dir is None or self.install_root is None:
+            return None
+        if require_declared and not self._project_declares_package(package):
+            return None
+        try:
+            installer = self.INSTALLER_BINARY(no_cache=no_cache)
+            pnpm_abspath = installer.loaded_abspath
+        except (
+            AssertionError,
+            BinProviderInstallError,
+            BinaryInstallError,
+            OSError,
+            ValueError,
+        ):
+            pnpm_abspath = None
+        if pnpm_abspath is None:
+            return None
+
+        link_path = self._linked_bin_path(bin_name)
+        assert link_path is not None, "_refresh_pnpm_exec_link requires bin_dir"
+        link_path.parent.mkdir(parents=True, exist_ok=True)
+        wrapper = (
+            "#!/bin/sh\n"
+            f"exec {shlex.quote(str(pnpm_abspath))} "
+            f"--dir {shlex.quote(str(self.install_root))} "
+            f'exec {shlex.quote(str(bin_name))} "$@"\n'
+        )
         if link_path.is_file() and not link_path.is_symlink():
             try:
                 if link_path.read_text() == wrapper:
@@ -976,6 +1057,17 @@ class PnpmProvider(BinProvider):
         )
         if proc.returncode != 0:
             self._raise_proc_error("install", install_args, proc)
+        package = self._package_name_from_install_args(install_args)
+        linked_bin_path = self._linked_bin_path(
+            TypeAdapter(BinName).validate_python(bin_name),
+        )
+        if package and (linked_bin_path is None or not linked_bin_path.exists()):
+            self._refresh_pnpm_exec_link(
+                TypeAdapter(BinName).validate_python(bin_name),
+                package,
+                no_cache=no_cache,
+                require_declared=False,
+            )
         return format_subprocess_output(proc.stdout, proc.stderr)
 
     @remap_kwargs({"packages": "install_args"})
@@ -1098,7 +1190,59 @@ class PnpmProvider(BinProvider):
         if str(bin_name) == self.INSTALLER_BIN:
             installer = self.INSTALLER_BINARY(no_cache=no_cache)
             return installer.loaded_abspath
-        return self._available_cli_paths(no_cache=no_cache).get(str(bin_name))
+        direct_abspath = self._available_cli_paths(no_cache=no_cache).get(
+            str(bin_name),
+        )
+        if direct_abspath:
+            return direct_abspath
+
+        install_args = self.get_install_args(str(bin_name), quiet=True) or [
+            str(bin_name),
+        ]
+        package = self._package_name_from_install_args(install_args)
+        package_dir = self._installed_package_dir(str(bin_name))
+        if package_dir is None:
+            return self._refresh_pnpm_exec_link(
+                bin_name,
+                package or str(bin_name),
+                no_cache=no_cache,
+            )
+        package_info = self._installed_package_json(str(bin_name))
+        package_bins = package_info.get("bin", {})
+        if isinstance(package_bins, str):
+            package_bins = {package_info.get("name") or str(bin_name): package_bins}
+        if not isinstance(package_bins, dict):
+            return self._refresh_pnpm_exec_link(
+                bin_name,
+                package or str(bin_name),
+                no_cache=no_cache,
+            )
+
+        for alt_bin_name, package_bin_path in package_bins.items():
+            alt_abspath = bin_abspath(
+                alt_bin_name,
+                PATH=str(self.bin_dir) if self.bin_dir else self.PATH,
+            )
+            if alt_abspath:
+                resolved_abspath = TypeAdapter(HostBinPath).validate_python(
+                    alt_abspath,
+                )
+                if str(alt_bin_name) == str(bin_name) or self.bin_dir is None:
+                    return resolved_abspath
+                return self._refresh_bin_link(bin_name, resolved_abspath)
+            if not isinstance(package_bin_path, str) or self.bin_dir is None:
+                continue
+            package_abspath = (package_dir / package_bin_path).resolve(strict=False)
+            if package_abspath.is_file():
+                return self._refresh_bin_link(
+                    bin_name,
+                    TypeAdapter(HostBinPath).validate_python(package_abspath),
+                )
+        return self._refresh_pnpm_exec_link(
+            bin_name,
+            package or str(bin_name),
+            no_cache=no_cache,
+        )
 
     def default_version_handler(
         self,
@@ -1129,12 +1273,9 @@ class PnpmProvider(BinProvider):
         install_args = self.get_install_args(str(bin_name), **context) or [
             str(bin_name),
         ]
-        main_package = install_args[0]
-        package = (
-            "@" + main_package[1:].split("@", 1)[0]
-            if main_package.startswith("@")
-            else main_package.split("@", 1)[0]
-        )
+        package = self._package_name_from_install_args(install_args)
+        if not package:
+            package = str(bin_name)
         if pnpm_abspath is not None:
             try:
                 json_output = self.exec(

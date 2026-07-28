@@ -1,0 +1,65 @@
+---
+name: 🚀 Build & release
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+concurrency:
+  # Declared on this push-triggered entry, not the reusable _release-engine.yaml it
+  # calls: GitHub decides run cancellation from the entry workflow's group, and a
+  # block on the engine lane (reached via `needs: build`) joins its group too late
+  # to cancel queued or building runs. Regular commits share a per-branch group and
+  # cancel each other; release commits ([changelog] Release / Post-release) get a
+  # unique SHA-based group so an in-flight release is never cancelled by a later push.
+  group: >-
+    ${{ github.workflow }}-${{
+      github.event.pull_request.number
+      || (
+        (startsWith(github.event.head_commit.message, '[changelog] Release')
+        || startsWith(github.event.head_commit.message, '[changelog] Post-release'))
+        && github.sha
+      )
+      || github.ref
+    }}
+  cancel-in-progress: true
+
+jobs:
+
+  build:
+    uses: kdeldycke/repomatic/.github/workflows/_release-build.yaml@2b89c62f0953d8ef59d0d023085a9323f6c32f1d # v7.3.0
+
+  publish-pypi:
+    name: 🐍 Publish to PyPI (${{ matrix.short_sha }})
+    needs: build
+    # Gate decoupled from the run's overall result: always() lets this job run even when an unrelated job (like binary
+    # tests in the engine lane) failed the run, and package_built confirms the wheel actually built, so a cleanly-built
+    # wheel still publishes. Both signals come from the build lane (_release-build.yaml).
+    if: >-
+      always()
+      && needs.build.outputs.package_built == 'true'
+      && needs.build.outputs.release_commits_matrix
+    strategy:
+      # GitHub evaluates `strategy.matrix` during job setup even when `if:` will skip the job. On a non-release push
+      # the build lane emits an empty string for `release_commits_matrix` (not "null": see its output description for
+      # why). A bare `fromJSON('')` aborts the whole run with "Unexpected value ''", so we fall back to an empty
+      # `{"include":[]}` matrix, which expands the job to zero runs and skips it cleanly.
+      matrix: ${{ fromJSON(needs.build.outputs.release_commits_matrix || '{"include":[]}') }}
+    runs-on: ubuntu-slim
+    permissions:
+      # OIDC only: the PyPI Trusted Publishing token. The GitHub release notes
+      # (with their PyPI admonition) are owned end to end by the engine lane's
+      # create-release job, so this lane needs no write access to the repo.
+      id-token: write
+    steps:
+      - uses: kdeldycke/repomatic/.github/actions/publish-pypi@2b89c62f0953d8ef59d0d023085a9323f6c32f1d # v7.3.0
+        with:
+          artifact-name: ${{ github.event.repository.name }}-${{ matrix.short_sha }}
+
+  release:
+    uses: kdeldycke/repomatic/.github/workflows/_release-engine.yaml@2b89c62f0953d8ef59d0d023085a9323f6c32f1d # v7.3.0
+    needs: build
+    secrets:
+      REPOMATIC_PAT: ${{ secrets.REPOMATIC_PAT }}
+      VIRUSTOTAL_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}

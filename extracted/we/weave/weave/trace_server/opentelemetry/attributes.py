@@ -24,12 +24,22 @@ class SpanEvent(dict):
     dropped_attributes_count: int
 
 
+def _has_value(value: Any, allow_numeric_zero: bool) -> bool:
+    return bool(value) or (
+        allow_numeric_zero
+        and isinstance(value, int)
+        and not isinstance(value, bool)
+        and value == 0
+    )
+
+
 def parse_weave_values(
     attributes: dict[str, Any],
     key_mapping: list[str]
     | dict[str, list[str]]
     | list[tuple[str, Callable[..., Any]]]
     | dict[str, list[tuple[str, Callable[..., Any]]]],
+    allow_numeric_zero: bool = False,
 ) -> dict[str, Any]:
     result = {}
     # If list use the attribute as the key - Prevents synthetic attributes under input and output
@@ -42,7 +52,7 @@ def parse_weave_values(
             else:
                 attribute_key = attribute_key_or_tuple
             value = get_attribute(attributes, attribute_key)
-            if value:
+            if _has_value(value, allow_numeric_zero):
                 # Handler should never raise - Always use a try in handler and default to passed in value
                 if handler:
                     value = handler(value)
@@ -62,7 +72,7 @@ def parse_weave_values(
                 attribute_key = attribute_key_or_tuple
 
             value = get_attribute(attributes, attribute_key)
-            if value:
+            if _has_value(value, allow_numeric_zero):
                 if handler:
                     # Handler should never raise - Always use a try in handler and default to passed in value
                     value = handler(value)
@@ -81,7 +91,7 @@ def get_weave_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
 
 
 def get_weave_usage(attributes: dict[str, Any]) -> dict[str, Any]:
-    usage = parse_weave_values(attributes, USAGE_KEYS)
+    usage = parse_weave_values(attributes, USAGE_KEYS, allow_numeric_zero=True)
     if (
         "prompt_tokens" in usage
         and "completion_tokens" in usage
@@ -111,9 +121,20 @@ def get_weave_outputs(_: list[SpanEvent], attributes: dict[str, Any]) -> dict[st
     return parse_weave_values(attributes, OUTPUT_KEYS)
 
 
+# Read wandb.is_turn directly: parse_weave_values checks the conversation/session-id aliases first and drops a literal False
+def _explicit_is_turn(attributes: dict[str, Any]) -> bool | None:
+    value = get_attribute(attributes, "wandb.is_turn")
+    return value if isinstance(value, bool) else None
+
+
 # Custom attributes for weave to enable setting fields like wb_user_id otherwise unavailable in OTEL Traces
 def get_wandb_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
-    return parse_weave_values(attributes, WB_KEYS)
+    result = parse_weave_values(attributes, WB_KEYS)
+    # An explicit Boolean wandb.is_turn overrides the conversation/session-id turn fallback
+    explicit_is_turn = _explicit_is_turn(attributes)
+    if explicit_is_turn is not None:
+        result["is_turn"] = explicit_is_turn
+    return result
 
 
 # Pass events here even though they are unused because some libraries put input in event attributes

@@ -397,8 +397,8 @@ class AnalyticRecon(Recon):
 
         im0 = axs[0, 0].imshow(image, cmap='hot', vmin=vmin, vmax=vmax, extent=extent, aspect='equal')
         axs[0, 0].set_title(title_recon)
-        axs[0, 0].set_xlabel("x (mm)")
-        axs[0, 0].set_ylabel("z (mm)")
+        axs[0, 0].set_xlabel("X (mm)")
+        axs[0, 0].set_ylabel("Z (mm)")
         axs[0, 0].tick_params(axis='both', which='major')
 
         # Plot ground truth if available
@@ -407,8 +407,8 @@ class AnalyticRecon(Recon):
 
             im1 = axs[0, 1].imshow(ground_truth, cmap='hot', vmin=gt_vmin, vmax=gt_vmax, extent=extent, aspect='equal')
             axs[0, 1].set_title(title_gt)
-            axs[0, 1].set_xlabel("x (mm)")
-            axs[0, 1].set_ylabel("z (mm)")
+            axs[0, 1].set_xlabel("X (mm)")
+            axs[0, 1].set_ylabel("Z (mm)")
             axs[0, 1].tick_params(axis='both', which='major')
 
         plt.subplots_adjust(bottom=0.15, wspace=0.3)

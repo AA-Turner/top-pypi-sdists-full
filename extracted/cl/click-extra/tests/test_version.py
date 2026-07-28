@@ -1,0 +1,1151 @@
+# Copyright Kevin Deldycke <kevin@deldycke.com> and contributors.
+#
+# This program is Free Software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+"""Test the ``--version`` option.
+
+.. todo::
+    Test standalone scripts setting package name to filename and version to
+    `None`.
+
+.. todo::
+    Test standalone script fetching version from ``__version__`` variable.
+"""
+
+from __future__ import annotations
+
+import inspect
+import json
+import re
+import sys
+
+import click
+import pytest
+from boltons.strutils import strip_ansi
+
+from click_extra import (
+    Style,
+    VersionOption,
+    __version__,
+    color_option,
+    command,
+    echo,
+    group,
+    no_color_option,
+    pass_context,
+    verbosity_option,
+    version_option,
+)
+from click_extra.cli import demo
+from click_extra.commands import default_params
+from click_extra.prebake import (
+    discover_package_init_files,
+    prebake_dunder,
+    prebake_version,
+)
+from click_extra.pytest import (
+    command_decorators,
+    default_debug_colored_log_end,
+    default_debug_colored_logging,
+    default_debug_colored_version_details,
+)
+from click_extra.version import (
+    archival_field,
+    find_archival_file,
+    read_archival,
+    resolve_git_dirty,
+    resolve_git_distance,
+)
+
+from .conftest import skip_windows_colors
+
+# Regex matching the version with optional PEP 440 local version suffix for dev
+# versions (like "7.6.0.dev0+abc1234").
+_ver = re.escape(__version__) + r"(\+[a-f0-9]{4,40})?"
+
+
+@skip_windows_colors
+@pytest.mark.parametrize("cmd_decorator", command_decorators())
+@pytest.mark.parametrize("option_decorator", (version_option, version_option()))
+def test_standalone_version_option(invoke, cmd_decorator, option_decorator):
+    @cmd_decorator
+    @option_decorator
+    def standalone_option():
+        echo("It works!")
+
+    result = invoke(standalone_option, "--version", color=True)
+    assert re.fullmatch(
+        rf"\x1b\[97m\x1b\[1mstandalone-option\x1b\[0m, version \x1b\[32m{_ver}\x1b\[0m\n",
+        result.output,
+    )
+    assert result.exit_code == 0
+
+
+@skip_windows_colors
+@pytest.mark.parametrize("cmd_decorator", command_decorators())
+@pytest.mark.parametrize("option_decorator", (version_option, version_option()))
+def test_debug_output(invoke, cmd_decorator, option_decorator, assert_output_regex):
+    @cmd_decorator
+    @verbosity_option
+    @option_decorator
+    def debug_output():
+        echo("It works!")
+
+    result = invoke(debug_output, "--verbosity", "DEBUG", "--version", color=True)
+
+    assert_output_regex(
+        result.output,
+        (
+            default_debug_colored_logging
+            + default_debug_colored_version_details
+            + r"\x1b\[97m\x1b\[1mdebug-output\x1b\[0m, "
+            rf"version \x1b\[32m{_ver}\x1b\[0m\n" + default_debug_colored_log_end
+        ),
+    )
+
+
+@skip_windows_colors
+def test_set_version(invoke):
+    @click.group
+    @version_option(fields={"version": "1.2.3.4"})
+    def color_cli2():
+        echo("It works!")
+
+    # Test default coloring.
+    result = invoke(color_cli2, "--version", color=True)
+    assert result.stdout == (
+        "\x1b[97m\x1b[1mcolor-cli2\x1b[0m, version \x1b[32m1.2.3.4\x1b[0m\n"
+    )
+    assert not result.stderr
+    assert result.exit_code == 0
+
+
+@skip_windows_colors
+def test_set_version_positional(invoke):
+    """Click drop-in: an explicit version may be the first positional argument.
+
+    ``@version_option("1.2.3.4")`` is equivalent to the
+    ``fields={"version": "1.2.3.4"}`` form used by :func:`test_set_version`.
+    """
+
+    @click.group
+    @version_option("1.2.3.4")
+    def color_cli2b():
+        echo("It works!")
+
+    result = invoke(color_cli2b, "--version", color=True)
+    assert result.stdout == (
+        "\x1b[97m\x1b[1mcolor-cli2b\x1b[0m, version \x1b[32m1.2.3.4\x1b[0m\n"
+    )
+    assert not result.stderr
+    assert result.exit_code == 0
+
+
+def test_version_option_dashed_positional_is_flag():
+    """A leading-dash positional names the option flag, not the version."""
+
+    @click.command
+    @version_option("--app-version")
+    def cli():
+        pass
+
+    opt = next(p for p in cli.params if isinstance(p, VersionOption))
+    assert opt.opts == ["--app-version"]
+
+
+def test_version_option_conflicting_version():
+    """The version cannot be supplied both positionally and via fields=."""
+    with pytest.raises(TypeError, match="both positionally and via fields"):
+        version_option("1.2.3", fields={"version": "9.9"})
+
+
+@skip_windows_colors
+@pytest.mark.parametrize("cmd_decorator", command_decorators(no_groups=True))
+@pytest.mark.parametrize(
+    "message, regex_stdout",
+    (
+        (
+            "{prog_name}, version {version}",
+            r"\x1b\[97m\x1b\[1mcolor-cli3\x1b\[0m, "
+            rf"version \x1b\[32m{_ver}"
+            r"\x1b\[0m\n",
+        ),
+        (
+            "{prog_name}, version {version}\n{env_info}",
+            r"\x1b\[97m\x1b\[1mcolor-cli3\x1b\[0m, "
+            rf"version \x1b\[32m{_ver}"
+            r"\x1b\[0m\n"
+            r"\x1b\[90m{'.+'}"
+            r"\x1b\[0m\n",
+        ),
+        (
+            "{prog_name} v{version} - {package_name}",
+            r"\x1b\[97m\x1b\[1mcolor-cli3\x1b\[0m "
+            rf"v\x1b\[32m{_ver}"
+            r"\x1b\[0m - "
+            r"\x1b\[97m\x1b\[1mclick_extra"
+            r"\x1b\[0m\n",
+        ),
+        (
+            "{prog_name}, version {version} (Python {env_info[python][version]})",
+            r"\x1b\[97m\x1b\[1mcolor-cli3\x1b\[0m, "
+            rf"version \x1b\[32m{_ver}\x1b\[0m "
+            r"\(Python \x1b\[90m3\.\d+\.\d+.+\x1b\[0m\)\n",
+        ),
+    ),
+)
+def test_custom_message(
+    invoke, cmd_decorator, message, regex_stdout, assert_output_regex
+):
+    @cmd_decorator
+    @version_option(message=message)
+    def color_cli3():
+        echo("It works!")
+
+    result = invoke(color_cli3, "--version", color=True)
+    assert_output_regex(result.output, regex_stdout)
+    assert not result.stderr
+    assert result.exit_code == 0
+
+
+@pytest.mark.parametrize("cmd_decorator", command_decorators(no_groups=True))
+def test_style_reset(invoke, cmd_decorator):
+    @cmd_decorator
+    @version_option(
+        message_style=None,
+        styles={"version": None, "prog_name": None},
+    )
+    def color_reset():
+        pass
+
+    result = invoke(color_reset, "--version", color=True)
+    assert result.output == strip_ansi(result.output)
+    assert not result.stderr
+    assert result.exit_code == 0
+
+
+@skip_windows_colors
+@pytest.mark.parametrize("cmd_decorator", command_decorators(no_groups=True))
+def test_custom_message_style(invoke, cmd_decorator):
+    @cmd_decorator
+    @version_option(
+        message="{prog_name} v{version} - {package_name} (latest)",
+        message_style=Style(fg="cyan"),
+        styles={
+            "prog_name": Style(fg="green", bold=True),
+            "version": Style(fg="bright_yellow", bg="red"),
+            "package_name": Style(fg="bright_blue", italic=True),
+        },
+    )
+    def custom_style():
+        pass
+
+    result = invoke(custom_style, "--version", color=True)
+    assert re.fullmatch(
+        r"\x1b\[32m\x1b\[1mcustom-style\x1b\[0m\x1b\[36m "
+        rf"v\x1b\[0m\x1b\[93m\x1b\[41m{_ver}\x1b\[0m\x1b\[36m - "
+        r"\x1b\[0m\x1b\[94m\x1b\[3mclick_extra\x1b\[0m\x1b\[36m \(latest\)\x1b\[0m\n",
+        result.output,
+    )
+    assert not result.stderr
+    assert result.exit_code == 0
+
+
+@pytest.mark.parametrize("cmd_decorator", command_decorators(no_groups=True))
+def test_context_meta(invoke, cmd_decorator, assert_output_regex):
+    @cmd_decorator
+    @version_option  # type: ignore[arg-type]
+    @pass_context
+    def version_metadata(ctx):
+        for field in VersionOption.template_fields:
+            value = ctx.meta[f"click_extra.{field}"]
+            echo(f"{field} = {value}")
+
+    result = invoke(version_metadata, color=True)
+
+    assert_output_regex(
+        result.output,
+        (
+            r"module = <module 'click_extra\.testing' from '.+testing\.py'>\n"
+            r"module_name = click_extra\.testing\n"
+            r"module_file = .+testing\.py\n"
+            r"module_version = None\n"
+            r"package_name = click_extra\n"
+            r"package_version = \S+\n"
+            r"author = .+\n"
+            r"license = .+\n"
+            r"exec_name = click_extra\.testing\n"
+            r"version = \S+\n"
+            r"git_repo_path = .+\n"
+            r"git_branch = .+\n"
+            r"git_long_hash = (?:[a-f0-9]{40}|None)\n"
+            r"git_short_hash = (?:[a-f0-9]{4,40}|None)\n"
+            r"git_date = (?:\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+-]\d{4}|None)\n"
+            r"git_tag = \S+\n"
+            r"git_tag_sha = None\n"
+            r"git_distance = (?:\d+|None)\n"
+            r"git_dirty = (?:dirty|clean|None)\n"
+            r"prog_name = version-metadata\n"
+            r"env_info = {'.+'}\n"
+        ),
+    )
+    assert result.output == strip_ansi(result.output)
+
+    assert not result.stderr
+    assert result.exit_code == 0
+
+
+@pytest.mark.parametrize("cmd_decorator", command_decorators(no_groups=True))
+def test_context_meta_laziness(invoke, cmd_decorator):
+    """Accessing a single field from ``ctx.meta`` must not evaluate unrelated fields.
+
+    Ensures that the ``_LazyVersionDict`` defers property evaluation: reading
+    ``click_extra.version`` should not trigger expensive properties like
+    ``env_info`` or git fields.
+    """
+
+    @cmd_decorator
+    @version_option(fields={"version": "1.0.0"})
+    @pass_context
+    def lazy_cli(ctx):
+        # Access only the version field.
+        echo(f"version = {ctx.meta['click_extra.version']}")
+
+    result = invoke(lazy_cli)
+    assert result.exit_code == 0
+    assert "version = 1.0.0" in result.output
+
+    # Retrieve the VersionOption instance from the command.
+    version_param = next(p for p in lazy_cli.params if isinstance(p, VersionOption))
+    # Fields that were never accessed should NOT have been cached.
+    assert "env_info" not in version_param.__dict__
+    assert "git_date" not in version_param.__dict__
+    assert "git_long_hash" not in version_param.__dict__
+
+
+def test_module_version_parent_package_fallback(monkeypatch):
+    """``module_version`` falls back to parent package's ``__version__``.
+
+    Simulates the Nuitka use-case: a CLI whose module is ``myapp.__main__``
+    (no ``__version__``), with the parent package ``myapp`` providing it.
+    """
+    import types
+
+    # Create a fake parent package with __version__.
+    fake_parent = types.ModuleType("myapp")
+    fake_parent.__version__ = "1.2.3"  # type: ignore[attr-defined]
+    fake_parent.__package__ = "myapp"
+
+    # Create a fake __main__ submodule without __version__.
+    fake_main = types.ModuleType("myapp.__main__")
+    fake_main.__package__ = "myapp"
+
+    monkeypatch.setitem(sys.modules, "myapp", fake_parent)
+    monkeypatch.setitem(sys.modules, "myapp.__main__", fake_main)
+
+    opt = VersionOption(["--version"])
+    # Bypass cli_frame resolution by setting the module directly.
+    monkeypatch.setattr(
+        type(opt),
+        "module",
+        property(lambda self: fake_main),
+    )
+
+    assert opt.module_version == "1.2.3"
+
+
+def test_package_version_resolves_import_name_to_distribution(monkeypatch):
+    """When ``package_name`` is an import name that differs from its
+    installed distribution name (``PIL`` vs ``Pillow``), ``package_version``
+    resolves it via ``packages_distributions()`` instead of returning ``None``.
+    """
+    from importlib import metadata as _metadata
+
+    def fake_version(name):
+        if name == "pillow":
+            return "10.4.0"
+        raise _metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(_metadata, "version", fake_version)
+    monkeypatch.setattr(
+        _metadata,
+        "packages_distributions",
+        lambda: {"PIL": ["pillow"]},
+    )
+
+    opt = VersionOption(["--version"], fields={"package_name": "PIL"})
+    assert opt.package_version == "10.4.0"
+
+
+def test_package_version_ambiguous_import_name_returns_none(monkeypatch):
+    """When an import name maps to several installed distributions,
+    ``package_version`` returns ``None`` rather than guessing.
+    """
+    from importlib import metadata as _metadata
+
+    def fake_version(name):
+        raise _metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(_metadata, "version", fake_version)
+    monkeypatch.setattr(
+        _metadata,
+        "packages_distributions",
+        lambda: {"plug": ["foo-plug", "bar-plug"]},
+    )
+
+    opt = VersionOption(["--version"], fields={"package_name": "plug"})
+    assert opt.package_version is None
+
+
+def test_package_version_unknown_returns_none(monkeypatch):
+    """When the name resolves to no distribution, ``package_version`` returns
+    ``None``, the existing graceful behavior.
+    """
+    from importlib import metadata as _metadata
+
+    def fake_version(name):
+        raise _metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(_metadata, "version", fake_version)
+    monkeypatch.setattr(_metadata, "packages_distributions", dict)
+
+    opt = VersionOption(["--version"], fields={"package_name": "nonexistent"})
+    assert opt.package_version is None
+
+
+def test_cli_frame_fallback(monkeypatch):
+    """``cli_frame()`` falls back to the outermost frame when all frames are
+    from the Click ecosystem."""
+    original_stack = inspect.stack
+    # Rewriting f_globals["__name__"] mutates real module dicts (the frame
+    # running cli_frame() lives in click_extra.version). Record each dict's
+    # original __name__ so the patch is undone; otherwise the bogus name leaks
+    # into every later test that reads that module's __name__.
+    saved_names: dict[int, tuple[dict, object]] = {}
+    missing = object()
+
+    def patched_stack():
+        """Make every frame look like it belongs to click_extra."""
+        frames = original_stack()
+        for frame_info in frames:
+            frame_globals = frame_info.frame.f_globals
+            saved_names.setdefault(
+                id(frame_globals),
+                (frame_globals, frame_globals.get("__name__", missing)),
+            )
+            # Temporarily override __name__ so the heuristic skips all frames.
+            frame_globals["__name__"] = "click_extra." + frame_info.function
+        return frames
+
+    monkeypatch.setattr(inspect, "stack", patched_stack)
+
+    try:
+        # Should not raise RuntimeError; instead falls back to outermost frame.
+        frame = VersionOption.cli_frame()
+        assert frame is not None
+    finally:
+        for frame_globals, original in saved_names.values():
+            if original is missing:
+                frame_globals.pop("__name__", None)
+            else:
+                frame_globals["__name__"] = original
+
+
+@pytest.mark.parametrize(
+    "params",
+    (None, "--help", "blah", ("--config", "random.toml")),
+)
+def test_integrated_version_option_precedence(invoke, params):
+    def versioned_extra_params():
+        params = default_params()
+        for p in params:
+            if isinstance(p, VersionOption):
+                p.version = "1.2.3.4"
+        return params
+
+    @group(params=versioned_extra_params)
+    def color_cli4():
+        echo("It works!")
+
+    result = invoke(color_cli4, "--version", params, color=True)
+    assert result.stdout == (
+        "\x1b[97m\x1b[1mcolor-cli4\x1b[0m, version \x1b[32m1.2.3.4\x1b[0m\n"
+    )
+    assert not result.stderr
+    assert result.exit_code == 0
+
+
+@skip_windows_colors
+def test_version_fields_forwarded_to_version_option(invoke):
+    """``version_fields`` on ``@command`` forwards to ``VersionOption``."""
+
+    @command(name="my-tool", version_fields={"prog_name": "My Tool"})
+    def prog_name_cli():
+        echo("It works!")
+
+    # prog_name controls --version output.
+    result = invoke(prog_name_cli, "--version", color=True)
+    assert "\x1b[97m\x1b[1mMy Tool\x1b[0m, version" in result.output
+    assert result.exit_code == 0
+
+    # name controls the usage line.
+    result = invoke(prog_name_cli, "--help", color=True)
+    assert "\x1b[97m\x1b[1mmy-tool\x1b[0m" in result.output
+    assert result.exit_code == 0
+
+    # All default extra options are preserved.
+    result = invoke(prog_name_cli, "--help", color=False)
+    assert "--time" in result.output
+    assert "--color" in result.output
+    assert "--config" in result.output
+    assert "--version" in result.output
+
+
+@skip_windows_colors
+def test_version_fields_forwarded_on_group(invoke):
+    """``version_fields`` works on ``@group`` too."""
+
+    @group(name="my-grp", version_fields={"prog_name": "My Group"})
+    def prog_name_grp():
+        pass
+
+    result = invoke(prog_name_grp, "--version", color=True)
+    assert "\x1b[97m\x1b[1mMy Group\x1b[0m, version" in result.output
+    assert result.exit_code == 0
+
+    result = invoke(prog_name_grp, "--help", color=True)
+    assert "\x1b[97m\x1b[1mmy-grp\x1b[0m" in result.output
+    assert result.exit_code == 0
+
+
+@skip_windows_colors
+def test_version_fields_multiple(invoke):
+    """Multiple fields can be overridden at once."""
+
+    @command(
+        version_fields={
+            "prog_name": "Acme CLI",
+            "version": "42.0",
+            "git_branch": "release/42",
+        },
+    )
+    def multi_cli():
+        pass
+
+    result = invoke(
+        multi_cli,
+        "--version",
+        color=False,
+    )
+    assert result.exit_code == 0
+    assert "Acme CLI" in result.output
+    assert "42.0" in result.output
+
+
+def test_version_fields_rejects_unknown(invoke):
+    """Unknown field names raise ``TypeError``."""
+    with pytest.raises(TypeError, match="Unknown version field 'bogus'"):
+
+        @command(version_fields={"bogus": "oops"})
+        def bad_cli():
+            pass
+
+
+@skip_windows_colors
+def test_color_option_precedence(invoke):
+    """A plain ``click.command`` only decolors ``--version`` when ``--no-color``
+    precedes it on the command line.
+
+    Click evaluates eager parameters in the order the user typed them (`callback
+    evaluation order
+    <https://click.palletsprojects.com/en/stable/click-concepts/#callback-evaluation-order>`_),
+    so a ``--no-color`` placed after ``--version`` lands too late: the version screen
+    has already rendered in color and exited.
+
+    click-extra's own ``@command`` settles the color options in a pre-pass before any
+    eager screen renders, so the color choice is honored whatever its position. See
+    ``Command._resolve_color_eagerly`` and the order-independent
+    ``test_color_settles_before_eager_help_and_version`` in ``test_color.py``. This
+    test pins the residual behavior of the plain-Click path, which that pre-pass does
+    not reach.
+    """
+
+    @click.command
+    @color_option
+    @no_color_option
+    @version_option(fields={"version": "2.1.9"})
+    def color_cli6():
+        echo(Style(fg="yellow")("It works!"))
+
+    result = invoke(color_cli6, "--no-color", "--version", "command1", color=True)
+    assert result.stdout == "color-cli6, version 2.1.9\n"
+    assert not result.stderr
+    assert result.exit_code == 0
+
+    result = invoke(color_cli6, "--version", "--no-color", "command1", color=True)
+    assert result.stdout == (
+        "\x1b[97m\x1b[1mcolor-cli6\x1b[0m, version \x1b[32m2.1.9\x1b[0m\n"
+    )
+    assert not result.stderr
+    assert result.exit_code == 0
+
+
+@pytest.mark.parametrize("cmd_decorator", command_decorators(no_groups=True))
+def test_dev_version_appends_git_hash(invoke, cmd_decorator):
+    """A ``.dev`` version gets a ``+hash`` suffix appended (or not, if git is
+    unavailable)."""
+
+    @cmd_decorator
+    @version_option(fields={"module_version": "1.0.0.dev1"})
+    def dev_cli():
+        echo("It works!")
+
+    result = invoke(dev_cli, "--version", color=False)
+    ver = strip_ansi(result.output).split("version ")[-1].strip()
+    # Either plain dev version (no git) or with +hash suffix.
+    assert re.fullmatch(r"1\.0\.0\.dev1(\+[a-f0-9]{4,40})?", ver)
+    assert result.exit_code == 0
+
+
+@pytest.mark.parametrize("cmd_decorator", command_decorators(no_groups=True))
+def test_prebaked_dev_version_not_double_suffixed(invoke, cmd_decorator):
+    """A version with an existing ``+`` is returned as-is: no second hash appended."""
+
+    @cmd_decorator
+    @version_option(fields={"module_version": "1.0.0.dev1+abc1234"})
+    def prebaked_cli():
+        echo("It works!")
+
+    result = invoke(prebaked_cli, "--version", color=False)
+    ver = strip_ansi(result.output).split("version ")[-1].strip()
+    assert ver == "1.0.0.dev1+abc1234"
+    assert result.exit_code == 0
+
+
+@pytest.mark.parametrize("cmd_decorator", command_decorators(no_groups=True))
+def test_release_version_unchanged(invoke, cmd_decorator):
+    """A non-dev version is never modified."""
+
+    @cmd_decorator
+    @version_option(fields={"module_version": "2.5.0"})
+    def release_cli():
+        echo("It works!")
+
+    result = invoke(release_cli, "--version", color=False)
+    ver = strip_ansi(result.output).split("version ")[-1].strip()
+    assert ver == "2.5.0"
+    assert result.exit_code == 0
+
+
+# --- prebake_version tests ---
+
+
+@pytest.fixture
+def init_file(tmp_path):
+    """Helper that creates a temporary __init__.py with the given content."""
+
+    def _make(content: str):
+        p = tmp_path / "__init__.py"
+        p.write_text(content, encoding="utf-8")
+        return p
+
+    return _make
+
+
+def test_prebake_cli_resolves_module_from_config(invoke, tmp_path, monkeypatch):
+    """``click-extra prebake`` resolves its target from ``[tool.click-extra.prebake]``."""
+    target = tmp_path / "pkg" / "__init__.py"
+    target.parent.mkdir()
+    target.write_text('__git_tag_sha__ = ""\n', encoding="UTF-8")
+    (tmp_path / "pyproject.toml").write_text(
+        f'[tool.click-extra.prebake]\nmodule = "{target.as_posix()}"\n',
+        encoding="UTF-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    # No --module on the command line: the path comes from the config section.
+    result = invoke(demo, ["prebake", "field", "git_tag_sha", "abc123"])
+    assert result.exit_code == 0
+    assert '__git_tag_sha__ = "abc123"' in target.read_text(encoding="UTF-8")
+
+
+def test_prebake_dev_version(init_file):
+    """A ``.dev`` version gets ``+hash`` appended in the file."""
+    p = init_file('__version__ = "1.0.0.dev0"\n')
+    result = prebake_version(p, local_version="abc1234")
+    assert result == "1.0.0.dev0+abc1234"
+    assert '__version__ = "1.0.0.dev0+abc1234"' in p.read_text()
+
+
+def test_prebake_single_quotes(init_file):
+    """Single-quoted ``__version__`` is also handled."""
+    p = init_file("__version__ = '2.0.0.dev5'\n")
+    result = prebake_version(p, local_version="f00baa")
+    assert result == "2.0.0.dev5+f00baa"
+    assert "__version__ = '2.0.0.dev5+f00baa'" in p.read_text()
+
+
+def test_prebake_already_baked_skipped(init_file):
+    """A version with existing ``+`` is left untouched."""
+    p = init_file('__version__ = "1.0.0.dev0+existing"\n')
+    result = prebake_version(p, local_version="abc1234")
+    assert result is None
+    assert '__version__ = "1.0.0.dev0+existing"' in p.read_text()
+
+
+def test_prebake_release_skipped(init_file):
+    """A release version (no ``.dev``) is not modified."""
+    p = init_file('__version__ = "3.2.1"\n')
+    result = prebake_version(p, local_version="abc1234")
+    assert result is None
+    assert '__version__ = "3.2.1"' in p.read_text()
+
+
+def test_prebake_no_version_in_file(init_file):
+    """A file without ``__version__`` returns ``None``."""
+    p = init_file('"""Just a docstring."""\n')
+    result = prebake_version(p, local_version="abc1234")
+    assert result is None
+
+
+def test_prebake_missing_local_version_raises(init_file):
+    """Calling without ``local_version`` raises ``TypeError``."""
+    p = init_file('__version__ = "1.0.0.dev0"\n')
+    with pytest.raises(TypeError):
+        prebake_version(p)  # type: ignore[call-arg]
+
+
+def test_prebake_idempotent(init_file):
+    """Running prebake twice does not double-suffix."""
+    p = init_file('__version__ = "1.0.0.dev0"\n')
+    first = prebake_version(p, local_version="abc1234")
+    assert first == "1.0.0.dev0+abc1234"
+    second = prebake_version(p, local_version="def5678")
+    assert second is None
+    assert '__version__ = "1.0.0.dev0+abc1234"' in p.read_text()
+
+
+def test_prebake_preserves_surrounding_content(init_file):
+    """Content around ``__version__`` is not disturbed."""
+    content = (
+        '"""My package."""\n'
+        "\n"
+        "from __future__ import annotations\n"
+        "\n"
+        '__version__ = "4.0.0.dev0"\n'
+        "\n"
+        "API_URL = 'https://example.com'\n"
+    )
+    p = init_file(content)
+    prebake_version(p, local_version="cafe123")
+    result = p.read_text()
+    assert '__version__ = "4.0.0.dev0+cafe123"' in result
+    assert "from __future__ import annotations" in result
+    assert "API_URL = 'https://example.com'" in result
+
+
+# --- prebake_dunder tests ---
+
+
+def test_prebake_dunder_empty_replaced(init_file):
+    """An empty dunder variable gets replaced."""
+    p = init_file('__git_tag_sha__ = ""\n')
+    result = prebake_dunder(p, "__git_tag_sha__", "abc123def456")
+    assert result == "abc123def456"
+    assert '__git_tag_sha__ = "abc123def456"' in p.read_text()
+
+
+def test_prebake_dunder_single_quotes(init_file):
+    """Single-quoted empty dunder is also handled."""
+    p = init_file("__git_tag_sha__ = ''\n")
+    result = prebake_dunder(p, "__git_tag_sha__", "f00baa")
+    assert result == "f00baa"
+    assert "__git_tag_sha__ = 'f00baa'" in p.read_text()
+
+
+def test_prebake_dunder_nonempty_skipped(init_file):
+    """A dunder with an existing non-empty value is left untouched."""
+    p = init_file('__git_tag_sha__ = "already_set"\n')
+    result = prebake_dunder(p, "__git_tag_sha__", "new_value")
+    assert result is None
+    assert '__git_tag_sha__ = "already_set"' in p.read_text()
+
+
+def test_prebake_dunder_not_found(init_file):
+    """A file without the target dunder returns ``None``."""
+    p = init_file('__version__ = "1.0.0"\n')
+    result = prebake_dunder(p, "__git_tag_sha__", "abc123")
+    assert result is None
+
+
+def test_prebake_dunder_idempotent(init_file):
+    """Running prebake_dunder twice does not overwrite."""
+    p = init_file('__git_tag_sha__ = ""\n')
+    first = prebake_dunder(p, "__git_tag_sha__", "abc123")
+    assert first == "abc123"
+    second = prebake_dunder(p, "__git_tag_sha__", "def456")
+    assert second is None
+    assert '__git_tag_sha__ = "abc123"' in p.read_text()
+
+
+def test_prebake_dunder_preserves_surrounding_content(init_file):
+    """Content around the target dunder is not disturbed."""
+    content = (
+        '"""My package."""\n'
+        "\n"
+        "from __future__ import annotations\n"
+        "\n"
+        '__version__ = "4.0.0.dev0"\n'
+        '__git_tag_sha__ = ""\n'
+        "\n"
+        "API_URL = 'https://example.com'\n"
+    )
+    p = init_file(content)
+    prebake_dunder(p, "__git_tag_sha__", "cafe123")
+    result = p.read_text()
+    assert '__git_tag_sha__ = "cafe123"' in result
+    assert '__version__ = "4.0.0.dev0"' in result
+    assert "from __future__ import annotations" in result
+    assert "API_URL = 'https://example.com'" in result
+
+
+def test_prebake_dunder_full_sha(init_file):
+    """A full 40-character SHA is handled correctly."""
+    sha = "072c7bbbcdd607011c6ca4fb9d5098532aee2dea"
+    p = init_file('__git_tag_sha__ = ""\n')
+    result = prebake_dunder(p, "__git_tag_sha__", sha)
+    assert result == sha
+    assert f'__git_tag_sha__ = "{sha}"' in p.read_text()
+
+
+# --- discover_package_init_files tests ---
+
+
+def test_discover_finds_init(tmp_path, monkeypatch):
+    """Discovers ``__init__.py`` from ``[project.scripts]``."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyproject.toml").write_text(
+        '[project.scripts]\nmycli = "mypkg.__main__:main"\n',
+        encoding="utf-8",
+    )
+    pkg = tmp_path / "mypkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text('__version__ = "1.0"\n', encoding="utf-8")
+
+    paths = discover_package_init_files()
+    assert len(paths) == 1
+    assert paths[0].name == "__init__.py"
+
+
+def test_discover_no_pyproject(tmp_path, monkeypatch):
+    """Returns empty list when ``pyproject.toml`` is missing."""
+    monkeypatch.chdir(tmp_path)
+    assert discover_package_init_files() == []
+
+
+def test_discover_no_scripts(tmp_path, monkeypatch):
+    """Returns empty list when ``[project.scripts]`` is absent."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname = 'test'\n",
+        encoding="utf-8",
+    )
+    assert discover_package_init_files() == []
+
+
+def test_discover_deduplicates(tmp_path, monkeypatch):
+    """Multiple scripts from the same package yield one path."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyproject.toml").write_text(
+        '[project.scripts]\ncli1 = "mypkg.cli:main"\ncli2 = "mypkg.alt:run"\n',
+        encoding="utf-8",
+    )
+    pkg = tmp_path / "mypkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text('__version__ = "1.0"\n', encoding="utf-8")
+
+    paths = discover_package_init_files()
+    assert len(paths) == 1
+
+
+# --- prebaked git field resolution tests ---
+
+
+def test_prebaked_git_branch():
+    """A pre-baked ``__git_branch__`` dunder is used over subprocess."""
+    import types
+
+    mod = types.ModuleType("fake_cli")
+    mod.__git_branch__ = "release/1.0"  # type: ignore[attr-defined]
+    mod.__file__ = "/fake/path.py"
+    mod.__package__ = "fake_cli"
+
+    opt = VersionOption()
+    # Bypass cli_frame by setting module directly.
+    opt.__dict__["module"] = mod
+    assert opt.git_branch == "release/1.0"
+
+
+def test_prebaked_git_long_hash():
+    """A pre-baked ``__git_long_hash__`` dunder is used over subprocess."""
+    import types
+
+    mod = types.ModuleType("fake_cli")
+    mod.__git_long_hash__ = "abc123def456" * 3  # type: ignore[attr-defined]
+    mod.__file__ = "/fake/path.py"
+    mod.__package__ = "fake_cli"
+
+    opt = VersionOption()
+    opt.__dict__["module"] = mod
+    assert opt.git_long_hash == "abc123def456" * 3
+
+
+def test_prebaked_git_tag_sha():
+    """A pre-baked ``__git_tag_sha__`` dunder is resolved."""
+    import types
+
+    sha = "072c7bbbcdd607011c6ca4fb9d5098532aee2dea"
+    mod = types.ModuleType("fake_cli")
+    mod.__git_tag_sha__ = sha  # type: ignore[attr-defined]
+    mod.__file__ = "/fake/path.py"
+    mod.__package__ = "fake_cli"
+
+    opt = VersionOption()
+    opt.__dict__["module"] = mod
+    assert opt.git_tag_sha == sha
+
+
+def test_prebaked_empty_dunder_ignored():
+    """An empty dunder is not treated as a pre-baked value."""
+    import types
+
+    mod = types.ModuleType("fake_cli")
+    mod.__git_branch__ = ""  # type: ignore[attr-defined]
+    mod.__file__ = "/fake/path.py"
+    mod.__package__ = "fake_cli"
+
+    opt = VersionOption()
+    opt.__dict__["module"] = mod
+    # Empty string should be ignored; falls back to git subprocess.
+    # Since there's no git repo, result is None.
+    assert opt.git_branch is None
+
+
+def test_prebaked_non_string_ignored():
+    """A non-string dunder is not treated as a pre-baked value."""
+    import types
+
+    mod = types.ModuleType("fake_cli")
+    mod.__git_branch__ = 42  # type: ignore[attr-defined]
+    mod.__file__ = "/fake/path.py"
+    mod.__package__ = "fake_cli"
+
+    opt = VersionOption()
+    opt.__dict__["module"] = mod
+    assert opt.git_branch is None
+
+
+def test_prebaked_git_distance():
+    """A pre-baked ``__git_distance__`` dunder is used over subprocess."""
+    import types
+
+    mod = types.ModuleType("fake_cli")
+    mod.__git_distance__ = "42"  # type: ignore[attr-defined]
+    mod.__file__ = "/fake/path.py"
+    mod.__package__ = "fake_cli"
+
+    opt = VersionOption()
+    opt.__dict__["module"] = mod
+    assert opt.git_distance == "42"
+
+
+def test_prebaked_git_dirty():
+    """A pre-baked ``__git_dirty__`` dunder is used over subprocess."""
+    import types
+
+    mod = types.ModuleType("fake_cli")
+    mod.__git_dirty__ = "dirty"  # type: ignore[attr-defined]
+    mod.__file__ = "/fake/path.py"
+    mod.__package__ = "fake_cli"
+
+    opt = VersionOption()
+    opt.__dict__["module"] = mod
+    assert opt.git_dirty == "dirty"
+
+
+# --- resolve_git_distance / resolve_git_dirty tests ---
+
+
+@pytest.mark.parametrize(
+    ("describe_output", "expected"),
+    (
+        (None, None),
+        ("v1.2.3-0-gabcdef0", "0"),
+        ("v1.2.3-4-gabcdef0", "4"),
+        ("1.2.3-17-g0123abc", "17"),
+        ("no-distance-here", None),
+    ),
+)
+def test_resolve_git_distance(monkeypatch, describe_output, expected):
+    monkeypatch.setattr("click_extra.version.run_git", lambda *a, **k: describe_output)
+    assert resolve_git_distance() == expected
+
+
+@pytest.mark.parametrize(
+    ("status_output", "expected"),
+    (
+        (None, None),
+        ("", "clean"),
+        (" M file.py", "dirty"),
+        ("?? new.py", "dirty"),
+    ),
+)
+def test_resolve_git_dirty(monkeypatch, status_output, expected):
+    monkeypatch.setattr("click_extra.version.run_git", lambda *a, **k: status_output)
+    assert resolve_git_dirty() == expected
+
+
+# --- .git_archival.json fallback tests ---
+
+
+SUBSTITUTED_ARCHIVAL = {
+    "node": "0123456789abcdef0123456789abcdef01234567",
+    "node-date": "2021-06-01T12:00:00+00:00",
+    "describe-name": "v1.2.3-4-g0123456",
+    "ref-names": "HEAD -> main, tag: v1.2.3",
+}
+
+
+@pytest.mark.parametrize(
+    ("field_id", "expected"),
+    (
+        ("git_long_hash", "0123456789abcdef0123456789abcdef01234567"),
+        ("git_short_hash", "0123456"),
+        ("git_date", "2021-06-01T12:00:00+00:00"),
+        ("git_branch", "main"),
+        ("git_tag", "v1.2.3"),
+        ("git_tag_sha", "0123456789abcdef0123456789abcdef01234567"),
+        ("git_distance", "4"),
+        ("git_dirty", None),
+    ),
+)
+def test_archival_field_substituted(field_id, expected):
+    assert archival_field(SUBSTITUTED_ARCHIVAL, field_id) == expected
+
+
+@pytest.mark.parametrize(
+    "field_id",
+    (
+        "git_long_hash",
+        "git_short_hash",
+        "git_date",
+        "git_branch",
+        "git_tag",
+        "git_tag_sha",
+        "git_distance",
+    ),
+)
+def test_archival_field_unsubstituted_ignored(field_id):
+    """A raw checkout keeps the $Format placeholders, which must be ignored."""
+    raw = {
+        "node": "$Format:%H$",
+        "node-date": "$Format:%cI$",
+        "describe-name": "$Format:%(describe:tags=true,match=*[0-9]*)$",
+        "ref-names": "$Format:%D$",
+    }
+    assert archival_field(raw, field_id) is None
+
+
+def test_archival_field_exact_tag_distance_zero():
+    """A bare describe-name (no -N-g suffix) means distance zero."""
+    data = {"describe-name": "v1.2.3", "ref-names": "tag: v1.2.3"}
+    assert archival_field(data, "git_distance") == "0"
+    assert archival_field(data, "git_tag") == "v1.2.3"
+
+
+def test_read_archival_roundtrip(tmp_path):
+    path = tmp_path / ".git_archival.json"
+    path.write_text(json.dumps(SUBSTITUTED_ARCHIVAL), encoding="utf-8")
+    assert read_archival(path) == SUBSTITUTED_ARCHIVAL
+
+
+def test_read_archival_invalid_json(tmp_path):
+    path = tmp_path / ".git_archival.json"
+    path.write_text("{not json", encoding="utf-8")
+    assert read_archival(path) == {}
+
+
+def test_find_archival_file_walks_up(tmp_path):
+    (tmp_path / ".git_archival.json").write_text("{}", encoding="utf-8")
+    nested = tmp_path / "pkg" / "sub"
+    nested.mkdir(parents=True)
+    assert find_archival_file(nested) == tmp_path / ".git_archival.json"
+
+
+def test_find_archival_file_absent(tmp_path):
+    assert find_archival_file(tmp_path) is None
+
+
+def test_archival_resolves_git_fields(tmp_path):
+    """Git fields resolve from .git_archival.json when there is no live git."""
+    import types
+
+    (tmp_path / ".git_archival.json").write_text(
+        json.dumps(SUBSTITUTED_ARCHIVAL), encoding="utf-8"
+    )
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+
+    mod = types.ModuleType("fake_cli")
+    mod.__file__ = str(pkg / "cli.py")
+    mod.__package__ = "fake_cli"
+
+    opt = VersionOption()
+    opt.__dict__["module"] = mod
+    # Force "no live git" so only the archival fallback is exercised.
+    opt.__dict__["git_repo_path"] = None
+
+    assert opt.git_long_hash == SUBSTITUTED_ARCHIVAL["node"]
+    assert opt.git_short_hash == "0123456"
+    assert opt.git_tag == "v1.2.3"
+    assert opt.git_tag_sha == SUBSTITUTED_ARCHIVAL["node"]
+    assert opt.git_branch == "main"
+    assert opt.git_distance == "4"
+    # No work tree in an archive, so dirtiness is unknowable.
+    assert opt.git_dirty is None
+
+
+# --- dev-version hash assembly ---
+
+
+@pytest.mark.parametrize(
+    ("module_version", "expected"),
+    (
+        # Dev release: hash appended.
+        ("1.0.0.dev1", "1.0.0.dev1+abc1234"),
+        # Release: never modified.
+        ("1.0.0", "1.0.0"),
+        # Already has a local identifier: returned as-is.
+        ("1.0.0.dev1+existing", "1.0.0.dev1+existing"),
+        # Non-canonical ".dev" spellings are not matched by the lightweight
+        # substring check, so no hash is appended.
+        ("1.0.0-dev1", "1.0.0-dev1"),
+    ),
+)
+def test_version_dev_hash_assembly(module_version, expected):
+    """The git short hash is appended to dev releases only."""
+    opt = VersionOption(
+        fields={"module_version": module_version, "git_short_hash": "abc1234"},
+    )
+    assert opt.version == expected

@@ -81,6 +81,14 @@ workspace_data:
   # write: can write data to workspace
   org_id: wildcard
   ws_id: wildcard
+flows:
+  org_id: wildcard
+  ws_id: wildcard
+  flow_folder_id: wildcard
+  env: wildcard
+  additional_actions:
+    - execute
+    - deploy
 workspace_routing_sandbox:
   # write: can modify sandbox routing
   org_id: wildcard
@@ -93,6 +101,10 @@ workspace_decision_history:
   # read: can view decision history
   org_id: wildcard
   ws_id: wildcard
+decision_history:
+  org_id: wildcard
+  ws_id: wildcard
+  env: wildcard
 workspace_job:
   # write: can create, update, delete jobs
   org_id: wildcard

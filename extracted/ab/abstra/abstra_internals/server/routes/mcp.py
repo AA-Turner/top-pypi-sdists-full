@@ -36,7 +36,6 @@ def get_editor_bp(main_controller: MainController):
             language_server_controller.analyze_python_syntax_file,
             main_controller.list_linter_issues,
             main_controller.read_file_with_pagination,
-            main_controller.read_document,
             main_controller.read_stage_file_with_pagination,
             main_controller.list_all_stages,
             main_controller.get_stage,

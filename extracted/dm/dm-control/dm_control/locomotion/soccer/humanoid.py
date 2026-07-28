@@ -167,12 +167,12 @@ class Humanoid(cmu_humanoid.CMUHumanoidPositionControlled):
     tracking_light.remove()
 
     if visual == Humanoid.Visual.JERSEY:
-      shirt_number = walker_id + 1
+      shirt_number = walker_id + 1  # pyrefly: ignore[unsupported-operation]
       self._mjcf_root.asset.add(
           'texture',
           name='skin',
           type='2d',
-          file=os.path.join(_ASSETS_PATH, f'{team}_{walker_id + 1:02d}.png'))
+          file=os.path.join(_ASSETS_PATH, f'{team}_{walker_id + 1:02d}.png'))  # pyrefly: ignore[unbound-name, unsupported-operation]
       self._mjcf_root.asset.add('material', name='skin', texture='skin')
       self._mjcf_root.asset.add(
           'skin',

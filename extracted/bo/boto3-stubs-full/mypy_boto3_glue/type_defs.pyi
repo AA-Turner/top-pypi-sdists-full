@@ -103,6 +103,8 @@ from .literals import (
     MLUserDataEncryptionModeStringType,
     NodeTypeType,
     OAuth2GrantTypeType,
+    ObservationConfigurationType,
+    ObservationModeType,
     OverwriteChildResourcePermissionsWithDefaultEnumType,
     ParamTypeType,
     ParquetCompressionTypeType,
@@ -120,6 +122,7 @@ from .literals import (
     ResourceShareTypeType,
     ResourceStateType,
     ResourceTypeType,
+    ResultTypeEnumType,
     S3EncryptionModeType,
     ScheduleStateType,
     ScheduleTypeType,
@@ -228,6 +231,8 @@ __all__ = (
     "BatchGetCustomEntityTypesResponseTypeDef",
     "BatchGetDataQualityResultRequestTypeDef",
     "BatchGetDataQualityResultResponseTypeDef",
+    "BatchGetDataQualityRulesetEvaluationRunRequestTypeDef",
+    "BatchGetDataQualityRulesetEvaluationRunResponseTypeDef",
     "BatchGetDevEndpointsRequestTypeDef",
     "BatchGetDevEndpointsResponseTypeDef",
     "BatchGetIterableFormsRequestTypeDef",
@@ -291,6 +296,7 @@ __all__ = (
     "CatalogSourceOutputTypeDef",
     "CatalogSourceTypeDef",
     "CatalogSourceUnionTypeDef",
+    "CatalogTableConfigOptionsTypeDef",
     "CatalogTargetOutputTypeDef",
     "CatalogTargetTypeDef",
     "CatalogTypeDef",
@@ -444,11 +450,14 @@ __all__ = (
     "DataQualityResultDescriptionTypeDef",
     "DataQualityResultFilterCriteriaTypeDef",
     "DataQualityResultTypeDef",
+    "DataQualityRuleRecommendationRunAdditionalRunOptionsTypeDef",
     "DataQualityRuleRecommendationRunDescriptionTypeDef",
     "DataQualityRuleRecommendationRunFilterTypeDef",
     "DataQualityRuleResultTypeDef",
+    "DataQualityRuleResultsOptionsTypeDef",
     "DataQualityRulesetEvaluationRunDescriptionTypeDef",
     "DataQualityRulesetEvaluationRunFilterTypeDef",
+    "DataQualityRulesetEvaluationRunTypeDef",
     "DataQualityRulesetFilterCriteriaTypeDef",
     "DataQualityRulesetListDetailsTypeDef",
     "DataQualityTargetTableTypeDef",
@@ -545,6 +554,8 @@ __all__ = (
     "DirectSchemaChangePolicyTypeDef",
     "DisassociateGlossaryTermsRequestTypeDef",
     "DisassociateGlossaryTermsResponseTypeDef",
+    "DistributionDataTypeDef",
+    "DistributionResultsOptionsTypeDef",
     "DoubleColumnStatisticsDataTypeDef",
     "DropDuplicatesOutputTypeDef",
     "DropDuplicatesTypeDef",
@@ -1017,6 +1028,7 @@ __all__ = (
     "OAuth2CredentialsTypeDef",
     "OAuth2PropertiesInputTypeDef",
     "OAuth2PropertiesTypeDef",
+    "ObservationResultsOptionsTypeDef",
     "OffsetConfigurationTypeDef",
     "OpenTableFormatInputTypeDef",
     "OptionTypeDef",
@@ -1058,6 +1070,7 @@ __all__ = (
     "ProfileConfigurationOutputTypeDef",
     "ProfileConfigurationTypeDef",
     "ProfileConfigurationUnionTypeDef",
+    "ProfilingResultsOptionsTypeDef",
     "PropertyPredicateTypeDef",
     "PropertyTypeDef",
     "PutAssetRequestTypeDef",
@@ -1121,6 +1134,7 @@ __all__ = (
     "RouteOutputTypeDef",
     "RouteTypeDef",
     "RouteUnionTypeDef",
+    "RowLevelResultsOptionsTypeDef",
     "RunIdentifierTypeDef",
     "RunMetricsTypeDef",
     "RunStatementRequestTypeDef",
@@ -1571,6 +1585,9 @@ class CustomEntityTypeTypeDef(TypedDict):
 class BatchGetDataQualityResultRequestTypeDef(TypedDict):
     ResultIds: Sequence[str]
 
+class BatchGetDataQualityRulesetEvaluationRunRequestTypeDef(TypedDict):
+    RunIds: Sequence[str]
+
 class BatchGetDevEndpointsRequestTypeDef(TypedDict):
     DevEndpointNames: Sequence[str]
 
@@ -1797,6 +1814,12 @@ class IcebergOptimizationPropertiesTypeDef(TypedDict):
 class CatalogSchemaChangePolicyTypeDef(TypedDict):
     EnableUpdateCatalog: NotRequired[bool]
     UpdateBehavior: NotRequired[UpdateCatalogBehaviorType]
+
+class CatalogTableConfigOptionsTypeDef(TypedDict):
+    DatabaseName: NotRequired[str]
+    TableName: NotRequired[str]
+    S3Location: NotRequired[str]
+    CatalogId: NotRequired[str]
 
 class CatalogTargetOutputTypeDef(TypedDict):
     DatabaseName: str
@@ -2509,21 +2532,14 @@ class DataQualityAggregatedMetricsTypeDef(TypedDict):
     TotalRulesPassed: NotRequired[float]
     TotalRulesFailed: NotRequired[float]
 
-class DataQualityAnalyzerResultTypeDef(TypedDict):
-    Name: NotRequired[str]
-    Description: NotRequired[str]
-    EvaluationMessage: NotRequired[str]
-    EvaluatedMetrics: NotRequired[dict[str, float]]
+class DistributionDataTypeDef(TypedDict):
+    BinEdges: NotRequired[list[str]]
+    Count: NotRequired[list[int]]
+    DataType: NotRequired[str]
 
 class DataQualityEncryptionTypeDef(TypedDict):
     DataQualityEncryptionMode: NotRequired[DataQualityEncryptionModeType]
     KmsKeyArn: NotRequired[str]
-
-class DataQualityEvaluationRunAdditionalRunOptionsTypeDef(TypedDict):
-    CloudWatchMetricsEnabled: NotRequired[bool]
-    ResultsS3Prefix: NotRequired[str]
-    CompositeRuleEvaluationMethod: NotRequired[DQCompositeRuleEvaluationMethodType]
-    CustomLogGroupPrefix: NotRequired[str]
 
 class DataQualityGlueTableOutputTypeDef(TypedDict):
     DatabaseName: str
@@ -2556,6 +2572,9 @@ class DataQualityRuleResultTypeDef(TypedDict):
     EvaluatedRule: NotRequired[str]
     RuleMetrics: NotRequired[dict[str, float]]
     Labels: NotRequired[dict[str, str]]
+
+class DataQualityRuleRecommendationRunAdditionalRunOptionsTypeDef(TypedDict):
+    CustomLogGroupPrefix: NotRequired[str]
 
 class GlueTableOutputTypeDef(TypedDict):
     DatabaseName: str
@@ -3246,17 +3265,13 @@ class GetUserDefinedFunctionRequestTypeDef(TypedDict):
     FunctionName: str
     CatalogId: NotRequired[str]
 
-GetUserDefinedFunctionsRequestTypeDef = TypedDict(
-    "GetUserDefinedFunctionsRequestTypeDef",
-    {
-        "Pattern": str,
-        "CatalogId": NotRequired[str],
-        "DatabaseName": NotRequired[str],
-        "FunctionType": NotRequired[FunctionTypeType],
-        "NextToken": NotRequired[str],
-        "MaxResults": NotRequired[int],
-    },
-)
+class GetUserDefinedFunctionsRequestTypeDef(TypedDict):
+    Pattern: str
+    CatalogId: NotRequired[str]
+    DatabaseName: NotRequired[str]
+    FunctionType: NotRequired[FunctionTypeType]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
 
 class GetWorkflowRequestTypeDef(TypedDict):
     Name: str
@@ -5074,6 +5089,23 @@ class S3IcebergCatalogTargetTypeDef(TypedDict):
     SchemaChangePolicy: NotRequired[CatalogSchemaChangePolicyTypeDef]
     AutoDataQuality: NotRequired[AutoDataQualityTypeDef]
 
+class DataQualityRuleResultsOptionsTypeDef(TypedDict):
+    WriteDataQualityRuleResultsEnabled: NotRequired[bool]
+    CatalogTableConfig: NotRequired[CatalogTableConfigOptionsTypeDef]
+
+class DistributionResultsOptionsTypeDef(TypedDict):
+    WriteDistributionResultsEnabled: NotRequired[bool]
+    CatalogTableConfig: NotRequired[CatalogTableConfigOptionsTypeDef]
+
+class ObservationResultsOptionsTypeDef(TypedDict):
+    WriteObservationResultsEnabled: NotRequired[bool]
+    CatalogTableConfig: NotRequired[CatalogTableConfigOptionsTypeDef]
+
+class RowLevelResultsOptionsTypeDef(TypedDict):
+    MaxRowsToWrite: NotRequired[int]
+    ResultType: NotRequired[ResultTypeEnumType]
+    CatalogTableConfig: NotRequired[CatalogTableConfigOptionsTypeDef]
+
 class ClassifierTypeDef(TypedDict):
     GrokClassifier: NotRequired[GrokClassifierTypeDef]
     XMLClassifier: NotRequired[XMLClassifierTypeDef]
@@ -5555,6 +5587,13 @@ class PrincipalPermissionsTypeDef(TypedDict):
     Principal: NotRequired[DataLakePrincipalTypeDef]
     Permissions: NotRequired[Sequence[PermissionType]]
 
+class DataQualityAnalyzerResultTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    EvaluationMessage: NotRequired[str]
+    EvaluatedMetrics: NotRequired[dict[str, float]]
+    EvaluatedDistributions: NotRequired[dict[str, DistributionDataTypeDef]]
+
 DataQualityGlueTableUnionTypeDef = Union[
     DataQualityGlueTableTypeDef, DataQualityGlueTableOutputTypeDef
 ]
@@ -5674,16 +5713,12 @@ class GetTriggersRequestPaginateTypeDef(TypedDict):
     DependentJobName: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
-GetUserDefinedFunctionsRequestPaginateTypeDef = TypedDict(
-    "GetUserDefinedFunctionsRequestPaginateTypeDef",
-    {
-        "Pattern": str,
-        "CatalogId": NotRequired[str],
-        "DatabaseName": NotRequired[str],
-        "FunctionType": NotRequired[FunctionTypeType],
-        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
-    },
-)
+class GetUserDefinedFunctionsRequestPaginateTypeDef(TypedDict):
+    Pattern: str
+    CatalogId: NotRequired[str]
+    DatabaseName: NotRequired[str]
+    FunctionType: NotRequired[FunctionTypeType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class GetWorkflowRunsRequestPaginateTypeDef(TypedDict):
     Name: str
@@ -6340,6 +6375,7 @@ class StatisticSummaryTypeDef(TypedDict):
     RunIdentifier: NotRequired[RunIdentifierTypeDef]
     StatisticName: NotRequired[str]
     DoubleValue: NotRequired[float]
+    DistributionValue: NotRequired[DistributionDataTypeDef]
     EvaluationLevel: NotRequired[StatisticEvaluationLevelType]
     ColumnsReferenced: NotRequired[list[str]]
     ReferencedDatasets: NotRequired[list[str]]
@@ -6492,6 +6528,11 @@ S3CatalogTargetUnionTypeDef = Union[S3CatalogTargetTypeDef, S3CatalogTargetOutpu
 S3IcebergCatalogTargetUnionTypeDef = Union[
     S3IcebergCatalogTargetTypeDef, S3IcebergCatalogTargetOutputTypeDef
 ]
+
+class ProfilingResultsOptionsTypeDef(TypedDict):
+    WriteProfilingResultsEnabled: NotRequired[bool]
+    CatalogTableConfig: NotRequired[CatalogTableConfigOptionsTypeDef]
+    DistributionResults: NotRequired[DistributionResultsOptionsTypeDef]
 
 class GetClassifierResponseTypeDef(TypedDict):
     Classifier: ClassifierTypeDef
@@ -6818,6 +6859,7 @@ class DataQualityRuleRecommendationRunDescriptionTypeDef(TypedDict):
     Status: NotRequired[TaskStatusTypeType]
     StartedOn: NotRequired[datetime]
     DataSource: NotRequired[DataSourceOutputTypeDef]
+    CreatedRulesetName: NotRequired[str]
 
 class DataQualityRulesetEvaluationRunDescriptionTypeDef(TypedDict):
     RunId: NotRequired[str]
@@ -6840,24 +6882,7 @@ class GetDataQualityRuleRecommendationRunResponseTypeDef(TypedDict):
     RecommendedRuleset: str
     CreatedRulesetName: str
     DataQualitySecurityConfiguration: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class GetDataQualityRulesetEvaluationRunResponseTypeDef(TypedDict):
-    RunId: str
-    DataSource: DataSourceOutputTypeDef
-    Role: str
-    NumberOfWorkers: int
-    Timeout: int
-    AdditionalRunOptions: DataQualityEvaluationRunAdditionalRunOptionsTypeDef
-    Status: TaskStatusTypeType
-    ErrorString: str
-    StartedOn: datetime
-    LastModifiedOn: datetime
-    CompletedOn: datetime
-    ExecutionTime: int
-    RulesetNames: list[str]
-    ResultIds: list[str]
-    AdditionalDataSources: dict[str, DataSourceOutputTypeDef]
+    AdditionalRunOptions: DataQualityRuleRecommendationRunAdditionalRunOptionsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DropNullFieldsOutputTypeDef(TypedDict):
@@ -7832,6 +7857,18 @@ class DecimalColumnStatisticsDataTypeDef(TypedDict):
     MinimumValue: NotRequired[DecimalNumberUnionTypeDef]
     MaximumValue: NotRequired[DecimalNumberUnionTypeDef]
 
+class DataQualityEvaluationRunAdditionalRunOptionsTypeDef(TypedDict):
+    CloudWatchMetricsEnabled: NotRequired[bool]
+    ResultsS3Prefix: NotRequired[str]
+    CompositeRuleEvaluationMethod: NotRequired[DQCompositeRuleEvaluationMethodType]
+    CustomLogGroupPrefix: NotRequired[str]
+    RowLevelResults: NotRequired[RowLevelResultsOptionsTypeDef]
+    ProfilingResults: NotRequired[ProfilingResultsOptionsTypeDef]
+    ObservationScope: NotRequired[ObservationConfigurationType]
+    ObservationMode: NotRequired[ObservationModeType]
+    DataQualityRuleResults: NotRequired[DataQualityRuleResultsOptionsTypeDef]
+    ObservationResults: NotRequired[ObservationResultsOptionsTypeDef]
+
 class CreateScriptRequestTypeDef(TypedDict):
     DagNodes: NotRequired[Sequence[CodeGenNodeUnionTypeDef]]
     DagEdges: NotRequired[Sequence[CodeGenEdgeTypeDef]]
@@ -8419,6 +8456,42 @@ class TableTypeDef(TypedDict):
 DecimalColumnStatisticsDataUnionTypeDef = Union[
     DecimalColumnStatisticsDataTypeDef, DecimalColumnStatisticsDataOutputTypeDef
 ]
+
+class DataQualityRulesetEvaluationRunTypeDef(TypedDict):
+    RunId: NotRequired[str]
+    DataSource: NotRequired[DataSourceOutputTypeDef]
+    Role: NotRequired[str]
+    NumberOfWorkers: NotRequired[int]
+    Timeout: NotRequired[int]
+    AdditionalRunOptions: NotRequired[DataQualityEvaluationRunAdditionalRunOptionsTypeDef]
+    Status: NotRequired[TaskStatusTypeType]
+    ErrorString: NotRequired[str]
+    StartedOn: NotRequired[datetime]
+    LastModifiedOn: NotRequired[datetime]
+    CompletedOn: NotRequired[datetime]
+    ExecutionTime: NotRequired[int]
+    RulesetNames: NotRequired[list[str]]
+    ResultIds: NotRequired[list[str]]
+    AdditionalDataSources: NotRequired[dict[str, DataSourceOutputTypeDef]]
+
+class GetDataQualityRulesetEvaluationRunResponseTypeDef(TypedDict):
+    RunId: str
+    DataSource: DataSourceOutputTypeDef
+    Role: str
+    NumberOfWorkers: int
+    Timeout: int
+    AdditionalRunOptions: DataQualityEvaluationRunAdditionalRunOptionsTypeDef
+    Status: TaskStatusTypeType
+    ErrorString: str
+    StartedOn: datetime
+    LastModifiedOn: datetime
+    CompletedOn: datetime
+    ExecutionTime: int
+    RulesetNames: list[str]
+    ResultIds: list[str]
+    AdditionalDataSources: dict[str, DataSourceOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 CatalogKafkaSourceUnionTypeDef = Union[CatalogKafkaSourceTypeDef, CatalogKafkaSourceOutputTypeDef]
 DirectKafkaSourceUnionTypeDef = Union[DirectKafkaSourceTypeDef, DirectKafkaSourceOutputTypeDef]
 CatalogKinesisSourceUnionTypeDef = Union[
@@ -8748,6 +8821,7 @@ class StartDataQualityRuleRecommendationRunRequestTypeDef(TypedDict):
     CreatedRulesetName: NotRequired[str]
     DataQualitySecurityConfiguration: NotRequired[str]
     ClientToken: NotRequired[str]
+    AdditionalRunOptions: NotRequired[DataQualityRuleRecommendationRunAdditionalRunOptionsTypeDef]
 
 class StartDataQualityRulesetEvaluationRunRequestTypeDef(TypedDict):
     DataSource: DataSourceUnionTypeDef
@@ -8897,6 +8971,11 @@ ColumnStatisticsDataTypeDef = TypedDict(
     },
 )
 
+class BatchGetDataQualityRulesetEvaluationRunResponseTypeDef(TypedDict):
+    Runs: list[DataQualityRulesetEvaluationRunTypeDef]
+    RunsNotFound: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class WorkflowGraphTypeDef(TypedDict):
     Nodes: NotRequired[list[NodeTypeDef]]
     Edges: NotRequired[list[EdgeTypeDef]]
@@ -8992,6 +9071,7 @@ class ListDataQualityRuleRecommendationRunsRequestTypeDef(TypedDict):
     Filter: NotRequired[DataQualityRuleRecommendationRunFilterTypeDef]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+    Tags: NotRequired[Mapping[str, str]]
 
 class ListDataQualityRulesetEvaluationRunsRequestTypeDef(TypedDict):
     Filter: NotRequired[DataQualityRulesetEvaluationRunFilterTypeDef]

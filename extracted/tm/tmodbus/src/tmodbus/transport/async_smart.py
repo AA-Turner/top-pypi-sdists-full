@@ -14,19 +14,17 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, TypeVar
 
-try:
-    from tenacity import (
-        AsyncRetrying,
-        RetryCallState,
-        RetryError,
-        retry_any,
-        retry_if_exception_type,
-        stop_after_delay,
-        wait_exponential,
-    )
-except ImportError as ex:  # pragma: no cover
-    msg = "tenacity is required for Smart Transport functionality.Install with 'pip install tmodbus[smart]'"
-    raise ImportError(msg) from ex
+from tenacity import (
+    AsyncRetrying,
+    RetryCallState,
+    RetryError,
+    retry_any,
+    retry_if_exception_type,
+    stop_after_delay,
+    stop_never,
+    wait_exponential,
+    wait_none,
+)
 
 from tmodbus.exceptions import (
     ModbusConnectionError,
@@ -105,7 +103,7 @@ class AsyncSmartTransport(AsyncBaseTransport):
     auto_reconnect: AsyncRetrying | None = None
     response_retry_strategy: AsyncRetrying
 
-    def __init__(  # noqa: C901, PLR0913
+    def __init__(  # noqa: PLR0913
         self,
         base_transport: "AsyncBaseTransport",
         *,
@@ -134,6 +132,9 @@ class AsyncSmartTransport(AsyncBaseTransport):
                                 base transport and fires straight from its protocol's connection_lost,
                                 so it is the earliest notification that the socket dropped.
             response_retry_strategy: Retry strategy for handling failed requests (default: None).
+                                     Note: when providing a custom strategy, don't forget to set the stop and wait
+                                     parameters to sane values. The default stop_never and wait_none will cause the
+                                     request to retry indefinitely and without any delay, which is usually not desired.
             retry_on_device_busy: Whether to retry on device busy errors (default: True).
                                   Can be a custom AsyncRetrying instance when more control is needed.
             retry_on_device_failure: Whether to retry on device failure errors (default: False).
@@ -173,6 +174,24 @@ class AsyncSmartTransport(AsyncBaseTransport):
             raise ValueError(msg)
         self.on_reconnected = on_reconnected
 
+        self.response_retry_strategy = self._assemble_retry_strategy(
+            response_retry_strategy,
+            auto_reconnect=auto_reconnect,
+            retry_on_device_busy=retry_on_device_busy,
+            retry_on_device_failure=retry_on_device_failure,
+        )
+
+        self._last_request_finished_at: float | None = None
+
+    def _assemble_retry_strategy(
+        self,
+        response_retry_strategy: AsyncRetrying | None,
+        *,
+        auto_reconnect: AsyncRetrying | bool,
+        retry_on_device_busy: bool,
+        retry_on_device_failure: bool,
+    ) -> AsyncRetrying:
+        """Assemble the retry strategy for handling failed requests."""
         retry_functions: list[RetryBaseT] = []
 
         if not response_retry_strategy:
@@ -189,9 +208,22 @@ class AsyncSmartTransport(AsyncBaseTransport):
         if retry_on_device_failure:
             retry_functions.append(retry_if_exception_type(ServerDeviceFailureError))
 
-        self.response_retry_strategy = response_retry_strategy.copy(retry=retry_any(*retry_functions))  # type: ignore[arg-type]
+        retry_strategy = response_retry_strategy.copy(retry=retry_any(*retry_functions))  # type: ignore[arg-type]
 
-        self._last_request_finished_at: float | None = None
+        if retry_strategy.stop == stop_never and isinstance(retry_strategy.wait, wait_none):
+            # these are the default values of AsyncRetrying, but they are not suitable
+            # for a retry strategy in this context
+            logger.warning(
+                "response_retry_strategy.stop is set to stop_never and response_retry_strategy.wait is set to "
+                "wait_none. This would result in retries to be done indefinitely and without any delay, which is "
+                "undesired. Reverting to tmodbus stop/wait default values instead."
+            )
+
+            retry_strategy = retry_strategy.copy(
+                stop=DEFAULT_RESPONSE_RETRY_STRATEGY.stop, wait=DEFAULT_RESPONSE_RETRY_STRATEGY.wait
+            )
+
+        return retry_strategy
 
     async def open(self) -> None:
         """Open Transport Connection.

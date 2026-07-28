@@ -32,6 +32,7 @@ import pathlib
 import json
 import tarfile
 import shutil
+import signal
 import subprocess
 import time
 import socket
@@ -42,6 +43,7 @@ import urllib.parse
 import urllib.error
 import concurrent.futures
 import threading
+import base64
 from pprint import pformat
 
 AUTH_TXT = """admin ec-p-256-sha256 fLKYEaoEb9lrn3nkwLDA-M_xnuFOdSt9y0Z7_vWSHLU Dt5tbS1dEDMSYfym3fgMv0B99szno-dFc1rYF9t0aac
@@ -54,8 +56,60 @@ AUTH = dict(
     token_x="fLKYEaoEb9lrn3nkwLDA-M_xnuFOdSt9y0Z7_vWSHLU",
     token_y="Dt5tbS1dEDMSYfym3fgMv0B99szno-dFc1rYF9t0aac")
 
+HTTP_AUTH = dict(
+    username="admin",
+    password="quest")
+
 CA_PATH = (pathlib.Path(__file__).parent.parent /
            'tls_certs' / 'server_rootCA.pem')
+
+# Posts a console control event to the QuestDB JVM on Windows. Run as
+# `python -c <this> <pid> <ctrl_c|ctrl_break>` in a separate process: a
+# control event can only be sent from inside the target's console —
+# GenerateConsoleCtrlEvent() reaches just the processes attached to the
+# caller's own console — and the test runner cannot abandon its console
+# to go borrow the JVM's, but a throwaway helper process can.
+_WIN_CONSOLE_CTRL_HELPER = r'''
+import ctypes
+import ctypes.wintypes
+import sys
+
+CTRL_C_EVENT = 0
+CTRL_BREAK_EVENT = 1
+
+pid = int(sys.argv[1])
+event = {'ctrl_c': CTRL_C_EVENT, 'ctrl_break': CTRL_BREAK_EVENT}[sys.argv[2]]
+kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+
+
+def bail(code, what):
+    sys.stderr.write(
+        f'console-ctrl helper: {what} failed, '
+        f'winerror={ctypes.get_last_error()}\n')
+    sys.exit(code)
+
+
+# The posted event reaches every process on the console, this helper
+# included. A handler that claims each event keeps the default handler
+# (ExitProcess) from killing the helper before it can report success.
+# Merely ignoring would not do: SetConsoleCtrlHandler(NULL, TRUE)
+# covers Ctrl+C only, not Ctrl+Break.
+handler_t = ctypes.WINFUNCTYPE(ctypes.wintypes.BOOL, ctypes.wintypes.DWORD)
+claim_all = handler_t(lambda _event: True)
+if not kernel32.SetConsoleCtrlHandler(claim_all, True):
+    bail(2, 'SetConsoleCtrlHandler')
+kernel32.FreeConsole()  # Failure is fine: it means we had no console.
+if not kernel32.AttachConsole(pid):
+    bail(3, 'AttachConsole')
+# Process group 0 == everyone on this console, which is exactly the JVM
+# (and this helper): the JVM was launched with CREATE_NO_WINDOW, so its
+# console hosts nothing else. Group 0 rather than the JVM's pid because
+# Ctrl+C cannot be addressed to a process group: with a non-zero group
+# id, GenerateConsoleCtrlEvent(CTRL_C_EVENT, ...) reports success
+# without delivering anything.
+if not kernel32.GenerateConsoleCtrlEvent(event, 0):
+    bail(4, 'GenerateConsoleCtrlEvent')
+'''
 
 
 def retry(
@@ -100,6 +154,15 @@ def discover_avail_ports(num_required):
     for sock in sockets:
         sock.close()
     return free_ports
+
+
+def discover_avail_udp_port():
+    """Discover an available UDP port."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(('', 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    return port
 
 
 class Project:
@@ -231,10 +294,29 @@ class QueryError(Exception):
     pass
 
 
+class QuestDbStopTimeout(RuntimeError):
+    """QuestDB did not shut down within the graceful timeout and had to
+    be force-killed. Raised by ``stop()`` so the test fails instead of
+    silently absorbing a server that refuses to stop."""
+    pass
+
+
 class QuestDbFixtureBase:
     def print_log(self):
         """Print the QuestDB log to stderr."""
         sys.stderr.write('questdb log output skipped.\n')
+
+    def capture_timeout_diagnostics(self, test_name):
+        pass
+
+    def http_headers(self):
+        if not getattr(self, 'http_auth', False):
+            return {}
+        credentials = (
+            f'{HTTP_AUTH["username"]}:{HTTP_AUTH["password"]}'
+            .encode('utf-8'))
+        encoded = base64.b64encode(credentials).decode('ascii')
+        return {'Authorization': f'Basic {encoded}'}
 
     def http_sql_query(self, sql_query):
         url = (
@@ -242,7 +324,11 @@ class QuestDbFixtureBase:
                 urllib.parse.urlencode({'query': sql_query}))
         buf = None
         try:
-            resp = urllib.request.urlopen(url, timeout=5)
+            req = urllib.request.Request(
+                url,
+                headers=self.http_headers(),
+                method='GET')
+            resp = urllib.request.urlopen(req, timeout=5)
             buf = resp.read()
         except urllib.error.HTTPError as http_error:
             buf = http_error.read()
@@ -259,10 +345,22 @@ class QuestDbFixtureBase:
         return data
 
     def query_version(self):
-        try:
-            res = self.http_sql_query('select build')
-        except QueryError as qe:
-            # For old versions that don't support `build` yet, parse from path.
+        # `/ping` can answer before the SQL engine can serve `select
+        # build`, so retry rather than let one 5s socket timeout decide.
+        def try_query():
+            try:
+                return ('build', self.http_sql_query('select build'))
+            except QueryError:
+                # Old versions without `build`: parse from path instead.
+                return ('legacy', None)
+            except (TimeoutError, urllib.error.URLError):
+                return False
+
+        kind, res = retry(
+            try_query,
+            timeout_sec=60,
+            msg='Timed out querying QuestDB version.')
+        if kind == 'legacy':
             return self.version
 
         vers = res['dataset'][0][0]
@@ -295,6 +393,13 @@ class QuestDbFixtureBase:
                     return False
                 return resp
             except QueryError:
+                return None
+            except TimeoutError:
+                # A single poll stalling its 5s socket timeout (server
+                # busy catching up after a bounce) must not abort the
+                # whole wait: the enclosing retry() budget decides when
+                # to give up. Without this, the handler below would also
+                # mislabel one stalled poll as the full timeout_sec.
                 return None
 
         try:
@@ -336,20 +441,44 @@ class QuestDbFixtureBase:
 
 
 class QuestDbExternalFixture(QuestDbFixtureBase):
-    def __init__(self, host, line_tcp_port, http_server_port, version, http, auth, protocol_version):
+    def __init__(
+            self,
+            host,
+            line_tcp_port,
+            http_server_port,
+            version,
+            http,
+            auth,
+            protocol_version,
+            qwp_udp=False,
+            qwp_udp_port=None,
+            http_auth=False):
         self.host = host
         self.line_tcp_port = line_tcp_port
         self.http_server_port = http_server_port
         self.version = version
         self.http = http
         self.auth = auth
+        self.http_auth = http_auth
         self.protocol_version = protocol_version
+        self.qwp_udp = qwp_udp
+        self.qwp_udp_port = qwp_udp_port
 
 
 class QuestDbFixture(QuestDbFixtureBase):
-    def __init__(self, root_dir: pathlib.Path, auth=False, wrap_tls=False, http=False, protocol_version=None):
+    def __init__(
+            self,
+            root_dir: pathlib.Path,
+            auth=False,
+            wrap_tls=False,
+            http=False,
+            protocol_version=None,
+            qwp_udp=False,
+            http_auth=False):
         self._root_dir = root_dir
         self.version = _parse_version(self._root_dir.name)
+        # Set once start() has refined `version` from the live server.
+        self._version_queried = False
         self._data_dir = self._root_dir / 'data'
         self._log_path = self._data_dir / 'log' / 'log.txt'
         self._conf_dir = self._data_dir / 'conf'
@@ -360,6 +489,7 @@ class QuestDbFixture(QuestDbFixtureBase):
         self.host = '127.0.0.1'
         self.http_server_port = None
         self.line_tcp_port = None
+        self.qwp_udp_port = None
         self.pg_port = None
 
         self.wrap_tls = wrap_tls
@@ -371,20 +501,39 @@ class QuestDbFixture(QuestDbFixtureBase):
             auth_txt_path = self._conf_dir / 'auth.txt'
             with open(auth_txt_path, 'w', encoding='utf-8') as auth_file:
                 auth_file.write(AUTH_TXT)
+        self.http_auth = http_auth
         self.http = http
         self.protocol_version = protocol_version
+        self.qwp_udp = qwp_udp
 
     def print_log(self):
-        with open(self._log_path, 'r', encoding='utf-8') as log_file:
-            log = log_file.read()
-            sys.stderr.write(textwrap.indent(log, '    '))
-            sys.stderr.write('\n\n')
+        # Read as bytes and replace undecodable sequences: a force-kill
+        # can truncate the log mid-character, which would crash a plain
+        # utf-8 text read.
+        with open(self._log_path, 'rb') as log_file:
+            log = log_file.read().decode('utf-8', errors='replace')
+        sys.stderr.write(textwrap.indent(log, '    '))
+        sys.stderr.write('\n\n')
 
     def start(self):
-        ports = discover_avail_ports(3)
-        self.http_server_port, self.line_tcp_port, self.pg_port = ports
+        if self.http_server_port is None:
+            ports = discover_avail_ports(3)
+            self.http_server_port, self.line_tcp_port, self.pg_port = ports
+        if self.qwp_udp and self.qwp_udp_port is None:
+            self.qwp_udp_port = discover_avail_udp_port()
         auth_config = 'line.tcp.auth.db.path=conf/auth.txt' if self.auth else ''
+        http_auth_config = (
+            f'http.user={HTTP_AUTH["username"]}\n'
+            '                '
+            f'http.password={HTTP_AUTH["password"]}'
+            if self.http_auth else '')
         ilp_over_http_config = 'line.http.enabled=true' if self.http else ''
+        qwp_udp_enabled = 'true' if self.qwp_udp else 'false'
+        qwp_udp_bind = (
+            f'qwp.udp.bind.to=0.0.0.0:{self.qwp_udp_port}'
+            if self.qwp_udp else '')
+        qwp_udp_unicast = 'qwp.udp.unicast=true' if self.qwp_udp else ''
+        qwp_udp_commit_rate = 'qwp.udp.commit.rate=1' if self.qwp_udp else ''
         with open(self._conf_path, 'w', encoding='utf-8') as conf_file:
             conf_file.write(textwrap.dedent(rf'''
                 http.bind.to=0.0.0.0:{self.http_server_port}
@@ -392,12 +541,19 @@ class QuestDbFixture(QuestDbFixtureBase):
                 pg.net.bind.to=0.0.0.0:{self.pg_port}
                 http.min.enabled=false
                 line.udp.enabled=false
+                qwp.udp.enabled={qwp_udp_enabled}
+                {qwp_udp_bind}
+                {qwp_udp_unicast}
+                {qwp_udp_commit_rate}
                 line.tcp.maintenance.job.interval=100
                 line.tcp.min.idle.ms.before.writer.release=300
                 telemetry.enabled=false
                 cairo.commit.lag=100
+                cairo.writer.data.append.page.size=64k
+                cairo.writer.data.index.value.append.page.size=64k
                 line.tcp.commit.interval.fraction=0.1
                 {auth_config}
+                {http_auth_config}
                 {ilp_over_http_config}
                 ''').lstrip('\n'))
 
@@ -410,12 +566,37 @@ class QuestDbFixture(QuestDbFixtureBase):
             # '-Debug',
             '-XX:+UnlockExperimentalVMOptions',
             '-XX:+AlwaysPreTouch',
+            # QuestDB's worker pools use jdk.internal.vm.ContinuationScope via
+            # io.questdb.mp.continuation.WorkerContinuation. When the server is
+            # launched as the named module io.questdb (-m below), java.base does
+            # not export jdk.internal.vm to it, so every worker thread dies with
+            # IllegalAccessError and the HTTP service never comes up. QuestDB's
+            # own launcher passes this flag; mirror it here.
+            '--add-exports=java.base/jdk.internal.vm=io.questdb',
             '-p', str(self._root_dir / 'bin' / 'questdb.jar'),
             '-m', 'io.questdb/io.questdb.ServerMain',
             '-d', str(self._data_dir)]
         sys.stderr.write(
-            f'Starting QuestDB: {launch_args!r} (auth: {self.auth}, http: {self.http})\n')
+            f'Starting QuestDB: {launch_args!r} '
+            f'(auth: {self.auth}, http_auth: {self.http_auth}, '
+            f'http: {self.http}, qwp_udp: {self.qwp_udp})\n')
+        self._log_path.parent.mkdir(parents=True, exist_ok=True)
         self._log = open(self._log_path, 'ab')
+        # On Windows, Popen.terminate() maps to TerminateProcess(), which kills
+        # the JVM without running shutdown hooks. That leaves QuestDB's writers
+        # mid-update and can corrupt the sequencer's _meta/_txnlog ordering.
+        # The graceful equivalent of SIGTERM for a JVM is a Ctrl+C console
+        # event, which it maps to SIGINT. (Ctrl+Break is NOT that: HotSpot
+        # answers it with a thread dump and keeps running.) Ctrl+C cannot be
+        # addressed to a single process, though — it goes to every process on
+        # the target console — so CREATE_NO_WINDOW gives the JVM a fresh,
+        # windowless console of its own, where stop() can post Ctrl+C (via
+        # _win_send_console_ctrl) and hit nothing else. CREATE_NEW_PROCESS_GROUP
+        # is deliberately absent: it would start the child with the
+        # ignore-Ctrl+C flag set, which the JVM never clears, making it deaf
+        # to the shutdown request.
+        creationflags = (
+            subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0)
         try:
             self._proc = subprocess.Popen(
                 launch_args,
@@ -423,13 +604,15 @@ class QuestDbFixture(QuestDbFixtureBase):
                 cwd=self._data_dir,
                 # env=launch_env,
                 stdout=self._log,
-                stderr=subprocess.STDOUT)
+                stderr=subprocess.STDOUT,
+                creationflags=creationflags)
 
             def check_http_up():
                 if self._proc.poll() is not None:
                     raise RuntimeError('QuestDB died during startup.')
                 req = urllib.request.Request(
                     f'http://127.0.0.1:{self.http_server_port}/ping',
+                    headers=self.http_headers(),
                     method='GET')
                 try:
                     resp = urllib.request.urlopen(req, timeout=1)
@@ -454,10 +637,17 @@ class QuestDbFixture(QuestDbFixtureBase):
         atexit.register(self.stop)
         sys.stderr.write('QuestDB fixture instance is ready.\n')
 
-        # Read the actual version from the running process.
-        # This is to support a version like `7.3.2-SNAPSHOT`
-        # from an externally started QuestDB instance.
-        self.version = self.query_version()
+        # Read the actual version from the running process; it can be more
+        # precise than the path-parsed one (e.g. `7.3.2-SNAPSHOT`). Only on
+        # the first start, which always precedes client load: the binary
+        # doesn't change across restarts, and a bounce restart must stay
+        # clear of SQL — right after it the reconnecting fuzz producers
+        # can keep the network workers busy past the 5s query timeout,
+        # failing the bounce even though /ping already vouched for
+        # liveness.
+        if not self._version_queried:
+            self.version = self.query_version()
+            self._version_queried = True
 
         if self.wrap_tls:
             self._tls_proxy = TlsProxyFixture(self.line_tcp_port)
@@ -467,16 +657,153 @@ class QuestDbFixture(QuestDbFixtureBase):
     def __enter__(self):
         self.start()
 
-    def stop(self):
+    def _win_send_console_ctrl(self, event):
+        """Post a console control event to the QuestDB JVM on Windows.
+
+        `event` is 'ctrl_c' (graceful shutdown: the JVM maps it to
+        SIGINT and runs shutdown hooks) or 'ctrl_break' (HotSpot prints
+        a thread dump to the server log and keeps running). Runs
+        _WIN_CONSOLE_CTRL_HELPER in a separate process; see its comment
+        for why one is needed. Returns True when the event was posted.
+        Never raises: stop() must always reach its force-kill cleanup,
+        however delivery fails.
+        """
+        try:
+            res = subprocess.run(
+                [sys.executable, '-c', _WIN_CONSOLE_CTRL_HELPER,
+                 str(self._proc.pid), event],
+                creationflags=subprocess.CREATE_NO_WINDOW,
+                timeout=15)
+        except (OSError, subprocess.SubprocessError) as e:
+            sys.stderr.write(
+                f'Failed to post {event} to QuestDB '
+                f'(pid {self._proc.pid}): {e!r}\n')
+            return False
+        if res.returncode != 0:
+            # The helper wrote a winerror diagnostic to stderr already.
+            sys.stderr.write(
+                f'Failed to post {event} to QuestDB '
+                f'(pid {self._proc.pid}); helper exited with '
+                f'{res.returncode}.\n')
+            return False
+        return True
+
+    def _request_thread_dump(self):
+        if self._proc is None or self._proc.poll() is not None:
+            return False
+        if sys.platform == 'win32':
+            return self._win_send_console_ctrl('ctrl_break')
+        if hasattr(signal, 'SIGQUIT'):
+            try:
+                self._proc.send_signal(signal.SIGQUIT)
+                return True
+            except OSError:
+                pass
+        return False
+
+    def capture_timeout_diagnostics(self, test_name):
+        sys.stderr.write(
+            f'Capturing QuestDB diagnostics after timeout in {test_name}.\n')
+        req = urllib.request.Request(
+            f'http://127.0.0.1:{self.http_server_port}/ping',
+            headers=self.http_headers(),
+            method='GET')
+        try:
+            with urllib.request.urlopen(req, timeout=1) as resp:
+                sys.stderr.write(
+                    f'QuestDB /ping after timeout: HTTP {resp.status}.\n')
+        except Exception as e:
+            sys.stderr.write(f'QuestDB /ping after timeout failed: {e!r}.\n')
+
+        if self._request_thread_dump():
+            sys.stderr.write(
+                f'Requested a JVM thread dump in `{self._log_path}`.\n')
+            time.sleep(2)
+        else:
+            sys.stderr.write('Could not request a JVM thread dump.\n')
+
+    def stop(self, wait_timeout_sec=30):
         if self._tls_proxy:
             self._tls_proxy.stop()
+        # A graceful shutdown that overruns `wait_timeout_sec` is treated
+        # as a failure, not something to live with: we still force-kill
+        # the process so nothing is leaked, but then raise so the test
+        # fails loudly. `wait_timeout_sec` must therefore be sized
+        # generously enough that only a genuinely stuck server exceeds it.
+        shutdown_timed_out = False
+        kill_pid = None
         if self._proc:
-            self._proc.terminate()
-            self._proc.wait()
+            if sys.platform == 'win32':
+                # Post Ctrl+C to the JVM's private console: the JVM maps it
+                # to SIGINT and runs shutdown hooks, making it the closest
+                # Windows analogue of SIGTERM. (Ctrl+Break would not do:
+                # HotSpot answers it with a thread dump to the server log
+                # and keeps running.) Delivery failure is not fatal here:
+                # the wait below times out, force-kills and raises.
+                self._win_send_console_ctrl('ctrl_c')
+            else:
+                self._proc.terminate()
+            try:
+                self._proc.wait(timeout=wait_timeout_sec)
+            except subprocess.TimeoutExpired:
+                shutdown_timed_out = True
+                kill_pid = self._proc.pid
+                sys.stderr.write(
+                    f'QuestDB (pid {self._proc.pid}) did not exit within '
+                    f'{wait_timeout_sec}s of being asked to shut down; '
+                    'escalating to SIGKILL.\n')
+                # Make the JVM print a thread dump into the server log
+                # first, so a hung shutdown identifies the blocked thread
+                # instead of vanishing without a trace: SIGQUIT on POSIX,
+                # Ctrl+Break on Windows.
+                dump_requested = self._request_thread_dump()
+                if dump_requested:
+                    sys.stderr.write(
+                        'Requested a JVM thread dump; it goes to '
+                        f'`{self._log_path}`.\n')
+                    try:
+                        # The JVM keeps running after the dump; this wait
+                        # is just a grace period for it to finish writing.
+                        self._proc.wait(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        pass
+                self._proc.kill()
+                self._proc.wait()
             self._proc = None
         if self._log:
             self._log.close()
             self._log = None
+        if shutdown_timed_out:
+            # Cleanup is done (process reaped, log closed); now fail.
+            raise QuestDbStopTimeout(
+                f'QuestDB (pid {kill_pid}) did not shut down gracefully '
+                f'within {wait_timeout_sec}s and had to be force-killed. '
+                'A graceful shutdown overrunning this budget means the '
+                f'server is stuck; see the JVM thread dump in '
+                f'`{self._log_path}`.')
+
+    def wipe_data_dir(self):
+        """Remove everything under the data dir except ``conf/``.
+
+        Reclaims disk space accumulated by dropped tables whose async purge
+        hasn't run yet. Must be called only after stop(); refuses to wipe
+        while QuestDB is running.
+        """
+        if self._proc is not None:
+            raise RuntimeError(
+                'wipe_data_dir() called while QuestDB is still running')
+        if not self._data_dir.exists():
+            return
+        for child in self._data_dir.iterdir():
+            if child.name == 'conf':
+                continue
+            if child.is_dir():
+                shutil.rmtree(child, ignore_errors=True)
+            else:
+                try:
+                    child.unlink()
+                except OSError:
+                    pass
 
     def __exit__(self, _ty, _value, _tb):
         self.stop()

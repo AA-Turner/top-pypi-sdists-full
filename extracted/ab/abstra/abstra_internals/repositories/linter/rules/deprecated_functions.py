@@ -20,6 +20,10 @@ DEPRECATED_FUNCTIONS = {
 
 
 class DeprecatedFunctionFound(LinterIssue):
+    title = "Deprecated function usage"
+    type = "warning"
+    fix_with_ai = True
+
     def __init__(
         self,
         function_name: str,
@@ -34,8 +38,6 @@ class DeprecatedFunctionFound(LinterIssue):
 
 class DeprecatedFunctionUsage(PathScopedLinterRule):
     label: str = "Deprecated function usage"
-    type: str = "warning"
-    fix_with_ai: bool = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         project = (current_lint_context() or LintContext()).project

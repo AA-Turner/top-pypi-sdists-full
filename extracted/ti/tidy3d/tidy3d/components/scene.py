@@ -33,7 +33,11 @@ from tidy3d.components.material.tcad.charge import (
     ChargeConductorMedium,
     SemiconductorMedium,
 )
-from tidy3d.components.material.tcad.heat import SolidMedium, SolidSpec
+from tidy3d.components.material.tcad.heat import (
+    AnisotropicConductivity,
+    SolidMedium,
+    SolidSpec,
+)
 from tidy3d.components.material.types import MultiPhysicsMediumType3D
 from tidy3d.components.tcad.doping import (
     ConstantDoping,
@@ -41,6 +45,7 @@ from tidy3d.components.tcad.doping import (
     DopingBoxType,
     GaussianDoping,
 )
+from tidy3d.components.tcad.doping_utils import aggregate_doping_seam_aware
 from tidy3d.components.tcad.viz import HEAT_SOURCE_CMAP
 from tidy3d.constants import CONDUCTIVITY, THERMAL_CONDUCTIVITY, inf
 from tidy3d.exceptions import SetupError, Tidy3dError
@@ -102,6 +107,13 @@ MAX_STRUCTURES_PER_MEDIUM = 1_000
 
 def _get_colormap(reverse: bool = False) -> str:
     return STRUCTURE_EPS_CMAP_R if reverse else STRUCTURE_EPS_CMAP
+
+
+def _heat_conductivity_scalar(conductivity: float | AnisotropicConductivity) -> float:
+    """Scalar for grayscale plotting: mean of principals for a tensor, pass-through for a scalar."""
+    if isinstance(conductivity, AnisotropicConductivity):
+        return (conductivity.xx + conductivity.yy + conductivity.zz) / 3
+    return conductivity
 
 
 class Scene(Tidy3dBaseModel):
@@ -1350,6 +1362,8 @@ class Scene(Tidy3dBaseModel):
                         # extract slice if volumetric unstructured data
                         eps = eps.plane_slice(axis=normal_axis_ind, pos=normal_position)
 
+                    eps = eps.real
+
                     # at this point eps_mean is TriangularGridDataset and we just plot it directly
                     # with applying shape mask
                     cmap_name = _get_colormap(reverse=reverse)
@@ -1595,71 +1609,6 @@ class Scene(Tidy3dBaseModel):
 
     @equal_aspect
     @add_ax_if_none
-    def plot_structures_heat_conductivity(
-        self,
-        x: float | None = None,
-        y: float | None = None,
-        z: float | None = None,
-        alpha: float | None = None,
-        cbar: bool = True,
-        reverse: bool = False,
-        ax: Ax = None,
-        hlim: tuple[float, float] | None = None,
-        vlim: tuple[float, float] | None = None,
-    ) -> Ax:
-        """Plot each of scene's structures on a plane defined by one nonzero x,y,z coordinate.
-        The thermal conductivity is plotted in grayscale based on its value.
-
-        Parameters
-        ----------
-        x : float = None
-            position of plane in x direction, only one of x, y, z must be specified to define plane.
-        y : float = None
-            position of plane in y direction, only one of x, y, z must be specified to define plane.
-        z : float = None
-            position of plane in z direction, only one of x, y, z must be specified to define plane.
-        reverse : bool = False
-            If ``False``, the highest permittivity is plotted in black.
-            If ``True``, it is plotteed in white (suitable for black backgrounds).
-        cbar : bool = True
-            Whether to plot a colorbar for the relative permittivity.
-        alpha : float = None
-            Opacity of the structures being plotted.
-            Defaults to the structure default alpha.
-        ax : matplotlib.axes._subplots.Axes = None
-            Matplotlib axes to plot on, if not specified, one is created.
-        hlim : tuple[float, float] = None
-            The x range if plotting on xy or xz planes, y range if plotting on yz plane.
-        vlim : tuple[float, float] = None
-            The z range if plotting on xz or yz planes, y plane if plotting on xy plane.
-
-        Returns
-        -------
-        matplotlib.axes._subplots.Axes
-            The supplied or created matplotlib axes.
-        """
-
-        log.warning(
-            "This function 'plot_structures_heat_conductivity' is deprecated and "
-            "will be discontinued. In its place you can use "
-            'plot_structures_heat_charge_property(property="heat_conductivity")'
-        )
-
-        return self.plot_structures_heat_charge_property(
-            x=x,
-            y=y,
-            z=z,
-            alpha=alpha,
-            cbar=cbar,
-            property="heat_conductivity",
-            reverse=reverse,
-            ax=ax,
-            hlim=hlim,
-            vlim=vlim,
-        )
-
-    @equal_aspect
-    @add_ax_if_none
     def plot_structures_heat_charge_property(
         self,
         x: float | None = None,
@@ -1780,7 +1729,9 @@ class Scene(Tidy3dBaseModel):
             medium_list = [
                 medium for medium in medium_list if isinstance(medium.heat_spec, SolidType)
             ]
-            cond_list = [medium.heat_spec.conductivity for medium in medium_list]
+            cond_list = [
+                _heat_conductivity_scalar(medium.heat_spec.conductivity) for medium in medium_list
+            ]
         elif property == "electric_conductivity":
             cond_mediums = [
                 medium for medium in medium_list if isinstance(medium.charge, ChargeConductorMedium)
@@ -1793,22 +1744,6 @@ class Scene(Tidy3dBaseModel):
         cond_min = min(cond_list)
         cond_max = max(cond_list)
         return cond_min, cond_max
-
-    def heat_conductivity_bounds(self) -> tuple[float, float]:
-        """Compute range of thermal conductivities present in the scene.
-
-        Returns
-        -------
-        tuple[float, float]
-            Minimal and maximal values of thermal conductivity in scene.
-        """
-        log.warning(
-            "This function 'heat_conductivity_bounds()' is deprecated and will be "
-            "discontinued in the future. In it's place, you can now use this "
-            "'heat_charge_property_bounds(property=\"heat_conductivity\")'"
-        )
-
-        return self.heat_charge_property_bounds(property="heat_conductivity")
 
     def _get_structure_heat_charge_property_plot_params(
         self,
@@ -1833,7 +1768,7 @@ class Scene(Tidy3dBaseModel):
         cond_medium = None
         SolidType = (SolidSpec, SolidMedium)
         if property == "heat_conductivity" and isinstance(medium.heat_spec, SolidType):
-            cond_medium = medium.heat_spec.conductivity
+            cond_medium = _heat_conductivity_scalar(medium.heat_spec.conductivity)
         elif property == "electric_conductivity" and isinstance(
             medium.charge, ChargeConductorMedium
         ):
@@ -1878,66 +1813,6 @@ class Scene(Tidy3dBaseModel):
         )
         ax = self.box.plot_shape(shape=shape, plot_params=plot_params, ax=ax)
         return ax
-
-    @equal_aspect
-    @add_ax_if_none
-    def plot_heat_conductivity(
-        self,
-        x: float | None = None,
-        y: float | None = None,
-        z: float | None = None,
-        alpha: float | None = None,
-        cbar: bool = True,
-        ax: Ax = None,
-        hlim: tuple[float, float] | None = None,
-        vlim: tuple[float, float] | None = None,
-    ) -> Ax:
-        """Plot each of scebe's components on a plane defined by one nonzero x,y,z coordinate.
-        The thermal conductivity is plotted in grayscale based on its value.
-
-        Parameters
-        ----------
-        x : float = None
-            position of plane in x direction, only one of x, y, z must be specified to define plane.
-        y : float = None
-            position of plane in y direction, only one of x, y, z must be specified to define plane.
-        z : float = None
-            position of plane in z direction, only one of x, y, z must be specified to define plane.
-        alpha : float = None
-            Opacity of the structures being plotted.
-            Defaults to the structure default alpha.
-        cbar : bool = True
-            Whether to plot a colorbar for the thermal conductivity.
-        ax : matplotlib.axes._subplots.Axes = None
-            Matplotlib axes to plot on, if not specified, one is created.
-        hlim : tuple[float, float] = None
-            The x range if plotting on xy or xz planes, y range if plotting on yz plane.
-        vlim : tuple[float, float] = None
-            The z range if plotting on xz or yz planes, y plane if plotting on xy plane.
-
-        Returns
-        -------
-        matplotlib.axes._subplots.Axes
-            The supplied or created matplotlib axes.
-        """
-
-        log.warning(
-            "The function 'plot_heat_conductivity' is deprecated and will be "
-            "discontinued. In its place you can use "
-            'plot_heat_charge_property(property="heat_conductivity")'
-        )
-
-        return self.plot_heat_charge_property(
-            x=x,
-            y=y,
-            z=z,
-            alpha=alpha,
-            cbar=cbar,
-            property="heat_conductivity",
-            ax=ax,
-            hlim=hlim,
-            vlim=vlim,
-        )
 
     """ Misc """
 
@@ -2213,13 +2088,17 @@ class Scene(Tidy3dBaseModel):
                 struct_doping[n] = struct_doping[n] + contrib
             # Handle doping boxes
             if isinstance(doping, tuple):
-                for doping_box in doping:
-                    if isinstance(doping_box, DopingBoxType.__args__):
-                        coords_dict = {
-                            "xyz"[d]: coords_2D[i] for i, d in enumerate(plane_axes_inds)
-                        }
-                        contrib = doping_box._get_contrib(coords_dict)
-                        struct_doping[n] = struct_doping[n] + contrib
+                boxes = [b for b in doping if isinstance(b, DopingBoxType.__args__)]
+                if boxes:
+                    # Use the same seam-aware aggregation as the solver so the
+                    # rendered field matches the solved one (interiors SUM, abutting
+                    # seams dedupe via last-in-list-wins, 1-ULP misses recovered).
+                    flat = [None, None, None]
+                    flat[plane_axes_inds[0]] = X.ravel()
+                    flat[plane_axes_inds[1]] = Y.ravel()
+                    flat[normal_axis_ind] = np.full(X.size, normal_position)
+                    contrib = aggregate_doping_seam_aware(boxes, *flat)
+                    struct_doping[n] = struct_doping[n] + contrib.reshape(X.shape)
 
         if plt_type == "doping":
             struct_doping_to_plot = struct_doping[0] - struct_doping[1]

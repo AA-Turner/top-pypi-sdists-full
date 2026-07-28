@@ -1,11 +1,3 @@
-"""
-SMatrix_SELL.py
-
-SELL-C-sigma sparse matrix construction and operations.
-Supports both REAL and COMPLEX fields via `isComplexSMatrix` flag.
-Supports both CPU (NumPy) and GPU (CuPy) implementations.
-"""
-
 import warnings
 import numpy as np
 from tqdm import trange
@@ -85,129 +77,131 @@ class SMatrix_SELL(SMatrix):
         self.inv_row_perm[self.row_perm] = np.arange(num_rows)
 
         if CUPY_AVAILABLE:
-            self.row_perm_gpu = cp.asarray(self.row_perm)
-            self.inv_row_perm_gpu = cp.asarray(self.inv_row_perm)
+            with cp.cuda.Device(self.gpu_index):
+                self.row_perm_gpu = cp.asarray(self.row_perm)
+                self.inv_row_perm_gpu = cp.asarray(self.inv_row_perm)
 
         return row_nnz[self.row_perm]
 
     def _allocate_gpu(self):
         """Allocate and fill the SELL matrix on GPU using PCIe block-streaming to prevent OOM."""
-        num_rows = int(self.N * self.T)
-        num_cols = int(self.Z * self.X)
-        self.total_nnz = 0
-        C = int(self.slice_height)
-        br = int(self.block_rows)
-        dtype = self._get_dtype()
-        cp_dtype = self._get_cp_dtype()
+        with cp.cuda.Device(self.gpu_index):
+            num_rows = int(self.N * self.T)
+            num_cols = int(self.Z * self.X)
+            self.total_nnz = 0
+            C = int(self.slice_height)
+            br = int(self.block_rows)
+            dtype = self._get_dtype()
+            cp_dtype = self._get_cp_dtype()
 
-        # Temporary CPU buffer
-        dense_block_host = np.empty((br, num_cols), dtype=dtype)
+            # Temporary CPU buffer
+            dense_block_host = np.empty((br, num_cols), dtype=dtype)
 
-        # 1) Count NNZ per physical row
-        row_nnz_gpu = cp.zeros(num_rows, dtype=np.int32)
-        count_kernel_name = "count_nnz_rows_kernel__COMPLEX" if self.isComplexSMatrix else "count_nnz_rows_kernel__REAL"
-        count_kernel = self.sparse_mod.get_function(count_kernel_name)
-        threads = 256
+            # 1) Count NNZ per physical row
+            row_nnz_gpu = cp.zeros(num_rows, dtype=np.int32)
+            count_kernel_name = "count_nnz_rows_kernel__COMPLEX" if self.isComplexSMatrix else "count_nnz_rows_kernel__REAL"
+            count_kernel = self.sparse_mod.get_function(count_kernel_name)
+            threads = 256
 
-        for b in trange(0, num_rows, br, desc=f"[AOT-biomaps] Count NNZ (GPU - {'Complex' if self.isComplexSMatrix else 'Real'})"):
-            current_rows = min(br, num_rows - b)
+            for b in trange(0, num_rows, br, desc=f'[AOT-biomaps] Count NNZ ({"Complex" if self.isComplexSMatrix else "Real"}) --- device: {self.device.upper()}'):
+                current_rows = min(br, num_rows - b)
 
-            # Fetch a small block from CPU RAM
-            for r in range(current_rows):
-                global_row = b + r
-                n_idx = global_row // self.T
-                t_idx = global_row % self.T
-                if self.isComplexSMatrix:
-                    # For complex: use demodulated_fields
-                    key = list(self.experiment.AcousticFields_demodulated.keys())[n_idx]
-                    dense_block_host[r] = self.experiment.AcousticFields_demodulated[key][t_idx].flatten()
-                else:
-                    # For real: use AcousticFields
-                    dense_block_host[r] = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
+                # Fetch a small block from CPU RAM
+                for r in range(current_rows):
+                    global_row = b + r
+                    n_idx = global_row // self.T
+                    t_idx = global_row % self.T
+                    if self.isComplexSMatrix:
+                        # For complex: use demodulated_fields
+                        key = list(self.experiment.AcousticFields_demodulated.keys())[n_idx]
+                        dense_block_host[r] = self.experiment.AcousticFields_demodulated[key][t_idx].flatten()
+                    else:
+                        # For real: use AcousticFields
+                        dense_block_host[r] = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
 
-            # Transfer only this specific block to the GPU
-            dense_gpu = cp.asarray(dense_block_host[:current_rows], dtype=cp_dtype)
-            grid = ((current_rows + threads - 1) // threads, 1, 1)
+                # Transfer only this specific block to the GPU
+                dense_gpu = cp.asarray(dense_block_host[:current_rows], dtype=cp_dtype)
+                grid = ((current_rows + threads - 1) // threads, 1, 1)
 
-            count_kernel(
-                grid=grid, block=(threads, 1, 1),
-                args=[dense_gpu, row_nnz_gpu[b:], np.int32(current_rows), np.int32(num_cols),
-                      np.float32(self.relative_threshold)]
-            )
-            cp.cuda.Stream.null.synchronize()
+                count_kernel(
+                    grid=grid, block=(threads, 1, 1),
+                    args=[dense_gpu, row_nnz_gpu[b:], np.int32(current_rows), np.int32(num_cols),
+                        np.float32(self.relative_threshold)]
+                )
+                cp.cuda.Stream.null.synchronize()
 
-        row_nnz = cp.asnumpy(row_nnz_gpu)
+            row_nnz = cp.asnumpy(row_nnz_gpu)
 
-        # 2) Apply SELL-C-sigma sorting (on the CPU)
-        row_nnz = self._apply_sigma_sorting(row_nnz, num_rows)
+            # 2) Apply SELL-C-sigma sorting (on the CPU)
+            row_nnz = self._apply_sigma_sorting(row_nnz, num_rows)
 
-        # 3) Compute per-slice maxlen and slice_ptr based on sorted rows
-        num_slices = (num_rows + C - 1) // C
-        self.slice_len = np.zeros(num_slices, dtype=np.int32)
-        self.slice_ptr = np.zeros(num_slices + 1, dtype=np.int64)
+            # 3) Compute per-slice maxlen and slice_ptr based on sorted rows
+            num_slices = (num_rows + C - 1) // C
+            self.slice_len = np.zeros(num_slices, dtype=np.int32)
+            self.slice_ptr = np.zeros(num_slices + 1, dtype=np.int64)
 
-        for s in range(num_slices):
-            r0 = s * C
-            r1 = min(num_rows, r0 + C)
-            self.slice_len[s] = int(np.max(row_nnz[r0:r1])) if (r1 > r0) else 0
-            self.total_nnz += self.slice_len[s] * C 
+            for s in range(num_slices):
+                r0 = s * C
+                r1 = min(num_rows, r0 + C)
+                self.slice_len[s] = int(np.max(row_nnz[r0:r1])) if (r1 > r0) else 0
+                self.total_nnz += self.slice_len[s] * C 
 
-        if np.all(self.slice_len == 0):
-            raise ValueError("[AOT-biomaps] slice_len contains only zeros. Check row_nnz.")
+            if np.all(self.slice_len == 0):
+                raise ValueError("[AOT-biomaps] slice_len contains only zeros. Check row_nnz.")
 
-        self.slice_ptr[0] = 0
-        for s in range(num_slices):
-            self.slice_ptr[s+1] = self.slice_ptr[s] + (self.slice_len[s] * C)
-        self.total_storage = int(self.slice_ptr[-1])
+            self.slice_ptr[0] = 0
+            for s in range(num_slices):
+                self.slice_ptr[s+1] = self.slice_ptr[s] + (self.slice_len[s] * C)
+            self.total_storage = int(self.slice_ptr[-1])
 
-        # Allocate final sparse arrays on GPU
-        self.sell_values_gpu = cp.zeros(self.total_storage, dtype=cp_dtype)
-        self.sell_colinds_gpu = cp.zeros(self.total_storage, dtype=np.uint32)
-        self.slice_ptr_gpu = cp.asarray(self.slice_ptr)
-        self.slice_len_gpu = cp.asarray(self.slice_len)
+            # Allocate final sparse arrays on GPU
+            self.sell_values_gpu = cp.zeros(self.total_storage, dtype=cp_dtype)
+            self.sell_colinds_gpu = cp.zeros(self.total_storage, dtype=np.uint32)
+            self.slice_ptr_gpu = cp.asarray(self.slice_ptr)
+            self.slice_len_gpu = cp.asarray(self.slice_len)
 
-        # 4) Fill SELL arrays (Stream 2 - fetching dense rows according to permutation)
-        fill_kernel_name = "fill_kernel__SELL__COMPLEX" if self.isComplexSMatrix else "fill_kernel__SELL__REAL"
-        fill_kernel = self.sparse_mod.get_function(fill_kernel_name)
+            # 4) Fill SELL arrays (Stream 2 - fetching dense rows according to permutation)
+            fill_kernel_name = "fill_kernel__SELL__COMPLEX" if self.isComplexSMatrix else "fill_kernel__SELL__REAL"
+            fill_kernel = self.sparse_mod.get_function(fill_kernel_name)
 
-        for b in trange(0, num_rows, br, desc=f"[AOT-biomaps] Fill SELL (GPU - {'Complex' if self.isComplexSMatrix else 'Real'})"):
-            current_rows = min(br, num_rows - b)
+            for b in trange(0, num_rows, br, desc=f'[AOT-biomaps] Fill SELL ({"Complex" if self.isComplexSMatrix else "Real"}) --- device: {self.device.upper()}'):
+                current_rows = min(br, num_rows - b)
 
-            # Fetch sorted blocks from CPU RAM
-            for r in range(current_rows):
-                sorted_row = b + r
-                physical_row = int(self.row_perm[sorted_row])
-                if self.isComplexSMatrix:
-                    n_idx = physical_row // self.T
-                    key = list(self.experiment.AcousticFields_demodulated.keys())[n_idx]
-                    dense_block_host[r] = self.experiment.AcousticFields_demodulated[key][physical_row % self.T].flatten()
-                else:
-                    n_idx = physical_row // self.T
-                    t_idx = physical_row % self.T
-                    dense_block_host[r] = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
+                # Fetch sorted blocks from CPU RAM
+                for r in range(current_rows):
+                    sorted_row = b + r
+                    physical_row = int(self.row_perm[sorted_row])
+                    if self.isComplexSMatrix:
+                        n_idx = physical_row // self.T
+                        key = list(self.experiment.AcousticFields_demodulated.keys())[n_idx]
+                        dense_block_host[r] = self.experiment.AcousticFields_demodulated[key][physical_row % self.T].flatten()
+                    else:
+                        n_idx = physical_row // self.T
+                        t_idx = physical_row % self.T
+                        dense_block_host[r] = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
 
-            # Transfer the chunk to the GPU
-            dense_gpu = cp.asarray(dense_block_host[:current_rows], dtype=cp_dtype)
-            grid = ((current_rows + threads - 1) // threads, 1, 1)
-            count_offset = b
+                # Transfer the chunk to the GPU
+                dense_gpu = cp.asarray(dense_block_host[:current_rows], dtype=cp_dtype)
+                grid = ((current_rows + threads - 1) // threads, 1, 1)
+                count_offset = b
 
-            fill_kernel(
-                grid=grid, block=(threads, 1, 1),
-                args=[
-                    dense_gpu,
-                    row_nnz_gpu,
-                    self.slice_ptr_gpu,
-                    self.slice_len_gpu,
-                    self.sell_colinds_gpu,
-                    self.sell_values_gpu,
-                    np.int32(current_rows),
-                    np.int32(num_cols),
-                    np.int32(count_offset),
-                    np.int32(C),
-                    np.float32(self.relative_threshold)
-                ]
-            )
-            cp.cuda.Stream.null.synchronize()
+                fill_kernel(
+                    grid=grid, block=(threads, 1, 1),
+                    args=[
+                        dense_gpu,
+                        row_nnz_gpu,
+                        self.slice_ptr_gpu,
+                        self.slice_len_gpu,
+                        self.sell_colinds_gpu,
+                        self.sell_values_gpu,
+                        np.int32(current_rows),
+                        np.int32(num_cols),
+                        np.int32(count_offset),
+                        np.int32(C),
+                        np.float32(self.relative_threshold)
+                    ]
+                )
+                cp.cuda.Stream.null.synchronize()
 
     def _allocate_cpu(self):
         """Allocate and fill the SELL matrix on CPU."""
@@ -219,7 +213,7 @@ class SMatrix_SELL(SMatrix):
 
         # 1) Count NNZ per physical row
         row_nnz = np.zeros(num_rows, dtype=np.int32)
-        for global_row in trange(num_rows, desc=f"[AOT-biomaps] Count NNZ per row (CPU - {'Complex' if self.isComplexSMatrix else 'Real'})"):
+        for global_row in trange(num_rows, desc=f'[AOT-biomaps] Count NNZ per row ({"Complex" if self.isComplexSMatrix else "Real"}) --- device: CPU'):
             if self.isComplexSMatrix:
                 n_idx = global_row // self.T
                 key = list(self.experiment.AcousticFields_demodulated.keys())[n_idx]
@@ -260,7 +254,7 @@ class SMatrix_SELL(SMatrix):
         self.sell_colinds = np.zeros(self.total_storage, dtype=np.uint32)
 
         # 4) Fill SELL arrays using permuted order
-        for sorted_row in trange(num_rows, desc=f"[AOT-biomaps] Fill SELL (CPU - {'Complex' if self.isComplexSMatrix else 'Real'})"):
+        for sorted_row in trange(num_rows, desc=f'[AOT-biomaps] Fill SELL ({"Complex" if self.isComplexSMatrix else "Real"}) --- device: CPU'):
             physical_row = int(self.row_perm[sorted_row])
             if self.isComplexSMatrix:
                 n_idx = physical_row // self.T
@@ -301,23 +295,24 @@ class SMatrix_SELL(SMatrix):
         cp_dtype = self._get_cp_dtype()
 
         if check_gpu_available(self):
-            theta_gpu = cp.asarray(theta, dtype=cp_dtype)
-            theta_gpu = cp.ascontiguousarray(theta_gpu.view(cp.float32)) if self.isComplexSMatrix else cp.ascontiguousarray(theta_gpu) #IMPORTANT: Ensure memory is contiguous for the CUDA kernel. Complex arrays must be viewed as float2 for the RawModule
-            q_gpu_permuted = cp.zeros(self.N * self.T, dtype=cp_dtype)
+            with cp.cuda.Device(self.gpu_index):
+                theta_gpu = cp.asarray(theta, dtype=cp_dtype)
+                theta_gpu = cp.ascontiguousarray(theta_gpu.view(cp.float32)) if self.isComplexSMatrix else cp.ascontiguousarray(theta_gpu)
+                q_gpu_permuted = cp.zeros(self.N * self.T, dtype=cp_dtype)
 
-            proj_kernel_name = "forward_projection_kernel__SELL__COMPLEX" if self.isComplexSMatrix else "forward_projection_kernel__SELL__REAL"
-            proj_kernel = self.sparse_mod.get_function(proj_kernel_name)
-            threads = 256
-            blocks = (self.N * self.T + threads - 1) // threads
+                proj_kernel_name = "forward_projection_kernel__SELL__COMPLEX" if self.isComplexSMatrix else "forward_projection_kernel__SELL__REAL"
+                proj_kernel = self.sparse_mod.get_function(proj_kernel_name)
+                threads = 256
+                blocks = (self.N * self.T + threads - 1) // threads
 
-            proj_kernel(
-                grid=(blocks, 1), block=(threads, 1, 1),
-                args=[q_gpu_permuted.data.ptr, self.sell_values_gpu.data.ptr, self.sell_colinds_gpu.data.ptr,
-                      self.slice_ptr_gpu.data.ptr, self.slice_len_gpu.data.ptr, theta_gpu.data.ptr,
-                      np.int32(self.N * self.T), np.int32(self.slice_height)]
-            )
-            cp.cuda.Stream.null.synchronize()
-            return q_gpu_permuted[self.inv_row_perm_gpu]
+                proj_kernel(
+                    grid=(blocks, 1), block=(threads, 1, 1),
+                    args=[q_gpu_permuted.data.ptr, self.sell_values_gpu.data.ptr, self.sell_colinds_gpu.data.ptr,
+                          self.slice_ptr_gpu.data.ptr, self.slice_len_gpu.data.ptr, theta_gpu.data.ptr,
+                          np.int32(self.N * self.T), np.int32(self.slice_height)]
+                )
+                cp.cuda.Stream.null.synchronize()
+                return q_gpu_permuted[self.inv_row_perm_gpu]
         else:
             theta_cpu = np.asarray(theta, dtype=dtype) if not isinstance(theta, np.ndarray) else theta
             if theta_cpu.dtype != dtype:
@@ -348,28 +343,29 @@ class SMatrix_SELL(SMatrix):
         cp_dtype = self._get_cp_dtype()
 
         if check_gpu_available(self):
-            e_gpu = cp.asarray(e, dtype=cp_dtype)
-            e_gpu = e_gpu[self.row_perm_gpu]
-            e_gpu = cp.ascontiguousarray(e_gpu)
+            with cp.cuda.Device(self.gpu_index):
+                e_gpu = cp.asarray(e, dtype=cp_dtype)
+                e_gpu = e_gpu[self.row_perm_gpu]
+                e_gpu = cp.ascontiguousarray(e_gpu)
 
-            if self.isComplexSMatrix:
-                c_gpu = cp.zeros(self.Z * self.X, dtype=cp.complex64)
-            else:
-                c_gpu = cp.zeros(self.Z * self.X, dtype=cp.float32)
+                if self.isComplexSMatrix:
+                    c_gpu = cp.zeros(self.Z * self.X, dtype=cp.complex64)
+                else:
+                    c_gpu = cp.zeros(self.Z * self.X, dtype=cp.float32)
 
-            bp_kernel_name = "backward_projection_kernel__SELL__COMPLEX" if self.isComplexSMatrix else "backward_projection_kernel__SELL__REAL"
-            bp_kernel = self.sparse_mod.get_function(bp_kernel_name)
-            threads = 256
-            blocks = (self.N * self.T + threads - 1) // threads
+                bp_kernel_name = "backward_projection_kernel__SELL__COMPLEX" if self.isComplexSMatrix else "backward_projection_kernel__SELL__REAL"
+                bp_kernel = self.sparse_mod.get_function(bp_kernel_name)
+                threads = 256
+                blocks = (self.N * self.T + threads - 1) // threads
 
-            bp_kernel(
-                grid=(blocks, 1), block=(threads, 1, 1),
-                args=[self.sell_values_gpu, self.sell_colinds_gpu, self.slice_ptr_gpu,
-                    self.slice_len_gpu, e_gpu.data.ptr, c_gpu.data.ptr,
-                    np.int32(self.N * self.T), np.int32(self.slice_height)]
-            )
-            cp.cuda.Stream.null.synchronize()
-            return c_gpu
+                bp_kernel(
+                    grid=(blocks, 1), block=(threads, 1, 1),
+                    args=[self.sell_values_gpu, self.sell_colinds_gpu, self.slice_ptr_gpu,
+                        self.slice_len_gpu, e_gpu.data.ptr, c_gpu.data.ptr,
+                        np.int32(self.N * self.T), np.int32(self.slice_height)]
+                )
+                cp.cuda.Stream.null.synchronize()
+                return c_gpu
         else:
             e_cpu = np.asarray(e, dtype=dtype) if not isinstance(e, np.ndarray) else e
             if e_cpu.dtype != dtype:
@@ -400,21 +396,22 @@ class SMatrix_SELL(SMatrix):
     def apply_apodization(self, window_vector: Union[np.ndarray, 'cp.ndarray']):
         """Apply apodization window to the matrix values."""
         if check_gpu_available(self):
-            window_gpu = cp.asarray(window_vector) if not isinstance(window_vector, cp.ndarray) else window_vector
-            if isinstance(window_gpu, np.ndarray):
-                window_gpu = cp.asarray(window_gpu)
-            apodize_kernel_name = "apply_apodization_kernel__SELL__COMPLEX" if self.isComplexSMatrix else "apply_apodization_kernel__SELL__REAL"
-            apodize_kernel = self.sparse_mod.get_function(apodize_kernel_name)
-            threads = 128
-            blocks = (self.total_storage + threads - 1) // threads
+            with cp.cuda.Device(self.gpu_index):
+                window_gpu = cp.asarray(window_vector) if not isinstance(window_vector, cp.ndarray) else window_vector
+                if isinstance(window_gpu, np.ndarray):
+                    window_gpu = cp.asarray(window_gpu)
+                apodize_kernel_name = "apply_apodization_kernel__SELL__COMPLEX" if self.isComplexSMatrix else "apply_apodization_kernel__SELL__REAL"
+                apodize_kernel = self.sparse_mod.get_function(apodize_kernel_name)
+                threads = 128
+                blocks = (self.total_storage + threads - 1) // threads
 
-            apodize_kernel(
-                grid=(blocks, 1, 1), block=(threads, 1, 1),
-                args=[self.sell_values_gpu, self.sell_colinds_gpu, window_gpu.data.ptr,
-                      np.int64(self.total_storage), np.uint32(self.Z * self.X)]
-            )
-            cp.cuda.Stream.null.synchronize()
-            self.sell_values = cp.asnumpy(self.sell_values_gpu)
+                apodize_kernel(
+                    grid=(blocks, 1, 1), block=(threads, 1, 1),
+                    args=[self.sell_values_gpu, self.sell_colinds_gpu, window_gpu.data.ptr,
+                          np.int64(self.total_storage), np.uint32(self.Z * self.X)]
+                )
+                cp.cuda.Stream.null.synchronize()
+                self.sell_values = cp.asnumpy(self.sell_values_gpu)
         else:
             window_cpu = np.asarray(window_vector) if not isinstance(window_vector, np.ndarray) else window_vector
             if isinstance(window_cpu, cp.ndarray):
@@ -430,48 +427,49 @@ class SMatrix_SELL(SMatrix):
         ZX = self.Z * self.X
 
         if check_gpu_available(self) and self.sell_values_gpu is not None:
-            # Allocate GPU memory for column sums
-            if self.isComplexSMatrix:
-                col_sum_gpu = cp.zeros(ZX, dtype=cp.float32)  # For norms (real values)
-            else:
-                col_sum_gpu = cp.zeros(ZX, dtype=cp.float32)
+            with cp.cuda.Device(self.gpu_index):
+                # Allocate GPU memory for column sums
+                if self.isComplexSMatrix:
+                    col_sum_gpu = cp.zeros(ZX, dtype=cp.float32)  # For norms (real values)
+                else:
+                    col_sum_gpu = cp.zeros(ZX, dtype=cp.float32)
 
-            # Select the appropriate kernel
-            kernel_name = "accumulate_columns_atomic__COMPLEX" if self.isComplexSMatrix else "accumulate_columns_atomic__REAL"
-            acc_kernel = self.sparse_mod.get_function(kernel_name)
+                # Select the appropriate kernel
+                kernel_name = "accumulate_columns_atomic__COMPLEX" if self.isComplexSMatrix else "accumulate_columns_atomic__REAL"
+                acc_kernel = self.sparse_mod.get_function(kernel_name)
 
-            # Configure kernel launch
-            threads = 256
-            blocks = (self.total_storage + threads - 1) // threads
+                # Configure kernel launch
+                threads = 256
+                blocks = (self.total_storage + threads - 1) // threads
 
-            if self.isComplexSMatrix:
-                # For complex: pass sell_values_gpu (float2) and accumulate norms
-                acc_kernel(
-                    grid=(blocks, 1, 1),
-                    block=(threads, 1, 1),
-                    args=[
-                        self.sell_values_gpu,  # float2 array
-                        self.sell_colinds_gpu,
-                        np.int64(self.total_storage),
-                        col_sum_gpu  # Output: float array (norms)
-                    ]
-                )
-            else:
-                # For real: pass sell_values_gpu (float)
-                acc_kernel(
-                    grid=(blocks, 1, 1),
-                    block=(threads, 1, 1),
-                    args=[
-                        self.sell_values_gpu,  # float array
-                        self.sell_colinds_gpu,
-                        np.int64(self.total_storage),
-                        col_sum_gpu  # Output: float array
-                    ]
-                )
+                if self.isComplexSMatrix:
+                    # For complex: pass sell_values_gpu (float2) and accumulate norms
+                    acc_kernel(
+                        grid=(blocks, 1, 1),
+                        block=(threads, 1, 1),
+                        args=[
+                            self.sell_values_gpu,  # float2 array
+                            self.sell_colinds_gpu,
+                            np.int64(self.total_storage),
+                            col_sum_gpu  # Output: float array (norms)
+                        ]
+                    )
+                else:
+                    # For real: pass sell_values_gpu (float)
+                    acc_kernel(
+                        grid=(blocks, 1, 1),
+                        block=(threads, 1, 1),
+                        args=[
+                            self.sell_values_gpu,  # float array
+                            self.sell_colinds_gpu,
+                            np.int64(self.total_storage),
+                            col_sum_gpu  # Output: float array
+                        ]
+                    )
 
-            cp.cuda.Stream.null.synchronize()
-            self.norm_factor_inv_gpu = 1.0 / (col_sum_gpu + 1e-10)
-            self.norm_factor_inv = cp.asnumpy(self.norm_factor_inv_gpu)
+                cp.cuda.Stream.null.synchronize()
+                self.norm_factor_inv_gpu = 1.0 / (col_sum_gpu + 1e-10)
+                self.norm_factor_inv = cp.asnumpy(self.norm_factor_inv_gpu)
         else:
             self.norm_factor_inv = np.ones(ZX, dtype=np.float32)
             col_sums = np.zeros(ZX, dtype=np.float32)
@@ -526,36 +524,38 @@ class SMatrix_SELL(SMatrix):
 
     def _free_specific(self):
         """Free all GPU memory allocated by SELL."""
-        attrs = ["sell_values_gpu", "sell_colinds_gpu", "slice_ptr_gpu", "slice_len_gpu",
-                "row_perm_gpu", "inv_row_perm_gpu", "norm_factor_inv_gpu"]
+        if check_gpu_available(self):
+            with cp.cuda.Device(self.gpu_index):
+                attrs = ["sell_values_gpu", "sell_colinds_gpu", "slice_ptr_gpu", "slice_len_gpu",
+                        "row_perm_gpu", "inv_row_perm_gpu", "norm_factor_inv_gpu"]
 
-        for a in attrs:
-            gpu_mem = getattr(self, a, None)
-            if gpu_mem is not None:
-                try:
-                    setattr(self, a, None)
-                    if hasattr(gpu_mem, 'free'):
-                        gpu_mem.free()
-                    del gpu_mem
-                except Exception as e:
-                    warnings.warn(f"[AOT-biomaps] Error freeing {a}: {e}")
+                for a in attrs:
+                    gpu_mem = getattr(self, a, None)
+                    if gpu_mem is not None:
+                        try:
+                            setattr(self, a, None)
+                            if hasattr(gpu_mem, 'free'):
+                                gpu_mem.free()
+                            del gpu_mem
+                        except Exception as e:
+                            warnings.warn(f"[AOT-biomaps] Error freeing {a}: {e}")
 
-        if CUPY_AVAILABLE:
-            cp._default_memory_pool.free_all_blocks()
-            cp.cuda.Stream.null.synchronize()
+                if CUPY_AVAILABLE:
+                    cp.get_default_memory_pool().free_all_blocks()
+                    cp.cuda.Stream.null.synchronize()
 
     def compute_hessian_diagonal(self):
         """
         Compute diag(A^H A).
         """
-
         ZX = self.Z * self.X
 
         if check_gpu_available(self):
-            diag = cp.zeros(ZX, dtype=cp.float32)
-            valid = self.sell_values_gpu != 0
-            cupyx.scatter_add(diag, self.sell_colinds_gpu[valid].astype(cp.int32), cp.abs(self.sell_values_gpu[valid]) ** 2)
-            return diag
+            with cp.cuda.Device(self.gpu_index):
+                diag = cp.zeros(ZX, dtype=cp.float32)
+                valid = self.sell_values_gpu != 0
+                cupyx.scatter_add(diag, self.sell_colinds_gpu[valid].astype(cp.int32), cp.abs(self.sell_values_gpu[valid]) ** 2)
+                return diag
         else:
             diag = np.zeros(ZX, dtype=np.float32)
             valid = self.sell_values != 0
@@ -570,11 +570,12 @@ class SMatrix_SELL(SMatrix):
         max_val = 0.0
         
         if check_gpu_available(self) and self.sell_values_gpu is not None:
-            max_val = float(cp.max(cp.abs(self.sell_values_gpu)))
-            if max_val > 0:
-                self.sell_values_gpu /= max_val
-                if self.sell_values is not None:
-                    self.sell_values /= max_val
+            with cp.cuda.Device(self.gpu_index):
+                max_val = float(cp.max(cp.abs(self.sell_values_gpu)))
+                if max_val > 0:
+                    self.sell_values_gpu /= max_val
+                    if self.sell_values is not None:
+                        self.sell_values /= max_val
         elif self.sell_values is not None:
             max_val = float(np.max(np.abs(self.sell_values)))
             if max_val > 0:
@@ -582,6 +583,7 @@ class SMatrix_SELL(SMatrix):
         else:
             warnings.warn("[AOT-biomaps] SELL Matrix not allocated, normalization impossible.")
             return
+            
         self.normalization_factor = max_val
 
         print(f"[AOT-biomaps] SELL Matrix normalized (Original absolute max: {max_val:.2e})")
@@ -601,58 +603,59 @@ class SMatrix_SELL(SMatrix):
         # GPU
         # ==========================================================
         if check_gpu_available(self):
-            row_sums_sorted = cp.zeros(NT, dtype=cp.float32)
-            col_sums = cp.zeros(ZX, dtype=cp.float32)
-            threads = 256
+            with cp.cuda.Device(self.gpu_index):
+                row_sums_sorted = cp.zeros(NT, dtype=cp.float32)
+                col_sums = cp.zeros(ZX, dtype=cp.float32)
+                threads = 256
 
-            # -----------------------------
-            # Column sums
-            # -----------------------------
-            blocks_col = (self.total_storage + threads - 1) // threads
-            kernel_col = self.sparse_mod.get_function(
-                "accumulate_abs_columns_atomic__COMPLEX"
-                if self.isComplexSMatrix
-                else "accumulate_abs_columns_atomic__REAL"
-            )
-            kernel_col(
-                grid=(blocks_col, 1, 1),
-                block=(threads, 1, 1),
-                args=[
-                    self.sell_values_gpu,
-                    self.sell_colinds_gpu,
-                    np.int64(self.total_storage),
-                    col_sums
-                ]
-            )
+                # -----------------------------
+                # Column sums
+                # -----------------------------
+                blocks_col = (self.total_storage + threads - 1) // threads
+                kernel_col = self.sparse_mod.get_function(
+                    "accumulate_abs_columns_atomic__COMPLEX"
+                    if self.isComplexSMatrix
+                    else "accumulate_abs_columns_atomic__REAL"
+                )
+                kernel_col(
+                    grid=(blocks_col, 1, 1),
+                    block=(threads, 1, 1),
+                    args=[
+                        self.sell_values_gpu,
+                        self.sell_colinds_gpu,
+                        np.int64(self.total_storage),
+                        col_sums
+                    ]
+                )
 
-            # -----------------------------
-            # Row sums (on sorted/permuted rows)
-            # -----------------------------
-            blocks_row = (NT + threads - 1) // threads
-            kernel_row = self.sparse_mod.get_function(
-                "accumulate_abs_rows__SELL__COMPLEX"
-                if self.isComplexSMatrix
-                else "accumulate_abs_rows__SELL__REAL"
-            )
-            kernel_row(
-                grid=(blocks_row, 1, 1),
-                block=(threads, 1, 1),
-                args=[
-                    self.sell_values_gpu,
-                    self.slice_ptr_gpu,
-                    self.slice_len_gpu,
-                    row_sums_sorted,
-                    np.int32(NT),
-                    np.int32(self.slice_height)
-                ]
-            )
+                # -----------------------------
+                # Row sums (on sorted/permuted rows)
+                # -----------------------------
+                blocks_row = (NT + threads - 1) // threads
+                kernel_row = self.sparse_mod.get_function(
+                    "accumulate_abs_rows__SELL__COMPLEX"
+                    if self.isComplexSMatrix
+                    else "accumulate_abs_rows__SELL__REAL"
+                )
+                kernel_row(
+                    grid=(blocks_row, 1, 1),
+                    block=(threads, 1, 1),
+                    args=[
+                        self.sell_values_gpu,
+                        self.slice_ptr_gpu,
+                        self.slice_len_gpu,
+                        row_sums_sorted,
+                        np.int32(NT),
+                        np.int32(self.slice_height)
+                    ]
+                )
 
-            cp.cuda.Stream.null.synchronize()
+                cp.cuda.Stream.null.synchronize()
 
-            # CRITICAL FIX: Map sorted row sums back to physical row order using inv_row_perm
-            row_sums = row_sums_sorted[self.inv_row_perm_gpu]
+                # CRITICAL FIX: Map sorted row sums back to physical row order using inv_row_perm
+                row_sums = row_sums_sorted[self.inv_row_perm_gpu]
 
-            return row_sums, col_sums
+                return row_sums, col_sums
 
         # ==========================================================
         # CPU fallback

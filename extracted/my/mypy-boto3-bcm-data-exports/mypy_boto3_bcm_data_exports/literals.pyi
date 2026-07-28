@@ -39,7 +39,7 @@ __all__ = (
     "ServiceName",
 )
 
-CompressionOptionType = Literal["GZIP", "PARQUET"]
+CompressionOptionType = Literal["GZIP", "PARQUET", "ZIP"]
 ExecutionStatusCodeType = Literal[
     "DELIVERY_FAILURE",
     "DELIVERY_IN_PROCESS",
@@ -50,7 +50,7 @@ ExecutionStatusCodeType = Literal[
     "QUERY_QUEUED",
 ]
 ExecutionStatusReasonType = Literal[
-    "BILL_OWNER_CHANGED", "INSUFFICIENT_PERMISSION", "INTERNAL_FAILURE"
+    "BILL_OWNER_CHANGED", "DEPRECATED", "INSUFFICIENT_PERMISSION", "INTERNAL_FAILURE"
 ]
 ExportStatusCodeType = Literal["HEALTHY", "UNHEALTHY"]
 FormatOptionType = Literal["PARQUET", "TEXT_OR_CSV"]
@@ -254,8 +254,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -282,6 +280,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -349,10 +349,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -385,6 +385,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -412,6 +413,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -433,7 +435,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -454,6 +455,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

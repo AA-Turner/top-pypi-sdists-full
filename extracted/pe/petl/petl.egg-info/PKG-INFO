@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: petl
-Version: 1.7.20
+Version: 1.7.21
 Summary: A Python package for extracting, transforming and loading tables of data.
 Home-page: https://github.com/petl-developers/petl
 Author: Alistair Miles

@@ -38,6 +38,7 @@ if TYPE_CHECKING:
         FieldMonitor,
         GaussianOverlapMonitor,
         ModeMonitor,
+        ThinLensOverlapMonitor,
     )
     from tidy3d.components.simulation import Simulation
     from tidy3d.components.source.utils import GaussianBeamType
@@ -92,14 +93,18 @@ def mode_source_from_monitor(
 
 
 def gaussian_source_from_monitor(
-    monitor: GaussianOverlapMonitor | AstigmaticGaussianOverlapMonitor,
+    monitor: GaussianOverlapMonitor | AstigmaticGaussianOverlapMonitor | ThinLensOverlapMonitor,
     freq: float,
     direction: str | DataArray,
     coefficient: complex,
     fwidth: float,
 ) -> GaussianBeamType:
     """Build a Gaussian-like adjoint source from overlap monitor metadata and coefficient."""
-    from tidy3d.components.monitor import AstigmaticGaussianOverlapMonitor, GaussianOverlapMonitor
+    from tidy3d.components.monitor import (
+        AstigmaticGaussianOverlapMonitor,
+        GaussianOverlapMonitor,
+        ThinLensOverlapMonitor,
+    )
 
     k0 = 2 * np.pi * freq / C_0
     grad_const = k0 / 4 / ETA_0
@@ -136,8 +141,16 @@ def gaussian_source_from_monitor(
             num_freqs=1,
         )
 
+    if isinstance(monitor, ThinLensOverlapMonitor):
+        raise NotImplementedError(
+            "Adjoint source construction for 'ThinLensOverlapMonitor' is not implemented yet. "
+            "Use a supported overlap monitor for adjoint workflows, or defer thin-lens overlap "
+            "objectives until thin-lens adjoint wiring is added."
+        )
+
     raise TypeError(
-        "Expected GaussianOverlapMonitor or AstigmaticGaussianOverlapMonitor, "
+        "Expected GaussianOverlapMonitor, AstigmaticGaussianOverlapMonitor, "
+        "or ThinLensOverlapMonitor, "
         f"got '{type(monitor).__name__}'."
     )
 
@@ -186,7 +199,7 @@ def point_current_source_from_simulation(
     grid = simulation.discretize_monitor(monitor)
     coords = {}
     spatial_coords = grid.boundaries
-    spatial_coords_dict = spatial_coords.dict()
+    spatial_coords_dict = spatial_coords.model_dump()
     for axis, dim in enumerate("xyz"):
         if monitor.size[axis] == 0:
             coords[dim] = np.array([monitor.center[axis]])
@@ -278,6 +291,7 @@ def diffraction_source_from_simulation(
         coefficient=coefficient,
         fwidth=fwidth,
         bck_eps=bck_eps,
+        num_freqs=_diffraction_adjoint_num_freqs(order_x, order_y),
     )
 
 
@@ -292,10 +306,38 @@ def diffraction_source_from_data(
 ) -> PlaneWave | None:
     monitor = diff_data.monitor
     theta_data, phi_data = diff_data.angles
-    angle_sel_kwargs = {"orders_x": int(order_x), "orders_y": int(order_y), "f": float(freq)}
+    angle_sel_kwargs = {"orders_x": order_x, "orders_y": order_y, "f": freq}
     angle_theta = float(theta_data.sel(**angle_sel_kwargs))
     angle_phi = float(phi_data.sel(**angle_sel_kwargs))
 
+    bck_eps = diff_data.medium.eps_model(freq)
+    return diffraction_source_from_angles(
+        monitor=monitor,
+        freq=freq,
+        order_x=order_x,
+        order_y=order_y,
+        angle_theta=angle_theta,
+        angle_phi=angle_phi,
+        polarization=polarization,
+        coefficient=coefficient,
+        fwidth=fwidth,
+        bck_eps=bck_eps,
+    )
+
+
+def diffraction_source_from_angles(
+    monitor: DiffractionMonitor,
+    freq: float,
+    order_x: int,
+    order_y: int,
+    angle_theta: float,
+    angle_phi: float,
+    polarization: DiffractionPolarization,
+    coefficient: complex,
+    fwidth: float,
+    bck_eps: complex,
+) -> PlaneWave | None:
+    """Build a diffraction adjoint source from precomputed propagation angles."""
     if np.isnan(angle_theta):
         return None
 
@@ -304,7 +346,6 @@ def diffraction_source_from_data(
         raise ValueError(f"Something went wrong, given pol='{pol_str}' in adjoint source.")
 
     pol_angle = 0.0 if pol_str == "p" else np.pi / 2
-    bck_eps = diff_data.medium.eps_model(freq)
     return _diffraction_plane_wave(
         monitor=monitor,
         freq=freq,
@@ -314,7 +355,15 @@ def diffraction_source_from_data(
         coefficient=coefficient,
         fwidth=fwidth,
         bck_eps=bck_eps,
+        num_freqs=_diffraction_adjoint_num_freqs(order_x, order_y),
     )
+
+
+def _diffraction_adjoint_num_freqs(order_x: int, order_y: int) -> int | None:
+    """Use center-frequency injection for nonzero diffraction adjoint orders."""
+    if order_x == 0 and order_y == 0:
+        return None
+    return 1
 
 
 def _diffraction_plane_wave(
@@ -326,6 +375,7 @@ def _diffraction_plane_wave(
     coefficient: complex,
     fwidth: float,
     bck_eps: complex,
+    num_freqs: int | None,
 ) -> PlaneWave:
     k0 = 2 * np.pi * freq / C_0
     grad_const = 0.5 * k0 / np.sqrt(bck_eps) * np.cos(angle_theta)
@@ -333,15 +383,19 @@ def _diffraction_plane_wave(
     src_amp = 1j * grad_const * coefficient * normal_factor
     src_angle_theta = normal_factor * angle_theta
 
-    return PlaneWave(
-        size=monitor.size,
-        center=monitor.center,
-        source_time=_adjoint_source_time(freq=freq, src_amp=src_amp, fwidth=fwidth),
-        direction=flip_direction(monitor.normal_dir),
-        angle_theta=src_angle_theta,
-        angle_phi=angle_phi,
-        pol_angle=pol_angle,
-    )
+    plane_wave_kwargs = {
+        "size": monitor.size,
+        "center": monitor.center,
+        "source_time": _adjoint_source_time(freq=freq, src_amp=src_amp, fwidth=fwidth),
+        "direction": flip_direction(monitor.normal_dir),
+        "angle_theta": src_angle_theta,
+        "angle_phi": angle_phi,
+        "pol_angle": pol_angle,
+    }
+    if num_freqs is not None:
+        plane_wave_kwargs["num_freqs"] = num_freqs
+
+    return PlaneWave(**plane_wave_kwargs)
 
 
 def _adjoint_source_time(*, freq: float, src_amp: complex, fwidth: float) -> GaussianPulse:

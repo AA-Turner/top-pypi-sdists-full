@@ -20,8 +20,24 @@
 #include <mutex>
 #include <pthread.h>
 #include <thread>
+#include <utility>
 
 using namespace Datadog;
+
+static void
+update_fast_copy_stats(ProfilerStats& stats)
+{
+    stats.set_fast_copy_memory_user_disabled(fast_copy_user_disabled);
+    stats.set_fast_copy_memory_capable(safe_memcpy_initialized);
+    stats.set_fast_copy_memory_syscall_fallback(fast_copy_syscall_fallback);
+    stats.set_fast_copy_memory_enabled(fast_copy_active);
+}
+
+void
+Datadog::seed_fast_copy_profiler_stats()
+{
+    update_fast_copy_stats(Sample::profile_borrow().stats());
+}
 
 // Helper class for spawning a std::thread with control over its default stack size
 #ifdef __linux__
@@ -164,22 +180,62 @@ Sampler::adapt_sampling_interval()
         process_delta = 1; // Avoid division by zero or negative values
     }
 
+    // Rolling window for p_stable: maintain a ring buffer of process_delta values and
+    // take the p-th percentile as a stable estimate of app CPU usage. This prevents the
+    // sampling rate from collapsing during brief idle periods.
+    {
+        size_t window_capacity =
+          static_cast<size_t>(static_cast<double>(p_stable_window_s) * 1e6 / g_adaptive_sampling_interval_us);
+        if (window_capacity < 1) {
+            window_capacity = 1;
+        }
+
+        // On window shrink, clear the buffer to avoid stale data skewing the percentile.
+        if (process_delta_window.size() > window_capacity) {
+            process_delta_window.clear();
+            process_delta_window_head = 0;
+        }
+
+        if (process_delta_window.size() < window_capacity) {
+            process_delta_window.push_back(process_delta);
+        } else {
+            process_delta_window[process_delta_window_head] = process_delta;
+            process_delta_window_head = (process_delta_window_head + 1) % window_capacity;
+        }
+    }
+
+    // Compute p_stable as the p-th percentile of the rolling window.
+    // The ring buffer is always non-empty here (we just pushed to it above).
+    double p_stable;
+    {
+        // copy; sort is O(n log n), cheap for ~2400 entries
+        auto sorted = process_delta_window;
+        std::sort(sorted.begin(), sorted.end());
+        size_t idx = static_cast<size_t>(p_stable_percentile_frac * static_cast<double>(sorted.size() - 1));
+        p_stable = sorted[idx];
+    }
+
     auto current_interval = static_cast<double>(sample_interval_us.load());
 
-    // We assume that every sampling operation contributes a fixed amount of
-    // overhead, while the application consumes an average amount of CPU over
-    // time. With:
-    //    s - sampler time
-    //    p - process time
-    //    o - overhead threshold
-    //    I - interval
-    //    I'- interval after adjustment
-    // we use the following formula to adapt the sampling interval
-    //    I' = I * [(s / p) / o]
-    // As the value could be small when the process is idle, we use a lower
-    // bound of the sampling interval to avoid CPU spikes from the sampler.
-    auto new_interval =
-      static_cast<microsecond_t>(current_interval * ((sampler_thread_delta / process_delta) / target_overhead));
+    // Compute the CPU time budget for the sampler per adaptation window:
+    //   budget = baseline (absolute floor) + o * max(process_delta, p_stable)
+    // Where:
+    //   baseline      = configurable absolute floor (prevents starvation on idle apps)
+    //   o             = target overhead fraction
+    //   process_delta = current app CPU usage (reacts immediately to spikes)
+    //   p_stable      = slow-decaying p95 estimate (prevents premature backoff after brief idle)
+    //
+    // Taking max(process_delta, p_stable) makes the budget expand instantly when CPU spikes
+    // (quick capture of 0→100 scenarios) while decaying very slowly when CPU drops.
+    //
+    // The new interval is derived so that s (sampler CPU time) matches the budget:
+    //   I' = I * (s / budget)
+    auto budget = baseline_cpu_us_per_adapt_window + target_overhead * std::max(process_delta, p_stable);
+    if (budget <= 0) {
+        budget = 1.0; // Avoid division by zero
+    }
+
+    auto new_interval = static_cast<microsecond_t>(current_interval * (sampler_thread_delta / budget));
 
     // Cap the new interval to the min/max sampling period
     if (new_interval < g_min_sampling_period_us) {
@@ -202,6 +258,8 @@ Sampler::sampling_thread(const uint64_t seq_num)
     // Mark thread as running
     thread_running.store(true);
 
+    seed_fast_copy_profiler_stats();
+
     // (Re)install our SIGSEGV/SIGBUS handlers once, but ONLY if we still own them. If a
     // foreign component we can't wrap (abseil via vLLM/gRPC, PyTorch/CUDA) already owns
     // them, overwriting it would cause handler-chaining races and make
@@ -218,12 +276,6 @@ Sampler::sampling_thread(const uint64_t seq_num)
     using namespace std::chrono;
     auto sample_time_prev = steady_clock::now();
     auto interval_adjust_time_prev = sample_time_prev;
-
-    // Track upload sequence to clear ephemeral string table entries periodically.
-    // We clear every 25 uploads (~25 minutes at default 60s intervals) to avoid
-    // churning entries for long-lived tasks while still bounding growth.
-    uint64_t last_cleared_upload_seq = ProfilerState::get().upload_seq.load(std::memory_order_relaxed);
-    constexpr uint64_t ephemeral_clear_interval = 25;
 
     // safe_memcpy recovery needs us to own both handlers (PROF-14568): warm up on the
     // syscall copy, upgrade only if we still own them, then re-check and fall back.
@@ -265,14 +317,6 @@ Sampler::sampling_thread(const uint64_t seq_num)
         // is not counted as sampling overhead.
         auto sample_capture_cpu_before = get_thread_cpu_time_us();
 
-        // Clear ephemeral string table entries (task names, greenlet names) periodically.
-        // Safe because strings are copied into StringArena during sample construction.
-        auto current_upload_seq = ProfilerState::get().upload_seq.load(std::memory_order_relaxed);
-        if (current_upload_seq - last_cleared_upload_seq >= ephemeral_clear_interval) {
-            last_cleared_upload_seq = current_upload_seq;
-            echion->string_table().clear_ephemeral();
-        }
-
         auto sample_time_now = steady_clock::now();
         auto wall_time_us = duration_cast<microseconds>(sample_time_now - sample_time_prev).count();
         sample_time_prev = sample_time_now;
@@ -292,6 +336,7 @@ Sampler::sampling_thread(const uint64_t seq_num)
                         // syscall copy (already active from warmup) for the life of
                         // the process.
                         handler_fallback_done = true;
+                        mark_fast_copy_syscall_fallback();
                         std::cerr << "ddtrace stack profiler: another component owns the SIGSEGV/SIGBUS "
                                      "handler; keeping the syscall-based memory copy to avoid crashing."
                                   << std::endl;
@@ -304,6 +349,7 @@ Sampler::sampling_thread(const uint64_t seq_num)
                 // degrade sample quality (e.g. on asyncio workloads). We still prefer
                 // it over the alternative, which is crashing under a foreign handler.
                 handler_fallback_done = true;
+                mark_fast_copy_syscall_fallback();
                 std::cerr << "ddtrace stack profiler: SIGSEGV/SIGBUS handler was taken over by another "
                              "component; falling back to syscall-based memory copy to avoid crashing."
                           << std::endl;
@@ -445,8 +491,7 @@ Sampler::sampling_thread(const uint64_t seq_num)
 
             borrow.stats().increment_sampling_event_count();
             borrow.stats().set_string_table_count(echion->string_table().size());
-            borrow.stats().set_string_table_ephemeral_count(echion->string_table().ephemeral_size());
-            borrow.stats().set_fast_copy_memory_enabled(fast_copy_active);
+            update_fast_copy_stats(borrow.stats());
             borrow.stats().set_asyncio_task_count(echion->asyncio_task_count());
             borrow.stats().set_greenlet_count(greenlet_count);
 
@@ -792,7 +837,7 @@ Sampler::weak_link_tasks(PyObject* parent, PyObject* child)
 }
 
 void
-Sampler::track_greenlet(uintptr_t greenlet_id, StringTable::Key name, PyObject* frame)
+Sampler::track_greenlet(uintptr_t greenlet_id, TaskName name, PyObject* frame)
 {
     const std::lock_guard<std::mutex> guard(echion->greenlet_info_map_lock());
 
@@ -800,9 +845,9 @@ Sampler::track_greenlet(uintptr_t greenlet_id, StringTable::Key name, PyObject* 
     auto entry = greenlet_info_map.find(greenlet_id);
     if (entry != greenlet_info_map.end()) {
         // Greenlet is already tracked so we update its info
-        entry->second = std::make_unique<GreenletInfo>(greenlet_id, frame, name);
+        entry->second = std::make_unique<GreenletInfo>(greenlet_id, frame, std::move(name));
     } else {
-        greenlet_info_map.emplace(greenlet_id, std::make_unique<GreenletInfo>(greenlet_id, frame, name));
+        greenlet_info_map.emplace(greenlet_id, std::make_unique<GreenletInfo>(greenlet_id, frame, std::move(name)));
     }
 
     // Update the thread map
@@ -818,13 +863,6 @@ Sampler::untrack_greenlet(uintptr_t greenlet_id)
     auto& greenlet_info_map = echion->greenlet_info_map();
     auto entry = greenlet_info_map.find(greenlet_id);
     if (entry != greenlet_info_map.end()) {
-        // Remove the greenlet's name string from the string table
-        // to prevent unbounded growth of the String Table.
-
-        // NOTE: This locks the String Table. If nested locks are required, always
-        // ensure that the greenlet_info_map is locked first before locking the
-        // String Table to avoid deadlocks.
-        echion->string_table().erase(entry->second->name);
         greenlet_info_map.erase(entry);
     }
 

@@ -8,7 +8,7 @@ from functools import cached_property
 
 from dbt.contracts.graph.manifest import Manifest
 
-from dbt_state._typing import ModelOrSnapshotOrTestNode
+from dbt_state._typing import ModelOrSnapshotOrTestOrSeedNode
 
 from dbt.contracts.graph.nodes import (
     GenericTestNode,
@@ -23,7 +23,7 @@ _CONFIG_HASH_EXCLUDED_KEYS = frozenset({"alias", "schema", "database", "tags", "
 class NodeHashCalculator(ABC):
     """Base calculator with shared hash component methods."""
 
-    def __init__(self, node: ModelOrSnapshotOrTestNode, manifest: Manifest):
+    def __init__(self, node: ModelOrSnapshotOrTestOrSeedNode, manifest: Manifest):
         self.node = node
         self.manifest = manifest
 
@@ -186,7 +186,7 @@ class GenericTestNodeCalculator(NodeHashCalculator):
 
 
 def create_node_hash_calculator(
-    node: ModelOrSnapshotOrTestNode, manifest: Manifest
+    node: ModelOrSnapshotOrTestOrSeedNode, manifest: Manifest
 ) -> NodeHashCalculator:
     """Factory function to create the appropriate calculator for a node type."""
     if isinstance(node, ModelNode):

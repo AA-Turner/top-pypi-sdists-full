@@ -112,7 +112,8 @@ def mock_auth_api_failing(mocker: MockerFixture) -> None:
             status_code = 404
 
         raise requests.exceptions.HTTPError(
-            "", response=Response()  # type: ignore
+            "",
+            response=Response(),  # type: ignore
         )
 
     m.raise_for_status = helper

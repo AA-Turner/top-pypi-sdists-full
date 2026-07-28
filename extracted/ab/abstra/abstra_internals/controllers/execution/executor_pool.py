@@ -338,12 +338,22 @@ class ExecutorPool:
             self._release_executor(executor, execution_id)
 
     def run_snippet(
-        self, code: str, worker_id: str, title: str = "Debug Snippet"
+        self,
+        code: str,
+        worker_id: str,
+        title: str = "Debug Snippet",
+        requirements: Optional[List[str]] = None,
     ) -> ExecutorResponse:
         """Run a code snippet without creating a stage.
 
         Acquires an executor, sends RunSnippetRequest, waits for response.
         Simpler than execute() - no stage, no RabbitMQ, no execution tracking.
+
+        When the snippet puts the Smart Chat dependency overlay on the
+        executor's sys.path (i.e. the overlay has packages), that executor is
+        recycled instead of returned to the pool, so snippet-only packages never
+        leak into a stage execution. Snippets that don't touch the overlay keep
+        the cheap return-to-pool path.
         """
         snippet_id = str(uuid4())[:8]
         max_wait = self.config.acquire_timeout_seconds
@@ -361,6 +371,7 @@ class ExecutorPool:
                 )
             time.sleep(0.25)
 
+        response: Optional[ExecutorResponse] = None
         try:
             if not executor.is_alive():
                 executor.mark_dead()
@@ -374,6 +385,7 @@ class ExecutorPool:
                 code=code,
                 worker_id=worker_id,
                 title=title,
+                requirements=requirements,
             )
 
             try:
@@ -384,7 +396,6 @@ class ExecutorPool:
                 raise RuntimeError(f"Failed to send snippet to executor: {e}")
 
             timeout = self.config.execution_timeout_seconds
-            response = None
             wait_start = time.time()
 
             while time.time() - wait_start < timeout:
@@ -408,7 +419,10 @@ class ExecutorPool:
         except Exception:
             raise
         finally:
-            self._release_executor(executor, snippet_id)
+            # Recycle only when the snippet actually put the overlay on this
+            # executor's sys.path (reported via ExecutorResponse.overlay_added).
+            force_recycle = response is not None and response.overlay_added
+            self._release_executor(executor, snippet_id, force_recycle=force_recycle)
 
     def kill_execution(self, execution_id: str) -> bool:
         with self.lock:
@@ -634,7 +648,12 @@ class ExecutorPool:
             f"with new executor {replacement.executor_id}"
         )
 
-    def _release_executor(self, executor: ExecutorHandle, execution_id: str) -> None:
+    def _release_executor(
+        self,
+        executor: ExecutorHandle,
+        execution_id: str,
+        force_recycle: bool = False,
+    ) -> None:
         should_recycle = False
 
         with self.lock:
@@ -653,7 +672,8 @@ class ExecutorPool:
                 return
 
             if (
-                executor.executions_completed + 1
+                force_recycle
+                or executor.executions_completed + 1
                 >= self.config.max_executions_per_executor
             ):
                 should_recycle = True
@@ -662,7 +682,9 @@ class ExecutorPool:
                 executor.mark_idle()
 
         if should_recycle:
-            self._kill_and_replace_executor(executor, reason="recycled")
+            self._kill_and_replace_executor(
+                executor, reason="snippet" if force_recycle else "recycled"
+            )
 
     def _monitor_loop(self) -> None:
         while not self.shutdown_requested:

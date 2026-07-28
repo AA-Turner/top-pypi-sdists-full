@@ -21,8 +21,7 @@ from litestar_vite.plugin._proxy import (
     build_proxy_url,
     check_http2_support,
     create_hmr_target_getter,
-    create_ssr_proxy_controller,
-    create_ssr_websocket_handler,
+    create_ssr_ws_proxy_handler,
     create_target_url_getter,
     create_vite_hmr_handler,
     extract_forward_headers,
@@ -182,6 +181,36 @@ def test_extract_forward_headers_drops_connection_derived_headers() -> None:
     assert extract_forward_headers(scope) == [("X-Test", "value")]
 
 
+def test_collect_connection_tokens_returns_shared_empty_sentinel_when_absent() -> None:
+    """No Connection header returns the shared sentinel instead of allocating a set."""
+    from litestar_vite.plugin._proxy import _NO_CONNECTION_TOKENS, _collect_connection_tokens
+
+    result = _collect_connection_tokens([(b"host", b"example.com"), (b"x-test", b"value")])
+
+    assert result is _NO_CONNECTION_TOKENS
+
+
+def test_extract_request_headers_avoids_set_copy_without_connection_header(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No Connection header uses the immutable skip set directly."""
+    from litestar_vite.plugin._proxy import _extract_request_headers
+
+    set_calls = 0
+
+    class _CountingSet(set[object]):
+        def __new__(cls, *args: object, **kwargs: object) -> Self:
+            nonlocal set_calls
+            set_calls += 1
+            return super().__new__(cls)
+
+    monkeypatch.setattr("builtins.set", _CountingSet)
+
+    headers = [(b"X-Test", b"value"), (b"Host", b"example.com")]
+    result = _extract_request_headers(headers)
+
+    assert result == [("X-Test", "value"), ("Host", "example.com")]
+    assert set_calls == 0, f"expected zero set() allocations with no Connection header, got {set_calls}"
+
+
 def test_normalize_proxy_prefixes(tmp_path: Path) -> None:
     prefixes = normalize_proxy_prefixes(
         ("/@vite",),
@@ -194,10 +223,12 @@ def test_normalize_proxy_prefixes(tmp_path: Path) -> None:
     assert "/static/" in prefixes
 
 
-def test_target_url_getter_caches(tmp_path: Path) -> None:
+def test_target_url_getter_caches(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     hotfile = tmp_path / "hot"
     hotfile.write_text("http://localhost:5173")
     cached: list[str | None] = [None]
+    fake_time = [1000.0]
+    monkeypatch.setattr("litestar_vite.plugin._proxy.time.monotonic", lambda: fake_time[0])
     getter = create_target_url_getter(None, hotfile, cached)
 
     assert getter() == "http://localhost:5173"
@@ -207,19 +238,112 @@ def test_target_url_getter_caches(tmp_path: Path) -> None:
     current_mtime = hotfile.stat().st_mtime_ns
     os.utime(hotfile, ns=(current_mtime + 1_000_000, current_mtime + 1_000_000))
 
+    fake_time[0] += 1.0
     assert getter() == "http://changed:1234"
 
 
-def test_target_url_getter_recovers_after_initial_missing_hotfile(tmp_path: Path) -> None:
+def test_target_url_getter_recovers_after_initial_missing_hotfile(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     hotfile = tmp_path / "hot"
     cached: list[str | None] = [None]
+    fake_time = [1000.0]
+    monkeypatch.setattr("litestar_vite.plugin._proxy.time.monotonic", lambda: fake_time[0])
     getter = create_target_url_getter(None, hotfile, cached)
 
     assert getter() is None
 
     hotfile.write_text("http://localhost:5173")
 
+    fake_time[0] += 1.0
     assert getter() == "http://localhost:5173"
+
+
+def test_target_url_getter_throttles_stat_within_ttl_window(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    hotfile = tmp_path / "hot"
+    hotfile.write_text("http://localhost:5173")
+    cached: list[str | None] = [None]
+    fake_time = [1000.0]
+    monkeypatch.setattr("litestar_vite.plugin._proxy.time.monotonic", lambda: fake_time[0])
+    stat_calls = 0
+    real_stat = Path.stat
+
+    def counting_stat(self: Path, *, follow_symlinks: bool = True) -> os.stat_result:
+        nonlocal stat_calls
+        stat_calls += 1
+        return real_stat(self, follow_symlinks=follow_symlinks)
+
+    monkeypatch.setattr(Path, "stat", counting_stat)
+    getter = create_target_url_getter(None, hotfile, cached)
+
+    for _ in range(5):
+        assert getter() == "http://localhost:5173"
+
+    assert stat_calls == 1
+
+
+def test_target_url_getter_caches_negative_result_without_reread(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    hotfile = tmp_path / "hot"
+    hotfile.write_text("http://localhost:5173")
+    cached: list[str | None] = [None]
+    fake_time = [1000.0]
+    monkeypatch.setattr("litestar_vite.plugin._proxy.time.monotonic", lambda: fake_time[0])
+    read_calls = 0
+
+    def failing_read(_path: Path) -> str:
+        nonlocal read_calls
+        read_calls += 1
+        raise OSError("simulated malformed hotfile read")
+
+    monkeypatch.setattr("litestar_vite.plugin._proxy.read_hotfile_url", failing_read)
+    getter = create_target_url_getter(None, hotfile, cached)
+
+    assert getter() is None
+    fake_time[0] += 1.0
+    assert getter() is None
+    assert read_calls == 1
+
+
+def test_hmr_target_getter_hoists_hmr_path_once(tmp_path: Path) -> None:
+    """The '<hotfile>.hmr' Path must be constructed once per getter, not once per call."""
+    hotfile = tmp_path / "hot"
+    hotfile.write_text("http://localhost:5173")
+    (tmp_path / "hot.hmr").write_text("http://127.0.0.1:24678")
+
+    with patch("litestar_vite.plugin._proxy.Path", wraps=Path) as path_spy:
+        getter = create_hmr_target_getter(hotfile, [None])
+        for _ in range(5):
+            assert getter() == "http://127.0.0.1:24678"
+
+    assert path_spy.call_count == 1, (
+        f"expected Path(...) to be constructed once for the .hmr sibling, got {path_spy.call_count}"
+    )
+
+
+def test_hmr_target_getter_ttls_negative_result(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """When no '.hmr' sibling exists, repeated calls within the TTL window must not re-stat either candidate."""
+    hotfile = tmp_path / "hot"
+    hotfile.write_text("http://localhost:5173")
+    fake_time = [1000.0]
+    monkeypatch.setattr("litestar_vite.plugin._proxy.time.monotonic", lambda: fake_time[0])
+
+    stat_calls = 0
+    real_stat = Path.stat
+
+    def counting_stat(self: Path, *, follow_symlinks: bool = True) -> os.stat_result:
+        nonlocal stat_calls
+        stat_calls += 1
+        return real_stat(self, follow_symlinks=follow_symlinks)
+
+    monkeypatch.setattr(Path, "stat", counting_stat)
+
+    getter = create_hmr_target_getter(hotfile, [None])
+    for _ in range(5):
+        assert getter() == "http://localhost:5173"
+
+    assert stat_calls == 2, f"expected exactly 2 stat() calls across 5 getter() calls, got {stat_calls}"
 
 
 def test_hmr_target_getter_caches(tmp_path: Path) -> None:
@@ -661,18 +785,19 @@ async def test_ssr_proxy_middleware_post_still_sends_body() -> None:
     assert kwargs["content"] is not None, "SSR proxy POST requests must still send a request body"
 
 
-async def test_create_ssr_proxy_controller_emits_deprecation_warning(recwarn: pytest.WarningsRecorder) -> None:
-    """create_ssr_proxy_controller is deprecated; the alias still returns a WS-only Controller."""
-    handler_class = create_ssr_proxy_controller(target="http://localhost:3000")
+def test_create_ssr_ws_proxy_handler_defaults_to_catch_all_paths() -> None:
+    """The WS HMR factory registers both ``/`` and the catch-all so no HMR path 404s."""
+    handler = create_ssr_ws_proxy_handler(target="http://localhost:3000")
 
-    assert handler_class.__name__ == "SSRProxyWebSocketHandler"
-    assert any(issubclass(w.category, DeprecationWarning) for w in recwarn.list)
+    assert handler.paths == {"/", "/{path:path}"}
+    assert handler.opt.get("exclude_from_auth") is True
 
 
-def test_create_ssr_websocket_handler_returns_ws_only_controller() -> None:
-    """create_ssr_websocket_handler returns a Controller hosting only the WS handler."""
-    handler_class = create_ssr_websocket_handler(target="http://localhost:3000")
-    assert handler_class.__name__ == "SSRProxyWebSocketHandler"
+def test_create_ssr_ws_proxy_handler_honors_explicit_paths() -> None:
+    """Callers can narrow the WS paths when the framework uses a single HMR endpoint."""
+    handler = create_ssr_ws_proxy_handler(target="http://localhost:3000", paths=["/_hmr"])
+
+    assert handler.paths == {"/_hmr"}
 
 
 def test_ssr_proxy_middleware_falls_through_to_user_root_route(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -807,6 +932,31 @@ def test_get_litestar_route_prefixes_excludes_websocket_only_routes() -> None:
     assert "/{path:path}" not in prefixes, (
         f"WebSocket-only '/{{path:path}}' must not appear in HTTP route prefixes; got {prefixes}"
     )
+
+
+def test_ssr_proxy_should_proxy_get_root_when_only_websocket_routes_claim_it() -> None:
+    """GET / must still proxy when only a WebSocket handler is registered at '/'.
+
+    Regression for the 405 fall-through: a framework HMR WebSocket at '/' used to
+    poison the HTTP prefix list, making SSRProxyMiddleware skip the proxy and hand
+    GET / to a WebSocket handler that has no HTTP method.
+    """
+    from typing import Any
+
+    from litestar import Controller, Litestar, WebSocket, websocket
+
+    from litestar_vite.plugin._proxy import SSRProxyMiddleware
+
+    class _WSOnly(Controller):
+        @websocket(path=["/", "/{path:path}"], name="ws_only")
+        async def handler(self, socket: WebSocket[Any, Any, Any]) -> None:  # pragma: no cover
+            await socket.accept()
+
+    app = Litestar(route_handlers=[_WSOnly])
+    middleware = SSRProxyMiddleware.__new__(SSRProxyMiddleware)
+    scope = {"type": "http", "method": "GET", "path": "/", "app": app}
+
+    assert middleware._should_proxy(cast("Any", scope)) is True  # pyright: ignore[reportPrivateUsage]
 
 
 # ===== Bridge-config preference for HMR target (litestar-vite-c1t) =====

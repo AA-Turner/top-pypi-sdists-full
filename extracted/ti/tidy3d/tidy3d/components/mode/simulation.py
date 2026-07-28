@@ -77,6 +77,7 @@ MODE_SIM_YEE_SIM_SHARED_ATTRS = [
     "subpixel",
     "simulation_type",
     "post_norm",
+    "structure_priority_mode",
 ]
 
 
@@ -98,7 +99,7 @@ class ModeSimulation(AbstractYeeGridSimulation):
     Example
     -------
     >>> from tidy3d import C_0, ModeSpec, BoundarySpec, Boundary
-    >>> lambda0 = 1550e-9
+    >>> lambda0 = 1.55
     >>> freq0 = C_0 / lambda0
     >>> freqs = [freq0]
     >>> sim_size = lambda0, lambda0, 0
@@ -190,7 +191,7 @@ class ModeSimulation(AbstractYeeGridSimulation):
         "apply PML layers in the mode solver.",
     )
 
-    monitors: tuple[ModeSimulationMonitorType, ...] = Field(
+    monitors: tuple[discriminated_union(ModeSimulationMonitorType), ...] = Field(
         (),
         title="Monitors",
         description="Tuple of monitors in the simulation. "

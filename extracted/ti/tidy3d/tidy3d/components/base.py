@@ -18,6 +18,7 @@ from pathlib import Path
 from types import UnionType
 from typing import (
     TYPE_CHECKING,
+    Annotated,
     Any,
     ClassVar,
     Literal,
@@ -34,14 +35,7 @@ import xarray as xr
 import yaml
 from autograd.numpy.numpy_boxes import ArrayBox
 from autograd.tracer import isbox
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    PrivateAttr,
-    field_validator,
-    model_validator,
-)
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
 from pydantic import (
     ValidationError as PydanticValidationError,
 )
@@ -59,13 +53,20 @@ from .docstrings import (
     _fmt_ann_literal,
     _format_model_default,
 )
-from .file_util import compress_file_to_gzip, extract_gzip_file
+from .file_util import JSON_TAG as _JSON_TAG
+from .file_util import (
+    compress_file_to_gzip,
+    extract_gzip_file,
+    json_string_from_hdf5,
+    json_string_key,
+)
 from .types import TYPE_TAG_STR, Undefined
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
     from typing import NoReturn
 
+    from pydantic import ValidationInfo
     from pydantic.fields import FieldInfo
     from pydantic.functional_validators import ModelWrapValidatorHandler
 
@@ -75,7 +76,7 @@ if TYPE_CHECKING:
 
 INDENT_JSON_FILE = 4  # default indentation of json string in json files
 INDENT = None  # default indentation of json string used internally
-JSON_TAG = "JSON_STRING"
+JSON_TAG = _JSON_TAG
 # If json string is larger than ``MAX_STRING_LENGTH``, split the string when storing in hdf5
 MAX_STRING_LENGTH = 1_000_000_000
 FORBID_SPECIAL_CHARACTERS = ["/"]
@@ -84,6 +85,7 @@ TYPE_TO_CLASS_MAP: dict[str, type[Tidy3dBaseModel]] = {}
 _LAZY_PROXY_UNHANDLED = object()
 
 _CacheReturn = TypeVar("_CacheReturn")
+Tidy3dBaseModelT = TypeVar("Tidy3dBaseModelT", bound="Tidy3dBaseModel")
 
 
 def cache(prop: Callable[[Any], _CacheReturn]) -> Callable[[Any], _CacheReturn]:
@@ -269,6 +271,28 @@ def field_allows_scalar(field: FieldInfo) -> bool:
     return allows_scalar(annotation)
 
 
+def annotation_allows_none(annotation: Any) -> bool:
+    """Return ``True`` if ``annotation`` accepts ``None``."""
+    origin = get_origin(annotation)
+    return origin in (Union, UnionType) and any(arg is type(None) for arg in get_args(annotation))
+
+
+def annotation_has_discriminator(annotation: Any) -> bool:
+    """Return ``True`` if ``annotation`` carries a discriminator in nested ``Annotated`` metadata."""
+    origin = get_origin(annotation)
+
+    if origin is Annotated:
+        base, *metadata = get_args(annotation)
+        if any(getattr(item, "discriminator", None) for item in metadata):
+            return True
+        return annotation_has_discriminator(base)
+
+    if origin in (Union, UnionType):
+        return any(annotation_has_discriminator(arg) for arg in get_args(annotation))
+
+    return False
+
+
 @total_ordering
 class Tidy3dBaseModel(BaseModel):
     """Base pydantic model that all Tidy3d components inherit from.
@@ -386,7 +410,7 @@ class Tidy3dBaseModel(BaseModel):
         # add docstring once pydantic is done constructing the class
         if _DOCSTRING_RAW_ATTR not in cls.__dict__:
             setattr(cls, _DOCSTRING_RAW_ATTR, cls.__doc__ or "")
-        cls.__doc__ = cls.generate_docstring()
+        cls.__doc__ = cls.generate_docstring()  # pyrefly: ignore[implicitly-defined-attribute]
 
     @classmethod
     def model_rebuild(
@@ -405,7 +429,7 @@ class Tidy3dBaseModel(BaseModel):
         )
         if _DOCSTRING_RAW_ATTR not in cls.__dict__:
             setattr(cls, _DOCSTRING_RAW_ATTR, cls.__doc__ or "")
-        cls.__doc__ = cls.generate_docstring()
+        cls.__doc__ = cls.generate_docstring()  # pyrefly: ignore[implicitly-defined-attribute]
         return rebuilt
 
     @model_validator(mode="wrap")
@@ -424,6 +448,38 @@ class Tidy3dBaseModel(BaseModel):
         except Exception:
             log.abort_capture()
             raise
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_empty_optional_discriminated_fields(
+        cls: type[T], data: Any, info: ValidationInfo
+    ) -> Any:
+        """Treat legacy empty dict payloads as ``None`` for optional discriminated fields on file load."""
+        if not hasattr(data, "get"):
+            return data
+
+        context = info.context or {}
+        if not context.get("from_file"):
+            return data
+
+        updated = None
+        for field_name, field in cls.model_fields.items():
+            field_value = data.get(field_name)
+            if not isinstance(field_value, Mapping) or field_value:
+                continue
+            if not annotation_allows_none(field.annotation):
+                continue
+            if not (
+                getattr(field, "discriminator", None)
+                or annotation_has_discriminator(field.annotation)
+            ):
+                continue
+
+            if updated is None:
+                updated = dict(data)
+            updated[field_name] = None
+
+        return updated if updated is not None else data
 
     def _raise_validation_error_at_loc(
         self, message: Any, *loc: Any, log_error: bool = True
@@ -470,7 +526,7 @@ class Tidy3dBaseModel(BaseModel):
         if isinstance(value, (xr.DataArray, xr.Dataset)):
             # we choose to not hash data arrays as this would require a lot of careful handling of units, metadata.
             # technically this is incorrect, but should never lead to bugs in current implementation
-            return hash(str(value.__class__.__name__))
+            return hash(value.__class__.__name__)
         if isinstance(value, str):
             # this if-case is necessary because length-1 string would lead to infinite recursion in sequence case below
             return hash(value)
@@ -598,6 +654,12 @@ class Tidy3dBaseModel(BaseModel):
         cls, model_dict: dict[str, Any], **parse_obj_kwargs: Any
     ) -> Tidy3dBaseModel:
         """Parse ``model_dict`` while optionally auto-dispatching when called on the base class."""
+        parse_obj_kwargs = dict(parse_obj_kwargs)
+        context = parse_obj_kwargs.get("context")
+        context = {} if context is None else dict(context)
+        context.setdefault("from_file", True)
+        parse_obj_kwargs["context"] = context
+
         if cls is Tidy3dBaseModel:
             return cls._model_validate(model_dict, **parse_obj_kwargs)
         return cls.model_validate(model_dict, **parse_obj_kwargs)
@@ -633,7 +695,7 @@ class Tidy3dBaseModel(BaseModel):
                 return True, get_tuple_element_type(annotation)
 
             # Union types containing tuple
-            if origin is Union:
+            if origin in (Union, UnionType):
                 args = get_args(annotation)
                 for arg in args:
                     if get_origin(arg) is tuple:
@@ -705,7 +767,7 @@ class Tidy3dBaseModel(BaseModel):
                             return annotation(**value)
                     except (TypeError, AttributeError):
                         pass
-                elif origin is Union:
+                elif origin in (Union, UnionType):
                     # For Union types, try to convert to the first matching Tidy3dBaseModel type
                     args = get_args(annotation)
                     for arg in args:
@@ -946,7 +1008,7 @@ class Tidy3dBaseModel(BaseModel):
 
         return sorted(found_paths_set)
 
-    def find_submodels(self, target_type: Self) -> list[Self]:
+    def find_submodels(self, target_type: type[Tidy3dBaseModelT]) -> list[Tidy3dBaseModelT]:
         """
         Finds all unique nested instances of a specific Tidy3D model type within this model.
 
@@ -987,7 +1049,7 @@ class Tidy3dBaseModel(BaseModel):
         >>> # unless they inherit directly from td.Medium and not just Tidy3dBaseModel or td.AbstractMedium.
         >>> # To find all medium types, one might search for td.AbstractMedium if that's a common base.
         """
-        found_models_dict = {}
+        found_models_dict: dict[Tidy3dBaseModelT, bool] = {}
 
         for sub_model_candidate, _ in Tidy3dBaseModel._core_model_traversal(self, ()):
             if isinstance(sub_model_candidate, target_type):
@@ -1310,12 +1372,12 @@ class Tidy3dBaseModel(BaseModel):
     @staticmethod
     def get_tuple_group_name(index: int) -> str:
         """Get the group name of a tuple element."""
-        return str(int(index))
+        return str(index)
 
     @staticmethod
     def get_tuple_index(key_name: str) -> int:
         """Get the index into the tuple based on its group name."""
-        return int(str(key_name))
+        return int(key_name)
 
     @classmethod
     def tuple_to_dict(cls: type[T], tuple_values: tuple) -> dict:
@@ -1336,27 +1398,6 @@ class Tidy3dBaseModel(BaseModel):
                 else:
                     model_dict = model_dict[key]
         return model_dict
-
-    @staticmethod
-    def _json_string_key(index: int) -> str:
-        """Get json string key for string chunk number ``index``."""
-        if index:
-            return f"{JSON_TAG}_{index}"
-        return JSON_TAG
-
-    @classmethod
-    def _json_string_from_hdf5(cls: type[T], fname: PathLike | h5py.File) -> str:
-        """Load the model json string from an hdf5 file path or open file handle."""
-        if isinstance(fname, h5py.File):
-            f_handle = fname
-            num_string_parts = len([key for key in f_handle.keys() if JSON_TAG in key])
-            json_string = b""
-            for ind in range(num_string_parts):
-                json_string += f_handle[cls._json_string_key(ind)][()]
-            return json_string
-
-        with h5py.File(fname, "r") as f_handle:
-            return cls._json_string_from_hdf5(f_handle)
 
     @classmethod
     def _load_data_from_file(
@@ -1474,7 +1515,7 @@ class Tidy3dBaseModel(BaseModel):
                 )
 
         f_handle = fname
-        model_dict = json.loads(cls._json_string_from_hdf5(fname=f_handle))
+        model_dict = json.loads(json_string_from_hdf5(f_handle))
         group_path = cls._construct_group_path(group_path)
         model_dict = cls.get_sub_model(group_path=group_path, model_dict=model_dict)
         if load_data_arrays:
@@ -1555,9 +1596,9 @@ class Tidy3dBaseModel(BaseModel):
         with h5py.File(path, "w") as f_handle:
             json_str = export_model.model_dump_json()
             for ind in range(ceil(len(json_str) / MAX_STRING_LENGTH)):
-                ind_start = int(ind * MAX_STRING_LENGTH)
-                ind_stop = min(int(ind + 1) * MAX_STRING_LENGTH, len(json_str))
-                f_handle[self._json_string_key(ind)] = json_str[ind_start:ind_stop]
+                ind_start = ind * MAX_STRING_LENGTH
+                ind_stop = min((ind + 1) * MAX_STRING_LENGTH, len(json_str))
+                f_handle[json_string_key(ind)] = json_str[ind_start:ind_stop]
 
             def add_data_to_file(data_dict: dict, group_path: str = "") -> None:
                 """For every DataArray item in dictionary, write path of hdf5 group as value."""
@@ -1960,6 +2001,9 @@ class Tidy3dBaseModel(BaseModel):
                 continue
             if field_name == "attrs" and not include_attrs:
                 continue
+            extra = getattr(field, "json_schema_extra", None)
+            if isinstance(extra, dict) and extra.get("doc_hidden"):
+                continue
 
             # type
             ann = getattr(field, "annotation", None)
@@ -1967,7 +2011,11 @@ class Tidy3dBaseModel(BaseModel):
             data_type = _fmt_ann_literal(ann, field_metadata=field_metadata)
 
             # default / default_factory
+            factory_name = ""
             if field.default_factory is not None:
+                raw_name = getattr(field.default_factory, "__name__", "")
+                if raw_name and raw_name != "<lambda>":
+                    factory_name = raw_name
                 try:
                     default_val = field.default_factory()
                 except Exception:
@@ -1981,8 +2029,14 @@ class Tidy3dBaseModel(BaseModel):
                 )
             elif "=" in str(default_val) if default_val is not None else False:
                 default_val = _clean_default_repr(
-                    str(f"{default_val.__class__.__name__}({default_val})")
+                    f"{default_val.__class__.__name__}({default_val})"
                 )
+            elif factory_name and default_val is not None and not isinstance(default_val, str):
+                # Collapse verbose defaults (multi-line / very long) produced by named factories
+                # to keep the numpydoc Parameters section well-formed.
+                repr_check = str(default_val)
+                if "\n" in repr_check or len(repr_check) > 120:
+                    default_val = f"{factory_name}()"
 
             default_str = "" if field.is_required() else f" = {default_val}"
             doc += f"    {field_name} : {data_type}{default_str}\n"
@@ -1991,7 +2045,6 @@ class Tidy3dBaseModel(BaseModel):
 
             # units
             units = None
-            extra = getattr(field, "json_schema_extra", None)
             if isinstance(extra, dict):
                 units = extra.get("units")
             if units is None and hasattr(field, "metadata"):
@@ -2168,7 +2221,7 @@ def _make_lazy_proxy(
         if on_load is not None:
             on_load(proxy)
 
-    class _LazyProxy(target_cls):  # type: ignore[misc]
+    class _LazyProxy(target_cls):
         def __init__(
             self,
             fname: PathLike,

@@ -492,30 +492,12 @@ impl Channel {
                                     temp_db_params_map
                                         .insert("protocol".to_string(), db_protocol_name.clone());
 
-                                    // Translate nested `config` settings into flat tls_* flags
-                                    // expected by keeperdb-proxy. The top-level filter_map drops
-                                    // JsonValue::Object, so these would otherwise be lost.
-                                    if let Some(JsonValue::Object(config_map)) = map.get("config") {
-                                        let ssl_mode = config_map
-                                            .get("SSL Mode")
-                                            .or_else(|| config_map.get("ssl_mode"))
-                                            .or_else(|| config_map.get("ssl mode"))
-                                            .and_then(|v| v.as_str());
-                                        if let Some(mode) = ssl_mode {
-                                            // Verification mode is derived by the proxy and is
-                                            // never sent over the handshake; SSL Mode only
-                                            // determines whether backend TLS is enabled.
-                                            let tls_enabled = match mode.to_lowercase().as_str() {
-                                                "allow" | "prefer" | "require" | "verify-ca"
-                                                | "verify-full" => "true",
-                                                _ => "false",
-                                            };
-                                            temp_db_params_map.insert(
-                                                "tls_enabled".to_string(),
-                                                tls_enabled.to_string(),
-                                            );
-                                        }
-                                    }
+                                    // The record's "SSL Mode" setting is intentionally NOT
+                                    // forwarded: backend TLS is negotiated by the proxy
+                                    // directly with the database server (preferred, with a
+                                    // loud plaintext fallback), and a pinned CA on the
+                                    // record makes it required. No record field can weaken
+                                    // or override that negotiation.
 
                                     debug!("Parsed db_params for DatabaseProxy (channel_id: {}, conversation_id: {}, protocol: {})",
                                         channel_id, conversation_id, db_protocol_name);

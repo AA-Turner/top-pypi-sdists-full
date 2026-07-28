@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: array_api_strict
-Version: 2.6
+Version: 2.6.1
 Summary: A strict, minimal implementation of the Python array API standard.
 Author: Consortium for Python Data API Standards
 License: Copyright (c) 2021-2024, NumPy Developers, Consortium for Python Data API Standards

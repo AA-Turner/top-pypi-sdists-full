@@ -80,6 +80,8 @@ from .type_defs import (
     StartJobRunResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateVirtualClusterRequestTypeDef,
+    UpdateVirtualClusterResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -366,6 +368,16 @@ class EMRContainersClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr-containers/client/untag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_emr_containers/client/#untag_resource)
+        """
+
+    def update_virtual_cluster(
+        self, **kwargs: Unpack[UpdateVirtualClusterRequestTypeDef]
+    ) -> UpdateVirtualClusterResponseTypeDef:
+        """
+        Updates a virtual cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr-containers/client/update_virtual_cluster.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_emr_containers/client/#update_virtual_cluster)
         """
 
     @overload  # type: ignore[override]

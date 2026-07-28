@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: amulet-core
-Version: 1.9.42
+Version: 1.9.43
 Summary: A Python library for reading/writing Minecraft's various save formats.
 Home-page: https://www.amuletmc.com
 Author: James Clare, Ben Gothard et al.

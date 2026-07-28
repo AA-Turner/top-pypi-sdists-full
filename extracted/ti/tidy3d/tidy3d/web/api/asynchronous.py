@@ -11,14 +11,16 @@ if TYPE_CHECKING:
     from os import PathLike
     from typing import Literal
 
-    from tidy3d.components.types.workflow import WorkflowType
+    from tidy3d.components.types.workflow import WorkflowOperationType
     from tidy3d.web.core.types import PayType
 
     from .container import BatchData
 
 
 def run_async(
-    simulations: dict[str, WorkflowType] | tuple[WorkflowType] | list[WorkflowType],
+    simulations: dict[str, WorkflowOperationType]
+    | tuple[WorkflowOperationType]
+    | list[WorkflowOperationType],
     folder_name: str = "default",
     path_dir: PathLike = DEFAULT_DATA_DIR,
     callback_url: str | None = None,
@@ -56,14 +58,15 @@ def run_async(
     verbose : bool = True
         If ``True``, will print progressbars and status, otherwise, will run silently.
     simulation_type : Optional[str] = None
-        Type of simulation being uploaded. If ``None``, uses
-        ``td.config.run.simulation_type``.
+        Internal simulation type label; external users should leave unset.
     solver_version: Optional[str] = None
-        Target solver version. If ``None``, uses ``td.config.run.solver_version``.
+        Deprecated direct argument for internal use only. Internal workflows should set
+        ``td.config.run.solver_version`` instead; external users should leave unset.
     reduce_simulation: Literal["auto", True, False] = "auto"
         Whether to reduce structures in the simulation to the simulation domain only. Note: currently only implemented for the mode solver.
     pay_type : Optional[Union[PayType, str]] = None
-        Payment method. If ``None``, uses ``td.config.run.pay_type``.
+        Deprecated direct argument for internal use only. Internal workflows should set
+        ``td.config.run.pay_type`` instead; external users should leave unset.
     priority: int = None
         Priority of the simulation in the Virtual GPU (vGPU) queue (1 = lowest, 10 = highest).
         It affects only simulations from vGPU licenses and does not impact simulations using FlexCredits.
@@ -98,9 +101,10 @@ def run_async(
 
     Notes
     -----
-    Passing run options directly is deprecated. Set defaults via
-    ``td.config.run`` and ``td.config.vgpu`` instead. Non-``None`` values
-    passed here override the config for this call.
+    Passing ``solver_version``, ``pay_type``, ``priority``, and vGPU options
+    directly is deprecated. Set defaults via ``td.config.run`` and
+    ``td.config.vgpu`` instead. Non-``None`` values passed here override the
+    config for this call.
     """
     log_deprecated_run_args(
         solver_version=solver_version,

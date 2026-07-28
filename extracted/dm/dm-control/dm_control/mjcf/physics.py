@@ -92,7 +92,8 @@ def _get_attributes(size_names, strip_prefixes):
 
 
 _ATTRIBUTES = {
-    'actuator': _get_attributes(['na', 'nu'], strip_prefixes=['actuator']),
+    'actuator': _get_attributes(['na', 'nu', 'nactuator', 'nout'],
+                                strip_prefixes=['actuator']),
     'body': _get_attributes(['nbody'], strip_prefixes=['body']),
     'mocap_body': _get_attributes(['nbody', 'nmocap'], strip_prefixes=['body']),
     'camera': _get_attributes(['ncam'], strip_prefixes=['cam']),

@@ -19,7 +19,6 @@ from .output.table import (
 )
 import agilicus
 
-
 permissioned_resource_types = [
     "application",
     "fileshare",

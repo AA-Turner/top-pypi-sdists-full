@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import numbers
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -27,6 +29,7 @@ from tidy3d.log import log
 from tidy3d.packaging import requires_vtk, vtk
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
     from os import PathLike
     from typing import Literal
 
@@ -48,6 +51,30 @@ if TYPE_CHECKING:
 DEFAULT_MAX_SAMPLES_PER_STEP = 10_000
 DEFAULT_MAX_CELLS_PER_STEP = 10_000
 DEFAULT_TOLERANCE_CELL_FINDING = 1e-6
+
+# Allow boundary roundoff without accepting unstable weights from near-degenerate cells.
+BARYCENTRIC_WEIGHT_TOLERANCE = 1e-6
+
+# Scales with extent (not absolute coordinate) so detection is origin-independent;
+# absolute floor handles degenerate/tiny slices where the relative term underflows.
+PLANAR_ZERO_DIM_TOLERANCE_ABS = 1e-6
+PLANAR_ZERO_DIM_TOLERANCE_REL = 2e-8
+_WARN_UNUSED_POINTS = ContextVar("tidy3d_warn_unused_unstructured_points", default=True)
+
+
+@contextmanager
+def _suppress_unstructured_grid_unused_point_warnings() -> Generator[None]:
+    """Suppress unused-point warnings while rebuilding trusted internal solver datasets."""
+    token = _WARN_UNUSED_POINTS.set(False)
+    try:
+        yield
+    finally:
+        _WARN_UNUSED_POINTS.reset(token)
+
+
+def planar_zero_dim_tolerance(size_scale: float) -> float:
+    """Tolerance for treating a slice's nominally zero-thickness axis as zero."""
+    return max(PLANAR_ZERO_DIM_TOLERANCE_ABS, PLANAR_ZERO_DIM_TOLERANCE_REL * size_scale)
 
 
 class UnstructuredDataset(Tidy3dBaseModel, np.lib.mixins.NDArrayOperatorsMixin, ABC):
@@ -261,6 +288,9 @@ class UnstructuredDataset(Tidy3dBaseModel, np.lib.mixins.NDArrayOperatorsMixin, 
 
         Uses efficient NumPy boolean array instead of Python sets for O(n) performance.
         """
+        if not _WARN_UNUSED_POINTS.get():
+            return self
+
         num_points = len(self.points.data)
         cell_indices = self.cells.values.ravel()
 
@@ -572,6 +602,15 @@ class UnstructuredDataset(Tidy3dBaseModel, np.lib.mixins.NDArrayOperatorsMixin, 
         return grid
 
     @classmethod
+    def _construct_from_vtk_arrays(cls, warn_unused_points: bool = True, **data: Any) -> Self:
+        """Construct a dataset while optionally suppressing trusted internal cleanup hints."""
+        if warn_unused_points:
+            return cls(**data)
+
+        with _suppress_unstructured_grid_unused_point_warnings():
+            return cls(**data)
+
+    @classmethod
     @requires_vtk
     def _from_vtk_obj(
         cls,
@@ -582,6 +621,7 @@ class UnstructuredDataset(Tidy3dBaseModel, np.lib.mixins.NDArrayOperatorsMixin, 
         values_type: type = IndexedDataArray,
         expect_complex: bool | None = None,
         ignore_invalid_cells: bool = False,
+        warn_unused_points: bool = True,
     ) -> UnstructuredDataset:
         """Initialize from a vtkUnstructuredGrid instance."""
 
@@ -635,7 +675,12 @@ class UnstructuredDataset(Tidy3dBaseModel, np.lib.mixins.NDArrayOperatorsMixin, 
                 points=points, values=values, cells=cells
             )
 
-        return cls(points=points, cells=cells, values=values)
+        return cls._construct_from_vtk_arrays(
+            warn_unused_points=warn_unused_points,
+            points=points,
+            cells=cells,
+            values=values,
+        )
 
     @requires_vtk
     def _from_vtk_obj_internal(
@@ -2003,7 +2048,12 @@ class UnstructuredGridDataset(UnstructuredDataset, ABC):
                 n = np.roll(p01, 1, axis=1)
                 n[:, 0] = -n[:, 0]
             n_norm = np.linalg.norm(n, axis=1)
-            n = n / n_norm[:, None]
+            n = np.divide(
+                n,
+                n_norm[:, None],
+                out=np.zeros_like(n),
+                where=n_norm[:, None] > 0,
+            )
 
             # compute distance to the opposing vertex by taking a dot product between normal
             # and a vector connecting the opposing vertex and the face
@@ -2043,6 +2093,9 @@ class UnstructuredGridDataset(UnstructuredDataset, ABC):
         interpolated = np.zeros(
             [num_samples_total, *self._non_spatial_shape], dtype=self._double_type
         )
+        weight_min = np.full(num_samples_total, inf)
+        weight_max = np.full(num_samples_total, -inf)
+        weight_sum = np.zeros(num_samples_total)
 
         # coordinates of each sample point
         sample_xyz = np.zeros((num_samples_total, num_dims))
@@ -2078,11 +2131,14 @@ class UnstructuredGridDataset(UnstructuredDataset, ABC):
             tmp = self._double_type(
                 data_values.sel(index=cell_connections[step_cell_map, face_ind]).data
             )
-            tmp *= np.reshape(d, [num_samples_total] + [1] * len(self._non_spatial_shape))
-            tmp /= np.reshape(
-                dist[face_ind, step_cell_map],
+            weight = d / dist[face_ind, step_cell_map]
+            tmp *= np.reshape(
+                weight,
                 [num_samples_total] + [1] * len(self._non_spatial_shape),
             )
+            weight_min = np.minimum(weight_min, weight)
+            weight_max = np.maximum(weight_max, weight)
+            weight_sum += weight
 
             # ignore degenerate cells
             dist_zero = dist[face_ind, step_cell_map] > 0
@@ -2095,7 +2151,13 @@ class UnstructuredGridDataset(UnstructuredDataset, ABC):
         # every Cartesian point because bounding boxes of cells overlap.
         # Thus, we need to keep only those that come cell actually containing a given point.
         # This can be easily determined by the sign of the cell SDF sampled at a given point.
-        valid_samples = sdf < sdf_tol
+        valid_weights = (
+            np.isfinite(weight_sum)
+            & (np.abs(weight_sum - 1) <= BARYCENTRIC_WEIGHT_TOLERANCE)
+            & (weight_min >= -BARYCENTRIC_WEIGHT_TOLERANCE)
+            & (weight_max <= 1 + BARYCENTRIC_WEIGHT_TOLERANCE)
+        )
+        valid_samples = (sdf < sdf_tol) & valid_weights
 
         interpolated_valid = interpolated[valid_samples]
         xyz_valid_inds = []

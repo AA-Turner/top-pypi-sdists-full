@@ -17,6 +17,7 @@ import numpy as np
 import xarray as xr
 from pydantic import Field
 
+from tidy3d.components.autograd.flux_monitor import is_flux_adjoint_helper_name
 from tidy3d.components.autograd.utils import split_list
 from tidy3d.components.base import (
     _LAZY_PROXY_UNHANDLED,
@@ -25,6 +26,7 @@ from tidy3d.components.base import (
     cached_property,
 )
 from tidy3d.components.base_sim.data.sim_data import AbstractSimulationData
+from tidy3d.components.file_util import json_string_from_hdf5
 from tidy3d.components.grid.grid_spec import GridSpec
 from tidy3d.components.simulation import Simulation
 from tidy3d.components.source.current import CustomCurrentSource
@@ -38,7 +40,12 @@ from tidy3d.exceptions import AdjointError, DataError, SetupError, Tidy3dKeyErro
 from tidy3d.log import log
 
 from .data_array import FreqDataArray, TimeDataArray, _TracedDataset
-from .monitor_data import AbstractFieldData, FieldTimeData
+from .monitor_data import (
+    AbstractFieldData,
+    FieldTimeData,
+    PointCloudFieldData,
+    PointCloudPermittivityData,
+)
 from .utils import static_dataarray_for_plot
 
 if TYPE_CHECKING:
@@ -135,6 +142,88 @@ class AdjointSourceInfo(Tidy3dBaseModel):
 
 
 @dataclass(frozen=True)
+class _AdjointSimulationSetupResult:
+    """Result of constructing adjoint simulations from traced monitor VJPs."""
+
+    simulations: list[Simulation]
+    all_sources_underflowed: bool = False
+
+
+def _min_adjoint_source_amplitude(simulation: Simulation) -> float:
+    """Minimum adjoint source amplitude expected to survive solver source serialization."""
+    source_time_dtype = np.float64 if simulation.precision == "double" else np.float32
+    return float(np.nextafter(source_time_dtype(0), source_time_dtype(1)))
+
+
+def _current_dataset_magnitude(src: CustomCurrentSource) -> float:
+    """Maximum absolute current amplitude stored in a custom current source dataset."""
+    return float(
+        max(
+            np.max(np.abs(field_component.values))
+            for field_component in src.current_dataset.field_components.values()
+        )
+    )
+
+
+def _adjoint_source_dispatch_magnitude(src: SourceType) -> float:
+    """Effective adjoint source magnitude after source-time and dataset amplitudes."""
+    magnitude = abs(src.source_time.amplitude)
+    if isinstance(src, CustomCurrentSource):
+        magnitude *= _current_dataset_magnitude(src)
+    return magnitude
+
+
+def _is_dispatchable_adjoint_source(src: SourceType, min_amplitude: float) -> bool:
+    """Whether an adjoint source magnitude is large enough to dispatch to the solver."""
+    return _adjoint_source_dispatch_magnitude(src) >= min_amplitude
+
+
+def _warn_skipped_adjoint_sources(num_skipped: int, min_amplitude: float) -> None:
+    """Warn once if adjoint source contributions were skipped as numerically zero."""
+    if not num_skipped:
+        return
+
+    log.warning(
+        "Skipped %d adjoint source(s) whose effective magnitude underflows solver precision "
+        "(%s). These contributions are treated as zero.",
+        num_skipped,
+        min_amplitude,
+        log_once=True,
+    )
+
+
+def _filter_adjoint_sources(
+    sources: list[SourceType],
+    min_amplitude: float,
+) -> tuple[list[SourceType], int]:
+    """Drop raw adjoint sources whose effective magnitude is numerically zero."""
+    filtered_sources = [
+        source for source in sources if _is_dispatchable_adjoint_source(source, min_amplitude)
+    ]
+    return filtered_sources, len(sources) - len(filtered_sources)
+
+
+def _filter_adjoint_source_infos(
+    adjoint_source_infos: list[AdjointSourceInfo],
+    min_amplitude: float,
+) -> tuple[list[AdjointSourceInfo], int]:
+    """Drop adjoint sources whose effective magnitude is numerically zero."""
+    filtered_infos = []
+    num_skipped = 0
+    for adjoint_source_info in adjoint_source_infos:
+        sources = tuple(
+            src
+            for src in adjoint_source_info.sources
+            if _is_dispatchable_adjoint_source(src, min_amplitude)
+        )
+        num_skipped += len(adjoint_source_info.sources) - len(sources)
+        if sources:
+            filtered_infos.append(adjoint_source_info.updated_copy(sources=sources))
+
+    return filtered_infos, num_skipped
+
+
+@dataclass(frozen=True)
 class AdjointSourceGroup:
     """Grouped adjoint sources that share a spatial port, with optional metadata."""
 
@@ -156,9 +245,31 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         original :class:`.Simulation`. This data can be accessed directly using the name given to the monitors initially.
     """
 
+    @staticmethod
+    def _raise_if_point_cloud_data(monitor_data: MonitorDataType, operation: str) -> None:
+        """Reject structured field helpers for indexed point-cloud data."""
+        if isinstance(monitor_data, PointCloudFieldData):
+            data_kind = "fields"
+            example_component = "Ex"
+        elif isinstance(monitor_data, PointCloudPermittivityData):
+            data_kind = "permittivity components"
+            example_component = "eps_xx"
+        else:
+            return
+
+        monitor_name = monitor_data.monitor.name
+        raise DataError(
+            f"'{operation}' is not supported for {type(monitor_data).__name__} because "
+            f"point-cloud {data_kind} are indexed by 'index' rather than structured 'x', "
+            "'y', and 'z' coordinates. Access point-cloud data directly, for example "
+            f"sim_data['{monitor_name}'].{example_component}, and use "
+            f"sim_data['{monitor_name}'].points for the corresponding coordinates."
+        )
+
     def load_field_monitor(self, monitor_name: str) -> AbstractFieldData:
         """Load monitor and raise exception if not a field monitor."""
         mon_data = self[monitor_name]
+        self._raise_if_point_cloud_data(mon_data, "load_field_monitor")
         if not isinstance(mon_data, AbstractFieldData):
             raise DataError(
                 f"data for monitor '{monitor_name}' does not contain field data "
@@ -203,7 +314,7 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         if monitor_data.monitor.colocate:
             # TODO: this still errors if monitor_data.colocate is allowed to be ``True`` in the
             # adjoint plugin, and the monitor data is tracked in a gradient computation. It seems
-            # interpolating does something to the arrays that makes the JAX chain work.
+            # interpolating does something to the arrays that preserves the gradient chain.
             return monitor_data.package_colocate_results(monitor_data.field_components)
 
         # colocate to monitor grid boundaries
@@ -454,13 +565,24 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         return suffix in {".hdf5", ".h5"} and group_path == "/"
 
     @classmethod
-    def _lazy_proxy_ensure_metadata(cls, lazy_state: dict[str, Any]) -> None:
-        """Load simulation metadata needed for selective monitor access."""
+    def _lazy_proxy_monitor_selection(
+        cls, lazy_state: dict[str, Any], model_dict: dict[str, Any]
+    ) -> tuple[list[dict[str, Any]], tuple[int, ...]]:
+        """Return raw monitor dictionaries and selected indices from lazy-file metadata."""
 
-        if (
-            lazy_state.get("_lazy_simulation") is not None
-            and lazy_state.get("_lazy_monitor_data_map") is not None
-        ):
+        monitor_dicts = model_dict["simulation"]["monitors"]
+        requested_monitor_names = lazy_state.get("_lazy_monitor_names")
+        if requested_monitor_names is None:
+            selected_indices = tuple(range(len(monitor_dicts)))
+        else:
+            selected_indices = cls._selected_monitor_indices(monitor_dicts, requested_monitor_names)
+        return monitor_dicts, selected_indices
+
+    @classmethod
+    def _lazy_proxy_ensure_monitor_data_map(cls, lazy_state: dict[str, Any]) -> None:
+        """Build a lazy monitor-data map without validating simulation monitor metadata."""
+
+        if lazy_state.get("_lazy_monitor_data_map") is not None:
             return
 
         model_dict = cls.dict_from_file(
@@ -468,26 +590,45 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
             group_path=cls._construct_group_path(lazy_state["_lazy_group_path"]),
             load_data_arrays=False,
         )
-        monitor_dicts = model_dict["simulation"]["monitors"]
-        requested_monitor_names = lazy_state.get("_lazy_monitor_names")
-        if requested_monitor_names is None:
-            selected_indices = tuple(range(len(monitor_dicts)))
-        else:
-            selected_indices = cls._selected_monitor_indices(monitor_dicts, requested_monitor_names)
+        monitor_dicts, selected_indices = cls._lazy_proxy_monitor_selection(lazy_state, model_dict)
+        selected_monitor_names = tuple(monitor_dicts[index]["name"] for index in selected_indices)
+        lazy_state["_lazy_selected_monitor_names"] = selected_monitor_names
+        lazy_state["_lazy_monitor_data"] = {}
+        lazy_state["_lazy_monitor_data_map"] = _LazyMonitorDataMap(
+            selected_monitor_names,
+            lambda monitor_name: cls._lazy_proxy_load_monitor_data(lazy_state, monitor_name),
+        )
+
+    @classmethod
+    def _lazy_proxy_ensure_simulation(cls, lazy_state: dict[str, Any]) -> None:
+        """Load and validate simulation metadata for explicit simulation access."""
+
+        if lazy_state.get("_lazy_simulation") is not None:
+            return
+
+        model_dict = cls.dict_from_file(
+            fname=lazy_state["_lazy_fname"],
+            group_path=cls._construct_group_path(lazy_state["_lazy_group_path"]),
+            load_data_arrays=False,
+        )
+        monitor_dicts, selected_indices = cls._lazy_proxy_monitor_selection(lazy_state, model_dict)
+        cls._load_selected_simulation_data_arrays(
+            lazy_state["_lazy_fname"], model_dict, selected_indices
+        )
+        if lazy_state.get("_lazy_monitor_names") is not None:
             model_dict["simulation"]["monitors"] = [
                 monitor_dicts[index] for index in selected_indices
             ]
 
         simulation_type = cls.model_fields["simulation"].annotation
         lazy_state["_lazy_simulation"] = simulation_type.model_validate(model_dict["simulation"])
-        lazy_state["_lazy_selected_monitor_names"] = tuple(
-            monitor_dicts[index]["name"] for index in selected_indices
-        )
-        lazy_state["_lazy_monitor_data"] = {}
-        lazy_state["_lazy_monitor_data_map"] = _LazyMonitorDataMap(
-            lazy_state["_lazy_selected_monitor_names"],
-            lambda monitor_name: cls._lazy_proxy_load_monitor_data(lazy_state, monitor_name),
-        )
+
+    @classmethod
+    def _lazy_proxy_ensure_metadata(cls, lazy_state: dict[str, Any]) -> None:
+        """Load all lazy metadata needed by legacy proxy fallbacks."""
+
+        cls._lazy_proxy_ensure_simulation(lazy_state)
+        cls._lazy_proxy_ensure_monitor_data_map(lazy_state)
 
     @classmethod
     def _lazy_proxy_load_monitor_data(
@@ -495,7 +636,7 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
     ) -> MonitorDataType:
         """Load and cache one monitor's data without materializing the full model."""
 
-        cls._lazy_proxy_ensure_metadata(lazy_state)
+        cls._lazy_proxy_ensure_monitor_data_map(lazy_state)
         selected_monitor_names = lazy_state["_lazy_selected_monitor_names"]
         if monitor_name not in selected_monitor_names:
             raise KeyError(monitor_name)
@@ -516,13 +657,13 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         if not cls._lazy_proxy_supports_selective_loading(lazy_state):
             return _LAZY_PROXY_UNHANDLED
         if name == "simulation":
-            cls._lazy_proxy_ensure_metadata(lazy_state)
+            cls._lazy_proxy_ensure_simulation(lazy_state)
             return lazy_state["_lazy_simulation"]
         if name == "monitor_data":
-            cls._lazy_proxy_ensure_metadata(lazy_state)
+            cls._lazy_proxy_ensure_monitor_data_map(lazy_state)
             return lazy_state["_lazy_monitor_data_map"]
         if name == "get_monitor_by_name":
-            cls._lazy_proxy_ensure_metadata(lazy_state)
+            cls._lazy_proxy_ensure_simulation(lazy_state)
             return lazy_state["_lazy_simulation"].get_monitor_by_name
         return _LAZY_PROXY_UNHANDLED
 
@@ -564,6 +705,34 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         return selected_indices
 
     @classmethod
+    def _load_selected_simulation_data_arrays(
+        cls, fname: PathLike, model_dict: dict[str, Any], selected_monitor_indices: tuple[int, ...]
+    ) -> None:
+        """Load simulation metadata arrays without loading monitor result data arrays."""
+
+        selected_monitor_index_set = set(selected_monitor_indices)
+
+        def should_load_path(path: str) -> bool:
+            path_parts = path.strip("/").split("/")
+            if not path_parts or path_parts[0] != "simulation":
+                return False
+
+            if len(path_parts) >= 3 and path_parts[1] == "monitors":
+                try:
+                    return int(path_parts[2]) in selected_monitor_index_set
+                except ValueError:
+                    return False
+
+            return True
+
+        cls._load_data_from_file(
+            fname=fname,
+            model_dict=model_dict,
+            group_path="/",
+            should_load_path=should_load_path,
+        )
+
+    @classmethod
     def mnt_data_from_file(
         cls, fname: PathLike, mnt_name: str, **model_validate_kwargs: Any
     ) -> MonitorDataType:
@@ -597,7 +766,7 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
                 raise ValueError(f"could not find data in the supplied file {fname}")
 
             # get the monitor list from the json string
-            json_string = cls._json_string_from_hdf5(f_handle)
+            json_string = json_string_from_hdf5(f_handle)
             json_dict = json.loads(json_string)
             monitor_list = json_dict["simulation"]["monitors"]
 
@@ -655,9 +824,16 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         selected_indices = cls._selected_monitor_indices(monitor_dicts, monitor_names)
 
         selected_roots = {f"data/{index}" for index in selected_indices}
+        selected_index_set = set(selected_indices)
 
         def should_load_path(subpath: str) -> bool:
             normalized_subpath = subpath.strip("/")
+            path_parts = normalized_subpath.split("/")
+            if len(path_parts) >= 3 and path_parts[:2] == ["simulation", "monitors"]:
+                try:
+                    return int(path_parts[2]) in selected_index_set
+                except ValueError:
+                    return False
             if not normalized_subpath.startswith("data/"):
                 return True
             return any(
@@ -758,16 +934,9 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         matplotlib.axes._subplots.Axes
             The supplied or created matplotlib axes.
         """
-        # get the DataArray corresponding to the monitor_name and field_name
-        # deprecated intensity
-        if field_name == "int":
-            log.warning(
-                "'int' field name is deprecated and will be removed in the future. Please use "
-                "field_name='E' and val='abs^2' for the same effect."
-            )
-            field_name = "E"
-            val = "abs^2"
+        self._raise_if_point_cloud_data(field_monitor_data, "plot_field")
 
+        # get the DataArray corresponding to the monitor_name and field_name
         if field_name in ("E", "H") or field_name[0] == "S":
             # Derived fields
             field_data = self._get_scalar_field_from_data(
@@ -824,22 +993,6 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
                 field_data = field_data.sel(**{axis: pos}, method="nearest")
             else:
                 field_data = field_data.interp(**{axis: pos}, kwargs={"bounds_error": True})
-
-        # warn about new API changes and replace the values
-        if "freq" in sel_kwargs:
-            log.warning(
-                "'freq' supplied to 'plot_field', frequency selection key renamed to 'f' and "
-                "'freq' will error in future release, please update your local script to use "
-                "'f=value'."
-            )
-            sel_kwargs["f"] = sel_kwargs.pop("freq")
-        if "time" in sel_kwargs:
-            log.warning(
-                "'time' supplied to 'plot_field', frequency selection key renamed to 't' and "
-                "'time' will error in future release, please update your local script to use "
-                "'t=value'."
-            )
-            sel_kwargs["t"] = sel_kwargs.pop("time")
 
         # select the extra coordinates out of the data from user-specified kwargs
         for coord_name, coord_val in sel_kwargs.items():
@@ -1302,6 +1455,9 @@ class SimulationData(AbstractYeeGridSimulationData):
         num_mnts_source_adj = sum(
             name.startswith("source_adjoint_") for name in expected_adjoint_names
         )
+        num_mnts_flux_adj = sum(
+            is_flux_adjoint_helper_name(name) for name in expected_adjoint_names
+        )
 
         monitor_data_names = [mnt_data.monitor.name for mnt_data in self.data]
 
@@ -1326,7 +1482,8 @@ class SimulationData(AbstractYeeGridSimulationData):
         expected_known_order = [name for name in expected_all_names if name in monitor_data_names]
 
         log.info(
-            f" -> {num_mnts_original} monitors, {num_mnts_fld} adjoint field monitors, "
+            f" -> {num_mnts_original} monitors, {num_mnts_flux_adj} flux adjoint field monitors, "
+            f"{num_mnts_fld} adjoint field monitors, "
             f"{num_mnts_source_adj} source adjoint monitors, {num_mnts_eps} adjoint eps monitors."
         )
 
@@ -1384,26 +1541,60 @@ class SimulationData(AbstractYeeGridSimulationData):
         adjoint_monitors: list[Monitor],
     ) -> list[Simulation]:
         """Make the adjoint simulations from the original simulation and the VJP-containing data."""
+        return self._make_adjoint_sims_with_result(
+            data_vjp_paths=data_vjp_paths,
+            adjoint_monitors=adjoint_monitors,
+        ).simulations
+
+    def _make_adjoint_sims_with_result(
+        self,
+        data_vjp_paths: set[tuple],
+        adjoint_monitors: list[Monitor],
+    ) -> _AdjointSimulationSetupResult:
+        """Make adjoint simulations and report if all generated sources underflowed."""
 
         if not data_vjp_paths:
-            return []
+            return _AdjointSimulationSetupResult([])
+
+        requested_monitor_names = {self.data[index].monitor.name for _, index, _ in data_vjp_paths}
 
         # generate the adjoint sources {mnt_name : list[Source]}
         sources_adj_dict = self._make_adjoint_sources(data_vjp_paths=data_vjp_paths)
         if not sources_adj_dict:
-            return []
+            return _AdjointSimulationSetupResult([])
+        sources_generated_for_all_monitors = requested_monitor_names <= set(sources_adj_dict)
 
         adj_srcs = []
         for src_list in sources_adj_dict.values():
             adj_srcs += list(src_list)
 
         if not adj_srcs:
-            return []
+            return _AdjointSimulationSetupResult([])
+
+        min_source_amplitude = _min_adjoint_source_amplitude(self.simulation)
+        adj_srcs, num_skipped_before_grouping = _filter_adjoint_sources(
+            adj_srcs, min_source_amplitude
+        )
+        if not adj_srcs:
+            _warn_skipped_adjoint_sources(num_skipped_before_grouping, min_source_amplitude)
+            return _AdjointSimulationSetupResult(
+                [],
+                all_sources_underflowed=bool(num_skipped_before_grouping)
+                and sources_generated_for_all_monitors,
+            )
 
         adjoint_source_infos = self._process_adjoint_sources(adj_srcs=adj_srcs)
+        adjoint_source_infos, num_skipped_after_grouping = _filter_adjoint_source_infos(
+            adjoint_source_infos, min_source_amplitude
+        )
+        num_skipped = num_skipped_before_grouping + num_skipped_after_grouping
+        _warn_skipped_adjoint_sources(num_skipped, min_source_amplitude)
 
         if not adjoint_source_infos:
-            return []
+            return _AdjointSimulationSetupResult(
+                [],
+                all_sources_underflowed=bool(num_skipped) and sources_generated_for_all_monitors,
+            )
 
         adj_sims = []
         for adjoint_source_info in adjoint_source_infos:
@@ -1417,7 +1608,7 @@ class SimulationData(AbstractYeeGridSimulationData):
 
         log.info(f"Created {len(adj_sims)} adjoint simulations.")
 
-        return adj_sims
+        return _AdjointSimulationSetupResult(adj_sims)
 
     def _make_adjoint_sources(self, data_vjp_paths: set[tuple]) -> dict[str, list[SourceType]]:
         """Generate all of the non-zero sources for the adjoint simulation given the VJP data."""
@@ -1638,7 +1829,7 @@ class SimulationData(AbstractYeeGridSimulationData):
             if len(adj_srcs) > 1:
                 src_freqs = np.array([src.source_time._freq0 for src in adj_srcs], dtype=float)
                 freq_span = float(np.max(src_freqs) - np.min(src_freqs))
-                if freq_span > GAUSSIAN_WIDE_BANDWIDTH_THRESHOLD * float(adj_src_f0):
+                if freq_span > GAUSSIAN_WIDE_BANDWIDTH_THRESHOLD * adj_src_f0:
                     num_freqs = 3
             src_broadband = src_broadband.updated_copy(num_freqs=num_freqs)
 

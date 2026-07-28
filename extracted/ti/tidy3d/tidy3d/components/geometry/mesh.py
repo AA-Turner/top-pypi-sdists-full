@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 from autograd import numpy as anp
 from pydantic import Field, field_validator, model_validator
 
 from tidy3d.components.autograd import get_static
+from tidy3d.components.autograd.path_utils import traced_paths
+from tidy3d.components.autograd.types import PathType
 from tidy3d.components.base import cached_property
 from tidy3d.components.data.data_array import DATA_ARRAY_MAP, TriangleMeshDataArray
 from tidy3d.components.data.dataset import TriangleMeshDataset
@@ -47,6 +49,10 @@ class TriangleMesh(base.Geometry, ABC):
     >>> faces = np.array([[1, 2, 3], [0, 3, 2], [0, 1, 3], [0, 2, 1]])
     >>> stl_geom = TriangleMesh.from_vertices_faces(vertices, faces)
     """
+
+    _traced_supported_paths: ClassVar[tuple[PathType, ...]] = traced_paths(
+        ("mesh_dataset", "surface_mesh")
+    )
 
     mesh_dataset: TriangleMeshDataset | None = Field(
         None,
@@ -771,11 +777,6 @@ class TriangleMesh(base.Geometry, ABC):
         if not self.mesh_dataset:
             raise DataError("Can't compute derivatives without mesh data.")
 
-        valid_paths = {("mesh_dataset", "surface_mesh")}
-        for path in derivative_info.paths:
-            if path not in valid_paths:
-                raise ValueError(f"No derivative defined w.r.t. 'TriangleMesh' field '{path}'.")
-
         if ("mesh_dataset", "surface_mesh") not in derivative_info.paths:
             return vjps
 
@@ -860,7 +861,7 @@ class TriangleMesh(base.Geometry, ABC):
         faces_list: list[np.ndarray] = []
         bary_list: list[np.ndarray] = []
 
-        spacing = max(float(spacing), np.finfo(float).eps)
+        spacing = max(spacing, np.finfo(float).eps)
         triangles_arr = np.asarray(triangles, dtype=dtype)
 
         sim_extents = sim_max - sim_min
@@ -1205,7 +1206,7 @@ class TriangleMesh(base.Geometry, ABC):
     ) -> int:
         """Determine the number of subdivisions needed for the given area and spacing."""
 
-        spacing = max(float(spacing), np.finfo(float).eps)
+        spacing = max(spacing, np.finfo(float).eps)
 
         target = np.sqrt(max(area, 0.0))
         area_based = np.ceil(np.sqrt(2.0) * target / spacing)

@@ -28,7 +28,6 @@ import jax
 import jax.numpy as jnp
 import tensorflow as tf
 
-PRNGKey = typing.PRNGKey
 State = typing.State
 Params = typing.Params
 
@@ -533,17 +532,13 @@ class TransformTest(parameterized.TestCase):
       init(jax.random.PRNGKey(42))
 
   @test_utils.combined_named_parameters(
-      (("jit", jax.jit),
-       ("pmap", jax.pmap)),
-      (("transform", transform.transform),
-       ("transform_with_state", transform.transform_with_state)))
+      (("jit", jax.jit),),
+      (
+          ("transform", transform.transform),
+          ("transform_with_state", transform.transform_with_state),
+      ),
+  )
   def test_passing_function_to_transform(self, jax_transform, hk_transform):
-    if jax.config.jax_pmap_shmap_merge and jax_transform == jax.pmap:
-      self.skipTest(
-          "`jax.jit` under `jax_pmap_shmap_merge=True` is implemented using"
-          " `jax.shard_map` and does not have the type `PmapFunction`."
-      )
-
     f = jax_transform(lambda: 0)
     with self.assertRaisesRegex(
         ValueError,
@@ -597,7 +592,7 @@ class TransformTest(parameterized.TestCase):
       return 2
 
     def expected_f_init(
-        rng: PRNGKey | int | None, pos, key=37
+        rng: jax.Array | int | None, pos, key=37
     ) -> tuple[Params, State]:
       del rng, pos, key
       raise NotImplementedError
@@ -605,7 +600,7 @@ class TransformTest(parameterized.TestCase):
     def expected_f_apply(
         params: Params | None,
         state: State | None,
-        rng: PRNGKey | int | None,
+        rng: jax.Array | int | None,
         pos,
         key=37,
     ) -> tuple[int, State]:
@@ -622,12 +617,12 @@ class TransformTest(parameterized.TestCase):
     def f(pos, *, key: int = 37) -> int:
       del pos, key
       return 2
-    def expected_f_init(rng: PRNGKey | int | None,
+    def expected_f_init(rng: jax.Array | int | None,
                         pos, *, key: int = 37) -> Params:
       del rng, pos, key
       raise NotImplementedError
     def expected_f_apply(
-        params: Params | None, rng: PRNGKey | int | None,
+        params: Params | None, rng: jax.Array | int | None,
         pos, *, key: int = 37) -> int:
       del params, rng, pos, key
       raise NotImplementedError
@@ -639,7 +634,7 @@ class TransformTest(parameterized.TestCase):
   def test_init_return_type_is_mutable(self):
     init, _ = transform.transform(lambda: None)
     params = init(None)
-    params["a"] = None  # Check type-checker does not complain.
+    params["a"] = None  # Check type-checker does not complain.  # pyrefly: ignore[unsupported-operation]
 
 
 class ObjectWithTransform:

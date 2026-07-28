@@ -29,7 +29,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
-          version: "0.11.30"
+          version: "0.11.32"
 
       - name: Install dependencies
         shell: bash
@@ -126,10 +126,9 @@ jobs:
           owner: atlanhq
           repositories: application-sdk
       - name: Trigger the self-hosted Renovate runner
-        # No dry_run/repos overrides: inherits renovate.yaml's defaults (full
-        # discovery; dry_run=full until PR2 Stage 3 flips it live). So this is an
-        # inert rehearsal today and becomes the real post-release fan-out at
-        # go-live. Soft-fail so a fan-out hiccup never fails the release.
+        # No dry_run/repos overrides: inherits renovate.yaml's live defaults (full
+        # discovery, dry_run=null). Soft-fail so a fan-out hiccup never fails the
+        # release — the 4-hourly schedule is the backstop.
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.ORG_PAT_GITHUB }}
         run: |

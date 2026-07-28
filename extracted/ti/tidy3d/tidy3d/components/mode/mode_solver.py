@@ -85,6 +85,7 @@ from tidy3d.components.validators import (
     validate_freqs_not_empty,
 )
 from tidy3d.components.viz import make_ax, plot_params_pml
+from tidy3d.config import config
 from tidy3d.constants import C_0, fp_eps
 from tidy3d.exceptions import SetupError, ValidationError
 from tidy3d.log import log
@@ -204,7 +205,7 @@ class ModeSolver(Tidy3dBaseModel):
     simulation: MODE_SIMULATION_TYPE = Field(
         title="Simulation",
         description="Simulation or EMESimulation defining all structures and mediums.",
-        discriminator="type",
+        discriminator=TYPE_TAG_STR,
     )
 
     plane: MODE_PLANE_TYPE = Field(
@@ -275,7 +276,7 @@ class ModeSolver(Tidy3dBaseModel):
     @field_validator("simulation")
     @classmethod
     def _convert_to_simulation(cls, val: MODE_SIMULATION_TYPE) -> MODE_SIMULATION_TYPE:
-        """Convert to regular Simulation if e.g. JaxSimulation given."""
+        """Convert legacy differentiable simulation wrappers to regular Simulation."""
         if hasattr(val, "to_simulation"):
             val = val.to_simulation()[0]
             log.warning(
@@ -437,7 +438,7 @@ class ModeSolver(Tidy3dBaseModel):
         """Whether ``medium`` is supported by angled-plane structure rotation."""
         is_uniform_isotropic = isinstance(medium, get_args(IsotropicUniformMediumType))
         is_rotation_invariant_anisotropic = isinstance(
-            medium, (AnisotropicMedium, FullyAnisotropicMedium)
+            medium, AnisotropicMedium | FullyAnisotropicMedium
         ) and medium_is_rotation_invariant(
             medium=medium, rotation_matrix=rotation_matrix, freqs=freqs
         )
@@ -643,6 +644,55 @@ class ModeSolver(Tidy3dBaseModel):
         snap_spec = SnappingSpec(location=tuple(location), behavior=tuple(behavior))
         return snap_box_to_grid(grid, box, snap_spec)
 
+    @staticmethod
+    def _snapped_mode_domain_to_grid_inds(
+        grid: Grid,
+        snap_box: Box,
+        normal_axis: Axis,
+        solver_symmetry: tuple[int, int] = (0, 0),
+    ) -> tuple[tuple[int, int], tuple[int, int], tuple[int, int]]:
+        """Map a snapped mode-domain box to cell index ranges ``[beg, end)`` in ``grid``.
+
+        Callers pass the snapped box from
+        ``_snapped_mode_domain(sim.grid, plane, normal_axis)`` together with a grid to
+        index against: ``sim.grid`` for sim-frame indices, or ``_output_grid`` for
+        mode-solver-frame indices. On symmetry axes the start index is pinned to 0
+        (the symmetry plane edge). Degenerate axes (``num_cells <= 1``) are left at
+        ``(0, num_cells)``.
+        """
+        bounds_list = grid.boundaries.to_list
+        num_cells = grid.num_cells
+        span_inds: list[tuple[int, int]] = [(0, num_cells[ax]) for ax in range(3)]
+
+        _, tangential_axes = Box.pop_axis([0, 1, 2], normal_axis)
+        for tang_idx, axis in enumerate(tangential_axes):
+            if num_cells[axis] <= 1:
+                continue
+
+            axis_bounds = bounds_list[axis]
+
+            ind_beg = 0
+            if solver_symmetry[tang_idx] == 0:
+                ind_beg = find_snap_location(
+                    axis_bounds,
+                    snap_box.bounds[0][axis],
+                    "lower",
+                    rel_tol=fp_eps,
+                    abs_tol=fp_eps,
+                )
+
+            ind_end = find_snap_location(
+                axis_bounds,
+                snap_box.bounds[1][axis],
+                "upper",
+                rel_tol=fp_eps,
+                abs_tol=fp_eps,
+            )
+
+            span_inds[axis] = (ind_beg, ind_end)
+
+        return tuple(span_inds)
+
     @cached_property
     def _solver_grid_span_inds(self) -> tuple[tuple[int, int], tuple[int, int], tuple[int, int]]:
         """Cell index ranges ``[beg, end]`` inside ``_output_grid`` for the solver grid.
@@ -652,36 +702,13 @@ class ModeSolver(Tidy3dBaseModel):
         cell indices in ``_output_grid``.  On symmetry axes the start index
         is pinned to 0 (the symmetry plane edge).
         """
-        output_bounds = self._output_grid.boundaries.to_list
-        num_cells = self._output_grid.num_cells
-        span_inds: list[tuple[int, int]] = [(0, num_cells[ax]) for ax in range(3)]
-
         snapped = self._snapped_mode_domain(self.simulation.grid, self.plane, self.normal_axis)
-        _, tangential_axes = Box.pop_axis([0, 1, 2], self.normal_axis)
-
-        for tangential_idx, axis in enumerate(tangential_axes):
-            # No truncation on degenerate axes (1D mode solves in 2D simulations)
-            if num_cells[axis] <= 1:
-                continue
-
-            axis_bounds = output_bounds[axis]
-
-            # Keep the symmetry edge (index 0) unchanged.
-            ind_beg = 0
-            if self.solver_symmetry[tangential_idx] == 0:
-                bound_min = snapped.bounds[0][axis]
-                ind_beg = find_snap_location(
-                    axis_bounds, bound_min, "lower", rel_tol=fp_eps, abs_tol=fp_eps
-                )
-
-            bound_max = snapped.bounds[1][axis]
-            ind_end = find_snap_location(
-                axis_bounds, bound_max, "upper", rel_tol=fp_eps, abs_tol=fp_eps
-            )
-
-            span_inds[axis] = (ind_beg, ind_end)
-
-        return tuple(span_inds)
+        return self._snapped_mode_domain_to_grid_inds(
+            grid=self._output_grid,
+            snap_box=snapped,
+            normal_axis=self.normal_axis,
+            solver_symmetry=self.solver_symmetry,
+        )
 
     @classmethod
     def _get_solver_grid(
@@ -863,7 +890,7 @@ class ModeSolver(Tidy3dBaseModel):
         # Compute data on the Yee grid
         mode_solver_data = self._data_on_yee_grid()
         if self._has_microwave_mode_spec or self._has_microwave_terminal_mode_spec:
-            data = mode_solver_data.model_dump(exclude={"type", "monitor"})
+            data = mode_solver_data.model_dump(exclude={TYPE_TAG_STR, "monitor"})
             data["monitor"] = mode_solver_data.monitor
             mode_solver_data = MicrowaveModeSolverData(**data)
 
@@ -1319,7 +1346,7 @@ class ModeSolver(Tidy3dBaseModel):
             str, ScalarModeFieldCylindricalDataArray | ModeIndexDataArray
         ],
         solver: ModeSolver,
-    ) -> ModeSolverData:
+    ) -> dict[str, ScalarModeFieldDataArray | ModeIndexDataArray]:
         """Rotate the mode solver solution from the reference plane in cylindrical coordinates
         to the desired monitor plane."""
         rotated_data_arrays = {}
@@ -3526,6 +3553,9 @@ class ModeSolver(Tidy3dBaseModel):
 
     def _validate_modes_size(self) -> None:
         """Make sure that the total size of the modes fields is not too large."""
+        if config.simulation.skip_size_checks:
+            return
+
         monitor = self.to_mode_solver_monitor(name=MODE_MONITOR_NAME)
         num_cells = self.simulation._monitor_num_cells(monitor)
         # size in GB
@@ -3595,7 +3625,7 @@ class ModeSolver(Tidy3dBaseModel):
         for axis in "xyz":
             bcomp = bspec[axis]
             for bside, sign in zip([bcomp.plus, bcomp.minus], "+-"):
-                if isinstance(bside, (PML, StablePML, Absorber)):
+                if isinstance(bside, PML | StablePML | Absorber):
                     new_bspec_dict[axis + sign] = PECBoundary()
                 else:
                     new_bspec_dict[axis + sign] = bside

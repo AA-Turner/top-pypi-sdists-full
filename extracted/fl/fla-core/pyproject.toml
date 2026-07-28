@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fla-core"
-version = "0.5.1"
+version = "0.5.2"
 description = "Core operations for flash-linear-attention"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -19,7 +19,7 @@ Repository = "https://github.com/fla-org/flash-linear-attention"
 cuda = ["torch>=2.7.0", "triton>=3.3"]
 rocm = ["torch>=2.7.0"]
 xpu = ["torch>=2.7.0"]
-npu = ["torch==2.6.0", "torch_npu==2.6.0", "triton-ascend==3.2.0"]
+npu = ["torch==2.7.1", "torch_npu==2.7.1.post4", "torchvision==0.22.1", "triton-ascend==3.2.1"]
 cpu = ["torch>=2.7.0", "triton>=3.3"]
 
 

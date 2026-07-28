@@ -56,9 +56,7 @@ class Settings:
 # Defaults
 defaults = {
     "ENV": "local",
-    "RESOURCE_PATH": get_resource_path(
-        "taktile_auth", "assets/resources.yaml"
-    ),
+    "RESOURCE_PATH": get_resource_path("taktile_auth", "assets/resources.yaml"),
     "ROLE_PATH": get_resource_path("taktile_auth", "assets/roles.yaml"),
     "CACHE_SPEEDUP_TIME_MINUTES": 60,
     "CACHE_FALLBACK_TIME_MINUTES": 72 * 60,

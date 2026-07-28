@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import contextlib
 import numpy as np
 
 try:
@@ -20,6 +21,15 @@ class Preconditioner(ABC):
             return cp
         else:
             return np
+        
+    def get_device_context(self):
+        """
+        Returns a context manager ensuring operations run on the correct GPU.
+        Returns a nullcontext for CPU operations.
+        """
+        if CUPY_AVAILABLE and isinstance(getattr(self, 'device', None), str) and "gpu" in self.device:
+            return cp.cuda.Device(self.gpu_index)
+        return contextlib.nullcontext()
     
     @abstractmethod
     def get_name(self):

@@ -8,9 +8,7 @@ from taktile_auth.entities.role import Role
 from taktile_auth.enums import Action
 
 
-def _map_and_filter(
-    input_: t.Dict[str, t.Any], map_: t.Dict[str, str]
-) -> t.Dict[str, t.Any]:
+def _map_and_filter(input_: t.Dict[str, t.Any], map_: t.Dict[str, str]) -> t.Dict[str, t.Any]:
     """
     Mapping the keys of dictionary input_, ignoring keys that are not mentioned
 
@@ -51,30 +49,18 @@ def to_sqlalchemy_filter(
 
     """
 
-    all_permissions = [
-        perm for role in roles for perm in role.get_all_permissions()
-    ]
+    all_permissions = [perm for role in roles for perm in role.get_all_permissions()]
 
     filtered_permissions = [
-        perm
-        for perm in all_permissions
-        if perm.resource_name == resource_name and action in perm.actions
+        perm for perm in all_permissions if perm.resource_name == resource_name and action in perm.actions
     ]
 
-    filtering_parameters = [
-        _map_and_filter(perm.resource.dict(), mappings)
-        for perm in filtered_permissions
-    ]
+    filtering_parameters = [_map_and_filter(perm.resource.dict(), mappings) for perm in filtered_permissions]
 
     def func(model: t.Any, query: Query) -> Query:
-        queries = [
-            [_to_sql_stmt(model, k, v) for k, v in iden.items()]
-            for iden in filtering_parameters
-        ]
+        queries = [[_to_sql_stmt(model, k, v) for k, v in iden.items()] for iden in filtering_parameters]
 
-        inner_stmts = [
-            reduce(lambda x, y: x & y, query, true()) for query in queries
-        ]
+        inner_stmts = [reduce(lambda x, y: x & y, query, true()) for query in queries]
 
         stmt = reduce(lambda x, y: x | y, inner_stmts, false())
 

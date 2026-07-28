@@ -1,19 +1,23 @@
 """PROV-XML serializer for ProvDocument."""
 
-from __future__ import annotations  # needed for | type annotations in Python < 3.10
-
 import datetime
 import io
 import logging
+import re
 import warnings
 from typing import Any
 
 from lxml import etree
 
-import prov
 import prov.identifier
+import prov.model
 from prov.constants import *
-from prov.model import DEFAULT_NAMESPACES, sorted_attributes
+from prov.model import (
+    DEFAULT_NAMESPACES,
+    NameValuePair,
+    canonical_xsd_datatype,
+    sorted_attributes,
+)
 from prov.serializers import Serializer, _is_text_stream
 
 __author__ = "Lion Krischer"
@@ -25,23 +29,48 @@ logger = logging.getLogger(__name__)
 # mapping.
 FULL_NAMES_MAP = dict(PROV_N_MAP)
 FULL_NAMES_MAP.update(ADDITIONAL_N_MAP)
-"""Maps every PROV record/subtype QualifiedName (including PROV-XML's
-top-level subtypes from :data:`~prov.constants.ADDITIONAL_N_MAP`) to its
-PROV-XML element name."""
+# Maps every PROV record/subtype QualifiedName (including PROV-XML's
+# top-level subtypes from ADDITIONAL_N_MAP in prov.constants) to its
+# PROV-XML element name.
 # Inverse mapping.
 FULL_PROV_RECORD_IDS_MAP = {
     FULL_NAMES_MAP[rec_type_id]: rec_type_id for rec_type_id in FULL_NAMES_MAP
 }
-"""Inverse of :data:`FULL_NAMES_MAP`: maps each PROV-XML element name back to
-its record/subtype QualifiedName."""
+# Inverse of FULL_NAMES_MAP: maps each PROV-XML element name back to its
+# record/subtype QualifiedName.
 
 XML_XSD_URI = "http://www.w3.org/2001/XMLSchema"
+
+# Hardened against XXE / entity expansion (#273): PROV-XML documents have no
+# legitimate use for DTD entity resolution or network access, so both are
+# switched off explicitly rather than left to whatever lxml's own default
+# parser happens to do. This matters for three distinct reasons, not just
+# one: lxml's own default for `resolve_entities` only became safe ('internal')
+# in lxml 5.0 -- this package's floor (`lxml>=3.3.5`) still admits older
+# releases that default to `True` (full external entity resolution); even on
+# a safe lxml release, any other library sharing the process can repoint the
+# *global* default parser via `etree.set_default_parser(...)`, which is what
+# a bare `etree.parse(...)` call (no `parser=`) silently inherits; and prov
+# is consumed by other applications (e.g. ProvStore) that may load such
+# libraries. Passing this parser explicitly at both parse sites closes all
+# three regardless of the installed lxml version or what else is loaded in
+# the process. `huge_tree` is left at its lxml default of `False`: raising it
+# disables libxml2's own hard limits on tree depth/text length/entity
+# amplification, which is the opposite of what a hardened parser wants here.
+#
+# Shared module-level instance, not one constructed per parse: lxml's own
+# documentation for `XMLParser` states that sharing a parser across threads
+# "is not harmful", only less efficient than per-thread instances under
+# heavy concurrent load (access is internally serialized). PROV-XML
+# deserialization is not expected to be a high-frequency, highly concurrent
+# hot path even in a web service such as ProvStore, so the simplicity of a
+# single shared parser wins over per-parse allocation; if profiling ever
+# shows lock contention here, switch to constructing a parser per call.
+_XML_PARSER = etree.XMLParser(resolve_entities=False, no_network=True)
 
 
 class ProvXMLException(prov.Error):
     """Raised when a PROV-XML document cannot be serialized or parsed by this package."""
-
-    pass
 
 
 class ProvXMLSerializer(Serializer):
@@ -117,10 +146,41 @@ class ProvXMLSerializer(Serializer):
         """
         # Build the namespace map for lxml and attach it to the root XML
         # element.
-        nsmap = {
+        nsmap = self._build_nsmap(bundle)
+
+        if element is not None:
+            xml_bundle_root = etree.SubElement(
+                element, _ns_prov("bundleContent"), nsmap=nsmap
+            )
+        else:
+            xml_bundle_root = etree.Element(_ns_prov("document"), nsmap=nsmap)
+
+        if bundle.identifier:
+            xml_bundle_root.attrib[_ns_prov("id")] = str(bundle.identifier)
+
+        for record in bundle._records:
+            self._encode_record(xml_bundle_root, record, force_types)
+        return xml_bundle_root
+
+    def _build_nsmap(self, bundle: prov.model.ProvBundle) -> dict[str, str]:
+        """Build the lxml namespace map for ``bundle``'s root XML element.
+
+        Insertion order is significant: lxml emits namespace declarations in
+        the order of the mapping, so the registered namespaces of
+        ``self.document`` come first, then its default namespace (under the
+        ``None`` key), then ``bundle``'s own namespaces, then
+        :data:`~prov.model.DEFAULT_NAMESPACES`.
+
+        Args:
+            bundle: The bundle or document being serialized.
+
+        Returns:
+            A prefix-to-URI mapping suitable for lxml's ``nsmap`` argument.
+        """
+        nsmap: dict[str, str] = {
             ns.prefix: ns.uri
             for ns in self.document._namespaces.get_registered_namespaces()  # type: ignore[union-attr]
-        }  # type: dict[str, str]
+        }
         if self.document._namespaces._default:  # type: ignore[union-attr]
             # TODO: Check if the below works as expected.
             nsmap[None] = self.document._namespaces._default.uri  # type: ignore[union-attr, index]
@@ -135,117 +195,37 @@ class ProvXMLSerializer(Serializer):
                 # for PROV XML, but for all other serializations it does.
                 uri = uri.rstrip("#")
             nsmap[value.prefix] = uri
+        return nsmap
 
-        if element is not None:
-            xml_bundle_root = etree.SubElement(
-                element, _ns_prov("bundleContent"), nsmap=nsmap
-            )
-        else:
-            xml_bundle_root = etree.Element(_ns_prov("document"), nsmap=nsmap)
+    def _encode_record(
+        self,
+        xml_bundle_root: etree._Element,
+        record: prov.model.ProvRecord,
+        force_types: bool,
+    ) -> None:
+        """Add one record, with all of its attributes, to a bundle element.
 
-        if bundle.identifier:
-            xml_bundle_root.attrib[_ns_prov("id")] = str(bundle.identifier)
+        Args:
+            xml_bundle_root: The ``<prov:document>`` or
+                ``<prov:bundleContent>`` element to append the record
+                element to.
+            record: The record to encode.
+            force_types: See :meth:`serialize`.
+        """
+        rec_type = record.get_type()
+        identifier = str(record._identifier) if record._identifier else None
 
-        for record in bundle._records:
-            rec_type = record.get_type()
-            identifier = str(record._identifier) if record._identifier else None
+        attrs = {_ns_prov("id"): identifier} if identifier else None
 
-            attrs = {_ns_prov("id"): identifier} if identifier else None
+        # Derive the record label from its attributes which is sometimes
+        # needed.
+        attributes = record.attributes
+        rec_label = self._derive_record_label(rec_type, attributes)
 
-            # Derive the record label from its attributes which is sometimes
-            # needed.
-            attributes = record.attributes
-            rec_label = self._derive_record_label(rec_type, attributes)
+        elem = etree.SubElement(xml_bundle_root, _ns_prov(rec_label), attrs)
 
-            elem = etree.SubElement(xml_bundle_root, _ns_prov(rec_label), attrs)
-
-            for attr, value in sorted_attributes(rec_type, attributes):
-                subelem = etree.SubElement(
-                    elem, _ns(attr.namespace.uri, attr.localpart)
-                )
-                if isinstance(value, prov.model.Literal):
-                    if (
-                        value.datatype is not None
-                        and value.datatype != PROV_INTERNATIONALIZEDSTRING
-                    ):
-                        subelem.attrib[_ns_xsi("type")] = (
-                            f"{value.datatype.namespace.prefix}:{value.datatype.localpart}"
-                        )
-                    if value.langtag is not None:
-                        subelem.attrib[_ns_xml("lang")] = value.langtag
-                    v = value.value
-                elif isinstance(value, prov.identifier.QualifiedName):
-                    if attr not in PROV_ATTRIBUTE_QNAMES:
-                        subelem.attrib[_ns_xsi("type")] = "xsd:QName"
-                    v = str(value)
-                elif isinstance(value, datetime.datetime):
-                    v = value.isoformat()
-                else:
-                    v = str(value)
-
-                # xsd type inference.
-                #
-                # This is a bit messy and there are all kinds of special
-                # rules but it appears to get the job done.
-                #
-                # If it is a type element and does not yet have an
-                # associated xsi type, try to infer it from the value.
-                # The not startswith("prov:") check is a little bit hacky to
-                # avoid type interference when the type is a standard prov
-                # type.
-                #
-                # To enable a mapping of Python types to XML and back,
-                # the XSD type must be written for these types.
-                ALWAYS_CHECK = {
-                    bool,
-                    datetime.datetime,
-                    float,
-                    int,
-                    prov.identifier.Identifier,
-                }
-                if (
-                    (
-                        force_types
-                        or type(value) in ALWAYS_CHECK
-                        or attr in [PROV_TYPE, PROV_LOCATION, PROV_VALUE]
-                    )
-                    and _ns_xsi("type") not in subelem.attrib
-                    and not str(value).startswith("prov:")
-                    and not (attr in PROV_ATTRIBUTE_QNAMES and v)
-                    and attr not in [PROV_ATTR_TIME, PROV_LABEL]
-                ):
-                    xsd_type = None
-                    if isinstance(value, bool):
-                        xsd_type = XSD_BOOLEAN
-                        v = v.lower()
-                    elif isinstance(value, str):
-                        xsd_type = XSD_STRING
-                    elif isinstance(value, float):
-                        xsd_type = XSD_DOUBLE
-                    elif isinstance(value, int):
-                        xsd_type = XSD_INT
-                    elif isinstance(value, datetime.datetime):
-                        # Exception of the exception, while technically
-                        # still correct, do not write XSD dateTime type for
-                        # attributes in the PROV namespaces as the type is
-                        # already declared in the XSD and PROV XML also does
-                        # not specify it in the docs.
-                        if (
-                            attr.namespace.prefix != "prov"
-                            or "time" not in attr.localpart.lower()
-                        ):
-                            xsd_type = XSD_DATETIME
-                    elif isinstance(value, prov.identifier.Identifier):
-                        xsd_type = XSD_ANYURI
-
-                    if xsd_type is not None:
-                        subelem.attrib[_ns_xsi("type")] = str(xsd_type)
-
-                if attr in PROV_ATTRIBUTE_QNAMES and v:
-                    subelem.attrib[_ns_prov("ref")] = v
-                else:
-                    subelem.text = v
-        return xml_bundle_root
+        for attr, value in sorted_attributes(rec_type, attributes):
+            _encode_attribute(elem, attr, value, force_types)
 
     def deserialize(self, stream: io.IOBase, **kwargs: Any) -> prov.model.ProvDocument:
         """Deserialize a `PROV-XML <http://www.w3.org/TR/prov-xml/>`_
@@ -266,9 +246,9 @@ class ProvXMLSerializer(Serializer):
             with io.BytesIO() as buf:
                 buf.write(stream.read().encode("utf-8"))
                 buf.seek(0, 0)
-                xml_doc = etree.parse(buf).getroot()  # type: etree._Element
+                xml_doc: etree._Element = etree.parse(buf, parser=_XML_PARSER).getroot()
         else:
-            xml_doc = etree.parse(stream).getroot()  # type: ignore[arg-type]
+            xml_doc = etree.parse(stream, parser=_XML_PARSER).getroot()  # type: ignore[arg-type]
 
         # Remove all comments.
         for c in xml_doc.xpath("//comment()"):  # type: ignore[union-attr]
@@ -335,8 +315,12 @@ class ProvXMLSerializer(Serializer):
 
             # Recursively read bundles.
             if qname.localname == "bundleContent":
-                assert isinstance(bundle, prov.model.ProvDocument)
-                assert prov_rec_id is not None
+                if not isinstance(bundle, prov.model.ProvDocument):
+                    # Only a document may directly contain named bundles;
+                    # nested bundleContent would mean a bundle-within-a-bundle.
+                    raise AssertionError("bundleContent found outside a ProvDocument")
+                if prov_rec_id is None:
+                    raise AssertionError("bundleContent element has no id")
                 b = bundle.bundle(identifier=prov_rec_id)
                 self.deserialize_subtree(element, b)
                 continue
@@ -364,7 +348,7 @@ class ProvXMLSerializer(Serializer):
     def _derive_record_label(
         self,
         rec_type: prov.identifier.QualifiedName,
-        attributes: list[tuple[prov.identifier.QualifiedName, Any]],
+        attributes: list[NameValuePair],
     ) -> str:
         """Derive the PROV-XML element name for a record, honouring subtypes.
 
@@ -390,6 +374,8 @@ class ProvXMLSerializer(Serializer):
                 continue
             if isinstance(value, prov.model.Literal):
                 value = value.value
+            if not isinstance(value, prov.identifier.QualifiedName):
+                continue
             if value in PROV_BASE_CLS and PROV_BASE_CLS[value] != value:
                 attributes.remove((key, value))
                 rec_label = FULL_NAMES_MAP[value]
@@ -397,9 +383,186 @@ class ProvXMLSerializer(Serializer):
         return rec_label
 
 
+def _encode_attribute(
+    elem: etree._Element,
+    attr: prov.identifier.QualifiedName,
+    value: Any,
+    force_types: bool,
+) -> None:
+    """Add one attribute of a record as a child element of its record element.
+
+    Args:
+        elem: The record element to append the attribute element to.
+        attr: The attribute's name.
+        value: The attribute's value.
+        force_types: See :meth:`ProvXMLSerializer.serialize`.
+    """
+    subelem = etree.SubElement(
+        elem,
+        _ns(
+            attr.namespace.uri,
+            _escape_ncname_localpart(attr.localpart),
+        ),
+    )
+    v = _encode_attribute_value(subelem, attr, value)
+
+    has_xsi_type = _ns_xsi("type") in subelem.attrib
+    if _needs_xsd_type_inference(has_xsi_type, attr, value, v, force_types):
+        xsd_type, v = _infer_xsd_type(attr, value, v)
+        if xsd_type is not None:
+            subelem.attrib[_ns_xsi("type")] = str(xsd_type)
+
+    if attr in PROV_ATTRIBUTE_QNAMES and v:
+        subelem.attrib[_ns_prov("ref")] = v
+    else:
+        subelem.text = v
+
+
+def _encode_attribute_value(
+    subelem: etree._Element,
+    attr: prov.identifier.QualifiedName,
+    value: Any,
+) -> str:
+    """Write an attribute value's explicit type/language hints and render it.
+
+    Sets ``xsi:type`` and ``xml:lang`` on ``subelem`` where the value's own
+    Python type already determines them (a typed or language-tagged
+    :class:`~prov.model.Literal`, or a
+    :class:`~prov.identifier.QualifiedName` outside a PROV formal attribute).
+
+    Args:
+        subelem: The attribute's XML element.
+        attr: The attribute's name.
+        value: The attribute's value.
+
+    Returns:
+        The value's string rendering, for use as element text or as a
+        ``prov:ref`` attribute.
+    """
+    if isinstance(value, prov.model.Literal):
+        if (
+            value.datatype is not None
+            and value.datatype != PROV_INTERNATIONALIZEDSTRING
+        ):
+            subelem.attrib[_ns_xsi("type")] = (
+                f"{value.datatype.namespace.prefix}:{value.datatype.localpart}"
+            )
+        if value.langtag is not None:
+            subelem.attrib[_ns_xml("lang")] = value.langtag
+        return value.value
+    elif isinstance(value, prov.identifier.QualifiedName):
+        if attr not in PROV_ATTRIBUTE_QNAMES:
+            subelem.attrib[_ns_xsi("type")] = "xsd:QName"
+        return str(value)
+    elif isinstance(value, datetime.datetime):
+        return value.isoformat()
+    else:
+        return str(value)
+
+
+# To enable a mapping of Python types to XML and back, the XSD type must be
+# written for values of these types. Membership is tested against the value's
+# exact type, deliberately not with isinstance().
+_ALWAYS_CHECK = frozenset(
+    {
+        bool,
+        datetime.datetime,
+        float,
+        int,
+        prov.identifier.Identifier,
+    }
+)
+
+
+def _needs_xsd_type_inference(
+    has_xsi_type: bool,
+    attr: prov.identifier.QualifiedName,
+    value: Any,
+    v: str,
+    force_types: bool,
+) -> bool:
+    """Decide whether an ``xsi:type`` should be inferred for an attribute.
+
+    This is a bit messy and there are all kinds of special rules but it
+    appears to get the job done.
+
+    If it is a type element and does not yet have an associated xsi type, try
+    to infer it from the value. The not startswith("prov:") check is a little
+    bit hacky to avoid type interference when the type is a standard prov
+    type.
+
+    Args:
+        has_xsi_type: Whether the attribute's XML element, as written so
+            far, already carries an ``xsi:type`` attribute.
+        attr: The attribute's name.
+        value: The attribute's value.
+        v: The value's string rendering.
+        force_types: See :meth:`ProvXMLSerializer.serialize`.
+
+    Returns:
+        ``True`` if :func:`_infer_xsd_type` should be consulted for this
+        attribute.
+    """
+    return (
+        (
+            force_types
+            or type(value) in _ALWAYS_CHECK
+            or attr in [PROV_TYPE, PROV_LOCATION, PROV_VALUE]
+        )
+        and not has_xsi_type
+        and not str(value).startswith("prov:")
+        and not (attr in PROV_ATTRIBUTE_QNAMES and v)
+        and attr not in [PROV_ATTR_TIME, PROV_LABEL]
+    )
+
+
+def _infer_xsd_type(
+    attr: prov.identifier.QualifiedName,
+    value: Any,
+    v: str,
+) -> tuple[prov.identifier.QualifiedName | None, str]:
+    """Infer an attribute's ``xsd`` datatype from its Python value.
+
+    The order of the checks is significant -- ``bool`` is a subclass of
+    ``int`` and must be tested first.
+
+    Args:
+        attr: The attribute's name.
+        value: The attribute's value.
+        v: The value's string rendering.
+
+    Returns:
+        A ``(xsd_type, v)`` pair: the inferred datatype (``None`` if none
+        applies) and the value's string rendering, which the ``bool`` case
+        lower-cases.
+    """
+    xsd_type = None
+    if isinstance(value, bool):
+        xsd_type = XSD_BOOLEAN
+        v = v.lower()
+    elif isinstance(value, str):
+        xsd_type = XSD_STRING
+    elif isinstance(value, float):
+        xsd_type = XSD_DOUBLE
+    elif isinstance(value, int):
+        # bool is handled above (isinstance(value, bool));
+        # ints are typed by magnitude (#244).
+        xsd_type = canonical_xsd_datatype(value)
+    elif isinstance(value, datetime.datetime):
+        # Exception of the exception, while technically still correct, do
+        # not write XSD dateTime type for attributes in the PROV namespaces
+        # as the type is already declared in the XSD and PROV XML also does
+        # not specify it in the docs.
+        if attr.namespace.prefix != "prov" or "time" not in attr.localpart.lower():
+            xsd_type = XSD_DATETIME
+    elif isinstance(value, prov.identifier.Identifier):
+        xsd_type = XSD_ANYURI
+    return xsd_type, v
+
+
 def _extract_attributes(
     element: etree._Element,
-) -> list[tuple[prov.identifier.QualifiedName, Any]]:
+) -> list[NameValuePair]:
     """Extract a record's attributes from its PROV-XML etree element.
 
     Each child of ``element`` becomes one ``(QualifiedName, value)`` pair:
@@ -426,13 +589,12 @@ def _extract_attributes(
             none of them is ``prov:ref``, ``xsi:type``, or ``xml:lang``, so
             no attribute value can be determined.
     """
-    attributes = []  # type: list[tuple[prov.identifier.QualifiedName, Any]]
+    attributes: list[NameValuePair] = []
     _unassigned = object()
     for subel in element:
         sqname = etree.QName(subel)
-        qname_str = (
-            f"{subel.prefix}:{sqname.localname}" if subel.prefix else sqname.localname
-        )
+        localname = _unescape_ncname_localpart(sqname.localname)
+        qname_str = f"{subel.prefix}:{localname}" if subel.prefix else localname
         _t = xml_qname_to_QualifiedName(subel, qname_str)
 
         _v: Any = _unassigned
@@ -445,9 +607,18 @@ def _extract_attributes(
                 if datatype == XSD_QNAME:
                     _v = xml_qname_to_QualifiedName(subel, subel.text)  # type: ignore[arg-type]
                 else:
-                    _v = prov.model.Literal(subel.text, datatype)
+                    # An empty XSD-typed text value (e.g. prov:value="")
+                    # round-trips through lxml as .text is None rather than
+                    # "" (#224); coalesce back to the empty string.
+                    _v = prov.model.Literal(
+                        subel.text if subel.text is not None else "", datatype
+                    )
             elif key == _ns_xml("lang"):
-                _v = prov.model.Literal(subel.text, langtag=value_str)
+                # Same None/"" coalescing as above, for language-tagged
+                # literals (#224).
+                _v = prov.model.Literal(
+                    subel.text if subel.text is not None else "", langtag=value_str
+                )
             else:
                 warnings.warn(
                     f"The element '{_t}' contains an attribute {key!s}='{value!s}' "
@@ -458,7 +629,14 @@ def _extract_attributes(
                 )
 
         if not subel.attrib:
-            _v = subel.text
+            # A plain-text attribute value (no xsi:type/xml:lang/prov:ref):
+            # lxml reports an empty element's .text as None rather than ""
+            # (e.g. <ex:k0></ex:k0>), which would otherwise make the
+            # attribute vanish entirely once None reaches record
+            # construction. Coalesce back to the empty string (#224). This
+            # does not affect optional formal attributes that are absent
+            # from the XML altogether: those never enter this loop.
+            _v = subel.text if subel.text is not None else ""
 
         if _v is _unassigned:
             raise ProvXMLException(
@@ -539,3 +717,89 @@ def _ns_xsi(tag: str) -> str:
 def _ns_xml(tag: str) -> str:
     NS_XML = "http://www.w3.org/XML/1998/namespace"
     return _ns(NS_XML, tag)
+
+
+# Character classes for the XML 1.0 5th-edition Name productions, minus ':'
+# (NCName), used to detect/escape attribute-name local parts that are not
+# legal NCNames when used as PROV-XML element tags (#289).
+#
+# Every range boundary is spelled as a \xHH/\uHHHH/\UHHHHHHHH escape (never
+# a literal glyph) and annotated with the spec clause it implements, so a
+# mangled/look-alike codepoint (as happened once with the CJK-compatibility
+# range below, which briefly read U+8C48 instead of U+F900) is visible on
+# inspection rather than hiding in the source as an indistinguishable glyph.
+_NCNAME_START_CHARS = (
+    "\x41-\x5a"  # NameStartChar: [A-Z]
+    "\x5f"  # NameStartChar: "_"
+    "\x61-\x7a"  # NameStartChar: [a-z]
+    "\xc0-\xd6"  # NameStartChar: [#xC0-#xD6]
+    "\xd8-\xf6"  # NameStartChar: [#xD8-#xF6]
+    "\xf8-\u02ff"  # NameStartChar: [#xF8-#x2FF]
+    "\u0370-\u037d"  # NameStartChar: [#x370-#x37D]
+    "\u037f-\u1fff"  # NameStartChar: [#x37F-#x1FFF]
+    "\u200c-\u200d"  # NameStartChar: [#x200C-#x200D]
+    "\u2070-\u218f"  # NameStartChar: [#x2070-#x218F]
+    "\u2c00-\u2fef"  # NameStartChar: [#x2C00-#x2FEF]
+    "\u3001-\ud7ff"  # NameStartChar: [#x3001-#xD7FF]
+    "\uf900-\ufdcf"  # NameStartChar: [#xF900-#xFDCF]
+    "\ufdf0-\ufffd"  # NameStartChar: [#xFDF0-#xFFFD]
+    "\U00010000-\U000effff"  # NameStartChar: [#x10000-#xEFFFF]
+)
+_NCNAME_CHARS = _NCNAME_START_CHARS + (
+    "\\-"  # NameChar: "-" (escaped: literal, not a range operator)
+    "\x2e"  # NameChar: "."
+    "\x30-\x39"  # NameChar: [0-9]
+    "\xb7"  # NameChar: #xB7
+    "\u0300-\u036f"  # NameChar: [#x0300-#x036F]
+    "\u203f-\u2040"  # NameChar: [#x203F-#x2040]
+)
+_NCNAME_START_RE = re.compile(f"[{_NCNAME_START_CHARS}]")
+_NCNAME_CHAR_RE = re.compile(f"[{_NCNAME_CHARS}]")
+_NCNAME_RE = re.compile(f"[{_NCNAME_START_CHARS}][{_NCNAME_CHARS}]*")
+# One escaped char: _x + 4 (BMP) or 8 (astral) uppercase hex digits + _
+_XML_NAME_ESCAPE_RE = re.compile(r"_x[0-9A-F]{4}(?:[0-9A-F]{4})?_")
+
+
+def _escape_ncname_localpart(local: str) -> str:
+    """Escape NCName-illegal characters in an attribute-name local part.
+
+    PROV attribute names are written as PROV-XML element tags, but an
+    attribute's local part is not guaranteed to be a legal XML NCName (it
+    may start with a digit, contain ``'``, ``(``, ``,`` etc. — none of
+    which prov itself restricts, per #257's no-assertion-time-enforcement
+    stance). Rather than raising, illegal characters are escaped using the
+    ``_xHHHH_`` convention (as used by the OpenXML/SQL Server ecosystems
+    for the same problem), so the name round-trips losslessly instead of
+    being rejected or silently corrupted.
+
+    A literal run that itself looks like an escape sequence gets its
+    introducing underscore self-escaped as ``_x005F_`` so decoding via
+    :func:`_unescape_ncname_localpart` is always the exact inverse of this
+    function, including for names produced by this package itself (#289):
+    ``"_x0041_"`` (a literal name that happens to look like an escaped
+    ``"A"``) becomes ``"_x005F_x0041_"``, not ``"_x0041_"`` unchanged
+    (which would decode back to ``"A"``) or ``"A"`` (which would lose the
+    original name). The same applies when the look-alike run is embedded
+    inside an otherwise-legal name, e.g. ``"prefix_x0041_suffix"``.
+
+    Names that are already legal NCNames and contain no ``_xHHHH_``-shaped
+    run are returned unchanged, so existing output is byte-identical.
+    """
+    if not _XML_NAME_ESCAPE_RE.search(local) and _NCNAME_RE.fullmatch(local):
+        return local
+    out = []
+    for i, char in enumerate(local):
+        char_re = _NCNAME_START_RE if i == 0 else _NCNAME_CHAR_RE
+        if char == "_" and _XML_NAME_ESCAPE_RE.match(local, i):
+            out.append("_x005F_")
+        elif char_re.fullmatch(char):
+            out.append(char)
+        else:
+            code = ord(char)
+            out.append(f"_x{code:04X}_" if code <= 0xFFFF else f"_x{code:08X}_")
+    return "".join(out)
+
+
+def _unescape_ncname_localpart(local: str) -> str:
+    """Invert :func:`_escape_ncname_localpart`."""
+    return _XML_NAME_ESCAPE_RE.sub(lambda m: chr(int(m.group(0)[2:-1], 16)), local)

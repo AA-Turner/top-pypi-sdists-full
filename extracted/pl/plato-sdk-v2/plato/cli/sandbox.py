@@ -12,6 +12,7 @@ from typing import Annotated
 import typer
 from rich.console import Console
 
+from plato._generated.models import SessionStateResponse
 from plato.cli.utils import require_api_key
 from plato.v2.sync.sandbox import SandboxClient
 
@@ -61,6 +62,11 @@ def required_state_field(field: str):
             raise Exception(f"failed to get field '{field}' from state.json, and no default value provided")
 
     return _factory
+
+
+def state_field(field: str):
+    """Read a field from .plato/state.json in WORKING_DIR (None if absent)."""
+    return required_state_field(field)()
 
 
 # Working directory setter for CLI option callback
@@ -343,6 +349,18 @@ def sandbox_start(
         "--provider",
         help="VM provider for blank/config modes: firecracker or qemu. Use qemu for Windows VMs.",
     ),
+    attach_session: bool = typer.Option(
+        False,
+        "--attach-session/--no-attach-session",
+        envvar="PLATO_SANDBOX_ATTACH_SESSION",
+        help="Attach the sandbox to the Chronos session in $SESSION_ID (set on Chronos VMs) "
+        "so it is tracked and lifecycle-managed as part of that session.",
+    ),
+    chronos_session: str | None = typer.Option(
+        None,
+        "--chronos-session",
+        help="Explicit Chronos session id to attach to (implies --attach-session).",
+    ),
     json_output: JsonArg = False,
     verbose: VerboseArg = False,
 ):
@@ -357,7 +375,22 @@ def sandbox_start(
         plato sandbox start -a <uuid>            # From artifact
         plato sandbox start -b --cpus 4          # Blank VM
         plato sandbox start -b --provider qemu   # Blank Windows VM
+        plato sandbox start -s espocrm --attach-session   # Track under the current Chronos session
     """
+    # Explicit --chronos-session must attach or fail; the ambient env-var
+    # default (on every Chronos VM) degrades to a standalone sandbox with a
+    # warning so legacy flows keep working on sessions that can't attach.
+    attach_strict = chronos_session is not None
+    chronos_session_id = chronos_session
+    if attach_session and not chronos_session_id:
+        chronos_session_id = os.environ.get("SESSION_ID")
+        if not chronos_session_id or chronos_session_id == "local":
+            Console(stderr=True).print(
+                "[red]--attach-session needs the SESSION_ID env var (set on Chronos VMs) "
+                "or an explicit --chronos-session <id>[/red]"
+            )
+            raise typer.Exit(1)
+
     with sandbox_context(working_dir, json_output, verbose) as (client, out):
         out.console.print("Starting sandbox...")
 
@@ -369,6 +402,8 @@ def sandbox_start(
                 connect_network=connect_network,
                 timeout=timeout,
                 provider=provider,
+                chronos_session_id=chronos_session_id,
+                attach_strict=attach_strict,
             )
         elif blank:
             state = client.start(
@@ -381,6 +416,8 @@ def sandbox_start(
                 connect_network=connect_network,
                 timeout=timeout,
                 provider=provider,
+                chronos_session_id=chronos_session_id,
+                attach_strict=attach_strict,
             )
         elif artifact_id:
             state = client.start(
@@ -390,6 +427,8 @@ def sandbox_start(
                 connect_network=connect_network,
                 timeout=timeout,
                 provider=provider,
+                chronos_session_id=chronos_session_id,
+                attach_strict=attach_strict,
             )
         elif from_config:
             state = client.start(
@@ -398,6 +437,8 @@ def sandbox_start(
                 connect_network=connect_network,
                 timeout=timeout,
                 provider=provider,
+                chronos_session_id=chronos_session_id,
+                attach_strict=attach_strict,
             )
         else:
             out.error("Must specify a mode: --blank, --artifact-id, --simulator, or --from-config.")
@@ -434,11 +475,22 @@ def sandbox_snapshot(
         plato sandbox snapshot --job              # Snapshot one env in a multi-env (unified) session
     """
     with sandbox_context(working_dir, json_output, verbose) as (client, out):
+        if not job and state_field("attached"):
+            # Session-level snapshot would snapshot every env in the shared
+            # session; an attached sandbox only owns its job. Use the per-job
+            # FULL snapshot (same op the session endpoint runs per job) — the
+            # job checkpoint would reject from-scratch config/blank VMs.
+            if not job_id:
+                raise SandboxStateError("job_id")
+            out.console.print("[dim]Attached sandbox — full snapshot of only this env's job[/dim]")
+            full_response = client.snapshot_job_full(job_id=str(job_id), mode=mode, dataset=dataset)
+            out.success(full_response, "Snapshot created")
+            return
         if job:
             if not job_id:
                 raise SandboxStateError("job_id")
             out.console.print("Creating job checkpoint...")
-            response = client.snapshot_job(job_id=str(job_id))
+            response = client.snapshot_job(job_id=str(job_id), mode=mode, dataset=dataset)
             out.success(response, "Snapshot created")
             return
 
@@ -468,6 +520,15 @@ def sandbox_reset(
         plato sandbox reset --session-id abc123           # Explicitly provide the session to reset
     """
     with sandbox_context(working_dir, json_output, verbose) as (client, out):
+        if state_field("attached"):
+            # Session-level reset would reset every env in the shared session.
+            job_id = state_field("job_id")
+            if not job_id:
+                raise SandboxStateError("job_id")
+            out.console.print("Resetting sandbox (job-scoped — attached to shared session)...")
+            result = client.reset_job(job_id=str(job_id))
+            out.success(result, "Sandbox reset")
+            return
         out.console.print("Resetting sandbox...")
         result = client.reset(session_id=str(session_id))
         out.success(result, "Sandbox reset")
@@ -489,6 +550,16 @@ def sandbox_stop(
         plato sandbox stop
     """
     with sandbox_context(working_dir, json_output, verbose) as (client, out):
+        if state_field("attached"):
+            # Attached sandboxes share their session with the owning Chronos
+            # session — closing it would kill every env in that session.
+            job_id = state_field("job_id")
+            if not job_id:
+                raise SandboxStateError("job_id")
+            out.console.print("Stopping sandbox (removing env from shared session)...")
+            client.remove_env(session_id=str(session_id), job_id=str(job_id))
+            out.success({"status": "stopped", "job_id": job_id}, "Sandbox env removed from session")
+            return
         out.console.print("Stopping sandbox...")
         client.stop(session_id=str(session_id))
         out.success({"status": "stopped"}, "Sandbox stopped")
@@ -510,6 +581,11 @@ def sandbox_connect_network(
         plato sandbox connect-network
     """
     with sandbox_context(working_dir, json_output, verbose) as (client, out):
+        if state_field("attached"):
+            out.console.print(
+                "[yellow]Attached sandbox: this connects WireGuard for the ENTIRE shared "
+                "session (every env in it), not just this sandbox.[/yellow]"
+            )
         out.console.print("Connecting to network...")
         result = client.connect_network(session_id=str(session_id))
         out.success(result, "Network connected")
@@ -560,6 +636,19 @@ def sandbox_state(
     """
     with sandbox_context(working_dir, json_output, verbose) as (client, out):
         out.console.print("Fetching mutations...")
+        if state_field("attached"):
+            # Session-level state merges mutations from every env in the
+            # shared session; an attached sandbox only owns its job.
+            job_id = state_field("job_id")
+            if not job_id:
+                raise SandboxStateError("job_id")
+            job_result = client.state_job(job_id=str(job_id))
+            # Same shape as the session-level response, scoped to our job, so
+            # `.results[]`-style consumers (env-create/env-fix templates, pm
+            # data-ref checks) keep working unchanged.
+            wrapped = SessionStateResponse(session_id=str(session_id), results={str(job_id): job_result})
+            out.success(wrapped, f"State: {job_id}")
+            return
         result = client.state(session_id=str(session_id))
 
         out.success(result, f"State: {result.session_id}")
@@ -781,11 +870,18 @@ def sandbox_clear_audit(
     for resetting state between test runs.
     """
     with sandbox_context(working_dir, json_output, verbose) as (client, out):
+        attached = bool(state_field("attached"))
+        if attached:
+            # The job group IS the shared session; group-level cleanup would
+            # truncate audit_log on every sibling env.
+            out.console.print("[dim]Attached sandbox — clearing audit logs for this env's job only[/dim]")
         out.console.print("Clearing audit logs...")
         result = client.clear_audit(
             job_group_id=str(session_id),
             job_id=job_id,
             simulator_name=simulator_name,
+            job_scoped=attached,
+            mesh_ip=state_field("mesh_ip") if attached else None,
         )
 
         if not result.success:
@@ -818,6 +914,7 @@ def sandbox_audit_ui(
                 job_id=job_id,
                 dataset=dataset or "base",
                 no_tunnel=no_tunnel,
+                mesh_ip=state_field("mesh_ip") if state_field("attached") else None,
             )
         except ValueError as e:
             out.error(str(e))
@@ -936,7 +1033,12 @@ def sandbox_tunnel(
             raise typer.Exit(1)
 
         local = local_port or remote_port
-        tunnel = client.tunnel(job_id, remote_port, local, bind_address)
+        # Attached sandboxes forward straight to the mesh IP (in-VPC) instead
+        # of hairpinning through the TLS gateway.
+        mesh_ip = state_field("mesh_ip") if state_field("attached") else None
+        if mesh_ip:
+            out.console.print(f"[dim]Using session mesh IP {mesh_ip} (direct, no gateway)[/dim]")
+        tunnel = client.tunnel(job_id, remote_port, local, bind_address, mesh_ip=mesh_ip)
 
         try:
             tunnel.start()

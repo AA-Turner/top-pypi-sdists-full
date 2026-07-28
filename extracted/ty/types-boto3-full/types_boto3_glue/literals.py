@@ -143,6 +143,8 @@ __all__ = (
     "MetadataOperationType",
     "NodeTypeType",
     "OAuth2GrantTypeType",
+    "ObservationConfigurationType",
+    "ObservationModeType",
     "OverwriteChildResourcePermissionsWithDefaultEnumType",
     "PaginatorName",
     "ParamTypeType",
@@ -163,6 +165,7 @@ __all__ = (
     "ResourceShareTypeType",
     "ResourceStateType",
     "ResourceTypeType",
+    "ResultTypeEnumType",
     "S3EncryptionModeType",
     "ScheduleStateType",
     "ScheduleTypeType",
@@ -597,6 +600,8 @@ MaterializedViewRefreshTypeType = Literal["FULL", "INCREMENTAL"]
 MetadataOperationType = Literal["CREATE"]
 NodeTypeType = Literal["CRAWLER", "JOB", "TRIGGER"]
 OAuth2GrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS", "JWT_BEARER"]
+ObservationConfigurationType = Literal["ALL", "NONE"]
+ObservationModeType = Literal["FIXED", "SCHEDULED"]
 OverwriteChildResourcePermissionsWithDefaultEnumType = Literal["Accept", "Deny"]
 ParamTypeType = Literal["bool", "complex", "float", "int", "list", "null", "str"]
 ParquetCompressionTypeType = Literal[
@@ -636,6 +641,7 @@ ResourceActionType = Literal["CREATE", "UPDATE"]
 ResourceShareTypeType = Literal["ALL", "FEDERATED", "FOREIGN"]
 ResourceStateType = Literal["FAILED", "IN_PROGRESS", "QUEUED", "STOPPED", "SUCCESS"]
 ResourceTypeType = Literal["ARCHIVE", "FILE", "JAR"]
+ResultTypeEnumType = Literal["ALL", "FAILED_ONLY", "PASSED_ONLY"]
 S3EncryptionModeType = Literal["DISABLED", "SSE-KMS", "SSE-S3"]
 ScheduleStateType = Literal["NOT_SCHEDULED", "SCHEDULED", "TRANSITIONING"]
 ScheduleTypeType = Literal["AUTO", "CRON"]

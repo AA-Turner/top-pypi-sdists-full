@@ -99,6 +99,11 @@ class OTelContext(BaseModel):
             env_vars.append("OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf")
         if self.session_id:
             env_vars.append(f"SESSION_ID={self.session_id}")
+            # Sandboxes started on agent VMs default to attaching to the
+            # Chronos session (tracked + lifecycle-managed with it). Propagate
+            # the world's current value so an explicit 0 disables it downstream.
+            attach = os.environ.get("PLATO_SANDBOX_ATTACH_SESSION", "1")
+            env_vars.append(f"PLATO_SANDBOX_ATTACH_SESSION={attach}")
         if self.upload_url:
             env_vars.append(f"UPLOAD_URL={self.upload_url}")
         if self.traceparent:

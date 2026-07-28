@@ -754,12 +754,8 @@ class ExecutionTypeDef(TypedDict):
     KMSKeyArn: NotRequired[str]
 
 
-FilterTypeDef = TypedDict(
-    "FilterTypeDef",
-    {
-        "Pattern": NotRequired[str],
-    },
-)
+class FilterTypeDef(TypedDict):
+    Pattern: NotRequired[str]
 
 
 class FunctionCodeLocationErrorTypeDef(TypedDict):

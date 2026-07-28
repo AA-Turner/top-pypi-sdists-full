@@ -16,6 +16,10 @@ from abstra_internals.utils.ast_cache import ASTCache
 
 
 class MissingRenderInPageFound(LinterIssue):
+    title = "Page stages must define a __render__ function"
+    type = "error"
+    fix_with_ai = True
+
     def __init__(self, stage: PageStage):
         self.label = (
             f"The page '{stage.title}' ({stage.file}) does not define a __render__ function. "
@@ -27,8 +31,6 @@ class MissingRenderInPageFound(LinterIssue):
 
 class MissingRenderInPage(PathScopedLinterRule):
     label = "Page stages must define a __render__ function"
-    type = "error"
-    fix_with_ai = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         project = (current_lint_context() or LintContext()).project

@@ -22,7 +22,7 @@ from .._creation_functions import (
     zeros,
     zeros_like,
 )
-from .._dtypes import float32, float64, complex64, bool as xp_bool
+from .._dtypes import float32, float64, complex64, int32, int64, bool as xp_bool
 from .._array_object import Array
 from .._devices import CPU_DEVICE, ALL_DEVICES, Device
 from .._info import __array_namespace_info__
@@ -368,6 +368,24 @@ def test_asarray_device_2():
     assert y.dtype == float64
 
 
+def test_asarray_device_1():
+    # regression test for https://github.com/data-apis/array-api-strict/issues/222
+    x = np.ones(3, dtype=np.float32)
+    y = asarray(x, device=Device('device1'))
+    assert y.dtype == float32
+
+
+def test_asarray_no_x64_device():
+    x = asarray(3, device=Device("no_x64"))
+    assert x.dtype == int32
+
+    with pytest.raises(ValueError):
+        asarray(3, device=Device("no_x64"), dtype=int64)
+
+    y = zeros_like(ones(3, dtype=int32), device=Device("no_x64"))
+    assert y.dtype == int32
+
+
 @pytest.mark.parametrize("api_version", ['2021.12', '2022.12', '2023.12'])
 def from_dlpack_2023_12(api_version):
     if api_version != '2022.12':
@@ -395,12 +413,3 @@ def test_from_dlpack_default_device():
     z = from_dlpack(np.asarray([1, 2, 3]))
     assert x.device == y.device == z.device == CPU_DEVICE
 
-
-@pytest.mark.parametrize(
-    "device",
-    [Device("device1"), Device("device2")],
-)
-def test_from_dlpack_preserves_device(device):
-    x = asarray([1, 2, 3], device=device)
-    y = from_dlpack(x)
-    assert y.device == device

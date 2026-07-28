@@ -3125,6 +3125,95 @@ def previous_tier_capacity_diff() -> dict | None:
         return None
 
 
+def next_tier_capacity_headroom(
+    *,
+    channels: int | None = None,
+    retention_days: int | None = None,
+    nodes: int | None = None,
+) -> dict | None:
+    """Scalar "one rung up" sibling of :func:`capacity_headroom`.
+
+    Composes :func:`next_purchasable_tier` (the rung immediately above the
+    resolved entitlement) with :func:`capacity_headroom_at` (per-axis
+    headroom against the static per-tier caps) so an upgrade-CTA card can
+    render "here's what your gauges would look like on <next tier>" off
+    ONE call instead of a resolve + at-tier round-trip.
+
+    Fills the "next-tier" slot on the capacity-headroom axis alongside
+    the caps-only :func:`next_tier_capacity_diff` (which reports the cap
+    deltas without folding in current usage). Row shape matches
+    :func:`capacity_headroom_at` byte-for-byte
+    (``tier`` / ``tier_label`` / ``channels`` / ``retention_days`` /
+    ``nodes``) so any existing capacity-headroom renderer can consume the
+    envelope without reshaping. Same "None means axis not supplied"
+    posture as the singular helpers -- an axis the caller didn't pass
+    stays ``None`` on the envelope.
+
+    Returns ``None`` when the resolved entitlement is already on the
+    top rung (no next-purchasable tier) so the CTA can hide itself
+    instead of rendering a bogus row. Decoupled from grace vs enforce
+    on the headroom side -- :func:`capacity_headroom_at` walks the
+    static caps, so the returned rows are byte-identical across modes.
+    Never raises: any resolver / delegation failure logs a warning and
+    returns ``None``.
+    """
+    try:
+        target = next_purchasable_tier()
+        if target is None:
+            return None
+        return capacity_headroom_at(
+            target,
+            channels=channels,
+            retention_days=retention_days,
+            nodes=nodes,
+        )
+    except Exception as exc:
+        logger.warning(
+            "entitlements: next_tier_capacity_headroom failed: %s", exc
+        )
+        return None
+
+
+def previous_tier_capacity_headroom(
+    *,
+    channels: int | None = None,
+    retention_days: int | None = None,
+    nodes: int | None = None,
+) -> dict | None:
+    """Scalar "one rung down" sibling of :func:`capacity_headroom`.
+
+    Downgrade twin of :func:`next_tier_capacity_headroom`. Composes
+    :func:`previous_purchasable_tier` (the rung immediately below the
+    resolved entitlement) with :func:`capacity_headroom_at` so a
+    downgrade-preview card can show "here's what would break on
+    <prev tier>" -- rows whose ``over_limit`` flips ``True`` are the
+    exact axes the caller would lose headroom on.
+
+    Row shape matches :func:`capacity_headroom_at` byte-for-byte so
+    any existing renderer consumes the envelope unchanged. Returns
+    ``None`` when the resolved entitlement is already on the bottom
+    rung (no previous-purchasable tier) so the preview can hide
+    itself instead of rendering a bogus row. Same grace / enforce
+    invariance and per-axis "None means unsupplied" posture as
+    :func:`next_tier_capacity_headroom`. Never raises.
+    """
+    try:
+        target = previous_purchasable_tier()
+        if target is None:
+            return None
+        return capacity_headroom_at(
+            target,
+            channels=channels,
+            retention_days=retention_days,
+            nodes=nodes,
+        )
+    except Exception as exc:
+        logger.warning(
+            "entitlements: previous_tier_capacity_headroom failed: %s", exc
+        )
+        return None
+
+
 def capacity_headroom(
     *,
     channels: int | None = None,
@@ -5230,6 +5319,79 @@ def min_tier_for_runtime(runtime: str) -> str | None:
     if rt in PAID_RUNTIMES:
         return TIER_CLOUD_STARTER
     return None
+
+
+def has_feature(feature: str) -> bool:
+    """Boolean-gate scalar: does the CURRENT install allow ``feature``?
+
+    Thin module-level scalar around
+    :meth:`Entitlement.allows_feature` on the resolved entitlement, so a
+    caller can bind ONE boolean into an ``if``/JSX conditional without
+    walking the ``ent.features`` frozenset or parsing the surrounding
+    ``/api/entitlement/required-tier`` envelope. Sibling of
+    :func:`min_tier_for_feature` on the same axis: that one answers
+    "cheapest tier that would unlock this"; this one answers "does the
+    resolved entitlement grant it right now?".
+
+    Grace semantics: :meth:`Entitlement.allows_feature` returns ``True``
+    for every feature while ``ent.grace`` is ``True`` (the current
+    rollout state -- see the module-level "Rollout: GRACE vs ENFORCE"
+    docstring), so wiring this into a paywall gate today changes NO
+    current behavior. Enforcement flips on when :func:`is_enforced`
+    returns ``True`` and the resolver stops setting ``grace``. For a
+    forward-looking "would this be locked once enforcement is on?" gate,
+    compare :func:`min_tier_for_feature` against
+    :attr:`Entitlement.tier` explicitly -- this scalar deliberately
+    reflects the LIVE grant so a UI wired off it doesn't render locks
+    before the enforce date.
+
+    Unknown / non-string / empty ids collapse to ``False`` -- we do NOT
+    inherit the grace-mode "everything allowed" answer for junk input,
+    else a typo like ``has_feature("Fleet")`` (uppercase F, dropped by
+    the strip-lower) would silently render as granted in grace and
+    quietly flip to denied on enforcement. The strict validity gate
+    catches the typo at the callsite.
+
+    Never raises: any resolver blowup collapses to ``False`` so a
+    caller can bind this into a boolean AND-chain without a try/except.
+    """
+    try:
+        f = (feature or "").strip().lower()
+        if not f or f not in ALL_FEATURES:
+            return False
+        return bool(get_entitlement().allows_feature(f))
+    except Exception as exc:
+        logger.warning("entitlements: has_feature(%r) failed: %s", feature, exc)
+        return False
+
+
+def has_runtime(runtime: str) -> bool:
+    """Boolean-gate scalar: does the CURRENT install allow ``runtime``?
+
+    Runtime-axis mirror of :func:`has_feature`, wrapping
+    :meth:`Entitlement.allows_runtime` on the resolved entitlement.
+    Same grace pass-through semantics -- ``True`` for every known
+    runtime while ``ent.grace`` is ``True`` -- so wiring this in
+    changes NO current behavior; post-enforcement it returns ``True``
+    iff ``runtime`` is in :data:`FREE_RUNTIMES` OR the resolved tier
+    grants it AND the license is not expired.
+
+    Unknown / non-string / empty ids collapse to ``False`` for the
+    same typo-catches-at-callsite reason as :func:`has_feature`
+    (``has_runtime("ClaudeCode")`` would silently render as granted in
+    grace under an unconditional pass-through; the strict validity
+    gate flips it to a loud ``False`` at the callsite).
+
+    Never raises: any resolver blowup collapses to ``False``.
+    """
+    try:
+        rt = (runtime or "").strip().lower()
+        if not rt or rt not in ALL_RUNTIMES:
+            return False
+        return bool(get_entitlement().allows_runtime(rt))
+    except Exception as exc:
+        logger.warning("entitlements: has_runtime(%r) failed: %s", runtime, exc)
+        return False
 
 
 def _tier_row(tier: str) -> dict:

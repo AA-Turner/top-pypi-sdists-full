@@ -181,7 +181,7 @@ def nodes_from_node_expression(
             return all_nodes
         if len(intersections):
             inter_list = next(iter(intersections))
-            parts = list(data_graph.items(inter_list))
+            parts = list(sg.graph.items(inter_list))
             inter_nodes: Set[Union['RDFNode', None]] = set()
             new = True
             for p in parts:

@@ -172,6 +172,11 @@ class TurnSession:
         self._score_after_silence_ms = score_after_silence_ms
         self._sample_rate = 16000
         self._window_samples = 128000
+        # eot-bench (KUG-1379) surfaced a customer-bundle case where the model
+        # scored p(complete) high on a turn with almost no buffered audio yet
+        # (leading dead air before the caller starts speaking). Below this
+        # floor, a "complete" score isn't trustworthy enough to end the turn.
+        self._min_complete_audio_samples = int(0.05 * self._sample_rate)
         self._audio = np.empty(0, dtype=np.float32)
         self._transcript = ""
         self._scored_transcript = ""
@@ -289,7 +294,10 @@ class TurnSession:
             self._ensure_active()
             self._probabilities = probabilities
             self._scored_transcript = transcript
-            self._model_complete = probabilities.complete >= self._policy.threshold
+            self._model_complete = (
+                probabilities.complete >= self._policy.threshold
+                and self._audio.size >= self._min_complete_audio_samples
+            )
             decision = self._evaluate_cached_decision(
                 duration_ms,
                 inference_ms=inference_ms,

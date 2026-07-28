@@ -42,7 +42,12 @@ from jax.extend import core as jax_core
 
 # TODO(tomhennigan): Update to use symbols from jax.extend.core when available.
 Atom: TypeAlias = jax.core.Atom
-DropVar: TypeAlias = jax.core.DropVar
+try:
+  # JAX v0.10.0 and newer.
+  DropVar: TypeAlias = jax_core.DropVar
+except AttributeError:
+  # JAX v0.9.2 and older.
+  DropVar = jax.core.DropVar  # type: ignore
 
 
 @dataclasses.dataclass
@@ -354,11 +359,11 @@ def _process_eqn(
     flops = _process_jaxpr(jaxpr, compute_flops, scope.join(eqn), seen,
                            expression.submodule)
     if compute_flops is not None:
-      flops *= flops_multiplier
+      flops *= flops_multiplier  # pyrefly: ignore[unsupported-operation]
 
     expression.submodule.flops = flops
     expression.flops = flops
-    if compute_flops is None or flops > 0:
+    if compute_flops is None or flops > 0:  # pyrefly: ignore[unsupported-operation]
       module.expressions.append(expression)
   else:
     details = []
@@ -391,7 +396,7 @@ def _process_eqn(
     f = _process_eqn(eqns_by_output[key], seen, eqns_by_output, compute_flops,
                      scope, module, binder_idx)
     if compute_flops is not None:
-      flops += f
+      flops += f  # pyrefly: ignore[unsupported-operation]
 
   return flops
 
@@ -404,9 +409,6 @@ def _process_jaxpr(
     module: Module,
 ) -> int | None:
   """Computes the flops used for a JAX expression, tracking module scope."""
-  if isinstance(jaxpr, jax_core.ClosedJaxpr):
-    return _process_jaxpr(jaxpr.jaxpr, compute_flops, scope, seen, module)
-
   # Label variables by the order in which they're introduced.
   lam_binders = itertools.chain(jaxpr.constvars, jaxpr.invars)
   let_binders = itertools.chain.from_iterable(e.outvars for e in jaxpr.eqns)
@@ -431,7 +433,7 @@ def _process_jaxpr(
       f = _process_eqn(eqns_by_output[_var_to_str(binder_idx, var)], seen,
                        eqns_by_output, compute_flops, scope, module, binder_idx)
       if compute_flops is not None:
-        flops += f
+        flops += f  # pyrefly: ignore[unsupported-operation]
 
   module.expressions.sort(key=lambda e: _var_sort_key(e.first_outvar))
   module.flops = flops

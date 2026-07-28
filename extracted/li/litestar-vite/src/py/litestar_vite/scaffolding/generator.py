@@ -12,7 +12,9 @@ if TYPE_CHECKING:
     from litestar_vite.scaffolding.templates import FrameworkTemplate
 
 from litestar_vite.__metadata__ import __version__ as litestar_vite_version
+from litestar_vite.exceptions import MissingDependencyError
 from litestar_vite.scaffolding.templates import CURRENT_NPM_VERSION_RANGES
+from litestar_vite.typing import JINJA_INSTALLED
 
 
 def _dict_factory() -> dict[str, Any]:
@@ -184,7 +186,13 @@ def render_template(template_path: Path, context: dict[str, Any]) -> str:
 
     Returns:
         Rendered template content.
+
+    Raises:
+        MissingDependencyError: If Jinja2 is not installed.
     """
+    if not JINJA_INSTALLED:
+        raise MissingDependencyError(package="jinja2", extra="jinja")
+
     from jinja2 import Environment, FileSystemLoader
 
     template_dir = template_path.parent
@@ -197,7 +205,7 @@ def render_template(template_path: Path, context: dict[str, Any]) -> str:
     return template.render(**context)
 
 
-def _resolve_framework_template_dir(template_root: Path, framework_value: str) -> Path:
+def resolve_framework_template_dir(template_root: Path, framework_value: str) -> Path:
     """Resolve the on-disk template directory for a registered framework."""
     return template_root / _TEMPLATE_DIR_ALIASES.get(framework_value, framework_value)
 
@@ -298,7 +306,7 @@ def generate_project(output_dir: Path, context: TemplateContext, *, overwrite: b
     from litestar.cli._utils import console  # pyright: ignore[reportPrivateImportUsage]
 
     template_dir = get_template_dir()
-    framework_dir = _resolve_framework_template_dir(template_dir, context.framework.type.value)
+    framework_dir = resolve_framework_template_dir(template_dir, context.framework.type.value)
     base_dir = template_dir / "base"
     context_dict = context.to_dict()
     rendered_files: list[_RenderedTemplate] = []

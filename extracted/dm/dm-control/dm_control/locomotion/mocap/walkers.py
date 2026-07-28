@@ -92,6 +92,6 @@ class WalkerInfo:
           pos = np.zeros(3)
       sites.append(
           body.add(
-              'site', name=str(marker_info.name), pos=pos, dclass=mocap_class))
+              'site', name=str(marker_info.name), pos=pos, dclass=mocap_class))  # pyrefly: ignore[unbound-name]
     walker.list_of_site_names = [site.name for site in sites]
     return sites

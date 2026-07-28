@@ -7,7 +7,7 @@ from typing import Union, List, Dict, Any, cast, TypeVar, Generic
 
 import pandas as pd
 
-from seeq.spy import _common
+from seeq.spy import _common, _shared_definition_constants
 from seeq.spy._common import docstring_parameter
 from seeq.spy._errors import *
 from seeq.spy.workbooks._context_switchable import ContextSwitchable
@@ -18,22 +18,26 @@ ColsT = TypeVar('ColsT', bound='Columns')
 # refer client/packages/webserver/app/src/tableBuilder
 class TableToolbar(ContextSwitchable, Generic[ColsT]):
     class CONSTANTS:
+        # Matches TableBuilderStore.storeName in client/packages/webserver/app/src/tableBuilder/tableBuilder.store.ts.
         TABLE_STORE_NAME = 'sqTableBuilderStore'
-        SIMPLE_TABLE_MODE = 'simple'
-        CONDITION_TABLE_MODE = 'condition'
+        SIMPLE_TABLE_MODE = _shared_definition_constants.TABLE_BUILDER_MODE.SIMPLE
+        CONDITION_TABLE_MODE = _shared_definition_constants.TABLE_BUILDER_MODE.CONDITION
 
+        # These match TableBuilderState in client/packages/webserver/app/src/tableBuilder/tableBuilder.store.ts.
+        # TypeScript's type checker protects against a silent rename.
         TRANSPOSE = 'isTransposed'
         STRIPED = 'isTableStriped'
         AUTO_GROUP_COLUMN = 'autoGroupColumn'
 
+        # Most strings below are frontend property names; see TableBuilderState in tableBuilder.store.ts.
         DEFAULT_TABLE_STATE = {
             'headers': {
                 'condition': {
-                    'type': 'startEnd',
+                    'type': _shared_definition_constants.TABLE_BUILDER_HEADER_TYPE.START_END,
                     'format': 'lll'
                 },
                 'simple': {
-                    'type': 'startEnd',
+                    'type': _shared_definition_constants.TABLE_BUILDER_HEADER_TYPE.START_END,
                     'format': 'lll'
                 }
             },
@@ -303,21 +307,8 @@ class TableColumn(ABC, ContextSwitchable):
         TEXT_ALIGN_OPTIONS = {'left', 'center', 'right'}
         TEXT_STYLE_OPTIONS = {'bold', 'italic', 'underline', 'line-through', 'overline'}
 
-        # refer AgGridAggregationFunctions in  client/packages/webserver/app/src/tableBuilder/tableBuilder.constants.ts
-        GROUPING_AGGREGATION_FUNCTIONS = {
-            'none',
-            'sum',
-            'min',
-            'max',
-            'count',
-            'avg',
-            'range',
-            'stdDev',
-            'first',
-            'last',
-        }
-
-        SIGNAL_STATISTICS = _common.get_trend_signal_statistic_function_map()
+        GROUPING_AGGREGATION_FUNCTIONS = _shared_definition_constants.AG_GRID_AGGREGATION_FUNCTIONS
+        SIGNAL_STATISTICS = _shared_definition_constants.get_trend_signal_statistic_function_map()
         SIGNAL_STATISTICS_TO_NAME = {v: k for k, v in SIGNAL_STATISTICS.items()}
 
     @property
@@ -890,7 +881,7 @@ class ConditionTableColumns(TableColumns[ConditionTableColumn]):
         # To prevent users from having to know that you have to put nameExpression to get the condition name
         # Do a lookup from the name in the frontend to the key used in the workstep.
         if property_name.lower() not in ConditionTableColumnReservedProperty.CONSTANTS.KEYS_OR_VALUES:
-            column_definition['type'] = 'capsuleProperty'
+            column_definition['type'] = _shared_definition_constants.TABLE_BUILDER_HEADER_TYPE.CAPSULE_PROPERTY
         if property_name.lower() in ConditionTableColumnReservedProperty.CONSTANTS.KEY_MAPPING:
             property_name = ConditionTableColumnReservedProperty.CONSTANTS.KEY_MAPPING[property_name.lower()]
         column_definition['key'] = property_name

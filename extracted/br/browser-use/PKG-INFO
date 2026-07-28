@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: browser-use
-Version: 0.13.6
+Version: 0.13.7
 Summary: Make websites accessible for AI agents
 Project-URL: Homepage, https://browser-use.com
 Project-URL: Documentation, https://docs.browser-use.com
@@ -17,7 +17,7 @@ Requires-Python: <4.0,>=3.11
 Requires-Dist: aiohttp==3.13.4
 Requires-Dist: anthropic==0.76.0
 Requires-Dist: anyio==4.12.1
-Requires-Dist: browser-harness==0.1.6
+Requires-Dist: browser-harness==0.1.8
 Requires-Dist: browser-use-sdk==3.4.2
 Requires-Dist: bubus==1.5.6
 Requires-Dist: cdp-use==1.4.5

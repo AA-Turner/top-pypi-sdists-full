@@ -55,6 +55,9 @@ class UpgradeAllPackages(LinterFix):
 
 
 class VulnerableDependenciesFound(LinterIssue):
+    title = "Vulnerable dependencies in requirements.txt"
+    type = "warning"
+
     def __init__(
         self,
         fixable: List[Tuple[str, str, str]],
@@ -176,8 +179,6 @@ class VulnerableRequirements(LinterRule):
     """Scans requirements.txt for known CVEs."""
 
     label = "Vulnerable dependencies in requirements.txt"
-    type = "warning"
-    fix_with_ai = False
 
     def find_issues(self) -> Sequence[LinterIssue]:
         requirements_path = Settings.root_path / "requirements.txt"

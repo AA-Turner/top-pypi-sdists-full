@@ -15,6 +15,7 @@ import signal
 import subprocess
 import tempfile
 import time
+import uuid
 from pathlib import Path
 from typing import Literal, cast
 from urllib.parse import quote
@@ -37,34 +38,50 @@ from plato._generated.api.v1.sandbox import start_worker
 from plato._generated.api.v1.simulator import get_env_flows as simulator_get_env_flows
 from plato._generated.api.v1.simulator import get_plato_config as simulator_get_plato_config
 from plato._generated.api.v1.simulator import get_simulator_versions as simulator_get_simulator_versions
+from plato._generated.api.v2.jobs import add_ssh_key as jobs_add_ssh_key
 from plato._generated.api.v2.jobs import checkpoint as jobs_checkpoint
 from plato._generated.api.v2.jobs import get_flows as jobs_get_flows
 from plato._generated.api.v2.jobs import get_job_info as jobs_get_job_info
+from plato._generated.api.v2.jobs import public_url as jobs_public_url
+from plato._generated.api.v2.jobs import reset as jobs_reset
+from plato._generated.api.v2.jobs import snapshot as jobs_snapshot
 from plato._generated.api.v2.jobs import state as jobs_state
+from plato._generated.api.v2.jobs import wait_for_ready as jobs_wait_for_ready
+from plato._generated.api.v2.sessions import add_job as sessions_add_job
 from plato._generated.api.v2.sessions import add_ssh_key as sessions_add_ssh_key
 from plato._generated.api.v2.sessions import close as sessions_close
 from plato._generated.api.v2.sessions import connect_network as sessions_connect_network
 from plato._generated.api.v2.sessions import get_public_url as sessions_get_public_url
 from plato._generated.api.v2.sessions import get_session_details
+from plato._generated.api.v2.sessions import remove_job as sessions_remove_job
 from plato._generated.api.v2.sessions import reset as sessions_reset
 from plato._generated.api.v2.sessions import snapshot as sessions_snapshot
 from plato._generated.api.v2.sessions import state as sessions_state
 from plato._generated.models import (
+    AddJobRequest,
     AddSSHKeyRequest,
+    AppApiV2SchemasSessionCreateSnapshotRequest,
     AppApiV2SchemasSessionCreateSnapshotResponse,
     AppSchemasBuildModelsSimConfigDataset,
     CloseSessionResponse,
     CreateCheckpointRequest,
     CreateCheckpointResult,
+    CreateSnapshotResult,
     DatabaseMutationListenerConfig,
     EnvCleanupResponse,
     Flow,
     PrefetchRequest,
+    RemoveJobRequest,
+    RemoveJobResponse,
+    ResetJobResult,
+    ResetSessionRequest,
     ResetSessionResponse,
     SessionDetailsResponse,
     SessionStateResponse,
+    SessionStateResult,
     VMManagementRequest,
 )
+from plato.chronos.api.sessions import get_session_envs as chronos_get_session_envs
 from plato.utils.ssh import gateway_proxy_command
 from plato.utils.subprocess import ssh_user_for_provider
 from plato.v1.models.sandbox import PlatoConfig
@@ -138,12 +155,17 @@ def _generate_ssh_config(
     working_dir: Path | None = None,
     ssh_host: str = "sandbox",
     provider: str | None = None,
+    mesh_ip: str | None = None,
 ) -> str:
     """Generate SSH config file for easy access via gateway.
 
     Args:
         job_id: The job ID for routing.
         private_key_path: Path to private key (absolute or relative).
+        mesh_ip: WireGuard mesh IP of the VM. When set (attached sandboxes,
+            where the caller runs on a VM inside the same session mesh), the
+            config connects to it directly — in-VPC, no gateway ProxyCommand,
+            no NAT round-trip.
         working_dir: Working directory for .plato/.
         ssh_host: Host alias in config.
         provider: Hypervisor backing the job ("firecracker", "qemu", or None
@@ -173,7 +195,23 @@ def _generate_ssh_config(
     sni = f"{job_id}--{ssh_port}.{gateway_host}"
     ssh_user = ssh_user_for_provider(provider)
 
-    config_content = f"""# Plato Sandbox SSH Config
+    if mesh_ip:
+        config_content = f"""# Plato Sandbox SSH Config (mesh-direct)
+# Generated for job: {job_id}
+# Connects to the VM's WireGuard mesh IP directly (same-session mesh).
+# NOTE: Run SSH commands from workspace root for relative paths to resolve
+
+Host {ssh_host}
+    HostName {mesh_ip}
+    Port {ssh_port}
+    User {ssh_user}
+    IdentityFile {relative_key_path}
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    LogLevel ERROR
+"""
+    else:
+        config_content = f"""# Plato Sandbox SSH Config
 # Generated for job: {job_id}
 # NOTE: Run SSH commands from workspace root for relative paths to resolve
 
@@ -489,7 +527,12 @@ def _forward_data(src, dst, name: str = "") -> None:
 
 
 class Tunnel:
-    """A TCP tunnel to a remote port on a sandbox VM via the TLS gateway."""
+    """A TCP tunnel to a remote port on a sandbox VM.
+
+    Goes via the TLS gateway by default; when ``mesh_ip`` is set (attached
+    sandboxes, caller on a VM inside the same session mesh) it forwards
+    directly to the mesh IP — in-VPC, no gateway NAT round-trip.
+    """
 
     def __init__(
         self,
@@ -498,12 +541,14 @@ class Tunnel:
         local_port: int | None = None,
         bind_address: str = "127.0.0.1",
         verify_ssl: bool = True,
+        mesh_ip: str | None = None,
     ):
         self.job_id = job_id
         self.remote_port = remote_port
         self.local_port = local_port or remote_port
         self.bind_address = bind_address
         self.verify_ssl = verify_ssl
+        self.mesh_ip = mesh_ip
 
         self._server = None
         self._thread = None
@@ -531,15 +576,18 @@ class Tunnel:
 
         def handle_client(client_sock, client_addr):
             try:
-                gateway_sock = _create_tls_connection(gateway_host, gateway_port, sni, verify_ssl=self.verify_ssl)
+                if self.mesh_ip:
+                    upstream_sock = socket.create_connection((self.mesh_ip, self.remote_port), timeout=30)
+                else:
+                    upstream_sock = _create_tls_connection(gateway_host, gateway_port, sni, verify_ssl=self.verify_ssl)
                 t1 = threading.Thread(
                     target=_forward_data,
-                    args=(client_sock, gateway_sock, "client->gateway"),
+                    args=(client_sock, upstream_sock, "client->upstream"),
                     daemon=True,
                 )
                 t2 = threading.Thread(
                     target=_forward_data,
-                    args=(gateway_sock, client_sock, "gateway->client"),
+                    args=(upstream_sock, client_sock, "upstream->client"),
                     daemon=True,
                 )
                 t1.start()
@@ -599,6 +647,32 @@ class Tunnel:
 # =============================================================================
 # SANDBOX CLIENT
 # =============================================================================
+
+DEFAULT_CHRONOS_URL = "https://chronos.plato.so"
+
+
+def resolve_chronos_plato_session_id(
+    chronos_session_id: str,
+    api_key: str,
+    chronos_url: str | None = None,
+) -> str:
+    """Resolve a Chronos session public id to its backing Plato session id.
+
+    Chronos tracks envs by reading them off the Plato session it launched
+    (``GET /api/sessions/{id}/envs`` joins on ``plato_session_id``), so
+    attaching a sandbox to a Chronos session means adding its job to that
+    Plato session.
+    """
+    base = (chronos_url or os.environ.get("CHRONOS_URL") or DEFAULT_CHRONOS_URL).rstrip("/")
+    with httpx.Client(base_url=base, timeout=httpx.Timeout(30)) as client:
+        envs_response = chronos_get_session_envs.sync(
+            client,
+            public_id=chronos_session_id,
+            x_api_key=api_key,
+        )
+    if not envs_response.plato_session_id:
+        raise RuntimeError(f"Chronos session {chronos_session_id} has no backing Plato session to attach envs to")
+    return envs_response.plato_session_id
 
 
 class SandboxClient:
@@ -678,6 +752,8 @@ class SandboxClient:
         connect_network: bool = True,
         timeout: int = 1800,
         provider: str | None = None,
+        chronos_session_id: str | None = None,
+        attach_strict: bool = True,
     ) -> SandboxState:
         """Start a sandbox environment.
 
@@ -696,6 +772,16 @@ class SandboxClient:
             messaging_port: Messaging port.
             connect_network: Whether to connect WireGuard network.
             provider: VM provider for blank/config resource VMs. Use "qemu" for Windows VMs.
+            chronos_session_id: When set, attach the sandbox to this Chronos
+                session instead of creating a standalone Plato session: the env
+                is added as a job on the session's backing Plato session, so
+                Chronos tracks it and its lifetime is bound to that session.
+            attach_strict: When False, a failure to resolve the Chronos
+                session's backing Plato session falls back to a standalone
+                sandbox with a warning instead of raising. The CLI uses this
+                for the ambient env-var default so legacy flows on sessions
+                without a plato_session_id keep working; explicit
+                --chronos-session stays strict.
 
         Returns:
             SandboxState with sandbox info.
@@ -775,67 +861,146 @@ class SandboxClient:
         from plato._generated.api.v2.sessions import wait_for_ready as sessions_wait_for_ready
         from plato._generated.models import CreateSessionFromEnvs, Envs, RunSessionSource
 
-        # Step 1: Create session
-        self.console.print("[yellow]Creating session...[/yellow]")
-        step_start = time.time()
-        request_body = CreateSessionFromEnvs(
-            envs=[Envs(root=env_config)],
-            timeout=timeout,
-            source=RunSessionSource.SDK,
-        )
-        response = sessions_make.sync(
-            client=self._http,
-            body=request_body,
-            x_api_key=self.api_key,
-        )
-        session_id = response.session_id
-        elapsed = time.time() - step_start
-        self.console.print(f"[green]Session created:[/green] {session_id} [dim]({elapsed:.1f}s)[/dim]")
+        attached = chronos_session_id is not None
+        attach_plato_session_id: str | None = None
+        sandbox_mesh_ip: str | None = None
+        if attached:
+            assert chronos_session_id is not None
+            self.console.print(f"[cyan]Attaching to Chronos session:[/cyan] {chronos_session_id}")
+            try:
+                attach_plato_session_id = resolve_chronos_plato_session_id(chronos_session_id, self.api_key)
+            except Exception as exc:
+                if attach_strict:
+                    raise
+                self.console.print(
+                    f"[yellow]Could not attach to Chronos session {chronos_session_id} ({exc}); "
+                    "starting a standalone sandbox instead[/yellow]"
+                )
+                attached = False
 
-        # Check if any envs failed to create
-        if response.envs:
-            for env_result in response.envs:
-                if not env_result.success:
-                    raise RuntimeError(f"Failed to create environment: {env_result.error}")
-                if env_result.job_id:
-                    self.console.print(f"[dim]  Job: {env_result.job_id}[/dim]")
-        else:
-            raise RuntimeError("No environments created in session")
-
-        # Step 2: Wait for VM
-        self.console.print("[yellow]Waiting for VM to start...[/yellow]")
-        step_start = time.time()
-        ready_response = poll_until_ready_sync(
-            lambda per_call: sessions_wait_for_ready.sync(
+        if attached:
+            assert attach_plato_session_id is not None
+            # Step 1 (attached): add the env as a job on the Plato session
+            # backing the Chronos session, so Chronos tracks and manages it.
+            session_id = attach_plato_session_id
+            if env_config.alias is None:
+                env_config.alias = f"sandbox-{simulator_name or mode}-{uuid.uuid4().hex[:8]}"
+            self.console.print("[yellow]Adding env to session...[/yellow]")
+            step_start = time.time()
+            add_response = sessions_add_job.sync(
                 client=self._http,
                 session_id=session_id,
-                timeout=per_call,
+                body=AddJobRequest(env=env_config, timeout=timeout),
                 x_api_key=self.api_key,
-            ),
-            timeout=timeout,
-        )
-        if not ready_response.ready:
-            errors = []
-            if ready_response.results:
-                for jid, result in ready_response.results.items():
-                    if not result.ready:
-                        errors.append(f"{jid}: {result.error or 'Unknown error'}")
-            reason = (
-                ", ".join(errors)
-                if errors
-                else ("terminal status" if is_terminal_status(ready_response) else "timeout")
             )
-            raise RuntimeError(f"VM failed to start: {reason}")
+            if not add_response.env.success:
+                raise RuntimeError(f"Failed to add environment to session {session_id}: {add_response.env.error}")
+            if not add_response.env.job_id:
+                raise ValueError("No job ID found")
+            # Dedicated str-typed local: `job_id` is also assigned in the other
+            # branch, which voids narrowing inside the wait lambda's closure.
+            added_job_id: str = add_response.env.job_id
+            job_id = added_job_id
+            if not simulator_name:
+                simulator_name = add_response.env.simulator
+            elapsed = time.time() - step_start
+            self.console.print(
+                f"[green]Env added:[/green] {job_id} (alias={env_config.alias}) [dim]({elapsed:.1f}s)[/dim]"
+            )
 
-        job_id = response.envs[0].job_id if response.envs else None
-        if not job_id:
-            raise ValueError("No job ID found")
+            # Step 2 (attached): wait for just our job — the shared session's
+            # other envs are none of our business.
+            self.console.print("[yellow]Waiting for VM to start...[/yellow]")
+            step_start = time.time()
+            job_ready_response = poll_until_ready_sync(
+                lambda per_call: jobs_wait_for_ready.sync(
+                    client=self._http,
+                    job_id=added_job_id,
+                    timeout=per_call,
+                    x_api_key=self.api_key,
+                ),
+                timeout=timeout,
+            )
+            if not job_ready_response.ready:
+                reason = job_ready_response.error or (
+                    "terminal status" if is_terminal_status(job_ready_response) else "timeout"
+                )
+                raise RuntimeError(f"VM failed to start: {reason}")
+            # The backend adds the job to the session mesh and ready-wait
+            # blocks until it has joined, so the mesh IP is usable now.
+            sandbox_mesh_ip = job_ready_response.mesh_ip
+        else:
+            # Step 1: Create session
+            self.console.print("[yellow]Creating session...[/yellow]")
+            step_start = time.time()
+            request_body = CreateSessionFromEnvs(
+                envs=[Envs(root=env_config)],
+                timeout=timeout,
+                source=RunSessionSource.SDK,
+            )
+            response = sessions_make.sync(
+                client=self._http,
+                body=request_body,
+                x_api_key=self.api_key,
+            )
+            session_id = response.session_id
+            elapsed = time.time() - step_start
+            self.console.print(f"[green]Session created:[/green] {session_id} [dim]({elapsed:.1f}s)[/dim]")
+
+            # Check if any envs failed to create
+            if response.envs:
+                for env_result in response.envs:
+                    if not env_result.success:
+                        raise RuntimeError(f"Failed to create environment: {env_result.error}")
+                    if env_result.job_id:
+                        self.console.print(f"[dim]  Job: {env_result.job_id}[/dim]")
+            else:
+                raise RuntimeError("No environments created in session")
+
+            # Step 2: Wait for VM
+            self.console.print("[yellow]Waiting for VM to start...[/yellow]")
+            step_start = time.time()
+            ready_response = poll_until_ready_sync(
+                lambda per_call: sessions_wait_for_ready.sync(
+                    client=self._http,
+                    session_id=session_id,
+                    timeout=per_call,
+                    x_api_key=self.api_key,
+                ),
+                timeout=timeout,
+            )
+            if not ready_response.ready:
+                errors = []
+                if ready_response.results:
+                    for jid, result in ready_response.results.items():
+                        if not result.ready:
+                            errors.append(f"{jid}: {result.error or 'Unknown error'}")
+                reason = (
+                    ", ".join(errors)
+                    if errors
+                    else ("terminal status" if is_terminal_status(ready_response) else "timeout")
+                )
+                raise RuntimeError(f"VM failed to start: {reason}")
+
+            job_id = response.envs[0].job_id if response.envs else None
+            if not job_id:
+                raise ValueError("No job ID found")
+
         elapsed = time.time() - step_start
         self.console.print(f"[green]VM ready:[/green] {job_id} [dim]({elapsed:.1f}s)[/dim]")
 
         # Step 3: Connect network
         network_connected = False
-        if connect_network:
+        if attached:
+            # The backend auto-joined the job to the session's WireGuard mesh
+            # (Chronos sessions always have one); a session-level connect here
+            # would mutate network state for every env in the shared session.
+            network_connected = sandbox_mesh_ip is not None
+            if sandbox_mesh_ip:
+                self.console.print(f"[green]Joined session mesh:[/green] {sandbox_mesh_ip}")
+            else:
+                self.console.print("[dim]No mesh IP reported; session network may be absent[/dim]")
+        elif connect_network:
             self.console.print("[yellow]Connecting network...[/yellow]")
             step_start = time.time()
             connect_response = sessions_connect_network.sync(
@@ -862,35 +1027,58 @@ class SandboxClient:
                 if isinstance(session_details, dict)
                 else getattr(session_details, "jobs", None)
             )
-            if jobs:
-                for j in jobs:
-                    service = j.get("service") if isinstance(j, dict) else getattr(j, "service", None)
-                    if service:
+            for j in jobs or []:
+                if isinstance(j, dict):
+                    jid = j.get("job_id") or j.get("public_id")
+                    service = j.get("service")
+                else:
+                    jid = getattr(j, "job_id", None) or getattr(j, "public_id", None)
+                    service = getattr(j, "service", None)
+                if attached:
+                    # A shared session has other envs, so "first job with a
+                    # service" would pick someone else's — match ours by id.
+                    if jid == job_id and service:
                         simulator_name = service
                         break
+                elif service:
+                    simulator_name = service
+                    break
             if not simulator_name:
                 raise ValueError(f"No simulator name found in session details for job ID {job_id}")
 
         # Get public URL with router target formatting (logic inlined)
         public_url = None
         try:
-            url_response = sessions_get_public_url.sync(
-                client=self._http,
-                session_id=session_id,
-                x_api_key=self.api_key,
-            )
-            if url_response and url_response.results:
-                for result in url_response.results.values():
-                    url = result.url if hasattr(result, "url") else str(result)
-                    if not url:
-                        raise ValueError(f"No public URL found in result dict for job ID {job_id}")
-                    if "_plato_router_target=" not in url and simulator_name:
-                        target_param = f"_plato_router_target={simulator_name}.web.plato.so"
-                        if "?" in url:
-                            url = f"{url}&{target_param}"
-                        else:
-                            url = f"{url}?{target_param}"
-                    public_url = url
+            urls: list[str | None] = []
+            if attached:
+                job_url_response = jobs_public_url.sync(
+                    client=self._http,
+                    job_id=job_id,
+                    x_api_key=self.api_key,
+                )
+                if job_url_response:
+                    urls.append(job_url_response.url)
+            else:
+                url_response = sessions_get_public_url.sync(
+                    client=self._http,
+                    session_id=session_id,
+                    x_api_key=self.api_key,
+                )
+                if url_response and url_response.results:
+                    urls.extend(
+                        result.url if hasattr(result, "url") else str(result)
+                        for result in url_response.results.values()
+                    )
+            for url in urls:
+                if not url:
+                    raise ValueError(f"No public URL found in result dict for job ID {job_id}")
+                if "_plato_router_target=" not in url and simulator_name:
+                    target_param = f"_plato_router_target={simulator_name}.web.plato.so"
+                    if "?" in url:
+                        url = f"{url}&{target_param}"
+                    else:
+                        url = f"{url}?{target_param}"
+                public_url = url
             elapsed = time.time() - step_start
             self.console.print(f"[green]Public URL:[/green] {public_url} [dim]({elapsed:.1f}s)[/dim]")
         except Exception as e:
@@ -928,16 +1116,32 @@ class SandboxClient:
             # the correct user server-side, but we send the right value so
             # audit logs match what actually gets provisioned on the guest.
             add_key_request = AddSSHKeyRequest(public_key=public_key, username=install_user)
-            add_response = sessions_add_ssh_key.sync(
-                client=self._http,
-                session_id=session_id,
-                body=add_key_request,
-                x_api_key=self.api_key,
-            )
+            if attached:
+                # Job-scoped: the session-level endpoint would install the key
+                # on every VM in the shared session.
+                key_response = jobs_add_ssh_key.sync(
+                    client=self._http,
+                    job_id=job_id,
+                    body=add_key_request,
+                    x_api_key=self.api_key,
+                )
+                key_added = key_response.success
+            else:
+                add_response = sessions_add_ssh_key.sync(
+                    client=self._http,
+                    session_id=session_id,
+                    body=add_key_request,
+                    x_api_key=self.api_key,
+                )
+                key_added = add_response.success
 
-            if add_response.success:
+            if key_added:
                 ssh_config_path = _generate_ssh_config(
-                    job_id, private_key_path, Path(self.working_dir), provider=provider
+                    job_id,
+                    private_key_path,
+                    Path(self.working_dir),
+                    provider=provider,
+                    mesh_ip=sandbox_mesh_ip,
                 )
                 elapsed = time.time() - step_start
                 self.console.print(
@@ -948,15 +1152,23 @@ class SandboxClient:
         except Exception as e:
             self.console.print(f"[dim]SSH setup failed: {e}[/dim]")
 
-        # Start heartbeat
-        self.console.print("[yellow]Starting heartbeat...[/yellow]")
-        step_start = time.time()
-        heartbeat_pid = _start_heartbeat_process(session_id, self.api_key)
-        elapsed = time.time() - step_start
-        if heartbeat_pid:
-            self.console.print(f"[green]Heartbeat started[/green] (pid={heartbeat_pid}) [dim]({elapsed:.1f}s)[/dim]")
+        # Start heartbeat. Attached sandboxes skip it: the Chronos runtime
+        # already heartbeats the shared session, and its lifetime should be
+        # bound to that session, not to a local process.
+        heartbeat_pid = None
+        if attached:
+            self.console.print("[dim]Skipping local heartbeat — lifecycle owned by the Chronos session[/dim]")
         else:
-            self.console.print("[dim]Heartbeat failed to start[/dim]")
+            self.console.print("[yellow]Starting heartbeat...[/yellow]")
+            step_start = time.time()
+            heartbeat_pid = _start_heartbeat_process(session_id, self.api_key)
+            elapsed = time.time() - step_start
+            if heartbeat_pid:
+                self.console.print(
+                    f"[green]Heartbeat started[/green] (pid={heartbeat_pid}) [dim]({elapsed:.1f}s)[/dim]"
+                )
+            else:
+                self.console.print("[dim]Heartbeat failed to start[/dim]")
 
         # Convert absolute paths to relative for state storage
         def _to_relative(abs_path: str | None) -> str | None:
@@ -983,6 +1195,9 @@ class SandboxClient:
             dataset=dataset,
             provider=provider,
             network_connected=network_connected,
+            attached=attached,
+            chronos_session_id=chronos_session_id if attached else None,
+            mesh_ip=sandbox_mesh_ip,
         )
         if mode == "artifact":
             sandbox_state.artifact_id = artifact_id
@@ -1101,11 +1316,18 @@ class SandboxClient:
 
     def reset(self, session_id: str) -> ResetSessionResponse:
         """Reset all jobs in a session to initial state."""
-        from plato._generated.models import ResetSessionRequest
-
         return sessions_reset.sync(
             client=self._http,
             session_id=session_id,
+            body=ResetSessionRequest(),
+            x_api_key=self.api_key,
+        )
+
+    def reset_job(self, job_id: str) -> ResetJobResult:
+        """Reset a single job (attached sandboxes — leaves the shared session's other envs alone)."""
+        return jobs_reset.sync(
+            client=self._http,
+            job_id=job_id,
             body=ResetSessionRequest(),
             x_api_key=self.api_key,
         )
@@ -1125,6 +1347,19 @@ class SandboxClient:
             x_api_key=self.api_key,
         )
 
+    def remove_env(self, session_id: str, job_id: str) -> RemoveJobResponse:
+        """Remove one env's job from a shared session without closing it.
+
+        This is the stop path for attached sandboxes — closing the session
+        would take down the owning Chronos session's other envs.
+        """
+        return sessions_remove_job.sync(
+            client=self._http,
+            session_id=session_id,
+            body=RemoveJobRequest(job_id=job_id),
+            x_api_key=self.api_key,
+        )
+
     # CHECKED
     def status(self, session_id: str) -> SessionDetailsResponse:
         return get_session_details.sync(
@@ -1133,16 +1368,13 @@ class SandboxClient:
             x_api_key=self.api_key,
         )
 
-    # CHECKED
-    def snapshot(
-        self,
-        session_id: str,
-        mode: str,
-        dataset: str,
-    ) -> AppApiV2SchemasSessionCreateSnapshotResponse:
+    def _build_checkpoint_request(self, mode: str | None, dataset: str | None) -> CreateCheckpointRequest:
+        """Build the checkpoint payload; config mode packs local plato-config.yml + flows."""
         checkpoint_request = CreateCheckpointRequest()
 
         if mode == "config":
+            if not dataset:
+                raise ValueError("dataset is required for config-mode snapshots")
             # read plato-config.yml - need parsed for extracting values
             plato_config_path = self.working_dir / "plato-config.yml"
             plato_config_raw = plato_config_path.read_text()
@@ -1181,6 +1413,17 @@ class SandboxClient:
                 else:
                     self.console.print(f"[yellow]Warning: flows file not found at {flows_path}[/yellow]")
 
+        return checkpoint_request
+
+    # CHECKED
+    def snapshot(
+        self,
+        session_id: str,
+        mode: str,
+        dataset: str,
+    ) -> AppApiV2SchemasSessionCreateSnapshotResponse:
+        checkpoint_request = self._build_checkpoint_request(mode, dataset)
+
         response = sessions_snapshot.sync(
             client=self._http,
             session_id=session_id,
@@ -1217,40 +1460,82 @@ class SandboxClient:
 
         return response
 
-    def snapshot_job(
+    def _record_and_prefetch_artifact(self, artifact_id: str) -> None:
+        """Save artifact_id to state.json and prefetch it to workers."""
+        state_path = self.working_dir / self.PLATO_DIR / "state.json"
+        if state_path.exists():
+            with open(state_path) as f:
+                state = json.load(f)
+            state["artifact_id"] = artifact_id
+            with open(state_path, "w") as f:
+                json.dump(state, f)
+
+        self.console.print("[cyan]Prefetching snapshot to workers...[/cyan]")
+        try:
+            prefetch_snapshot.sync(
+                client=self._http,
+                body=PrefetchRequest(artifact_id=artifact_id),
+                x_api_key=self.api_key,
+            )
+            self.console.print("[green]Prefetch dispatched to workers[/green]")
+        except Exception as e:
+            self.console.print(f"[yellow]Prefetch failed (non-fatal): {e}[/yellow]")
+
+    def snapshot_job_full(
         self,
         job_id: str,
-    ) -> CreateCheckpointResult:
-        """Snapshot a single job (one env in a multi-env session).
+        mode: str | None = None,
+        dataset: str | None = None,
+    ) -> CreateSnapshotResult:
+        """Full snapshot (disk + memory) of a single job — the per-job
+        analog of the session-level snapshot.
 
-        Used by unified datagen: one call per env, targeted at that env's job.
+        This is what attached sandboxes use: it creates a base artifact even
+        for from-scratch (config/blank) VMs, without snapshotting the shared
+        session's other envs. Contrast with :meth:`snapshot_job`, which is a
+        lightweight *checkpoint* and requires an artifact-resumed VM.
+        ``mode="config"`` packs the local plato-config.yml + flows just like
+        the session-level snapshot.
         """
-        response = jobs_checkpoint.sync(
+        checkpoint_request = self._build_checkpoint_request(mode, dataset)
+        snapshot_request = AppApiV2SchemasSessionCreateSnapshotRequest(
+            **checkpoint_request.model_dump(exclude_none=True)
+        )
+        response = jobs_snapshot.sync(
             client=self._http,
             job_id=job_id,
-            body=CreateCheckpointRequest(),
+            body=snapshot_request,
             x_api_key=self.api_key,
         )
 
         if response.success and response.artifact_id:
-            state_path = self.working_dir / self.PLATO_DIR / "state.json"
-            if state_path.exists():
-                with open(state_path) as f:
-                    state = json.load(f)
-                state["artifact_id"] = response.artifact_id
-                with open(state_path, "w") as f:
-                    json.dump(state, f)
+            self._record_and_prefetch_artifact(response.artifact_id)
 
-            self.console.print("[cyan]Prefetching snapshot to workers...[/cyan]")
-            try:
-                prefetch_snapshot.sync(
-                    client=self._http,
-                    body=PrefetchRequest(artifact_id=response.artifact_id),
-                    x_api_key=self.api_key,
-                )
-                self.console.print("[green]Prefetch dispatched to workers[/green]")
-            except Exception as e:
-                self.console.print(f"[yellow]Prefetch failed (non-fatal): {e}[/yellow]")
+        return response
+
+    def snapshot_job(
+        self,
+        job_id: str,
+        mode: str | None = None,
+        dataset: str | None = None,
+    ) -> CreateCheckpointResult:
+        """Checkpoint a single job (one env in a multi-env session).
+
+        Lightweight diff snapshot — the backend requires the VM to have been
+        resumed from a base artifact (unified datagen's per-env case). For
+        from-scratch VMs use :meth:`snapshot_job_full`. ``mode="config"``
+        packs the local plato-config.yml + flows just like the session-level
+        snapshot.
+        """
+        response = jobs_checkpoint.sync(
+            client=self._http,
+            job_id=job_id,
+            body=self._build_checkpoint_request(mode, dataset),
+            x_api_key=self.api_key,
+        )
+
+        if response.success and response.artifact_id:
+            self._record_and_prefetch_artifact(response.artifact_id)
 
         return response
 
@@ -1518,12 +1803,14 @@ class SandboxClient:
         remote_port: int,
         local_port: int | None = None,
         bind_address: str = "127.0.0.1",
+        mesh_ip: str | None = None,
     ) -> Tunnel:
         return Tunnel(
             job_id=job_id,
             remote_port=remote_port,
             local_port=local_port,
             bind_address=bind_address,
+            mesh_ip=mesh_ip,
         )
 
     def get_ssh_config_for_job(self, job_id: str) -> SSHConfigInfo:
@@ -1602,6 +1889,7 @@ class SandboxClient:
         job_id: str | None = None,
         dataset: str = "base",
         no_tunnel: bool = False,
+        mesh_ip: str | None = None,
     ) -> None:
         import shutil
 
@@ -1629,7 +1917,7 @@ class SandboxClient:
 
         if db_listener and job_id and not no_tunnel:
             self.console.print(f"Starting tunnel to {db_listener.db_type} on port {db_listener.db_port}...")
-            tunnel = self.tunnel(job_id, db_listener.db_port or 0)
+            tunnel = self.tunnel(job_id, db_listener.db_port or 0, mesh_ip=mesh_ip)
             tunnel.start()
             time.sleep(1)  # Let tunnel stabilize
             self.console.print(
@@ -1777,11 +2065,23 @@ class SandboxClient:
         )
         return response
 
+    def state_job(self, job_id: str) -> SessionStateResult:
+        """Get one job's state (attached sandboxes — the session-level call
+        would return every env's mutations in the shared session)."""
+        return jobs_state.sync(
+            client=self._http,
+            job_id=job_id,
+            merge_mutations=True,
+            x_api_key=self.api_key,
+        )
+
     def clear_audit(
         self,
         job_group_id: str,
         job_id: str | None = None,
         simulator_name: str | None = None,
+        job_scoped: bool = False,
+        mesh_ip: str | None = None,
     ) -> EnvCleanupResponse:
         """Clear audit_log tables in the sandbox database(s).
 
@@ -1798,18 +2098,27 @@ class SandboxClient:
             job_group_id: Session id (same as job_group_id for v2 sessions).
             job_id: Per-env job id, used for the tunnel fallback.
             simulator_name: Used to resolve the artifact for db_config lookup.
+            job_scoped: Skip the job-group cleanup and go straight to the
+                per-job tunnel path. Attached sandboxes must set this — their
+                job_group is the shared session, and the group cleanup would
+                truncate audit_log on every sibling env.
+            mesh_ip: Mesh IP of the env's VM; when set the DB cleanup tunnel
+                goes mesh-direct instead of via the TLS gateway.
         """
-        try:
-            resp = env_cleanup.sync(
-                client=self._http,
-                job_group_id=job_group_id,
-                x_api_key=self.api_key,
-            )
-            if resp.success:
-                return resp
-            server_err = resp.error or "env_cleanup returned success=false"
-        except Exception as e:
-            server_err = str(e)
+        if job_scoped:
+            server_err = "job-group cleanup skipped (attached sandbox — group is the shared session)"
+        else:
+            try:
+                resp = env_cleanup.sync(
+                    client=self._http,
+                    job_group_id=job_group_id,
+                    x_api_key=self.api_key,
+                )
+                if resp.success:
+                    return resp
+                server_err = resp.error or "env_cleanup returned success=false"
+            except Exception as e:
+                server_err = str(e)
 
         if not job_id or not simulator_name:
             return EnvCleanupResponse(
@@ -1851,6 +2160,7 @@ class SandboxClient:
             job_id=job_id,
             alias=simulator_name,
             artifact_id=artifact_id,
+            mesh_ip=mesh_ip,
             get_state_fn=_noop,
         )
 

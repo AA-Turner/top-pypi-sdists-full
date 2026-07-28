@@ -235,6 +235,13 @@ def parse_license(token: str):
         elif tier_in == "starter":
             # Self-hosted Starter keys ($90/node/yr) issued by the cloud.
             tier = _ent.TIER_CLOUD_STARTER
+        elif tier_in == "trial":
+            # Local-trial keys (7 days, minted by /api/license/trial after
+            # email verification). MUST map to TIER_TRIAL explicitly: the
+            # forward-compat fallback below coerces unknown tiers to Pro,
+            # which would silently turn every time-boxed trial into a full
+            # Pro entitlement.
+            tier = _ent.TIER_TRIAL
         else:
             # Unknown tiers still default to Pro (forward compatibility).
             tier = _ent.TIER_PRO
@@ -891,6 +898,8 @@ def inspect_key(key: str) -> dict | None:
         tier_in = str(payload.get("tier", "pro")).strip().lower()
         # Mirror parse_license: known tiers render as-is, unknown -> pro.
         tier = tier_in if tier_in in ("enterprise", "starter") else "pro"
+        iat = payload.get("iat")
+        issued_at = int(iat) if isinstance(iat, (int, float)) else None
         return {
             "valid": not expired,
             "status": "expired" if expired else "active",
@@ -898,6 +907,7 @@ def inspect_key(key: str) -> dict | None:
             "nodes": int(payload.get("nodes", 1) or 1),
             "sub": str(payload.get("sub", "")),
             "exp": exp,
+            "issued_at": issued_at,
             "days_left": days_left,
             # Trust-anchor identity is payload-independent — same value as
             # current_license_info() populates on every file-exists branch, so
@@ -967,6 +977,7 @@ def current_license_info() -> dict | None:
                 "nodes": None,
                 "sub": None,
                 "exp": None,
+                "issued_at": None,
                 "days_left": None,
                 "pubkey_fingerprint_sha256": pubkey_fp,
                 "permissions_safe": perms_safe,
@@ -978,6 +989,8 @@ def current_license_info() -> dict | None:
         if isinstance(exp, (int, float)):
             days_left = int((exp - _t.time()) // 86400)
             expired = _t.time() > exp
+        iat = payload.get("iat")
+        issued_at = int(iat) if isinstance(iat, (int, float)) else None
         return {
             "valid": not expired,
             "status": "expired" if expired else "active",
@@ -985,6 +998,7 @@ def current_license_info() -> dict | None:
             "nodes": payload.get("nodes", 1),
             "sub": payload.get("sub", ""),
             "exp": exp,
+            "issued_at": issued_at,
             "days_left": days_left,
             "pubkey_fingerprint_sha256": pubkey_fp,
             "permissions_safe": perms_safe,
@@ -993,3 +1007,686 @@ def current_license_info() -> dict | None:
     except Exception as exc:
         logger.warning("license: info read failed: %s", exc)
         return None
+
+
+def days_until_expiry() -> int | None:
+    """Scalar view onto the installed license's ``exp`` claim -- for renewal
+    banners / countdown badges that want ONE number rather than the whole
+    :func:`current_license_info` envelope.
+
+    Returns:
+      * ``None`` when there is nothing meaningful to count down against:
+        no license file, an invalid signature, or a valid license whose
+        payload carries no ``exp`` claim (perpetual license).
+      * A signed integer number of days otherwise. Zero on the day of
+        expiry, negative once the license has expired -- a renewal UI can
+        distinguish "expires today" from "expired 3 days ago" by sign
+        without a second call to :func:`current_license_info`.
+
+    Days are floor-divided from seconds (``(exp - now) // 86400``), matching
+    the ``days_left`` field already surfaced by
+    :func:`current_license_info` / :func:`inspect_key` so the scalar
+    endpoint and the full-envelope endpoint never disagree at the day
+    boundary.
+
+    Never raises. Any exception under the hood degrades to ``None`` so a
+    UI tile bound to this helper never breaks on a partial install.
+    """
+    try:
+        info = current_license_info()
+    except Exception as exc:
+        logger.debug("license: days_until_expiry underlying read failed: %s", exc)
+        return None
+    if not isinstance(info, dict):
+        return None
+    days = info.get("days_left")
+    return days if isinstance(days, int) else None
+
+
+def is_expiring_within(days: int) -> bool:
+    """Boolean gate for "should I show a renewal warning?" UIs.
+
+    Returns ``True`` iff a license is installed AND its ``exp`` claim is
+    within ``days`` days of now AND it has NOT already expired. An
+    already-expired license returns ``False`` on purpose -- the caller
+    wants to distinguish "renewal window" (warn) from "already expired"
+    (a different, louder banner driven off :func:`current_license_info`'s
+    ``status`` field). Perpetual licenses (no ``exp`` claim) and the
+    no-license path both return ``False``: nothing to warn about.
+
+    ``days`` is coerced through ``int()``; negative or non-numeric input
+    collapses to ``False`` (nothing "expires within -5 days"). Never
+    raises; every underlying failure returns ``False`` so a scheduled
+    reminder job never crashes on a bad install.
+    """
+    try:
+        threshold = int(days)
+    except (TypeError, ValueError):
+        return False
+    if threshold < 0:
+        return False
+    remaining = days_until_expiry()
+    if remaining is None:
+        return False
+    return 0 <= remaining <= threshold
+
+
+def license_tier() -> str | None:
+    """Scalar view onto the installed license's ``tier`` claim -- for a
+    paywall tile / tier badge that wants ONE string rather than the whole
+    :func:`current_license_info` envelope.
+
+    Returns:
+      * ``None`` when there is nothing trustworthy to surface:
+        no license file on disk, an invalid signature (the payload
+        can't be trusted -- an attacker could stuff any tier into an
+        unsigned body), OR a signed payload whose ``tier`` claim is
+        absent / non-string / an empty string after strip.
+      * A lowercased, whitespace-stripped tier string otherwise
+        (typically ``"pro"``, ``"enterprise"``, or ``"trial"``, but the
+        helper is deliberately open-ended so a future tier lands
+        without a code change).
+
+    Casing is normalised so a caller can compare against a hard-coded
+    ``"pro"`` without a ``.lower()`` on every read; the raw claim from
+    :func:`current_license_info` is preserved separately for UIs that
+    want the operator-visible form.
+
+    Never raises. Any exception under the hood degrades to ``None`` so a
+    UI tile bound to this helper never breaks on a partial install.
+    """
+    try:
+        info = current_license_info()
+    except Exception as exc:
+        logger.debug("license: license_tier underlying read failed: %s", exc)
+        return None
+    if not isinstance(info, dict):
+        return None
+    if not info.get("valid"):
+        # Invalid-signature / expired branches: current_license_info() may
+        # still surface ``tier`` on the expired branch (the signature was
+        # good at signing time, only the ``exp`` claim has passed), but a
+        # tier scalar for gating paywall UI should refuse expired keys the
+        # same way it refuses unsigned ones -- otherwise a lapsed Pro
+        # customer keeps rendering as "Pro" until they re-activate.
+        return None
+    tier = info.get("tier")
+    if not isinstance(tier, str):
+        return None
+    normalized = tier.strip().lower()
+    return normalized or None
+
+
+def is_tier(tier: str) -> bool:
+    """Boolean gate for "am I on tier <X>?" UIs.
+
+    Returns ``True`` iff a license is installed, signature-valid, NOT
+    expired, and its normalised ``tier`` claim exactly matches ``tier``
+    (case-insensitive, whitespace-stripped). Every other state returns
+    ``False``: no license, invalid signature, expired key, missing/empty
+    ``tier`` claim, or a live tier that simply differs from the request.
+
+    ``tier`` is coerced through ``str()`` and normalised the same way
+    :func:`license_tier` normalises the stored claim, so a caller can
+    pass ``"Pro"``, ``"pro"``, or ``"  PRO "`` and get the same answer.
+    Non-string / empty input collapses to ``False`` (nothing "is tier
+    empty-string"). Never raises; every underlying failure returns
+    ``False`` so a scheduled paywall renderer never crashes on a bad
+    install.
+    """
+    try:
+        requested = str(tier).strip().lower()
+    except Exception:
+        return False
+    if not requested:
+        return False
+    actual = license_tier()
+    if actual is None:
+        return False
+    return actual == requested
+
+
+def is_expired() -> bool:
+    """True iff an installed, signature-valid license has an ``exp`` claim in
+    the past.
+
+    The boolean "already expired" gate that pairs with ``is_expiring_within``
+    (renewal-window warning) and complements the loud red banner a UI might
+    render off ``current_license_info().status == "expired"``: bind a paywall
+    tile directly to this scalar without threading the full license envelope
+    into the component.
+
+    Returns ``False`` for every state that is not "installed, signed, past
+    ``exp``": no license file, invalid signature (an attacker could stuff any
+    ``exp`` into an unsigned body, so we refuse to trust it), perpetual /
+    no-``exp`` keys, and active / future-``exp`` keys.
+
+    Never raises. Any underlying introspection failure (import error,
+    corrupt install, cryptography-lib mismatch) collapses to ``False`` so a
+    caller can bind this into a boolean AND-chain without a try/except.
+    """
+    try:
+        info = current_license_info()
+        if not info:
+            return False
+        return info.get("status") == "expired"
+    except Exception as exc:
+        logger.warning("license: is_expired failed: %s", exc)
+        return False
+
+
+def is_perpetual() -> bool:
+    """True iff an installed, signature-valid license carries no ``exp`` claim.
+
+    A "lifetime" key never expires, so a paywall UI wants to hide the renewal
+    counter and render a "Lifetime" badge instead of "Expires in N days".
+    This scalar answers that gate directly without the caller having to check
+    ``current_license_info()["exp"] is None`` AND rule out the invalid /
+    no-license branches (both of which also collapse ``exp`` to ``None`` but
+    aren't perpetual -- they're *no trustworthy license at all*).
+
+    Returns ``False`` for: no license file, invalid signature (untrusted body
+    -- we don't infer "perpetual" from an unsigned payload), and any signed
+    key that carries an ``exp`` claim regardless of active-vs-expired.
+
+    Never raises. Any underlying introspection failure collapses to ``False``.
+    """
+    try:
+        info = current_license_info()
+        if not info:
+            return False
+        # The invalid-signature branch of ``current_license_info`` collapses
+        # ``exp`` to ``None`` on purpose (we don't trust an unsigned body), so
+        # a naive ``exp is None`` check would misfire and label a *forged*
+        # license as "perpetual". Rule the invalid branch out explicitly.
+        if info.get("status") == "invalid":
+            return False
+        return info.get("exp") is None
+    except Exception as exc:
+        logger.warning("license: is_perpetual failed: %s", exc)
+        return False
+
+
+def pro_installed_version() -> str | None:
+    """Public alias for :func:`_pro_installed_version` -- the on-disk
+    ``clawmetry-pro`` package version, or ``None`` if the paid wheel is
+    not importable.
+
+    Kept as a thin wrapper so external callers (routes, CLI, dashboards)
+    can bind to a stable public name without reaching into the underscore
+    helper. The underlying reader is idempotent (pure ``importlib.metadata``
+    lookup) and never raises; this wrapper preserves both properties.
+    """
+    try:
+        return _pro_installed_version()
+    except Exception as exc:
+        logger.debug("license: pro_installed_version wrapper failed: %s", exc)
+        return None
+
+
+def pro_installed() -> bool:
+    """Scalar gate for "is the paid wheel actually importable right now?"
+
+    Returns ``True`` iff :func:`pro_installed_version` returns a non-empty
+    version string. Every other state -- wheel never provisioned, wheel
+    unpacked but ``importlib.metadata`` can't see it, transient
+    introspection failure -- collapses to ``False`` so a paywall renderer
+    or a health tile bound to this helper never crashes on a partial
+    install.
+
+    Complements :func:`is_tier` / :func:`license_tier` (which read the
+    license *claim*): a healthy Pro install must have both a signed
+    Pro-tier claim AND the wheel on-disk. Splitting the two lets an
+    operator diagnose "activated but wheel missing" (download failed,
+    ``CLAWMETRY_OFFLINE=1`` on a fresh install, air-gapped node) from
+    "wheel installed but license expired" (paid feature stops unlocking
+    on renewal lapse).
+
+    Never raises.
+    """
+    return bool(pro_installed_version())
+
+
+def pro_installation_info() -> dict:
+    """Operator-facing description of the ``clawmetry-pro`` install state.
+
+    Combines the two independent facts a paywall / install-health UI
+    typically wants together:
+
+    * ``installed`` / ``version`` -- can Python actually import
+      ``clawmetry-pro`` right now? (Live ``importlib.metadata`` probe.)
+    * ``marker`` -- the ``~/.clawmetry/pro_installed.json`` sidecar written
+      by :func:`_write_pro_marker` at provision time
+      (``installed_at`` unix seconds, ``source``, ``node_id``, the
+      ``version`` recorded at write time). ``{}`` when the marker file is
+      missing or unreadable.
+
+    The two can disagree in normal operation (marker present but wheel
+    was pip-uninstalled; wheel present but marker never written on a
+    pre-marker install), and that disagreement is exactly what an
+    operator debugging a paywall glitch needs to see, so both are
+    surfaced side-by-side rather than collapsed.
+
+    Never raises -- any underlying failure degrades to
+    ``{installed: False, version: None, marker: {}}`` so a UI bound to
+    this helper never breaks on a partial install."""
+    try:
+        version = pro_installed_version()
+    except Exception as exc:
+        logger.debug("license: pro_installation_info version read failed: %s", exc)
+        version = None
+    try:
+        marker = _read_pro_marker()
+    except Exception as exc:
+        logger.debug("license: pro_installation_info marker read failed: %s", exc)
+        marker = {}
+    if not isinstance(marker, dict):
+        marker = {}
+    return {
+        "installed": bool(version),
+        "version": version,
+        "marker": marker,
+    }
+
+
+
+def license_nodes() -> int | None:
+    """Scalar view onto the installed license's ``nodes`` claim -- the paid
+    node-coverage count -- for a fleet/capacity tile that wants ONE integer
+    rather than the whole :func:`current_license_info` envelope.
+
+    Returns:
+      * ``None`` when there is nothing trustworthy to surface:
+        no license file on disk, an invalid signature (the payload can't
+        be trusted -- an attacker could stuff any ``nodes`` count into an
+        unsigned body), an expired license (a lapsed customer must not
+        keep rendering as "5 nodes covered"), OR a signed payload whose
+        ``nodes`` claim is absent / non-numeric / less than 1.
+      * A positive integer otherwise -- the covered node count.
+
+    Mirrors the "refuse expired keys" posture already used by
+    :func:`license_tier`, so a fleet capacity tile bound to this scalar
+    cannot keep rendering the paid coverage on a lapsed install. A caller
+    who wants the CLAIM even on an expired key (support: "how many nodes
+    was this key SUPPOSED to cover?") should keep reading
+    :func:`current_license_info` directly and pull ``nodes`` there.
+
+    Never raises. Any exception under the hood degrades to ``None`` so a
+    dashboard tile bound to this helper never breaks on a partial install.
+    """
+    try:
+        info = current_license_info()
+    except Exception as exc:
+        logger.debug("license: license_nodes underlying read failed: %s", exc)
+        return None
+    if not isinstance(info, dict):
+        return None
+    if not info.get("valid"):
+        # invalid-signature and expired branches both collapse to None on
+        # purpose -- see docstring for the fleet-tile rationale.
+        return None
+    nodes = info.get("nodes")
+    try:
+        n = int(nodes)
+    except (TypeError, ValueError):
+        return None
+    return n if n >= 1 else None
+
+
+def is_within_node_limit(nodes: int) -> bool:
+    """Boolean gate for "does connecting the Nth node fit under my license?"
+
+    Returns ``True`` iff a license is installed, signature-valid, NOT
+    expired, its ``nodes`` claim resolves to a positive integer, AND the
+    caller's ``nodes`` value is between 1 and that limit inclusive. Every
+    other state returns ``False``: no license, invalid signature, expired
+    key, missing/non-numeric ``nodes`` claim, ``nodes<=0``, or a live limit
+    that simply does not cover the caller's count.
+
+    ``nodes`` is coerced through ``int()``; non-numeric input, zero, or a
+    negative count collapses to ``False`` (a fleet of "connect -5 nodes"
+    never fits any coverage). Never raises; every underlying failure
+    returns ``False`` so a scheduled fleet-capacity check never crashes
+    on a bad install.
+
+    Pairs with :func:`license_nodes` the way :func:`is_expiring_within`
+    pairs with :func:`days_until_expiry` -- the scalar reports the raw
+    number for tiles, this bool answers the yes/no question a gate needs
+    without the caller having to compare against the limit themselves.
+    """
+    try:
+        requested = int(nodes)
+    except (TypeError, ValueError):
+        return False
+    if requested < 1:
+        return False
+    limit = license_nodes()
+    if limit is None:
+        return False
+    return requested <= limit
+
+
+def has_license() -> bool:
+    """True iff a license file exists on disk at :data:`LICENSE_PATH`.
+
+    The bare install-state gate: answers "does this operator have ANY
+    license file at all?" without caring whether the signature verifies,
+    whether the ``exp`` claim is in the past, or whether the payload
+    tier/nodes are anything reasonable. A dashboard that wants to render
+    a subtly-different empty state for "Free (never activated)" vs
+    "Free (license expired / broken)" binds to this scalar; a paywall
+    tile that only cares about entitlement should use
+    :func:`is_license_valid` instead.
+
+    Complements :func:`license_tier` / :func:`is_tier`, which both
+    collapse to ``None`` / ``False`` on the invalid-signature and
+    expired branches -- callers wanting to distinguish "has a broken
+    file" from "has nothing" need this presence gate as a separate
+    signal.
+
+    Never raises. Any underlying filesystem failure (perms, race with
+    a concurrent ``deactivate``) collapses to ``False`` so a paywall
+    renderer bound to this scalar never crashes on a partial install.
+    """
+    try:
+        return os.path.isfile(LICENSE_PATH)
+    except Exception as exc:
+        logger.debug("license: has_license failed: %s", exc)
+        return False
+
+
+def is_license_valid() -> bool:
+    """True iff a license is installed, signature-valid, AND not expired.
+
+    The single boolean gate every paywall tile actually wants: "is this
+    node entitled right now?". Pairs with :func:`has_license` -- the
+    presence gate answers "does a file exist?", this one answers "is
+    the file trustworthy AND live?". A UI wanting to distinguish "no
+    license" from "broken license" from "lapsed license" from "live
+    license" reads both scalars together (plus :func:`is_expired` /
+    :func:`current_license_info().status` for the specific broken /
+    lapsed reason).
+
+    Returns ``False`` on every one of:
+
+    * No license file on disk (:func:`has_license` is ``False``).
+    * File exists but signature does not verify (an attacker could
+      stuff any tier/nodes/exp into an unsigned body, so we treat the
+      whole install as untrusted).
+    * File exists, signature verifies, but ``exp`` is in the past.
+
+    Returns ``True`` iff the ``current_license_info().valid`` flag is
+    truthy for the installed file -- which is the same source of truth
+    :func:`license_tier` / :func:`is_tier` / :func:`license_nodes`
+    already use to gate their entitlement scalars, so a UI binding all
+    four sees a consistent snapshot.
+
+    Never raises. Any underlying introspection failure collapses to
+    ``False`` so a scheduled paywall renderer never crashes on a bad
+    install.
+    """
+    try:
+        info = current_license_info()
+    except Exception as exc:
+        logger.warning("license: is_license_valid failed: %s", exc)
+        return False
+    if not isinstance(info, dict):
+        return False
+    return bool(info.get("valid"))
+
+
+def license_subject() -> str | None:
+    """Scalar view onto the installed license's ``sub`` claim -- the customer
+    identifier the license was issued to (typically an account id or a
+    contact email) -- for a "Licensed to <X>" badge / support-context tile
+    that wants ONE string rather than the whole :func:`current_license_info`
+    envelope.
+
+    Returns:
+      * ``None`` when there is nothing trustworthy to surface:
+        no license file on disk, an invalid signature (the payload can't
+        be trusted -- an attacker could stuff any ``sub`` string into an
+        unsigned body and impersonate a real customer), an expired license
+        (a lapsed customer must not keep rendering as the account holder
+        for gating / audit purposes), OR a signed payload whose ``sub``
+        claim is absent / non-string / an empty string after strip.
+      * The stripped subject string otherwise -- the operator-visible
+        identifier bound to the current license.
+
+    Casing is preserved: subjects are typically email addresses / account
+    ids where case can matter for exact-match comparisons, so a UI badge
+    renders the customer-facing form verbatim. :func:`is_subject` handles
+    case-insensitive matching on top for callers that want it.
+
+    Mirrors the "refuse expired keys" posture already used by
+    :func:`license_tier` / :func:`license_nodes`, so a support tile bound
+    to this scalar cannot keep rendering the paid customer on a lapsed
+    install. A caller who wants the CLAIM even on an expired key (support:
+    "who was this key issued to?") should keep reading
+    :func:`current_license_info` directly and pull ``sub`` there.
+
+    Never raises. Any exception under the hood degrades to ``None`` so a
+    dashboard tile bound to this helper never breaks on a partial install.
+    """
+    try:
+        info = current_license_info()
+    except Exception as exc:
+        logger.debug("license: license_subject underlying read failed: %s", exc)
+        return None
+    if not isinstance(info, dict):
+        return None
+    if not info.get("valid"):
+        # invalid-signature and expired branches both collapse to None on
+        # purpose -- see docstring for the support-tile rationale.
+        return None
+    sub = info.get("sub")
+    if not isinstance(sub, str):
+        return None
+    stripped = sub.strip()
+    return stripped or None
+
+
+def is_subject(subject: str) -> bool:
+    """Boolean gate for "is this license issued to subject <X>?" UIs.
+
+    Returns ``True`` iff a license is installed, signature-valid, NOT
+    expired, its ``sub`` claim resolves to a non-empty string, AND that
+    string matches ``subject`` (case-insensitive, whitespace-stripped on
+    both sides). Every other state returns ``False``: no license, invalid
+    signature, expired key, missing/empty ``sub`` claim, or a live
+    subject that simply differs from the request.
+
+    ``subject`` is coerced through ``str()`` and normalised the same way
+    the stored claim is normalised, so a caller can pass ``"acct_test"``,
+    ``"  acct_test "``, or ``"ACCT_TEST"`` and get the same answer.
+    Non-string / empty input collapses to ``False`` (nothing "is subject
+    empty-string"). Never raises; every underlying failure returns
+    ``False`` so a scheduled paywall / audit check never crashes on a
+    bad install.
+
+    Pairs with :func:`license_subject` the way :func:`is_tier` pairs
+    with :func:`license_tier` -- the scalar reports the raw string for a
+    badge tile, this bool answers the yes/no question a multi-tenant
+    dispatcher or a license-transfer detector needs without the caller
+    having to normalise the string themselves.
+    """
+    try:
+        requested = str(subject).strip().lower()
+    except Exception:
+        return False
+    if not requested:
+        return False
+    actual = license_subject()
+    if actual is None:
+        return False
+    return actual.lower() == requested
+
+
+def license_permissions_safe() -> bool | None:
+    """Scalar view onto the installed license file's on-disk permission
+    hygiene -- for a security-posture tile that wants ONE tri-state
+    rather than the whole :func:`current_license_info` envelope.
+
+    The license key is a bearer secret: anyone holding the file can
+    present it to the offline verifier. On POSIX the file must not be
+    group/world readable; a 0o644 (default umask) key file is a
+    silently-leaked bearer credential.
+
+    Returns:
+      * ``None`` when there is no license file on disk -- nothing to
+        check, and a UI tile bound to this scalar should render as
+        "not applicable" rather than "safe" (a Free install has no
+        credential to protect).
+      * ``True`` when the file exists AND has no group/world mode bits
+        set (POSIX), OR when running on Windows where POSIX mode bits
+        do not apply and the default ACL restricts the file to the
+        owning user.
+      * ``False`` when the file exists on POSIX AND has any of the
+        group/other bits set (``0o077``) -- exactly the state a
+        "tighten file permissions" affordance should highlight.
+
+    Deliberately orthogonal to signature validity: a tampered or expired
+    license file still has meaningful hygiene state (in fact, MORE
+    urgent to surface -- a loose-permission key file may indicate the
+    same corruption that broke the signature). So the return value
+    depends only on existence + POSIX mode, never on the payload
+    branches that :func:`license_tier` / :func:`license_subject` gate
+    themselves on.
+
+    Never raises. Any exception under the hood degrades to ``None`` so
+    a scheduled security-posture check never crashes on a bad install.
+    """
+    try:
+        if not os.path.isfile(LICENSE_PATH):
+            return None
+        return _file_permissions_safe(LICENSE_PATH)
+    except Exception as exc:
+        logger.debug("license: license_permissions_safe read failed: %s", exc)
+        return None
+
+
+def license_file_mode() -> str | None:
+    """Scalar view onto the installed license file's POSIX mode -- for a
+    security-posture / debug tile that wants the raw octal (e.g.
+    ``"0644"``) rather than the whole :func:`current_license_info`
+    envelope.
+
+    Returns:
+      * ``None`` when there is nothing meaningful to surface: no
+        license file on disk, OR running on Windows where POSIX mode
+        bits do not apply.
+      * A four-character octal string like ``"0600"`` (safe),
+        ``"0644"`` (world-readable), or ``"0666"`` (world-writable)
+        otherwise. Format is stable and matches ``chmod`` -- the same
+        digits an operator would pass to ``chmod 0600 <path>`` to fix
+        an unsafe key file.
+
+    Deliberately orthogonal to signature validity: the on-disk mode is
+    a file-hygiene fact, not a license-payload fact, so the return
+    value depends only on existence + platform, never on the payload
+    branches that :func:`license_tier` / :func:`license_subject` gate
+    themselves on. Pairs with :func:`license_permissions_safe` the way
+    :func:`license_nodes` pairs with :func:`is_within_node_limit` --
+    this scalar surfaces the raw mode for a debug row, that bool
+    answers the yes/no question a security tile needs without the
+    caller having to parse octal themselves.
+
+    Never raises. Any exception under the hood degrades to ``None`` so
+    a scheduled hygiene check never crashes on a stat() failure.
+    """
+    try:
+        if os.name != "posix":
+            return None
+        if not os.path.isfile(LICENSE_PATH):
+            return None
+        mode = os.stat(LICENSE_PATH).st_mode & 0o777
+        return f"{mode:04o}"
+    except Exception as exc:
+        logger.debug("license: license_file_mode read failed: %s", exc)
+        return None
+
+
+def license_issued_at() -> int | None:
+    """Scalar view onto the installed license's ``iat`` claim -- the epoch
+    timestamp the key was signed at -- for a "license issued: <date>" row
+    that wants ONE integer rather than the whole
+    :func:`current_license_info` envelope.
+
+    Returns:
+      * ``None`` when there is nothing trustworthy to surface: no license
+        file on disk, an invalid signature (the payload can't be trusted --
+        an attacker could stuff any ``iat`` into an unsigned body), OR a
+        signed payload whose ``iat`` claim is absent / non-numeric.
+      * A positive epoch integer otherwise -- the exact timestamp carried
+        by the signed payload, unmodified.
+
+    Deliberately lenient on expiry, unlike :func:`license_tier` /
+    :func:`license_nodes` / :func:`license_subject`: an expired but
+    signature-valid key still carries a meaningful ``iat`` (support
+    scenario: "how old is this lapsed key?") and callers would otherwise
+    have to fall back to ``/api/license/status``. Mirrors the "works on
+    expired keys" posture of :func:`days_until_expiry`, which continues to
+    return signed integer days past expiry so a UI can render "expired 12
+    days ago" without special-casing.
+
+    Never raises. Any exception under the hood degrades to ``None`` so a
+    UI tile bound to this helper never breaks on a partial install.
+    """
+    try:
+        info = current_license_info()
+    except Exception as exc:
+        logger.debug("license: license_issued_at underlying read failed: %s", exc)
+        return None
+    if not isinstance(info, dict):
+        return None
+    if info.get("status") == "invalid":
+        # Invalid-signature branch: payload cannot be trusted, refuse to
+        # surface any payload-derived claim (mirrors the tier / nodes /
+        # subject scalars). Expired-but-signed keys still carry a
+        # meaningful ``iat`` so we do NOT refuse them here.
+        return None
+    issued = info.get("issued_at")
+    return int(issued) if isinstance(issued, int) else None
+
+
+def license_age_days() -> int | None:
+    """Scalar view onto the installed license's age -- days since the
+    ``iat`` claim -- for a support/audit tile that wants ONE integer
+    rather than computing ``(now - iat) // 86400`` at every call site.
+
+    Returns:
+      * ``None`` when there is nothing meaningful to derive: no license
+        file, an invalid signature, or a signed payload whose ``iat``
+        claim is absent / non-numeric.
+      * A non-negative integer number of days otherwise. Zero on the day
+        of issuance; grows monotonically thereafter.
+
+    Days are floor-divided from seconds (``(now - iat) // 86400``),
+    matching how :func:`days_until_expiry` derives its counterpart from
+    ``(exp - now)`` so the two scalars never disagree at the day
+    boundary. Clamped to ``max(0, ...)`` to guard against clock skew
+    (``iat`` in the future would otherwise render as a negative age).
+
+    Pairs with :func:`license_issued_at` the way :func:`days_until_expiry`
+    pairs with the raw ``exp`` claim on :func:`current_license_info` --
+    the raw scalar surfaces the epoch, this one surfaces the caller-
+    friendly derived integer without either side having to do the arithmetic.
+
+    Never raises. Any exception under the hood degrades to ``None`` so a
+    scheduled audit tile never crashes on a bad install.
+    """
+    import time as _t
+
+    try:
+        issued = license_issued_at()
+    except Exception as exc:
+        logger.debug("license: license_age_days underlying read failed: %s", exc)
+        return None
+    if not isinstance(issued, int):
+        return None
+    try:
+        age = int((_t.time() - issued) // 86400)
+    except Exception as exc:
+        logger.debug("license: license_age_days arithmetic failed: %s", exc)
+        return None
+    return age if age >= 0 else 0

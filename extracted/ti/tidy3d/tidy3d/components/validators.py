@@ -76,6 +76,25 @@ def named_obj_descr(obj: Any, field_name: str, position_index: int) -> str:
     return descr
 
 
+def points_outside_bounds(
+    points: NDArray, bounds: NDArray, strict_inequality: Sequence[bool]
+) -> NDArray:
+    """Return a mask for points outside axis-aligned bounds."""
+    points = np.asarray(points, dtype=float)
+    bounds = np.asarray(bounds, dtype=float)
+    outside_lower = np.zeros(points.shape[0], dtype=bool)
+    outside_upper = np.zeros(points.shape[0], dtype=bool)
+    for axis, strict in enumerate(strict_inequality):
+        if strict:
+            outside_lower |= points[:, axis] <= bounds[0, axis]
+            outside_upper |= points[:, axis] >= bounds[1, axis]
+        else:
+            outside_lower |= points[:, axis] < bounds[0, axis]
+            outside_upper |= points[:, axis] > bounds[1, axis]
+
+    return outside_lower | outside_upper
+
+
 def call_wrapped_validator(
     factory: Callable[..., Any], instance: Any, *args: Any, **kwargs: Any
 ) -> Any:
@@ -179,10 +198,16 @@ def validate_unique(
 
 
 def validate_mode_objects_symmetry(field_name: str) -> Callable[[T], T]:
-    """If a Mode object, this checks that the object is fully in the main quadrant in the presence
-    of symmetry along a given axis, or else centered on the symmetry center."""
+    """If a Mode-like object (ModeSource / ModeMonitor / ModeTimeMonitor),
+    check that the object is fully in the main quadrant in the presence
+    of symmetry along a given axis, or else centered on the symmetry
+    center. ModeTimeMonitor shares the ModeMonitor mode-solver pipeline
+    and inherits the same restriction."""
 
-    obj_type = "ModeSource" if field_name == "sources" else "ModeMonitor"
+    if field_name == "sources":
+        obj_types: tuple[str, ...] = ("ModeSource",)
+    else:
+        obj_types = ("ModeMonitor", "ModeTimeMonitor")
 
     @model_validator(mode="after")
     def check_symmetry(self: T) -> T:
@@ -190,7 +215,7 @@ def validate_mode_objects_symmetry(field_name: str) -> Callable[[T], T]:
         val: Sequence[Any] = getattr(self, field_name)
         sim_center = self.center
         for position_index, geometric_object in enumerate(val):
-            if geometric_object.type == obj_type:
+            if geometric_object.type in obj_types:
                 bounds_min, _ = geometric_object.bounds
                 for dim, sym in enumerate(self.symmetry):
                     if (
@@ -200,8 +225,8 @@ def validate_mode_objects_symmetry(field_name: str) -> Callable[[T], T]:
                     ):
                         obj_descr = named_obj_descr(geometric_object, field_name, position_index)
                         self._raise_validation_error_at_loc(
-                            f"{obj_type}: {obj_descr} in presence of symmetries must be in the main "
-                            "quadrant, or centered on the symmetry axis.",
+                            f"{geometric_object.type}: {obj_descr} in presence of symmetries must "
+                            "be in the main quadrant, or centered on the symmetry axis.",
                             field_name,
                             position_index,
                         )
@@ -364,6 +389,8 @@ def assert_objects_in_sim_bounds(
 
         with log as consolidated_logger:
             for position_index, geometric_object in enumerate(val):
+                if getattr(geometric_object, "_skip_sim_bounds_intersection_validation", False):
+                    continue
                 if not sim_box.intersects(geometric_object.geometry, strict_inequality=strict_ineq):
                     obj_descr = named_obj_descr(geometric_object, field_name, position_index)
                     message = f"{obj_descr} is outside of the simulation domain."

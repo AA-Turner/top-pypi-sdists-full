@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import Field
 
+from tidy3d.components.autograd.path_utils import format_traced_path
 from tidy3d.components.base import Tidy3dBaseModel
 from tidy3d.components.material.solver_types import (
     ChargeMediumType,
@@ -11,6 +12,10 @@ from tidy3d.components.material.solver_types import (
     OpticalMediumType,
 )
 from tidy3d.components.types.base import TYPE_TAG_STR
+from tidy3d.exceptions import AdjointError
+
+if TYPE_CHECKING:
+    from tidy3d.components.autograd.path_utils import AutogradRoute
 
 
 class MultiPhysicsMedium(Tidy3dBaseModel):
@@ -20,65 +25,67 @@ class MultiPhysicsMedium(Tidy3dBaseModel):
     Examples
     --------
     For *silica* (:math:`SiO_2`):
-        >>> import tidy3d as td
-        >>> SiO2 = td.MultiPhysicsMedium(
-        ...   optical=td.Medium(permittivity=3.9),
-        ...   charge=td.ChargeInsulatorMedium(permittivity=3.9), # redefining permittivity
-        ...   name="SiO2",
-        ... )
+
+    >>> import tidy3d as td
+    >>> SiO2 = td.MultiPhysicsMedium(
+    ...   optical=td.Medium(permittivity=3.9),
+    ...   charge=td.ChargeInsulatorMedium(permittivity=3.9), # redefining permittivity
+    ...   name="SiO2",
+    ... )
 
     For a silicon ``MultiPhysicsMedium`` composed of an optical model
     from the material library and custom charge :class:`SemiconductorMedium`:
-        >>> import tidy3d as td
-        >>> default_multiphysics_Si = td.MultiPhysicsMedium(
-        ...     optical=td.material_library['cSi']['Green2008'],
-        ...     charge=td.SemiconductorMedium(
-        ...         N_c=td.ConstantEffectiveDOS(N=2.86e19),
-        ...         N_v=td.ConstantEffectiveDOS(N=3.1e19),
-        ...         E_g=td.ConstantEnergyBandGap(eg=1.11),
-        ...         mobility_n=td.CaugheyThomasMobility(
-        ...             mu_min=52.2,
-        ...             mu=1471.0,
-        ...             ref_N=9.68e16,
-        ...             exp_N=0.68,
-        ...             exp_1=-0.57,
-        ...             exp_2=-2.33,
-        ...             exp_3=2.4,
-        ...             exp_4=-0.146,
-        ...         ),
-        ...         mobility_p=td.CaugheyThomasMobility(
-        ...             mu_min=44.9,
-        ...             mu=470.5,
-        ...             ref_N=2.23e17,
-        ...             exp_N=0.719,
-        ...             exp_1=-0.57,
-        ...             exp_2=-2.33,
-        ...             exp_3=2.4,
-        ...             exp_4=-0.146,
-        ...         ),
-        ...         R=[
-        ...             td.ShockleyReedHallRecombination(
-        ...                 tau_n=3.3e-6,
-        ...                 tau_p=4e-6
-        ...             ),
-        ...             td.RadiativeRecombination(
-        ...                 r_const=1.6e-14
-        ...             ),
-        ...             td.AugerRecombination(
-        ...                 c_n=2.8e-31,
-        ...                 c_p=9.9e-32
-        ...             ),
-        ...         ],
-        ...         delta_E_g=td.SlotboomBandGapNarrowing(
-        ...             v1=6.92 * 1e-3,
-        ...             n2=1.3e17,
-        ...             c2=0.5,
-        ...             min_N=1e15,
-        ...         ),
-        ...         N_a=[td.ConstantDoping(concentration=1e15)],
-        ...         N_d=[td.ConstantDoping(concentration=1e15)]
-        ...     )
-        ... )
+
+    >>> import tidy3d as td
+    >>> default_multiphysics_Si = td.MultiPhysicsMedium(
+    ...     optical=td.material_library['cSi']['Palik_LowLoss'],
+    ...     charge=td.SemiconductorMedium(
+    ...         N_c=td.ConstantEffectiveDOS(N=2.86e19),
+    ...         N_v=td.ConstantEffectiveDOS(N=3.1e19),
+    ...         E_g=td.ConstantEnergyBandGap(eg=1.11),
+    ...         mobility_n=td.CaugheyThomasMobility(
+    ...             mu_min=52.2,
+    ...             mu=1471.0,
+    ...             ref_N=9.68e16,
+    ...             exp_N=0.68,
+    ...             exp_1=-0.57,
+    ...             exp_2=-2.33,
+    ...             exp_3=2.4,
+    ...             exp_4=-0.146,
+    ...         ),
+    ...         mobility_p=td.CaugheyThomasMobility(
+    ...             mu_min=44.9,
+    ...             mu=470.5,
+    ...             ref_N=2.23e17,
+    ...             exp_N=0.719,
+    ...             exp_1=-0.57,
+    ...             exp_2=-2.33,
+    ...             exp_3=2.4,
+    ...             exp_4=-0.146,
+    ...         ),
+    ...         R=[
+    ...             td.ShockleyReedHallRecombination(
+    ...                 tau_n=3.3e-6,
+    ...                 tau_p=4e-6
+    ...             ),
+    ...             td.RadiativeRecombination(
+    ...                 r_const=1.6e-14
+    ...             ),
+    ...             td.AugerRecombination(
+    ...                 c_n=2.8e-31,
+    ...                 c_p=9.9e-32
+    ...             ),
+    ...         ],
+    ...         delta_E_g=td.SlotboomBandGapNarrowing(
+    ...             v1=6.92 * 1e-3,
+    ...             n2=1.3e17,
+    ...             c2=0.5,
+    ...             min_N=1e15,
+    ...         ),
+    ...         N_a=[td.ConstantDoping(concentration=1e15)],
+    ...         N_d=[td.ConstantDoping(concentration=1e15)]
+    ...     )
+    ... )
     """
 
     name: str | None = Field(None, title="Name", description="Medium name")
@@ -109,6 +116,15 @@ class MultiPhysicsMedium(Tidy3dBaseModel):
         description="Specifies properties for Charge simulations.",
         discriminator=TYPE_TAG_STR,
     )
+
+    def _resolve_autograd_route(self, field_path: tuple[Any, ...]) -> AutogradRoute:
+        """Reject native autograd routes through multiphysics media."""
+        parameter = format_traced_path(tuple(field_path))
+        raise AdjointError(
+            f"Automatic differentiation with respect to medium parameter '{parameter}' is not "
+            f"supported for medium type '{type(self).__name__}'. Use an optical medium directly "
+            "or provide a custom_vjp."
+        )
 
     def __getattr__(self, name: str) -> Any:
         """

@@ -121,6 +121,7 @@ __all__ = (
     "DecalPatternTypeType",
     "DecalStyleTypeType",
     "DefaultAggregationType",
+    "DefaultCategoryEffectType",
     "DescribeFolderPermissionsPaginatorName",
     "DescribeFolderResolvedPermissionsPaginatorName",
     "DigitGroupingStyleType",
@@ -546,7 +547,7 @@ BrandStatusType = Literal[
     "CREATE_FAILED", "CREATE_IN_PROGRESS", "CREATE_SUCCEEDED", "DELETE_FAILED", "DELETE_IN_PROGRESS"
 ]
 BrandVersionStatusType = Literal["CREATE_FAILED", "CREATE_IN_PROGRESS", "CREATE_SUCCEEDED"]
-CapabilityStateType = Literal["DENY"]
+CapabilityStateType = Literal["ALLOW", "DENY"]
 CategoricalAggregationFunctionType = Literal["COUNT", "DISTINCT_COUNT"]
 CategoryFilterFunctionType = Literal["CONTAINS", "EXACT"]
 CategoryFilterMatchOperatorType = Literal[
@@ -768,6 +769,7 @@ DefaultAggregationType = Literal[
     "VAR",
     "VARP",
 ]
+DefaultCategoryEffectType = Literal["DENY_BY_DEFAULT"]
 DescribeFolderPermissionsPaginatorName = Literal["describe_folder_permissions"]
 DescribeFolderResolvedPermissionsPaginatorName = Literal["describe_folder_resolved_permissions"]
 DigitGroupingStyleType = Literal["DEFAULT", "LAKHS"]

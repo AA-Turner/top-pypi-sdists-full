@@ -16,6 +16,7 @@ from pgqueuer.adapters.mcp.server import (
 )
 from pgqueuer.adapters.persistence.qb import DBSettings
 from pgqueuer.db import AsyncpgDriver
+from pgqueuer.domain.settings import ConnectionSettings
 from pgqueuer.queries import Queries
 
 
@@ -61,7 +62,10 @@ class TestParseInterval:
 
 class TestCreateMcpServer:
     def test_factory_returns_fastmcp(self) -> None:
-        server = create_mcp_server(dsn="postgresql://localhost/test")
+        server = create_mcp_server(
+            dsn="postgresql://localhost/test",
+            connection_settings=ConnectionSettings(pool_min_size=1, pool_max_size=2),
+        )
         assert server.name == "pgqueuer"
 
     def test_factory_registers_all_tools(self) -> None:

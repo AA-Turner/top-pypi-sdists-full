@@ -14,7 +14,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.ssl_ import create_urllib3_context
 
 from tidy3d import log
-from tidy3d.config import config
+from tidy3d.config import config, get_manager
 
 from . import core_config
 from .constants import (
@@ -75,6 +75,12 @@ def api_key() -> str | None:
     return str(apikey)
 
 
+def config_toml_path() -> str:
+    """Return the active config.toml path for user-facing setup messages."""
+
+    return str(get_manager().config_dir / "config.toml")
+
+
 def api_key_auth(request: requests.request) -> requests.request:
     """Save the authentication info in a request.
 
@@ -95,10 +101,9 @@ def api_key_auth(request: requests.request) -> requests.request:
             "API key not found. To get your API key, sign into 'https://tidy3d.simulation.cloud' "
             "and copy it from your 'Account' page. Then you can configure tidy3d through command "
             "line 'tidy3d configure' and enter your API key when prompted. "
-            "Alternatively, especially if using windows, you can manually create the configuration "
-            "file by creating a file at their home directory '~/.tidy3d/config' (unix) or "
-            "'.tidy3d/config' (windows) containing the following line: "
-            "apikey = 'XXX'. Here XXX is your API key copied from your account page within quotes."
+            f"Alternatively, create '{config_toml_path()}' "
+            "with a [web] section containing apikey = 'XXX'. Here XXX is your API key "
+            "copied from your account page within quotes."
         )
     if not version:
         raise ValueError("version not found.")
@@ -242,19 +247,22 @@ def http_interceptor(func: Callable[..., Any]) -> Callable[..., JSONType]:
     return wrapper
 
 
+def ssl_context_for_config(*, cert_reqs: int | None = None) -> ssl.SSLContext:
+    """Create a urllib3 SSL context using Tidy3D's configured TLS version."""
+
+    try:
+        ssl_version = (
+            ssl.TLSVersion[config.web.ssl_version] if config.web.ssl_version is not None else None
+        )
+    except KeyError:
+        log.warning(f"Invalid SSL/TLS version '{config.web.ssl_version}', using default")
+        ssl_version = None
+    return create_urllib3_context(ssl_version=ssl_version, cert_reqs=cert_reqs)
+
+
 class TLSAdapter(HTTPAdapter):
     def init_poolmanager(self, *args: Any, **kwargs: Any) -> None:
-        try:
-            ssl_version = (
-                ssl.TLSVersion[config.web.ssl_version]
-                if config.web.ssl_version is not None
-                else None
-            )
-        except KeyError:
-            log.warning(f"Invalid SSL/TLS version '{config.web.ssl_version}', using default")
-            ssl_version = None
-        context = create_urllib3_context(ssl_version=ssl_version)
-        kwargs["ssl_context"] = context
+        kwargs["ssl_context"] = ssl_context_for_config()
         return super().init_poolmanager(*args, **kwargs)
 
 
@@ -264,7 +272,7 @@ class HttpSessionManager:
     def __init__(self, session: requests.Session) -> None:
         """Initialize the session."""
         self.session = session
-        self._mounted_ssl_version = None
+        self._mounted_ssl_version: str | None = None
         self._ensure_tls_adapter(config.web.ssl_version)
         self.session.verify = config.web.ssl_verify
 

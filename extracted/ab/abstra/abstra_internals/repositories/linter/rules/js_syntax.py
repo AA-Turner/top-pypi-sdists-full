@@ -34,6 +34,10 @@ def _find_errors(node, errors=None):
 
 
 class JsSyntaxErrorsFound(LinterIssue):
+    title = "JavaScript syntax errors"
+    type = "error"
+    fix_with_ai = True
+
     def __init__(self, file_path: Path, errors: List[str]):
         bullets = "\n".join(f"  - {err}" for err in errors)
         self.label = f"JS errors in {file_path.name}:\n{bullets}"
@@ -42,8 +46,6 @@ class JsSyntaxErrorsFound(LinterIssue):
 
 class JsSyntax(PathScopedLinterRule):
     label = "JavaScript syntax errors"
-    type = "error"
-    fix_with_ai = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         project = (current_lint_context() or LintContext()).project

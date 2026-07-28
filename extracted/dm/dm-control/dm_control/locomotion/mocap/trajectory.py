@@ -130,8 +130,8 @@ class Trajectory:
       values = get_field_in_timestep(timestep)
       if i == 0:
         array = np.empty((len(self._proto.timesteps),) + values.shape)
-      array[i, :] = values
-    return array
+      array[i, :] = values  # pyrefly: ignore[unbound-name]
+    return array  # pyrefly: ignore[unbound-name]
 
   def _create_all_items(self, dictionary):
     for key, value in dictionary.items():

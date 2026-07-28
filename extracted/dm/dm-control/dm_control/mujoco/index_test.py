@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 
-"""Tests for index."""
-
 import collections
 
 from absl.testing import absltest
@@ -34,10 +32,10 @@ MODEL_3RD_ORDER_ACTUATORS = assets.get_contents(
 FIELD_REPR = {
     'act': ('FieldIndexer(act):\n'
             '(empty)'),
-    'qM': ('FieldIndexer(qM):\n'
-           '0  [ 0       ]\n'
-           '1  [ 1       ]\n'
-           '2  [ 2       ]'),
+    'qLD': ('FieldIndexer(qLD):\n'
+            '0  [ 0       ]\n'
+            '1  [ 1       ]\n'
+            '2  [ 2       ]'),
     'sensordata': ('FieldIndexer(sensordata):\n'
                    '0 accelerometer [ 0       ]\n'
                    '1 accelerometer [ 1       ]\n'
@@ -270,7 +268,7 @@ class MujocoIndexTest(parameterized.TestCase):
       with self.assertRaisesRegex(IndexError, exception_regexp):
         _ = indexer[expression]
 
-  @parameterized.parameters('act', 'qM', 'sensordata', 'xpos')  # field name
+  @parameterized.parameters('act', 'qLD', 'sensordata', 'xpos')  # field name
   def testFieldIndexerRepr(self, field_name):
 
     indexer = getattr(self._data_indexers, field_name)

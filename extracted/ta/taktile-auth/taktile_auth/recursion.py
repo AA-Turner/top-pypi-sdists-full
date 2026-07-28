@@ -89,18 +89,14 @@ class RecursionGate:
         sessions skip the DDB write."""
         return uuid7()
 
-    def record_hop(
-        self, session_prefix: str, weight: int
-    ) -> RecursionDecision:
+    def record_hop(self, session_prefix: str, weight: int) -> RecursionDecision:
         """Account for one hop of ``weight``. Returns the decision."""
         if weight <= 0:
             return RecursionDecision.OK
 
         key = recursion_counter_key(session_prefix)
         try:
-            new_weight = self._counter.increment(
-                key, weight, self._ttl_seconds
-            )
+            new_weight = self._counter.increment(key, weight, self._ttl_seconds)
         except Exception as exc:
             # Fail open: counter accuracy is best-effort, but
             # auth availability is not. A transient counter outage
@@ -132,9 +128,7 @@ class RecursionGate:
             )
 
         if decision == RecursionDecision.ABORT and self._mode == "error":
-            raise LoopDetectedException(
-                session_prefix=session_prefix, weight=new_weight
-            )
+            raise LoopDetectedException(session_prefix=session_prefix, weight=new_weight)
         return decision
 
     def is_aborted(self, session_prefix: str) -> bool:

@@ -1,6 +1,6 @@
 [project]
 name = "geocif"
-version = "0.4.879"
+version = "0.4.880"
 
 description = "Models to visualize and forecast crop conditions and yields"
 readme = "README.md"
@@ -25,8 +25,10 @@ dependencies = [
     "boruta>=0.4.3",
     "catboost>=1.2.8",
     "fiona",
-    "gdal==3.10.2; sys_platform == 'win32'",   # Windows: matched by uv.sources wheel
-    "gdal==3.11.0; sys_platform != 'win32'",  # HPC Linux: must match system libgdal 3.11.0
+    # gdal binary now comes from conda-forge (pixi); loose pin so the conda
+    # libgdal build satisfies the editable self-dep. Was pinned to the cgohlke
+    # wheel 3.10.2 (win) / system libgdal 3.11.0 (HPC) — both obsolete under pixi.
+    "gdal>=3.10",
     "pyeogpr>=2.4.7",
     "pyproj",
     "rasterio",
@@ -78,8 +80,9 @@ dependencies = [
     "merf>=1.0",              # mixed-effects random forests
     "ngboost>=0.5",           # probabilistic gradient boosting
     "tabpfn-extensions>=0.4",  # TabPFN extras (0.4+ — stable line; 0.0.x was placeholder releases)
-    "treeple>=0.10",          # honest tree ensembles
-    "ydf>=0.6",               # Yggdrasil Decision Forests
+    # NOTE: ydf + treeple were removed — compiled backends with no aarch64 wheels
+    # (ydf needs Bazel, unbuildable on ARM). Their model branches in
+    # ml/trainers.py ('ydf', 'oblique', 'desreg') raise a clear error if selected.
     # ML feature selection (geocif/ml/feature_selection.py):
     "BorutaShap>=1.0",        # Boruta with SHAP-based importance
     "arfs>=2.0",              # All Relevant Feature Selection
@@ -184,31 +187,104 @@ include = ["geocif", "geocif.*"]
 [tool.setuptools]
 include-package-data = true
 
-[tool.uv.sources]
-gdal = { url = "https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.3.30/gdal-3.10.2-cp311-cp311-win_amd64.whl", marker = "sys_platform == 'win32'" }
-rasterio = { url = "https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.3.30/rasterio-1.4.3-cp311-cp311-win_amd64.whl", marker = "sys_platform == 'win32'" }
-shapely = { url = "https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.3.30/shapely-2.0.7-cp311-cp311-win_amd64.whl", marker = "sys_platform == 'win32'" }
-pyproj = { url = "https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.3.30/pyproj-3.7.1-cp311-cp311-win_amd64.whl", marker = "sys_platform == 'win32'" }
-rtree = { url = "https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.3.30/rtree-1.4.0-cp311-cp311-win_amd64.whl", marker = "sys_platform == 'win32'" }
-fiona = { url = "https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.3.30/fiona-1.10.1-cp311-cp311-win_amd64.whl", marker = "sys_platform == 'win32'" }
+# ---------------------------------------------------------------------------
+# pixi (conda-forge) environment management — migrated off uv/PyPI.
+#
+# Replaces THREE uv hacks that only existed to fight geospatial-on-PyPI:
+#   * [tool.uv.sources] cgohlke win_amd64 wheels  -> conda-forge native win-64
+#   * gdal==3.11.0 "match HPC system libgdal"      -> conda-forge bundles libgdal
+#   * [tool.uv] nvidia-* override (force CPU torch) -> conda `pytorch-cpu`
+#
+# [project.dependencies] above stays the source of truth for `pip install
+# geocif`. The heavy compiled deps below come from conda-forge; the editable
+# self-dep then pulls the remaining pure-Python / PyPI-only packages
+# (tabpfn, tabicl, cubist, treeple, ydf, geoprepare, ...) from PyPI, reusing
+# the conda binaries instead of rebuilding them.
+#
+#   pixi install                                    # default env
+#   pixi run python -c "from osgeo import gdal; import geocif"
+#   pixi run -e dev pytest ; pixi install -e full   # extras
+#
+# The 4 intentionally-conflicting extras (shap_fast, powershap, geospaNN,
+# desreg) are NOT pixi features — they pin shap<0.46 / statsmodels<0.14 /
+# broken torch-scatter and need an isolated env. Keep installing those via
+# `pip install geocif[<extra>]` into a throwaway venv.
+# ---------------------------------------------------------------------------
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+# linux-aarch64 covers ARM hosts (e.g. AWS Graviton / terrahub jupyter nodes).
+platforms = ["linux-64", "linux-aarch64", "win-64"]
 
-[tool.uv]
-override-dependencies = [
-    "cuda-bindings; python_version < '0'",
-    "cuda-pathfinder; python_version < '0'",
-    "nvidia-cublas-cu12; python_version < '0'",
-    "nvidia-cuda-cupti-cu12; python_version < '0'",
-    "nvidia-cuda-nvrtc-cu12; python_version < '0'",
-    "nvidia-cuda-runtime-cu12; python_version < '0'",
-    "nvidia-cudnn-cu12; python_version < '0'",
-    "nvidia-cufft-cu12; python_version < '0'",
-    "nvidia-cufile-cu12; python_version < '0'",
-    "nvidia-curand-cu12; python_version < '0'",
-    "nvidia-cusolver-cu12; python_version < '0'",
-    "nvidia-cusparse-cu12; python_version < '0'",
-    "nvidia-cusparselt-cu12; python_version < '0'",
-    "nvidia-nccl-cu12; python_version < '0'",
-    "nvidia-nvjitlink-cu12; python_version < '0'",
-    "nvidia-nvshmem-cu12; python_version < '0'",
-    "nvidia-nvtx-cu12; python_version < '0'",
-]
+[tool.pixi.dependencies]
+python = "3.11.*"
+# geospatial binaries (conda-forge libgdal/geos/proj)
+gdal = ">=3.10"
+rasterio = "*"
+fiona = "*"
+pyproj = "*"
+shapely = "*"
+rtree = "*"
+cartopy = "*"
+geopandas = "*"
+pyhdf = "*"                # octvi MOD09CMG HDF4 reader (via geoprepare NDVI/GCVI)
+# compiled numerics / ML (avoid PyPI source builds; pins mirror [project])
+numpy = "*"
+pandas = "*"
+scipy = "*"
+matplotlib = "<3.11"
+numba = ">=0.59"
+scikit-learn = ">=1.4"
+scikit-image = "*"
+scikit-misc = ">=0.5.2"    # Fortran/C ext — no aarch64 PyPI wheel, so take from conda
+bottleneck = ">=1.3"
+catboost = ">=1.2.8"
+statsmodels = ">=0.14.6"
+shap = ">=0.48.0"
+xarray = ">=2026.2.0"
+seaborn = "*"
+pooch = "*"
+esda = "*"
+libpysal = "*"
+pytorch-cpu = "*"          # CPU torch for tabpfn/tabicl/treeple; no CUDA wheels
+setuptools = "<81"
+
+[tool.pixi.pypi-dependencies]
+geocif = { path = ".", editable = true }
+# pygeoutil has a broken setup.py and is not on PyPI — install from git.
+pygeoutil = { git = "https://github.com/ritviksahajpal/pygeoutil.git" }
+# octvi (geoprepare NDVI/GCVI download) — local sibling checkout w/ GCVI Int32 fix.
+octvi = { path = "../octvi", editable = true }
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
+full = { features = ["dashboard", "gee", "narrative", "aquacrop", "spatial", "dev"], solve-group = "full" }
+
+[tool.pixi.feature.dev.dependencies]
+pytest = "*"
+twine = "*"
+black = "*"
+isort = "*"
+
+[tool.pixi.feature.dashboard.dependencies]
+panel = ">=1.4.0"
+hvplot = ">=0.10.0"
+holoviews = ">=1.18"
+
+[tool.pixi.feature.gee.dependencies]
+earthengine-api = ">=1.0"
+geemap = ">=0.30"
+
+[tool.pixi.feature.spatial.dependencies]
+pysal = ">=2.6"
+
+[tool.pixi.feature.aquacrop.pypi-dependencies]
+aquacrop = ">=3.0"
+
+[tool.pixi.feature.narrative.dependencies]
+reportlab = ">=4.0"
+anthropic = ">=0.30"
+
+[tool.pixi.feature.narrative.pypi-dependencies]
+pymupdf = ">=1.23"        # no conda-forge aarch64 build; PyPI ships aarch64 wheels
+pdfplumber = ">=0.10"

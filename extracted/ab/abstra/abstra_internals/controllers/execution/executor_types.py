@@ -41,6 +41,7 @@ class RunSnippetRequest:
     code: str
     worker_id: str
     title: str = "Debug Snippet"
+    requirements: Optional[List[str]] = None
 
 
 @dataclass
@@ -64,3 +65,4 @@ class ExecutorResponse:
     error: Optional[str] = None
     execution_time: Optional[float] = None
     logs: Optional[List[Dict[str, str]]] = None
+    overlay_added: bool = False

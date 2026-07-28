@@ -3,6 +3,7 @@ import ssl
 import subprocess
 import sys
 import threading
+import time
 from typing import NamedTuple, Optional
 
 import certifi
@@ -40,12 +41,14 @@ from abstra_internals.repositories.producer import (
     LocalProducerRepository,
 )
 from abstra_internals.server.apps import get_local_app
+from abstra_internals.services.editor_stall_watchdog import EditorStallWatchdog
 from abstra_internals.services.file_watcher import FileWatcher
 from abstra_internals.services.nats_file_events import EditorFileChangeSubscriber
 from abstra_internals.services.notifiers import (
     AbstraJsonChangeNotifier,
     RequirementsChangeNotifier,
 )
+from abstra_internals.services.periodic_version_check import PeriodicVersionChecker
 from abstra_internals.services.web_editor_heartbeat import WebEditorHeartbeat
 from abstra_internals.settings import Settings
 from abstra_internals.signals import SignalHandlers
@@ -53,6 +56,7 @@ from abstra_internals.stdio_patcher import StdioPatcher
 from abstra_internals.tasks_watcher import TasksWatcher
 from abstra_internals.utils.browser import background_open_editor
 from abstra_internals.utils.multiprocessing import safe_multiprocessing_queue
+from abstra_internals.utils.packages import RUNNING_ABSTRA_VERSION
 from abstra_internals.utils.stdio_broadcast import start_stdio_broadcast_consumer
 from abstra_internals.version import check_latest_version
 
@@ -297,6 +301,8 @@ def _wire_editor_storage(
 
 
 def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
+    boot_started_at = time.monotonic()
+
     ensure_certificates()
 
     load_dotenv(Settings.root_path / ".env")
@@ -319,6 +325,12 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
     # Local editor: EDITOR_MODE=local
     is_web_editor = EDITOR_MODE == "web"
     use_rabbitmq_workers = is_web_editor and RABBITMQ_CONNECTION_URI is not None
+
+    if is_web_editor:
+        AbstraLogger.lifecycle(
+            "[Editor] Boot started",
+            {"stage": "editor.boot", "abstraVersion": RUNNING_ABSTRA_VERSION},
+        )
 
     AbstraLogger.info(
         f"[Editor] Configuration: EDITOR_MODE={EDITOR_MODE}, RABBITMQ_CONNECTION_URI={'SET' if RABBITMQ_CONNECTION_URI else 'NOT SET'}"
@@ -411,6 +423,12 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
         EditorStatusEventController.broadcast()
         checks = repositories.linter.update_checks()
         LinterEventController.broadcast(checks)
+        # Deferred path (web + boot shim): pre-stage the detected update into an
+        # inactive slot so the user's "Restart editor" is instant. Runs after
+        # the linter so it never delays first-load feedback; broadcasts again so
+        # the "Restart editor" button appears once staged.
+        if EditorUpdateController.auto_stage_if_needed():
+            EditorStatusEventController.broadcast()
 
     threading.Thread(target=_initial_lint, daemon=True, name="InitialLintCheck").start()
 
@@ -428,12 +446,34 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
     app = get_local_app(main_controller)
     server = make_server(host=HOST, port=Settings.server_port, threaded=True, app=app)
 
+    # Re-check for a newer abstra version periodically (not only at boot) while
+    # the editor is actively open — see PeriodicVersionChecker. Stopped with the
+    # other watchers in _graceful_shutdown.
+    version_checker = PeriodicVersionChecker()
+    version_checker.start()
+
+    stall_watchdog: Optional[EditorStallWatchdog] = None
+    if is_web_editor:
+        stall_watchdog = EditorStallWatchdog()
+        stall_watchdog.start()
+
     shutdown_started = threading.Event()
 
     def _graceful_shutdown():
         if shutdown_started.is_set():
             return
         shutdown_started.set()
+        if is_web_editor:
+            # SIGTERM reaches this path both on Knative scale-down and on a
+            # liveness-probe kill; log queries tell them apart by whether the
+            # same pod boots again right after.
+            AbstraLogger.lifecycle(
+                "[Editor] Shutdown initiated",
+                {
+                    "stage": "editor.shutdown",
+                    "uptimeSeconds": round(time.monotonic() - boot_started_at, 3),
+                },
+            )
         # The linter sidecar client exposes stop() (shutdown RPC + EOF +
         # kill); stdin EOF also covers every non-graceful editor death.
         linter_sidecar = (
@@ -446,8 +486,10 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
                 logs_watcher,
                 tasks_watcher,
                 heartbeat,
+                version_checker,
                 linter_sidecar,
                 file_change_subscriber,
+                stall_watchdog,
             ),
             editor_consumer=editor_consumer,
             consumer_controller=consumer_controller,
@@ -464,6 +506,16 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
         background_open_editor()
 
     connect_tunnel(verbose=verbose)
+
+    if is_web_editor:
+        AbstraLogger.lifecycle(
+            "[Editor] Ready to serve",
+            {
+                "stage": "editor.ready",
+                "abstraVersion": RUNNING_ABSTRA_VERSION,
+                "bootDurationSeconds": round(time.monotonic() - boot_started_at, 3),
+            },
+        )
 
     try:
         server.serve_forever()

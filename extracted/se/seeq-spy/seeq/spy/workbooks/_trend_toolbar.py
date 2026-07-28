@@ -5,7 +5,7 @@ from typing import List, Dict
 
 import pandas as pd
 
-from seeq.spy import _common
+from seeq.spy import _common, _shared_definition_constants
 from seeq.spy._common import docstring_parameter
 from seeq.spy._errors import *
 from seeq.spy.workbooks._context_switchable import ContextSwitchable
@@ -20,7 +20,10 @@ class TrendToolbar(ContextSwitchable):
     """
 
     class CONSTANTS:
+        # Matches TrendStore.storeName in client/packages/webserver/app/src/trendData/trend.store.ts.
         TREND_STORE_NAME = "sqTrendStore"
+        # These match TrendState in client/packages/webserver/app/src/trendData/trend.store.ts.
+        # TypeScript's type checker protects against a silent rename.
         SHOW_GRIDLINES = "showGridlines"
         HIDE_UNCERTAINTY = "hideUncertainty"
         HIDE_UNSELECTED_ITEMS = "hideUnselectedItems"
@@ -231,8 +234,7 @@ class Labels(ContextSwitchable):
                 ))
 
 
-# Refer LABEL_LOCATIONS in client/packages/webserver/app/src/trendData/trendData.constants.ts
-# Refer LABEL_PROPERTIES in client/packages/webserver/app/src/trendData/trendData.constants.ts
+# Refer LABEL_LOCATIONS & LABEL_PROPERTIES in client/packages/webserver/app/src/utilities/sharedDefinition.constants.ts
 # Refer client/packages/webserver/app/src/trend/toolbar/SignalLabelSelection.molecule.tsx
 class Signals(ContextSwitchable):
     """
@@ -240,18 +242,24 @@ class Signals(ContextSwitchable):
     """
 
     class CONSTANTS:
-        OFF = "off"
-        LANE = "lane"
-        AXIS = "axis"
+        OFF = _shared_definition_constants.LABEL_LOCATIONS.OFF
+        LANE = _shared_definition_constants.LABEL_LOCATIONS.LANE
+        AXIS = _shared_definition_constants.LABEL_LOCATIONS.AXIS
+
+        # Matches TrendStore.storeName in client/packages/webserver/app/src/trendData/trend.store.ts.
         TREND_STORE_NAME = "sqTrendStore"
+        # Matches TrendState.labelDisplayConfiguration in client/packages/webserver/app/src/trendData/trend.store.ts.
+        # TypeScript's type checker protects against a silent rename.
         LABEL_DISPLAY_CONFIGURATION = "labelDisplayConfiguration"
-        NAME = "name"
-        DESCRIPTION = "description"
-        ASSET = "asset"
-        ASSET_PATH_LEVELS = "assetPathLevels"
-        LINE = "line"
-        UNIT_OF_MEASURE = "unitOfMeasure"
-        CUSTOM = "custom"
+        NAME = _shared_definition_constants.LABEL_PROPERTIES.NAME
+        DESCRIPTION = _shared_definition_constants.LABEL_PROPERTIES.DESCRIPTION
+        ASSET = _shared_definition_constants.LABEL_PROPERTIES.ASSET
+        ASSET_PATH_LEVELS = _shared_definition_constants.LABEL_PROPERTIES.ASSET_PATH_LEVELS
+        LINE = _shared_definition_constants.LABEL_PROPERTIES.LINE
+        UNIT_OF_MEASURE = _shared_definition_constants.LABEL_PROPERTIES.UOM
+        CUSTOM = _shared_definition_constants.LABEL_PROPERTIES.CUSTOM
+        # Matches LabelDisplayConfiguration.customLabels in trendData.constants.ts.
+        # TypeScript's type checker protects against a silent rename.
         CUSTOM_LABELS = "customLabels"
 
     _valid_labels = {CONSTANTS.OFF, CONSTANTS.LANE, CONSTANTS.AXIS}
@@ -506,13 +514,21 @@ class Conditions(ContextSwitchable):
     """
 
     class CONSTANTS:
-        OFF = "off"
-        LANE = "lane"
+        OFF = _shared_definition_constants.LABEL_LOCATIONS.OFF
+        LANE = _shared_definition_constants.LABEL_LOCATIONS.LANE
+        # Matches TrendStore.storeName in client/packages/webserver/app/src/trendData/trend.store.ts.
         TREND_STORE_NAME = "sqTrendStore"
+        # Matches ChartViewConfiguration.showCapsuleLaneLabels in
+        # client/packages/webserver/app/src/trend/chart.types.ts. TypeScript's type checker protects against a
+        # silent rename.
         SHOW_CAPSULE_LANE_LABELS = "showCapsuleLaneLabels"
+        # Matches TrendState.enabledColumns in client/packages/webserver/app/src/trendData/trend.store.ts.
+        # TypeScript's type checker protects against a silent rename.
         ENABLED_COLUMNS = "enabledColumns"
-        CAPSULES = "CAPSULES"
-        CHART_CAPSULES = "CHART_CAPSULES"
+        CAPSULES = _shared_definition_constants.TREND_PANELS.CAPSULES
+        CHART_CAPSULES = _shared_definition_constants.TREND_PANELS.CHART_CAPSULES
+        # Matches TrendState.propertyColumns in client/packages/webserver/app/src/trendData/trend.store.ts.
+        # TypeScript's type checker protects against a silent rename.
         PROPERTY_COLUMNS = "propertyColumns"
 
     def __init__(self, parent):
@@ -608,9 +624,13 @@ class Cursors(ContextSwitchable):
     """
 
     class CONSTANTS:
+        # SHOW/HIDE are an SPy-only API convenience (the frontend stores this as a boolean, not a string).
         SHOW = "show"
         HIDE = "hide"
+        # Matches CursorStore.storeName in client/packages/webserver/app/src/trendData/cursor.store.ts.
         CURSOR_STORE_NAME = "sqCursorStore"
+        # Matches CursorState.showValues in client/packages/webserver/app/src/trendData/cursor.store.ts.
+        # TypeScript's type checker protects against a silent rename.
         SHOW_VALUES = "showValues"
 
     def __init__(self, parent):
@@ -705,15 +725,27 @@ class Capsules(ContextSwitchable):
     """
 
     class CONSTANTS:
-        ITEM = "item"
-        PROPERTY = "capsuleProperty"
-        GRADIENT = "capsulePropertyGradient"
+        ITEM = _shared_definition_constants.TREND_COLOR_MODE.ITEM
+        PROPERTY = _shared_definition_constants.TREND_COLOR_MODE.PROPERTY
+        GRADIENT = _shared_definition_constants.TREND_COLOR_MODE.GRADIENT
+        # Matches UserCapsulePropertyColorSettings.seeqColorGradient in
+        # client/packages/webserver/app/src/trendData/trendData.constants.ts.
+        # TypeScript's type checker protects against a silent rename.
         GRADIENT_COLOR = "seeqColorGradient"
+        # Matches TrendCapsuleStore.storeName in client/packages/webserver/app/src/trendData/trendCapsule.store.ts.
         CAPSULE_STORE_NAME = "sqTrendCapsuleStore"
+        # Matches TrendStore.storeName in client/packages/webserver/app/src/trendData/trend.store.ts.
         TREND_STORE_NAME = "sqTrendStore"
+        # These match TrendState.trendColorSettings in client/packages/webserver/app/src/trendData/trend.store.ts
+        # and TrendColorSettings.colorMode / .colorByCapsuleProperty in
+        # client/packages/webserver/app/src/trendData/trendData.constants.ts. TypeScript's type checker protects
+        # against a silent rename.
         TREND_COLOR_SETTINGS = "trendColorSettings"
         COLORMODE = "colorMode"
         CAPSULE_PROPERTY = "colorByCapsuleProperty"
+        # Matches TrendCapsuleStoreState.trendCapsulePropertyColors in
+        # client/packages/webserver/app/src/trendData/trendCapsule.store.ts.
+        # TypeScript's type checker protects against a silent rename.
         CAPSULE_PROPERTY_COLORS = "trendCapsulePropertyColors"
 
     _valid_color_modes = {CONSTANTS.ITEM, CONSTANTS.PROPERTY, CONSTANTS.GRADIENT}

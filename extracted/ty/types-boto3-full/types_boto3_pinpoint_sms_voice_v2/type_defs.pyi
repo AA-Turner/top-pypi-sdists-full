@@ -974,14 +974,10 @@ class SelectValidationTypeDef(TypedDict):
     MaxChoices: int
     Options: list[str]
 
-TextValidationTypeDef = TypedDict(
-    "TextValidationTypeDef",
-    {
-        "MinLength": int,
-        "MaxLength": int,
-        "Pattern": str,
-    },
-)
+class TextValidationTypeDef(TypedDict):
+    MinLength: int
+    MaxLength: int
+    Pattern: str
 
 class SelectOptionDescriptionTypeDef(TypedDict):
     Option: str

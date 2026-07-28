@@ -14,6 +14,7 @@ from pydantic import Field, TypeAdapter
 
 import tidy3d as td
 from tidy3d.config import config
+from tidy3d.config.sections import VALID_VGPU_ALLOCATIONS
 from tidy3d.exceptions import ValidationError, format_chained_exception_message
 
 from . import http_util
@@ -218,9 +219,9 @@ class WebTask(ResourceLifecycle, Submittable, extra="allow"):
             payload = {
                 "taskName": task_name,
                 "taskType": task_type,
-                "callbackUrl": callback_url,  # type: ignore[dict-item]
+                "callbackUrl": callback_url,
                 "simulationType": simulation_type,
-                "parentTasks": parent_tasks,  # type: ignore[dict-item]
+                "parentTasks": parent_tasks,
                 "fileType": file_type,
             }
             resp = http.post(f"{projects_endpoint}/{folder.folder_id}/tasks", payload)
@@ -446,7 +447,7 @@ class SimulationTask(WebTask):
     # )
 
     @classmethod
-    def get(cls, task_id: str, verbose: bool = True) -> SimulationTask:
+    def get(cls, task_id: str, verbose: bool = True) -> SimulationTask | None:
         """Get task from the server by id.
 
         Parameters
@@ -460,7 +461,8 @@ class SimulationTask(WebTask):
         -------
         :class:`.SimulationTask`
             :class:`.SimulationTask` object containing info about status,
-             size, credits of task and others.
+             size, credits of task and others, or ``None`` if the detail
+             response is empty.
         """
         try:
             resp = http.get(f"tidy3d/tasks/{task_id}/detail")
@@ -494,8 +496,12 @@ class SimulationTask(WebTask):
         TaskInfo
             An object containing the task's latest data.
         """
+        if not self.task_id:
+            raise WebError("Expected field 'task_id' is unset.")
         resp = http.get(f"tidy3d/tasks/{self.task_id}/detail")
-        return TaskInfo(**{"taskId": self.task_id, "taskType": self.task_type, **resp})  # type: ignore[dict-item]
+        if not isinstance(resp, dict):
+            raise WebError("Expected task detail response to be a JSON object.")
+        return TaskInfo(**{"taskId": self.task_id, "taskType": self.task_type, **resp})
 
     def get_simulation_json(self, to_file: PathLike, verbose: bool = True) -> None:
         """Get json file for a :class:`.Simulation` from server.
@@ -831,7 +837,7 @@ class SimulationTask(WebTask):
 
     def validate_post_upload(self, parent_tasks: list[str] | None = None) -> None:
         """Perform checks after task is uploaded and metadata is processed."""
-        if self.task_type == "HEAT_CHARGE" and parent_tasks:
+        if self.task_type in {"HEAT", "HEAT_CHARGE"} and parent_tasks:
             try:
                 if len(parent_tasks) > 1:
                     raise ValueError(
@@ -841,10 +847,14 @@ class SimulationTask(WebTask):
                 try:
                     # get mesh task info
                     mesh_task = SimulationTask.get(parent_tasks[0], verbose=False)
+                    if mesh_task is None:
+                        raise WebError("Unable to fetch parent task details.")
                     assert mesh_task.task_type == "VOLUME_MESH"
                     assert mesh_task.status == "success"
                     # get up-to-date task info
                     task = SimulationTask.get(self.task_id, verbose=False)
+                    if task is None:
+                        raise WebError("Unable to fetch task details.")
                     if task.fileMd5 != mesh_task.childFileMd5:
                         raise ValidationError(
                             "Simulation stored in parent task 'VolumeMesher' does not match the "
@@ -854,8 +864,8 @@ class SimulationTask(WebTask):
                     raise ValidationError(
                         format_chained_exception_message(
                             "The parent task must be a 'VolumeMesher' task which has been "
-                            "successfully run and is associated to the same "
-                            "'HeatChargeSimulation' as provided here.",
+                            "successfully run and is associated to the same simulation as "
+                            "provided here.",
                             e,
                         )
                     ) from e
@@ -872,6 +882,7 @@ class BatchTask(WebTask):
     task_type: str | None = Field(
         None, title="task_type", description="The type of task.", alias="taskType"
     )
+    status: str | None = Field(None, title="status", description="The status of the task.")
 
     @classmethod
     def get(cls, task_id: str, verbose: bool = True) -> BatchTask:
@@ -897,7 +908,8 @@ class BatchTask(WebTask):
         # Extract taskType from response if available
         if resp:
             task_type = resp.get("taskType") if isinstance(resp, dict) else None
-            return BatchTask(taskId=task_id, taskType=task_type)
+            status = resp.get("status") if isinstance(resp, dict) else None
+            return BatchTask(taskId=task_id, taskType=task_type, status=status)
         return None
 
     def detail(self) -> BatchDetail:
@@ -969,11 +981,13 @@ class BatchTask(WebTask):
             The data protocol version. Defaults to the current version.
         worker_group : Optional[str], default=None
             Optional identifier for a specific worker group to run on.
+        priority : Optional[int], default=None
+            Priority of the batch in the vGPU queue, where 1 is lowest and 10 is highest.
         vgpu_allocation : Optional[int], default=None
-            Number of virtual GPUs to allocate for the simulation (1, 2, 4, or 8).
+            Number of virtual GPUs to allocate for the batch (1, 2, 4, or 8).
         ignore_memory_limit : Optional[bool], default=None
-            If ``True``, allows the simulation to run even when estimated vGPU memory
-            exceeds the allocation limit (up to 2x the limit).
+            Not supported for batch tasks. Passing a non-``None`` value raises
+            :class:`NotImplementedError`.
         additional_payload : Optional[Union[dict[str, Any], str]], default=None
             Additional submit payload. Dict values are JSON-serialized and sent
             under ``additionalPayload``.
@@ -984,22 +998,17 @@ class BatchTask(WebTask):
             The server's response to the submit request.
         """
 
-        # TODO: add support for pay_type, priority, vgpu_allocation, and ignore_memory_limit arguments
-        if pay_type != PayType.AUTO:
-            raise NotImplementedError(
-                "The 'pay_type' argument is not yet supported and will be ignored."
-            )
-        if priority is not None:
-            raise NotImplementedError(
-                "The 'priority' argument is not yet supported and will be ignored."
-            )
-        if vgpu_allocation is not None:
-            raise NotImplementedError(
-                "The 'vgpu_allocation' argument is not yet supported and will be ignored."
+        pay_type = PayType(pay_type) if not isinstance(pay_type, PayType) else pay_type
+        if priority is not None and (priority < 1 or priority > 10):
+            raise ValueError("Priority must be between '1' and '10' if specified.")
+        if vgpu_allocation is not None and vgpu_allocation not in VALID_VGPU_ALLOCATIONS:
+            raise ValueError(
+                f"vgpu_allocation must be one of {list(VALID_VGPU_ALLOCATIONS)} if specified."
             )
         if ignore_memory_limit is not None:
             raise NotImplementedError(
-                "The 'ignore_memory_limit' argument is not yet supported and will be ignored."
+                "The 'ignore_memory_limit' argument is not supported for batch tasks; remove it "
+                "before starting the batch."
             )
 
         if protocol_version is None:
@@ -1009,6 +1018,12 @@ class BatchTask(WebTask):
             "protocolVersion": protocol_version,
             "workerGroup": worker_group,
         }
+        if pay_type != PayType.AUTO:
+            payload["payType"] = pay_type.value
+        if priority is not None:
+            payload["priority"] = priority
+        if vgpu_allocation is not None:
+            payload["vgpuAllocation"] = vgpu_allocation
         serialized_additional_payload = _serialize_additional_payload(additional_payload)
         if serialized_additional_payload is not None:
             payload["additionalPayload"] = serialized_additional_payload
@@ -1054,7 +1069,7 @@ class TaskFactory:
         return SimulationTask
 
     @classmethod
-    def get(cls, task_id: str, verbose: bool = True) -> WebTask:
+    def get(cls, task_id: str, verbose: bool = True) -> WebTask | None:
         kind = cls._REGISTRY.get(task_id)
         if kind is BatchTask:
             return BatchTask.get(task_id, verbose=verbose)

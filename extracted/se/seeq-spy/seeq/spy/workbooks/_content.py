@@ -11,11 +11,11 @@ from seeq import spy
 from seeq.sdk import *
 from seeq.spy import _common
 from seeq.spy import _login
+from seeq.spy import _shared_definition_functions
 from seeq.spy._errors import *
 from seeq.spy._redaction import safely
 from seeq.spy._session import Session
 from seeq.spy._status import Status
-from seeq.spy.workbooks import _report_content_utilities
 from seeq.spy.workbooks._context import WorkbookPushContext, WorkbookPushMode
 from seeq.spy.workbooks._item import Item
 from seeq.spy.workbooks._item_map import ItemMap
@@ -398,7 +398,7 @@ class DateRange(Item):
         # which has an implicit (and strict) format that the frontend uses. From there, we take the dictionary fields
         # and populate the user-friendly dictionary format of SPy so that spy.assets users can easily formulate date
         # ranges.
-        frontend_date_range_dict = _report_content_utilities.format_date_range_from_api_output(date_range_output)
+        frontend_date_range_dict = _shared_definition_functions.format_date_range_from_api_output(date_range_output)
 
         if not frontend_date_range_dict['auto'].get('enabled', False):
             if date_range_output.date_range is not None \
@@ -429,8 +429,8 @@ class DateRange(Item):
             if frontend_date_range_dict['auto'].get('duration') is not None:
                 duration_to_use = frontend_date_range_dict['auto']['duration']
             else:
-                # This can happen if the formula could not be parsed by _report_content_utilities
-                duration_to_use = _report_content_utilities.DEFAULT_DATE_RANGE['auto']['duration']
+                # This can happen if the formula could not be parsed by _shared_definition_functions
+                duration_to_use = _shared_definition_functions.DEFAULT_DATE_RANGE['auto']['duration']
             date_range_dict['Auto Duration'] = str(duration_to_use / 1000) + 's'
 
         condition_dict = frontend_date_range_dict['condition']
@@ -487,10 +487,10 @@ class DateRange(Item):
 
     def _to_frontend_date_range_dict(self, session: Session):
         # This function populates a dictionary with fields in the same layout and format that is used by the
-        # frontend, which allows us to use the _report_content_utilities functions that have been ported 1:1 from
+        # frontend, which allows us to use the _shared_definition_functions functions that have been ported 1:1 from
         # TypeScript.
 
-        frontend_date_range_dict = copy.deepcopy(_report_content_utilities.DEFAULT_DATE_RANGE)
+        frontend_date_range_dict = copy.deepcopy(_shared_definition_functions.DEFAULT_DATE_RANGE)
         frontend_date_range_dict['name'] = self.definition['Name']
 
         # Need a default here. Unfortunately, this should have come from the Organizer Topic document's workstep,
@@ -637,7 +637,7 @@ class DateRange(Item):
         return _login.parse_content_datetime_with_timezone(session, _common.get(self.definition, 'End'))
 
     def get_formula(self, session: Session):
-        return _report_content_utilities.create_date_range_formula(self._to_frontend_date_range_dict(session))
+        return _shared_definition_functions.create_date_range_formula(self._to_frontend_date_range_dict(session))
 
 
 class AssetSelection(Item):

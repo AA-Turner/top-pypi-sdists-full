@@ -37,7 +37,7 @@ from cssselect.parser import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
 
     # typing.Self requires Python 3.11
     from typing_extensions import Self
@@ -82,7 +82,19 @@ class XPathExpr:
         if self.element == "*":
             # We weren't doing a test anyway
             return
-        self.add_condition(f"name() = {GenericTranslator.xpath_literal(self.element)}")
+        prefix, colon, local = self.element.partition(":")
+        if is_safe_name(prefix) and (not colon or local == "*" or is_safe_name(local)):
+            # A node test, not a name() comparison: name() returns the
+            # qualified name as written in the document, which would bypass
+            # the XPath prefix mapping for a prefixed name like "ns:f" or
+            # "ns:*" (from the CSS "ns|f" or "ns|*"), and would match
+            # elements in a default namespace for an unprefixed name (which
+            # the node test emitted for a bare "f" selector does not).
+            self.add_condition(f"self::{self.element}")
+        else:
+            self.add_condition(
+                f"name() = {GenericTranslator.xpath_literal(self.element)}"
+            )
         self.element = "*"
 
     def add_star_prefix(self) -> None:
@@ -92,29 +104,14 @@ class XPathExpr:
         """
         self.path += "*/"
 
-    def join(
-        self,
-        combiner: str,
-        other: XPathExpr,
-        closing_combiner: str | None = None,
-        has_inner_condition: bool = False,
-    ) -> Self:
+    def join(self, combiner: str, other: XPathExpr) -> Self:
         path = str(self) + combiner
         # Any "star prefix" is redundant when joining.
         if other.path != "*/":
             path += other.path
         self.path = path
-        if not has_inner_condition:
-            self.element = (
-                other.element + closing_combiner if closing_combiner else other.element
-            )
-            self.condition = other.condition
-        else:
-            self.element = other.element
-            if other.condition:
-                self.element += "[" + other.condition + "]"
-            if closing_combiner:
-                self.element += closing_combiner
+        self.element = other.element
+        self.condition = other.condition
         return self
 
 
@@ -331,22 +328,41 @@ class GenericTranslator:
         return method(xpath, right)
 
     def xpath_matching(self, matching: Matching) -> XPathExpr:
-        xpath = self.xpath(matching.selector)
-        exprs = [self.xpath(selector) for selector in matching.selector_list]
-        for e in exprs:
-            e.add_name_test()
-            if e.condition:
-                xpath.add_condition(e.condition, "or")
-        return xpath
+        return self._xpath_add_selector_list_condition(
+            self.xpath(matching.selector), matching.selector_list
+        )
 
     def xpath_specificityadjustment(self, matching: SpecificityAdjustment) -> XPathExpr:
-        xpath = self.xpath(matching.selector)
-        exprs = [self.xpath(selector) for selector in matching.selector_list]
-        for e in exprs:
+        return self._xpath_add_selector_list_condition(
+            self.xpath(matching.selector), matching.selector_list
+        )
+
+    def _xpath_add_selector_list_condition(
+        self, xpath: XPathExpr, selector_list: Iterable[Tree]
+    ) -> XPathExpr:
+        """Add a condition matching any selector of the list
+        (for :is() and :where())."""
+        condition = ""
+        for e in (self.xpath(selector) for selector in selector_list):
+            if e.path:
+                # Only a combined selector (e.g. "a b") translates to a path,
+                # which cannot be embedded into a predicate of the outer
+                # expression. The parser rejects combinators in these arguments,
+                # so this is only reachable through a hand-built Matching or
+                # SpecificityAdjustment node.
+                raise ExpressionError(
+                    "Combined selectors are not supported inside "
+                    ":is(), :where() and :matches()"
+                )
             e.add_name_test()
-            if e.condition:
-                xpath.add_condition(e.condition, "or")
-        return xpath
+            if not e.condition:
+                # This argument matches any element, so the whole selector
+                # list does too: it adds no condition.
+                return xpath
+            condition = (
+                f"({condition}) or ({e.condition})" if condition else e.condition
+            )
+        return xpath.add_condition(condition)
 
     def xpath_function(self, function: Function) -> XPathExpr:
         """Translate a functional pseudo-class."""
@@ -426,7 +442,12 @@ class GenericTranslator:
             safe = safe and bool(is_safe_name(selector.namespace))
         xpath = self.xpathexpr_cls(element=element)
         if not safe:
-            xpath.add_name_test()
+            # Not usable as an XPath name test (e.g. an escaped identifier
+            # like di\a0 v): compare the serialized name instead. Done here
+            # rather than through add_name_test(), which would mistake a ":"
+            # inside such a name for a namespace prefix separator.
+            xpath.add_condition(f"name() = {self.xpath_literal(element)}")
+            xpath.element = "*"
         return xpath
 
     # CombinedSelector: dispatch by combinator
@@ -455,33 +476,35 @@ class GenericTranslator:
         """right is a sibling after left, immediately or not"""
         return left.join("/following-sibling::", right)
 
+    # The relative selector is kept in `condition` (instead of being folded
+    # into `path`/`element`) so that `element` stays a plain element name:
+    # later steps such as :first-of-type or :not() read and rewrite it.
+
     def xpath_relation_descendant_combinator(
         self, left: XPathExpr, right: XPathExpr
     ) -> XPathExpr:
         """right is a child, grand-child or further descendant of left; select left"""
-        return left.join(
-            "[descendant::", right, closing_combiner="]", has_inner_condition=True
-        )
+        return left.add_condition(f"descendant::{right}")
 
     def xpath_relation_child_combinator(
         self, left: XPathExpr, right: XPathExpr
     ) -> XPathExpr:
         """right is an immediate child of left; select left"""
-        return left.join("[./", right, closing_combiner="]")
+        return left.add_condition(f"./{right}")
 
     def xpath_relation_direct_adjacent_combinator(
         self, left: XPathExpr, right: XPathExpr
     ) -> XPathExpr:
         """right is a sibling immediately after left; select left"""
-        return left.add_condition(
-            f"following-sibling::*[(name() = '{right.element}') and (position() = 1)]"
-        )
+        right.add_name_test()
+        right.add_condition("position() = 1")
+        return left.add_condition(f"following-sibling::{right}")
 
     def xpath_relation_indirect_adjacent_combinator(
         self, left: XPathExpr, right: XPathExpr
     ) -> XPathExpr:
         """right is a sibling after left, immediately or not; select left"""
-        return left.join("[following-sibling::", right, closing_combiner="]")
+        return left.add_condition(f"following-sibling::{right}")
 
     # Function: dispatch by function/pseudo-class name
 
@@ -582,7 +605,7 @@ class GenericTranslator:
                 expressions.append(f"{siblings_count} >= {b_min_1}")
         else:
             # if a<0, and (b-1)<0, no "n" satisfies this,
-            # this is tested above as an early exist condition
+            # this is tested above as an early exit condition
             # otherwise,
             expressions.append(f"{siblings_count} <= {b_min_1}")
 
@@ -595,7 +618,7 @@ class GenericTranslator:
         # - or:
         # count(***-sibling::***) - (b-1) = -n = 0, -1, -2, -3, etc.,
         #   i.e. count(***-sibling::***) <= (b-1)
-        # we we just did above.
+        # we just did above.
         #
         if abs(a) != 1:
             # count(***-sibling::***) - (b-1) ≡ 0 (mod a)
@@ -622,18 +645,30 @@ class GenericTranslator:
     ) -> XPathExpr:
         return self.xpath_nth_child_function(xpath, function, last=True)
 
+    @staticmethod
+    def _check_of_type_element(xpath: XPathExpr, pseudo: str) -> None:
+        """Raise an exception if an -of-type pseudo-class can't be used with
+        the given element.
+
+        For "*" and namespace wildcards like "ns:*" the type of the element is
+        not known, and counting same-type siblings cannot be expressed as an
+        XPath 1.0 node test.
+        """
+        element = xpath.element
+        if element == "*" or element.endswith(":*"):
+            css_element = element.replace(":", "|")
+            raise ExpressionError(f"{css_element}:{pseudo} is not implemented")
+
     def xpath_nth_of_type_function(
         self, xpath: XPathExpr, function: Function
     ) -> XPathExpr:
-        if xpath.element == "*":
-            raise ExpressionError("*:nth-of-type() is not implemented")
+        self._check_of_type_element(xpath, "nth-of-type()")
         return self.xpath_nth_child_function(xpath, function, add_name_test=False)
 
     def xpath_nth_last_of_type_function(
         self, xpath: XPathExpr, function: Function
     ) -> XPathExpr:
-        if xpath.element == "*":
-            raise ExpressionError("*:nth-of-type() is not implemented")
+        self._check_of_type_element(xpath, "nth-last-of-type()")
         return self.xpath_nth_child_function(
             xpath, function, last=True, add_name_test=False
         )
@@ -669,7 +704,8 @@ class GenericTranslator:
     # for product in response.css('.product'):
     #     description = product.css(':scope > div::text').get()
     def xpath_scope_pseudo(self, xpath: XPathExpr) -> XPathExpr:
-        return xpath.add_condition("1")
+        xpath.add_name_test()
+        return xpath.add_condition("position() = 1")
 
     def xpath_first_child_pseudo(self, xpath: XPathExpr) -> XPathExpr:
         return xpath.add_condition("count(preceding-sibling::*) = 0")
@@ -678,22 +714,26 @@ class GenericTranslator:
         return xpath.add_condition("count(following-sibling::*) = 0")
 
     def xpath_first_of_type_pseudo(self, xpath: XPathExpr) -> XPathExpr:
-        if xpath.element == "*":
-            raise ExpressionError("*:first-of-type is not implemented")
+        self._check_of_type_element(xpath, "first-of-type")
         return xpath.add_condition(f"count(preceding-sibling::{xpath.element}) = 0")
 
     def xpath_last_of_type_pseudo(self, xpath: XPathExpr) -> XPathExpr:
-        if xpath.element == "*":
-            raise ExpressionError("*:last-of-type is not implemented")
+        self._check_of_type_element(xpath, "last-of-type")
         return xpath.add_condition(f"count(following-sibling::{xpath.element}) = 0")
 
     def xpath_only_child_pseudo(self, xpath: XPathExpr) -> XPathExpr:
-        return xpath.add_condition("count(parent::*/child::*) = 1")
+        # Count siblings, not the parent's children: the root element has
+        # no parent, but it has no siblings either, so it must match.
+        return xpath.add_condition(
+            "count(preceding-sibling::*) = 0 and count(following-sibling::*) = 0"
+        )
 
     def xpath_only_of_type_pseudo(self, xpath: XPathExpr) -> XPathExpr:
-        if xpath.element == "*":
-            raise ExpressionError("*:only-of-type is not implemented")
-        return xpath.add_condition(f"count(parent::*/child::{xpath.element}) = 1")
+        self._check_of_type_element(xpath, "only-of-type")
+        return xpath.add_condition(
+            f"count(preceding-sibling::{xpath.element}) = 0 "
+            f"and count(following-sibling::{xpath.element}) = 0"
+        )
 
     def xpath_empty_pseudo(self, xpath: XPathExpr) -> XPathExpr:
         return xpath.add_condition("not(*) and not(string-length())")

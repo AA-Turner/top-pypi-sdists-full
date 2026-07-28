@@ -97,6 +97,7 @@ nav:
       - Performance & Deployment:
           - Performance Tuning: guides/performance-tuning.md
           - Deployment Patterns: guides/deployment.md
+          - Docker Images: guides/docker-images.md
   - Reference:
       - CLI: reference/cli.md
       - Architecture: reference/architecture.md
@@ -106,6 +107,7 @@ nav:
       - Database Permissions: reference/database-permissions.md
       - In-Memory Adapter: reference/in-memory.md
   - Integrations:
+      - Web Dashboard: integrations/web-dashboard.md
       - MCP Server: integrations/mcp-server.md
       - Prometheus Metrics: integrations/prometheus.md
       - Distributed Tracing: integrations/tracing.md

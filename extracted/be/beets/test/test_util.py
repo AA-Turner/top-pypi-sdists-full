@@ -1,16 +1,3 @@
-# This file is part of beets.
-# Copyright 2016, Adrian Sampson.
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
 """Tests for base utils from the beets.util package."""
 
 import os
@@ -19,6 +6,7 @@ import re
 import subprocess
 import sys
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -26,6 +14,9 @@ import pytest
 from beets import util
 from beets.library import Item
 from beets.test import _common
+from beets.test.helper import NEEDS_REFLINK, BeetsTestCase
+
+_p = pytest.param
 
 
 class UtilTest(unittest.TestCase):
@@ -252,3 +243,252 @@ class TestPlurality:
         assert consensus["albumartist"]
         assert not consensus["album"]
         assert not consensus["label"]
+
+
+class HelperTest(unittest.TestCase):
+    def test_ancestry_works_on_file(self):
+        p = "/a/b/c"
+        a = ["/", "/a", "/a/b"]
+        assert util.ancestry(p) == a
+
+    def test_ancestry_works_on_dir(self):
+        p = "/a/b/c/"
+        a = ["/", "/a", "/a/b", "/a/b/c"]
+        assert util.ancestry(p) == a
+
+    def test_ancestry_works_on_relative(self):
+        p = "a/b/c"
+        a = ["a", "a/b"]
+        assert util.ancestry(p) == a
+
+    def test_components_works_on_file(self):
+        p = "/a/b/c"
+        a = ["/", "a", "b", "c"]
+        assert util.components(p) == a
+
+    def test_components_works_on_dir(self):
+        p = "/a/b/c/"
+        a = ["/", "a", "b", "c"]
+        assert util.components(p) == a
+
+    def test_components_works_on_relative(self):
+        p = "a/b/c"
+        a = ["a", "b", "c"]
+        assert util.components(p) == a
+
+    def test_forward_slash(self):
+        p = rb"C:\a\b\c"
+        a = rb"C:/a/b/c"
+        assert util.path_as_posix(p) == a
+
+
+class FilePathTestCase(BeetsTestCase):
+    def setUp(self):
+        super().setUp()
+
+        self.path = self.temp_path / "testfile"
+        self.path.touch()
+
+
+# Tests that we can "delete" nonexistent files.
+class SoftRemoveTest(FilePathTestCase):
+    def test_soft_remove_deletes_file(self):
+        util.remove(self.path, True)
+        assert not self.path.exists()
+
+    def test_soft_remove_silent_on_no_file(self):
+        util.remove(self.path / "XXX", True)
+
+
+class SafeMoveCopyTest(FilePathTestCase):
+    def setUp(self):
+        super().setUp()
+
+        self.otherpath = self.temp_path / "testfile2"
+        self.otherpath.touch()
+        self.dest = Path(f"{self.path}.dest")
+
+    def test_successful_move(self):
+        util.move(self.path, self.dest)
+        assert self.dest.exists()
+        assert not self.path.exists()
+
+    def test_successful_copy(self):
+        util.copy(self.path, self.dest)
+        assert self.dest.exists()
+        assert self.path.exists()
+
+    @NEEDS_REFLINK
+    def test_successful_reflink(self):
+        util.reflink(str(self.path), str(self.dest))
+        assert self.dest.exists()
+        assert self.path.exists()
+
+    def test_unsuccessful_move(self):
+        with pytest.raises(util.FilesystemError):
+            util.move(self.path, self.otherpath)
+
+    def test_unsuccessful_copy(self):
+        with pytest.raises(util.FilesystemError):
+            util.copy(self.path, self.otherpath)
+
+    def test_unsuccessful_reflink(self):
+        with pytest.raises(util.FilesystemError, match="target exists"):
+            util.reflink(self.path, self.otherpath)
+
+    def test_self_move(self):
+        util.move(self.path, self.path)
+        assert self.path.exists()
+
+    def test_self_copy(self):
+        util.copy(self.path, self.path)
+        assert self.path.exists()
+
+
+class PruneTest(BeetsTestCase):
+    def setUp(self):
+        super().setUp()
+
+        self.base = self.temp_path / "testdir"
+        self.base.mkdir()
+        self.sub = self.base / "subdir"
+        self.sub.mkdir()
+
+    def test_prune_existent_directory(self):
+        util.prune_dirs(self.sub, self.base)
+        assert self.base.exists()
+        assert not self.sub.exists()
+
+    def test_prune_nonexistent_directory(self):
+        util.prune_dirs(self.sub / "another", self.base)
+        assert self.base.exists()
+        assert not self.sub.exists()
+
+
+class WalkTest(BeetsTestCase):
+    def setUp(self):
+        super().setUp()
+
+        self.base = self.temp_path / "testdir"
+        self.base.mkdir()
+        (self.base / "y").touch()
+        (self.base / "x").touch()
+        base_d = self.base / "d"
+        base_d.mkdir()
+        (base_d / "z").touch()
+        self.str_base = str(self.base)
+
+    def test_sorted_files(self):
+        res = list(util.sorted_walk(self.str_base))
+        assert len(res) == 2
+        assert res[0] == (self.str_base, ["d"], ["x", "y"])
+        assert res[1] == (str(self.base / "d"), [], ["z"])
+
+    def test_ignore_file(self):
+        res = list(util.sorted_walk(self.str_base, ("x",)))
+        assert len(res) == 2
+        assert res[0] == (self.str_base, ["d"], ["y"])
+        assert res[1] == (str(self.base / "d"), [], ["z"])
+
+    def test_ignore_directory(self):
+        res = list(util.sorted_walk(self.str_base, ("d",)))
+        assert len(res) == 1
+        assert res[0] == (self.str_base, [], ["x", "y"])
+
+    def test_ignore_everything(self):
+        res = list(util.sorted_walk(self.str_base, ("*",)))
+        assert len(res) == 1
+        assert res[0] == (self.str_base, [], [])
+
+
+class UniquePathTest(BeetsTestCase):
+    def setUp(self):
+        super().setUp()
+
+        self.base = self.temp_path / "testdir"
+        self.base.mkdir()
+        (self.base / "x.mp3").touch()
+        (self.base / "x.1.mp3").touch()
+        (self.base / "x.2.mp3").touch()
+        (self.base / "y.mp3").touch()
+
+    def test_new_file_unchanged(self):
+        path = util.unique_path(self.base / "z.mp3")
+        assert path == self.base / "z.mp3"
+
+    def test_conflicting_file_appends_1(self):
+        path = util.unique_path(self.base / "y.mp3")
+        assert path == str(self.base / "y.1.mp3")
+
+    def test_conflicting_file_appends_higher_number(self):
+        path = util.unique_path(self.base / "x.mp3")
+        assert path == str(self.base / "x.3.mp3")
+
+    def test_conflicting_file_with_number_increases_number(self):
+        path = util.unique_path(self.base / "x.1.mp3")
+        assert path == str(self.base / "x.3.mp3")
+
+
+class MkDirAllTest(BeetsTestCase):
+    def test_mkdirall(self):
+        child = self.temp_path / "foo" / "bar" / "baz" / "quz.mp3"
+        util.mkdirall(child)
+        assert not child.exists()
+        assert child.parent.exists()
+        assert child.parent.is_dir()
+
+
+class TestAsciifyPath:
+    @pytest.fixture(autouse=True)
+    def _setup_config(self, config):
+        config["path_sep_replace"] = "_"
+
+    @pytest.mark.parametrize(
+        "platform, normalization",
+        [
+            _p("darwin", "NFD", id="macos"),
+            _p("linux", "NFC", id="other-platform"),
+        ],
+    )
+    def test_normalizes_unicode_for_platform(
+        self, monkeypatch, platform, normalization
+    ):
+        normalize = Mock(wraps=util.unicodedata.normalize)
+        monkeypatch.setattr("sys.platform", platform)
+        monkeypatch.setattr("beets.util.unicodedata.normalize", normalize)
+
+        assert util.asciify_path("caf\xe9") == "cafe"
+        normalize.assert_called_once_with(normalization, "caf\xe9")
+
+    @pytest.mark.parametrize(
+        "path, expected",
+        [
+            _p("plain", "plain", id="ascii"),
+            _p("\u201c\u00f6\u2014\u00cf\u201d", '"o--I"', id="unicode"),
+            _p(
+                f"caf\xe9{os.sep}na\xefve",
+                f"cafe{os.sep}naive",
+                id="path-components",
+            ),
+        ],
+    )
+    def test_transliterates_path(self, path, expected):
+        assert util.asciify_path(path) == expected
+
+    @pytest.mark.parametrize(
+        "replacement, expected",
+        [
+            _p("_", "abC_ 1_2d", id="default"),
+            _p("-", "abC- 1-2d", id="configured"),
+        ],
+    )
+    def test_replaces_generated_separators(self, config, replacement, expected):
+        config["path_sep_replace"] = replacement
+
+        assert util.asciify_path("ab\xa2\xbdd") == expected
+
+    def test_normalizes_alternate_path_separator(self, monkeypatch):
+        monkeypatch.setattr("beets.util.os.sep", "/")
+        monkeypatch.setattr("beets.util.os.altsep", "\\")
+
+        assert util.asciify_path("caf\xe9\\na\xefve") == "cafe/naive"

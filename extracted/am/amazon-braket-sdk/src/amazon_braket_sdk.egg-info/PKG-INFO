@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: amazon-braket-sdk
-Version: 1.124.1
+Version: 1.124.2
 Summary: An open source library for interacting with quantum computing devices on Amazon Braket
 Author: Amazon Web Services
 License-Expression: Apache-2.0
@@ -32,7 +32,6 @@ Requires-Dist: numpy
 Requires-Dist: openpulse
 Requires-Dist: openqasm3
 Requires-Dist: sympy
-Requires-Dist: backports.entry-points-selectable
 Provides-Extra: test
 Requires-Dist: botocore; extra == "test"
 Requires-Dist: jsonschema==3.2.0; extra == "test"
@@ -148,7 +147,7 @@ Many quantum algorithms need to run multiple independent circuits, and submittin
 circuits = [bell for _ in range(5)]
 batch = device.run_batch(circuits, shots=100)
 # The result of the first quantum task in the batch
-print(batch.results()[0].measurement_counts)  
+print(batch.results()[0].measurement_counts)
 ```
 
 ### Running a hybrid job

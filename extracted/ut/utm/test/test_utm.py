@@ -1,5 +1,3 @@
-from __future__ import division
-
 import utm as UTM
 
 import functools
@@ -418,6 +416,11 @@ def test_force_south():
     # Again, using force northern as False
     assert_equal_lat(
         UTM.from_latlon(0.1, 0, 31, force_northern=True), 0.1, northern=True)
+
+
+def test_force_south_lowercase_letter():
+    # Force northern point to a lowercase southern zone letter
+    assert_equal_lat(UTM.from_latlon(0.1, 0, 31, 'm'), 0.1)
 
 
 @pytest.mark.skipif(not use_numpy, reason="numpy not installed")

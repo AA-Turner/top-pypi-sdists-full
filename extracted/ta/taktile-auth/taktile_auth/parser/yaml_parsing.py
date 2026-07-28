@@ -35,11 +35,14 @@ def parse_role(
             if "args" in clause:
                 perm_args = clause["args"]
 
+            resource_definition = resources[clause["resource_name"]]
+            resource_definition.assert_actions_allowed(clause["actions"])
+
             perm_definitions.append(
                 (
                     set(clause["actions"]),
                     PermissionDefinition(
-                        resource_definition=resources[clause["resource_name"]],
+                        resource_definition=resource_definition,
                     ),
                     perm_args,
                 )
@@ -47,19 +50,11 @@ def parse_role(
         else:
             # For sub-roles, we need to find the full signature
             sub_role_name = clause["sub_role_name"]
-            matching_signatures = [
-                sig
-                for sig in role_yaml.keys()
-                if sig.split("/")[0] == sub_role_name.split("/")[0]
-            ]
+            matching_signatures = [sig for sig in role_yaml.keys() if sig.split("/")[0] == sub_role_name.split("/")[0]]
             if not matching_signatures:
-                raise KeyError(
-                    f"Sub-role {sub_role_name} not found in role definitions"
-                )
+                raise KeyError(f"Sub-role {sub_role_name} not found in role definitions")
 
-            sub_role_definitions.append(
-                parse_role(matching_signatures[0], role_yaml, resources)
-            )
+            sub_role_definitions.append(parse_role(matching_signatures[0], role_yaml, resources))
 
     return RoleDefinition(
         name=role_name,
@@ -73,16 +68,17 @@ def parse_resource_yaml(path: pathlib.Path) -> t.Dict[str, ResourceDefinition]:
     with open(path, "r") as f:
         resources_yaml = yaml.safe_load(f)
     resources: t.Dict[str, ResourceDefinition] = {}
-    for resource_name, args in resources_yaml.items():
+    for resource_name, body in resources_yaml.items():
+        args = dict(filter(lambda entry: entry[0] != "additional_actions", body.items()))
         resources[resource_name] = ResourceDefinition(
-            resource_name=resource_name, args=args
+            resource_name=resource_name,
+            args=args,
+            additional_actions=body.get("additional_actions", []),
         )
     return resources
 
 
-def parse_role_yaml(
-    role_path: pathlib.Path, resource_path: pathlib.Path
-) -> t.Dict[str, RoleDefinition]:
+def parse_role_yaml(role_path: pathlib.Path, resource_path: pathlib.Path) -> t.Dict[str, RoleDefinition]:
     resources = parse_resource_yaml(resource_path)
     with open(role_path, "r") as f:
         roles_raw: t.Dict[str, t.Any] = yaml.safe_load(f)
@@ -98,8 +94,6 @@ def parse_role_yaml(
             }
 
     return {
-        role_signature.split("/")[0]: parse_role(
-            role_signature, role_yaml, resources
-        )
+        role_signature.split("/")[0]: parse_role(role_signature, role_yaml, resources)
         for role_signature in role_yaml.keys()
     }

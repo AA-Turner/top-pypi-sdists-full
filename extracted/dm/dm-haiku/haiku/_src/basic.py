@@ -21,7 +21,6 @@ from haiku._src import base
 from haiku._src import initializers
 from haiku._src import module
 from haiku._src import typing
-from haiku._src.typing import PRNGKey
 import jax
 from jax import lax
 import jax.numpy as jnp
@@ -167,6 +166,7 @@ class Linear(hk.Module):
     if not inputs.shape:
       raise ValueError("Input must not be scalar.")
 
+    inputs = jnp.asarray(inputs)
     input_size = self.input_size = inputs.shape[-1]
     output_size = self.output_size
     dtype = inputs.dtype
@@ -297,7 +297,10 @@ def expand_apply(f, axis=0):
 
 
 def dropout(
-    rng: PRNGKey, rate: float, x: jax.Array, broadcast_dims: Sequence[int] = ()
+    rng: jax.Array,
+    rate: float,
+    x: jax.Array,
+    broadcast_dims: Sequence[int] = (),
 ) -> jax.Array:
   """Randomly drop units in the input at a given rate.
 
@@ -325,7 +328,10 @@ def dropout(
 
 # Separated out to support monkey patching.
 def dropout_impl(
-    rng: PRNGKey, rate: float, x: jax.Array, broadcast_dims: Sequence[int] = ()
+    rng: jax.Array,
+    rate: float,
+    x: jax.Array,
+    broadcast_dims: Sequence[int] = (),
 ) -> jax.Array:
   """See dropout."""
   try:

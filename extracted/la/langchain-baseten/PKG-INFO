@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-baseten
-Version: 0.2.1
+Version: 0.2.3
 Summary: Integration package connecting Baseten and LangChain
 Project-URL: Homepage, https://docs.baseten.co/
 Project-URL: Documentation, https://github.com/basetenlabs/langchain-baseten/tree/main/libs/baseten
@@ -21,8 +21,8 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <4.0.0,>=3.10.0
 Requires-Dist: baseten-performance-client>=0.0.11
-Requires-Dist: langchain-core<2.0.0,>=1.2.18
-Requires-Dist: langchain-openai<2.0.0,>=1.1.11
+Requires-Dist: langchain-core<2.0.0,>=1.5.1
+Requires-Dist: langchain-openai<2.0.0,>=1.4.1
 Description-Content-Type: text/markdown
 
 # langchain-baseten
@@ -46,7 +46,7 @@ from langchain_baseten import ChatBaseten
 
 # Option 1: Use Model APIs with model slug
 model = ChatBaseten(
-    model="moonshotai/Kimi-K2-Instruct-0905",  # Choose from available model slugs: https://docs.baseten.co/development/model-apis/overview#supported-models
+    model="zai-org/GLM-5.2",  # Choose from available model slugs: https://docs.baseten.co/development/model-apis/overview#supported-models
     api_key="your-api-key",  # Or set BASETEN_API_KEY env var
 )
 

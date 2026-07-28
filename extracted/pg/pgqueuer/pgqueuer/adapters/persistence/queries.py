@@ -81,9 +81,9 @@ class Queries:
 
         return cls(PsycopgDriver(connection))
 
-    async def install(self) -> None:
-        """Create tables, types, indexes, triggers, and functions."""
-        await self.driver.execute(self.qbe.build_install_query())
+    async def install(self, create_schema: bool = True) -> None:
+        """Create the schema (when configured), tables, types, indexes, triggers, and functions."""
+        await self.driver.execute(self.qbe.build_install_query(create_schema=create_schema))
 
     async def uninstall(self) -> None:
         """Drop every PgQueuer schema object. Destructive."""
@@ -297,6 +297,11 @@ class Queries:
         rows = await self.driver.fetch(self.qbq.build_has_queued_work(), entrypoints)
         return rows[0]["queued_work"] if rows else 0
 
+    async def eligible_queued_work(self, entrypoints: list[str]) -> int:
+        """Like ``queued_work`` but counting only jobs whose ``execute_after`` has passed."""
+        rows = await self.driver.fetch(self.qbq.build_has_eligible_queued_work(), entrypoints)
+        return rows[0]["queued_work"] if rows else 0
+
     async def clear_queue(self, entrypoint: str | list[str] | None = None) -> None:
         """Delete jobs; restrict to *entrypoint* when given, else truncate."""
         if entrypoint:
@@ -412,13 +417,25 @@ class Queries:
         else:
             await self.driver.execute(self.qbq.build_truncate_log_query())
 
+    async def aggregate_logs(self) -> None:
+        """Fold unaggregated pgqueuer_log rows into pgqueuer_statistics.
+
+        Advisory-locked so concurrent workers running the periodic task serialize
+        on aggregation instead of double-counting.
+        """
+        await self.driver.execute(
+            self.qbq.build_aggregate_log_data_to_statistics_query(advisory_lock=True)
+        )
+
     async def log_statistics(
         self,
         limit: int | None,
         last: timedelta | None = None,
     ) -> list[models.LogStatistics]:
         """Aggregate pending log rows, then return up to *limit* recent stats within *last*."""
-        await self.driver.execute(self.qbq.build_aggregate_log_data_to_statistics_query())
+        await self.driver.execute(
+            self.qbq.build_aggregate_log_data_to_statistics_query(advisory_lock=False)
+        )
         return [
             models.LogStatistics.model_validate(x)
             for x in await self.driver.fetch(
@@ -538,6 +555,130 @@ class Queries:
         """Return time until the soonest deferred job becomes eligible, or None."""
         rows = await self.driver.fetch(self.qbq.build_next_deferred_eta_query(), entrypoints)
         return rows[0]["eta"] if rows and rows[0]["eta"] is not None else None
+
+    async def queue_age(self) -> list[models.QueueAgeStats]:
+        """Backlog age of queued jobs per entrypoint, oldest first."""
+        return [
+            models.QueueAgeStats.model_validate(row)
+            for row in await self.driver.fetch(self.qbq.build_queue_age_query())
+        ]
+
+    async def job_duration_percentiles(
+        self,
+        last: timedelta,
+    ) -> list[models.JobDurationStats]:
+        """Execution-duration percentiles per entrypoint within the *last* window."""
+        return [
+            models.JobDurationStats.model_validate(row)
+            for row in await self.driver.fetch(
+                self.qbq.build_job_duration_percentiles_query(),
+                last,
+            )
+        ]
+
+    async def throughput_summary(
+        self,
+        last: timedelta | None = None,
+    ) -> list[models.ThroughputStats]:
+        """Total processed jobs per (entrypoint, status), optionally within *last*."""
+        await self.driver.execute(self.qbq.build_aggregate_log_data_to_statistics_query())
+        return [
+            models.ThroughputStats.model_validate(row)
+            for row in await self.driver.fetch(
+                self.qbq.build_throughput_summary_query(),
+                last,
+            )
+        ]
+
+    async def throughput_timeseries(
+        self,
+        last: timedelta,
+    ) -> list[models.ThroughputBucket]:
+        """Per-minute processed-job counts within the *last* window."""
+        await self.driver.execute(self.qbq.build_aggregate_log_data_to_statistics_query())
+        return [
+            models.ThroughputBucket.model_validate(row)
+            for row in await self.driver.fetch(
+                self.qbq.build_throughput_timeseries_query(),
+                last,
+            )
+        ]
+
+    async def active_workers(self) -> list[models.ActiveWorker]:
+        """Queue managers currently holding picked jobs."""
+        return [
+            models.ActiveWorker.model_validate(row)
+            for row in await self.driver.fetch(self.qbq.build_active_workers_query())
+        ]
+
+    async def stale_jobs(
+        self,
+        threshold: timedelta,
+        limit: int = 100,
+    ) -> list[models.StaleJob]:
+        """Picked jobs whose heartbeat is older than *threshold*."""
+        return [
+            models.StaleJob.model_validate(row)
+            for row in await self.driver.fetch(
+                self.qbq.build_stale_jobs_query(),
+                threshold,
+                limit,
+            )
+        ]
+
+    async def exception_logs(self, limit: int = 100) -> list[models.Log]:
+        """Most recent 'exception' log entries, including tracebacks."""
+        return [
+            models.Log.model_validate(row)
+            for row in await self.driver.fetch(self.qbq.build_failed_jobs_query(), limit)
+        ]
+
+    async def browse_queue(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        statuses: list[models.JOB_STATUS] | None = None,
+        entrypoints: list[str] | None = None,
+    ) -> list[models.Job]:
+        """Paginated queue rows, optionally filtered by status and entrypoint."""
+        rows = await self.driver.fetch(
+            self.qbq.build_browse_queue_query(),
+            limit,
+            offset,
+            list(statuses) if statuses else None,
+            list(entrypoints) if entrypoints else None,
+        )
+        return [models.Job.model_validate(row) for row in rows]
+
+    async def queue_job_by_id(self, id: models.JobId) -> models.Job | None:
+        rows = await self.driver.fetch(self.qbq.build_queue_job_by_id_query(), id)
+        return models.Job.model_validate(rows[0]) if rows else None
+
+    async def job_log_history(
+        self,
+        id: models.JobId,
+        limit: int = 100,
+    ) -> list[models.Log]:
+        """State transitions of one job, oldest first."""
+        return [
+            models.Log.model_validate(row)
+            for row in await self.driver.fetch(
+                self.qbq.build_job_log_history_query(),
+                id,
+                limit,
+            )
+        ]
+
+    async def unaggregated_log_count(self) -> int:
+        rows = await self.driver.fetch(self.qbq.build_unaggregated_log_count_query())
+        return rows[0]["unaggregated"] if rows else 0
+
+    async def schema_info(self) -> list[models.TableInfo]:
+        """Size, row estimate, and persistence mode of each PgQueuer table."""
+        return [
+            models.TableInfo.model_validate(row)
+            for row in await self.driver.fetch(self.qbq.build_schema_info_query())
+        ]
 
 
 @dataclasses.dataclass

@@ -5,7 +5,7 @@ requires = [ "uv-build>=0.9,<0.12" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "extra-platforms"
-version = "13.4.0"
+version = "13.5.1"
 description = "🔎 Detect architectures, platforms, shells, terminals, CI systems and agents, grouped by family"
 readme = "readme.md"
 keywords = [
@@ -66,10 +66,10 @@ keywords = [
   "GNOME Terminal",
   "GNU Screen",
   "GNU/Hurd",
-  "Guix Build",
   "Guix System",
   "Haiku",
   "Hardware detection",
+  "Hermetic Build",
   "Heroku CI",
   "Hyper",
   "IBM AIX",
@@ -255,7 +255,7 @@ optional-dependencies.pytest = [
 ]
 urls.Changelog = "https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md"
 urls.Documentation = "https://kdeldycke.github.io/extra-platforms"
-urls.Download = "https://github.com/kdeldycke/extra-platforms/releases/tag/v13.4.0"
+urls.Download = "https://github.com/kdeldycke/extra-platforms/releases/tag/v13.5.1"
 urls.Funding = "https://github.com/sponsors/kdeldycke"
 urls.Homepage = "https://github.com/kdeldycke/extra-platforms"
 urls.Issues = "https://github.com/kdeldycke/extra-platforms/issues"
@@ -443,7 +443,7 @@ run.source = [ "extra_platforms" ]
 report.precision = 2
 
 [tool.bumpversion]
-current_version = "13.4.0"
+current_version = "13.5.1"
 # Parse versions with an optional .devN suffix (PEP 440).
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(\\.dev(?P<dev>\\d+))?"
 serialize = [
@@ -525,6 +525,9 @@ exclude = [
 ]
 
 [tool.repomatic]
+# 1.0.1 was frozen but never published to PyPI (the changelog marks it "not
+# available"), so lint-changelog skips it instead of warning it is missing.
+abandoned-versions = [ "1.0.1" ]
 # We don't need custom label configuration, and the debug workflow is not used in this project.
 exclude = [ "labels", "skills", "workflows/debug.yaml" ]
 # Building the package with Nuitka is overkill.

@@ -23,12 +23,14 @@ from tidy3d.components.autograd import TidyArrayBox, get_static, interpn, is_tid
 from tidy3d.components.geometry.bound_ops import bounds_contains
 from tidy3d.constants import (
     AMP,
+    COULOMB,
     HERTZ,
     MICROMETER,
     OHM,
     PICOSECOND_PER_NANOMETER_PER_KILOMETER,
     RADIAN,
     SECOND,
+    STERADIAN,
     VOLT,
     WATT,
 )
@@ -49,12 +51,15 @@ if TYPE_CHECKING:
     from tidy3d.components.types.base import Coordinate
 
 # maps the dimension names to their attributes
+DIPOLE_EMISSION_INTENSITY_UNITS = f"{WATT}/({STERADIAN} * ({COULOMB}*{MICROMETER})^2)"
+
 DIM_ATTRS = {
     "x": {"units": MICROMETER, "long_name": "x position"},
     "y": {"units": MICROMETER, "long_name": "y position"},
     "z": {"units": MICROMETER, "long_name": "z position"},
     "f": {"units": HERTZ, "long_name": "frequency"},
     "t": {"units": SECOND, "long_name": "time"},
+    "v": {"units": VOLT, "long_name": "voltage"},
     "direction": {"long_name": "propagation direction"},
     "mode_index": {"long_name": "mode index"},
     "terminal_label": {"long_name": "terminal label"},
@@ -62,8 +67,11 @@ DIM_ATTRS = {
     "terminal_label_in": {"long_name": "input terminal label"},
     "eme_port_index": {"long_name": "EME port index"},
     "eme_cell_index": {"long_name": "EME cell index"},
+    "eme_interface_index": {"long_name": "EME interface index"},
     "mode_index_in": {"long_name": "mode index in"},
     "mode_index_out": {"long_name": "mode index out"},
+    "trace_index_in": {"long_name": "trace index in"},
+    "trace_index_out": {"long_name": "trace index out"},
     "sweep_index": {"long_name": "sweep index"},
     "theta": {"units": RADIAN, "long_name": "elevation angle"},
     "phi": {"units": RADIAN, "long_name": "azimuth angle"},
@@ -74,6 +82,10 @@ DIM_ATTRS = {
     "face_index": {"long_name": "face index"},
     "vertex_index": {"long_name": "vertex index"},
     "axis": {"long_name": "axis"},
+    "dipole_axis": {"long_name": "dipole orientation axis"},
+    "polarization": {"long_name": "emission polarization"},
+    "angle": {"long_name": "emission angle index"},
+    "spherical_coordinate": {"long_name": "spherical coordinate"},
 }
 
 
@@ -124,7 +136,7 @@ class DataArray(xr.DataArray):
     # Always set __slots__ = () to avoid xarray warnings
     __slots__ = ()
     # stores an ordered tuple of strings corresponding to the data dimensions
-    _dims = ()
+    _dims: tuple[str, ...] = ()
     # stores a dictionary of attributes corresponding to the data values
     _data_attrs: dict[str, str] = {}
 
@@ -133,10 +145,15 @@ class DataArray(xr.DataArray):
         if isbox(data) and not is_tidy_box(data):
             data = TidyArrayBox.from_arraybox(data)
         # do the same for xr.Variable or xr.DataArray type
-        elif isinstance(data, (xr.Variable, xr.DataArray)):
+        elif isinstance(data, xr.Variable | xr.DataArray):
             if isbox(data.data) and not is_tidy_box(data.data):
                 data.data = TidyArrayBox.from_arraybox(data.data)
         super().__init__(data, *args, **kwargs)
+
+    @classmethod
+    def _constructor_kwargs_for_pydantic(cls) -> dict[str, Any]:
+        """Additional constructor kwargs used only by pydantic parsing."""
+        return {}
 
     @classmethod
     def __get_pydantic_core_schema__(
@@ -156,7 +173,7 @@ class DataArray(xr.DataArray):
                 )
 
             try:
-                instance = cls(value)
+                instance = cls(value, **cls._constructor_kwargs_for_pydantic())
                 if not isinstance(instance, cls):
                     raise TypeError(
                         f"Constructor for {cls.__name__} returned unexpected type {type(instance)}"
@@ -319,7 +336,7 @@ class DataArray(xr.DataArray):
 
     def to_hdf5(self, fname: PathLike | h5py.File, group_path: str) -> None:
         """Save an ``xr.DataArray`` to the hdf5 file or file handle with a given path to the group."""
-        if isinstance(fname, (str, pathlib.Path)):
+        if isinstance(fname, str | pathlib.Path):
             path = pathlib.Path(fname)
             path.parent.mkdir(parents=True, exist_ok=True)
             with h5py.File(path, "w") as f_handle:
@@ -331,7 +348,10 @@ class DataArray(xr.DataArray):
         """Save an ``xr.DataArray`` to the hdf5 file handle with a given path to the group."""
         sub_group = f_handle.create_group(group_path)
         sub_group[DATA_ARRAY_VALUE_NAME] = get_static(self.data)
-        for key, val in self.coords.items():
+        for key in self._dims:
+            if key not in self.coords:
+                continue
+            val = self.coords[key]
             if val.dtype.kind == "U":
                 # Convert Unicode strings to list for HDF5 storage
                 sub_group[key] = val.values.tolist()
@@ -1316,6 +1336,23 @@ class ModeAmpsDataArray(DataArray):
     _data_attrs = {"units": "sqrt(W)", "long_name": "mode amplitudes"}
 
 
+class ModeAmpsTimeDataArray(DataArray):
+    """Forward and backward propagating complex-valued mode amplitudes in the time domain.
+
+    Example
+    -------
+    >>> direction = ["+", "-"]
+    >>> t = [0, 1e-12, 2e-12]
+    >>> mode_index = np.arange(4)
+    >>> coords = dict(direction=direction, t=t, mode_index=mode_index)
+    >>> data = ModeAmpsTimeDataArray((1+1j) * np.random.random((2, 3, 4)), coords=coords)
+    """
+
+    __slots__ = ()
+    _dims = ("direction", "t", "mode_index")
+    _data_attrs = {"units": "sqrt(W)", "long_name": "mode amplitudes"}
+
+
 class ModeIndexDataArray(DataArray):
     """Complex-valued effective propagation index of a mode.
 
@@ -1423,6 +1460,114 @@ class FieldProjectionKSpaceDataArray(DataArray):
     __slots__ = ()
     _dims = ("ux", "uy", "r", "f")
     _data_attrs = {"long_name": "radiation vectors"}
+
+
+class SphericalAngleDataArray(DataArray):
+    """Spherical angles as indexed ``(theta, phi)`` pairs.
+
+    The ``spherical_coordinate`` coordinate is ordered as ``("theta", "phi")`` and
+    values are in radians.
+
+    Example
+    -------
+    >>> index = np.arange(2)
+    >>> spherical_coordinate = ["theta", "phi"]
+    >>> coords = dict(index=index, spherical_coordinate=spherical_coordinate)
+    >>> values = np.array([[0.0, 0.0], [0.1, 1.2]])
+    >>> data = SphericalAngleDataArray(values, coords=coords)
+    """
+
+    __slots__ = ()
+    _dims = ("index", "spherical_coordinate")
+    _data_attrs = {
+        "long_name": "spherical angles",
+        "units": RADIAN,
+    }
+
+    def __init__(self, data: Any, *args: Any, **kwargs: Any) -> None:
+        skip_canonicalization = kwargs.pop("_skip_bare_canonicalization", False)
+        if (
+            not skip_canonicalization
+            and not args
+            and "coords" not in kwargs
+            and "dims" not in kwargs
+        ):
+            shape = np.shape(data)
+            if (
+                len(shape) == 2
+                and shape[1] == 2
+                and not isinstance(data, xr.Variable | xr.DataArray)
+            ):
+                kwargs["dims"] = ("index", "spherical_coordinate")
+                kwargs["coords"] = {
+                    "index": np.arange(shape[0]),
+                    "spherical_coordinate": ["theta", "phi"],
+                }
+        super().__init__(data, *args, **kwargs)
+
+    @classmethod
+    def _constructor_kwargs_for_pydantic(cls) -> dict[str, Any]:
+        """Keep model parsing strict while direct user construction is ergonomic.
+
+        Direct ``SphericalAngleDataArray([[theta, phi], ...])`` construction can
+        infer the standard dimensions and coordinates. Pydantic validation of
+        model fields should not do this inference, because raw lists embedded in
+        model payloads would otherwise bypass the usual serialized DataArray
+        shape.
+        """
+        return {"_skip_bare_canonicalization": True}
+
+    @classmethod
+    def _validate_dims(cls, val: Self) -> Self:
+        """Require explicit ``(theta, phi)`` spherical coordinate ordering."""
+        val = super()._validate_dims(val)
+        spherical_coords = tuple(str(coord) for coord in val.coords["spherical_coordinate"].values)
+        if spherical_coords != ("theta", "phi"):
+            raise ValueError(
+                "SphericalAngleDataArray requires spherical_coordinate=('theta', 'phi')."
+            )
+        return val
+
+
+class DipoleEmissionDataArray(DataArray):
+    """Radiation intensity stored by a single dipole-emission monitor.
+
+    Example
+    -------
+    >>> dipole_axis = ["x", "y", "z"]
+    >>> f = np.linspace(1e14, 2e14, 3)
+    >>> coords = dict(dipole_axis=dipole_axis, f=f)
+    >>> values = np.random.random((len(dipole_axis), len(f)))
+    >>> data = DipoleEmissionDataArray(values, coords=coords)
+    """
+
+    __slots__ = ()
+    _dims = ("dipole_axis", "f")
+    _data_attrs = {
+        "long_name": "angular radiation intensity per dipole moment squared",
+        "units": DIPOLE_EMISSION_INTENSITY_UNITS,
+    }
+
+
+class DipoleEmissionPositionDataArray(DataArray):
+    """Position samples stored by a single dipole-emission monitor.
+
+    Example
+    -------
+    >>> index = np.arange(2)
+    >>> dipole_axis = ["x", "y", "z"]
+    >>> f = np.linspace(1e14, 2e14, 3)
+    >>> coords = dict(index=index, dipole_axis=dipole_axis, f=f)
+    >>> values = np.random.random((len(index), len(dipole_axis), len(f)))
+    >>> data = DipoleEmissionPositionDataArray(values, coords=coords)
+    """
+
+    __slots__ = ()
+    _dims = ("index", "dipole_axis", "f")
+    _data_attrs = {
+        "long_name": "position-resolved angular radiation intensity per dipole moment squared",
+        "units": DIPOLE_EMISSION_INTENSITY_UNITS,
+    }
 
 
 class DiffractionDataArray(DataArray):
@@ -1638,6 +1783,33 @@ class EMEFluxDataArray(DataArray):
     _data_attrs = {"units": WATT, "long_name": "flux"}
 
 
+class EMETraceMetricDataArray(DataArray):
+    """Field-metric matrix used by advanced EME interface diagnostics."""
+
+    __slots__ = ()
+    _dims = ("f", "sweep_index", "trace_index_out", "trace_index_in")
+    _data_attrs = {"long_name": "interface trace metric"}
+
+
+class EMEInterfaceCellIndexDataArray(DataArray):
+    """Left or right EME cell index for each aggregated EME interface."""
+
+    __slots__ = ()
+    _dims = ("eme_interface_index",)
+    _data_attrs = {"long_name": "EME interface cell index"}
+
+
+class EMEInterfaceDiagnosticDataArray(DataArray):
+    """Scalar EME interface diagnostic value.
+
+    Indexed by interface, incident port, and incident mode.
+    """
+
+    __slots__ = ()
+    _dims = ("f", "sweep_index", "eme_interface_index", "eme_port_index", "mode_index")
+    _data_attrs = {"long_name": "interface diagnostic"}
+
+
 class ChargeDataArray(DataArray):
     """Charge data array.
 
@@ -1668,6 +1840,40 @@ class SteadyVoltageDataArray(DataArray):
     _dims = ("v",)
 
 
+class ConvergenceHistoryDataArray(DataArray):
+    """Per-iteration residual trace across a voltage sweep and solution components.
+
+    Dimensions:
+
+    * ``v`` -- sweep bias [V]
+    * ``pseudo_step`` -- Newton iteration index (0-based); ragged biases are
+      NaN-padded on this axis to the longest trace in the sweep.
+    * ``component`` -- solution component label (e.g. ``"potential"``,
+      ``"electrons"``, ``"holes"``, ``"temperature"``).
+
+    Values are residual norms in the native units of the corresponding solution
+    variable (volts for ``"potential"``; um^-3 for the carrier concentrations).
+    NaN at ``(v, k, c)`` means bias ``v`` did not reach iteration ``k`` for
+    component ``c``.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> import tidy3d as td
+    >>> V = [-1.0, 0.0]
+    >>> steps = [0, 1, 2]
+    >>> comps = ["potential"]
+    >>> data = np.array([[[3.2e-1], [1.7e-1], [1.1e-8]],
+    ...                  [[2.1e-1], [9.0e-2], [np.nan]]])
+    >>> history = td.ConvergenceHistoryDataArray(
+    ...     data=data, coords={"v": V, "pseudo_step": steps, "component": comps}
+    ... )
+    """
+
+    __slots__ = ()
+    _dims = ("v", "pseudo_step", "component")
+
+
 class PointDataArray(DataArray):
     """A two-dimensional array that stores coordinates/field components for a collection of points.
     Dimension ``index`` denotes the index of a point in the collection, and dimension ``axis``
@@ -1694,6 +1900,29 @@ class PointDataArray(DataArray):
 
     __slots__ = ()
     _dims = ("index", "axis")
+
+    def __init__(self, data: Any, *args: Any, **kwargs: Any) -> None:
+        skip_canonicalization = kwargs.pop("_skip_bare_canonicalization", False)
+        if (
+            not skip_canonicalization
+            and not args
+            and "coords" not in kwargs
+            and "dims" not in kwargs
+        ):
+            shape = np.shape(data)
+            if (
+                len(shape) == 2
+                and shape[1] == 3
+                and not isinstance(data, xr.Variable | xr.DataArray)
+            ):
+                kwargs["dims"] = ("index", "axis")
+                kwargs["coords"] = {"index": np.arange(shape[0]), "axis": np.arange(3)}
+        super().__init__(data, *args, **kwargs)
+
+    @classmethod
+    def _constructor_kwargs_for_pydantic(cls) -> dict[str, Any]:
+        """Keep pydantic parsing strict for raw lists and arrays."""
+        return {"_skip_bare_canonicalization": True}
 
 
 class CellDataArray(DataArray):
@@ -2286,12 +2515,16 @@ DATA_ARRAY_TYPES = [
     FluxDataArray,
     FluxTimeDataArray,
     ModeAmpsDataArray,
+    ModeAmpsTimeDataArray,
     ModeIndexDataArray,
     GroupIndexDataArray,
     ModeDispersionDataArray,
     FieldProjectionAngleDataArray,
     FieldProjectionCartesianDataArray,
     FieldProjectionKSpaceDataArray,
+    SphericalAngleDataArray,
+    DipoleEmissionDataArray,
+    DipoleEmissionPositionDataArray,
     DiffractionDataArray,
     ModeDataArray,
     TerminalDataArray,
@@ -2313,9 +2546,13 @@ DATA_ARRAY_TYPES = [
     EMEModeIndexDataArray,
     EMEFluxDataArray,
     EMEFreqModeDataArray,
+    EMETraceMetricDataArray,
+    EMEInterfaceCellIndexDataArray,
+    EMEInterfaceDiagnosticDataArray,
     MixedModeDataArray,
     ChargeDataArray,
     SteadyVoltageDataArray,
+    ConvergenceHistoryDataArray,
     PointDataArray,
     CellDataArray,
     IndexedDataArray,

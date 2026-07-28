@@ -56,7 +56,6 @@ class _FlakyBlockingRule(LinterRule):
     """Succeeds (with one issue) until `broken` is flipped, then crashes."""
 
     label = "flaky blocking"
-    type = "error"
 
     def __init__(self):
         self.broken = False
@@ -66,13 +65,14 @@ class _FlakyBlockingRule(LinterRule):
             raise RuntimeError("rule exploded")
         issue = LinterIssue()
         issue.label = "real issue"
+        issue.title = "real issue"
+        issue.type = "error"
         issue.fixes = []
         return [issue]
 
 
 class _ScopedFakeRule(PathScopedLinterRule):
     label = "scoped fake"
-    type = "info"
 
     def __init__(self, issues_by_path):
         self.issues_by_path = dict(issues_by_path)
@@ -80,6 +80,8 @@ class _ScopedFakeRule(PathScopedLinterRule):
     def _issue(self, label, path_key):
         issue = LinterIssue()
         issue.label = label
+        issue.title = label
+        issue.type = "warning"
         issue.fixes = []
         issue.path = path_key
         return issue

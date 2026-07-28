@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyhelm3
-Version: 0.5.2
+Version: 0.5.3
 Summary: Python library for managing Helm releases using Helm 3 and later (i.e. Tiller-less Helm).
 License-Expression: Apache-2.0
 License-File: LICENSE

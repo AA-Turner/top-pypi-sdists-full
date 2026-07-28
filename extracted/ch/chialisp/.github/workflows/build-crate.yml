@@ -24,26 +24,26 @@ jobs:
       fail-fast: false
 
     steps:
-    - uses: actions/checkout@v6.0.2
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
 
     - name: Set up rusts
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: stable
+        toolchain: 1.97.1
         components: rustfmt, clippy
 
     - name: Set up rust (stable)
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: stable
+        toolchain: 1.97.1
         components: rustfmt, clippy
 
     - name: fmt (stable)
-      run: cargo +stable fmt -- --files-with-diff --check
+      run: cargo +1.97.1 fmt -- --files-with-diff --check
     - name: clippy (stable)
-      run: cargo +stable clippy && cargo +stable clippy --manifest-path wasm/Cargo.toml
+      run: cargo +1.97.1 clippy && cargo +1.97.1 clippy --manifest-path wasm/Cargo.toml
     - name: tests
       run: cargo test && cargo test --release
     # The design of 'run' causes it to drop main.sym unannounced when compiling.

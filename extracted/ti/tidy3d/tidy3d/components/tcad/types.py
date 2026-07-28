@@ -2,16 +2,23 @@
 
 from __future__ import annotations
 
-from tidy3d.components.tcad.bandgap import SlotboomBandGapNarrowing
-from tidy3d.components.tcad.bandgap_energy import (
+from tidy3d.components.tcad.bandgap import (
     ConstantEnergyBandGap,
+    SlotboomBandGapNarrowing,
     VarshniEnergyBandGap,
 )
-from tidy3d.components.tcad.boundary.charge import CurrentBC, InsulatingBC, VoltageBC
+from tidy3d.components.tcad.boundary.charge import (
+    CurrentBC,
+    InsulatingBC,
+    SurfaceRecombinationBC,
+    VoltageBC,
+)
 from tidy3d.components.tcad.boundary.heat import (
     ConvectionBC,
     HeatFluxBC,
+    RadiationBC,
     TemperatureBC,
+    ThermalContactResistance,
 )
 from tidy3d.components.tcad.effective_DOS import (
     ConstantEffectiveDOS,
@@ -27,9 +34,14 @@ from tidy3d.components.tcad.generation_recombination import (
     SelberherrImpactIonization,
     ShockleyReedHallRecombination,
 )
-from tidy3d.components.tcad.mobility import CaugheyThomasMobility, ConstantMobilityModel
+from tidy3d.components.tcad.mobility import (
+    CaugheyThomasMobility,
+    ConstantMobilityModel,
+    MasettiMobility,
+)
 from tidy3d.components.tcad.monitors.charge import (
     SteadyCapacitanceMonitor,
+    SteadyChargeResidualMonitor,
     SteadyCurrentDensityMonitor,
     SteadyElectricFieldMonitor,
     SteadyEnergyBandMonitor,
@@ -44,7 +56,7 @@ EffectiveDOSModelType = (
     ConstantEffectiveDOS | IsotropicEffectiveDOS | MultiValleyEffectiveDOS | DualValleyEffectiveDOS
 )
 EnergyBandGapModelType = ConstantEnergyBandGap | VarshniEnergyBandGap
-MobilityModelType = CaugheyThomasMobility | ConstantMobilityModel
+MobilityModelType = CaugheyThomasMobility | ConstantMobilityModel | MasettiMobility
 RecombinationModelType = (
     AugerRecombination
     | DistributedGeneration
@@ -64,6 +76,17 @@ HeatChargeMonitorType = (
     | SteadyElectricFieldMonitor
     | SteadyCapacitanceMonitor
     | SteadyCurrentDensityMonitor
+    | SteadyChargeResidualMonitor
 )
 HeatChargeSourceType = HeatSource | HeatFromElectricSource | UniformHeatSource
-HeatChargeBCType = TemperatureBC | HeatFluxBC | ConvectionBC | VoltageBC | CurrentBC | InsulatingBC
+HeatChargeBCType = (
+    TemperatureBC
+    | HeatFluxBC
+    | ConvectionBC
+    | RadiationBC
+    | ThermalContactResistance
+    | VoltageBC
+    | CurrentBC
+    | InsulatingBC
+    | SurfaceRecombinationBC
+)

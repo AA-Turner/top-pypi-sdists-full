@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from multiprocessing.connection import Connection
-from typing import Optional
+from typing import List, Optional
 
 from abstra_internals.entities.execution_context import ClientContext
 from abstra_internals.utils.serializable import Serializable
@@ -28,6 +28,9 @@ class StopExecutionPayload(Serializable):
 class RunSnippetPayload(Serializable):
     code: str
     title: str = "Debug Snippet"
+    # Packages the snippet needs, installed into the isolated Smart Chat overlay
+    # (never the project's requirements.txt).
+    requirements: List[str] = field(default_factory=list)
 
 
 class StopExecutionMessage(ControlMessage):
@@ -51,9 +54,15 @@ class RunSnippetMessage(ControlMessage):
     connection: Optional[Connection] = field(default=None, metadata={"exclude": True})
 
     @staticmethod
-    def create(code: str, title: str = "Debug Snippet") -> "RunSnippetMessage":
+    def create(
+        code: str,
+        title: str = "Debug Snippet",
+        requirements: Optional[List[str]] = None,
+    ) -> "RunSnippetMessage":
         return RunSnippetMessage(
-            payload=RunSnippetPayload(code=code, title=title),
+            payload=RunSnippetPayload(
+                code=code, title=title, requirements=requirements or []
+            ),
         )
 
 
@@ -74,9 +83,12 @@ class RunSnippetSandboxedMessage(ControlMessage):
         title: str = "Debug Snippet",
         queue_expire_ms: Optional[int] = None,
         timeout_ms: Optional[int] = None,
+        requirements: Optional[List[str]] = None,
     ) -> "RunSnippetSandboxedMessage":
         return RunSnippetSandboxedMessage(
-            payload=RunSnippetPayload(code=code, title=title),
+            payload=RunSnippetPayload(
+                code=code, title=title, requirements=requirements or []
+            ),
             queue_expire_ms=queue_expire_ms,
             timeout_ms=timeout_ms,
         )
@@ -98,4 +110,5 @@ class QueueMessage:
 class ControlQueueMessage:
     message: ControlMessage
     delivery_tag: int
+    redelivered: bool = False
     connection: Optional[Connection] = None

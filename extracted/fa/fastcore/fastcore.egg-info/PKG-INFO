@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastcore
-Version: 2.1.11
+Version: 2.1.12
 Summary: Python supercharged for fastai development
 Author-email: Jeremy Howard and Sylvain Gugger <infos@fast.ai>
 License: Apache-2.0
@@ -17,7 +17,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: dev
 Requires-Dist: numpy; extra == "dev"
-Requires-Dist: nbdev>=0.2.39; extra == "dev"
+Requires-Dist: nbdev>=3.3.2; extra == "dev"
 Requires-Dist: matplotlib; extra == "dev"
 Requires-Dist: pillow; extra == "dev"
 Requires-Dist: torch; extra == "dev"

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyquery
-Version: 2.0.1
+Version: 2.1.0
 Summary: A jquery-like library for python
 Home-page: https://github.com/gawel/pyquery
 Author: Olivier Lauzanne
@@ -12,19 +12,31 @@ Keywords: jquery html xml scraping
 Classifier: Intended Audience :: Developers
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 License-File: LICENSE.txt
 Requires-Dist: lxml>=2.1
-Requires-Dist: cssselect>=1.2.0
+Requires-Dist: cssselect>=1.5.0
 Provides-Extra: test
 Requires-Dist: requests; extra == "test"
 Requires-Dist: webob; extra == "test"
 Requires-Dist: webtest; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 
 pyquery: a jquery-like library for python
@@ -99,6 +111,20 @@ See http://pyquery.rtfd.org/ for the full documentation
 
 News
 ====
+
+2.1.0 (2026-07-27)
+------------------
+
+- pseudo selector ``:has()`` no longer support strings as arguments
+
+
+2.0.2 (2026-07-27)
+------------------
+
+- require cssselect 1.4.x. 1.5.x breaks ``has()`` pseudo selector
+
+- Drop support for python 3.9and 3.10
+
 
 2.0.1 (2024-08-30)
 ------------------

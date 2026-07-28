@@ -16,6 +16,10 @@ from abstra_internals.utils.ast_cache import ASTCache
 
 
 class MainBlockInStageFound(LinterIssue):
+    title = "Stages should not contain 'if __name__ == \"__main__\":' blocks"
+    type = "warning"
+    fix_with_ai = True
+
     def __init__(self, stage_title: str, stage_file: str):
         self.label = (
             f"The stage '{stage_title}' ({stage_file}) contains an "
@@ -27,8 +31,6 @@ class MainBlockInStageFound(LinterIssue):
 
 class MainBlockInStage(PathScopedLinterRule):
     label: str = "Stages should not contain 'if __name__ == \"__main__\":' blocks"
-    type: str = "warning"
-    fix_with_ai: bool = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         project = (current_lint_context() or LintContext()).project

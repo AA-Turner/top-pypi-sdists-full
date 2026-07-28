@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: policyengine-us
-Version: 1.783.0
+Version: 1.784.1
 Summary: US federal and state tax-benefit microsimulation model.
 Author-email: PolicyEngine <hello@policyengine.org>
 License-File: LICENSE
@@ -8,18 +8,14 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
-Requires-Python: <3.15,>=3.9
+Requires-Python: <3.15,>=3.11
 Requires-Dist: microdf-python>=1.0.0
-Requires-Dist: numpy<2,>=1.26; python_version < '3.10'
-Requires-Dist: pandas>=2.0; python_version < '3.11'
-Requires-Dist: pandas>=3.0; python_version >= '3.11'
+Requires-Dist: pandas>=3.0
 Requires-Dist: policyengine-core>=3.30.1
 Requires-Dist: spm-calculator>=0.2.0
 Requires-Dist: tables>=3.9
@@ -45,7 +41,8 @@ Description-Content-Type: text/markdown
 
 PolicyEngine US is a microsimulation model of the US state and federal tax and benefit system.
 
-To install, run `pip install policyengine-us`.
+PolicyEngine US supports Python 3.11 through 3.14 and requires pandas 3 or
+later. To install, run `pip install policyengine-us`.
 
 To install PolicyEngine US as part of a certified PolicyEngine bundle, use the
 bundle installer published by `policyengine`, for example:

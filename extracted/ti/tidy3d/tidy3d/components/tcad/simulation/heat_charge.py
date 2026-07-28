@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -25,6 +26,7 @@ from tidy3d.components.material.tcad.charge import (
     SemiconductorMedium,
 )
 from tidy3d.components.material.tcad.heat import (
+    AnisotropicConductivity,
     FluidMedium,
     SolidMedium,
 )
@@ -44,13 +46,19 @@ from tidy3d.components.structure import Structure
 from tidy3d.components.tcad.analysis.heat_simulation_type import UnsteadyHeatAnalysis
 from tidy3d.components.tcad.boundary.heat import VerticalNaturalConvectionCoeffModel
 from tidy3d.components.tcad.boundary.specification import HeatBoundarySpec, HeatChargeBoundarySpec
+from tidy3d.components.tcad.generation_recombination import (
+    PalankovskiQuayApproxCarrierLifetime,
+    ShockleyReedHallRecombination,
+)
 from tidy3d.components.tcad.grid import (
     DistanceUnstructuredGrid,
     UniformUnstructuredGrid,
     UnstructuredGridType,
 )
+from tidy3d.components.tcad.mobility import MasettiMobility
 from tidy3d.components.tcad.monitors.charge import (
     SteadyCapacitanceMonitor,
+    SteadyChargeResidualMonitor,
     SteadyCurrentDensityMonitor,
     SteadyFreeCarrierMonitor,
     SteadyPotentialMonitor,
@@ -66,7 +74,10 @@ from tidy3d.components.tcad.types import (
     HeatFromElectricSource,
     HeatSource,
     InsulatingBC,
+    RadiationBC,
+    SurfaceRecombinationBC,
     TemperatureBC,
+    ThermalContactResistance,
     UniformHeatSource,
     VoltageBC,
 )
@@ -87,7 +98,7 @@ from tidy3d.exceptions import SetupError
 from tidy3d.log import log
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator
     from typing import Literal
 
     from pydantic import FiniteFloat
@@ -100,10 +111,10 @@ if TYPE_CHECKING:
 
 HEAT_CHARGE_BACK_STRUCTURE_STR = "<<<HEAT_CHARGE_BACKGROUND_STRUCTURE>>>"
 
-HeatBCTypes = (TemperatureBC, HeatFluxBC, ConvectionBC)
+HeatBCTypes = (TemperatureBC, HeatFluxBC, ConvectionBC, RadiationBC, ThermalContactResistance)
 HeatSourceTypes = (UniformHeatSource, HeatSource, HeatFromElectricSource)
 ChargeSourceTypes = ()
-ElectricBCTypes = (VoltageBC, CurrentBC, InsulatingBC)
+ElectricBCTypes = (VoltageBC, CurrentBC, InsulatingBC, SurfaceRecombinationBC)
 ChargeTypes = (
     SteadyChargeDCAnalysis,
     IsothermalSteadyChargeDCAnalysis,
@@ -115,6 +126,7 @@ ChargeMonitorTypes = (
     SteadyFreeCarrierMonitor,
     SteadyCapacitanceMonitor,
     SteadyCurrentDensityMonitor,
+    SteadyChargeResidualMonitor,
 )
 
 AnalysisSpecType = ElectricalAnalysisType | UnsteadyHeatAnalysis
@@ -126,6 +138,13 @@ TRANSIENT_HEAT_MAX_STEPS = 1000
 CYLINDER_RADIUS_TOL = 1e-6
 # Minimum radius as fraction of the larger radius (for tapered cylinders)
 MIN_CYLINDER_RADIUS_FRACTION = 0.01
+
+# Absolute tolerance (V) for matching SSAC `at_voltages` against the DC sweep.
+# Both lists travel through JSON as IEEE-754 doubles, so a machine-epsilon-scale
+# value is intentional — any larger tolerance would silently accept a voltage
+# the user did not configure. Mirrored by SSAC_VOLTAGE_MATCH_TOL_V in
+# Flow360DriftDiffusionSolver.cpp; keep in sync.
+SSAC_VOLTAGE_MATCH_TOL_V = 1e-14
 
 
 def _get_cylinder_radii_with_meshing_tol(
@@ -282,7 +301,9 @@ class HeatChargeSimulation(AbstractSimulation):
     ...         ),
     ...     ],
     ...     medium=td.Medium(permittivity=3.0, heat_spec=td.FluidSpec()),
-    ...     grid_spec=td.UniformUnstructuredGrid(dl=0.1),
+    ...     grid_spec=td.UniformUnstructuredGrid(
+    ...         dl=0.1, min_edges_per_circumference=15, min_edges_per_side=2
+    ...     ),
     ...     sources=[td.HeatSource(rate=1, structures=["box"])],
     ...     boundary_spec=[
     ...         td.HeatChargeBoundarySpec(
@@ -328,10 +349,12 @@ class HeatChargeSimulation(AbstractSimulation):
     ...     )],
     ...     center=(0, 0, 0),
     ...     size=(3, 3, 3),
-    ...     grid_spec=td.UniformUnstructuredGrid(dl=0.05),
+    ...     grid_spec=td.UniformUnstructuredGrid(
+    ...         dl=0.05, min_edges_per_circumference=15, min_edges_per_side=2
+    ...     ),
     ...     boundary_spec=[bc_v1, bc_v2],
     ...     analysis_spec=td.IsothermalSteadyChargeDCAnalysis(
-    ...         tolerance_settings=td.ChargeToleranceSpec(rel_tol=1e5, abs_tol=3e3, max_iters=400),
+    ...         tolerance_settings=td.ChargeToleranceSpec(),
     ...         convergence_dv=10),
     ...     )
 
@@ -359,7 +382,6 @@ class HeatChargeSimulation(AbstractSimulation):
         title="Background Medium",
         description="Background medium of simulation, defaults to a standard dispersion-less :class:`.Medium` if not "
         "specified.",
-        discriminator=TYPE_TAG_STR,
     )
     """
     Background medium of simulation, defaults to a standard dispersion-less :class:`.Medium` if not specified.
@@ -403,9 +425,21 @@ class HeatChargeSimulation(AbstractSimulation):
 
     analysis_spec: AnalysisSpecType | None = Field(
         None,
+        discriminator=TYPE_TAG_STR,
         title="Analysis specification.",
         description="The `analysis_spec` is used to specify the type of simulation. Currently, it is used to "
         "specify Charge simulations or transient Heat simulations.",
+    )
+
+    use_accelerated_solver: bool = Field(
+        True,
+        title="Use accelerated solver.",
+        description="Controls the solver used for charge simulations. When ``True`` "
+        "(default), the GPU accelerated charge solver is used. Set to ``False`` "
+        "to use the CPU charge solver instead; this is rejected when the simulation uses "
+        "a feature available only on the GPU accelerated solver, such as ``MasettiMobility``. "
+        "The flag applies only to charge simulations: heat and conduction simulations "
+        "always run on the GPU accelerated solver, so ``False`` is not allowed for them.",
     )
 
     @field_validator("structures")
@@ -507,8 +541,16 @@ class HeatChargeSimulation(AbstractSimulation):
         self._call_with_validation_loc(("boundary_spec",), self._check_voltage_array_if_capacitance)
         self._call_with_validation_loc(("boundary_spec",), self._names_exist_bcs)
         self._call_with_validation_loc(("boundary_spec",), self._check_natural_convection_bc)
+        self._call_with_validation_loc(
+            ("boundary_spec",), self._check_thermal_contact_resistance_placement
+        )
+        self._call_with_validation_loc(("structures",), self._check_heat_only_features_in_charge)
         self._call_with_validation_loc(("boundary_spec",), self._check_freqs_requires_ac_source)
+        self._call_with_validation_loc(
+            ("analysis_spec", "at_voltages"), self._check_ssac_specific_voltages
+        )
         simulation_types = self._check_simulation_types()
+        self._call_with_validation_loc(("monitors",), self._validate_residual_monitor_requirements)
         if TCADAnalysisTypes.CHARGE in simulation_types:
             self._call_with_validation_loc(
                 ("boundary_spec",), self._check_charge_simulation_voltage_bcs
@@ -516,6 +558,17 @@ class HeatChargeSimulation(AbstractSimulation):
             self._call_with_validation_loc(("monitors",), self._check_charge_simulation_monitors)
             self._call_with_validation_loc(
                 ("structures",), self._check_charge_simulation_semiconductors
+            )
+            self._call_with_validation_loc(("structures",), self._check_masetti_mobility_models)
+            # Schottky contacts and surface recombination apply only to
+            # charge simulations, so validate them inside the charge guard;
+            # heat-only and conduction-only simulations skip these checks.
+            self._call_with_validation_loc(("boundary_spec",), self._check_schottky_supported_modes)
+            self._call_with_validation_loc(
+                ("boundary_spec",), self._check_surface_recombination_bcs
+            )
+            self._call_with_validation_loc(
+                ("structures",), self._warn_non_accelerated_ignores_electron_affinity
             )
         self._call_with_validation_loc(("boundary_spec",), self._not_all_neumann)
         self._call_with_validation_loc(("grid_spec",), self._names_exist_grid_spec)
@@ -542,6 +595,9 @@ class HeatChargeSimulation(AbstractSimulation):
             )
             self._check_transient_heat_time_warning()
         self._call_with_validation_loc(("structures",), self._check_non_isothermal_is_possible)
+        self._call_with_validation_loc(
+            ("use_accelerated_solver",), self._check_use_accelerated_solver
+        )
         return self
 
     def _monitors_cross_solids(self) -> Self:
@@ -698,6 +754,52 @@ class HeatChargeSimulation(AbstractSimulation):
                 check_fluid_medium_attr(natural_conv_model.medium)
         return self
 
+    def _check_thermal_contact_resistance_placement(self) -> Self:
+        """Make sure 'ThermalContactResistance' conditions are placed on an interface
+        between two solid heat regions."""
+        # name -> medium / structure lookups (assumes '_names_exist_bcs' has already run)
+        media = {s.medium.name: s.medium for s in self.structures if s.medium.name}
+        if self.medium and self.medium.name:
+            media[self.medium.name] = self.medium
+        structures_map = {s.name: s for s in self.structures if s.name}
+
+        for i, bc in enumerate(self.boundary_spec):
+            if not isinstance(bc.condition, ThermalContactResistance):
+                continue
+            placement = bc.placement
+            if not isinstance(placement, (MediumMediumInterface, StructureStructureInterface)):
+                self._raise_validation_error_at_loc(
+                    "'ThermalContactResistance' represents an interfacial thermal resistance "
+                    "between two touching solids, so its 'placement' must be a "
+                    "'MediumMediumInterface' or a 'StructureStructureInterface', "
+                    f"but got '{type(placement).__name__}'.",
+                    "boundary_spec",
+                    i,
+                    "placement",
+                )
+
+            # Both sides must take part in the heat solve as solids; otherwise the interface
+            # is physically meaningless and would only fail later, at mesh time, with an
+            # opaque backend error.
+            if isinstance(placement, MediumMediumInterface):
+                side_media = [media.get(name) for name in placement.mediums]
+            else:
+                side_media = [
+                    structures_map[name].medium if name in structures_map else None
+                    for name in placement.structures
+                ]
+            for medium in side_media:
+                if medium is not None and not isinstance(medium.heat_spec, SolidMedium):
+                    self._raise_validation_error_at_loc(
+                        "'ThermalContactResistance' can only be placed on an interface "
+                        "between two solid materials: each side must define a solid heat "
+                        f"specification ('SolidSpec'), but medium '{medium.name}' does not.",
+                        "boundary_spec",
+                        i,
+                        "placement",
+                    )
+        return self
+
     @field_validator("size")
     @classmethod
     def _check_zero_dim_domain(cls, val: Any) -> Any:
@@ -765,8 +867,9 @@ class HeatChargeSimulation(AbstractSimulation):
         for bc in val:
             if isinstance(bc.condition, VoltageBC):
                 voltages = []
-                # currently we're only supporting DC BCs, so let's check these values
-                if isinstance(bc.condition.source, DCVoltageSource):
+                # both DC and SSAC sources carry a DC sweep array; counting only
+                # one type would admit an ambiguous two-sweep setup
+                if isinstance(bc.condition.source, (DCVoltageSource, SSACVoltageSource)):
                     voltages = bc.condition.source.voltage
 
                 if len(voltages) > 1:
@@ -802,6 +905,43 @@ class HeatChargeSimulation(AbstractSimulation):
 
         return self
 
+    def _check_ssac_specific_voltages(self) -> Self:
+        """Validate user-selected SSAC bias points against the DC voltage sweep."""
+        analysis_spec = self.analysis_spec
+        if not isinstance(analysis_spec, (SSACAnalysis, IsothermalSSACAnalysis)):
+            return self
+        if analysis_spec.at_voltages is None:
+            return self
+
+        dc_voltages = np.asarray(self._dc_voltages, dtype=float)
+        if dc_voltages.size < 2:
+            # No sweep: ``_dc_voltages`` is just the first scalar source, so
+            # validate against the SSAC operating point (the AC drive's DC bias).
+            ssac_voltages = [
+                float(v)
+                for bc in self.boundary_spec
+                if isinstance(bc.condition, VoltageBC)
+                and isinstance(bc.condition.source, SSACVoltageSource)
+                for v in bc.condition.source.voltage
+            ]
+            dc_voltages = np.asarray(ssac_voltages, dtype=float)
+        if dc_voltages.size == 0:
+            return self
+
+        missing_voltages = [
+            voltage
+            for voltage in analysis_spec.at_voltages
+            if not np.any(np.isclose(dc_voltages, voltage, rtol=0.0, atol=SSAC_VOLTAGE_MATCH_TOL_V))
+        ]
+        if missing_voltages:
+            raise SetupError(
+                "Every entry in 'at_voltages' must be present in the DC voltage sweep "
+                "(with no multi-voltage sweep, the SSAC source bias). "
+                f"Missing voltages: {missing_voltages}."
+            )
+
+        return self
+
     def _check_charge_simulation_voltage_bcs(self) -> Self:
         """Validate Charge simulation has enough voltage BCs."""
         voltage_bcs = 0
@@ -810,8 +950,9 @@ class HeatChargeSimulation(AbstractSimulation):
                 voltage_bcs = voltage_bcs + 1
         if voltage_bcs < 2:
             raise SetupError(
-                "Defining a Charge simulation requires the definition of 'VoltageBC' boundaries. "
-                f"So far {voltage_bcs} 'VoltageBC' have been set."
+                "Defining a Charge simulation requires at least two voltage contact boundaries. "
+                "Use 'VoltageBC' (Schottky contacts opt in via model=\"schottky_mott\"). "
+                f"So far {voltage_bcs} voltage contact boundaries have been set."
             )
         return self
 
@@ -820,7 +961,7 @@ class HeatChargeSimulation(AbstractSimulation):
         if not any(isinstance(mnt, ChargeMonitorTypes) for mnt in self.monitors):
             raise SetupError(
                 "Charge simulations require the definition of, at least, one of these monitors: "
-                "'[SteadyPotentialMonitor, SteadyFreeCarrierMonitor, SteadyCapacitanceMonitor, SteadyCurrentDensityMonitor]' "
+                "'[SteadyPotentialMonitor, SteadyFreeCarrierMonitor, SteadyCapacitanceMonitor, SteadyCurrentDensityMonitor, SteadyChargeResidualMonitor]' "
                 "but none have been defined."
             )
         # NOTE: in Charge we're only supporting unstructured monitors.
@@ -834,6 +975,31 @@ class HeatChargeSimulation(AbstractSimulation):
                     )
         return self
 
+    def _validate_residual_monitor_requirements(self) -> Self:
+        """SteadyChargeResidualMonitor requires charge analysis and the accelerated solver."""
+        simulation_types = self._check_simulation_types()
+        charge_configured = TCADAnalysisTypes.CHARGE in simulation_types
+        for idx, mnt in enumerate(self.monitors):
+            if not isinstance(mnt, SteadyChargeResidualMonitor):
+                continue
+            if not charge_configured:
+                self._raise_validation_error_at_loc(
+                    "'SteadyChargeResidualMonitor' is only available when a charge analysis "
+                    "is configured (the simulation must include voltage BCs and a "
+                    "'SteadyChargeDCAnalysis' or derivative analysis spec).",
+                    "monitors",
+                    idx,
+                )
+            if self.use_accelerated_solver is False:
+                self._raise_validation_error_at_loc(
+                    f"'SteadyChargeResidualMonitor' (monitor '{mnt.name}') is only available "
+                    "through the accelerated charge solver, but 'use_accelerated_solver=False' "
+                    "was set. Remove the monitor or use the accelerated solver (the default).",
+                    "monitors",
+                    idx,
+                )
+        return self
+
     def _check_charge_simulation_semiconductors(self) -> Self:
         """Validate Charge simulation has at least one semiconductor medium."""
         sc_present = HeatChargeSimulation._check_if_semiconductor_present(
@@ -845,17 +1011,271 @@ class HeatChargeSimulation(AbstractSimulation):
             )
         return self
 
+    @staticmethod
+    def _bc_is_schottky(bc_spec: Any) -> bool:
+        """``True`` when this boundary requests Schottky physics."""
+        condition = bc_spec.condition
+        return isinstance(condition, VoltageBC) and condition.model == "schottky_mott"
+
+    def _check_schottky_supported_modes(self) -> Self:
+        """Reject Schottky configurations outside the validated solver model."""
+        has_schottky = any(self._bc_is_schottky(bc) for bc in self.boundary_spec)
+        if not has_schottky:
+            return self
+
+        if self.use_accelerated_solver is False:
+            self._raise_validation_error_at_loc(
+                "Schottky contacts ('VoltageBC' with model=\"schottky_mott\") are "
+                "implemented only by the accelerated charge solver, but "
+                "'use_accelerated_solver=False' selects the legacy solver. "
+                'Either set model="ohmic" or set '
+                "'use_accelerated_solver=True'.",
+                "use_accelerated_solver",
+                log_error=False,
+            )
+        for index, bc_spec in enumerate(self.boundary_spec):
+            if not self._bc_is_schottky(bc_spec):
+                continue
+            if isinstance(bc_spec.placement, (StructureSimulationBoundary, SimulationBoundary)):
+                self._raise_validation_error_at_loc(
+                    "Schottky contacts ('VoltageBC' with model=\"schottky_mott\") "
+                    f"cannot be placed on '{type(bc_spec.placement).__name__}': the "
+                    "metal-semiconductor contact cannot be identified there. Place "
+                    "the condition on the metal structure's 'StructureBoundary' or "
+                    "on a 'StructureStructureInterface' between the metal and "
+                    "semiconductor structures.",
+                    "boundary_spec",
+                    index,
+                    log_error=False,
+                )
+        return self
+
+    def _check_surface_recombination_bcs(self) -> Self:
+        """Run all ``SurfaceRecombinationBC`` setup checks."""
+        self._check_surface_recombination_requires_accelerated()
+        self._check_surface_recombination_not_stacked_with_current_bc()
+        self._check_surface_recombination_not_stacked_with_insulating_bc()
+        self._check_surface_recombination_not_stacked_with_schottky()
+        self._check_surface_recombination_qf_on_voltage_overlay()
+        self._check_surface_recombination_no_duplicate_placement()
+        return self
+
+    def _check_surface_recombination_requires_accelerated(self) -> Self:
+        """Reject ``SurfaceRecombinationBC`` when the accelerated charge solver is off."""
+        has_sr = any(isinstance(bc.condition, SurfaceRecombinationBC) for bc in self.boundary_spec)
+        if not has_sr:
+            return self
+        # May raise if the user forced an unsupported configuration; let it propagate.
+        if not self._resolve_use_accelerated_solver:
+            raise SetupError(
+                "'SurfaceRecombinationBC' is supported only by the "
+                "accelerated charge solver. Either remove the surface "
+                "recombination boundary condition or set "
+                "'use_accelerated_solver=True'."
+            )
+        return self
+
+    def _check_surface_recombination_not_stacked_with_current_bc(self) -> Self:
+        """Reject ``SurfaceRecombinationBC`` sharing a placement with ``CurrentBC``,
+        which would prescribe the carrier flux on the same face twice."""
+        for i, sr_bc in enumerate(self.boundary_spec):
+            if not isinstance(sr_bc.condition, SurfaceRecombinationBC):
+                continue
+            for j, other_bc in enumerate(self.boundary_spec):
+                if i == j or not isinstance(other_bc.condition, CurrentBC):
+                    continue
+                if self._placements_overlap(sr_bc.placement, other_bc.placement):
+                    raise SetupError(
+                        "'SurfaceRecombinationBC' cannot share a placement with "
+                        "'CurrentBC'. CurrentBC prescribes the normal carrier "
+                        "flux; composing it with a Robin SR contribution is "
+                        "deferred."
+                    )
+        return self
+
+    def _check_surface_recombination_not_stacked_with_schottky(self) -> Self:
+        """Reject ``SurfaceRecombinationBC`` sharing a placement with a Schottky
+        contact, which does not support a surface recombination overlay."""
+        for i, sr_bc in enumerate(self.boundary_spec):
+            if not isinstance(sr_bc.condition, SurfaceRecombinationBC):
+                continue
+            for j, other_bc in enumerate(self.boundary_spec):
+                if i == j or not self._bc_is_schottky(other_bc):
+                    continue
+                if self._placements_overlap(sr_bc.placement, other_bc.placement):
+                    raise SetupError(
+                        "'SurfaceRecombinationBC' cannot share a placement with a "
+                        "Schottky contact ('VoltageBC' with model=\"schottky_mott\"). "
+                        "Contact surface recombination overlays are supported only "
+                        'for ohmic contacts (model="ohmic").'
+                    )
+        return self
+
+    def _check_surface_recombination_qf_on_voltage_overlay(self) -> Self:
+        """Reject non-zero ``Q_f`` on a placement shared with ``VoltageBC``,
+        where the contact screens fixed sheet charge."""
+        for i, sr_bc in enumerate(self.boundary_spec):
+            if not isinstance(sr_bc.condition, SurfaceRecombinationBC):
+                continue
+            if not sr_bc.condition.Q_f:
+                continue
+            for j, other_bc in enumerate(self.boundary_spec):
+                if i == j or not isinstance(other_bc.condition, VoltageBC):
+                    continue
+                if self._placements_overlap(sr_bc.placement, other_bc.placement):
+                    raise SetupError(
+                        "'SurfaceRecombinationBC' with a non-zero 'Q_f' "
+                        "cannot share a placement with 'VoltageBC'. The "
+                        "metal contact pins the electrostatic potential and "
+                        "screens fixed sheet charge, so the Poisson "
+                        "contribution from Q_f would be ignored on the "
+                        "overlay nodes."
+                    )
+        return self
+
+    def _check_surface_recombination_not_stacked_with_insulating_bc(self) -> Self:
+        """Reject ``SurfaceRecombinationBC`` sharing a placement with ``InsulatingBC``,
+        whose zero-flux condition it already replaces."""
+        for i, sr_bc in enumerate(self.boundary_spec):
+            if not isinstance(sr_bc.condition, SurfaceRecombinationBC):
+                continue
+            for j, other_bc in enumerate(self.boundary_spec):
+                if i == j or not isinstance(other_bc.condition, InsulatingBC):
+                    continue
+                if self._placements_overlap(sr_bc.placement, other_bc.placement):
+                    raise SetupError(
+                        "'SurfaceRecombinationBC' cannot share a placement "
+                        "with 'InsulatingBC'. The SR Robin term already "
+                        "replaces the natural zero-flux BC; drop the "
+                        "'InsulatingBC' spec on this face."
+                    )
+        return self
+
+    def _check_surface_recombination_no_duplicate_placement(self) -> Self:
+        """Reject two ``SurfaceRecombinationBC`` entries on the same placement."""
+        for i, bc_i in enumerate(self.boundary_spec):
+            if not isinstance(bc_i.condition, SurfaceRecombinationBC):
+                continue
+            for j in range(i + 1, len(self.boundary_spec)):
+                bc_j = self.boundary_spec[j]
+                if not isinstance(bc_j.condition, SurfaceRecombinationBC):
+                    continue
+                if self._placements_overlap(bc_i.placement, bc_j.placement):
+                    raise SetupError(
+                        "Two 'SurfaceRecombinationBC' entries share the same "
+                        "placement. Use distinct placements (e.g. one "
+                        "'MediumMediumInterface' per semiconductor face) so "
+                        "each interface picks up its own kinetic model."
+                    )
+        return self
+
+    def _medium_pair_for_structure_pair(self, structures: tuple[str, str]) -> frozenset[str] | None:
+        """Return the medium-pair key for a structure pair, if it is unambiguous."""
+        structure_to_medium = {
+            structure.name: structure.medium.name
+            for structure in self.structures
+            if structure.name is not None and structure.medium.name is not None
+        }
+        medium_names = tuple(structure_to_medium.get(name) for name in structures)
+        if None in medium_names or medium_names[0] == medium_names[1]:
+            return None
+        return frozenset(medium_names)
+
+    def _placements_overlap(self, first: Any, second: Any) -> bool:
+        """Conservatively detect placement overlaps used by SR validation.
+
+        Interface pairs are treated as unordered, ``MediumMediumInterface``
+        is treated as a material-wide superset of matching structure
+        interfaces, and simulation-boundary surface lists are considered
+        overlapping if they share any surface.
+        """
+        if first == second:
+            return True
+
+        if isinstance(first, StructureStructureInterface) and isinstance(
+            second, StructureStructureInterface
+        ):
+            return frozenset(first.structures) == frozenset(second.structures)
+
+        if isinstance(first, MediumMediumInterface) and isinstance(second, MediumMediumInterface):
+            return frozenset(first.mediums) == frozenset(second.mediums)
+
+        if isinstance(first, StructureStructureInterface) and isinstance(
+            second, MediumMediumInterface
+        ):
+            return self._medium_pair_for_structure_pair(first.structures) == frozenset(
+                second.mediums
+            )
+
+        if isinstance(first, MediumMediumInterface) and isinstance(
+            second, StructureStructureInterface
+        ):
+            return self._placements_overlap(second, first)
+
+        if isinstance(first, SimulationBoundary) and isinstance(second, SimulationBoundary):
+            return bool(set(first.surfaces) & set(second.surfaces))
+
+        if isinstance(first, StructureSimulationBoundary) and isinstance(
+            second, StructureSimulationBoundary
+        ):
+            return first.structure == second.structure and bool(
+                set(first.surfaces) & set(second.surfaces)
+            )
+
+        if isinstance(first, SimulationBoundary) and isinstance(
+            second, StructureSimulationBoundary
+        ):
+            return bool(set(first.surfaces) & set(second.surfaces))
+
+        if isinstance(first, StructureSimulationBoundary) and isinstance(
+            second, SimulationBoundary
+        ):
+            return self._placements_overlap(second, first)
+
+        return False
+
+    def _warn_non_accelerated_ignores_electron_affinity(self) -> Self:
+        """Warn when the non-accelerated charge solver path will ignore electron affinity."""
+        try:
+            use_accelerated = self._resolve_use_accelerated_solver
+        except SetupError:
+            # Solver routing itself is invalid; the downstream error will surface
+            # on its own and there is nothing to warn about here.
+            return self
+        if use_accelerated:
+            return self
+
+        for semiconductor in self._semiconductor_charge_media(self.structures):
+            if (
+                semiconductor.electron_affinity is not None
+                and semiconductor.electron_affinity != 0.0
+            ):
+                log.warning(
+                    "'SemiconductorMedium.electron_affinity' is currently supported only "
+                    "when 'use_accelerated_solver=True'. With the non-accelerated charge "
+                    "solver this value is ignored and an electron affinity of 0 eV is used. "
+                    "Set 'use_accelerated_solver=True' to honour the configured value."
+                )
+                break
+        return self
+
     def _not_all_neumann(self) -> Self:
         """Make sure not all BCs are of Neumann type"""
 
-        NeumannBCsHeat = (HeatFluxBC,)
-        NeumannBCsCharge = (CurrentBC, InsulatingBC)
+        NeumannBCsHeat = (HeatFluxBC, ThermalContactResistance)
+        # SurfaceRecombinationBC is Robin in the carrier rows, but it does
+        # not anchor the electrostatic potential.
+        NeumannBCsCharge = (CurrentBC, InsulatingBC, SurfaceRecombinationBC)
 
         simulation_types = self._check_simulation_types()
 
         raise_error = False
         for sim_type in simulation_types:
             if sim_type == TCADAnalysisTypes.HEAT:
+                # Transient heat is well-posed with all-Neumann BCs (initial
+                # condition pins the solution); only steady state is ambiguous.
+                if isinstance(self.analysis_spec, UnsteadyHeatAnalysis):
+                    continue
                 type_bcs = [
                     bc for bc in self.boundary_spec if isinstance(bc.condition, HeatBCTypes)
                 ]
@@ -952,20 +1372,23 @@ class HeatChargeSimulation(AbstractSimulation):
         return self
 
     @staticmethod
+    def _semiconductor_charge_media(
+        structures: Iterable[Structure],
+    ) -> Iterable[SemiconductorMedium]:
+        """Yield semiconductor charge media from bare and multiphysics structure media."""
+        for structure in structures:
+            if isinstance(structure.medium, SemiconductorMedium):
+                yield structure.medium
+            elif isinstance(structure.medium, MultiPhysicsMedium):
+                charge_medium = structure.medium.charge
+                if isinstance(charge_medium, SemiconductorMedium):
+                    yield charge_medium
+
+    @staticmethod
     def _check_if_semiconductor_present(structures: Iterable[Structure]) -> bool:
         """Checks whether the simulation object can run a Charge simulation."""
 
-        charge_sim = False
-
-        # make sure mediums with doping have been defined
-        for structure in structures:
-            if isinstance(structure.medium, SemiconductorMedium):
-                charge_sim = True
-            if isinstance(structure.medium, MultiPhysicsMedium):
-                if structure.medium.charge is not None:
-                    if isinstance(structure.medium.charge, SemiconductorMedium):
-                        charge_sim = True
-        return charge_sim
+        return any(HeatChargeSimulation._semiconductor_charge_media(structures))
 
     def _check_simulation_types(
         self,
@@ -1158,7 +1581,11 @@ class HeatChargeSimulation(AbstractSimulation):
                     capacities.append(heat_properties.capacity)
                 if heat_properties.density is not None:
                     densities.append(heat_properties.density)
-                conductivities.append(heat_properties.conductivity)
+                conductivity = heat_properties.conductivity
+                # Scalar diffusion-time estimate: reduce a tensor to its mean principal value.
+                if isinstance(conductivity, AnisotropicConductivity):
+                    conductivity = (conductivity.xx + conductivity.yy + conductivity.zz) / 3
+                conductivities.append(conductivity)
         return capacities, densities, conductivities
 
     def _check_transient_heat_solid_properties(self) -> Self:
@@ -1240,6 +1667,76 @@ class HeatChargeSimulation(AbstractSimulation):
                 raise SetupError(
                     "The current simulation is defined as non-isothermal but no "
                     "solid or semiconductor materials have been defined. "
+                )
+        return self
+
+    def _check_heat_only_features_in_charge(self) -> Self:
+        """Reject heat-only-solver features in non-isothermal charge simulations.
+
+        Solid-medium advection ('SolidMedium.velocity'), anisotropic thermal conductivity
+        ('AnisotropicConductivity'), resistive interfaces ('ThermalContactResistance'), and
+        gray-body surface radiation ('RadiationBC', 'ConvectionBC.emissivity') are honored by
+        the heat solver, including when it is coupled with electrical conduction. The coupled
+        thermal solve that runs alongside a non-isothermal charge analysis does not support any
+        of them, so a setup that requests them would silently produce a result that ignores
+        them. Flag them here instead. Heat, conduction+heat, and isothermal charge analyses
+        (the latter runs no thermal solve) are unaffected."""
+        if not self._thermal_solver_active:
+            return self
+
+        # Advection velocity and anisotropic conductivity, on the background medium or any
+        # structure's solid heat spec.
+        media_sources = [(("medium",), self.medium)]
+        media_sources.extend(
+            (("structures", i), struct.medium) for i, struct in enumerate(self.structures)
+        )
+        for loc, medium in media_sources:
+            heat_spec = (
+                medium if isinstance(medium, SolidMedium) else getattr(medium, "heat_spec", None)
+            )
+            velocity = getattr(heat_spec, "velocity", None)
+            if velocity is not None and any(v != 0.0 for v in velocity):
+                self._raise_validation_error_at_loc(
+                    "Solid-medium advection ('SolidMedium.velocity') is not supported in "
+                    "non-isothermal charge (coupled charge+heat) simulations: the coupled "
+                    "thermal solve does not apply the convective transport term "
+                    "'rho * cp * V . grad(T)', so this velocity would be silently ignored. "
+                    "Remove 'velocity' (or set it to 'None') to run this charge simulation.",
+                    *loc,
+                )
+            if isinstance(getattr(heat_spec, "conductivity", None), AnisotropicConductivity):
+                self._raise_validation_error_at_loc(
+                    "Anisotropic thermal conductivity ('AnisotropicConductivity') is not "
+                    "supported in non-isothermal charge (coupled charge+heat) simulations: the "
+                    "coupled thermal solve only handles a scalar (isotropic) conductivity, so a "
+                    "tensor conductivity would be silently ignored. Provide a scalar "
+                    "'conductivity' to run this charge simulation.",
+                    *loc,
+                )
+
+        # Resistive interfaces and surface radiation.
+        for i, bc in enumerate(self.boundary_spec):
+            if isinstance(bc.condition, ThermalContactResistance):
+                self._raise_validation_error_at_loc(
+                    "Resistive interfaces ('ThermalContactResistance') are not supported in "
+                    "non-isothermal charge (coupled charge+heat) simulations: the coupled "
+                    "thermal solve does not apply the interfacial thermal resistance, so this "
+                    "boundary condition would be silently ignored. Remove it to run this "
+                    "charge simulation.",
+                    "boundary_spec",
+                    i,
+                )
+            if isinstance(bc.condition, RadiationBC) or (
+                isinstance(bc.condition, ConvectionBC) and bc.condition.emissivity
+            ):
+                self._raise_validation_error_at_loc(
+                    "Gray-body surface radiation ('RadiationBC', or 'ConvectionBC' with a "
+                    "positive 'emissivity') is not yet supported in non-isothermal charge "
+                    "(coupled charge+heat) simulations; it is available in heat and "
+                    "conduction+heat simulations. Remove the radiative term to run this "
+                    "charge simulation.",
+                    "boundary_spec",
+                    i,
                 )
         return self
 
@@ -1416,81 +1913,6 @@ class HeatChargeSimulation(AbstractSimulation):
 
     @equal_aspect
     @add_ax_if_none
-    def plot_heat_conductivity(
-        self,
-        x: float | None = None,
-        y: float | None = None,
-        z: float | None = None,
-        ax: Ax = None,
-        alpha: float | None = None,
-        source_alpha: float | None = None,
-        monitor_alpha: float | None = None,
-        colorbar: str = "conductivity",
-        hlim: tuple[float, float] | None = None,
-        vlim: tuple[float, float] | None = None,
-        **kwargs: Any,
-    ) -> Ax:
-        """
-        DEPRECATED: Method added for backwards compatibility with :class:`HeatSimulation.plot_heat_conductivity`.
-        Plot each of simulation's components on a plane defined by one nonzero x,y,z coordinate.
-
-        Parameters
-        ----------
-        x : float = None
-            position of plane in x direction, only one of x, y, z must be specified to define plane.
-        y : float = None
-            position of plane in y direction, only one of x, y, z must be specified to define plane.
-        z : float = None
-            position of plane in z direction, only one of x, y, z must be specified to define plane.
-        ax : matplotlib.axes._subplots.Axes = None
-            Matplotlib axes to plot on, if not specified, one is created.
-        alpha : float = None
-            Opacity of the structures being plotted.
-            Defaults to the structure default alpha.
-        source_alpha : float = None
-            Opacity of the sources. If ``None``, uses Tidy3d default.
-        monitor_alpha : float = None
-            Opacity of the monitors. If ``None``, uses Tidy3d default.
-        colorbar: str = "conductivity"
-            Display colorbar for thermal conductivity ("conductivity") or heat source rate
-            ("source").
-        hlim : tuple[float, float] = None
-            The x range if plotting on xy or xz planes, y range if plotting on yz plane.
-        vlim : tuple[float, float] = None
-            The z range if plotting on xz or yz planes, y plane if plotting on xy plane.
-
-        Returns
-        -------
-        matplotlib.axes._subplots.Axes
-            The supplied or created matplotlib axes.
-        """
-        log.warning(
-            "The function 'plot_heat_conductivity' is "
-            "deprecated and will be discontinued. In its place you can use "
-            r"'plot_property(property=\"heat_conductivity\")'"
-        )
-
-        plot_type = "heat_conductivity"
-        if colorbar == "conductivity":
-            plot_type = "heat_conductivity"
-        elif colorbar == "source":
-            plot_type = "source"
-
-        return self.plot_property(
-            x=x,
-            y=y,
-            z=z,
-            ax=ax,
-            alpha=alpha,
-            source_alpha=source_alpha,
-            monitor_alpha=monitor_alpha,
-            property=plot_type,
-            hlim=hlim,
-            vlim=vlim,
-        )
-
-    @equal_aspect
-    @add_ax_if_none
     def plot_boundaries(
         self,
         x: float | None = None,
@@ -1568,9 +1990,9 @@ class HeatChargeSimulation(AbstractSimulation):
 
         if isinstance(condition, (TemperatureBC, VoltageBC)):
             plot_params = plot_params.updated_copy(facecolor=HEAT_BC_COLOR_TEMPERATURE)
-        elif isinstance(condition, (HeatFluxBC, CurrentBC)):
+        elif isinstance(condition, (HeatFluxBC, CurrentBC, ThermalContactResistance)):
             plot_params = plot_params.updated_copy(facecolor=HEAT_BC_COLOR_FLUX)
-        elif isinstance(condition, ConvectionBC):
+        elif isinstance(condition, (ConvectionBC, RadiationBC)):
             plot_params = plot_params.updated_copy(facecolor=HEAT_BC_COLOR_CONVECTION)
         elif isinstance(condition, InsulatingBC):
             plot_params = plot_params.updated_copy(facecolor=CHARGE_BC_INSULATOR)
@@ -2077,7 +2499,9 @@ class HeatChargeSimulation(AbstractSimulation):
         ...     scene=scene,
         ...     center=(0, 0, 0),
         ...     size=(5, 6, 7),
-        ...     grid_spec=UniformUnstructuredGrid(dl=0.4),
+        ...     grid_spec=UniformUnstructuredGrid(
+        ...         dl=0.4, min_edges_per_circumference=15, min_edges_per_side=2
+        ...     ),
         ...     boundary_spec=[
         ...         HeatChargeBoundarySpec(
         ...             placement=StructureBoundary(structure="box"),
@@ -2137,6 +2561,236 @@ class HeatChargeSimulation(AbstractSimulation):
             simulation_types.append(TCADAnalysisTypes.CONDUCTION)
 
         return simulation_types
+
+    @property
+    def _dc_voltages(self) -> list[float]:
+        """DC bias voltages the charge solver computes steady-state solutions at.
+
+        The sweep array of a ``VoltageBC`` if present (validation permits at most
+        one), else the single requested bias, else empty. ``SSACVoltageSource``
+        carries DC operating points and sweeps the same way.
+        """
+        voltages: list[float] = []
+        for bc in self.boundary_spec:
+            if isinstance(bc.condition, VoltageBC) and isinstance(
+                bc.condition.source, (DCVoltageSource, SSACVoltageSource)
+            ):
+                if len(bc.condition.source.voltage) > len(voltages):
+                    voltages = [float(v) for v in bc.condition.source.voltage]
+        return voltages
+
+    @property
+    def _num_dc_solves(self) -> int:
+        """Number of nonlinear solves the charge solver runs to cover the DC sweep.
+
+        Mirrors the solver's sweep construction: a single requested voltage is
+        one direct solve; otherwise the sweep starts at 0 V and covers positive
+        then negative voltages by increasing magnitude, inserting a warm-start
+        solve per ``convergence_dv`` interval within each pass. Doping ramp-up
+        adds ``tolerance_settings.ramp_up_iters - 1`` solves. Charge sims only.
+        """
+        voltages = self._dc_voltages
+
+        # Doping ramp: the initial solve runs once per ramp level.
+        ramp_solves = self.analysis_spec.tolerance_settings.ramp_up_iters - 1
+
+        if len(voltages) <= 1:
+            # No sweep: one direct solve at the requested bias.
+            return 1 + ramp_solves
+
+        convergence_dv = self.analysis_spec.convergence_dv
+        positive = sorted(v for v in voltages if v > 1e-7)
+        negative = sorted((v for v in voltages if v < -1e-7), key=abs)
+
+        def pass_solves(pass_voltages: list[float]) -> int:
+            n = 0
+            prev = 0.0
+            for v in pass_voltages:
+                gap = abs(v - prev)
+                n += math.ceil(gap / convergence_dv) if gap > convergence_dv else 1
+                prev = v
+            return n
+
+        # 1 for the initial 0 V solve; each pass warm-starts from the 0 V solution.
+        return 1 + pass_solves(positive) + pass_solves(negative) + ramp_solves
+
+    @property
+    def _thermal_solver_active(self) -> bool:
+        """Whether a coupled thermal solve runs alongside the charge analysis.
+
+        Returns ``True`` for non-isothermal :class:`SteadyChargeDCAnalysis` and
+        ``False`` for :class:`IsothermalSteadyChargeDCAnalysis`. Determines
+        whether the thermal residual ``residual_temperature`` is reported.
+        """
+        return isinstance(self.analysis_spec, SteadyChargeDCAnalysis) and not isinstance(
+            self.analysis_spec, IsothermalSteadyChargeDCAnalysis
+        )
+
+    def _accelerated_only_features(self) -> list[str]:
+        """Configured features that only the accelerated charge solver supports.
+
+        These cannot run on the CPU charge solver, so requesting
+        ``use_accelerated_solver=False`` while any of them is present is an error.
+        Returns the human-readable feature names; an empty list means the
+        configuration is fully supported by the CPU charge solver.
+        """
+        features = []
+        for _loc, charge in self._iter_semiconductor_charge_media():
+            if isinstance(charge.mobility_n, MasettiMobility) or isinstance(
+                charge.mobility_p, MasettiMobility
+            ):
+                features.append("MasettiMobility")
+                break
+
+        if self._uses_gpu_only_lifetime_model():
+            features.append("PalankovskiQuayApproxCarrierLifetime")
+
+        if self._ssac_uses_bias_point_selection():
+            features.append("SSAC 'at_voltages' bias-point selection")
+
+        return features
+
+    def _iter_semiconductor_charge_media(
+        self,
+    ) -> Iterator[tuple[tuple[Any, ...], SemiconductorMedium]]:
+        """Yield ``(loc, charge)`` for every ``SemiconductorMedium`` in the simulation.
+
+        Walks both the background ``self.medium`` and each ``Structure.medium``,
+        which the mesher composes together into ``simulation_structure``. Each
+        slot may be a raw :class:`SemiconductorMedium` or a
+        :class:`MultiPhysicsMedium` that carries one as ``.charge``; slots with
+        neither (insulators, conductors, fluids) are skipped. ``loc`` is the
+        Pydantic field path of the source — ``("medium",)`` for the background,
+        ``("structures", i)`` for a structure — so validators can raise
+        loc-aware errors that point at the right field. Centralising both the
+        traversal and the loc avoids the bugs where iterating only over
+        ``.medium.charge`` (or only over ``structures``) silently misses
+        raw-semiconductor or background-medium configurations, and lets every
+        validator that uses this helper get the right loc for free.
+        """
+        sources: list[tuple[tuple[Any, ...], Any]] = [(("medium",), self.medium)]
+        sources.extend(
+            (("structures", i), structure.medium) for i, structure in enumerate(self.structures)
+        )
+        for loc, medium in sources:
+            if isinstance(medium, SemiconductorMedium):
+                yield loc, medium
+            else:
+                charge = getattr(medium, "charge", None)
+                if isinstance(charge, SemiconductorMedium):
+                    yield loc, charge
+
+    def _ssac_uses_bias_point_selection(self) -> bool:
+        """Whether SSAC selects specific bias points via ``at_voltages``.
+
+        The CPU charge solver always evaluates the AC response at every swept bias
+        point and cannot honor an explicit selection, so any ``at_voltages`` is only
+        available on the accelerated solver.
+        """
+        return (
+            isinstance(self.analysis_spec, (SSACAnalysis, IsothermalSSACAnalysis))
+            and self.analysis_spec.at_voltages is not None
+        )
+
+    def _uses_gpu_only_lifetime_model(self) -> bool:
+        """Whether the simulation uses an SRH lifetime model unavailable in the CPU charge solver."""
+        for _loc, charge in self._iter_semiconductor_charge_media():
+            for model in charge.R:
+                if not isinstance(model, ShockleyReedHallRecombination):
+                    continue
+                for tau in (model.tau_n, model.tau_p):
+                    if isinstance(tau, PalankovskiQuayApproxCarrierLifetime):
+                        return True
+        return False
+
+    def _check_masetti_mobility_models(self) -> Self:
+        """Error if Masetti is mixed with another family or its T-scaled asymptote ≤ 0.
+
+        Raises directly at the offending charge medium's loc (``("medium",)``
+        or ``("structures", i)``) so the user is pointed at the exact field to
+        fix; the iteration helper yields the loc alongside each charge spec.
+        """
+        temperature = getattr(self.analysis_spec, "temperature", None)
+        for loc, charge in self._iter_semiconductor_charge_media():
+            n_is_masetti = isinstance(charge.mobility_n, MasettiMobility)
+            p_is_masetti = isinstance(charge.mobility_p, MasettiMobility)
+            if n_is_masetti != p_is_masetti:
+                self._raise_validation_error_at_loc(
+                    "MasettiMobility must be used for both electron and hole mobility "
+                    "models in a semiconductor medium. Mixing MasettiMobility with "
+                    "another mobility family is not supported by the accelerated "
+                    "charge solver.",
+                    *loc,
+                )
+            if temperature is None:
+                continue
+            for carrier, mobility in (
+                ("electron", charge.mobility_n),
+                ("hole", charge.mobility_p),
+            ):
+                if not isinstance(mobility, MasettiMobility):
+                    continue
+                high_doping_limit = (
+                    mobility.mu_0 * (temperature / 300.0) ** mobility.exp_0 - mobility.mu_1
+                )
+                if high_doping_limit <= 0.0:
+                    self._raise_validation_error_at_loc(
+                        f"MasettiMobility high-doping asymptote for {carrier} mobility "
+                        f"is non-positive at {temperature} K "
+                        "('mu_0 * (T/300)**exp_0 - mu_1' <= 0); the accelerated evaluator would "
+                        "silently clamp mobility to zero at high doping. Reduce 'mu_1', "
+                        "increase 'mu_0', or use a lower isothermal temperature.",
+                        *loc,
+                    )
+        return self
+
+    def _check_use_accelerated_solver(self) -> Self:
+        """Validate ``use_accelerated_solver`` for the simulation type and features.
+
+        Resolving the flag raises a ``SetupError`` for invalid combinations
+        (``use_accelerated_solver=False`` on a non-charge simulation, or on a charge
+        simulation that uses an accelerated-only feature). Triggering it here surfaces
+        the error at construction, anchored to the field by ``_call_with_validation_loc``.
+        """
+        _ = self._resolve_use_accelerated_solver
+        return self
+
+    @property
+    def _resolve_use_accelerated_solver(self) -> bool:
+        """Resolved value of :attr:`use_accelerated_solver`.
+
+        The accelerated solver is the default for every simulation. The
+        ``use_accelerated_solver`` flag only applies to charge simulations:
+
+        * Charge simulations use the accelerated solver unless
+          ``use_accelerated_solver=False`` selects the CPU charge solver. That
+          request raises when the configuration uses a feature only the
+          accelerated solver supports (e.g. ``MasettiMobility``).
+        * Heat and conduction simulations always run on the accelerated solver, so
+          ``use_accelerated_solver=False`` is rejected for them. The accelerated
+          *charge* mesh/solver path does not apply, so this resolves to ``False``
+          (no charge prism mesh is generated).
+        """
+        is_charge = isinstance(self.analysis_spec, SteadyChargeDCAnalysis)
+
+        if not is_charge:
+            if not self.use_accelerated_solver:
+                raise SetupError(
+                    "'use_accelerated_solver=False' is only valid for charge simulations; "
+                    "heat and conduction simulations always run on the GPU accelerated solver."
+                )
+            return False
+
+        if not self.use_accelerated_solver:
+            accelerated_only = self._accelerated_only_features()
+            if accelerated_only:
+                raise SetupError(
+                    f"{', '.join(accelerated_only)} is supported only by the GPU accelerated "
+                    "charge solver. Use 'use_accelerated_solver=True' (the default)."
+                )
+            return False
+
+        return True
 
     def _useHeatSourceFromConductionSim(self) -> bool:
         """Returns True if 'HeatFromElectricSource' has been defined."""

@@ -1,20 +1,21 @@
 # Copyright (C) 2008 - Olivier Lauzanne <olauzanne@gmail.com>
 #
 # Distributed under the BSD license, see LICENSE.txt
-from .cssselectpatch import JQueryTranslator
-from reprlib import recursive_repr
-from urllib.parse import urlencode
-from urllib.parse import urljoin
-from .openers import url_opener
-from .text import extract_text
-from copy import deepcopy
-from html import escape
-from lxml import etree
-import lxml.html
 import inspect
 import itertools
-import types
 import sys
+import types
+from copy import deepcopy
+from html import escape
+from reprlib import recursive_repr
+from urllib.parse import urlencode, urljoin
+
+import lxml.html
+from lxml import etree
+
+from .cssselectpatch import JQueryTranslator
+from .openers import url_opener
+from .text import extract_text
 
 if sys.version_info >= (3, 12, 0):
     from collections import OrderedDict
@@ -30,8 +31,8 @@ else:
         def __repr__(self):
             'od.__repr__() <==> repr(od)'
             if not self:
-                return '%s()' % (self.__class__.__name__,)
-            return '%s(%r)' % (self.__class__.__name__, dict(self.items()))
+                return f'{self.__class__.__name__}()'
+            return f'{self.__class__.__name__}({dict(self.items())!r})'
 
 basestring = (str, bytes)
 
@@ -60,14 +61,17 @@ def build_camel_case_aliases(PyQuery):
         f = types.FunctionType(func.__code__, func.__globals__,
                                name, func.__defaults__)
         f.__doc__ = (
-            'Alias for :func:`~pyquery.pyquery.PyQuery.%s`') % func.__name__
+            f'Alias for :func:`~pyquery.pyquery.PyQuery.{func.__name__}`')
         setattr(PyQuery, name, f.__get__(None, PyQuery))
 
 
 def fromstring(context, parser=None, custom_parser=None):
     """use html parser if we don't have clean xml
     """
-    if hasattr(context, 'read') and hasattr(context.read, '__call__'):
+    # Empty/whitespace-only markup → empty document (jQuery $('') parity).
+    if isinstance(context, basestring) and not context.strip():
+        return []
+    if hasattr(context, 'read') and callable(context.read):
         meth = 'parse'
     else:
         meth = 'fromstring'
@@ -96,7 +100,7 @@ def fromstring(context, parser=None, custom_parser=None):
         elif parser == 'html_fragments':
             custom_parser = lxml.html.fragments_fromstring
         else:
-            raise ValueError('No such parser: "%s"' % parser)
+            raise ValueError(f'No such parser: "{parser}"')
 
     result = custom_parser(context)
     if isinstance(result, list):
@@ -113,7 +117,7 @@ def callback(func, *args):
     return func(*args[:func.__code__.co_argcount])
 
 
-class NoDefault(object):
+class NoDefault:
     def __repr__(self):
         """clean representation in Sphinx"""
         return '<NoDefault>'
@@ -123,7 +127,7 @@ no_default = NoDefault()
 del NoDefault
 
 
-class FlexibleElement(object):
+class FlexibleElement:
     """property to allow a flexible api"""
     def __init__(self, pget, pset=no_default, pdel=no_default):
         self.pget = pget
@@ -131,7 +135,7 @@ class FlexibleElement(object):
         self.pdel = pdel
 
     def __get__(self, instance, klass):
-        class _element(object):
+        class _element:
             """real element to support set/get/del attr and item and js call
             style"""
             def __call__(prop, *args, **kwargs):
@@ -146,7 +150,7 @@ class FlexibleElement(object):
             __delattr__ = __delitem__
 
             def __repr__(prop):
-                return '<flexible_element %s>' % self.pget.__name__
+                return f'<flexible_element {self.pget.__name__}>'
         return _element()
 
     def __set__(self, instance, value):
@@ -187,7 +191,7 @@ class PyQuery(list):
         if kwargs:
             # specific case to get the dom
             if 'filename' in kwargs:
-                html = open(kwargs['filename'],
+                html = open(kwargs['filename'],  # NOQA
                             encoding=kwargs.get('encoding'))
             elif 'url' in kwargs:
                 url = kwargs.pop('url')
@@ -200,14 +204,14 @@ class PyQuery(list):
                     self.parser = 'html'
                 self._base_url = url
             else:
-                raise ValueError('Invalid keyword arguments %s' % kwargs)
+                raise ValueError(f'Invalid keyword arguments {kwargs}')
 
             elements = fromstring(html, self.parser)
             # close open descriptor if possible
             if hasattr(html, 'close'):
                 try:
                     html.close()
-                except Exception:
+                except Exception:  # NOQA
                     pass
 
         else:
@@ -228,7 +232,7 @@ class PyQuery(list):
             if isinstance(context, basestring):
                 try:
                     elements = fromstring(context, self.parser)
-                except Exception:
+                except Exception:  # NOQA
                     raise
             elif isinstance(context, self.__class__):
                 # copy
@@ -344,6 +348,15 @@ class PyQuery(list):
                     el.tag = el.tag.split('}', 1)[1]
         return self
 
+    def _serialize_nodes(self, dumps, method):
+        # Text nodes from contents() cannot go through tostring.
+        has_text_nodes = any(isinstance(e, str) for e in self)
+        return ''.join(
+            e if isinstance(e, str) else dumps(
+                e, encoding=str, method=method, with_tail=not has_text_nodes)
+            for e in self
+        )
+
     def __str__(self):
         """xml representation of current nodes::
 
@@ -353,12 +366,11 @@ class PyQuery(list):
             <script>&lt;![[CDATA[ ]&gt;</script>
 
         """
-        return ''.join([etree.tostring(e, encoding=str) for e in self])
+        return self._serialize_nodes(etree.tostring, method='xml')
 
     def __unicode__(self):
         """xml representation of current nodes"""
-        return u''.join([etree.tostring(e, encoding=str)
-                         for e in self])
+        return self._serialize_nodes(etree.tostring, method='xml')
 
     def __html__(self):
         """html representation of current nodes::
@@ -369,8 +381,7 @@ class PyQuery(list):
             <script><![[CDATA[ ]></script>
 
         """
-        return u''.join([lxml.html.tostring(e, encoding=str)
-                         for e in self])
+        return self._serialize_nodes(lxml.html.tostring, method='html')
 
     def __repr__(self):
         r = []
@@ -380,7 +391,7 @@ class PyQuery(list):
                 c = c and '.' + '.'.join(c.split(' ')) or ''
                 id = el.get('id')
                 id = id and '#' + id or ''
-                r.append('<%s%s%s>' % (el.tag, id, c))
+                r.append(f'<{el.tag}{id}{c}>')
             return '[' + (', '.join(r)) + ']'
         except AttributeError:
             return list.__repr__(self)
@@ -457,8 +468,7 @@ class PyQuery(list):
                 this_list.append(current)
                 current = current.getparent()
             this_list.reverse()
-            for j in this_list:
-                yield j
+            yield from this_list
 
     def _next_all(self):
         return [e for e in self._traverse('getnext')]
@@ -604,7 +614,7 @@ class PyQuery(list):
             >>> d('p').filter(lambda i, this: PyQuery(this).text() == 'Hi')
             [<p.hello>]
         """
-        if not hasattr(selector, '__call__'):
+        if not callable(selector):
             return self._filter_only(selector, self)
         else:
             elements = []
@@ -768,7 +778,8 @@ class PyQuery(list):
         length = len(args)
         if length == 1:
             attr = args[0]
-            attr = mapping.get(attr, attr)
+            if not isinstance(attr, dict):
+                attr = mapping.get(attr, attr)
         elif length == 2:
             attr, value = args
             attr = mapping.get(attr, attr)
@@ -777,14 +788,14 @@ class PyQuery(list):
             for k, v in kwargs.items():
                 attr[mapping.get(k, k)] = v
         else:
-            raise ValueError('Invalid arguments %s %s' % (args, kwargs))
+            raise ValueError(f'Invalid arguments {args} {kwargs}')
 
         if not self:
             return None
         elif isinstance(attr, dict):
             for tag in self:
                 for key, value in attr.items():
-                    tag.set(key, value)
+                    tag.set(mapping.get(key, key), value)
         elif value is no_default:
             return self[0].get(attr)
         elif value is None:
@@ -840,7 +851,7 @@ class PyQuery(list):
 
         ..
         """
-        return self.is_('.%s' % name)
+        return self.is_(f'.{name}')
 
     @with_camel_case_alias
     def add_class(self, value):
@@ -879,9 +890,7 @@ class PyQuery(list):
             classes.difference_update(values)
             classes.difference_update([''])
             classes = ' '.join(classes)
-            if classes.strip():
-                tag.set('class', classes)
-            elif tag.get('class'):
+            if classes.strip() or tag.get('class'):
                 tag.set('class', classes)
         return self
 
@@ -919,19 +928,19 @@ class PyQuery(list):
         elif kwargs:
             attr = kwargs
         else:
-            raise ValueError('Invalid arguments %s %s' % (args, kwargs))
+            raise ValueError(f'Invalid arguments {args} {kwargs}')
 
         if isinstance(attr, dict):
             for tag in self:
                 stripped_keys = [key.strip().replace('_', '-')
-                                 for key in attr.keys()]
+                                 for key in attr]
                 current = [el.strip()
                            for el in (tag.get('style') or '').split(';')
                            if el.strip()
                            and el.split(':')[0].strip() not in stripped_keys]
                 for key, value in attr.items():
                     key = key.replace('_', '-')
-                    current.append('%s: %s' % (key, value))
+                    current.append(f'{key}: {value}')
                 tag.set('style', '; '.join(current))
         elif isinstance(value, basestring):
             attr = attr.replace('_', '-')
@@ -940,8 +949,8 @@ class PyQuery(list):
                     el.strip()
                     for el in (tag.get('style') or '').split(';')
                     if (el.strip() and
-                        not el.split(':')[0].strip() == attr.strip())]
-                current.append('%s: %s' % (attr, value))
+                        el.split(':')[0].strip() != attr.strip())]
+                current.append(f'{attr}: {value}')
                 tag.set('style', '; '.join(current))
         return self
 
@@ -1001,10 +1010,15 @@ class PyQuery(list):
             ['you', 'hou']
 
         """
+        def _option_value(option):
+            # Missing value attr uses option text (HTML / jQuery).
+            val = option.attr('value')
+            return option.text() if val is None else val
+
         def _get_value(tag):
             # <textarea>
             if tag.tag == 'textarea':
-                return self._copy(tag).html()
+                return self._copy(tag).html(escape=False)
             # <select>
             elif tag.tag == 'select':
                 if 'multiple' in tag.attrib:
@@ -1012,13 +1026,15 @@ class PyQuery(list):
                     selected = self._copy(tag)('option[selected]')
                     # Rebuild list to avoid serialization error
                     return list(selected.map(
-                        lambda _, o: self._copy(o).attr('value')
+                        lambda _, o: _option_value(self._copy(o))
                     ))
                 selected_option = self._copy(tag)('option[selected]:last')
                 if selected_option:
-                    return selected_option.attr('value')
-                else:
-                    return self._copy(tag)('option').attr('value')
+                    return _option_value(selected_option)
+                first = self._copy(tag)('option:first')
+                if first:
+                    return _option_value(first)
+                return None
             # <input type="checkbox"> or <input type="radio">
             elif self.is_(':checkbox,:radio'):
                 val = self._copy(tag).attr('value')
@@ -1042,10 +1058,11 @@ class PyQuery(list):
 
                     def _make_option_selected(_, elem):
                         pq = self._copy(elem)
-                        if pq.attr('value') in value:
+                        if pq.attr('value') in value:  # NOQA
                             pq.attr('selected', 'selected')
-                            if 'multiple' not in tag.attrib:
-                                del value[:]  # Ensure it toggles first match
+                            if 'multiple' not in tag.attrib:  # NOQA
+                                # Ensure it toggles first match
+                                del value[:]  # NOQA
                         else:
                             pq.removeAttr('selected')
 
@@ -1097,12 +1114,14 @@ class PyQuery(list):
                 return None
             tag = self[0]
             children = tag.getchildren()
-            html = escape(tag.text or '', quote=False)
+            html = tag.text or ''
+            if kwargs.pop('escape', True):
+                html = escape(html, quote=False)
             if not children:
                 return html
             if 'encoding' not in kwargs:
                 kwargs['encoding'] = str
-            html += u''.join([etree.tostring(e, **kwargs)
+            html += ''.join([etree.tostring(e, **kwargs)
                               for e in children])
             return html
         else:
@@ -1119,7 +1138,7 @@ class PyQuery(list):
                 for child in tag.getchildren():
                     tag.remove(child)
                 root = fromstring(
-                    u'<root>' + new_html + u'</root>',
+                    '<root>' + new_html + '</root>',
                     self.parser)[0]
                 children = root.getchildren()
                 if children:
@@ -1188,7 +1207,7 @@ class PyQuery(list):
             if not self:
                 return ''
             return ' '.join(
-                self._copy(tag).html() if tag.tag == 'textarea' else
+                self._copy(tag).html(escape=False) if tag.tag == 'textarea' else
                 extract_text(tag, **kwargs) for tag in self
             )
 
@@ -1204,7 +1223,7 @@ class PyQuery(list):
 
     def _get_root(self, value):
         if isinstance(value, basestring):
-            root = fromstring(u'<root>' + value + u'</root>',
+            root = fromstring('<root>' + value + '</root>',
                               self.parser)[0]
         elif isinstance(value, etree._Element):
             root = self._copy(value)
@@ -1212,7 +1231,7 @@ class PyQuery(list):
             root = value
         else:
             raise TypeError(
-                'Value must be string, PyQuery or Element. Got %r' % value)
+                f'Value must be string, PyQuery or Element. Got {value!r}')
         if hasattr(root, 'text') and isinstance(root.text, basestring):
             root_text = root.text
         else:
@@ -1422,7 +1441,7 @@ class PyQuery(list):
         """
         if isinstance(value, PyQuery):
             value = str(value)
-        if hasattr(value, '__call__'):
+        if callable(value):
             for i, element in enumerate(self):
                 self._copy(element).before(
                     value(i, element) + (element.tail or ''))
@@ -1490,7 +1509,7 @@ class PyQuery(list):
             results.remove()
         return self
 
-    class Fn(object):
+    class Fn:
         """Hook for defining custom function (like the jQuery.fn):
 
         .. sourcecode:: python
@@ -1527,10 +1546,7 @@ class PyQuery(list):
             >>> d.serializeArray() == [{'name': 'order', 'value': 'spam'}]
             True
         """
-        return list(map(
-            lambda p: {'name': p[0], 'value': p[1]},
-            self.serialize_pairs()
-        ))
+        return [{'name': p[0], 'value': p[1]} for p in self.serialize_pairs()]
 
     def serialize(self):
         """Serialize form elements as a URL-encoded string.
@@ -1573,8 +1589,7 @@ class PyQuery(list):
                     # Include inputs outside of their form owner
                     root = self._copy(el.root.getroot())
                     controls.extend(root(
-                        '#%s :not([form]):input, [form="%s"]:input'
-                        % (form_id, form_id)))
+                        f'#{form_id} :not([form]):input, [form="{form_id}"]:input'))
                 else:
                     controls.extend(el(':not([form]):input'))
             elif el[0].tag == 'fieldset':
@@ -1583,9 +1598,7 @@ class PyQuery(list):
                 controls.extend(el)
         # Filter controls
         selector = '[name]:enabled:not(button)'  # Not serializing image button
-        selector += ''.join(map(
-            lambda s: ':not([type="%s"])' % s,
-            _submitter_types))
+        selector += ''.join(f':not([type="{s}"])' for s in _submitter_types)
         controls = controls.filter(selector)
 
         def _filter_out_unchecked(_, el):
@@ -1608,10 +1621,7 @@ class PyQuery(list):
         for field in controls:
             val = self._copy(field).val() or ''
             if isinstance(val, list):
-                ret.extend(map(
-                    lambda v: (field.attrib['name'], v.replace('\n', '\r\n')),
-                    val
-                ))
+                ret.extend((field.attrib['name'], v.replace('\n', '\r\n')) for v in val)
             else:
                 ret.append((field.attrib['name'], val.replace('\n', '\r\n')))
         return ret
@@ -1656,9 +1666,9 @@ class PyQuery(list):
         if base_url is None:
             base_url = self.base_url
             if base_url is None:
-                raise ValueError((
+                raise ValueError(
                     'You need a base URL to make your links'
-                    'absolute. It can be provided by the base_url parameter.'))
+                    'absolute. It can be provided by the base_url parameter.')
 
         def repl(attr):
             def rep(i, e):

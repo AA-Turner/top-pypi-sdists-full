@@ -242,7 +242,7 @@ impl<T> Default for LazyHeap<T> {
     }
 }
 
-unsafe impl<#[may_dangle] T> Drop for LazyHeap<T> {
+impl<T> Drop for LazyHeap<T> {
     fn drop(&mut self) {
         struct DropGuard<'a, T>(&'a mut LazyHeap<T>);
 

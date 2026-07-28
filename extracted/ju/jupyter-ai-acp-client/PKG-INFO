@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyter_ai_acp_client
-Version: 0.2.0
+Version: 0.2.1
 Summary: The ACP client for Jupyter AI, allowing for ACP agents to be used in JupyterLab
 Project-URL: Homepage, https://github.com/jupyter-ai-contrib/jupyter-ai-acp-client
 Project-URL: Bug Tracker, https://github.com/jupyter-ai-contrib/jupyter-ai-acp-client/issues

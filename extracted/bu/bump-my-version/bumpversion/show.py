@@ -87,7 +87,7 @@ def resolve_name(obj: Any, name: str, default: Any = None, err_on_missing: bool 
     """
     lookups = name.split(".")
     current = obj
-    try:  # NOQA: PLW0717
+    try:  # ruff: ignore[too-many-statements-in-try-clause]
         for bit in lookups:
             try:  # dictionary lookup
                 current = current[bit]

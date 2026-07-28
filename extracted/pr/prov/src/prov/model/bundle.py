@@ -1,6 +1,6 @@
 """PROV bundles and documents: containers of PROV records."""
 
-from __future__ import annotations  # needed for | type annotations in Python < 3.10
+from __future__ import annotations  # defer eval: ProvDocument used before it's defined
 
 import io
 import itertools
@@ -8,10 +8,9 @@ import logging
 import os
 import shutil
 import tempfile
-import warnings
 from collections import defaultdict
 from collections.abc import Iterable
-from typing import IO, Any, cast
+from typing import Any, cast
 from urllib.parse import urlparse
 
 from prov import serializers
@@ -48,6 +47,7 @@ from prov.constants import (
     PROV_ATTR_USAGE,
     PROV_ATTR_USED_ENTITY,
     PROV_ATTRIBUTION,
+    PROV_BASE_CLS,
     PROV_COMMUNICATION,
     PROV_DELEGATION,
     PROV_DERIVATION,
@@ -73,9 +73,11 @@ from prov.model.records import (
     PROV_REC_CLS,
     ActivityRef,
     AgentRef,
+    AttributePair,
     DatetimeOrStr,
     EntityRef,
-    GenrationRef,
+    GenerationRef,
+    InfluencerRef,
     NameValuePair,
     NSCollection,
     OptionalID,
@@ -99,14 +101,208 @@ from prov.model.records import (
     ProvRecord,
     ProvSpecialization,
     ProvStart,
+    ProvUnificationError,
     ProvUsage,
     QualifiedNameCandidate,
     RecordAttributesArg,
+    StreamOrPath,
     UsageRef,
     _ensure_datetime,
 )
 
 logger = logging.getLogger(__name__)
+
+
+# PROV-CONSTRAINTS (https://www.w3.org/TR/prov-constraints/) type compatibility
+# for same-identifier records of *different* base types. §6.3 makes typeOf(id)
+# a SET: an identifier may legitimately carry more than one type, so mixing
+# types under one id is not automatically an error -- only the specific
+# combinations below are. Text transcribed from §6.4 (Impossibility
+# constraints):
+#
+# Constraint 55 (entity-activity-disjoint): "The set of entities and
+# activities are disjoint": IF 'entity' in typeOf(id) AND 'activity' in
+# typeOf(id) THEN INVALID. The spec explicitly carves out agent from this:
+# "There is no disjointness between entities and agents. ... one can assert
+# both entity(a1) and agent(a1) in a valid PROV instance. Similarly, there is
+# no disjointness between activities and agents, and one can assert both
+# activity(a1) and agent(a1)".
+#
+# Constraint 54 (impossible-object-property-overlap): "Identifiers of
+# entities, agents and activities cannot also be identifiers of properties."
+# For each p in {entity, activity, agent} and each r in {used, wasGeneratedBy,
+# wasInvalidatedBy, wasInfluencedBy, wasStartedBy, wasEndedBy, wasInformedBy,
+# wasDerivedFrom, wasAttributedTo, wasAssociatedWith, actedOnBehalfOf}: IF
+# p(id, a1,...,am) and r(id; b1,...,bn) THEN INVALID -- i.e. every object
+# (element) base type is disjoint from every one of Constraint 23's eleven
+# *identified* relations, enumerated explicitly below as ``_IDENTIFIED_RELATIONS``.
+# Alternate/Specialization/Mention/Membership are NOT in that set -- PROV-DM's
+# abstract syntax gives them no identifier parameter, so the specification has
+# no opinion on an id they happen to share with anything (they normally reach
+# `ProvBundle`'s ``_id_map`` only via `new_record()`/deserialization, since the
+# `.alternate()`/`.specialization()`/`.mention()`/`.membership()` convenience
+# methods always pass ``identifier=None``) -- such a pairing is therefore left
+# out of scope, not rejected.
+#
+# Constraint 53 (impossible-property-overlap): "identifiers of basic
+# relationships are disjoint": for r != s both in {used, wasGeneratedBy,
+# wasInvalidatedBy, wasStartedBy, wasEndedBy, wasInformedBy, wasAttributedTo,
+# wasAssociatedWith, actedOnBehalfOf}: IF r(id; a1,...,am) and s(id;
+# b1,...,bn) THEN INVALID. This pairwise-disjoint set of NINE relations is a
+# proper subset of Constraint 54's eleven: it deliberately excludes
+# wasDerivedFrom and wasInfluencedBy. The spec calls out wasInfluencedBy by
+# name as exempt because it is a superproperty meant to share an identifier
+# with a more specific relation, giving the worked example "wasInfluencedBy(
+# id;e2,e1)" + "wasDerivedFrom(id;e2,e1)" as valid ("This satisfies the
+# disjointness constraint."); wasDerivedFrom itself is simply absent from the
+# enumerated set. So a generation and a derivation -- or a derivation and an
+# influence -- sharing an identifier is *not* rejected by Constraint 53.
+_OBJECT_TYPES = frozenset({PROV_ENTITY, PROV_ACTIVITY, PROV_AGENT})
+_ENTITY_ACTIVITY = frozenset({PROV_ENTITY, PROV_ACTIVITY})
+# Constraint 23's eleven identified relations (Constraint 54's r-set).
+_IDENTIFIED_RELATIONS = frozenset(
+    {
+        PROV_GENERATION,
+        PROV_USAGE,
+        PROV_COMMUNICATION,
+        PROV_START,
+        PROV_END,
+        PROV_INVALIDATION,
+        PROV_DERIVATION,
+        PROV_ATTRIBUTION,
+        PROV_ASSOCIATION,
+        PROV_DELEGATION,
+        PROV_INFLUENCE,
+    }
+)
+# Constraint 53's nine pairwise-disjoint relations -- see the comment above.
+_PAIRWISE_DISJOINT_RELATIONS = _IDENTIFIED_RELATIONS - {PROV_DERIVATION, PROV_INFLUENCE}
+
+
+def _incompatible_types(type_a: QualifiedName, type_b: QualifiedName) -> bool:
+    """True if two distinct base record types cannot share an identifier."""
+    if {type_a, type_b} == _ENTITY_ACTIVITY:
+        return True  # Constraint 55
+    is_object_a = type_a in _OBJECT_TYPES
+    is_object_b = type_b in _OBJECT_TYPES
+    is_relation_a = type_a in _IDENTIFIED_RELATIONS
+    is_relation_b = type_b in _IDENTIFIED_RELATIONS
+    if (is_object_a and is_relation_b) or (is_object_b and is_relation_a):
+        return True  # Constraint 54: an object type vs an identified relation
+    # Constraint 53: two distinct pairwise-disjoint relations. Everything else
+    # (this expression's False case) is either a spec-permitted overlap
+    # (agent+entity, agent+activity) or out of the specification's scope (any
+    # pairing involving a keyless relation kind -- Alternate/Specialization/
+    # Mention/Membership -- or a relation pair Constraint 53 does not cover,
+    # such as derivation+generation or derivation+influence).
+    return (
+        type_a in _PAIRWISE_DISJOINT_RELATIONS
+        and type_b in _PAIRWISE_DISJOINT_RELATIONS
+    )
+
+
+def _unify_same_type_group(records: list[ProvRecord]) -> ProvRecord:
+    """Merge same-type records sharing an identifier by term unification.
+
+    Formal attributes are unified positionally: an absent value is an
+    existential ("unknown") that unifies with anything, equal concrete values
+    unify, and two different concrete values do not unify. Non-formal ("extra")
+    attributes are unioned. The merged record is newly constructed from the
+    unified formal attributes, so no *formal-attribute* conflict is ever
+    routed through :meth:`ProvRecord.add_attributes`' single-value guard --
+    a conflict between two records' *extra* attributes still is, since those
+    are reasserted through the merged record's constructor unchanged.
+
+    Args:
+        records: Two or more records of the same base record type, carrying
+            the same identifier, in assertion order.
+
+    Returns:
+        A single, newly created record standing for the whole group.
+
+    Raises:
+        ProvUnificationError: If two of the records hold different concrete
+            values for the same formal attribute.
+    """
+    first_record = records[0]
+    record_type = first_record.get_type()
+    identifier = first_record.identifier
+    attributes: list[NameValuePair] = []
+    # Same record type, hence the same FORMAL_ATTRIBUTES: zip() lines the
+    # records' formal attributes up position by position.
+    for pairs in zip(*(record.formal_attributes for record in records), strict=True):
+        attr_name = pairs[0][0]
+        unified_value = None
+        for _, value in pairs:
+            if value is None:
+                # An absent formal attribute is an existential variable: the
+                # model cannot express PROV-N's placeholder `-`, so absent
+                # unifies with any concrete value.
+                continue
+            if unified_value is None:
+                unified_value = value
+                continue
+            # Every formal attribute is in PROV_ATTRIBUTES, so add_attributes
+            # has already normalised its value to a QualifiedName or a
+            # datetime: != is always well defined here.
+            if unified_value != value:
+                raise ProvUnificationError(
+                    f"cannot unify {identifier}: {attr_name} has conflicting "
+                    f"values {unified_value!r} and {value!r}"
+                )
+        if unified_value is not None:
+            attributes.append((attr_name, unified_value))
+
+    # Extra attributes keep their set-union semantics.
+    for record in records:
+        attributes.extend(record.extra_attributes)
+
+    return PROV_REC_CLS[record_type](first_record.bundle, identifier, attributes)
+
+
+def _unify_record_group(records: list[ProvRecord]) -> dict[ProvRecord, ProvRecord]:
+    """Merge records sharing an identifier by PROV-CONSTRAINTS term unification.
+
+    Records are first partitioned by base record type (:data:`PROV_BASE_CLS`,
+    which reduces any subtyped derivation etc. to its base class). Within a
+    type, :func:`_unify_same_type_group` applies. Across types, the identifier
+    is only valid PROV-CONSTRAINTS usage if every pair of types present is one
+    of the spec's permitted overlaps (see the compatibility table above);
+    otherwise the whole group is invalid.
+
+    Args:
+        records: Two or more records carrying the same identifier, in
+            assertion order.
+
+    Returns:
+        A mapping from each original record in the group to the single,
+        newly created record that stands for its base type. Records of the
+        same base type map to the same merged record.
+
+    Raises:
+        ProvUnificationError: If two records of the same type hold different
+            concrete values for the same formal attribute, or if the group
+            spans two base record types that PROV-CONSTRAINTS' impossibility
+            constraints (53/54/55) forbid combining under one identifier.
+    """
+    identifier = records[0].identifier
+    groups: dict[QualifiedName, list[ProvRecord]] = defaultdict(list)
+    for record in records:
+        groups[PROV_BASE_CLS[record.get_type()]].append(record)
+
+    base_types = list(groups)
+    for type_a, type_b in itertools.combinations(base_types, 2):
+        if _incompatible_types(type_a, type_b):
+            raise ProvUnificationError(
+                f"cannot unify {identifier}: incompatible types {type_a} and {type_b}"
+            )
+
+    merged_records: dict[ProvRecord, ProvRecord] = {}
+    for group in groups.values():
+        merged = _unify_same_type_group(group)
+        for record in group:
+            merged_records[record] = merged
+    return merged_records
 
 
 class ProvBundle:
@@ -133,12 +329,12 @@ class ProvBundle:
         """
         #  Initializing bundle-specific attributes
         self._identifier = identifier
-        self._records = []  # type: list[ProvRecord]
-        self._id_map = defaultdict(list)  # type: dict[QualifiedName, list[ProvRecord]]
+        self._records: list[ProvRecord] = []
+        self._id_map: dict[QualifiedName, list[ProvRecord]] = defaultdict(list)
         self._document = document
-        self._namespaces = NamespaceManager(
+        self._namespaces: NamespaceManager = NamespaceManager(
             namespaces, parent=(document._namespaces if document is not None else None)
-        )  # type: NamespaceManager
+        )
         if records:
             for record in records:
                 self.add_record(record)
@@ -318,7 +514,11 @@ class ProvBundle:
 
         #  if this is the document, start the document;
         # otherwise, start the bundle
-        lines = ["document"] if self.is_document() else [f"bundle {self._identifier}"]
+        # #223: escape PN_CHARS_ESC metacharacters in the local part
+        bundle_id = (
+            self._identifier.provn_bare_representation() if self._identifier else ""
+        )
+        lines = ["document"] if self.is_document() else [f"bundle {bundle_id}"]
 
         default_namespace = self._namespaces.get_default_namespace()
         if default_namespace:
@@ -382,19 +582,13 @@ class ProvBundle:
     # Transformations
     def _unified_records(self) -> list[ProvRecord]:
         """Returns a list of unified records."""
-        # TODO: Check unification rules in the PROV-CONSTRAINTS document
-        # This method simply merges the records having the same name
         merged_records = {}
         for _identifier, records in self._id_map.items():
             if len(records) > 1:
-                # more than one record having the same identifier
-                # merge the records
-                merged = records[0].copy()
-                for record in records[1:]:
-                    merged.add_attributes(record.attributes)
-                # map all of them to the merged record
-                for record in records:
-                    merged_records[record] = merged
+                # more than one record having the same identifier: unify them,
+                # per base record type (usually one type, but PROV-CONSTRAINTS
+                # permits an id to carry more than one, e.g. agent + entity)
+                merged_records.update(_unify_record_group(records))
         if not merged_records:
             # No merging done, just return the list of original records
             return list(self._records)
@@ -415,26 +609,34 @@ class ProvBundle:
     def unified(self) -> ProvBundle:
         """Return a new bundle with records sharing an identifier merged.
 
-        For each identifier carried by more than one record, a single merged
-        record is produced by unioning the attributes of all records with that
-        identifier onto a copy of the first. Records with a unique identifier,
-        or no identifier, pass through unchanged. This is a simple
-        identifier-keyed attribute union, not the full PROV-CONSTRAINTS
-        unification: no type/attribute conflicts are detected and no inference
-        is performed. The original bundle is left untouched.
+        For each identifier carried by more than one record, the records are
+        first checked for type compatibility (W3C PROV-CONSTRAINTS'
+        impossibility constraints 53, 54 and 55): an entity and an activity (or
+        two distinct relation kinds, e.g. a generation and a usage) cannot
+        share an identifier and raise; a spec-permitted overlap (an agent that
+        is also an entity and/or an activity) is kept as separate records, one
+        per type. Within each type, a single merged record is produced by the
+        term unification of key constraints 22 and 23: the records' formal
+        attributes are unified position by position — an absent formal
+        attribute is an existential that unifies with any concrete value,
+        equal concrete values unify, and two different concrete values do not
+        — while their remaining attributes are unioned. Records with a unique
+        identifier, or no identifier, pass through unchanged.
+
+        This is not the specification's full normalization: the uniqueness
+        constraints keyed on something other than the record identifier
+        (Constraints 24-29) are not checked and no inference is performed. The
+        original bundle is left untouched.
 
         Returns:
             The new, unified :class:`ProvBundle`.
+
+        Raises:
+            ProvUnificationError: If two records of the same type sharing an
+                identifier hold different concrete values for the same formal
+                attribute, or if two records sharing an identifier have
+                incompatible types.
         """
-        warnings.warn(
-            "prov 3.0 will change unified() to merge records per the W3C "
-            "PROV-CONSTRAINTS rules; records sharing an identifier but having "
-            "conflicting formal attributes will then raise an error instead of "
-            "having their attributes silently unioned. See "
-            "https://github.com/trungdong/prov/blob/master/ROADMAP.md",
-            FutureWarning,
-            stacklevel=2,
-        )
         unified_records = self._unified_records()
         bundle = ProvBundle(records=unified_records, identifier=self.identifier)
         return bundle
@@ -495,16 +697,18 @@ class ProvBundle:
         Returns:
             The newly created and added :class:`ProvRecord`.
         """
-        attr_list = []  # type: list[tuple[QualifiedNameCandidate, Any]]
+        attr_list: list[AttributePair] = []
         if attributes:
             if isinstance(attributes, dict):
-                attr_list.extend((attr, value) for attr, value in attributes.items())
+                attr_list.extend(
+                    cast("dict[QualifiedNameCandidate, Any]", attributes).items()
+                )
             else:
                 # expecting a list of attributes here
                 attr_list.extend(attributes)
         if other_attributes:
             attr_list.extend(
-                other_attributes.items()
+                cast("dict[QualifiedNameCandidate, Any]", other_attributes).items()
                 if isinstance(other_attributes, dict)
                 else other_attributes
             )
@@ -563,8 +767,8 @@ class ProvBundle:
 
         Args:
             identifier: The identifier for the new activity.
-            startTime: Optional start time, as a :class:`datetime.datetime` or a
-                string parseable by :func:`dateutil.parser.parse`
+            startTime: Optional start time, as a :class:`datetime.datetime` or an ``xsd:dateTime`` string accepted by
+                :func:`~prov.model.parse_xsd_datetime`
                 (default: ``None``).
             endTime: Optional end time, in the same forms (default: ``None``).
             other_attributes: Optional attributes for the activity, as a dict or
@@ -573,10 +777,10 @@ class ProvBundle:
         Returns:
             The new :class:`ProvActivity`.
         """
-        attributes = {
+        attributes: dict[QualifiedNameCandidate, Any] = {
             PROV_ATTR_STARTTIME: _ensure_datetime(startTime),
             PROV_ATTR_ENDTIME: _ensure_datetime(endTime),
-        }  # type: dict[QualifiedNameCandidate, Any]
+        }
         return self.new_record(
             PROV_ACTIVITY,
             identifier,
@@ -599,8 +803,8 @@ class ProvBundle:
             activity: The activity (or its string identifier) involved in the
                 generation (default: ``None``).
             time: Optional time of the generation, as a
-                :class:`datetime.datetime` or a string parseable by
-                :func:`dateutil.parser.parse` (default: ``None``).
+                :class:`datetime.datetime` or an ``xsd:dateTime`` string accepted by
+                :func:`~prov.model.parse_xsd_datetime` (default: ``None``).
             identifier: Optional identifier for the generation record
                 (default: ``None``).
             other_attributes: Optional extra attributes, as a dict or an
@@ -609,11 +813,11 @@ class ProvBundle:
         Returns:
             The new generation record.
         """
-        attributes = {
+        attributes: dict[QualifiedNameCandidate, Any] = {
             PROV_ATTR_ENTITY: entity,
             PROV_ATTR_ACTIVITY: activity,
             PROV_ATTR_TIME: _ensure_datetime(time),
-        }  # type: dict[QualifiedNameCandidate, Any]
+        }
         return self.new_record(
             PROV_GENERATION,
             identifier,
@@ -636,7 +840,8 @@ class ProvBundle:
             entity: The entity (or its string identifier) involved in the usage
                 relationship (default: ``None``).
             time: Optional time of the usage, as a :class:`datetime.datetime` or
-                a string parseable by :func:`dateutil.parser.parse`
+                an ``xsd:dateTime`` string accepted by
+                :func:`~prov.model.parse_xsd_datetime`
                 (default: ``None``).
             identifier: Optional identifier for the usage record
                 (default: ``None``).
@@ -646,11 +851,11 @@ class ProvBundle:
         Returns:
             The new :class:`ProvUsage` record.
         """
-        attributes = {
+        attributes: dict[QualifiedNameCandidate, Any] = {
             PROV_ATTR_ACTIVITY: activity,
             PROV_ATTR_ENTITY: entity,
             PROV_ATTR_TIME: _ensure_datetime(time),
-        }  # type: dict[QualifiedNameCandidate, Any]
+        }
         return self.new_record(
             PROV_USAGE,
             identifier,
@@ -676,7 +881,8 @@ class ProvBundle:
             starter: Optional activity qualifying the start, through which the
                 trigger entity is generated (default: ``None``).
             time: Optional time of the start, as a :class:`datetime.datetime` or
-                a string parseable by :func:`dateutil.parser.parse`
+                an ``xsd:dateTime`` string accepted by
+                :func:`~prov.model.parse_xsd_datetime`
                 (default: ``None``).
             identifier: Optional identifier for the start record
                 (default: ``None``).
@@ -686,12 +892,12 @@ class ProvBundle:
         Returns:
             The new :class:`ProvStart` record.
         """
-        attributes = {
+        attributes: dict[QualifiedNameCandidate, Any] = {
             PROV_ATTR_ACTIVITY: activity,
             PROV_ATTR_TRIGGER: trigger,
             PROV_ATTR_STARTER: starter,
             PROV_ATTR_TIME: _ensure_datetime(time),
-        }  # type: dict[QualifiedNameCandidate, Any]
+        }
         return self.new_record(
             PROV_START,
             identifier,
@@ -716,8 +922,8 @@ class ProvBundle:
                 (default: ``None``).
             ender: Optional activity qualifying the end, through which the
                 trigger entity is generated (default: ``None``).
-            time: Optional time of the end, as a :class:`datetime.datetime` or a
-                string parseable by :func:`dateutil.parser.parse`
+            time: Optional time of the end, as a :class:`datetime.datetime` or an ``xsd:dateTime`` string accepted by
+                :func:`~prov.model.parse_xsd_datetime`
                 (default: ``None``).
             identifier: Optional identifier for the end record
                 (default: ``None``).
@@ -727,12 +933,12 @@ class ProvBundle:
         Returns:
             The new :class:`ProvEnd` record.
         """
-        attributes = {
+        attributes: dict[QualifiedNameCandidate, Any] = {
             PROV_ATTR_ACTIVITY: activity,
             PROV_ATTR_TRIGGER: trigger,
             PROV_ATTR_ENDER: ender,
             PROV_ATTR_TIME: _ensure_datetime(time),
-        }  # type: dict[QualifiedNameCandidate, Any]
+        }
         return self.new_record(
             PROV_END,
             identifier,
@@ -755,8 +961,8 @@ class ProvBundle:
             activity: The activity (or its string identifier) involved in the
                 invalidation (default: ``None``).
             time: Optional time of the invalidation, as a
-                :class:`datetime.datetime` or a string parseable by
-                :func:`dateutil.parser.parse` (default: ``None``).
+                :class:`datetime.datetime` or an ``xsd:dateTime`` string accepted by
+                :func:`~prov.model.parse_xsd_datetime` (default: ``None``).
             identifier: Optional identifier for the invalidation record
                 (default: ``None``).
             other_attributes: Optional extra attributes, as a dict or an
@@ -765,11 +971,11 @@ class ProvBundle:
         Returns:
             The new :class:`ProvInvalidation` record.
         """
-        attributes = {
+        attributes: dict[QualifiedNameCandidate, Any] = {
             PROV_ATTR_ENTITY: entity,
             PROV_ATTR_ACTIVITY: activity,
             PROV_ATTR_TIME: _ensure_datetime(time),
-        }  # type: dict[QualifiedNameCandidate, Any]
+        }
         return self.new_record(
             PROV_INVALIDATION,
             identifier,
@@ -797,10 +1003,10 @@ class ProvBundle:
         Returns:
             The new :class:`ProvCommunication` record.
         """
-        attributes = {
+        attributes: dict[QualifiedNameCandidate, Any] = {
             PROV_ATTR_INFORMED: informed,
             PROV_ATTR_INFORMANT: informant,
-        }  # type: dict[QualifiedNameCandidate, Any]
+        }
         return self.new_record(
             PROV_COMMUNICATION,
             identifier,
@@ -847,10 +1053,10 @@ class ProvBundle:
         Returns:
             The new :class:`ProvAttribution` record.
         """
-        attributes = {
+        attributes: dict[QualifiedNameCandidate, Any] = {
             PROV_ATTR_ENTITY: entity,
             PROV_ATTR_AGENT: agent,
-        }  # type: dict[QualifiedNameCandidate, Any]
+        }
         return self.new_record(
             PROV_ATTRIBUTION,
             identifier,
@@ -882,11 +1088,11 @@ class ProvBundle:
         Returns:
             The new :class:`ProvAssociation` record.
         """
-        attributes = {
+        attributes: dict[QualifiedNameCandidate, Any] = {
             PROV_ATTR_ACTIVITY: activity,
             PROV_ATTR_AGENT: agent,
             PROV_ATTR_PLAN: plan,
-        }  # type: dict[QualifiedNameCandidate, Any]
+        }
         return self.new_record(
             PROV_ASSOCIATION,
             identifier,
@@ -919,11 +1125,11 @@ class ProvBundle:
         Returns:
             The new :class:`ProvDelegation` record.
         """
-        attributes = {
+        attributes: dict[QualifiedNameCandidate, Any] = {
             PROV_ATTR_DELEGATE: delegate,
             PROV_ATTR_RESPONSIBLE: responsible,
             PROV_ATTR_ACTIVITY: activity,
-        }  # type: dict[QualifiedNameCandidate, Any]
+        }
         return self.new_record(
             PROV_DELEGATION,
             identifier,
@@ -933,8 +1139,8 @@ class ProvBundle:
 
     def influence(
         self,
-        influencee: EntityRef | ActivityRef | AgentRef,
-        influencer: EntityRef | ActivityRef | AgentRef,
+        influencee: InfluencerRef,
+        influencer: InfluencerRef,
         identifier: OptionalID = None,
         other_attributes: RecordAttributesArg | None = None,
     ) -> ProvInfluence:
@@ -953,10 +1159,10 @@ class ProvBundle:
         Returns:
             The new :class:`ProvInfluence` record.
         """
-        attributes = {
+        attributes: dict[QualifiedNameCandidate, Any] = {
             PROV_ATTR_INFLUENCEE: influencee,
             PROV_ATTR_INFLUENCER: influencer,
-        }  # type: dict[QualifiedNameCandidate, Any]
+        }
         return self.new_record(
             PROV_INFLUENCE,
             identifier,
@@ -969,7 +1175,7 @@ class ProvBundle:
         generatedEntity: EntityRef,
         usedEntity: EntityRef,
         activity: ActivityRef | None = None,
-        generation: GenrationRef | None = None,
+        generation: GenerationRef | None = None,
         usage: UsageRef | None = None,
         identifier: OptionalID = None,
         other_attributes: RecordAttributesArg | None = None,
@@ -996,13 +1202,13 @@ class ProvBundle:
         Returns:
             The new :class:`ProvDerivation` record.
         """
-        attributes = {
+        attributes: dict[QualifiedNameCandidate, Any] = {
             PROV_ATTR_GENERATED_ENTITY: generatedEntity,
             PROV_ATTR_USED_ENTITY: usedEntity,
             PROV_ATTR_ACTIVITY: activity,
             PROV_ATTR_GENERATION: generation,
             PROV_ATTR_USAGE: usage,
-        }  # type: dict[QualifiedNameCandidate, Any]
+        }
         return self.new_record(
             PROV_DERIVATION, identifier, attributes, other_attributes
         )  # type: ignore
@@ -1012,7 +1218,7 @@ class ProvBundle:
         generatedEntity: EntityRef,
         usedEntity: EntityRef,
         activity: ActivityRef | None = None,
-        generation: GenrationRef | None = None,
+        generation: GenerationRef | None = None,
         usage: UsageRef | None = None,
         identifier: OptionalID = None,
         other_attributes: RecordAttributesArg | None = None,
@@ -1057,7 +1263,7 @@ class ProvBundle:
         generatedEntity: EntityRef,
         usedEntity: EntityRef,
         activity: ActivityRef | None = None,
-        generation: GenrationRef | None = None,
+        generation: GenerationRef | None = None,
         usage: UsageRef | None = None,
         identifier: OptionalID = None,
         other_attributes: RecordAttributesArg | None = None,
@@ -1102,7 +1308,7 @@ class ProvBundle:
         generatedEntity: EntityRef,
         usedEntity: EntityRef,
         activity: ActivityRef | None = None,
-        generation: GenrationRef | None = None,
+        generation: GenerationRef | None = None,
         usage: UsageRef | None = None,
         identifier: OptionalID = None,
         other_attributes: RecordAttributesArg | None = None,
@@ -1158,10 +1364,10 @@ class ProvBundle:
         Returns:
             The new :class:`ProvSpecialization` record.
         """
-        attributes = {
+        attributes: dict[QualifiedNameCandidate, Any] = {
             PROV_ATTR_SPECIFIC_ENTITY: specificEntity,
             PROV_ATTR_GENERAL_ENTITY: generalEntity,
-        }  # type: dict[QualifiedNameCandidate, Any]
+        }
         return self.new_record(
             PROV_SPECIALIZATION,
             None,
@@ -1180,10 +1386,10 @@ class ProvBundle:
         Returns:
             The new :class:`ProvAlternate` record.
         """
-        attributes = {
+        attributes: dict[QualifiedNameCandidate, Any] = {
             PROV_ATTR_ALTERNATE1: alternate1,
             PROV_ATTR_ALTERNATE2: alternate2,
-        }  # type: dict[QualifiedNameCandidate, Any]
+        }
         return self.new_record(
             PROV_ALTERNATE,
             None,
@@ -1206,11 +1412,11 @@ class ProvBundle:
         Returns:
             The new :class:`ProvMention` record.
         """
-        attributes = {
+        attributes: dict[QualifiedNameCandidate, Any] = {
             PROV_ATTR_SPECIFIC_ENTITY: specificEntity,
             PROV_ATTR_GENERAL_ENTITY: generalEntity,
             PROV_ATTR_BUNDLE: bundle,
-        }  # type: dict[QualifiedNameCandidate, Any]
+        }
         return self.new_record(
             PROV_MENTION,
             None,
@@ -1250,10 +1456,10 @@ class ProvBundle:
         Returns:
             The new :class:`ProvMembership` record.
         """
-        attributes = {
+        attributes: dict[QualifiedNameCandidate, Any] = {
             PROV_ATTR_COLLECTION: collection,
             PROV_ATTR_ENTITY: entity,
-        }  # type: dict[QualifiedNameCandidate, Any]
+        }
         return self.new_record(
             PROV_MEMBERSHIP,
             None,
@@ -1293,10 +1499,12 @@ class ProvBundle:
         from prov import dot
 
         if filename:
-            format = str(os.path.splitext(filename)[-1]).lower().strip(os.path.extsep)
+            img_format = (
+                str(os.path.splitext(filename)[-1]).lower().strip(os.path.extsep)
+            )
         else:
-            format = "png"
-        format = format.lower()
+            img_format = "png"
+        img_format = img_format.lower()
         d = dot.prov_to_dot(
             self,
             show_nary=show_nary,
@@ -1304,9 +1512,9 @@ class ProvBundle:
             show_element_attributes=show_element_attributes,
             show_relation_attributes=show_relation_attributes,
         )
-        method = f"create_{format}"
+        method = f"create_{img_format}"
         if not hasattr(d, method):
-            raise ValueError(f"Format '{format}' cannot be saved.")
+            raise ValueError(f"Format '{img_format}' cannot be saved.")
         with io.BytesIO() as buf:
             buf.write(getattr(d, method)())
 
@@ -1384,7 +1592,7 @@ class ProvDocument(ProvBundle):
         ProvBundle.__init__(
             self, records=records, identifier=None, namespaces=namespaces
         )
-        self._bundles = {}  # type: dict[QualifiedName, ProvBundle]
+        self._bundles: dict[QualifiedName, ProvBundle] = {}
 
     def __repr__(self) -> str:
         return "<ProvDocument>"
@@ -1454,23 +1662,21 @@ class ProvDocument(ProvBundle):
     def unified(self) -> ProvDocument:
         """Return a new document with records sharing an identifier merged.
 
-        The identifier-keyed attribute union (see :meth:`ProvBundle.unified`) is
-        applied to the document's top-level records and, recursively, to each
-        contained bundle, preserving the bundle structure. The original
+        The term unification of :meth:`ProvBundle.unified` is applied to the
+        document's top-level records and, independently, to each contained
+        bundle, preserving the bundle structure — as PROV-CONSTRAINTS §7.2
+        requires, nothing is merged across a bundle boundary. The original
         document is left untouched.
 
         Returns:
             The new, unified :class:`ProvDocument`.
+
+        Raises:
+            ProvUnificationError: If two records sharing an identifier within
+                the same scope hold different concrete values for the same
+                formal attribute, or have incompatible types (see
+                :meth:`ProvBundle.unified`).
         """
-        warnings.warn(
-            "prov 3.0 will change unified() to merge records per the W3C "
-            "PROV-CONSTRAINTS rules; records sharing an identifier but having "
-            "conflicting formal attributes will then raise an error instead of "
-            "having their attributes silently unioned. See "
-            "https://github.com/trungdong/prov/blob/master/ROADMAP.md",
-            FutureWarning,
-            stacklevel=2,
-        )
         document = ProvDocument(self._unified_records())
         document._namespaces = self._namespaces
         for bundle in self.bundles:
@@ -1499,9 +1705,12 @@ class ProvDocument(ProvBundle):
             if other.has_bundles():
                 for bundle in other.bundles:
                     bundle_id = bundle.identifier
-                    assert bundle_id is not None
-                    if bundle.identifier in self._bundles:
-                        self._bundles[bundle.identifier].update(bundle)
+                    if (
+                        bundle_id is None
+                    ):  # pragma: no cover -- bundles are always named
+                        raise AssertionError("bundle has no identifier")
+                    if bundle_id in self._bundles:
+                        self._bundles[bundle_id].update(bundle)
                     else:
                         new_bundle = self.bundle(bundle_id)
                         new_bundle.update(bundle)
@@ -1594,7 +1803,7 @@ class ProvDocument(ProvBundle):
     # Serializing and deserializing
     def serialize(
         self,
-        destination: io.IOBase | IO[Any] | PathLike | None = None,
+        destination: StreamOrPath | None = None,
         format: str = "json",
         **args: Any,
     ) -> str | None:
@@ -1651,7 +1860,7 @@ class ProvDocument(ProvBundle):
 
     @staticmethod
     def deserialize(
-        source: io.IOBase | IO[Any] | PathLike | None = None,
+        source: StreamOrPath | None = None,
         content: str | bytes | None = None,
         format: str = "json",
         **args: Any,

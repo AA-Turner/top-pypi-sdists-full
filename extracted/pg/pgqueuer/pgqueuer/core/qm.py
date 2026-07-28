@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import dataclasses
+import random
 import sys
 import uuid
 from collections.abc import MutableMapping
@@ -76,6 +77,11 @@ class QueueManager:
         )
     )
 
+    # Incremented once per dispatched job; the periodic log-aggregation task
+    # only calls the database when this is nonzero, so an idle worker never
+    # round-trips an aggregation query for nothing.
+    jobs_logged: int = dataclasses.field(init=False, default=0)
+
     # Minimum sleep before re-checking the queue. Prevents busy-looping when a
     # deferred job's ETA is near zero or when the TOCTOU fallback detects
     # eligible work that the preceding dequeue narrowly missed.
@@ -111,6 +117,29 @@ class QueueManager:
                 await asyncio.wait_for(
                     self.shutdown.wait(),
                     timeout=interval.total_seconds(),
+                )
+
+    async def _run_periodic_log_aggregation(self, interval: timedelta) -> None:
+        """Aggregate log->statistics every *interval* (jittered) until shutdown.
+
+        Non-cron: mirrors ``_run_periodic_health_check``. Skipped when this worker
+        hasn't logged a job since the last tick: an idle worker has nothing new to
+        fold in, and the advisory lock in ``aggregate_logs`` already serializes real
+        work across workers. A failed attempt leaves ``jobs_logged`` set so the next
+        tick retries instead of silently dropping the backlog; only success resets it.
+        """
+        while not self.shutdown.is_set():
+            if self.jobs_logged:
+                try:
+                    await self.queries.aggregate_logs()
+                except Exception:
+                    pass
+                else:
+                    self.jobs_logged = 0
+            with suppress(TimeoutError, asyncio.TimeoutError):
+                await asyncio.wait_for(
+                    self.shutdown.wait(),
+                    timeout=interval.total_seconds() * random.uniform(0.8, 1.2),
                 )
 
     def get_context(self, job_id: models.JobId) -> models.Context:
@@ -210,17 +239,9 @@ class QueueManager:
                 for x in self.entrypoints_below_capacity_limits()
             }
 
-            # Cap batch_size to the smallest concurrency limit so a single
-            # dequeue never picks more jobs than the tightest entrypoint allows.
-            effective_batch = min(
-                (p.concurrency_limit for p in entrypoints.values() if p.concurrency_limit > 0),
-                default=batch_size,
-            )
-            effective_batch = min(batch_size, effective_batch)
-
             if not (
                 jobs := await self.queries.dequeue(
-                    batch_size=effective_batch,
+                    batch_size=batch_size,
                     entrypoints=entrypoints,
                     queue_manager_id=self.queue_manager_id,
                     global_concurrency_limit=global_concurrency_limit,
@@ -304,7 +325,11 @@ class QueueManager:
             return
         if task_manager.tasks:
             await asyncio.sleep(0)
-        if (await cached_queued_work()) == 0 and not task_manager.tasks:
+        if task_manager.tasks or (await cached_queued_work()) != 0:
+            return
+        # The cached count may predate a RetryRequested re-queue that landed
+        # within the TTL window; confirm with an uncached read before exiting.
+        if await self.queries.queued_work(list(self.entrypoint_registry.keys())) == 0:
             self.shutdown.set()
 
     async def _maybe_health_shutdown(
@@ -324,14 +349,20 @@ class QueueManager:
             await periodic_health_check_task
 
     async def _effective_dequeue_timeout(self, dequeue_timeout: timedelta) -> timedelta:
-        """Return a potentially shortened timeout if a deferred job is about to become eligible."""
+        """Return a potentially shortened timeout if work is ready or a deferred job is due soon."""
         entrypoints = list(self.entrypoint_registry.keys())
+        # A job may have become eligible between the preceding dequeue and this
+        # check (TOCTOU), and its notification may already have been consumed by
+        # the per-dispatch drain. Eligible work always warrants a fast re-poll,
+        # even when deferred jobs exist.
+        if await self.queries.eligible_queued_work(entrypoints) > 0:
+            return self.min_dequeue_poll_interval
         eta = await self.queries.next_deferred_eta(entrypoints)
         if eta is not None and eta < dequeue_timeout:
             return max(eta, self.min_dequeue_poll_interval)
-        # When eta is None there are no future-deferred jobs, but a job may have
-        # become eligible between the preceding dequeue and this check (TOCTOU).
-        # If queued work exists, wake up quickly so the next iteration picks it up.
+        # A deferred job can cross its execute_after between the two probes
+        # above: the eligibility probe still saw it as deferred, the eta probe
+        # no longer sees it as future. queued_work counts both, closing the gap.
         if eta is None and await self.queries.queued_work(entrypoints) > 0:
             return self.min_dequeue_poll_interval
         return dequeue_timeout
@@ -344,12 +375,20 @@ class QueueManager:
         max_concurrent_tasks: int | None = None,
         shutdown_on_listener_failure: bool = False,
         heartbeat_timeout: timedelta = timedelta(seconds=30),
+        log_aggregation_interval: timedelta = timedelta(seconds=30),
     ) -> None:
         """Process jobs until shutdown.
 
         ``mode=drain`` exits once the queue is empty and in-flight tasks finish.
+        ``max_concurrent_tasks`` is a hard cap on this worker's picked jobs,
+        enforced by the dequeue query. Per-entrypoint concurrency limits are
+        likewise enforced in SQL, so batches keep their full size regardless
+        of the tightest registered limit.
         ``heartbeat_timeout`` is the staleness threshold for re-picking a job;
         heartbeats are emitted at half this interval.
+        ``log_aggregation_interval`` drives a background task that folds
+        ``pgqueuer_log`` into ``pgqueuer_statistics`` on a timer instead of only
+        on stats reads; pass ``timedelta(0)`` to disable (pure on-demand).
         """
         await self.verify_structure()
 
@@ -372,9 +411,22 @@ class QueueManager:
             ) as hbuff,
             tm.TaskManager() as task_manager,
             self.queries.driver,
+            # Listed after the driver so they are cancelled before it closes;
+            # a failing loop body must not leak tasks probing a closing driver.
+            tm.cancel_on_exit(
+                asyncio.create_task(self._run_periodic_health_check())
+            ) as periodic_health_check_task,
+            (
+                tm.cancel_on_exit(
+                    asyncio.create_task(
+                        self._run_periodic_log_aggregation(log_aggregation_interval)
+                    )
+                )
+                if log_aggregation_interval.total_seconds() > 0
+                else nullcontext()
+            ),
+            tm.cancel_on_exit(asyncio.create_task(self.shutdown.wait())) as shutdown_task,
         ):
-            periodic_health_check_task = asyncio.create_task(self._run_periodic_health_check())
-
             notice_event_listener = listeners.PGNoticeEventListener()
             await listeners.initialize_notice_event_listener(
                 self.queries.driver,
@@ -386,8 +438,6 @@ class QueueManager:
                 ),
             )
 
-            shutdown_task = asyncio.create_task(self.shutdown.wait())
-            event_task: None | asyncio.Task[None | models.TableChangedEvent] = None
             cached_queued_work = cache.TTLCache.create(
                 ttl=timedelta(seconds=0.250),
                 on_expired=lambda: self.queries.queued_work(list(self.entrypoint_registry.keys())),
@@ -408,32 +458,21 @@ class QueueManager:
                     with contextlib.suppress(asyncio.QueueEmpty):
                         notice_event_listener.get_nowait()
 
-                    if self.shutdown.is_set():
-                        break
-
                 await self._maybe_drain_shutdown(mode, task_manager, cached_queued_work)
                 await self._maybe_health_shutdown(
                     periodic_health_check_task, mode, shutdown_on_listener_failure
                 )
 
-                event_task = listeners.wait_for_notice_event(
-                    notice_event_listener,
-                    await self._effective_dequeue_timeout(dequeue_timeout),
-                )
-                await asyncio.wait(
-                    (shutdown_task, event_task),
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
-
-            periodic_health_check_task.cancel()
-            with suppress(asyncio.CancelledError, Exception):
-                await periodic_health_check_task
-
-        if event_task and not event_task.done():
-            event_task.cancel()
-
-        if not shutdown_task.done():
-            shutdown_task.cancel()
+                async with tm.cancel_on_exit(
+                    listeners.wait_for_notice_event(
+                        notice_event_listener,
+                        await self._effective_dequeue_timeout(dequeue_timeout),
+                    )
+                ) as event_task:
+                    await asyncio.wait(
+                        (shutdown_task, event_task),
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
 
     async def _dispatch(
         self,
@@ -523,3 +562,4 @@ class QueueManager:
                 await jbuff.add((job, "canceled" if canceled else "successful", None))
             finally:
                 self.job_context.pop(job.id, None)
+                self.jobs_logged += 1

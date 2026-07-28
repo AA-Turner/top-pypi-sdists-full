@@ -5,6 +5,7 @@ from __future__ import annotations
 from tidy3d.components.data.monitor_data import (
     AuxFieldTimeData,
     DiffractionData,
+    DipoleEmissionData,
     DirectivityData,
     FieldData,
     FieldOverlapData,
@@ -17,7 +18,10 @@ from tidy3d.components.data.monitor_data import (
     MediumData,
     ModeData,
     ModeSolverData,
+    ModeTimeData,
     PermittivityData,
+    PointCloudFieldData,
+    PointCloudPermittivityData,
     SurfaceFieldData,
     SurfaceFieldTimeData,
 )
@@ -33,6 +37,7 @@ MonitorDataTypes = (
     MediumData,
     ModeSolverData,
     ModeData,
+    ModeTimeData,
     FluxData,
     FluxTimeData,
     AuxFieldTimeData,
@@ -40,10 +45,13 @@ MonitorDataTypes = (
     FieldProjectionCartesianData,
     FieldProjectionAngleData,
     DiffractionData,
+    DipoleEmissionData,
     DirectivityData,
     FieldOverlapData,
     MicrowaveModeData,
     MicrowaveModeSolverData,
+    PointCloudFieldData,
+    PointCloudPermittivityData,
     SurfaceFieldData,
     SurfaceFieldTimeData,
 )
@@ -54,6 +62,7 @@ MonitorDataType = (
     | MediumData
     | ModeSolverData
     | ModeData
+    | ModeTimeData
     | FluxData
     | FluxTimeData
     | AuxFieldTimeData
@@ -61,10 +70,13 @@ MonitorDataType = (
     | FieldProjectionCartesianData
     | FieldProjectionAngleData
     | DiffractionData
+    | DipoleEmissionData
     | DirectivityData
     | FieldOverlapData
     | MicrowaveModeData
     | MicrowaveModeSolverData
+    | PointCloudFieldData
+    | PointCloudPermittivityData
     | SurfaceFieldData
     | SurfaceFieldTimeData
 )

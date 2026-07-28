@@ -14,6 +14,10 @@ from abstra_internals.utils.ast_cache import ASTCache
 
 
 class SyntaxErrorFound(LinterIssue):
+    title = "Syntax errors"
+    type = "error"
+    fix_with_ai = True
+
     def __init__(self, error: SyntaxError) -> None:
         self.label = str(error)
         self.fixes = []
@@ -21,8 +25,6 @@ class SyntaxErrorFound(LinterIssue):
 
 class SyntaxErrors(PathScopedLinterRule):
     label = "Syntax errors"
-    type = "error"
-    fix_with_ai = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         ctx = current_lint_context() or LintContext()

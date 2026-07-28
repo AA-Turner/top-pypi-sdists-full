@@ -1,0 +1,364 @@
+enable: true
+title: Example Library &#x1F4DA;
+sections:
+- title: Basics
+  type: python-tutorial
+  enable_more_examples: false
+  notebooks:
+  - StartHere
+  - Simulation
+  - Primer
+  - WebAPI
+  - DivergedFDTDSimulation
+- title: Feature Tutorials
+  type: python-tutorial
+  enable_more_examples: false
+  sections:
+  - title: Mediums
+    type: python-tutorial
+    enable_more_examples: false
+    notebooks:
+    - Dispersion
+    - Fitting
+    - FullyAnisotropic
+    - Gyrotropic
+    - CustomMediumTutorial
+    - TimeModulationTutorial
+    - BeerLambert
+  - title: Structures
+    type: python-tutorial
+    enable_more_examples: false
+    notebooks:
+    - GDSImport
+    - GDSExport
+    - STLImport
+    - SelfIntersectingPolyslab
+    - GeometryTransformations
+    - PICComponents
+    - PhotonicCrystalsComponents
+    - CreatingGeometryUsingTrimesh
+    - GDSCreation
+  - title: Grid Specification
+    type: python-tutorial
+    enable_more_examples: false
+    notebooks:
+    - AutoGrid
+    - LayerRefinement
+    - LocalSubpixel
+  - title: Boundary Conditions & Symmetry
+    type: python-tutorial
+    enable_more_examples: false
+    notebooks:
+    - BoundaryConditions
+    - Symmetry
+    - AbsorbingBoundaryReflection
+  - title: Sources
+    type: python-tutorial
+    enable_more_examples: false
+    notebooks:
+    - ModalSourcesMonitors
+    - ModesBentAngled
+    - TFSF
+    - CustomFieldSource
+    - BroadbandPlaneWaveWithConstantObliqueIncidentAngle
+    - AdvancedGaussianSources
+  - title: Data Visualization and Postprocessing
+    type: python-tutorial
+    enable_more_examples: false
+    notebooks:
+    - VizSimulation
+    - VizData
+    - XarrayTutorial
+    - AnimationTutorial
+    - FieldProjections
+    - GroupDelayCalculation
+    - UnstructuredData
+    - GUIDataTutorial
+    - FarFieldProjectionNonDecayingField
+  - title: Mode Solver
+    type: python-tutorial
+    enable_more_examples: false
+    notebooks:
+    - ModeSolver
+    - WaveguidePluginDemonstration
+    - BatchModeSolver
+    - RadiativeLossesModeSolver
+    - ModeOverlap
+    - ModeSimulation
+  - title: Design Space Exploration
+    type: python-tutorial
+    enable_more_examples: false
+    notebooks:
+    - ParameterScan
+    - Design
+    - ParameterScanWebRun
+  - title: Scattering Matrix
+    type: python-tutorial
+    enable_more_examples: false
+    notebooks:
+    - SMatrix
+  - title: Resonance Finder
+    type: python-tutorial
+    enable_more_examples: false
+    notebooks:
+    - ResonanceFinder
+    - CavityFOM
+  - title: Inverse Design
+    type: python-tutorial
+    enable_more_examples: false
+    notebooks:
+    - Autograd0Quickstart
+    - Autograd0QuickstartII
+    - Autograd0Overview
+    - InverseDesign
+    - Autograd1Intro
+    - Autograd2GradientChecking
+    - Autograd4MultiObjective
+    - RFAutograd1RectangularPatchAntenna
+  - title: Heat &#x1F525;
+    type: python-tutorial
+    enable_more_examples: false
+    notebooks:
+    - HeatSolver
+  - title: Charge |:zap:|
+    type: python-tutorial
+    enable_more_examples: false
+    notebooks:
+    - ChargeSolver
+  - title: EME &#x1F308;
+    type: python-tutorial
+    enable_more_examples: false
+    notebooks:
+    - EMESolver
+    - EMEBends
+    - AnisotropicBendsEME
+  - title: Advanced Applications
+    type: python-tutorial
+    enable_more_examples: false
+    notebooks:
+    - WaveguideBendSimulator
+    - SimpleModeSolverGUI
+    - DirectionalCouplerSurrogate
+    - LowContrastWaveguide
+    - SourceNormalization
+    - KLayoutPlugin_DRCQuickstart
+  - title: Microwave and RF
+    type: python-tutorial
+    enable_more_examples: false
+    notebooks:
+    - CharacteristicImpedanceCalculator
+    - LinearLumpedElements
+    - AntennaCharacteristics
+    - RFParameterSweep
+  - title: Accuracy Benchmarks
+    type: python-tutorial
+    enable_more_examples: false
+    notebooks:
+    - PECSphereRCS
+    - MMIMeepBenchmark
+    - Near2FarSphereRCS
+    - PlasmonicNanoparticle
+    - GratingEfficiency
+- title: Use Cases
+  type: example-library
+  enable_more_examples: true
+  sections:
+  - title: Passive Photonic Integrated Circuit Components
+    type: example-library
+    enable_more_examples: true
+    notebooks:
+    - YJunction
+    - WaveguideToRingCoupling
+    - WaveguideCrossing
+    - EulerWaveguideBend
+    - DirectionalCoupler
+    - EdgeCoupler
+    - EffectiveIndexApproximation
+    - GratingCoupler
+    - FocusedApodGC
+    - BilayerSiNSiGC
+    - VerticalGratingCoupler
+    - MMI1x4
+    - MMIPowerSplitter2x2
+    - RingResonator
+    - BilevelPSR
+    - WaveguideSizeConverter
+    - StripToSlotConverters
+    - BraggGratings
+    - PCMBraggGratingFilter
+    - BroadbandDirectionalCoupler
+    - PolarizationSplitterRotator
+    - 8ChannelDemultiplexer
+    - THzDemultiplexerFilter
+    - PhotonicCrystalWaveguidePolarizationFilter
+    - 90OpticalHybrid
+    - SWGBroadbandPolarizer
+    - ZeroCrossTalkTE
+    - AdiabaticCouplerLN
+    - 90BendPolarizationSplitterRotator
+    - PlasmonicWaveguideCO2Sensor
+    - BilayerSiNEdgeCoupler
+    - ScaleInvariantWaveguide
+    - WaveguideGratingAntenna
+    - FreeFormCoupler
+    - MultiplexingMMI
+    - TaperedWgDispersion
+    - LNOIPolarizationSplitterRotator
+    - IntegratedVivaldiAntenna
+    - KerrSidebands
+    - AnisotropicMetamaterialBroadbandPBS
+    - SWGWaveguideCrossing
+    - SiWaveguideTPA
+    - SiliconToPlasmonicCoupler
+    - PhotonicSpinSelector
+    - SiNToAlOxVerticalCoupler
+  - title: Active Photonic Integrated Circuit Components
+    type: example-library
+    enable_more_examples: true
+    notebooks:
+    - MetalHeaterPhaseShifter
+    - ThermallyTunedRingResonator
+    - MachZehnderModulator
+    - ThermoOpticDopedModulator
+    - HeatDissipationSOI
+    - TransientThermoOpticShifter
+    - CPOHeat
+    - TFLNTidy3d
+    - PhotoThermalWaveguides
+    - PINMachZehnder
+    - AvalanchePhotodiode
+    - VerticalPINSSAC
+    - SiliconOrganicHybrid
+  - title: Global Optimization
+    type: example-library
+    enable_more_examples: true
+    notebooks:
+    - ParticleSwarmOptimizedPBS
+    - BullseyeCavityPSO
+    - OpticalSwitchDBS
+    - SbendCMAES
+    - GeneticAlgorithmReflector
+    - BayesianOptimizationYJunction
+  - title: Metamaterials, Gratings, and Other Periodic Structures
+    type: example-library
+    enable_more_examples: true
+    notebooks:
+    - DielectricMetasurfaceAbsorber
+    - GradientMetasurfaceReflector
+    - GrapheneMetamaterial
+    - TunableChiralMetasurface
+    - MicrowaveFrequencySelectiveSurface
+    - HighQSi
+    - HighQGe
+    - BiosensorGrating
+    - DistributedBraggReflectorCavity
+    - CMOSRGBSensor
+    - PlasmonicNanorodArray
+    - AllDielectricStructuralColor
+    - MetasurfaceHologram
+    - MIMResonator
+    - VortexMetasurface
+    - MetasurfaceBIC
+    - QMRSMetasurface
+  - title: Microwave and RF Devices
+    type: example-library
+    enable_more_examples: true
+    notebooks:
+    - CoupledLineBandpassFilter
+    - RadarAbsorbingMetamaterial
+    - CircularlyPolarizedPatchAntenna
+    - CPWRFPhotonics1
+    - CPWRFPhotonics2
+    - WidebandBeamSteerableReflectarrayWithPRUC
+    - DifferentialStripline
+    - GroundedCPWViaFence
+    - EdgeFeedPatchAntennaBenchmark
+    - HybridMicrostripCPWBandpassFilter
+    - MicroringRFElectrode
+    - WPDHarmonicSuppression1
+    - WPDHarmonicSuppression2
+    - WPDHarmonicSuppression3
+    - ThroughSiliconVia
+    - SMAEdgeMount
+    - PlanarHelicalAntennaArray
+    - VaractorTunedPatchAntenna
+    - SIWCSRRFilter
+  - title: Photonic Crystals
+    type: example-library
+    enable_more_examples: true
+    notebooks:
+    - Bandstructure
+    - OptimizedL3
+    - BistablePCCavity
+    - NanobeamCavity
+    - TopoQuantumPhC
+    - HexagonalLatticeBands
+  - title: Optical Scattering and Far-field Radiation
+    type: example-library
+    enable_more_examples: true
+    notebooks:
+    - PlasmonicYagiUdaNanoantenna
+    - ZonePlateFieldProjection
+    - MultipoleExpansion
+    - PhaseChangeAntennas
+  - title: Lenses
+    type: example-library
+    enable_more_examples: true
+    notebooks:
+    - OpticalLuneburgLens
+    - Metalens
+    - MidIRMetalens
+    - FresnelLens
+  - title: Nanophotonics
+    type: example-library
+    enable_more_examples: true
+    notebooks:
+    - NanostructuredBoronNitride
+    - NonHermitianMetagratings
+    - AndersonLocalization
+    - MoS2Waveguide
+    - RadiativeCoolingGlass
+    - MetalOxideSunscreen
+    - DisorderedPlasmonicColor
+    - DirectionalScatteringNanodisks
+    - PlasmonicPhotothermalHeating
+    - BlueMicroLED
+    - LedLEECalculation
+    - MaxwellStressTensor
+  - title: Fiber Optics
+    type: example-library
+    enable_more_examples: true
+    notebooks:
+    - AntiResonantHollowCoreFiber
+  - title: Inverse Design
+    type: example-library
+    enable_more_examples: true
+    notebooks:
+    - Autograd3InverseDesign
+    - Autograd5BoundaryGradients
+    - Autograd6GratingCoupler
+    - Autograd7Metalens
+    - Autograd8WaveguideBend
+    - Autograd9WDM
+    - Autograd10YBranchLevelSet
+    - Autograd13Metasurface
+    - Autograd12LightExtractor
+    - Autograd15Antenna
+    - Autograd16BilayerCoupler
+    - Autograd17BandPassFilter
+    - Autograd18TopologyBend
+    - Autograd19ApodizedCoupler
+    - Autograd20MetalensWaveguideTaper
+    - Autograd21GaPLightExtractor
+    - Autograd22PhotonicCrystal
+    - Autograd23FabricationAwareInvdes
+    - Autograd24DigitalSplitter
+    - Autograd25WaveguideCrossing
+    - Autograd26DiffractiveBeamSplitter
+    - Autograd27Smatrix
+    - Autograd28FiberLens
+    - Autograd29SourceGradients
+    - Autograd30ParallelAdjoint
+    - Autograd32WDMTopologyToContourFinetuning
+    - Autograd33FPCavity
+    - TidyFab0GC

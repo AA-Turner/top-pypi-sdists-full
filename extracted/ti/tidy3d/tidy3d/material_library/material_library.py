@@ -11,7 +11,7 @@ from tidy3d.components.base import Tidy3dBaseModel
 from tidy3d.components.material.multi_physics import MultiPhysicsMedium
 from tidy3d.components.material.tcad.charge import SemiconductorMedium
 from tidy3d.components.medium import AnisotropicMedium, Medium2D, PoleResidue, Sellmeier
-from tidy3d.components.tcad.bandgap_energy import ConstantEnergyBandGap
+from tidy3d.components.tcad.bandgap import ConstantEnergyBandGap
 from tidy3d.components.tcad.types import (
     AugerRecombination,
     CaugheyThomasMobility,
@@ -20,6 +20,7 @@ from tidy3d.components.tcad.types import (
     ShockleyReedHallRecombination,
     SlotboomBandGapNarrowing,
 )
+from tidy3d.components.types import TYPE_TAG_STR
 from tidy3d.exceptions import SetupError
 from tidy3d.log import log
 
@@ -46,6 +47,53 @@ if TYPE_CHECKING:
     from tidy3d.components.types import Axis
 
 
+CSI_GREEN2008_VARIANT = "Green2008"
+CSI_PALIK_LOWLOSS_VARIANT = "Palik_LowLoss"
+CSI_PALIK_LOSSY_VARIANT = "Palik_Lossy"
+
+
+def _variant_name(variant: str, rst: bool = False) -> str:
+    """Format a material variant name for warning text or generated docs."""
+    if rst:
+        return f"``'{variant}'``"
+    return f"'{variant}'"
+
+
+def _material_variant_access(material: str, variant: str, rst: bool = False) -> str:
+    """Format a material-library variant lookup for warning text or generated docs."""
+    access = f"material_library['{material}']['{variant}']"
+    if rst:
+        return f"``{access}``"
+    return access
+
+
+def csi_default_migration_message(rst: bool = False, include_suppression: bool = False) -> str:
+    """Migration guidance for the crystalline silicon default-variant change."""
+    unit = r":math:`{\mu}m`" if rst else "um"
+    green2008 = _variant_name(CSI_GREEN2008_VARIANT, rst)
+    palik_lowloss = _variant_name(CSI_PALIK_LOWLOSS_VARIANT, rst)
+    palik_lossy = _variant_name(CSI_PALIK_LOSSY_VARIANT, rst)
+    explicit_lowloss = _material_variant_access("cSi", CSI_PALIK_LOWLOSS_VARIANT, rst)
+    explicit_green2008 = _material_variant_access("cSi", CSI_GREEN2008_VARIANT, rst)
+
+    message = (
+        f"The default variant for crystalline silicon changed from {green2008} "
+        f"to {palik_lowloss}, which uses the fitted Palik model with small loss. "
+        f"Use {green2008} explicitly to preserve pre-change results, including "
+        f"the 1.2 to 1.45 {unit} overlap where both variants are valid. "
+        f"{palik_lowloss} is valid from 1.2 to 250 {unit}. "
+        f"Use {green2008} for pre-change results from 0.25 to 1.2 {unit}. "
+        f"{palik_lossy} is also available from 0.1 to 1.4 {unit} when the lossy "
+        f"Palik model is desired."
+    )
+    if include_suppression:
+        message += (
+            " To suppress this warning, request a variant explicitly, "
+            f"for example {explicit_lowloss} or {explicit_green2008}."
+        )
+    return message
+
+
 def export_matlib_to_file(fname: PathLike = "matlib.json") -> None:
     """Write the material library to a .json file."""
     mat_lib_dict = {
@@ -53,7 +101,7 @@ def export_matlib_to_file(fname: PathLike = "matlib.json") -> None:
             var_name: json.loads(var.medium._json_string) for var_name, var in mat.variants.items()
         }
         for mat_name, mat in material_library.items()
-        if not isinstance(mat, (type, MaterialItemUniaxial))
+        if not isinstance(mat, type | MaterialItemUniaxial)
     }
 
     # Uniaxial medium treated differently
@@ -109,6 +157,7 @@ class VariantItem(AbstractVariantItem):
     """Reference, data_source, and material model for a variant of a material."""
 
     medium: PoleResidue | MultiPhysicsMedium = Field(
+        discriminator=TYPE_TAG_STR,
         title="Material dispersion model",
         description="A dispersive medium described by the pole-residue pair model.",
     )
@@ -137,6 +186,7 @@ class MaterialItem(Tidy3dBaseModel):
                 f"The data of the default variant '{self.default}' is not supplied; "
                 "please include it in the 'variants'."
             )
+        _with_palik_lossless_alias(self)
         return self
 
     def __getitem__(self, variant_name: str) -> PoleResidue | MultiPhysicsMedium:
@@ -148,10 +198,21 @@ class MaterialItem(Tidy3dBaseModel):
         """The default medium."""
         if self.name == "Silicon Dioxide":
             log.warning(
-                "Since Tidy3D 2.7, the default variant for silicon dioxide has been switched from "
-                "'Horiba' to 'Palik_Lossless'."
+                "The default variant for silicon dioxide is 'Palik_LowLoss', which was "
+                "previously named 'Palik_Lossless'. Use 'Palik_NoLoss' for a zero-loss "
+                "Palik model."
             )
+        if self._uses_migrated_csi_default:
+            log.warning(csi_default_migration_message(include_suppression=True))
         return self.variants[self.default].medium
+
+    @property
+    def _uses_migrated_csi_default(self) -> bool:
+        """Whether this item matches the migrated built-in cSi default."""
+        library = globals().get("material_library")
+        return (
+            library is not None and self is library.get("cSi") and self.default == "Palik_LowLoss"
+        )
 
     def __str__(self) -> str:
         return summarize_material_item(self)
@@ -240,6 +301,97 @@ class MaterialItemUniaxial(MaterialItem):
         return self.variants[self.default].medium(optical_axis)
 
 
+PALIK_LOSSLESS_VARIANT = "Palik_Lossless"
+PALIK_NOLOSS_VARIANT = "Palik_NoLoss"
+PALIK_LOWLOSS_VARIANT = "Palik_LowLoss"
+
+PALIK_LOSSLESS_ALIAS_WARNING = (
+    f"The material-library variant '{PALIK_LOSSLESS_VARIANT}' is deprecated and maps to "
+    f"'{PALIK_LOWLOSS_VARIANT}' because it contains a tiny fitted loss despite its name. "
+    "Use 'Palik_NoLoss' where available for a zero-loss Palik model."
+)
+
+PALIK_LOSSLESS_ALIAS_MEDIUM_NAMES = {
+    "Gallium Arsenide": "GaAs_Palik_LowLoss",
+    "Germanium": "Ge_Palik_LowLoss",
+    "Indium Phosphide": "InP_Palik_LowLoss",
+    "Silicon (Crystalline)": "cSi_PalikLowLoss",
+    "Silicon Dioxide": "SiO2_Palik_LowLoss",
+}
+
+
+class _DeprecatedVariantAliasDict(dict[str, VariantItem]):
+    """Dictionary with deprecated lookup aliases that are hidden from iteration."""
+
+    def __init__(
+        self, variants: dict[str, VariantItem], aliases: dict[str, str] | None = None
+    ) -> None:
+        super().__init__(variants)
+        self._aliases = aliases or {}
+
+    def _resolve_alias(self, variant_name: str) -> str:
+        """Return the canonical variant for a deprecated alias and warn once per lookup."""
+        alias = self._aliases.get(variant_name)
+        if alias is None:
+            return variant_name
+        log.warning(PALIK_LOSSLESS_ALIAS_WARNING)
+        return alias
+
+    def __contains__(self, variant_name: object) -> bool:
+        """Treat deprecated aliases as present when their canonical target exists."""
+        if isinstance(variant_name, str):
+            alias = self._aliases.get(variant_name)
+            if alias is not None:
+                return super().__contains__(alias)
+        return super().__contains__(variant_name)
+
+    def __getitem__(self, variant_name: str) -> VariantItem:
+        """Return deprecated aliases while preserving normal dict iteration."""
+        return super().__getitem__(self._resolve_alias(variant_name))
+
+    def get(self, variant_name: str, default: VariantItem | None = None) -> VariantItem | None:
+        """Return deprecated aliases through the usual mapping helper."""
+        alias = self._aliases.get(variant_name)
+        if alias is not None:
+            log.warning(PALIK_LOSSLESS_ALIAS_WARNING)
+            return super().get(alias, default)
+        return super().get(variant_name, default)
+
+    def copy(self) -> _DeprecatedVariantAliasDict:
+        """Preserve alias lookups when users explicitly copy the variants mapping."""
+        return _DeprecatedVariantAliasDict(dict(self), aliases=dict(self._aliases))
+
+
+def _with_palik_lossless_alias(material_item: MaterialItem) -> MaterialItem:
+    """Keep old Palik_Lossless lookups available without listing them as variants."""
+    if isinstance(material_item.variants, _DeprecatedVariantAliasDict):
+        return material_item
+    if PALIK_LOSSLESS_VARIANT in material_item.variants:
+        return material_item
+
+    alias_medium_names = PALIK_LOSSLESS_ALIAS_MEDIUM_NAMES.get(material_item.name)
+    if alias_medium_names is None:
+        return material_item
+
+    lowloss_medium_name = alias_medium_names
+    lowloss_variant = material_item.variants.get(PALIK_LOWLOSS_VARIANT)
+    if lowloss_variant is None:
+        return material_item
+
+    if lowloss_variant.medium.name != lowloss_medium_name:
+        return material_item
+
+    object.__setattr__(
+        material_item,
+        "variants",
+        _DeprecatedVariantAliasDict(
+            material_item.variants,
+            aliases={PALIK_LOSSLESS_VARIANT: PALIK_LOWLOSS_VARIANT},
+        ),
+    )
+    return material_item
+
+
 LiNbO3_Zelmon1997 = VariantItemUniaxial(
     ordinary=Sellmeier(
         coeffs=((2.6734, 0.01764), (1.2290, 0.05914), (12.614, 474.60)),
@@ -258,6 +410,43 @@ LiNbO3_Zelmon1997 = VariantItemUniaxial(
 Ag_Rakic1998BB = VariantItem(
     medium=PoleResidue(
         name="Ag_Rakic1998BB",
+        eps_inf=1.0,
+        poles=[
+            (
+                (-2.483370555410649e16 + 1j * 0.0),
+                (1.5744113130000786e16 + 1j * 0.0),
+            ),
+            (
+                (-427051442026657.8 - 1j * 7267130897123369.0),
+                (285966966530009.5 - 1j * 259085203357223.06),
+            ),
+            (
+                (-458495605638445.94 - 1j * 6501478008755004.0),
+                (950826754614684.4 + 1j * 1709069477589139.5),
+            ),
+            (
+                (-200096391057984.5 + 1j * 0.0),
+                (868238077367508.6 + 1j * 0.0),
+            ),
+            (
+                (-18638609734.40867 + 1j * 0.0),
+                (1.033846354957434e18 + 1j * 0.0),
+            ),
+            (
+                (-74449645789281.8 + 1j * 0.0),
+                (-1.0335652795499411e18 + 1j * 0.0),
+            ),
+        ],
+        frequency_range=(24179892422719.273, 1208994621135963.5),
+    ),
+    reference=[material_refs["Rakic1998"]],
+    data_url="https://refractiveindex.info/data_csv.php?datafile=database/data-nk/"
+    "main/Ag/Rakic-BB.yml",
+)
+
+Ag_Rakic1998BB_IR = VariantItem(
+    medium=PoleResidue(
+        name="Ag_Rakic1998BB_IR",
         eps_inf=2.080628548409516,
         poles=[
             (
@@ -273,7 +462,7 @@ Ag_Rakic1998BB = VariantItem(
                 (936046890626063.0 + 1j * 1966533189396127.8),
             ),
         ],
-        frequency_range=(24179892422719.273, 1208994621135963.5),
+        frequency_range=(24179892422719.273, 214137470000000.0),
     ),
     reference=[material_refs["Rakic1998"]],
     data_url="https://refractiveindex.info/data_csv.php?datafile=database/data-nk/"
@@ -364,20 +553,24 @@ Al_Rakic1995 = VariantItem(
         eps_inf=1.0,
         poles=[
             (
-                (-176076476399307.25 - 1j * 0.0),
-                (-2.0497198166085053e17 - 1j * 0.0),
+                (-3478273083283395.0 - 1j * 2663678407664229.5),
+                (-1.7387584269061222e16 - 1j * 4351056211589479.5),
             ),
             (
-                (-55958309702844.36 - 1j * 0.0),
-                (-1.9328759376610138e18 - 1j * 0.0),
+                (-357768743237230.5 - 1j * 2218498642414248.8),
+                (9464952935418408.0 + 1j * 1.0850783579943464e16),
             ),
             (
-                (-32886941985772.406 - 1j * 0.0),
-                (2.985600009810314e17 - 1j * 0.0),
+                (-242766411045799.88 - 1j * 1820240789275247.2),
+                (-1362328161533225.2 + 1j * 1583869480765488.2),
             ),
             (
-                (-836904963.7321033 - 1j * 0.0),
-                (1.9664479588602982e18 - 1j * 0.0),
+                (-8704513168412.099 - 1j * 0.0),
+                (1.2660614263809472e18 - 1j * 0.0),
+            ),
+            (
+                (-160944103454154.38 - 1j * 0.0),
+                (-1.2565462108051812e18 - 1j * 0.0),
             ),
         ],
         frequency_range=(151926744799612.75, 1.5192674479961274e16),
@@ -500,6 +693,39 @@ Aminoacid_Horiba = VariantItem(
 Au_Olmon2012evaporated = VariantItem(
     medium=PoleResidue(
         name="Au_Olmon2012evaporated",
+        eps_inf=1.0,
+        poles=[
+            (
+                (-1520562960691848.0 - 1j * 3928154716170055.0),
+                (1.1174011615554154e16 + 1j * 1251700157597656.8),
+            ),
+            (
+                (-1507358279340936.5 + 1j * 0.0),
+                (3408362175303679.0 + 1j * 0.0),
+            ),
+            (
+                (-44944854555.44156 - 1j * 104969866980268.64),
+                (-1875596504315.7332 - 1j * 2796754031259.1025),
+            ),
+            (
+                (-85925833547817.62 + 1j * 0.0),
+                (-7.855548809693609e17 + 1j * 0.0),
+            ),
+            (
+                (-190719132146.27554 - 1j * 2277191501416.505),
+                (7.852261343792833e17 + 1j * 8.554273616444449e18),
+            ),
+        ],
+        frequency_range=(12025369359446.29, 999308193769986.8),
+    ),
+    reference=[material_refs["Olmon2012"]],
+    data_url="https://refractiveindex.info/data_csv.php?datafile=database/data-nk/"
+    "main/Au/Olmon-ev.yml",
+)
+
+Au_Olmon2012evaporated_IR = VariantItem(
+    medium=PoleResidue(
+        name="Au_Olmon2012evaporated_IR",
         eps_inf=5.632132676065586,
         poles=(
             (
@@ -515,7 +741,7 @@ Au_Olmon2012evaporated = VariantItem(
                 (895004078070708.5 + 5.346045584373232e18j),
             ),
         ),
-        frequency_range=(12025369359446.29, 999308193769986.8),
+        frequency_range=(12025369359446.29, 85654988000000.0),
     ),
     reference=[material_refs["Olmon2012"]],
     data_url="https://refractiveindex.info/data_csv.php?datafile=database/data-nk/"
@@ -671,6 +897,51 @@ Be_Rakic1998BB = VariantItem(
         eps_inf=1.0,
         poles=[
             (
+                (-4793730492700408.0 - 1j * 5850528104977031.0),
+                (-4.2135306149588344e16 + 1j * 3.4517986755194536e16),
+            ),
+            (
+                (-3524988896441455.5 - 1j * 0.0),
+                (2.6127316531938252e16 - 1j * 0.0),
+            ),
+            (
+                (-982200146551476.4 - 1j * 0.0),
+                (5522570243163596.0 - 1j * 0.0),
+            ),
+            (
+                (-10935721489917.447 - 1j * 58713070368029.39),
+                (16347856591442.65 + 1j * 6140980155310.667),
+            ),
+            (
+                (-15335088367.172012 - 1j * 0.0),
+                (6.053398252993956e17 - 1j * 0.0),
+            ),
+            (
+                (-54087838046595.13 - 1j * 0.0),
+                (-6.790592340263299e17 - 1j * 0.0),
+            ),
+            (
+                (-61355594698420.5 - 1j * 0.0),
+                (8.1642489720691e16 - 1j * 0.0),
+            ),
+            (
+                (-306968735452312.44 - 1j * 0.0),
+                (2633724857568732.0 - 1j * 0.0),
+            ),
+        ],
+        frequency_range=(4835978484543.8545, 1208994621135963.5),
+    ),
+    reference=[material_refs["Rakic1998"]],
+    data_url="https://refractiveindex.info/data_csv.php?datafile=database/data-nk/"
+    "main/Be/Rakic-BB.yml",
+)
+
+Be_Rakic1998BB_IR = VariantItem(
+    medium=PoleResidue(
+        name="Be_Rakic1998BB_IR",
+        eps_inf=1.0,
+        poles=[
+            (
                 (-1737739552967275.2 - 1j * 0.0),
                 (2.3924381023090224e16 - 1j * 0.0),
             ),
@@ -687,7 +958,7 @@ Be_Rakic1998BB = VariantItem(
                 (6.055916356024831e17 - 1j * 0.0),
             ),
         ],
-        frequency_range=(4835978484543.8545, 1208994621135963.5),
+        frequency_range=(4835978484543.8545, 299792458000000.0),
     ),
     reference=[material_refs["Rakic1998"]],
     data_url="https://refractiveindex.info/data_csv.php?datafile=database/data-nk/"
@@ -743,6 +1014,43 @@ Cr_Rakic1998BB = VariantItem(
         eps_inf=1.0,
         poles=[
             (
+                (-1.7008332048761648e16 - 1j * 0.0),
+                (-2933671096810391.0 - 1j * 0.0),
+            ),
+            (
+                (-2005256053898001.5 - 1j * 2381844289356685.0),
+                (-9650588319181022.0 + 1j * 5.668939669664152e16),
+            ),
+            (
+                (-220104169827627.3 - 1j * 0.0),
+                (3249240187754787.0 - 1j * 0.0),
+            ),
+            (
+                (-5697781842.205581 - 1j * 0.0),
+                (2.8278212440731635e17 - 1j * 0.0),
+            ),
+            (
+                (-21648484807783.637 - 1j * 0.0),
+                (4446929285969332.0 - 1j * 0.0),
+            ),
+            (
+                (-73023335173331.34 - 1j * 0.0),
+                (-2.7744487842401034e17 - 1j * 0.0),
+            ),
+        ],
+        frequency_range=(4835362227919.29, 1208840556979822.5),
+    ),
+    reference=[material_refs["Rakic1998"]],
+    data_url="https://refractiveindex.info/data_csv.php?datafile=database/data-nk/"
+    "main/Cr/Rakic-BB.yml",
+)
+
+Cr_Rakic1998BB_IR = VariantItem(
+    medium=PoleResidue(
+        name="Cr_Rakic1998BB_IR",
+        eps_inf=1.0,
+        poles=[
+            (
                 (-73056488139432.73 - 1j * 0.0),
                 (-2.7457982793225763e17 - 1j * 0.0),
             ),
@@ -755,7 +1063,7 @@ Cr_Rakic1998BB = VariantItem(
                 (5846984237158586.0 + 1j * 9.545555973191486e16),
             ),
         ],
-        frequency_range=(4835362227919.29, 1208840556979822.5),
+        frequency_range=(4835362227919.29, 93685143125000.0),
     ),
     reference=[material_refs["Rakic1998"]],
     data_url="https://refractiveindex.info/data_csv.php?datafile=database/data-nk/"
@@ -926,9 +1234,28 @@ GaAs_Palik_Lossy = VariantItem(
     reference=[material_refs["Palik_Lossy"]],
 )
 
-GaAs_Palik_Lossless = VariantItem(
+GaAs_Palik_NoLoss = VariantItem(
     medium=PoleResidue(
-        name="GaAs_Palik_Lossless",
+        name="GaAs_Palik_NoLoss",
+        eps_inf=1.0,
+        poles=[
+            (
+                (0.0 + 1j * 333524452168.78815),
+                (0.0 - 1j * 6392996319943263.0),
+            ),
+            (
+                (0.0 + 1j * 5350121052897750.0),
+                (0.0 - 1j * 2.6358366870929732e16),
+            ),
+        ],
+        frequency_range=(44087126176470.59, 272538598181818.16),
+    ),
+    reference=[material_refs["Palik_NoLoss"]],
+)
+
+GaAs_Palik_LowLoss = VariantItem(
+    medium=PoleResidue(
+        name="GaAs_Palik_LowLoss",
         eps_inf=1.2402134414081076,
         poles=[
             (
@@ -942,7 +1269,7 @@ GaAs_Palik_Lossless = VariantItem(
         ],
         frequency_range=(9993081933333.334, 272538598181818.16),
     ),
-    reference=[material_refs["Palik_Lossless"]],
+    reference=[material_refs["Palik_LowLoss"]],
 )
 
 Ge_Icenogle1976 = VariantItem(
@@ -960,9 +1287,24 @@ Ge_Icenogle1976 = VariantItem(
     "main/Ge/Icenogle.yml",
 )
 
-Ge_Palik_Lossless = VariantItem(
+Ge_Palik_NoLoss = VariantItem(
     medium=PoleResidue(
-        name="Ge_Palik_Lossless",
+        name="Ge_Palik_NoLoss",
+        eps_inf=1.0,
+        poles=[
+            (
+                (0.0 + 1j * 4000960662304286.5),
+                (0.0 - 1j * 3.0004708993106404e16),
+            ),
+        ],
+        frequency_range=(20675341931034.484, 149896229000000.0),
+    ),
+    reference=[material_refs["Palik_NoLoss"]],
+)
+
+Ge_Palik_LowLoss = VariantItem(
+    medium=PoleResidue(
+        name="Ge_Palik_LowLoss",
         eps_inf=1.0,
         poles=[
             (
@@ -972,7 +1314,7 @@ Ge_Palik_Lossless = VariantItem(
         ],
         frequency_range=(14989622900000.0, 249827048333333.34),
     ),
-    reference=[material_refs["Palik_Lossless"]],
+    reference=[material_refs["Palik_LowLoss"]],
 )
 
 Ge_Palik_Lossy = VariantItem(
@@ -1190,9 +1532,9 @@ InP_Palik_Lossy = VariantItem(
     ],
 )
 
-InP_Palik_Lossless = VariantItem(
+InP_Palik_LowLoss = VariantItem(
     medium=PoleResidue(
-        name="InP_Palik_Lossless",
+        name="InP_Palik_LowLoss",
         eps_inf=1.0,
         poles=[
             (
@@ -1203,7 +1545,7 @@ InP_Palik_Lossless = VariantItem(
         frequency_range=(29979245800000.0, 322357481720430.06),
     ),
     reference=[
-        material_refs["Palik_Lossless"],
+        material_refs["Palik_LowLoss"],
     ],
 )
 
@@ -1496,16 +1838,24 @@ Pt_Werner2009 = VariantItem(
         eps_inf=1.0,
         poles=[
             (
-                (-9288886703545810.0 - 1j * 1.9809701816539028e16),
-                (-2559720539992317.0 + 1j * 2.619854823299511e16),
+                (-7275744144059393.0 - 1j * 9955657528822276.0),
+                (1.4662671453199282e16 + 1j * 2.984423192519277e16),
             ),
             (
-                (-113303296165008.06 - 1j * 132666543091888.84),
-                (5059991338597539.0 + 1j * 1.459321906232765e18),
+                (-970134238553685.2 - 1j * 6795364286984015.0),
+                (-217022068099918.25 + 1j * 2348231691221299.0),
             ),
             (
-                (-525913270217765.06 - 1j * 4665172268701287.0),
-                (4280438237239983.5 + 1j * 1882099733932914.8),
+                (-588183430601066.2 - 1j * 5374967881680110.0),
+                (-486571495902717.4 + 1j * 3447358361444697.0),
+            ),
+            (
+                (-2600194242881.716 + 1j * 0.0),
+                (8.307089446211048e17 + 1j * 0.0),
+            ),
+            (
+                (-250977399463139.06 + 1j * 0.0),
+                (-8.305157912555209e17 + 1j * 0.0),
             ),
         ],
         frequency_range=(120884055879414.03, 2997924585809468.0),
@@ -1641,9 +1991,28 @@ SiO2_Horiba = VariantItem(
     reference=[material_refs["Horiba"]],
 )
 
-SiO2_Palik_Lossless = VariantItem(
+SiO2_Palik_NoLoss = VariantItem(
     medium=PoleResidue(
-        name="SiO2_Palik_Lossless",
+        name="SiO2_Palik_NoLoss",
+        eps_inf=1.0,
+        poles=[
+            (
+                (0.0 + 1j * 184980080369957.72),
+                (0.0 - 1j * 88758428582369.77),
+            ),
+            (
+                (0.0 + 1j * 2.1152615798545252e16),
+                (0.0 - 1j * 1.167984925219996e16),
+            ),
+        ],
+        frequency_range=(59958491600000.0, 545077196363636.4),
+    ),
+    reference=[material_refs["Palik_NoLoss"]],
+)
+
+SiO2_Palik_LowLoss = VariantItem(
+    medium=PoleResidue(
+        name="SiO2_Palik_LowLoss",
         eps_inf=1.5385442336875639,
         poles=[
             (
@@ -1657,7 +2026,7 @@ SiO2_Palik_Lossless = VariantItem(
         ],
         frequency_range=(59958491600000.0, 1998616386666666.8),
     ),
-    reference=[material_refs["Palik_Lossless"]],
+    reference=[material_refs["Palik_LowLoss"]],
 )
 
 SiO2_Palik_Lossy = VariantItem(
@@ -1719,19 +2088,31 @@ Ta2O5_Horiba = VariantItem(
 Ti_Werner2009 = VariantItem(
     medium=PoleResidue(
         name="Ti_Werner2009",
-        eps_inf=1.0,
+        eps_inf=1.1169666751532588,
         poles=[
             (
-                (-1316659173032264.2 - 1j * 4853426451943540.0),
-                (6846803510207887.0 + 1j * 3451315459947241.5),
+                (-7499149193091210.0 - 1j * 1.2408737021591132e16),
+                (2094198081127931.8 + 1j * 1.623942919672785e16),
             ),
             (
-                (-234898849175817.28 - 1j * 1643952885872075.5),
-                (-1039094910406333.4 + 1j * 2786587583155544.5),
+                (-2354831105417196.0 - 1j * 8085421034651400.0),
+                (-140823625142081.7 + 1j * 5567280255011079.0),
             ),
             (
-                (-9631968003009.37 - 1j * 107553157768951.47),
-                (5856843593653923.0 + 1j * 1.1954179403843133e18),
+                (-920843403539743.6 - 1j * 5513453042989389.0),
+                (-28870755188206.27 + 1j * 4663773279612380.0),
+            ),
+            (
+                (-2211596411771.0137 + 1j * 0.0),
+                (3.6436335858752307e18 + 1j * 0.0),
+            ),
+            (
+                (-38985398241158.02 + 1j * 0.0),
+                (-3.643594667795836e18 + 1j * 0.0),
+            ),
+            (
+                (-379374981045792.8 - 1j * 1471699416157019.0),
+                (-9274224477696.99 + 1j * 6138254498624140.0),
             ),
         ],
         frequency_range=(120884055879414.03, 2997924585809468.0),
@@ -2044,9 +2425,24 @@ cSi_PalikLossy = VariantItem(
     reference=[material_refs["Palik_Lossy"]],
 )
 
-cSi_PalikLossless = VariantItem(
+cSi_PalikNoLoss = VariantItem(
     medium=PoleResidue(
-        name="cSi_PalikLossless",
+        name="cSi_PalikNoLoss",
+        eps_inf=1.0,
+        poles=[
+            (
+                (0.0 - 1j * 6445155000140348.0),
+                (0.0 + 1j * 3.4470730496439236e16),
+            ),
+        ],
+        frequency_range=(49965409666666.664, 249827048333333.34),
+    ),
+    reference=[material_refs["Palik_NoLoss"]],
+)
+
+cSi_PalikLowLoss = VariantItem(
+    medium=PoleResidue(
+        name="cSi_PalikLowLoss",
         eps_inf=1.0,
         poles=[
             (
@@ -2056,12 +2452,12 @@ cSi_PalikLossless = VariantItem(
         ],
         frequency_range=(1199169832000.0, 249827048333333.34),
     ),
-    reference=[material_refs["Palik_Lossless"]],
+    reference=[material_refs["Palik_LowLoss"]],
 )
 
 cSi_MultiPhysics = VariantItem(
     medium=MultiPhysicsMedium(
-        optical=cSi_Green2008.medium,
+        optical=cSi_PalikLowLoss.medium,
         charge=SemiconductorMedium(
             permittivity=11.7,
             N_c=ConstantEffectiveDOS(N=2.86e19),
@@ -2100,9 +2496,7 @@ cSi_MultiPhysics = VariantItem(
             ),
         ),
     ),
-    reference=[material_refs["Green2008"]],
-    data_url="https://refractiveindex.info/data_csv.php?datafile=database/data-nk/"
-    "main/Si/Green-2008.yml",
+    reference=[material_refs["Palik_LowLoss"]],
 )
 
 
@@ -2122,6 +2516,7 @@ material_library = MaterialLibrary(
         name="Silver",
         variants={
             "Rakic1998BB": Ag_Rakic1998BB,
+            "Rakic1998BB_IR": Ag_Rakic1998BB_IR,
             "JohnsonChristy1972": Ag_JohnsonChristy1972,
             "RakicLorentzDrude1998": Ag_RakicLorentzDrude1998,
             "Yang2015Drude": Ag_Yang2015Drude,
@@ -2185,6 +2580,7 @@ material_library = MaterialLibrary(
             "Olmon2012crystal": Au_Olmon2012crystal,
             "Olmon2012stripped": Au_Olmon2012stripped,
             "Olmon2012evaporated": Au_Olmon2012evaporated,
+            "Olmon2012evaporated_IR": Au_Olmon2012evaporated_IR,
             "Olmon2012Drude": Au_Olmon2012Drude,
             "JohnsonChristy1972": Au_JohnsonChristy1972,
             "RakicLorentzDrude1998": Au_RakicLorentzDrude1998,
@@ -2202,6 +2598,7 @@ material_library = MaterialLibrary(
         name="Beryllium",
         variants={
             "Rakic1998BB": Be_Rakic1998BB,
+            "Rakic1998BB_IR": Be_Rakic1998BB_IR,
             "RakicLorentzDrude1998": Be_RakicLorentzDrude1998,
         },
         default="Rakic1998BB",
@@ -2224,6 +2621,7 @@ material_library = MaterialLibrary(
         name="Chromium",
         variants={
             "Rakic1998BB": Cr_Rakic1998BB,
+            "Rakic1998BB_IR": Cr_Rakic1998BB_IR,
             "RakicLorentzDrude1998": Cr_RakicLorentzDrude1998,
         },
         default="Rakic1998BB",
@@ -2245,24 +2643,30 @@ material_library = MaterialLibrary(
         },
         default="ZemaxPMLStable",
     ),
-    GaAs=MaterialItem(
-        name="Gallium Arsenide",
-        variants={
-            "Palik_Lossless": GaAs_Palik_Lossless,
-            "Palik_Lossy": GaAs_Palik_Lossy,
-            "Skauli2003": GaAs_Skauli2003,
-        },
-        default="Skauli2003",
+    GaAs=_with_palik_lossless_alias(
+        MaterialItem(
+            name="Gallium Arsenide",
+            variants={
+                "Palik_NoLoss": GaAs_Palik_NoLoss,
+                "Palik_LowLoss": GaAs_Palik_LowLoss,
+                "Palik_Lossy": GaAs_Palik_Lossy,
+                "Skauli2003": GaAs_Skauli2003,
+            },
+            default="Skauli2003",
+        )
     ),
-    Ge=MaterialItem(
-        name="Germanium",
-        variants={
-            "Palik_Lossless": Ge_Palik_Lossless,
-            "Palik_Lossy": Ge_Palik_Lossy,
-            "Icenogle1976": Ge_Icenogle1976,
-            "Nunley": Ge_Nunley,
-        },
-        default="Icenogle1976",
+    Ge=_with_palik_lossless_alias(
+        MaterialItem(
+            name="Germanium",
+            variants={
+                "Palik_NoLoss": Ge_Palik_NoLoss,
+                "Palik_LowLoss": Ge_Palik_LowLoss,
+                "Palik_Lossy": Ge_Palik_Lossy,
+                "Icenogle1976": Ge_Icenogle1976,
+                "Nunley": Ge_Nunley,
+            },
+            default="Icenogle1976",
+        )
     ),
     GeOx=MaterialItem(
         name="Germanium Oxide",
@@ -2306,14 +2710,16 @@ material_library = MaterialLibrary(
         },
         default="Palik",
     ),
-    InP=MaterialItem(
-        name="Indium Phosphide",
-        variants={
-            "Palik_Lossless": InP_Palik_Lossless,
-            "Palik_Lossy": InP_Palik_Lossy,
-            "Pettit1965": InP_Pettit1965,
-        },
-        default="Pettit1965",
+    InP=_with_palik_lossless_alias(
+        MaterialItem(
+            name="Indium Phosphide",
+            variants={
+                "Palik_LowLoss": InP_Palik_LowLoss,
+                "Palik_Lossy": InP_Palik_Lossy,
+                "Pettit1965": InP_Pettit1965,
+            },
+            default="Pettit1965",
+        )
     ),
     MgF2=MaterialItem(
         name="Magnesium Fluoride",
@@ -2456,14 +2862,17 @@ material_library = MaterialLibrary(
         },
         default="Horiba",
     ),
-    SiO2=MaterialItem(
-        name="Silicon Dioxide",
-        variants={
-            "Palik_Lossless": SiO2_Palik_Lossless,
-            "Palik_Lossy": SiO2_Palik_Lossy,
-            "Horiba": SiO2_Horiba,
-        },
-        default="Palik_Lossless",
+    SiO2=_with_palik_lossless_alias(
+        MaterialItem(
+            name="Silicon Dioxide",
+            variants={
+                "Palik_NoLoss": SiO2_Palik_NoLoss,
+                "Palik_LowLoss": SiO2_Palik_LowLoss,
+                "Palik_Lossy": SiO2_Palik_Lossy,
+                "Horiba": SiO2_Horiba,
+            },
+            default="Palik_LowLoss",
+        )
     ),
     SiON=MaterialItem(
         name="Silicon Oxynitride",
@@ -2546,18 +2955,21 @@ material_library = MaterialLibrary(
         },
         default="Horiba",
     ),
-    cSi=MaterialItem(
-        name="Silicon (Crystalline)",
-        variants={
-            "Palik_Lossless": cSi_PalikLossless,
-            "Palik_Lossy": cSi_PalikLossy,
-            "SalzbergVilla1957": cSi_SalzbergVilla1957,
-            "Li1993_293K": cSi_Li1993_293K,
-            "Green2008": cSi_Green2008,
-            "Green2008_Lossless": cSi_Green2008Lossless,
-            "Si_MultiPhysics": cSi_MultiPhysics,
-        },
-        default="Green2008",
+    cSi=_with_palik_lossless_alias(
+        MaterialItem(
+            name="Silicon (Crystalline)",
+            variants={
+                "Palik_NoLoss": cSi_PalikNoLoss,
+                "Palik_LowLoss": cSi_PalikLowLoss,
+                "Palik_Lossy": cSi_PalikLossy,
+                "SalzbergVilla1957": cSi_SalzbergVilla1957,
+                "Li1993_293K": cSi_Li1993_293K,
+                "Green2008": cSi_Green2008,
+                "Green2008_Lossless": cSi_Green2008Lossless,
+                "Si_MultiPhysics": cSi_MultiPhysics,
+            },
+            default="Palik_LowLoss",
+        )
     ),
     LiNbO3=MaterialItemUniaxial(
         name="Lithium niobate",

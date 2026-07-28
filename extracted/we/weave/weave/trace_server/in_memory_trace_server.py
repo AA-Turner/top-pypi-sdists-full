@@ -476,6 +476,15 @@ def _ch_position(haystack: Any, needle: Any, case_insensitive: bool) -> bool:
     return needle in haystack
 
 
+def _ch_size(value: Any) -> int | None:
+    """Mirror ClickHouse length() for query values supported by the DSL."""
+    if value is None:
+        return None
+    if isinstance(value, (str, bytes, list, tuple, dict)):
+        return len(value)
+    raise TypeError(f"Cannot apply $size to {type(value).__name__}")
+
+
 def _ch_sorted_by_terms(
     rows: list[Any],
     terms: Sequence[tuple[Any, str]],
@@ -1005,6 +1014,8 @@ class _QueryFilterEvaluator:
             if operand.convert_.to == "exists":
                 return inner is not None
             return _ch_cast_json_value(_ch_to_string(inner), operand.convert_.to)
+        if isinstance(operand, tsi_query.SizeOperation):
+            return _ch_size(self._operand_value(operand.size_))
         return self._evaluate(operand)
 
     def _binary(
@@ -1077,6 +1088,7 @@ class _QueryFilterEvaluator:
                 tsi_query.LiteralOperation,
                 tsi_query.GetFieldOperator,
                 tsi_query.ConvertOperation,
+                tsi_query.SizeOperation,
             ),
         ):
             return self._operand_value(operand)
@@ -2059,6 +2071,9 @@ class InMemoryTraceServer(tsi.FullTraceServerInterface):
                     else _ch_to_string(inner(rec)),
                     convert_to,
                 )
+            elif isinstance(operand, tsi_query.SizeOperation):
+                inner = compile_operand(operand.size_)
+                return lambda rec: _ch_size(inner(rec))
             elif isinstance(
                 operand,
                 (
@@ -3788,6 +3803,17 @@ class InMemoryTraceServer(tsi.FullTraceServerInterface):
     def feedback_query(self, req: tsi.FeedbackQueryReq) -> tsi.FeedbackQueryRes:
         with self.lock:
             rows = list(self._feedback)
+        count_result = _orm_select(
+            TABLE_FEEDBACK,
+            rows,
+            project_id=req.project_id,
+            fields=["count(*)"],
+            query=req.query,
+            sort_by=None,
+            limit=None,
+            offset=None,
+        )
+        total_count = int(count_result[0]["count(*)"])
         result = _orm_select(
             TABLE_FEEDBACK,
             rows,
@@ -3798,7 +3824,7 @@ class InMemoryTraceServer(tsi.FullTraceServerInterface):
             limit=req.limit,
             offset=req.offset,
         )
-        return tsi.FeedbackQueryRes(result=result)
+        return tsi.FeedbackQueryRes(result=result, total_count=total_count)
 
     def feedback_purge(self, req: tsi.FeedbackPurgeReq) -> tsi.FeedbackPurgeRes:
         validate_feedback_purge_req(req)
@@ -4133,6 +4159,8 @@ class InMemoryTraceServer(tsi.FullTraceServerInterface):
                     ),
                     "prompt_token_cost": cost.prompt_token_cost,
                     "completion_token_cost": cost.completion_token_cost,
+                    "cache_read_input_token_cost": cost.cache_read_input_token_cost,
+                    "cache_creation_input_token_cost": cost.cache_creation_input_token_cost,
                     "prompt_token_cost_unit": cost.prompt_token_cost_unit or "USD",
                     "completion_token_cost_unit": cost.completion_token_cost_unit
                     or "USD",
@@ -6832,8 +6860,17 @@ class InMemoryTraceServer(tsi.FullTraceServerInterface):
             )
             eval_helpers.resolve_eval_inputs(all_calls, eval_root_ids, reader)
         if not req.filters and not req.sort_by:
-            return eval_helpers.eval_results_query(self, req, eval_root_ids, all_calls)
-        return self._eval_results_query_sorted_filtered(req, eval_root_ids, all_calls)
+            result = eval_helpers.eval_results_query(
+                self, req, eval_root_ids, all_calls
+            )
+        else:
+            result = self._eval_results_query_sorted_filtered(
+                req, eval_root_ids, all_calls
+            )
+        result.warnings.extend(
+            eval_helpers.hydrate_eval_agent_span_refs(self, req.project_id, result.rows)
+        )
+        return result
 
     @staticmethod
     def _eval_row_field_values(
@@ -7270,6 +7307,8 @@ def _orm_eval_query(table: Table, row: dict[str, Any], query: tsi.Query) -> Any:
             if convert_to == "exists":
                 return value is not None
             return _ch_cast_json_value(_ch_to_string(value), convert_to)
+        elif isinstance(operand, tsi_query.SizeOperation):
+            return _ch_size(process_operand(operand.size_))
         elif isinstance(
             operand,
             (

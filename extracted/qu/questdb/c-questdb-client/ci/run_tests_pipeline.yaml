@@ -31,48 +31,163 @@ stages:
               imageName: "ubuntu-latest"
               poolName: "Azure Pipelines"
               toolchain: "nightly"
-            mac:
-              imageName: "macos-latest"
-              poolName: "Azure Pipelines"
-            windows-msvc-2022:
-              imageName: "windows-2022"
-              poolName: "Azure Pipelines"
-            windows-msvc-2019:
-              imageName: "windows-2019"
-              poolName: "Azure Pipelines"
         pool:
           name: $(poolName)
           vmImage: $(imageName)
-        timeoutInMinutes: 60
+        timeoutInMinutes: 90
         steps:
           - checkout: self
             fetchDepth: 1
             lfs: false
             submodules: false
-          - template: compile.yaml
+          - template: templates/compile.yaml
+            parameters:
+              cxx20Variants: true
           - script: |
               cd questdb-rs
-              cargo build --examples --features almost-all-features
+              cargo build --examples --features almost-all-features,arrow,polars
+            condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
             displayName: "Build Rust examples"
-          ############################# temp for test begin #####################
-          #- script: |
-          #    git clone --depth 1 https://github.com/questdb/questdb.git ./questdb
-          #  displayName: git clone questdb
-          #- task: Maven@3
-          #  displayName: "Compile QuestDB"
-          #  inputs:
-          #    mavenPOMFile: "questdb/pom.xml"
-          #    jdkVersionOption: "1.17"
-          #    options: "-DskipTests -Pbuild-web-console"
-          ############################# temp for test end #####################
-          - script: python3 ci/run_all_tests.py
+          - script: python3 ci/run_all_tests.py unit
             env:
-              JAVA_HOME: $(JAVA_HOME_17_X64)
-            displayName: "Tests"
+              JAVA_HOME: $(JAVA_HOME_25_X64)
+            displayName: "Unit tests"
+          # Build QuestDB master for run_all_tests.py's `--repo ./questdb`.
+          # Keep source-checkout coverage after QWP ships; add a separate
+          # `--versions` gate for the exact QuestDB 10.0 release artifact.
+          - template: templates/clone_questdb.yaml
+          - task: Maven@3
+            displayName: "Compile QuestDB"
+            inputs:
+              mavenPOMFile: "questdb/pom.xml"
+              javaHomeOption: "Path"
+              jdkDirectory: "$(JAVA_HOME_25_X64)"
+              options: "-DskipTests -Pbuild-web-console$(CLIENT_PROFILE)"
+          - script: python3 ci/run_all_tests.py integration
+            env:
+              JAVA_HOME: $(JAVA_HOME_25_X64)
+            displayName: "Integration tests"
           # - task: PublishBuildArtifacts@1
           #   inputs:
           #     pathToPublish: ./build
           #   displayName: "Publish build directory"
+      # mac/windows: run cargo vs native (build + C++ + integration) as two
+      # parallel jobs to cut the slow legs' wall-clock. linux stays in RunOn.
+      - job: RustTests
+        displayName: "cargo tests (mac/windows)"
+        strategy:
+          matrix:
+            mac:
+              imageName: "macos-latest"
+            windows-msvc-2022:
+              imageName: "windows-2022"
+            windows-msvc-2025:
+              imageName: "windows-2025"
+        pool:
+          vmImage: $(imageName)
+        timeoutInMinutes: 90
+        steps:
+          - checkout: self
+            fetchDepth: 1
+            lfs: false
+            submodules: false
+          - script: python3 ci/run_all_tests.py cargo
+            displayName: "cargo tests"
+      - job: NativeTests
+        displayName: "build + C++ + integration (mac/windows)"
+        strategy:
+          matrix:
+            mac:
+              imageName: "macos-latest"
+            windows-msvc-2022:
+              imageName: "windows-2022"
+            windows-msvc-2025:
+              imageName: "windows-2025"
+        pool:
+          vmImage: $(imageName)
+        timeoutInMinutes: 90
+        steps:
+          - checkout: self
+            fetchDepth: 1
+            lfs: false
+            submodules: false
+          - template: templates/compile.yaml
+            parameters:
+              cxx20Variants: true
+          - script: python3 ci/run_all_tests.py cpp
+            displayName: "C++ tests"
+          # Build QuestDB master for run_all_tests.py's `--repo ./questdb`.
+          - template: templates/clone_questdb.yaml
+          - task: Maven@3
+            displayName: "Compile QuestDB"
+            inputs:
+              mavenPOMFile: "questdb/pom.xml"
+              javaHomeOption: "Path"
+              jdkDirectory: "$(JAVA_HOME_25_X64)"
+              options: "-DskipTests -Pbuild-web-console$(CLIENT_PROFILE)"
+          - script: python3 ci/run_all_tests.py integration
+            env:
+              JAVA_HOME: $(JAVA_HOME_25_X64)
+            displayName: "Integration tests"
+          - task: ArchiveFiles@2
+            displayName: "Compress QuestDB server log on failure"
+            condition: failed()
+            continueOnError: true
+            inputs:
+              rootFolderOrFile: >-
+                $(Build.SourcesDirectory)/build/questdb/repo/data/log
+              includeRootFolder: false
+              archiveType: zip
+              archiveFile: >-
+                $(Build.ArtifactStagingDirectory)/qdb-log-native-$(imageName).zip
+              quiet: true
+          - task: PublishBuildArtifacts@1
+            displayName: "Publish QuestDB server log on failure"
+            condition: failed()
+            continueOnError: true
+            inputs:
+              pathToPublish: >-
+                $(Build.ArtifactStagingDirectory)/qdb-log-native-$(imageName).zip
+              artifactName: qdb-log-native-$(imageName)
+      - job: VersionMatrix
+        displayName: "arrow/polars version-range tests (linux)"
+        pool:
+          vmImage: "ubuntu-latest"
+        timeoutInMinutes: 90
+        steps:
+          - checkout: self
+            fetchDepth: 1
+            lfs: false
+            submodules: false
+          - script: python3 ci/run_version_matrix.py
+            displayName: "questdb-rs: pinned arrow/polars versions"
+      - job: RustMsrvAndDocs
+        displayName: "Rust MSRV and release documentation"
+        pool:
+          vmImage: "ubuntu-latest"
+        timeoutInMinutes: 45
+        steps:
+          - checkout: self
+            fetchDepth: 1
+            lfs: false
+            submodules: false
+          - script: rustup toolchain install 1.91.1 --profile minimal
+            displayName: "Install Rust 1.91.1"
+          - script: |
+              cargo +1.91.1 check --manifest-path questdb-rs/Cargo.toml
+              cargo +1.91.1 check --manifest-path questdb-rs/Cargo.toml \
+                --features almost-all-features,arrow,polars
+              cargo +1.91.1 check \
+                --manifest-path questdb-rs-ffi/Cargo.toml --all-features
+            displayName: "Check advertised features at the MSRV"
+          - script: |
+              cargo +1.91.1 doc --manifest-path questdb-rs/Cargo.toml \
+                --no-deps --features almost-all-features,arrow,polars
+            env:
+              RUSTDOCFLAGS: "-D warnings"
+            displayName: "Build docs.rs feature set with warnings denied"
+          - script: python3 ci/check_docs.py
+            displayName: "Check release documentation"
       - job: FormatAndLinting
         displayName: "cargo fmt and clippy"
         pool:
@@ -91,7 +206,13 @@ stages:
             displayName: "questdb-rs: fmt"
           - script: |
               cd questdb-rs
-              cargo clippy --all-targets --features almost-all-features -- -D warnings
+              # `live-server-tests` is included here so the live-server
+              # suite (egress_live_server*, egress_live_auth) is compiled
+              # and clippy-linted on every PR even though *running* it
+              # needs a real server. Without this the suite builds only in
+              # the live-server job and silently rots — removed APIs, new
+              # clippy lints — undetected.
+              cargo clippy --all-targets --features almost-all-features,live-server-tests -- -D warnings
             displayName: "questdb-rs: clippy"
           - script: |
               cd questdb-rs-ffi
@@ -114,8 +235,18 @@ stages:
               cd tls_proxy
               cargo clippy --all-targets --all-features -- -D warnings
             displayName: "tls_proxy: clippy"
-      - job: TestVsQuestDBMaster
-        displayName: "Vs QuestDB 'master'"
+          - script: |
+              cd system_test
+              cd failover_clients
+              cargo fmt --all -- --check
+            displayName: "failover_clients: fmt"
+          - script: |
+              cd system_test
+              cd failover_clients
+              cargo clippy --all-targets --all-features
+            displayName: "failover_clients: clippy"
+      - job: SanitizeCppTests
+        displayName: "C/C++ tests under ASan + UBSan"
         pool:
           vmImage: "ubuntu-latest"
         timeoutInMinutes: 60
@@ -124,16 +255,495 @@ stages:
             fetchDepth: 1
             lfs: false
             submodules: false
-          - template: compile.yaml
           - script: |
-              git clone --depth 1 https://github.com/questdb/questdb.git
-            displayName: git clone questdb
+              cmake -S . -B build_sanitize \
+                -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+                -DQUESTDB_TESTS_AND_EXAMPLES=ON \
+                -DQUESTDB_SANITIZE=ON
+            displayName: "Configure (ASan + UBSan)"
+          - script: cmake --build build_sanitize --config Release
+            displayName: "Build"
+          - script: ctest --output-on-failure -E rust_tests
+            workingDirectory: build_sanitize
+            displayName: "ctest under ASan + UBSan"
+      # Runs the full system_test/test.py against a fresh build of
+      # QuestDB master. Moved off Microsoft-hosted ubuntu-latest because
+      # the QWP/WS fuzz portion of the run filled the agent disk ("No
+      # space left", SIGBUS); the hetzner-incus pool — already used by
+      # TestQwpWsFuzzLinux below and by the cron-time fuzz pipeline —
+      # has enough headroom. Pool image is built from
+      # questdb/azure-ci-runners' roles/incus/files/provision.sh, which
+      # provides openjdk-17-jdk, openjdk-25-jdk, maven, build-essential,
+      # zip, curl, gh, and rustup. This job installs cmake and python3-pip,
+      # then uses pip for numpy>=2 before compile.yaml installs the standard
+      # Python dependencies, including pyarrow/polars, for non-macOS builds.
+      - job: TestVsQuestDBMaster
+        displayName: "Vs QuestDB master"
+        pool:
+          name: hetzner-incus
+        timeoutInMinutes: 90
+        variables:
+          imageName: hetzner-incus
+        steps:
+          - checkout: self
+            fetchDepth: 1
+            lfs: false
+            submodules: false
+          - bash: |
+              rm -rf /tmp/junit* /tmp/surefire-agent /tmp/libquestdbr* /tmp/libqdbsqllogic*
+            displayName: "Cleanup /tmp leftovers"
+          - bash: |
+              set -eux
+              sudo apt-get update
+              # Ubuntu 24.04's python3-numpy is 1.26 which caps NPY_MAXDIMS at 32;
+              # the >32-dim sender-rejection test (TestSender.test_f64_arr_max_dims)
+              # needs numpy >= 2.0 to construct the input array. Install numpy
+              # only via pip (apt would pull in 1.26 and pip refuses to replace
+              # debian-installed packages because the wheel RECORD file is
+              # missing). --break-system-packages overrides PEP 668.
+              sudo apt-get install -y --no-install-recommends cmake python3-pip
+              sudo python3 -m pip install --break-system-packages 'numpy>=2'
+              JAVA_PATH_17="/usr/lib/jvm/java-17-openjdk-amd64"
+              JAVA_PATH_25="/usr/lib/jvm/java-25-openjdk-amd64"
+              for p in "$JAVA_PATH_17" "$JAVA_PATH_25"; do
+                if [ ! -x "$p/bin/javac" ]; then
+                  echo "Expected JDK missing at $p" >&2
+                  ls /usr/lib/jvm/ >&2 || true
+                  exit 1
+                fi
+              done
+              # `set -x` traces `echo "##vso[...]VALUE"` as `+ echo
+              # '##vso[...]VALUE'`; Azure's stdout parser matches `##vso[`
+              # anywhere on the line and takes everything past `]` to EOL
+              # as the value, including the trailing `'` bash added.
+              # Disable trace just for these two echoes so JAVA_HOME does
+              # not end up as `/usr/lib/jvm/java-25-openjdk-amd64'`.
+              set +x
+              echo "##vso[task.setvariable variable=JAVA_HOME_17_X64]$JAVA_PATH_17"
+              echo "##vso[task.setvariable variable=JAVA_HOME]$JAVA_PATH_25"
+            displayName: "Install missing deps + resolve JDKs"
+          - bash: |
+              set -eux
+              # `|| true` lets the fallback path take over if the file
+              # references something the build user can't read (e.g.
+              # /etc/profile.d/rust.sh sources /root/.cargo/env).
+              if [ -f /etc/profile.d/rust.sh ]; then . /etc/profile.d/rust.sh || true; fi
+              if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env" || true; fi
+              if ! command -v cargo >/dev/null 2>&1; then
+                curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+                  | sh -s -- -y --default-toolchain stable --profile minimal
+                . "$HOME/.cargo/env"
+              fi
+              CARGO_BIN="$(dirname "$(command -v cargo)")"
+              echo "Using cargo from: $CARGO_BIN"
+              # See JAVA_HOME comment above re: `set -x` + `##vso[...]`.
+              set +x
+              echo "##vso[task.prependpath]$CARGO_BIN"
+            displayName: "Resolve Rust toolchain"
+          - template: templates/compile.yaml
+          - template: templates/clone_questdb.yaml
+          - template: templates/maven_settings.yaml
           - task: Maven@3
             displayName: "Compile QuestDB"
             inputs:
               mavenPOMFile: "questdb/pom.xml"
-              jdkVersionOption: "1.17"
-              options: "-DskipTests -Pbuild-web-console"
+              javaHomeOption: "Path"
+              jdkDirectory: "$(JAVA_HOME)"
+              options: "-s $(MAVEN_SETTINGS_FILE) -DskipTests -Pbuild-web-console$(CLIENT_PROFILE) $(MAVEN_RUN_OPTS)"
           - script: |
               python3 system_test/test.py run --repo ./questdb -v
             displayName: "integration test"
+          - script: |
+              python3 system_test/test_egress_failover.py run --repo ./questdb -v
+            displayName: "egress integration test"
+          - task: ArchiveFiles@2
+            displayName: "Compress QuestDB server log on failure"
+            condition: failed()
+            continueOnError: true
+            inputs:
+              rootFolderOrFile: $(Build.SourcesDirectory)/build/questdb/repo/data/log
+              includeRootFolder: false
+              archiveType: zip
+              archiveFile: $(Build.ArtifactStagingDirectory)/qdb-log-vs-master-$(Agent.OS).zip
+              quiet: true
+          - task: PublishBuildArtifacts@1
+            displayName: "Publish QuestDB server log on failure"
+            condition: failed()
+            continueOnError: true
+            inputs:
+              pathToPublish: $(Build.ArtifactStagingDirectory)/qdb-log-vs-master-$(Agent.OS).zip
+              artifactName: qdb-log-vs-master-$(Agent.OS)
+      - job: TestQwpWsFuzz
+        displayName: "QWP/WS fuzz suite (mac/windows hosted)"
+        strategy:
+          matrix:
+            mac:
+              imageName: "macos-latest"
+            windows-2022:
+              imageName: "windows-2022"
+        pool:
+          vmImage: $(imageName)
+        timeoutInMinutes: 90
+        steps:
+          - checkout: self
+            fetchDepth: 1
+            lfs: false
+            submodules: false
+          - template: templates/compile.yaml
+          # Linux and Windows runners ship with JDK 25 at $JAVA_HOME_25_X64.
+          # macOS-latest doesn't, so we brew-install openjdk@25 there and
+          # discover its install location with `brew --prefix`. Both
+          # paths set JAVA_HOME via a single bash step so the Windows
+          # version doesn't trip on cmd.exe's quote handling
+          # (`echo "##vso[...]$x"` in cmd preserves the surrounding
+          # quotes, which previously made Maven@3 see a stray `"` at
+          # the end of the JDK path).
+          - bash: |
+              set -e
+              if [[ "$AGENT_OS" == "Darwin" ]]; then
+                brew install openjdk@25
+                JDK_HOME="$(brew --prefix openjdk@25)/libexec/openjdk.jdk/Contents/Home"
+                if [ ! -d "$JDK_HOME" ]; then
+                  JDK_HOME="$(/usr/libexec/java_home -v 25 2>/dev/null || true)"
+                fi
+                if [ ! -d "$JDK_HOME" ]; then
+                  echo "JDK 25 not found after brew install" >&2
+                  exit 1
+                fi
+              else
+                JDK_HOME="$JAVA_HOME_25_X64"
+              fi
+              echo "Resolved JDK 25: $JDK_HOME"
+              echo "##vso[task.setvariable variable=JAVA_HOME]$JDK_HOME"
+            displayName: "Resolve JDK 25"
+          - template: templates/clone_questdb.yaml
+          - template: templates/maven_settings.yaml
+          - task: Maven@3
+            displayName: "Compile QuestDB"
+            inputs:
+              mavenPOMFile: "questdb/pom.xml"
+              javaHomeOption: "Path"
+              jdkDirectory: "$(JAVA_HOME)"
+              options: "-s $(MAVEN_SETTINGS_FILE) -DskipTests -Pbuild-web-console$(CLIENT_PROFILE) $(MAVEN_RUN_OPTS)"
+          - script: |
+              python3 system_test/test.py run --repo ./questdb TestQwpWsFuzz -v
+            displayName: "TestQwpWsFuzz"
+          - script: |
+              python3 system_test/test.py run --repo ./questdb TestArrowEgressFuzz TestArrowEgressPerKind TestArrowEgressEmpty TestArrowIngressFuzz TestArrowIngressPerKind TestArrowIngressDesignatedTs TestArrowIngressErrors TestArrowIngressMultiBatch TestArrowIngressExtraTypes TestArrowIngressUnsupportedTypes TestArrowIngressSfa TestArrowRoundTripFuzz TestArrowRoundTripPerKind TestArrowAlignment TestArrowPolarsFuzz TestArrowPolarsRoundTripPerKind TestArrowPolarsPerDtype -v
+            displayName: "TestArrowWsFuzz"
+          # Mirrors ci/run_fuzz_pipeline.yaml: on failure, archive and
+          # publish the QuestDB server log so PR reviewers don't have to
+          # repro locally. Path comes from system_test/fixture.py:_log_path.
+          - task: ArchiveFiles@2
+            displayName: "Compress QuestDB server log on failure"
+            condition: failed()
+            continueOnError: true
+            inputs:
+              rootFolderOrFile: $(Build.SourcesDirectory)/build/questdb/repo/data/log
+              includeRootFolder: false
+              archiveType: zip
+              archiveFile: $(Build.ArtifactStagingDirectory)/qdb-log-$(Agent.OS).zip
+              quiet: true
+          - task: PublishBuildArtifacts@1
+            displayName: "Publish QuestDB server log on failure"
+            condition: failed()
+            continueOnError: true
+            inputs:
+              pathToPublish: $(Build.ArtifactStagingDirectory)/qdb-log-$(Agent.OS).zip
+              artifactName: qdb-log-$(Agent.OS)
+
+      # Linux leg on self-hosted hetzner-incus — mirrors the equivalent
+      # job in ci/run_fuzz_pipeline.yaml. Pool image is built from
+      # questdb/azure-ci-runners' roles/incus/files/provision.sh, which
+      # provides openjdk-17-jdk, openjdk-25-jdk, maven, build-essential,
+      # zip, curl, gh, and rustup. The job installs cmake/python3-numpy/
+      # python3-pip plus pyarrow/polars explicitly so the Arrow system tests
+      # are available on the self-hosted image.
+      - job: TestQwpWsFuzzLinux
+        displayName: "QWP/WS fuzz suite (linux/hetzner-incus)"
+        pool:
+          name: hetzner-incus
+        timeoutInMinutes: 90
+        variables:
+          imageName: hetzner-incus
+        steps:
+          - checkout: self
+            fetchDepth: 1
+            lfs: false
+            submodules: false
+          - bash: |
+              rm -rf /tmp/junit* /tmp/surefire-agent /tmp/libquestdbr* /tmp/libqdbsqllogic*
+            displayName: "Cleanup /tmp leftovers"
+          - bash: |
+              set -eux
+              sudo apt-get update
+              sudo apt-get install -y --no-install-recommends cmake python3-numpy python3-pip
+              sudo python3 -m pip install --break-system-packages pyarrow polars
+              JAVA_PATH_17="/usr/lib/jvm/java-17-openjdk-amd64"
+              JAVA_PATH_25="/usr/lib/jvm/java-25-openjdk-amd64"
+              for p in "$JAVA_PATH_17" "$JAVA_PATH_25"; do
+                if [ ! -x "$p/bin/javac" ]; then
+                  echo "Expected JDK missing at $p" >&2
+                  ls /usr/lib/jvm/ >&2 || true
+                  exit 1
+                fi
+              done
+              # `set -x` traces `echo "##vso[...]VALUE"` as `+ echo
+              # '##vso[...]VALUE'`; Azure's stdout parser matches `##vso[`
+              # anywhere on the line and takes everything past `]` to EOL
+              # as the value, including the trailing `'` bash added.
+              # Disable trace just for these two echoes so JAVA_HOME does
+              # not end up as `/usr/lib/jvm/java-25-openjdk-amd64'`.
+              set +x
+              echo "##vso[task.setvariable variable=JAVA_HOME_17_X64]$JAVA_PATH_17"
+              echo "##vso[task.setvariable variable=JAVA_HOME]$JAVA_PATH_25"
+            displayName: "Install missing deps + resolve JDKs"
+          - bash: |
+              set -eux
+              # `|| true` lets the fallback path take over if the file
+              # references something the build user can't read (e.g.
+              # /etc/profile.d/rust.sh sources /root/.cargo/env).
+              if [ -f /etc/profile.d/rust.sh ]; then . /etc/profile.d/rust.sh || true; fi
+              if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env" || true; fi
+              if ! command -v cargo >/dev/null 2>&1; then
+                curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+                  | sh -s -- -y --default-toolchain stable --profile minimal
+                . "$HOME/.cargo/env"
+              fi
+              CARGO_BIN="$(dirname "$(command -v cargo)")"
+              echo "Using cargo from: $CARGO_BIN"
+              # See JAVA_HOME comment above re: `set -x` + `##vso[...]`.
+              set +x
+              echo "##vso[task.prependpath]$CARGO_BIN"
+            displayName: "Resolve Rust toolchain"
+          - template: templates/compile.yaml
+          - template: templates/clone_questdb.yaml
+          - template: templates/maven_settings.yaml
+          - task: Maven@3
+            displayName: "Compile QuestDB"
+            inputs:
+              mavenPOMFile: "questdb/pom.xml"
+              javaHomeOption: "Path"
+              jdkDirectory: "$(JAVA_HOME)"
+              options: "-s $(MAVEN_SETTINGS_FILE) -DskipTests -Pbuild-web-console$(CLIENT_PROFILE) $(MAVEN_RUN_OPTS)"
+          - script: |
+              python3 system_test/test.py run --repo ./questdb TestQwpWsFuzz -v
+            displayName: "TestQwpWsFuzz"
+          - script: |
+              python3 system_test/test.py run --repo ./questdb TestArrowEgressFuzz TestArrowEgressPerKind TestArrowEgressEmpty TestArrowIngressFuzz TestArrowIngressPerKind TestArrowIngressDesignatedTs TestArrowIngressErrors TestArrowIngressMultiBatch TestArrowIngressExtraTypes TestArrowIngressUnsupportedTypes TestArrowIngressSfa TestArrowRoundTripFuzz TestArrowRoundTripPerKind TestArrowAlignment TestArrowPolarsFuzz TestArrowPolarsRoundTripPerKind TestArrowPolarsPerDtype -v
+            displayName: "TestArrowWsFuzz"
+          - task: ArchiveFiles@2
+            displayName: "Compress QuestDB server log on failure"
+            condition: failed()
+            continueOnError: true
+            inputs:
+              rootFolderOrFile: $(Build.SourcesDirectory)/build/questdb/repo/data/log
+              includeRootFolder: false
+              archiveType: zip
+              archiveFile: $(Build.ArtifactStagingDirectory)/qdb-log-$(Agent.OS).zip
+              quiet: true
+          - task: PublishBuildArtifacts@1
+            displayName: "Publish QuestDB server log on failure"
+            condition: failed()
+            continueOnError: true
+            inputs:
+              pathToPublish: $(Build.ArtifactStagingDirectory)/qdb-log-$(Agent.OS).zip
+              artifactName: qdb-log-$(Agent.OS)-linux
+
+      # Live-server coverage for the OSS-questdb tests that need a real
+      # server: the functional egress suite (egress_live_server) plus the
+      # fuzz binaries (bind / fragmentation / random-schema / ALTER
+      # orchestration), each as its own step below. Default seed gives a
+      # deterministic sweep for inbound changes; the hourly cron in
+      # run_fuzz_pipeline.yaml varies the seed per build.
+      - job: TestQwpEgressLiveServerFuzz
+        displayName: "QWP egress live-server suite"
+        pool:
+          vmImage: "ubuntu-latest"
+        timeoutInMinutes: 60
+        variables:
+          imageName: ubuntu-latest
+        steps:
+          - checkout: self
+            fetchDepth: 1
+            lfs: false
+            submodules: false
+          - template: templates/compile.yaml
+          - template: templates/clone_questdb.yaml
+          - template: templates/maven_settings.yaml
+          - script: |
+              set -euo pipefail
+              JDK_URL="https://api.adoptium.net/v3/binary/latest/25/ga/linux/x64/jdk/hotspot/normal/eclipse"
+              sudo mkdir -p /opt/jdk25
+              curl -fsSL "$JDK_URL" | sudo tar -xz -C /opt/jdk25 --strip-components=1
+              echo "##vso[task.setvariable variable=JAVA_HOME]/opt/jdk25"
+              echo "##vso[task.prependpath]/opt/jdk25/bin"
+            displayName: "Install JDK 25 (required by QuestDB master)"
+          - task: Maven@3
+            displayName: "Compile QuestDB"
+            inputs:
+              mavenPOMFile: "questdb/pom.xml"
+              jdkVersionOption: "default"
+              options: "-s $(MAVEN_SETTINGS_FILE) -DskipTests -Pbuild-web-console$(CLIENT_PROFILE) $(MAVEN_RUN_OPTS)"
+          - script: |
+              set -euxo pipefail
+              cd questdb-rs
+              # `--test NAME` selectors limit this step to the fuzz
+              # binaries; the functional suite runs as its own step below.
+              cargo test --features live-server-tests \
+                --test egress_live_server_bind_fuzz \
+                --test egress_live_server_fragmentation_fuzz \
+                --test egress_live_server_fuzz \
+                --test egress_live_server_alter_fuzz \
+                -- --nocapture
+            displayName: "QWP egress live-server fuzz"
+          - script: |
+              set -euxo pipefail
+              cd questdb-rs
+              # Functional egress suite (per-type decode, cursor lifecycle,
+              # error taxonomy, null handling) against the same Maven-built
+              # server — behavioral coverage the fuzz binaries don't give.
+              cargo test --features live-server-tests --test egress_live_server -- --nocapture
+            displayName: "QWP egress live-server functional suite"
+
+      # Cross-repo trigger: fire the questdb-enterprise
+      # build-and-test-e2e-c-client pipeline with this build's SHA so
+      # the c_client-marked failover tests (Rust today; C / C++ as
+      # those sidecars land) run against an Enterprise primary. The
+      # Enterprise pipeline posts a status check back on the PR
+      # (`enterprise-e2e-c-client` context); this job fire-and-forgets
+      # and does not block the PR.
+      #
+      # Fork PRs are intentionally skipped: System.AccessToken is not
+      # exposed to fork builds, so the dispatch call would fail with
+      # 401. We'd rather skip silently than spam fork PRs with
+      # spurious red checks.
+      #
+      # Prerequisites the questdb infra team needs to have configured
+      # (one-time, in the Azure DevOps UI):
+      #   1. Register ci/build-and-test-e2e-c-client.yaml in the
+      #      `questdb-enterprise` ADO project as a pipeline. Name must
+      #      match `enterprisePipelineName` below.
+      #   2. Create a PAT in the `questdb-enterprise` ADO project
+      #      with `Build (Read & execute)` scope (User settings →
+      #      Personal access tokens → New). Add it as a secret
+      #      variable on THIS pipeline named ENT_DISPATCH_PAT
+      #      (Pipelines → questdb.c-questdb-client → Edit →
+      #      Variables → +, mark as secret). PAT-based auth is used
+      #      rather than $(System.AccessToken) because the two
+      #      pipelines live in different ADO projects, and tokens
+      #      issued for this project can't see the Enterprise
+      #      project's pipelines API without it.
+      - job: TriggerEnterpriseCClientE2E
+        displayName: "Trigger questdb-enterprise c_client e2e"
+        # Use the hetzner-incus self-hosted pool: the Microsoft-hosted
+        # queue is consistently deeper than incus, and this is a
+        # ~10-second curl+jq job so it picks up a slot quickly here.
+        # The hetzner image already ships curl + jq (the Enterprise
+        # ReportToOssPr stage uses both).
+        pool:
+          name: hetzner-incus
+        # Skip on fork PRs: secret pipeline variables (and System
+        # tokens) are not exposed to fork builds, so the REST POST
+        # would 401. Skipping rather than failing keeps fork-PR CI
+        # clean.
+        condition: and(succeeded(), ne(variables['System.PullRequest.IsFork'], 'True'))
+        variables:
+          # Hardcoded because the Enterprise pipeline lives in its own
+          # ADO project, not the one this pipeline runs in.
+          enterpriseProject: 'questdb-enterprise'
+          enterprisePipelineName: 'build-and-test-e2e-c-client'
+        steps:
+          - checkout: none
+          - bash: |
+              set -euo pipefail
+
+              ORG_URL="$(System.TeamFoundationCollectionUri)"
+              PROJECT="$(enterpriseProject)"
+              PIPELINE_NAME="$(enterprisePipelineName)"
+
+              if [ -z "${ENT_DISPATCH_PAT:-}" ]; then
+                echo "ERROR: ENT_DISPATCH_PAT secret pipeline variable is not set." >&2
+                echo "Create a PAT in the questdb-enterprise ADO project with" >&2
+                echo "'Build (Read & execute)' scope and add it as a secret" >&2
+                echo "variable named ENT_DISPATCH_PAT on this pipeline." >&2
+                exit 1
+              fi
+
+              # Resolve pipeline ID by name. The pipelines list API
+              # returns every pipeline in the project; we filter
+              # client-side because the $filter query parameter on
+              # this endpoint is limited.
+              echo "Looking up '${PIPELINE_NAME}' in '${PROJECT}'..."
+              PIPELINES=$(curl -fsS -u ":${ENT_DISPATCH_PAT}" \
+                "${ORG_URL}${PROJECT}/_apis/pipelines?api-version=7.0")
+              PIPELINE_ID=$(echo "$PIPELINES" | jq -r --arg n "$PIPELINE_NAME" \
+                '.value[] | select(.name == $n) | .id' | head -1)
+
+              if [ -z "$PIPELINE_ID" ] || [ "$PIPELINE_ID" = "null" ]; then
+                echo "ERROR: pipeline '${PIPELINE_NAME}' not found in project '${PROJECT}'." >&2
+                echo "Register ci/build-and-test-e2e-c-client.yaml in" >&2
+                echo "the Azure DevOps UI under that name to enable the" >&2
+                echo "cross-repo c_client e2e check." >&2
+                exit 1
+              fi
+
+              CLIENT_PR_NUMBER="$(System.PullRequest.PullRequestNumber)"
+              if [ -z "${CLIENT_PR_NUMBER}" ] || [ "${CLIENT_PR_NUMBER}" = "None" ]; then
+                # Branch builds (e.g. nightly on main) still benefit
+                # from the cross-repo check, but there's no PR number
+                # to attach a status to. The Enterprise pipeline's
+                # report stage skips the GitHub-status POST when
+                # cClientPrNumber is empty.
+                CLIENT_PR_NUMBER=""
+              fi
+
+              # Forward the client branch name as a hint for the
+              # Enterprise side to try a same-name branch match
+              # (xyz → xyz, fallback to main). For a PR build,
+              # System.PullRequest.SourceBranch is `refs/heads/xyz`;
+              # for a direct branch build the branch name is in
+              # Build.SourceBranchName already. Strip refs/heads/ so
+              # the Enterprise step can use it directly as a git ref.
+              if [ "$(Build.Reason)" = "PullRequest" ]; then
+                CLIENT_BRANCH="$(System.PullRequest.SourceBranch)"
+                CLIENT_BRANCH="${CLIENT_BRANCH#refs/heads/}"
+              else
+                CLIENT_BRANCH="$(Build.SourceBranchName)"
+              fi
+              echo "Client branch hint: ${CLIENT_BRANCH}"
+
+              # `templateParameters` matches the `parameters:` block
+              # in build-and-test-e2e-c-client.yaml.
+              BODY=$(jq -n \
+                --arg commit "$(Build.SourceVersion)" \
+                --arg pr "${CLIENT_PR_NUMBER}" \
+                --arg branch "${CLIENT_BRANCH}" \
+                '{
+                  templateParameters: {
+                    cClientCommit: $commit,
+                    cClientPrNumber: $pr,
+                    clientBranch: $branch
+                  },
+                  resources: { repositories: { self: { refName: "refs/heads/main" } } }
+                }')
+
+              echo "POSTing pipeline run with body:"
+              echo "$BODY" | jq .
+
+              RESPONSE=$(curl -fsS -u ":${ENT_DISPATCH_PAT}" \
+                -H "Content-Type: application/json" \
+                -X POST \
+                -d "$BODY" \
+                "${ORG_URL}${PROJECT}/_apis/pipelines/${PIPELINE_ID}/runs?api-version=7.0")
+
+              RUN_URL=$(echo "$RESPONSE" | jq -r '._links.web.href // ""')
+              echo "Enterprise build queued: ${RUN_URL}"
+            displayName: "Queue enterprise c_client e2e"
+            env:
+              # The PAT is a secret pipeline variable that must be set
+              # on this pipeline in the ADO UI (Variables → +, name
+              # ENT_DISPATCH_PAT, mark as secret). Secret variables
+              # aren't auto-exposed to script env; the explicit
+              # `env:` mapping below is required.
+              ENT_DISPATCH_PAT: $(ENT_DISPATCH_PAT)

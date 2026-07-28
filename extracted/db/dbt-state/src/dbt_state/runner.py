@@ -487,9 +487,11 @@ class RunnerOverride:
                         if not sso.is_logged_in() and not run_cache_config.oauth_client_secret:
                             events.fire_warn_event(
                                 "dbt State disabled: not authenticated and no OAuth client credentials configured. "
-                                "To authenticate, either configure OAuth credentials via environment variables (RUN_CACHE_OAUTH_CLIENT_ID and RUN_CACHE_OAUTH_CLIENT_SECRET), "
+                                "To authenticate, either configure OAuth credentials via environment variables "
+                                "(DBT_ENGINE_STATE_OAUTH_CLIENT_ID and DBT_ENV_SECRET_STATE_OAUTH_CLIENT_SECRET; "
+                                "the RUN_CACHE_ prefixed names are also accepted), "
                                 "in profiles.yml (run_cache_oauth_client_id and run_cache_oauth_client_secret), "
-                                "or run `dbt-state auth login` in an attached terminal."
+                                "or run dbt from an attached terminal to log in through the browser."
                             )
                             self._disabled = True
                             return None

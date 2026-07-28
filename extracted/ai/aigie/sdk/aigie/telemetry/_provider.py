@@ -79,7 +79,12 @@ class SdkTelemetryProvider:
         kwargs: dict[str, Any] = {"metric_readers": [reader]}
         if resource:
             kwargs["resource"] = resource
-        return MeterProvider(**kwargs)
+        provider = MeterProvider(**kwargs)
+
+        from aigie.telemetry._heartbeat import register_heartbeat_gauge
+
+        register_heartbeat_gauge(provider)
+        return provider
 
     def _build_logger_provider(self) -> Any:
         try:
@@ -102,25 +107,30 @@ class SdkTelemetryProvider:
     def _auto_instrument(self) -> None:
         try:
             from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
             HTTPXClientInstrumentor().instrument()
         except Exception as exc:
             _log.debug("HTTPXClientInstrumentor not available: %s", exc)
         try:
             from opentelemetry.instrumentation.grpc import GrpcInstrumentorClient
+
             GrpcInstrumentorClient().instrument()
         except Exception as exc:
             _log.debug("GrpcInstrumentorClient not available: %s", exc)
 
     def _noop_tracer(self) -> Any:
         from aigie.telemetry._noop import _NoOpTracer
+
         return _NoOpTracer()
 
     def _noop_meter(self) -> Any:
         from aigie.telemetry._noop import _NoOpMeter
+
         return _NoOpMeter()
 
     def _noop_logger(self) -> Any:
         from aigie.telemetry._noop import _NoOpLogger
+
         return _NoOpLogger()
 
     def tracer(self, name: str, version: str | None = None) -> Any:

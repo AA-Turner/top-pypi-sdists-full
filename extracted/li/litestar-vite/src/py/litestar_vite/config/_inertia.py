@@ -125,6 +125,11 @@ class InertiaConfig:
     extra_session_page_props: "set[str] | dict[str, type]" = field(default_factory=empty_set_factory)
     """Session props to include in page responses.
 
+    Keys are copied when the current request exposes a Litestar session. They are
+    omitted from sessionless responses. Use ``CookieBackendConfig`` for encrypted,
+    server-store-free persistence, or ``ServerSideSessionConfig`` with a Litestar
+    store.
+
     Can be either:
     - A set of session key names (types will be 'unknown')
     - A dict mapping session keys to Python types (auto-registered with OpenAPI)
@@ -134,6 +139,32 @@ class InertiaConfig:
 
     Example without types (legacy):
         extra_session_page_props={"currentTeam"}
+    """
+    shared_page_prop_types: "dict[str, Any] | None" = None
+    """Python types for props pushed at request time with ``share()``.
+
+    This declares *types only* and never carries values, unlike
+    ``extra_static_page_props``. It exists because ``share()`` calls in guards and
+    middleware have no naming site the type generator can read, so without a
+    declaration those props fall back to a synthesized default type.
+
+    Declared annotations are registered against the same OpenAPI schema registry
+    used for route props, so nested models resolve to the identical generated
+    TypeScript type rather than a duplicate.
+
+    Values are annotations, so containers and unions are accepted alongside plain
+    models. Anything the schema generator cannot resolve falls back to the
+    configured fallback type.
+
+    Example:
+        A guard pushing ``share(connection, "auth", {...})``::
+
+            shared_page_prop_types={
+                "auth": AuthProps,
+                "notifications": list[Notification],
+            }
+
+    Leave as ``None`` to keep the generated defaults.
     """
     encrypt_history: bool = False
     """Enable browser history encryption globally (v2 feature).

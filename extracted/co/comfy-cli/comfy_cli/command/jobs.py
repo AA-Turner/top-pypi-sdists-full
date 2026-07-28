@@ -26,7 +26,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -37,6 +37,7 @@ from comfy_cli import cancellation, execution_errors, tracking
 from comfy_cli.env_checker import check_comfy_server_running
 from comfy_cli.host_port import resolve_host_port as _resolve_host_port
 from comfy_cli.output import get_renderer
+from comfy_cli.where import cloud_preflight_or_exit
 
 app = typer.Typer(no_args_is_help=True, help="List, inspect, and live-watch ComfyUI prompts.")
 
@@ -411,7 +412,7 @@ def ls_cmd(
     if not local_only:
         if _is_cloud(where):
             try:
-                _cloud_preflight_or_exit()
+                cloud_preflight_or_exit()
                 client = _cloud_client()
                 server_rows = [_cloud_job_to_row(j) for j in client.list_jobs(limit=limit)]
             except typer.Exit:
@@ -738,7 +739,7 @@ def _wait_fetch_snapshot(
 ) -> dict | None:
     """Best-effort single-job status snapshot for the wait loop.
 
-    cloud -> /api/job status; local -> live /history when the server is up,
+    cloud -> /api/jobs/<id>; local -> live /history when the server is up,
     else fall back to the on-disk state file the async watcher maintains.
     """
     if cloud:
@@ -871,7 +872,7 @@ def wait_cmd(
     p: int | None = None
     server_up = False
     if cloud:
-        _cloud_preflight_or_exit()
+        cloud_preflight_or_exit()
     else:
         h, p = _resolve_host_port(host, port)
         server_up = _server_or_error(h, p, raise_on_missing=False)
@@ -1053,7 +1054,7 @@ def _local_cancel(prompt_id: str, host: str, port: int) -> None:
 
 def _cloud_cancel(prompt_id: str) -> None:
     """Cancel a cloud job via ``POST /api/jobs/<id>/cancel`` — idempotent."""
-    _cloud_preflight_or_exit()
+    cloud_preflight_or_exit()
     renderer = get_renderer()
 
     from comfy_cli.target import resolve_target
@@ -1122,6 +1123,104 @@ def _cloud_cancel(prompt_id: str) -> None:
 # ---------------------------------------------------------------------------
 
 
+@dataclass
+class _WatchState:
+    """Loop-local state shared across the `jobs watch` WS recv loop.
+
+    Holds both the immutable per-watch context (renderer, prompt_id, host,
+    port) and the mutable accumulators the per-type handlers and the
+    connect/timeout/cancel state machine both write to (completed_nodes,
+    outputs, end_reason, end_details). ``terminal`` is the handlers' way of
+    signalling the recv loop to break.
+    """
+
+    renderer: Any
+    prompt_id: str
+    host: str
+    port: int
+    completed_nodes: set[str] = field(default_factory=set)
+    outputs: list[str] = field(default_factory=list)
+    end_reason: str | None = None
+    end_details: Any = None
+    terminal: bool = False
+
+
+def _watch_executing(state: _WatchState, data: dict[str, Any]) -> None:
+    node = data.get("node")
+    if node is None:
+        # A null node marks the end of execution for the prompt.
+        state.end_reason = "completed"
+        state.terminal = True
+        return
+    renderer = state.renderer
+    if renderer.is_pretty():
+        # ``node`` is server-controlled; escape so it can't inject Rich markup.
+        from rich.markup import escape
+
+        renderer.console().print(f"[dim]→[/dim] executing node [bold]{escape(str(node))}[/bold]")
+    renderer.event("executing", node=str(node), prompt_id=state.prompt_id)
+
+
+def _watch_execution_cached(state: _WatchState, data: dict[str, Any]) -> None:
+    nodes = data.get("nodes") or []
+    for n in nodes:
+        state.completed_nodes.add(str(n))
+    renderer = state.renderer
+    if renderer.is_pretty():
+        renderer.console().print(f"[dim]✓[/dim] cached: {len(nodes)} node(s)")
+    renderer.event(
+        "execution_cached",
+        nodes=[str(n) for n in nodes],
+        prompt_id=state.prompt_id,
+    )
+
+
+def _watch_progress(state: _WatchState, data: dict[str, Any]) -> None:
+    state.renderer.throttled_event(
+        f"progress:{data.get('node')}",
+        "progress",
+        max_hz=10,
+        node=str(data.get("node")),
+        completed=data.get("value"),
+        total=data.get("max"),
+        prompt_id=state.prompt_id,
+    )
+
+
+def _watch_executed(state: _WatchState, data: dict[str, Any]) -> None:
+    renderer = state.renderer
+    node = str(data.get("node"))
+    state.completed_nodes.add(node)
+    output = data.get("output") or {}
+    for key in ("images", "gifs", "videos", "audio", "files"):
+        for item in output.get(key) or []:
+            if isinstance(item, dict) and "filename" in item:
+                q = urllib.parse.urlencode({k: item[k] for k in ("filename", "subfolder", "type") if k in item})
+                url = f"http://{state.host}:{state.port}/view?{q}"
+                state.outputs.append(url)
+                if renderer.is_pretty():
+                    renderer.console().print(f"[bold green]✓[/bold green] output: [cyan]{url}[/cyan]")
+                renderer.event("output", url=url, prompt_id=state.prompt_id)
+    renderer.event("executed", node=node, prompt_id=state.prompt_id)
+
+
+def _watch_execution_error(state: _WatchState, data: dict[str, Any]) -> None:
+    state.end_reason = "error"
+    state.end_details = data
+    state.terminal = True
+
+
+# type → pure per-message handler. Each mutates ``state`` (and sets
+# ``state.terminal`` for the two terminal events); the recv loop owns the break.
+_WATCH_HANDLERS = {
+    "executing": _watch_executing,
+    "execution_cached": _watch_execution_cached,
+    "progress": _watch_progress,
+    "executed": _watch_executed,
+    "execution_error": _watch_execution_error,
+}
+
+
 @app.command("watch", help="Tail live execution events for a prompt_id (WS local / polling cloud).")
 @tracking.track_command("jobs")
 def watch_cmd(
@@ -1176,12 +1275,9 @@ def watch_cmd(
 
     ws.settimeout(timeout)
 
-    completed_nodes: set[str] = set()
-    outputs: list[str] = []
+    state = _WatchState(renderer=renderer, prompt_id=prompt_id, host=h, port=p)
     saw_any_event = False
     missing_deadline: float | None = None
-    end_reason: str | None = None
-    end_details: Any = None
     start = time.time()
 
     if renderer.is_pretty():
@@ -1195,9 +1291,9 @@ def watch_cmd(
                 # If the job moved to completed between recvs, exit cleanly.
                 snap = _snapshot(h, p, prompt_id)
                 if snap and snap["status"] in {"completed", "error", "cancelled"}:
-                    end_reason = snap["status"]
-                    end_details = snap
-                    outputs.extend(snap.get("outputs") or [])
+                    state.end_reason = snap["status"]
+                    state.end_details = snap
+                    state.outputs.extend(snap.get("outputs") or [])
                     break
                 # Bounded wait for an unknown prompt: if the server has never
                 # heard of this prompt_id (no snapshot) and no events have
@@ -1222,7 +1318,7 @@ def watch_cmd(
                 # Cancellation closes the socket out from under recv(). Check
                 # the token before classifying as "server disconnected".
                 if token.is_set():
-                    end_reason = "cancelled"
+                    state.end_reason = "cancelled"
                     break
                 renderer.error(
                     code="ws_disconnected",
@@ -1240,61 +1336,20 @@ def watch_cmd(
             if data.get("prompt_id") != prompt_id:
                 continue
             saw_any_event = True
-            t = msg.get("type")
-            if t == "executing":
-                node = data.get("node")
-                if node is None:
-                    end_reason = "completed"
+            # ``type`` is server-controlled: a JSON array/object is unhashable
+            # and would make dict.get() raise TypeError, so only dispatch on a
+            # str key (unknown types fall through to be ignored, as before).
+            mtype = msg.get("type")
+            handler = _WATCH_HANDLERS.get(mtype) if isinstance(mtype, str) else None
+            if handler is not None:
+                handler(state, data)
+                if state.terminal:
                     break
-                if renderer.is_pretty():
-                    renderer.console().print(f"[dim]→[/dim] executing node [bold]{node}[/bold]")
-                renderer.event("executing", node=str(node), prompt_id=prompt_id)
-            elif t == "execution_cached":
-                nodes = data.get("nodes") or []
-                for n in nodes:
-                    completed_nodes.add(str(n))
-                if renderer.is_pretty():
-                    renderer.console().print(f"[dim]✓[/dim] cached: {len(nodes)} node(s)")
-                renderer.event(
-                    "execution_cached",
-                    nodes=[str(n) for n in nodes],
-                    prompt_id=prompt_id,
-                )
-            elif t == "progress":
-                renderer.throttled_event(
-                    f"progress:{data.get('node')}",
-                    "progress",
-                    max_hz=10,
-                    node=str(data.get("node")),
-                    completed=data.get("value"),
-                    total=data.get("max"),
-                    prompt_id=prompt_id,
-                )
-            elif t == "executed":
-                node = str(data.get("node"))
-                completed_nodes.add(node)
-                output = data.get("output") or {}
-                for key in ("images", "gifs", "videos", "audio", "files"):
-                    for item in output.get(key) or []:
-                        if isinstance(item, dict) and "filename" in item:
-                            q = urllib.parse.urlencode(
-                                {k: item[k] for k in ("filename", "subfolder", "type") if k in item}
-                            )
-                            url = f"http://{h}:{p}/view?{q}"
-                            outputs.append(url)
-                            if renderer.is_pretty():
-                                renderer.console().print(f"[bold green]✓[/bold green] output: [cyan]{url}[/cyan]")
-                            renderer.event("output", url=url, prompt_id=prompt_id)
-                renderer.event("executed", node=node, prompt_id=prompt_id)
-            elif t == "execution_error":
-                end_reason = "error"
-                end_details = data
-                break
     finally:
         _safe_close_ws(ws)
 
     elapsed = time.time() - start
-    final_status = end_reason or ("completed" if completed_nodes else "unknown")
+    final_status = state.end_reason or ("completed" if state.completed_nodes else "unknown")
     if renderer.is_pretty():
         from rich.text import Text
 
@@ -1310,14 +1365,14 @@ def watch_cmd(
     payload = {
         "prompt_id": prompt_id,
         "status": final_status,
-        "outputs": outputs,
-        "completed_nodes": sorted(completed_nodes),
+        "outputs": state.outputs,
+        "completed_nodes": sorted(state.completed_nodes),
         "elapsed_seconds": elapsed,
         "host": h,
         "port": p,
     }
-    if end_details is not None:
-        payload["details"] = end_details if isinstance(end_details, dict) else {"raw": end_details}
+    if state.end_details is not None:
+        payload["details"] = state.end_details if isinstance(state.end_details, dict) else {"raw": state.end_details}
     if not saw_any_event and final_status == "unknown":
         payload["hint"] = "watch returned without events; the prompt may already have completed"
     _emit_terminal(renderer, payload, command="jobs watch")
@@ -1349,18 +1404,6 @@ def _is_cloud(where: str | None) -> bool:
         # (cmdline.py top-level option) will surface ``where_invalid``.
         return False
     return decision.target is where_module.WhereTarget.CLOUD
-
-
-def _cloud_preflight_or_exit() -> None:
-    """Surface a clean envelope if the user isn't signed in / is expired."""
-    from comfy_cli.where import cloud_preflight
-
-    err = cloud_preflight()
-    if err is None:
-        return
-    renderer = get_renderer()
-    renderer.error(code=err.code, message=err.message, hint=err.hint, details=err.details)
-    raise typer.Exit(code=1)
 
 
 def _cloud_job_to_row(j: dict) -> JobRow:
@@ -1400,38 +1443,8 @@ def _cloud_client():
         raise typer.Exit(code=1) from e
 
 
-def _cloud_ls(*, limit: int) -> None:
-    from comfy_cli.comfy_client import HTTPError
-
-    _cloud_preflight_or_exit()
-    renderer = get_renderer()
-    client = _cloud_client()
-    try:
-        jobs = client.list_jobs(limit=limit)
-    except HTTPError as e:
-        renderer.error(
-            code="cloud_http_error",
-            message=f"Cloud /api/jobs failed (HTTP {e.status}): {e.message}",
-            details={"status": e.status, "body": e.body[:1000]},
-        )
-        raise typer.Exit(code=1)
-
-    rows = [_cloud_job_to_row(j) for j in jobs[:limit]]
-    if renderer.is_pretty():
-        _render_jobs_pretty(rows, host=client.target.base_url, port=0)
-    renderer.emit(
-        {
-            "base_url": client.target.base_url,
-            "count": len(rows),
-            "jobs": [_row_to_dict(r) for r in rows],
-        },
-        command="jobs ls",
-        where="cloud",
-    )
-
-
 def _cloud_status_snapshot(prompt_id: str) -> dict | None:
-    """Compose a cloud snapshot from /api/job/<id>/status + /api/history_v2/<id>."""
+    """Compose a cloud snapshot from /api/jobs/<id> + /api/history_v2/<id>."""
     from comfy_cli import jobs_state
     from comfy_cli.comfy_client import _group_outputs
 
@@ -1478,7 +1491,7 @@ def _cloud_status_snapshot(prompt_id: str) -> dict | None:
 
 
 def _cloud_status(prompt_id: str) -> None:
-    _cloud_preflight_or_exit()
+    cloud_preflight_or_exit()
     renderer = get_renderer()
     snap = _cloud_status_snapshot(prompt_id)
     if snap is None:
@@ -1513,7 +1526,7 @@ def _cloud_status(prompt_id: str) -> None:
 
 def _cloud_watch(prompt_id: str, *, poll_interval: float, max_wait: float) -> None:
     """Poll cloud's job status, emit NDJSON events on each transition."""
-    _cloud_preflight_or_exit()
+    cloud_preflight_or_exit()
     renderer = get_renderer()
     base_url = _cloud_client().target.base_url
 

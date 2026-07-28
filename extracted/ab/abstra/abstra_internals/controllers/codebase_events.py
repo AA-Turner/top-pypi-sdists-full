@@ -210,6 +210,8 @@ class CodebaseEventController:
         if not cls._controller_driven or cls._repositories is None:
             return
         with cls._lint_lock:
+            if (full or rules) and not (cls._pending_full or cls._pending_rules):
+                cls._repositories.linter.run_gate.mark_pending()
             if full:
                 cls._pending_full = True
             for rule in rules or []:
@@ -236,18 +238,28 @@ class CodebaseEventController:
             cls._pending_rules = {}
             cls._pending_scopes = {}
         repositories = cls._repositories
+        if not (full or rules):
+            # Nothing drained → the window's pend belongs to a concurrent
+            # _run_pending_lint that drained first; it will resolve it.
+            return
         if repositories is None:
             return
         try:
             if full:
                 checks = repositories.linter.update_checks()
-            elif rules:
-                checks = cls._run_partitioned_lint(repositories, rules, scopes)
             else:
-                return
+                checks = cls._run_partitioned_lint(repositories, rules, scopes)
+        except Exception as e:
+            repositories.linter.run_gate.mark_failed()
+            AbstraLogger.error(f"[Editor] controller-driven lint failed: {e}")
+            return
+        # The mirror is fresh at this point: resolve the window's pend before
+        # the broadcast so a broadcast failure doesn't read as a failed run.
+        repositories.linter.run_gate.mark_success()
+        try:
             LinterEventController.broadcast(checks)
         except Exception as e:
-            AbstraLogger.error(f"[Editor] controller-driven lint failed: {e}")
+            AbstraLogger.error(f"[Editor] controller-driven lint broadcast failed: {e}")
 
     @staticmethod
     def _run_partitioned_lint(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instagrapi
-Version: 2.18.9
+Version: 2.18.11
 Summary: Fast and effective Instagram Private API wrapper
 Author-email: Mark Subzeroid <143403577+subzeroid@users.noreply.github.com>
 License-Expression: MIT
@@ -47,12 +47,12 @@ Requires-Dist: markdown-include==0.8.1; extra == "test"
 Requires-Dist: mkdocs-material==9.7.7; extra == "test"
 Requires-Dist: mkdocstrings[python]==1.0.6; extra == "test"
 Requires-Dist: numpy>=1.25.0; extra == "test"
-Requires-Dist: pre-commit==4.6.0; extra == "test"
+Requires-Dist: pre-commit==4.6.1; extra == "test"
 Requires-Dist: proglog<=1.0.0; extra == "test"
 Requires-Dist: pytest-xdist==3.8.0; extra == "test"
 Requires-Dist: pytest==9.1.1; extra == "test"
 Requires-Dist: python-dotenv>=0.10; extra == "test"
-Requires-Dist: ruff==0.15.22; extra == "test"
+Requires-Dist: ruff==0.16.0; extra == "test"
 Dynamic: license-file
 
 # instagrapi
@@ -367,18 +367,18 @@ from instagrapi.types import StoryMention, StoryMedia, StoryLink, StoryHashtag
 cl = Client()
 cl.login(USERNAME, PASSWORD, verification_code="<2FA CODE HERE>")
 
-media_pk = cl.media_pk_from_url('https://www.instagram.com/p/CGgDsi7JQdS/')
+media_pk = cl.media_pk_from_url("https://www.instagram.com/p/CGgDsi7JQdS/")
 media_path = cl.video_download(media_pk)
-subzeroid = cl.user_info_by_username('subzeroid')
-hashtag = cl.hashtag_info('dhbastards')
+subzeroid = cl.user_info_by_username("subzeroid")
+hashtag = cl.hashtag_info("dhbastards")
 
 cl.video_upload_to_story(
     media_path,
     "Credits @subzeroid",
     mentions=[StoryMention(user=subzeroid, x=0.49892962, y=0.703125, width=0.8333333333333334, height=0.125)],
-    links=[StoryLink(webUri='https://github.com/subzeroid/instagrapi')],
+    links=[StoryLink(webUri="https://github.com/subzeroid/instagrapi")],
     hashtags=[StoryHashtag(hashtag=hashtag, x=0.23, y=0.32, width=0.5, height=0.22)],
-    medias=[StoryMedia(media_pk=media_pk, x=0.5, y=0.5, width=0.6, height=0.8)]
+    medias=[StoryMedia(media_pk=media_pk, x=0.5, y=0.5, width=0.6, height=0.8)],
 )
 ```
 </details>

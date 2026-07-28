@@ -24,6 +24,7 @@ from daytona_toolbox_api_client_async.models.match import Match
 from daytona_toolbox_api_client_async.models.replace_request import ReplaceRequest
 from daytona_toolbox_api_client_async.models.replace_result import ReplaceResult
 from daytona_toolbox_api_client_async.models.search_files_response import SearchFilesResponse
+from daytona_toolbox_api_client_async.models.uploaded_file import UploadedFile
 
 from daytona_toolbox_api_client_async.api_client import ApiClient, RequestSerialized
 from daytona_toolbox_api_client_async.api_response import ApiResponse
@@ -102,6 +103,7 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '201': None,
+            '400': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -173,6 +175,7 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '201': None,
+            '400': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -244,6 +247,7 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '201': None,
+            '400': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -291,6 +295,13 @@ class FileSystemApi:
         # process the body parameter
 
 
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
 
 
         # authentication setting
@@ -374,6 +385,9 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '204': None,
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -445,6 +459,9 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '204': None,
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -516,6 +533,9 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '204': None,
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -563,6 +583,13 @@ class FileSystemApi:
         # process the body parameter
 
 
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
 
 
         # authentication setting
@@ -642,6 +669,9 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "bytes",
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -709,6 +739,9 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "bytes",
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -776,6 +809,9 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "bytes",
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -904,6 +940,10 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "Dict[str, object]",
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
+            '500': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -971,6 +1011,10 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "Dict[str, object]",
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
+            '500': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1038,6 +1082,10 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "Dict[str, object]",
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
+            '500': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1181,6 +1229,7 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "List[Match]",
+            '400': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1252,6 +1301,7 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "List[Match]",
+            '400': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1323,6 +1373,7 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "List[Match]",
+            '400': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1456,6 +1507,9 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "FileInfo",
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1523,6 +1577,9 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "FileInfo",
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1590,6 +1647,9 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "FileInfo",
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1722,6 +1782,9 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "List[FileInfo]",
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1793,6 +1856,9 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "List[FileInfo]",
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1864,6 +1930,9 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "List[FileInfo]",
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2001,6 +2070,10 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': None,
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
+            '409': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2072,6 +2145,10 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': None,
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
+            '409': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2143,6 +2220,10 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': None,
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
+            '409': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2190,6 +2271,13 @@ class FileSystemApi:
         # process the body parameter
 
 
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
 
 
         # authentication setting
@@ -2269,6 +2357,7 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "List[ReplaceResult]",
+            '400': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2336,6 +2425,7 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "List[ReplaceResult]",
+            '400': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2403,6 +2493,7 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "List[ReplaceResult]",
+            '400': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2546,6 +2637,7 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "SearchFilesResponse",
+            '400': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2617,6 +2709,7 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "SearchFilesResponse",
+            '400': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2688,6 +2781,7 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "SearchFilesResponse",
+            '400': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2833,6 +2927,9 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': None,
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2912,6 +3009,9 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': None,
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2991,6 +3091,9 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': None,
+            '400': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -3048,6 +3151,13 @@ class FileSystemApi:
         # process the body parameter
 
 
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
 
 
         # authentication setting
@@ -3076,7 +3186,7 @@ class FileSystemApi:
     async def upload_file(
         self,
         path: Annotated[StrictStr, Field(description="Destination path for the uploaded file")],
-        file: Annotated[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]], Field(description="File to upload")],
+        file: Annotated[Optional[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]]], Field(description="File to upload (multipart/form-data)")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3089,14 +3199,14 @@ class FileSystemApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> Dict[str, object]:
+    ) -> UploadedFile:
         """Upload a file
 
-        Upload a file to the specified path
+        Upload a file to the specified path. Accepts either multipart/form-data (field \"file\") or a raw request body (e.g. application/octet-stream). Parent directories are created if missing; an existing file is overwritten.
 
         :param path: Destination path for the uploaded file (required)
         :type path: str
-        :param file: File to upload (required)
+        :param file: File to upload (multipart/form-data)
         :type file: bytes
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3130,7 +3240,8 @@ class FileSystemApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, object]",
+            '200': "UploadedFile",
+            '400': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -3147,7 +3258,7 @@ class FileSystemApi:
     async def upload_file_with_http_info(
         self,
         path: Annotated[StrictStr, Field(description="Destination path for the uploaded file")],
-        file: Annotated[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]], Field(description="File to upload")],
+        file: Annotated[Optional[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]]], Field(description="File to upload (multipart/form-data)")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3160,14 +3271,14 @@ class FileSystemApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[Dict[str, object]]:
+    ) -> ApiResponse[UploadedFile]:
         """Upload a file
 
-        Upload a file to the specified path
+        Upload a file to the specified path. Accepts either multipart/form-data (field \"file\") or a raw request body (e.g. application/octet-stream). Parent directories are created if missing; an existing file is overwritten.
 
         :param path: Destination path for the uploaded file (required)
         :type path: str
-        :param file: File to upload (required)
+        :param file: File to upload (multipart/form-data)
         :type file: bytes
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3201,7 +3312,8 @@ class FileSystemApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, object]",
+            '200': "UploadedFile",
+            '400': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -3218,7 +3330,7 @@ class FileSystemApi:
     async def upload_file_without_preload_content(
         self,
         path: Annotated[StrictStr, Field(description="Destination path for the uploaded file")],
-        file: Annotated[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]], Field(description="File to upload")],
+        file: Annotated[Optional[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]]], Field(description="File to upload (multipart/form-data)")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3234,11 +3346,11 @@ class FileSystemApi:
     ) -> RESTResponseType:
         """Upload a file
 
-        Upload a file to the specified path
+        Upload a file to the specified path. Accepts either multipart/form-data (field \"file\") or a raw request body (e.g. application/octet-stream). Parent directories are created if missing; an existing file is overwritten.
 
         :param path: Destination path for the uploaded file (required)
         :type path: str
-        :param file: File to upload (required)
+        :param file: File to upload (multipart/form-data)
         :type file: bytes
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3272,7 +3384,8 @@ class FileSystemApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, object]",
+            '200': "UploadedFile",
+            '400': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -3322,7 +3435,7 @@ class FileSystemApi:
         if 'Accept' not in _header_params:
             _header_params['Accept'] = self.api_client.select_header_accept(
                 [
-                    '*/*'
+                    'application/json'
                 ]
             )
 
@@ -3346,7 +3459,7 @@ class FileSystemApi:
 
         return self.api_client.param_serialize(
             method='POST',
-            resource_path='/files/upload',
+            resource_path='/files/upload-v2',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -3413,6 +3526,7 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': None,
+            '400': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -3476,6 +3590,7 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': None,
+            '400': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -3539,6 +3654,7 @@ class FileSystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': None,
+            '400': "ErrorResponse",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -3576,6 +3692,13 @@ class FileSystemApi:
         # process the body parameter
 
 
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
 
 
         # authentication setting

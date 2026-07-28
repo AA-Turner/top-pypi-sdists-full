@@ -52,6 +52,8 @@ __all__ = (
     "GetGovCloudAccountInformationResponseTypeDef",
     "GetPrimaryEmailRequestTypeDef",
     "GetPrimaryEmailResponseTypeDef",
+    "GetPrimaryEmailUpdateStatusRequestTypeDef",
+    "GetPrimaryEmailUpdateStatusResponseTypeDef",
     "GetRegionOptStatusRequestTypeDef",
     "GetRegionOptStatusResponseTypeDef",
     "ListRegionsRequestPaginateTypeDef",
@@ -128,6 +130,9 @@ class GetGovCloudAccountInformationRequestTypeDef(TypedDict):
 class GetPrimaryEmailRequestTypeDef(TypedDict):
     AccountId: str
 
+class GetPrimaryEmailUpdateStatusRequestTypeDef(TypedDict):
+    AccountId: NotRequired[str]
+
 class GetRegionOptStatusRequestTypeDef(TypedDict):
     RegionName: str
     AccountId: NotRequired[str]
@@ -184,6 +189,11 @@ class GetGovCloudAccountInformationResponseTypeDef(TypedDict):
 
 class GetPrimaryEmailResponseTypeDef(TypedDict):
     PrimaryEmail: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetPrimaryEmailUpdateStatusResponseTypeDef(TypedDict):
+    Status: PrimaryEmailUpdateStatusType
+    UpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetRegionOptStatusResponseTypeDef(TypedDict):

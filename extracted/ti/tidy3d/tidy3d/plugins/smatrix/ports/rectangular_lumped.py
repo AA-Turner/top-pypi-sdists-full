@@ -18,14 +18,18 @@ from tidy3d.components.geometry.utils import (
     snap_box_to_grid,
 )
 from tidy3d.components.geometry.utils_2d import increment_float
-from tidy3d.components.lumped_element import LinearLumpedElement, RLCNetwork
+from tidy3d.components.lumped_element import (
+    _IMPEDANCE_ATOL,
+    LinearLumpedElement,
+    RLCNetwork,
+)
 from tidy3d.components.medium import LossyMetalMedium, PECMedium
 from tidy3d.components.microwave.path_integrals.integrals.current import AxisAlignedCurrentIntegral
 from tidy3d.components.microwave.path_integrals.integrals.voltage import AxisAlignedVoltageIntegral
 from tidy3d.components.monitor import FieldMonitor
 from tidy3d.components.source.current import UniformCurrentSource
 from tidy3d.components.types import Axis, LumpDistType
-from tidy3d.components.validators import assert_plane
+from tidy3d.components.validators import assert_line_or_plane
 from tidy3d.exceptions import SetupError, ValidationError
 
 from .base_lumped import AbstractLumpedPort
@@ -37,7 +41,6 @@ if TYPE_CHECKING:
     from tidy3d.components.data.data_array import FreqDataArray
     from tidy3d.components.data.sim_data import SimulationData
     from tidy3d.components.grid.grid import Grid, YeeGrid
-    from tidy3d.components.lumped_element import LumpedResistor
     from tidy3d.components.source.time import SourceTimeType
     from tidy3d.components.structure import Structure
     from tidy3d.components.types import Coordinate, FreqArray, Size
@@ -46,31 +49,40 @@ if TYPE_CHECKING:
 class LumpedPort(AbstractLumpedPort, Box):
     """Class representing a single rectangular lumped port.
 
-    Note
-    ----
-    The port must be planar (exactly one zero-size dimension). One-dimensional ports
-    (two zero-size dimensions) are not supported. If you need a narrow port, provide a
-    small but finite width along the lateral axis (e.g., ``fp_eps`` or larger).
+    The port may be planar (exactly one zero-size dimension) or a one-dimensional line (two
+    zero-size dimensions). The impedance is specified via
+    :attr:`impedance`. For a purely real impedance a resistor load is used. For a complex
+    impedance ``Z = R + jX`` the load is a series RL (``X > 0``) or series RC (``X < 0``)
+    network inferred from the measurement frequency in the :class:`ImpedanceSpec`.
 
     Example
     -------
+    >>> from tidy3d.plugins.smatrix.ports.base_lumped import ImpedanceSpec
     >>> port1 = LumpedPort(center=(0, 0, 0),
     ...             size=(0, 1, 2),
     ...             voltage_axis=2,
     ...             name="port_1",
     ...             impedance=50
     ...         )
+    >>> port_complex = LumpedPort(center=(0, 0, 0),
+    ...             size=(0, 1, 2),
+    ...             voltage_axis=2,
+    ...             name="port_rl",
+    ...             impedance=ImpedanceSpec(impedance=50+30j, frequency=1e9)
+    ...         )
 
     See Also
     --------
     :class:`.LinearLumpedElement`
         The lumped element representing the load of the port.
+    :class:`.ImpedanceSpec`
+        Combines the reference impedance and measurement frequency.
     """
 
     voltage_axis: Axis = Field(
         title="Voltage Integration Axis",
         description="Specifies the axis along which the E-field line integral is performed when "
-        "computing the port voltage. The integration axis must lie in the plane of the port.",
+        "computing the port voltage. The integration axis must be a nonzero-size dimension of the port.",
     )
 
     snap_perimeter_to_grid: bool = Field(
@@ -93,21 +105,27 @@ class LumpedPort(AbstractLumpedPort, Box):
         "the lumped port.",
     )
 
-    _plane_validator = assert_plane()
+    _plane_validator = assert_line_or_plane()
 
     @cached_property
     def injection_axis(self) -> int:
-        """Injection axis of the port."""
+        """Injection axis of the port: the (first) zero-size axis. A line port has two such axes;
+        the one not used here serves as the current-integration axis, and the choice between them
+        does not affect the enclosed current."""
+        # Implementation note (not user-facing): for a 1D (line) port this axis is essentially
+        # nominal -- after discretization the port load is a single-cell-thick sheet; the choice
+        # only matters for second-order subpixel averaging when a substrate/superstrate discontinuity
+        # makes one transverse axis the preferred normal (picked at meshing by choose_line_normal_axis).
         return self.size.index(0.0)
 
     @model_validator(mode="after")
-    def _voltage_axis_in_plane(self) -> Self:
-        """Ensure voltage integration axis is in the port's plane."""
-        if self.size is None:
-            return self
-        if self.voltage_axis == self.size.index(0.0):
+    def _voltage_axis_has_extent(self) -> Self:
+        """Ensure the voltage integration axis has nonzero extent: in the plane of a sheet port, and
+        the single nonzero (line) axis of a one-dimensional port."""
+        if self.size[self.voltage_axis] == 0:
             self._raise_validation_error_at_loc(
-                ValidationError("'voltage_axis' must lie in the port's plane."), "voltage_axis"
+                ValidationError("'voltage_axis' must be a nonzero-size dimension of the port."),
+                "voltage_axis",
             )
         return self
 
@@ -149,15 +167,38 @@ class LumpedPort(AbstractLumpedPort, Box):
             current_amplitude_definition="total",
         )
 
-    def to_load(self, snap_center: float | None = None) -> LumpedResistor:
-        """Create a load resistor from the lumped port."""
+    def to_load(self, snap_center: float | None = None) -> LinearLumpedElement:
+        """Create a load from the lumped port using an RLC network inferred from
+        :attr:`impedance`.
+
+        For a real impedance ``Z = R``, a pure resistor is used. For a complex impedance
+        ``Z = R + jX`` (with ``X > 0``) a series RL network is constructed where
+        ``L = X / (2π·f)``. For a capacitive load (``X < 0``) a series RC network is used
+        where ``C = 1 / (−X · 2π·f)``.
+        """
         # 2D materials are currently snapped to the grid, so snapping here is not needed.
         # It is done here so plots of the simulation will more accurately portray the setup
         center = list(self.center)
         if snap_center:
             center[self.injection_axis] = snap_center
 
-        network = RLCNetwork(resistance=np.real(self.impedance))
+        Z = self._impedance
+        R = Z.real
+        X = Z.imag
+
+        if abs(X) < _IMPEDANCE_ATOL:
+            network = RLCNetwork(resistance=R)
+        elif X > 0:
+            # Inductive: Z_L = jωL  →  L = X / ω
+            omega = 2.0 * np.pi * self.impedance.frequency
+            L = X / omega
+            network = RLCNetwork(resistance=R, inductance=L)
+        else:
+            # Capacitive: Z_C = 1/(jωC)  →  C = 1 / (−X · ω)
+            omega = 2.0 * np.pi * self.impedance.frequency
+            C = 1.0 / (-X * omega)
+            network = RLCNetwork(resistance=R, capacitance=C)
+
         return LinearLumpedElement(
             center=center,
             size=self.size,
@@ -219,6 +260,10 @@ class LumpedPort(AbstractLumpedPort, Box):
             size = list(self.size)
             size[self.injection_axis] = dl
             size[self.voltage_axis] = 0.0
+            # A line (1D) port is also zero-size along the current axis; give it a nonzero extent
+            # so the contour can close around the sheet (the grid path handles this via the load box).
+            if size[self.current_axis] == 0.0:
+                size[self.current_axis] = dl
 
         h_component = "xyz"[self.current_axis]
         h_cap_component = "xyz"[self.injection_axis]
@@ -248,7 +293,7 @@ class LumpedPort(AbstractLumpedPort, Box):
             center=center,
             size=size,
             sign="+",
-            extrapolate_to_endpoints=True,
+            extrapolate_to_endpoints=False,
             snap_contour_to_grid=True,
         )
 

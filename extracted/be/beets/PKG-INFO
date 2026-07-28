@@ -1,13 +1,16 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: beets
-Version: 2.12.0
+Version: 2.13.0
 Summary: music tagger and library organizer
-Home-page: https://beets.io/
-License: MIT
-Author: Adrian Sampson
-Author-email: adrian@radbox.org
+Project-URL: Homepage, https://beets.io/
+Project-URL: Repository, https://github.com/beetbox/beets
+Project-URL: Documentation, https://beets.readthedocs.io/en/stable/
+Project-URL: Changelog, https://github.com/beetbox/beets/blob/master/docs/changelog.rst
+Project-URL: Bug Tracker, https://github.com/beetbox/beets/issues
+Author-email: Adrian Sampson <adrian@radbox.org>
 Maintainer: Serene-Arc
-Requires-Python: >=3.10,<3.15
+License: MIT
+License-File: LICENSE
 Classifier: Environment :: Console
 Classifier: Environment :: Web Environment
 Classifier: License :: OSI Approved :: MIT License
@@ -21,82 +24,85 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Multimedia :: Sound/Audio
 Classifier: Topic :: Multimedia :: Sound/Audio :: Players :: MP3
-Provides-Extra: absubmit
-Provides-Extra: aura
-Provides-Extra: autobpm
-Provides-Extra: beatport
-Provides-Extra: bpd
-Provides-Extra: chroma
-Provides-Extra: discogs
-Provides-Extra: docs
-Provides-Extra: embedart
-Provides-Extra: embyupdate
-Provides-Extra: fetchart
-Provides-Extra: import
-Provides-Extra: kodiupdate
-Provides-Extra: lastgenre
-Provides-Extra: lastimport
-Provides-Extra: lyrics
-Provides-Extra: metasync
-Provides-Extra: mpdstats
-Provides-Extra: plexupdate
-Provides-Extra: reflink
-Provides-Extra: replaygain
-Provides-Extra: scrub
-Provides-Extra: sonosupdate
-Provides-Extra: thumbnails
-Provides-Extra: tidal
-Provides-Extra: titlecase
-Provides-Extra: web
-Requires-Dist: Pillow ; extra == "aura" or extra == "embedart" or extra == "fetchart" or extra == "thumbnails"
-Requires-Dist: PyGObject ; extra == "bpd" or extra == "replaygain"
-Requires-Dist: beautifulsoup4 ; extra == "fetchart" or extra == "lyrics"
-Requires-Dist: colorama ; sys_platform == "win32"
-Requires-Dist: confuse (>=2.2.0)
-Requires-Dist: dbus-python ; extra == "metasync"
-Requires-Dist: docutils (>=0.20.1) ; extra == "docs"
-Requires-Dist: flask ; extra == "aura" or extra == "web"
-Requires-Dist: flask-cors ; extra == "aura" or extra == "web"
+Requires-Python: <3.15,>=3.10
+Requires-Dist: colorama; sys_platform == 'win32'
+Requires-Dist: confuse>=2.2.0
 Requires-Dist: jellyfish
-Requires-Dist: langdetect ; extra == "fetchart" or extra == "lyrics"
-Requires-Dist: lap (>=0.5.12)
-Requires-Dist: librosa (>=0.11) ; extra == "autobpm"
-Requires-Dist: mediafile (>=0.17.0)
-Requires-Dist: mutagen (>=1.33) ; extra == "scrub"
-Requires-Dist: numba (>=0.60) ; python_version < "3.13"
-Requires-Dist: numba (>=0.63.1) ; python_version >= "3.13"
-Requires-Dist: numpy (>=2.0.2) ; python_version < "3.13"
-Requires-Dist: numpy (>=2.3.5) ; python_version >= "3.13"
-Requires-Dist: packaging (>=24.0)
-Requires-Dist: platformdirs (>=3.5.0)
-Requires-Dist: py7zr ; extra == "import"
-Requires-Dist: pyacoustid (>=1.3.1,<2.0.0) ; extra == "chroma"
-Requires-Dist: pydata-sphinx-theme ; extra == "docs"
-Requires-Dist: pylast ; extra == "lastgenre" or extra == "lastimport"
-Requires-Dist: python-mpd2 (>=0.4.2) ; extra == "mpdstats"
-Requires-Dist: python3-discogs-client (>=2.3.15) ; extra == "discogs"
-Requires-Dist: pyxdg ; extra == "thumbnails"
+Requires-Dist: lap>=0.5.12
+Requires-Dist: mediafile>=0.17.0
+Requires-Dist: numpy>=2.0.2; python_version < '3.13'
+Requires-Dist: numpy>=2.3.5; python_version >= '3.13'
+Requires-Dist: packaging>=24.0
+Requires-Dist: platformdirs>=3.5.0
 Requires-Dist: pyyaml
-Requires-Dist: rarfile ; extra == "import"
-Requires-Dist: reflink ; extra == "reflink"
-Requires-Dist: requests (>=2.32.5) ; extra == "absubmit" or extra == "embyupdate" or extra == "fetchart" or extra == "kodiupdate" or extra == "lyrics" or extra == "plexupdate"
-Requires-Dist: requests-oauthlib (>=0.6.1) ; extra == "beatport" or extra == "tidal"
-Requires-Dist: requests-ratelimiter (>=0.7.0)
-Requires-Dist: resampy (>=0.4.3) ; extra == "autobpm"
-Requires-Dist: scipy (>=1.13.1) ; python_version < "3.13"
-Requires-Dist: scipy (>=1.16.1) ; python_version >= "3.13"
-Requires-Dist: soco ; extra == "sonosupdate"
-Requires-Dist: sphinx (<9) ; extra == "docs"
-Requires-Dist: sphinx-copybutton (>=0.5.2) ; extra == "docs"
-Requires-Dist: sphinx-design (>=0.6.1) ; extra == "docs"
-Requires-Dist: sphinx-toolbox (>=4.1.0) ; extra == "docs"
-Requires-Dist: titlecase (>=2.4.1,<3.0.0) ; extra == "titlecase"
-Requires-Dist: typing_extensions
-Requires-Dist: unidecode (>=1.3.6)
-Project-URL: Bug Tracker, https://github.com/beetbox/beets/issues
-Project-URL: Changelog, https://github.com/beetbox/beets/blob/master/docs/changelog.rst
-Project-URL: Documentation, https://beets.readthedocs.io/en/stable/
-Project-URL: Repository, https://github.com/beetbox/beets
+Requires-Dist: requests-ratelimiter>=0.7.0
+Requires-Dist: requests>=2.32.5
+Requires-Dist: typing-extensions
+Requires-Dist: unidecode>=1.3.6
+Provides-Extra: absubmit
+Requires-Dist: requests; extra == 'absubmit'
+Provides-Extra: aura
+Requires-Dist: flask; extra == 'aura'
+Requires-Dist: flask-cors; extra == 'aura'
+Requires-Dist: pillow; extra == 'aura'
+Provides-Extra: autobpm
+Requires-Dist: librosa>=0.11; extra == 'autobpm'
+Requires-Dist: numba>=0.65.1; extra == 'autobpm'
+Requires-Dist: resampy>=0.4.3; extra == 'autobpm'
+Provides-Extra: beatport
+Requires-Dist: requests-oauthlib>=0.6.1; extra == 'beatport'
+Provides-Extra: bpd
+Requires-Dist: pygobject; (sys_platform != 'win32') and extra == 'bpd'
+Provides-Extra: chroma
+Requires-Dist: pyacoustid<2,>=1.3.1; extra == 'chroma'
+Provides-Extra: discogs
+Requires-Dist: python3-discogs-client>=2.3.15; extra == 'discogs'
+Provides-Extra: embedart
+Requires-Dist: pillow; extra == 'embedart'
+Provides-Extra: embyupdate
+Requires-Dist: requests; extra == 'embyupdate'
+Provides-Extra: fetchart
+Requires-Dist: beautifulsoup4; extra == 'fetchart'
+Requires-Dist: langdetect; extra == 'fetchart'
+Requires-Dist: pillow; extra == 'fetchart'
+Requires-Dist: requests; extra == 'fetchart'
+Provides-Extra: import
+Requires-Dist: py7zr; extra == 'import'
+Requires-Dist: rarfile; extra == 'import'
+Provides-Extra: kodiupdate
+Requires-Dist: requests; extra == 'kodiupdate'
+Provides-Extra: lastgenre
+Requires-Dist: pylast; extra == 'lastgenre'
+Provides-Extra: lastimport
+Requires-Dist: pylast; extra == 'lastimport'
+Provides-Extra: lyrics
+Requires-Dist: beautifulsoup4; extra == 'lyrics'
+Requires-Dist: langdetect; extra == 'lyrics'
+Requires-Dist: requests; extra == 'lyrics'
+Provides-Extra: metasync
+Requires-Dist: dbus-python; (sys_platform != 'win32') and extra == 'metasync'
+Provides-Extra: mpdstats
+Requires-Dist: python-mpd2>=0.4.2; extra == 'mpdstats'
+Provides-Extra: plexupdate
+Requires-Dist: requests; extra == 'plexupdate'
+Provides-Extra: reflink
+Requires-Dist: reflink; extra == 'reflink'
+Provides-Extra: replaygain
+Requires-Dist: pygobject; (sys_platform != 'win32') and extra == 'replaygain'
+Provides-Extra: scrub
+Requires-Dist: mutagen>=1.33; extra == 'scrub'
+Provides-Extra: sonosupdate
+Requires-Dist: soco; extra == 'sonosupdate'
+Provides-Extra: thumbnails
+Requires-Dist: pillow; extra == 'thumbnails'
+Requires-Dist: pyxdg; extra == 'thumbnails'
+Provides-Extra: tidal
+Requires-Dist: requests-oauthlib>=0.6.1; extra == 'tidal'
+Provides-Extra: titlecase
+Requires-Dist: titlecase; extra == 'titlecase'
+Provides-Extra: web
+Requires-Dist: flask; extra == 'web'
+Requires-Dist: flask-cors; extra == 'web'
 Description-Content-Type: text/x-rst
 
 .. image:: https://img.shields.io/pypi/v/beets.svg
@@ -245,4 +251,3 @@ Authors
 Beets is by `Adrian Sampson`_ with a supporting cast of thousands.
 
 .. _adrian sampson: https://www.cs.cornell.edu/~asampson/
-

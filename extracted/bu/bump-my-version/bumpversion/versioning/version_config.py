@@ -54,7 +54,7 @@ class VersionConfig:
     @property
     def order(self) -> List[str]:
         """
-        Return the order of the labels in a serialization format.
+        The order of the labels in a serialization format.
 
         Currently, order depends on the first given serialization format.
         This seems like a good idea because this should be the most complete format.

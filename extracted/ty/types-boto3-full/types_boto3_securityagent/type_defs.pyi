@@ -960,6 +960,7 @@ class TaskSummaryTypeDef(TypedDict):
     title: NotRequired[str]
     riskType: NotRequired[RiskTypeType]
     executionStatus: NotRequired[TaskExecutionStatusType]
+    taskHours: NotRequired[float]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -1981,6 +1982,7 @@ class TaskTypeDef(TypedDict):
     targetEndpoint: NotRequired[EndpointTypeDef]
     executionStatus: NotRequired[TaskExecutionStatusType]
     logsLocation: NotRequired[LogLocationTypeDef]
+    taskHours: NotRequired[float]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 

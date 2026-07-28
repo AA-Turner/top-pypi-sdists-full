@@ -51,7 +51,7 @@ class VersionComponent:
 
     @property
     def value(self) -> str:
-        """Return the value of the part."""
+        """The value of the part."""
         return self._value or self.func.optional_value
 
     def copy(self) -> VersionComponent:

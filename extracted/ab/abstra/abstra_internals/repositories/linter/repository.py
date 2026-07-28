@@ -30,12 +30,82 @@ from abstra_internals.repositories.linter.rules import (
 _PACKAGE_INSTALL_RULE_NAMES = frozenset(r.name for r in run_after_package_install)
 
 
+# How long the deploy gate waits for a scheduled/in-flight lint to settle before
+# giving up and re-verifying itself. Matches the sidecar deploy-gate timeout.
+DEPLOY_GATE_WAIT_SECONDS = 120.0
+
+RUN_NEVER = "never_run"
+RUN_RUNNING = "running"
+RUN_SUCCESS = "success"
+RUN_FAILED = "failed"
+
+
+class LinterRunGate:
+    """Outcome of the last lint pass, so the deploy gate can trust the
+    incrementally-maintained mirror instead of re-linting from scratch.
+
+    ``mark_pending`` covers both a scheduled (debounced) and an in-flight pass —
+    deploy waits on ``settled`` while pending. ``mark_success``/``mark_failed``
+    resolve it: deploy trusts SUCCESS as a fresh full verdict and re-verifies on
+    FAILED or NEVER_RUN. Thread-safe: the editor lints on a timer thread while
+    the deploy gate reads from an HTTP thread.
+
+    Pending passes are COUNTED: each ``mark_pending`` must be resolved by
+    exactly one ``mark_success``/``mark_failed``, and the gate only settles
+    when none remain. Otherwise a pass completing while another is scheduled
+    (or between the groups of a partitioned run) would read as settled and let
+    a deploy trust a mirror that misses the newest edit. The settled status is
+    FAILED if any pass in the window failed (the mirror may be partially
+    stale), SUCCESS only if all of them succeeded."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._status = RUN_NEVER
+        self._pending = 0
+        self._window_failed = False
+        self._settled = threading.Event()
+        self._settled.set()
+
+    def mark_pending(self) -> None:
+        with self._lock:
+            self._pending += 1
+            self._status = RUN_RUNNING
+            self._settled.clear()
+
+    def mark_success(self) -> None:
+        self._resolve(failed=False)
+
+    def mark_failed(self) -> None:
+        self._resolve(failed=True)
+
+    def _resolve(self, failed: bool) -> None:
+        with self._lock:
+            self._window_failed = self._window_failed or failed
+            self._pending = max(0, self._pending - 1)
+            if self._pending == 0:
+                self._status = RUN_FAILED if self._window_failed else RUN_SUCCESS
+                self._window_failed = False
+                self._settled.set()
+
+    @property
+    def status(self) -> str:
+        with self._lock:
+            return self._status
+
+    def wait_settled(self, timeout: float) -> bool:
+        """Block until the pending/in-flight pass resolves. Returns False on
+        timeout (caller then re-verifies rather than trusting a stuck state)."""
+        return self._settled.wait(timeout)
+
+
 class LinterRepository(ABC):
     checks: List[LinterCheck] = []
     # True when the last lint operation could not actually run and `checks` is
     # a stale mirror (e.g. the sidecar child is dead). In-process repositories
     # always run for real, so they never degrade.
     degraded: bool = False
+    # Last-pass outcome, used by the deploy gate.
+    run_gate: "LinterRunGate"
 
     @abstractmethod
     def find_issues_in_codebase(self) -> List[LinterCheck]:
@@ -75,9 +145,7 @@ def failed_check(rule: LinterRule) -> LinterCheck:
     return LinterCheck(
         name=rule.name,
         label=rule.label,
-        type=rule.type,
         issues=[],
-        fix_with_ai=rule.fix_with_ai,
         status="failed",
     )
 
@@ -98,14 +166,27 @@ def check_rule(rule, checks_list, context=None):
         reset_lint_context(token)
 
 
-LINTER_TYPE_PRIORITY = {"error": 0, "warning": 1}
 BLOCKING_TYPES = {"error"}
 
-# Rules whose fix has process-level side effects (pip upgrade + editor restart)
-# rather than a local file edit, so "fix all" must skip them. Currently empty:
-# the abstra self-update was moved out of the linter into EditorUpdateController
-# (its own "Update Abstra" button). Kept as an extension point.
-BULK_FIX_EXCLUDED_RULES: set[str] = set()
+
+def check_is_blocking(check: LinterCheck) -> bool:
+    if check.status == "failed":
+        return True
+    return any(issue.type in BLOCKING_TYPES for issue in check.issues)
+
+
+# Fixes with process-level side effects (pip upgrade + editor restart) rather
+# than a local file edit, so "fix all" must skip them. Keyed by fix name, not
+# rule name: since RequirementsAnalyzer groups every requirements verdict, a
+# rule-level exclusion would drop all its deterministic fixes too.
+# UpdateAbstraToLatestVersion is here because it triggers a self-update
+# (EditorUpdateController.trigger_update → pip install + editor restart); a bulk
+# "fix all" must not restart the pod as a side effect.
+BULK_FIX_EXCLUDED_FIXES: set[str] = {
+    "UpdateAbstraToLatestVersion",
+    # InstallRequirements calls restart_editor_and_workers on success.
+    "InstallRequirements",
+}
 
 
 class LocalLinterRepository(LinterRepository):
@@ -119,6 +200,8 @@ class LocalLinterRepository(LinterRepository):
         # the linter sidecar child, where thread-per-rule would only inflate
         # the pod's CFS throttle. Default keeps the threaded fan-out.
         self._serial = serial
+        # Tracks the last pass's outcome
+        self.run_gate = LinterRunGate()
 
     def find_issues_in_codebase(self) -> List[LinterCheck]:
         """
@@ -264,9 +347,7 @@ class LocalLinterRepository(LinterRepository):
         return LinterCheck(
             name=rule.name,
             label=rule.label,
-            type=rule.type,
             issues=kept_issues + new_issues,
-            fix_with_ai=rule.fix_with_ai,
         )
 
     def _run_rules(
@@ -276,32 +357,39 @@ class LocalLinterRepository(LinterRepository):
         paths: Optional[List[Path]] = None,
         revalidate_caches: bool = False,
     ) -> List[LinterCheck]:
-        if {r.name for r in target_rules} == _PACKAGE_INSTALL_RULE_NAMES:
-            self._refresh_install_sensitive_caches()
+        self.run_gate.mark_pending()
+        try:
+            if {r.name for r in target_rules} == _PACKAGE_INSTALL_RULE_NAMES:
+                self._refresh_install_sensitive_caches()
 
-        # One context per pass: the project is loaded once and shared by every
-        # rule (via the ContextVar the fan-out workers publish), instead of each
-        # project-reading rule re-loading it under the class lock.
-        context = LintContext(revalidate_caches=revalidate_caches)
-        new_checks, scoped_results = self._execute_rules(
-            target_rules, paths=paths, context=context
-        )
+            # One context per pass: the project is loaded once and shared by every
+            # rule (via the ContextVar the fan-out workers publish), instead of each
+            # project-reading rule re-loading it under the class lock.
+            context = LintContext(revalidate_caches=revalidate_caches)
+            new_checks, scoped_results = self._execute_rules(
+                target_rules, paths=paths, context=context
+            )
 
-        if scoped_results:
-            scope_keys = {linter_path_key(p) for p in paths or []}
-            for rule, issues in scoped_results:
-                new_checks.append(self._merge_scoped_check(rule, issues, scope_keys))
+            if scoped_results:
+                scope_keys = {linter_path_key(p) for p in paths or []}
+                for rule, issues in scoped_results:
+                    new_checks.append(
+                        self._merge_scoped_check(rule, issues, scope_keys)
+                    )
 
-        if merge:
-            updated_names = {c.name for c in new_checks}
-            merged = [c for c in self.checks if c.name not in updated_names]
-            merged.extend(new_checks)
-            merged.sort(key=lambda c: LINTER_TYPE_PRIORITY.get(c.type, 4))
-            self.checks = merged
-        else:
-            new_checks.sort(key=lambda c: LINTER_TYPE_PRIORITY.get(c.type, 4))
-            self.checks = new_checks
-
+            if merge:
+                updated_names = {c.name for c in new_checks}
+                merged = [c for c in self.checks if c.name not in updated_names]
+                merged.extend(new_checks)
+                merged.sort(key=lambda c: 0 if check_is_blocking(c) else 1)
+                self.checks = merged
+            else:
+                new_checks.sort(key=lambda c: 0 if check_is_blocking(c) else 1)
+                self.checks = new_checks
+        except Exception:
+            self.run_gate.mark_failed()
+            raise
+        self.run_gate.mark_success()
         return self.checks
 
     def _refresh_install_sensitive_caches(self) -> None:
@@ -422,26 +510,28 @@ class LocalLinterRepository(LinterRepository):
 
     def fix_all_linters(self):
         for check in self.checks:
-            if check.name in BULK_FIX_EXCLUDED_RULES:
-                continue
             for issue in check.issues:
                 for fix in issue.fixes:
+                    if fix.name in BULK_FIX_EXCLUDED_FIXES:
+                        continue
                     fix.fix()
 
     def get_blocking_checks(self) -> List[LinterCheck]:
-        # A failed blocking check blocks too (fail-closed, same policy as a
-        # dead sidecar): the rule crashed, so "no issues" was never verified.
-        return [
-            check
-            for check in self.checks
-            if check.type in BLOCKING_TYPES
-            and (check.issues or check.status == "failed")
-        ]
+        return [check for check in self.checks if check_is_blocking(check)]
 
     def get_blocking_checks_for_deploy(self) -> List[LinterCheck]:
-        blocking_rules = [r for r in rules if r.type in BLOCKING_TYPES]
-        self.update_specific_checks(blocking_rules)
-        return self.get_blocking_checks()
+        # Trust the incrementally-maintained mirror instead of re-linting every
+        # deploy: wait for any scheduled/in-flight pass to settle, then re-verify
+        # only if the last one couldn't be trusted (failed, or nothing ran yet).
+        # A fresh SUCCESS mirror is the common case and needs no work.
+        self.run_gate.wait_settled(DEPLOY_GATE_WAIT_SECONDS)
+        with self._run_lock:
+            if self.run_gate.status == RUN_SUCCESS and self.checks:
+                return self.get_blocking_checks()
+            # Failed / never ran / still pending after the wait — recompute a
+            # full, fresh verdict (holds the lock; _run_rules is non-reentrant).
+            self._run_rules(rules, merge=False)
+            return self.get_blocking_checks()
 
 
 class ProductionLinterRepository(LinterRepository):

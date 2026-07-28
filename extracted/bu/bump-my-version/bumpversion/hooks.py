@@ -36,7 +36,7 @@ def run_command(script: str, environment: Optional[dict] = None) -> subprocess.C
     if environment and not isinstance(environment, dict):
         raise TypeError(f"`environment` must be a dict, not {type(environment)}")
     args: Union[str, list] = script if sys.platform == "win32" else shlex.split(script)
-    return subprocess.run(  # noqa: S603
+    return subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true]
         args,
         env=environment,
         encoding="utf-8",

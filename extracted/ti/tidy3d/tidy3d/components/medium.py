@@ -6,7 +6,7 @@ import functools
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
 from math import isclose
-from typing import TYPE_CHECKING, Any, Literal, TypeVar, get_args
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeVar, get_args
 
 import autograd.numpy as np
 import numpy as npo
@@ -22,6 +22,15 @@ from pydantic import (
     model_validator,
 )
 
+from tidy3d.components.autograd.path_utils import (
+    AutogradRoute,
+    format_traced_path,
+    format_traced_paths,
+    raise_unsupported_traced_path,
+    resolve_delegated_autograd_route,
+    traced_paths,
+    validate_traced_path,
+)
 from tidy3d.components.autograd.utils import pack_complex_vec
 from tidy3d.constants import (
     C_0,
@@ -39,7 +48,7 @@ from tidy3d.constants import (
     fp_eps,
     pec_val,
 )
-from tidy3d.exceptions import SetupError, ValidationError
+from tidy3d.exceptions import AdjointError, SetupError, ValidationError
 from tidy3d.log import log
 
 from .autograd.derivative_utils import (
@@ -48,7 +57,7 @@ from .autograd.derivative_utils import (
     integrate_within_bounds,
     transpose_interp_axis,
 )
-from .autograd.types import TracedFloat, TracedPolesAndResidues, TracedPositiveFloat
+from .autograd.types import PathType, TracedFloat, TracedPolesAndResidues, TracedPositiveFloat
 from .base import Tidy3dBaseModel, cached_property
 from .data.data_array import DATA_ARRAY_MAP, ScalarFieldDataArray, SpatialDataArray
 from .data.dataset import PermittivityDataset
@@ -78,6 +87,7 @@ from .nonlinear import (  # noqa: F401
     KerrNonlinearity,
     NonlinearModel,
     NonlinearSpec,
+    NonlinearSpecType,
     NonlinearSusceptibility,
     TwoPhotonAbsorption,
 )
@@ -92,6 +102,8 @@ from .validators import call_wrapped_validator, validate_name_str, validate_para
 from .viz import VisualizationSpec, add_ax_if_none
 
 if TYPE_CHECKING:
+    from typing import NoReturn
+
     from autograd.numpy.numpy_boxes import ArrayBox
     from numpy.typing import ArrayLike
     from pydantic import FieldValidationInfo
@@ -121,6 +133,40 @@ ArrayGeneric = NDArray[Any]
 FrequencyArray = Sequence[float] | ArrayFloat
 WeightFunction = Callable[[float], ArrayComplex]
 ComplexArrayOrScalar = complex | ArrayGeneric
+
+_EPS_SIGMA_TRACED_PATHS = traced_paths("permittivity", "conductivity")
+
+
+def _validate_traced_custom_data_path(
+    medium_name: str,
+    field_path: tuple[Any, ...],
+    *,
+    scalar_data: Mapping[str, Any] | None = None,
+    indexed_data: Mapping[str, Sequence[Sequence[Any]]] | None = None,
+) -> None:
+    """Reject unstructured custom data at a validated traced medium path."""
+    scalar_data = scalar_data or {}
+    indexed_data = indexed_data or {}
+
+    if len(field_path) >= 1 and field_path[0] in scalar_data:
+        custom_data_path = field_path[:1]
+        spatial_data = scalar_data[field_path[0]]
+    elif len(field_path) >= 3 and field_path[0] in indexed_data:
+        data_values = indexed_data[field_path[0]]
+        component_values = data_values[field_path[1]]
+        custom_data_path = field_path[:3]
+        spatial_data = component_values[field_path[2]]
+    else:
+        return
+
+    if isinstance(spatial_data, UnstructuredGridDatasetType):
+        parameter = format_traced_path(custom_data_path)
+        raise AdjointError(
+            f"Automatic differentiation with respect to medium parameter '{parameter}' is not "
+            f"supported for medium type '{medium_name}' when the traced custom data is "
+            "unstructured. Use structured SpatialDataArray data or provide a custom_vjp."
+        )
+
 
 # evaluate frequency as this number (Hz) if inf
 FREQ_EVAL_INF = 1e50
@@ -214,6 +260,8 @@ def ensure_freq_in_range(
 class AbstractMedium(ABC, Tidy3dBaseModel):
     """A medium within which electromagnetic waves propagate."""
 
+    _traced_supported_paths: ClassVar[tuple[PathType, ...]] = ()
+
     name: str | None = Field(None, title="Name", description="Optional unique name for medium.")
 
     frequency_range: FreqBound | None = Field(
@@ -233,7 +281,7 @@ class AbstractMedium(ABC, Tidy3dBaseModel):
         "useful in some cases.",
     )
 
-    nonlinear_spec: NonlinearSpec | NonlinearSusceptibility | None = Field(
+    nonlinear_spec: NonlinearSpecType | None = Field(
         None,
         title="Nonlinear Spec",
         description="Nonlinear spec applied on top of the base medium properties.",
@@ -275,11 +323,15 @@ class AbstractMedium(ABC, Tidy3dBaseModel):
 
     @field_validator("nonlinear_spec", mode="before")
     @classmethod
-    def _normalize_empty_nonlinear_spec_dict(cls, val: Any) -> Any:
-        """Treat an empty nonlinear spec mapping as a missing value."""
-        if isinstance(val, Mapping) and not val:
-            return None
-        return val
+    def _add_nonlinear_spec_type_to_legacy_mapping(cls, val: Any) -> Any:
+        """Add a discriminator to legacy raw dict nonlinear_spec inputs."""
+        if not isinstance(val, Mapping) or not val or TYPE_TAG_STR in val:
+            return val
+
+        spec_type = (
+            "NonlinearSpec" if "models" in val or "num_iters" in val else "NonlinearSusceptibility"
+        )
+        return {TYPE_TAG_STR: spec_type, **val}
 
     def _validate_nonlinear_spec(self) -> Self:
         """Check compatibility with nonlinear_spec."""
@@ -893,6 +945,41 @@ class AbstractMedium(ABC, Tidy3dBaseModel):
 
     """ Autograd code """
 
+    @classmethod
+    def _traced_autograd_supported_parameters(cls) -> tuple[str, ...]:
+        """Return user-facing supported parameter names for setup validation."""
+        return format_traced_paths(cls._traced_supported_paths)
+
+    def _raise_unsupported_traced_path(
+        self,
+        field_path: tuple[Any, ...],
+        *,
+        supported_parameters: tuple[str, ...] | None = None,
+    ) -> NoReturn:
+        """Raise a user-facing validation error for an unsupported medium trace."""
+        raise_unsupported_traced_path(
+            parameter_kind="medium",
+            owner_kind="medium type",
+            owner_name=type(self).__name__,
+            field_path=field_path,
+            supported_parameters=(
+                type(self)._traced_autograd_supported_parameters()
+                if supported_parameters is None
+                else supported_parameters
+            ),
+        )
+
+    def _resolve_autograd_route(self, field_path: tuple[Any, ...]) -> AutogradRoute:
+        """Resolve and validate one traced medium path for adjoint routing."""
+        return validate_traced_path(
+            parameter_kind="medium",
+            owner_kind="medium type",
+            owner_name=type(self).__name__,
+            field_path=field_path,
+            supported_paths=self._traced_supported_paths,
+            supported_parameters=type(self)._traced_autograd_supported_parameters(),
+        )
+
     def _compute_derivatives(self, derivative_info: DerivativeInfo) -> AutogradFieldMap:
         """Compute the adjoint derivatives for this object."""
         raise NotImplementedError(f"Can't compute derivative for 'Medium': '{type(self)}'.")
@@ -967,6 +1054,7 @@ class AbstractCustomMedium(AbstractMedium, ABC):
 
     derived_from: PerturbationMediumType | None = Field(
         None,
+        discriminator=TYPE_TAG_STR,
         title="Parent Medium",
         description="If not ``None``, it records the parent medium from which this medium was derived.",
     )
@@ -1334,14 +1422,15 @@ class AbstractCustomMedium(AbstractMedium, ABC):
         else:
             vjp_array = values.reshape([*eps_shape, values.shape[-1]])
 
-        # match derivative dtype to the underlying dataset
-        target_array = getattr(spatial_data, "values", None)
-        if target_array is None and hasattr(spatial_data, "data"):
-            target_array = spatial_data.data
-        if target_array is not None:
-            target_dtype = np.asarray(target_array).dtype
-            if not np.issubdtype(target_dtype, np.complexfloating):
-                vjp_array = np.real(vjp_array).astype(target_dtype, copy=False)
+        # match derivative dtype to the underlying dataset for real-valued components
+        if component != "complex":
+            target_array = getattr(spatial_data, "values", None)
+            if target_array is None and hasattr(spatial_data, "data"):
+                target_array = spatial_data.data
+            if target_array is not None:
+                target_dtype = np.asarray(target_array).dtype
+                if not np.issubdtype(target_dtype, np.complexfloating):
+                    vjp_array = np.real(vjp_array).astype(target_dtype, copy=False)
 
         return vjp_array
 
@@ -1476,7 +1565,7 @@ class Medium(AbstractMedium):
         **Common Library Materials (telecom, ~1.55 μm)**
 
         - Silicon: ``td.material_library['cSi']['Li1993_293K']`` (n ≈ 3.48)
-        - SiO2: ``td.material_library['SiO2']['Palik_Lossless']`` (n ≈ 1.44)
+        - SiO2: ``td.material_library['SiO2']['Palik_NoLoss']`` (n ≈ 1.44)
         - Si3N4: ``td.material_library['Si3N4']['Luke2015PMLStable']`` (n ≈ 2.0)
         - Gold: ``td.material_library['Au']['JohnsonChristy1972']``
         - Silver: ``td.material_library['Ag']['JohnsonChristy1972']``
@@ -1500,6 +1589,8 @@ class Medium(AbstractMedium):
         * `Mediums <https://www.flexcompute.com/tidy3d/learning-center/tidy3d-gui/Lecture-2-Mediums/>`_
 
     """
+
+    _traced_supported_paths: ClassVar[tuple[PathType, ...]] = _EPS_SIGMA_TRACED_PATHS
 
     permittivity: TracedFloat = Field(
         1.0,
@@ -1803,6 +1894,33 @@ class CustomIsotropicMedium(AbstractCustomMedium, Medium):
         """Whether the medium is isotropic."""
         return True
 
+    @cached_property
+    def _permittivity_mean(self) -> complex:
+        """Spatial mean of the real permittivity profile."""
+        return np.mean(_get_numpy_array(self.permittivity))
+
+    @cached_property
+    def _conductivity_mean(self) -> complex:
+        """Spatial mean of the conductivity profile."""
+        if self.conductivity is None:
+            return 0.0
+        return np.mean(_get_numpy_array(self.conductivity))
+
+    @ensure_freq_in_range
+    def eps_model(self, frequency: float) -> complex:
+        """Complex-valued spatially averaged permittivity as a function of frequency."""
+        return self.eps_sigma_to_eps_complex(
+            self._permittivity_mean, self._conductivity_mean, frequency
+        )
+
+    @ensure_freq_in_range
+    def eps_diagonal(self, frequency: float) -> tuple[complex, complex, complex]:
+        """Main diagonal of the complex-valued permittivity tensor at ``frequency``."""
+        if self.conductivity is None:
+            eps = np.max(_get_numpy_array(self.permittivity))
+            return (eps, eps, eps)
+        return super().eps_diagonal(frequency)
+
     def eps_dataarray_freq(
         self, frequency: float
     ) -> tuple[CustomSpatialDataType, CustomSpatialDataType, CustomSpatialDataType]:
@@ -1909,6 +2027,8 @@ class CustomMedium(AbstractCustomMedium):
     >>> dielectric = CustomMedium(permittivity=permittivity, conductivity=conductivity)
     >>> eps = dielectric.eps_model(200e12)
     """
+
+    _traced_supported_paths: ClassVar[tuple[PathType, ...]] = _EPS_SIGMA_TRACED_PATHS
 
     eps_dataset: PermittivityDataset | None = Field(
         None,
@@ -2251,6 +2371,20 @@ class CustomMedium(AbstractCustomMedium):
         }
 
     @cached_property
+    def _permittivity_mean(self) -> complex | None:
+        """Spatial mean of the real permittivity profile."""
+        if self.permittivity is None:
+            return None
+        return np.mean(_get_numpy_array(self.permittivity))
+
+    @cached_property
+    def _conductivity_mean(self) -> complex:
+        """Spatial mean of the conductivity profile."""
+        if self.conductivity is None:
+            return 0.0
+        return np.mean(_get_numpy_array(self.conductivity))
+
+    @cached_property
     def freqs(self) -> ArrayFloat:
         """float array of frequencies.
         This field is to be deprecated in v3.0.
@@ -2271,7 +2405,7 @@ class CustomMedium(AbstractCustomMedium):
         """Internal representation in the form of
         either `CustomIsotropicMedium` or `CustomAnisotropicMedium`.
         """
-        self_dict = self.model_dump(exclude={"type", "eps_dataset"})
+        self_dict = self.model_dump(exclude={TYPE_TAG_STR, "eps_dataset"})
         # isotropic
         if self.eps_dataset is None:
             self_dict.update({"permittivity": self.permittivity, "conductivity": self.conductivity})
@@ -2369,9 +2503,12 @@ class CustomMedium(AbstractCustomMedium):
     @ensure_freq_in_range
     def eps_diagonal(self, frequency: float) -> tuple[complex, complex, complex]:
         """Main diagonal of the complex-valued permittivity tensor
-        at ``frequency``. Spatially, we take max{|eps|}, so that autoMesh generation
+        at ``frequency``. Spatially, we take :math:`\\max\\{|\\varepsilon|\\}`, so that autoMesh generation
         works appropriately.
         """
+        if self.eps_dataset is None and self.permittivity is not None and self.conductivity is None:
+            eps = np.max(_get_numpy_array(self.permittivity))
+            return (eps, eps, eps)
         return self._medium.eps_diagonal(frequency)
 
     @ensure_freq_in_range
@@ -2379,6 +2516,10 @@ class CustomMedium(AbstractCustomMedium):
         """Spatial and polarizaiton average of complex-valued permittivity
         as a function of frequency.
         """
+        if self.eps_dataset is None and self.permittivity is not None:
+            return self.eps_sigma_to_eps_complex(
+                self._permittivity_mean, self._conductivity_mean, frequency
+            )
         return self._medium.eps_model(frequency)
 
     @classmethod
@@ -2621,6 +2762,36 @@ class CustomMedium(AbstractCustomMedium):
             eps_dataset=eps_reduced,
         )
 
+    def _resolve_autograd_route(self, field_path: tuple[Any, ...]) -> AutogradRoute:
+        """Resolve and validate one traced CustomMedium path for adjoint routing."""
+        if field_path and field_path[0] in ("permittivity", "conductivity"):
+            _validate_traced_custom_data_path(
+                type(self).__name__,
+                field_path,
+                scalar_data={
+                    "permittivity": self.permittivity,
+                    "conductivity": self.conductivity,
+                },
+            )
+        if field_path in self._traced_supported_paths:
+            return AutogradRoute(local_path=field_path)
+
+        eps_components = (
+            tuple(self.eps_dataset.field_components.keys()) if self.eps_dataset is not None else ()
+        )
+        if (
+            len(field_path) == 2
+            and field_path[0] == "eps_dataset"
+            and field_path[1] in eps_components
+        ):
+            return AutogradRoute(local_path=field_path)
+
+        supported_eps = tuple(f"eps_dataset.{component}" for component in eps_components)
+        self._raise_unsupported_traced_path(
+            field_path,
+            supported_parameters=("permittivity", "conductivity", *supported_eps),
+        )
+
     def _compute_derivatives(self, derivative_info: DerivativeInfo) -> AutogradFieldMap:
         """Compute the adjoint derivatives for this object."""
 
@@ -2663,16 +2834,17 @@ class CustomMedium(AbstractCustomMedium):
                 if spatial_data is None:
                     continue
                 dim = key[-1]
+                component = (
+                    "complex"
+                    if np.issubdtype(np.asarray(spatial_data.values).dtype, np.complexfloating)
+                    else "real"
+                )
                 vjps[field_path] = self._derivative_field_cmp_custom(
                     E_der_map=derivative_info.E_der_map,
                     spatial_data=spatial_data,
                     dim=dim,
                     bounds=derivative_info.bounds_intersect,
-                    component="complex",
-                )
-            else:
-                raise NotImplementedError(
-                    f"No derivative defined for 'CustomMedium' field: {field_path}."
+                    component=component,
                 )
 
         return vjps
@@ -2719,6 +2891,8 @@ class DispersiveMedium(AbstractMedium, ABC):
     **Lectures**
         * `Modeling dispersive material in FDTD <https://www.flexcompute.com/fdtd101/Lecture-5-Modeling-dispersive-material-in-FDTD/>`_
     """
+
+    _traced_indexed_root: ClassVar[str | None] = None
 
     @staticmethod
     def _permittivity_modulation_validation() -> Callable[[T], T]:
@@ -2843,9 +3017,44 @@ class DispersiveMedium(AbstractMedium, ABC):
                 out[k] = np.real(g[idx])
         return out
 
+    @classmethod
+    def _traced_autograd_supported_parameters(cls) -> tuple[str, ...]:
+        """Return user-facing supported parameter names for setup validation."""
+        parameters = format_traced_paths(cls._traced_supported_paths)
+        root = cls._traced_indexed_root
+        if root is None:
+            return parameters
+        return (*parameters, f"{root}[index][component]")
+
+    def _resolve_autograd_route(self, field_path: tuple[Any, ...]) -> AutogradRoute:
+        """Resolve and validate one traced dispersive medium path for adjoint routing."""
+        if field_path in self._traced_supported_paths:
+            return AutogradRoute(local_path=field_path)
+
+        root = self._traced_indexed_root
+        # Stripped paths are produced from model containers; for indexed material coefficients
+        # we only need to check the derivative-map path shape here, not duplicate model bounds.
+        if root is not None and len(field_path) == 3 and field_path[0] == root:
+            return AutogradRoute(local_path=field_path)
+
+        self._raise_unsupported_traced_path(field_path)
+
 
 class CustomDispersiveMedium(AbstractCustomMedium, DispersiveMedium, ABC):
     """A spatially varying dispersive medium."""
+
+    def _resolve_autograd_route(self, field_path: tuple[Any, ...]) -> AutogradRoute:
+        """Resolve and validate one traced custom dispersive medium path."""
+        root = self._traced_indexed_root
+        scalar_data = {path[0]: getattr(self, path[0]) for path in self._traced_supported_paths}
+        indexed_data = {root: getattr(self, root)} if root is not None else {}
+        _validate_traced_custom_data_path(
+            type(self).__name__,
+            field_path,
+            scalar_data=scalar_data,
+            indexed_data=indexed_data,
+        )
+        return super()._resolve_autograd_route(field_path)
 
     @cached_property
     def n_cfl(self) -> float:
@@ -2942,14 +3151,16 @@ class CustomDispersiveMedium(AbstractCustomMedium, DispersiveMedium, ABC):
                 E_der_map=derivative_info.E_der_map,
                 spatial_data=spatial_ref,
                 dim=dim,
+                bounds=derivative_info.bounds_intersect,
+                component="complex",
                 sum_over_freqs=False,
             )
         return dJ
 
     @staticmethod
     def _accum_real_inner(dJ: ArrayComplex, weight: ArrayComplex) -> ArrayFloat:
-        """Compute Re(dJ * conj(weight)) with proper broadcasting."""
-        return np.real(dJ * np.conj(weight))
+        """Compute Re(dJ * weight) with proper broadcasting."""
+        return np.real(dJ * weight)
 
     def _sum_real_over_freqs(self, dJ: np.ndarray, freqs: list[float] | np.ndarray) -> np.ndarray:
         """Sum real parts over the frequency axis using the shared accumulator."""
@@ -3031,6 +3242,9 @@ class PoleResidue(DispersiveMedium):
     **Lectures**
         * `Modeling dispersive material in FDTD <https://www.flexcompute.com/fdtd101/Lecture-5-Modeling-dispersive-material-in-FDTD/>`_
     """
+
+    _traced_indexed_root: ClassVar[str] = "poles"
+    _traced_supported_paths: ClassVar[tuple[PathType, ...]] = traced_paths("eps_inf")
 
     eps_inf: TracedPositiveFloat = Field(
         1.0,
@@ -3757,7 +3971,7 @@ class CustomPoleResidue(CustomDispersiveMedium, PoleResidue):
         """
         poles = [(_zeros_like(medium.conductivity), medium.conductivity / (2 * EPSILON_0))]
         medium_dict = medium.model_dump(
-            exclude={"type", "eps_dataset", "permittivity", "conductivity"}
+            exclude={TYPE_TAG_STR, "eps_dataset", "permittivity", "conductivity"}
         )
         medium_dict.update({"eps_inf": medium.permittivity, "poles": poles})
         return CustomPoleResidue.model_validate(medium_dict)
@@ -3781,7 +3995,7 @@ class CustomPoleResidue(CustomDispersiveMedium, PoleResidue):
             res = res + (c + np.conj(c)) / 2
         sigma = res * 2 * EPSILON_0
 
-        self_dict = self.model_dump(exclude={"type", "eps_inf", "poles"})
+        self_dict = self.model_dump(exclude={TYPE_TAG_STR, "eps_inf", "poles"})
         self_dict.update({"permittivity": self.eps_inf, "conductivity": np.real(sigma)})
         return CustomMedium.model_validate(self_dict)
 
@@ -3902,6 +4116,8 @@ class Sellmeier(DispersiveMedium):
 
     * `Modeling dispersive material in FDTD <https://www.flexcompute.com/fdtd101/Lecture-5-Modeling-dispersive-material-in-FDTD/>`_
     """
+
+    _traced_indexed_root: ClassVar[str] = "coeffs"
 
     coeffs: tuple[tuple[float, PositiveFloat], ...] = Field(
         title="Coefficients",
@@ -4035,8 +4251,8 @@ class Sellmeier(DispersiveMedium):
             return {}
 
         # pack parameters into flat vector [B..., C...]
-        B0 = np.array([float(b) for (b, _c) in self.coeffs])
-        C0 = np.array([float(c) for (_b, c) in self.coeffs])
+        B0 = np.array([b for (b, _c) in self.coeffs])
+        C0 = np.array([c for (_b, c) in self.coeffs])
         theta0 = np.concatenate([B0, C0])
 
         def _eps_vec(theta: Sequence[PositiveFloat]) -> NDArray | ArrayBox:
@@ -4136,7 +4352,8 @@ class CustomSellmeier(CustomDispersiveMedium, Sellmeier):
     @field_validator("coeffs")
     @classmethod
     def _correct_shape_and_sign(
-        cls, val: tuple[tuple[CustomSpatialDataType, CustomSpatialDataType], ...]
+        cls,
+        val: tuple[tuple[CustomSpatialDataType, CustomSpatialDataType], ...],
     ) -> tuple[tuple[CustomSpatialDataType, CustomSpatialDataType], ...]:
         """every term in coeffs must have the same shape, and B>=0 and C>0."""
         if len(val) == 0:
@@ -4373,6 +4590,9 @@ class Lorentz(DispersiveMedium):
         * `Modeling dispersive material in FDTD <https://www.flexcompute.com/fdtd101/Lecture-5-Modeling-dispersive-material-in-FDTD/>`_
     """
 
+    _traced_indexed_root: ClassVar[str] = "coeffs"
+    _traced_supported_paths: ClassVar[tuple[PathType, ...]] = traced_paths("eps_inf")
+
     eps_inf: PositiveFloat = Field(
         1.0,
         title="Epsilon at Infinity",
@@ -4540,10 +4760,10 @@ class Lorentz(DispersiveMedium):
             return {}
 
         # pack into flat [eps_inf, de..., f0..., delta...]
-        eps_inf0 = float(self.eps_inf)
-        de0 = np.array([float(de) for (de, _f, _d) in self.coeffs]) if N else np.array([])
-        f0 = np.array([float(fi) for (_de, fi, _d) in self.coeffs]) if N else np.array([])
-        d0 = np.array([float(dd) for (_de, _f, dd) in self.coeffs]) if N else np.array([])
+        eps_inf0 = self.eps_inf
+        de0 = np.array([de for (de, _f, _d) in self.coeffs]) if N else np.array([])
+        f0 = np.array([fi for (_de, fi, _d) in self.coeffs]) if N else np.array([])
+        d0 = np.array([dd for (_de, _f, dd) in self.coeffs]) if N else np.array([])
         theta0 = np.concatenate([np.array([eps_inf0]), de0, f0, d0])
 
         def _eps_vec(theta: Sequence[PositiveFloat]) -> NDArray | ArrayBox:
@@ -4707,8 +4927,9 @@ class CustomLorentz(CustomDispersiveMedium, Lorentz):
     @field_validator("coeffs")
     @classmethod
     def _coeffs_delta_all_smaller_or_larger_than_fi(
-        cls, val: tuple[tuple[CustomSpatialDataType, CustomSpatialDataType], ...]
-    ) -> tuple[tuple[CustomSpatialDataType, CustomSpatialDataType], ...]:
+        cls,
+        val: tuple[tuple[CustomSpatialDataType, CustomSpatialDataType, CustomSpatialDataType], ...],
+    ) -> tuple[tuple[CustomSpatialDataType, CustomSpatialDataType, CustomSpatialDataType], ...]:
         """We restrict either all f**2>delta**2 or all f**2<delta**2 for now."""
         for _, f, delta in val:
             f2 = f**2
@@ -4896,6 +5117,9 @@ class Drude(DispersiveMedium):
         * `Modeling dispersive material in FDTD <https://www.flexcompute.com/fdtd101/Lecture-5-Modeling-dispersive-material-in-FDTD/>`_
     """
 
+    _traced_indexed_root: ClassVar[str] = "coeffs"
+    _traced_supported_paths: ClassVar[tuple[PathType, ...]] = traced_paths("eps_inf")
+
     eps_inf: PositiveFloat = Field(
         1.0,
         title="Epsilon at Infinity",
@@ -4957,9 +5181,9 @@ class Drude(DispersiveMedium):
             return {}
 
         # pack into flat [eps_inf, fp..., delta...]
-        eps_inf0 = float(self.eps_inf)
-        fp0 = np.array([float(fp) for (fp, _d) in self.coeffs]) if N else np.array([])
-        d0 = np.array([float(dd) for (_fp, dd) in self.coeffs]) if N else np.array([])
+        eps_inf0 = self.eps_inf
+        fp0 = np.array([fp for (fp, _d) in self.coeffs]) if N else np.array([])
+        d0 = np.array([dd for (_fp, dd) in self.coeffs]) if N else np.array([])
         theta0 = np.concatenate([np.array([eps_inf0]), fp0, d0])
 
         def _eps_vec(theta: Sequence[PositiveFloat]) -> NDArray | ArrayBox:
@@ -5237,6 +5461,9 @@ class Debye(DispersiveMedium):
         * `Modeling dispersive material in FDTD <https://www.flexcompute.com/fdtd101/Lecture-5-Modeling-dispersive-material-in-FDTD/>`_
     """
 
+    _traced_indexed_root: ClassVar[str] = "coeffs"
+    _traced_supported_paths: ClassVar[tuple[PathType, ...]] = traced_paths("eps_inf")
+
     eps_inf: PositiveFloat = Field(
         1.0,
         title="Epsilon at Infinity",
@@ -5325,9 +5552,9 @@ class Debye(DispersiveMedium):
             return {}
 
         # pack into flat [eps_inf, de..., tau...]
-        eps_inf0 = float(self.eps_inf)
-        de0 = np.array([float(de) for (de, _t) in self.coeffs]) if N else np.array([])
-        tau0 = np.array([float(t) for (_de, t) in self.coeffs]) if N else np.array([])
+        eps_inf0 = self.eps_inf
+        de0 = np.array([de for (de, _t) in self.coeffs]) if N else np.array([])
+        tau0 = np.array([t for (_de, t) in self.coeffs]) if N else np.array([])
         theta0 = np.concatenate([np.array([eps_inf0]), de0, tau0])
 
         def _eps_vec(theta: Sequence[PositiveFloat]) -> NDArray | ArrayBox:
@@ -5844,7 +6071,7 @@ class LossyMetalMedium(Medium):
         "useful in some cases.",
     )
 
-    permittivity: Literal[1.0] = Field(
+    permittivity: Literal[1.0] = Field(  # pyrefly: ignore[invalid-literal]
         1.0,
         title="Permittivity",
         description="Relative permittivity.",
@@ -5862,7 +6089,8 @@ class LossyMetalMedium(Medium):
         None,
         title="Surface Roughness Model",
         description="Surface roughness model that applies a frequency-dependent scaling "
-        "factor to surface impedance.",
+        "factor to surface impedance. Takes effect only when ``penetrable=False`` and "
+        "``Simulation.subpixel.lossy_metal`` is ``SurfaceImpedance``.",
         discriminator=TYPE_TAG_STR,
     )
 
@@ -5870,7 +6098,9 @@ class LossyMetalMedium(Medium):
         None,
         title="Conductor Thickness",
         description="When the thickness of the conductor is not much greater than skin depth, "
-        "1D transmission line model is applied to compute the surface impedance of the thin conductor.",
+        "1D transmission line model is applied to compute the surface impedance of the thin conductor. "
+        "Takes effect only when ``penetrable=False`` and ``Simulation.subpixel.lossy_metal`` is "
+        "``SurfaceImpedance``.",
         json_schema_extra={"units": MICROMETER},
     )
 
@@ -5884,7 +6114,18 @@ class LossyMetalMedium(Medium):
         default_factory=SurfaceImpedanceFitterParam,
         title="Fitting Parameters For Surface Impedance",
         description="Parameters for fitting surface impedance divided by (-1j * omega) over "
-        "the frequency range using pole-residue pair model.",
+        "the frequency range using pole-residue pair model. Takes effect only when "
+        "``penetrable=False`` and ``Simulation.subpixel.lossy_metal`` is ``SurfaceImpedance``.",
+    )
+
+    penetrable: bool = Field(
+        False,
+        title="Penetrable",
+        description="If ``True``, the metal is solved as a regular conductive medium with the "
+        "given ``conductivity`` (and ``permittivity = 1``), and subpixel averaging on this "
+        "material follows ``Simulation.subpixel.dielectric``. If ``False`` (default), the metal "
+        "uses the lossy-metal handling selected by ``Simulation.subpixel.lossy_metal`` (e.g. a "
+        "surface impedance boundary condition).",
     )
 
     @field_validator("frequency_range")
@@ -5901,7 +6142,7 @@ class LossyMetalMedium(Medium):
     @cached_property
     def is_pec_like(self) -> bool:
         """Whether the medium is treated as a PEC medium in surface monitors."""
-        return True
+        return not self.penetrable
 
     @cached_property
     def _fitting_result(self) -> tuple[PoleResidue, float]:
@@ -6112,6 +6353,20 @@ class AnisotropicMedium(AbstractMedium):
             )
         return val
 
+    @field_validator("xx", "yy", "zz")
+    @classmethod
+    def _no_surface_lossy_metal_component(
+        cls, val: IsotropicUniformMediumType, info: FieldValidationInfo
+    ) -> IsotropicUniformMediumType:
+        """A non-penetrable lossy metal has no anisotropic-component formulation."""
+        if isinstance(val, LossyMetalMedium) and not val.penetrable:
+            raise ValidationError(
+                f"The '{info.field_name}' component is a non-penetrable 'LossyMetalMedium', "
+                "which is not supported as a component of an 'AnisotropicMedium'. Set "
+                "'penetrable=True' to use it as a regular conductive medium."
+            )
+        return val
+
     @model_validator(mode="after")
     def _run_after_validators(self) -> Self:
         """Run post-init validations in an explicit, dependency-aware order."""
@@ -6299,17 +6554,23 @@ class AnisotropicMedium(AbstractMedium):
             paths=component_paths, E_der_map=projected_E, D_der_map=projected_D
         )
 
+    def _resolve_autograd_route(self, field_path: tuple[Any, ...]) -> AutogradRoute:
+        """Resolve and validate one traced AnisotropicMedium path for adjoint routing."""
+        components = self.components
+        return resolve_delegated_autograd_route(
+            parameter_kind="medium",
+            owner_kind="medium type",
+            owner_name=type(self).__name__,
+            field_path=field_path,
+            delegates=components,
+            supported_parameters=tuple(f"{component}.<parameter>" for component in components),
+        )
+
     def _compute_derivatives(self, derivative_info: DerivativeInfo) -> AutogradFieldMap:
         """Delegate derivatives for each diagonal component of an anisotropic medium."""
 
-        components = self.components
-        for field_path in derivative_info.paths:
-            if len(field_path) < 2 or field_path[0] not in components:
-                raise NotImplementedError(
-                    f"No derivative defined for '{type(self).__name__}' field: {field_path}."
-                )
-
         vjps: AutogradFieldMap = {}
+        components = self.components
         for comp_name, component in components.items():
             comp_info = self._component_derivative_info(
                 derivative_info=derivative_info, component=comp_name
@@ -6940,7 +7201,7 @@ class AbstractPerturbationMedium(ABC, Tidy3dBaseModel):
             Resulting medium with perturbation model.
         """
 
-        new_dict = medium.model_dump(exclude={"type"})
+        new_dict = medium.model_dump(exclude={TYPE_TAG_STR})
 
         new_dict["perturbation_spec"] = perturbation_spec
         new_dict["subpixel"] = subpixel
@@ -7231,7 +7492,12 @@ class PerturbationPoleResidue(PoleResidue, AbstractPerturbationMedium):
             return self
 
         new_dict = self.model_dump(
-            exclude={"eps_inf_perturbation", "poles_perturbation", "perturbation_spec", "type"}
+            exclude={
+                "eps_inf_perturbation",
+                "poles_perturbation",
+                "perturbation_spec",
+                TYPE_TAG_STR,
+            }
         )
 
         if all(x is None for x in [temperature, electron_density, hole_density]):
@@ -7466,7 +7732,12 @@ class Medium2D(AbstractMedium):
 
         def get_background(comp: Axis) -> PoleResidue:
             """Get the background medium appropriate for the ``comp`` component."""
-            meds = [get_component(med=med, comp=comp) for med in adjacent_media]
+            # a surface-impedance lossy metal has no volumetric tensor formulation, so
+            # use its penetrable form, which is solved as a regular conductive medium
+            meds = [
+                bg.updated_copy(penetrable=True) if isinstance(bg, LossyMetalMedium) else bg
+                for bg in (get_component(med=med, comp=comp) for med in adjacent_media)
+            ]
             # the Yee site for the E field in the normal direction is fully contained
             # in the medium on the + side
             if comp == axis:

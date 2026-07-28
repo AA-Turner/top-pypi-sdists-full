@@ -3,7 +3,6 @@ from __future__ import annotations
 import copy
 import dataclasses
 import datetime
-import json
 import logging
 import os
 import re
@@ -40,6 +39,7 @@ from weave.trace.casting import CallsFilterLike, QueryLike, SortByLike
 from weave.trace.concurrent.futures import FutureExecutor
 from weave.trace.constants import TRACE_CALL_EMOJI
 from weave.trace.context import call_context
+from weave.trace.errors import format_http_error
 from weave.trace.feedback import FeedbackQuery, RefFeedbackQuery
 from weave.trace.interface_query_builder import (
     exists_expr,
@@ -584,16 +584,12 @@ class WeaveClient:
             )
         except HTTPError as e:
             if e.response is not None:
-                if e.response.content:
-                    try:
-                        reason = json.loads(e.response.content).get("reason")
-                        raise ValueError(reason) from None
-                    except json.JSONDecodeError:
-                        raise ValueError(e.response.content) from None
-                if e.response.status_code == 404:
-                    raise ValueError(
-                        f"Unable to find object for ref uri: {ref.uri}"
-                    ) from e
+                raise ValueError(
+                    format_http_error(
+                        e.response,
+                        f"Unable to read object for ref uri: {ref.uri}",
+                    )
+                ) from None
             raise
 
         # At this point, `ref.digest` is one of three things:
@@ -2301,6 +2297,8 @@ class WeaveClient:
         prompt_token_cost_unit: str | None = "USD",
         completion_token_cost_unit: str | None = "USD",
         provider_id: str | None = "default",
+        cache_read_input_token_cost: float = 0,
+        cache_creation_input_token_cost: float = 0,
     ) -> CostCreateRes:
         """Add a cost to the current project.
 
@@ -2318,6 +2316,8 @@ class WeaveClient:
             provider_id: The provider of the LLM. Defaults to "default". eg "openai"
             prompt_token_cost_unit: The unit of the cost for the prompt tokens. Defaults to "USD". (Currently unused, will be used in the future to specify the currency type for the cost eg "tokens" or "time")
             completion_token_cost_unit: The unit of the cost for the completion tokens. Defaults to "USD". (Currently unused, will be used in the future to specify the currency type for the cost eg "tokens" or "time")
+            cache_read_input_token_cost: The cost per cache-read input token. Defaults to 0.
+            cache_creation_input_token_cost: The cost per cache-creation input token. Defaults to 0.
 
         Returns:
             A CostCreateRes object.
@@ -2329,6 +2329,8 @@ class WeaveClient:
         cost = CostCreateInput(
             prompt_token_cost=prompt_token_cost,
             completion_token_cost=completion_token_cost,
+            cache_read_input_token_cost=cache_read_input_token_cost,
+            cache_creation_input_token_cost=cache_creation_input_token_cost,
             effective_date=effective_date,
             prompt_token_cost_unit=prompt_token_cost_unit,
             completion_token_cost_unit=completion_token_cost_unit,

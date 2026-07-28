@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: rioxarray
-Version: 0.22.0
+Version: 0.23.0
 Summary: geospatial xarray extension powered by rasterio
 Maintainer: rioxarray Contributors
-License: Apache
+License-Expression: Apache-2.0
 Project-URL: homepage, https://corteva.github.io/rioxarray/
 Project-URL: documentation, https://corteva.github.io/rioxarray/
 Project-URL: repository, https://github.com/corteva/rioxarray
@@ -12,7 +12,6 @@ Keywords: rioxarray,xarray,rasterio
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Scientific/Engineering :: GIS
 Classifier: Programming Language :: Python
@@ -50,7 +49,7 @@ rasterio xarray extension.
    :alt: Join the chat at https://gitter.im/rioxarray/community
    :target: https://gitter.im/rioxarray/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
 
-.. image:: https://img.shields.io/badge/all_contributors-45-orange.svg?style=flat-square
+.. image:: https://img.shields.io/badge/all_contributors-47-orange.svg?style=flat-square
     :alt: All Contributors
     :target: https://github.com/corteva/rioxarray/blob/master/AUTHORS.rst
 

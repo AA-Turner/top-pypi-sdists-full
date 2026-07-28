@@ -1311,6 +1311,7 @@ class RequirementsRepository:
             f.write(requirements.to_text())
         safe_track_edit(cls.get_file_path())
         move(str(temp_file), cls.get_file_path())
+        temp_file.parent.rmdir()
 
     @classmethod
     def load(cls) -> Requirements:
@@ -1324,12 +1325,29 @@ class RequirementsRepository:
     @classmethod
     def ensure(cls, lib_name: str):
         requirements = cls.load()
-        try:
-            requirements.ensure(lib_name, distribution(lib_name).version)
-        except PackageNotFoundError:
-            # Package not found, skip
-            pass
+        version = cls._resolve_pinned_version(lib_name)
+        if version is not None:
+            requirements.ensure(lib_name, version)
         cls.save(requirements)
+
+    @staticmethod
+    def _resolve_pinned_version(lib_name: str) -> Optional[str]:
+        """Version to pin for lib_name in requirements.txt.
+
+        For abstra, use the version actually running this process (captured at
+        boot), not importlib.metadata's on-disk view: right after an upgrade
+        whose install hasn't taken effect, the disk metadata reports the new
+        version while the old code still runs, so pinning the disk version would
+        desync requirements.txt from the project that is really executing.
+        """
+        from abstra_internals.utils import packages as pkg_utils
+
+        if canonicalize_name(lib_name) == canonicalize_name(ABSTRA_PACKAGE_NAME):
+            return pkg_utils.RUNNING_ABSTRA_VERSION
+        try:
+            return distribution(lib_name).version
+        except PackageNotFoundError:
+            return None
 
 
 @dataclass

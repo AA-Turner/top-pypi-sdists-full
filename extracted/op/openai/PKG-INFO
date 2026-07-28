@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: openai
-Version: 2.48.0
+Version: 2.49.0
 Summary: The official Python library for the openai API
 Project-URL: Homepage, https://github.com/openai/openai-python
 Project-URL: Repository, https://github.com/openai/openai-python
@@ -13,7 +13,6 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: OS Independent
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -21,7 +20,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: anyio<5,>=3.5.0
 Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: httpx<1,>=0.23.0
@@ -31,19 +30,18 @@ Requires-Dist: sniffio
 Requires-Dist: tqdm>4
 Requires-Dist: typing-extensions<5,>=4.14
 Provides-Extra: aiohttp
-Requires-Dist: aiohttp>=3.14.1; (python_version >= '3.10') and extra == 'aiohttp'
-Requires-Dist: httpx-aiohttp>=0.1.9; (python_version >= '3.10') and extra == 'aiohttp'
+Requires-Dist: aiohttp>=3.14.1; extra == 'aiohttp'
+Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
 Provides-Extra: bedrock
-Requires-Dist: botocore<1.43,>=1.40.0; (python_version < '3.10') and extra == 'bedrock'
-Requires-Dist: botocore<2,>=1.40.0; (python_version >= '3.10') and extra == 'bedrock'
+Requires-Dist: botocore<2,>=1.40.0; extra == 'bedrock'
 Provides-Extra: datalib
 Requires-Dist: numpy>=1; extra == 'datalib'
 Requires-Dist: pandas-stubs>=1.1.0.11; extra == 'datalib'
 Requires-Dist: pandas>=1.2.3; extra == 'datalib'
 Provides-Extra: httpx2
-Requires-Dist: anyio<5,>=4.10.0; (python_version >= '3.10') and extra == 'httpx2'
-Requires-Dist: httpx2<3,>=2.7.0; (python_version >= '3.10') and extra == 'httpx2'
-Requires-Dist: httpx<1,>=0.25.1; (python_version >= '3.10') and extra == 'httpx2'
+Requires-Dist: anyio<5,>=4.10.0; extra == 'httpx2'
+Requires-Dist: httpx2<3,>=2.7.0; extra == 'httpx2'
+Requires-Dist: httpx<1,>=0.25.1; extra == 'httpx2'
 Provides-Extra: realtime
 Requires-Dist: websockets<16,>=13; extra == 'realtime'
 Provides-Extra: voice-helpers
@@ -56,7 +54,7 @@ Description-Content-Type: text/markdown
 <!-- prettier-ignore -->
 [![PyPI version](https://img.shields.io/pypi/v/openai.svg?label=pypi%20(stable))](https://pypi.org/project/openai/)
 
-The OpenAI Python library provides convenient access to the OpenAI REST API from any Python 3.9+
+The OpenAI Python library provides convenient access to the OpenAI REST API from any Python 3.10+
 application. The library includes type definitions for all request params and response fields,
 and offers both synchronous and asynchronous clients powered by [httpx](https://github.com/encode/httpx).
 
@@ -1092,6 +1090,8 @@ This package generally follows [SemVer](https://semver.org/spec/v2.0.0.html) con
 2. Changes to library internals which are technically public but not intended or documented for external use. _(Please open a GitHub issue to let us know if you are relying on such internals.)_
 3. Changes that we do not expect to impact the vast majority of users in practice.
 
+Minimum supported Python version increases are released as minor versions, not patches, when package metadata can keep users on the final compatible SDK release. See the [Python version support policy](https://github.com/openai/openai-python/tree/main/./PYTHON_VERSION_POLICY.md) for the support window, release treatment, and compatibility history.
+
 We take backwards-compatibility seriously and work hard to ensure you can rely on a smooth upgrade experience.
 
 We are keen for your feedback; please open an [issue](https://www.github.com/openai/openai-python/issues) with questions, bugs, or suggestions.
@@ -1109,7 +1109,7 @@ print(openai.__version__)
 
 ## Requirements
 
-Python 3.9 or higher.
+Python 3.10 or higher.
 
 ## Contributing
 

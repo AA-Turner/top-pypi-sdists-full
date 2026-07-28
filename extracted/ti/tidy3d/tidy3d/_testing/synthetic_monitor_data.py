@@ -12,7 +12,9 @@ from tidy3d.components.data.data_array import (
     ImpedanceFreqModeDataArray,
     VoltageFreqModeDataArray,
 )
+from tidy3d.components.data.point_cloud import POINT_CLOUD_PERMITTIVITY_COMPONENTS
 from tidy3d.components.microwave.data.dataset import TransmissionLineDataset
+from tidy3d.components.types import TYPE_TAG_STR
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -165,6 +167,36 @@ class SyntheticMonitorDataFactory:
             **field_cmps,
         )
 
+    def make_point_cloud_field_data(
+        self, monitor: td.PointCloudFieldMonitor
+    ) -> td.PointCloudFieldData:
+        field_cmps = {}
+        coords = {"index": np.asarray(monitor.points.coords["index"]), "f": list(monitor.freqs)}
+        for field_name in monitor.fields:
+            field_cmps[field_name] = self._make_data(
+                coords=coords, data_array_type=td.IndexedFreqDataArray, is_complex=True
+            )
+
+        return td.PointCloudFieldData(monitor=monitor, points=monitor.points, **field_cmps)
+
+    def make_point_cloud_permittivity_data(
+        self, monitor: td.PointCloudPermittivityMonitor
+    ) -> td.PointCloudPermittivityData:
+        field_cmps = {}
+        coords = {"index": np.asarray(monitor.points.coords["index"]), "f": list(monitor.freqs)}
+        for component_name in POINT_CLOUD_PERMITTIVITY_COMPONENTS:
+            values = self._make_data(
+                coords=coords,
+                data_array_type=td.IndexedFreqDataArray,
+                is_complex=True,
+            )
+            field_cmps[component_name] = td.IndexedFreqDataArray(
+                1.5**2 + np.abs(values.values),
+                coords=coords,
+            )
+
+        return td.PointCloudPermittivityData(monitor=monitor, points=monitor.points, **field_cmps)
+
     def make_field_time_data(self, monitor: td.FieldTimeMonitor) -> td.FieldTimeData:
         field_cmps = {}
         grid = self.simulation.discretize_monitor(monitor)
@@ -267,7 +299,7 @@ class SyntheticMonitorDataFactory:
         )
 
     def make_eps_data(self, monitor: td.PermittivityMonitor) -> td.PermittivityData:
-        field_mnt = td.FieldMonitor(**monitor.model_dump(exclude={"type", "fields"}))
+        field_mnt = td.FieldMonitor(**monitor.model_dump(exclude={TYPE_TAG_STR, "fields"}))
         field_data = self.make_field_data(field_mnt)
 
         def permittivity_from_field(
@@ -294,7 +326,7 @@ class SyntheticMonitorDataFactory:
         )
 
     def make_medium_data(self, monitor: td.MediumMonitor) -> td.MediumData:
-        field_mnt = td.FieldMonitor(**monitor.model_dump(exclude={"type", "fields"}))
+        field_mnt = td.FieldMonitor(**monitor.model_dump(exclude={TYPE_TAG_STR, "fields"}))
         field_data = self.make_field_data(field_mnt)
         return td.MediumData(
             monitor=monitor,
@@ -416,7 +448,9 @@ class SyntheticMonitorDataFactory:
 
     def make_gaussian_overlap_data(
         self,
-        monitor: td.GaussianOverlapMonitor | td.AstigmaticGaussianOverlapMonitor,
+        monitor: td.GaussianOverlapMonitor
+        | td.AstigmaticGaussianOverlapMonitor
+        | td.ThinLensOverlapMonitor,
     ) -> td.FieldOverlapData:
         grid = self.simulation.discretize_monitor(monitor)
         coords_amps = {"direction": ["+", "-"], "f": list(monitor.freqs), "mode_index": [0]}
@@ -569,6 +603,8 @@ class SyntheticMonitorDataFactory:
     def make_monitor_data(self, monitor: td.Monitor) -> MonitorDataTypes:
         monitor_maker_map = {
             td.FieldMonitor: self.make_field_data,
+            td.PointCloudFieldMonitor: self.make_point_cloud_field_data,
+            td.PointCloudPermittivityMonitor: self.make_point_cloud_permittivity_data,
             td.FieldTimeMonitor: self.make_field_time_data,
             td.ModeSolverMonitor: self.make_mode_solver_data,
             td.MicrowaveModeSolverMonitor: self.make_microwave_mode_solver_data,
@@ -586,6 +622,7 @@ class SyntheticMonitorDataFactory:
             td.FluxTimeMonitor: self.make_flux_time_data,
             td.GaussianOverlapMonitor: self.make_gaussian_overlap_data,
             td.AstigmaticGaussianOverlapMonitor: self.make_gaussian_overlap_data,
+            td.ThinLensOverlapMonitor: self.make_gaussian_overlap_data,
         }
         return monitor_maker_map[type(monitor)](monitor)
 

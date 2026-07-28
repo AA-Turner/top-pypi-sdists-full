@@ -44,16 +44,21 @@ class ParamBuilder:
         param_builder_count += 1
         self._params: dict[str, Any] = {}
         self._prefix = (prefix or f"pb_{param_builder_count}") + "_"
-        self._param_to_name: dict[Any, str] = {}
+        self._param_to_name: dict[tuple[type, Any], str] = {}
 
     def add_param(self, param_value: Any) -> str:
         param_name = self._prefix + str(len(self._params))
 
         # Only attempt caching for hashable values
         if isinstance(param_value, Hashable):
-            if param_value in self._param_to_name:
-                return self._param_to_name[param_value]
-            self._param_to_name[param_value] = param_name
+            # Dedup on (type, value), not value alone: True == 1 == 1.0 in
+            # Python (with equal hashes), so a value-only key could bind a bool
+            # and an int to one param rendered as both Bool and UInt64 (a parse
+            # error in ClickHouse).
+            cache_key = (type(param_value), param_value)
+            if cache_key in self._param_to_name:
+                return self._param_to_name[cache_key]
+            self._param_to_name[cache_key] = param_name
 
         # For non-hashable values, just generate a new param without caching
         self._params[param_name] = param_value
@@ -373,7 +378,6 @@ class Select:
                 datetime_columns=self.datetime_columns,
             )
             conditions.extend(query_conds)
-
         joined = combine_conditions(conditions, "AND")
         if joined:
             sql += f"\nWHERE {joined}"
@@ -1009,6 +1013,9 @@ def _process_query_to_conditions(
         elif isinstance(operand, tsi_query.ConvertOperation):
             field = process_operand(operand.convert_.input)
             return clickhouse_cast(field, operand.convert_.to)
+        elif isinstance(operand, tsi_query.SizeOperation):
+            value = process_operand(operand.size_)
+            return f"length({value})"
         elif isinstance(
             operand,
             (

@@ -1,3 +1,5 @@
+import itertools
+import operator
 from functools import reduce
 from pathlib import Path
 from typing import List, Union
@@ -20,6 +22,9 @@ def to_key_value_include(acc: dict, package: dict) -> dict:
     include = Path(relative_path, brick).as_posix()
     return {**acc, **{include: brick}}
 
+def sort_bricks(bricks: dict) -> List[tuple]:
+    return sorted(bricks.items(), key=lambda i: i[0])
+
 def generate_updated_pep_621_project(data: TOMLDocument, bricks_to_add: dict) -> str:
     copy = copy_toml_data(data)
     if not copy.get('tool'):
@@ -28,7 +33,7 @@ def generate_updated_pep_621_project(data: TOMLDocument, bricks_to_add: dict) ->
         copy['tool']['polylith'] = {'bricks': {}}
     if not copy['tool']['polylith'].get('bricks'):
         copy['tool']['polylith']['bricks'] = {}
-    for k, v in bricks_to_add.items():
+    for k, v in sort_bricks(bricks_to_add):
         copy['tool']['polylith']['bricks'][k] = v
     return tomlkit.dumps(copy)
 
@@ -37,16 +42,28 @@ def generate_updated_hatch_project(data: TOMLDocument, bricks_to_add: dict) -> s
     has_hatch = data.get('tool', {}).get('hatch', {}).get('build', {}).get('force-include')
     if not has_polylith and has_hatch:
         copy = copy_toml_data(data)
-        for k, v in bricks_to_add.items():
+        for k, v in sort_bricks(bricks_to_add):
             copy['tool']['hatch']['build']['force-include'][k] = v
         return tomlkit.dumps(copy)
     return generate_updated_pep_621_project(data, bricks_to_add)
+
+def sort_fn_by_from(data: dict) -> str:
+    return data['from']
+
+def sort_fn_by_include(data: dict) -> str:
+    return data['include']
+
+def to_sorted_packages(packages: List[dict]) -> List[dict]:
+    sorted_by_brick_type = sorted(packages, key=sort_fn_by_from)
+    grouped = itertools.groupby(sorted_by_brick_type, key=sort_fn_by_from)
+    groups = [sorted(g, key=sort_fn_by_include) for _k, g in grouped]
+    return reduce(operator.iadd, groups, [])
 
 def generate_updated_poetry_project(data: TOMLDocument, packages: List[dict]) -> str:
     copy = copy_toml_data(data)
     if copy['tool']['poetry'].get('packages') is None:
         copy['tool']['poetry'].add('packages', [])
-    for package in packages:
+    for package in to_sorted_packages(packages):
         copy['tool']['poetry']['packages'].append(package)
     copy['tool']['poetry']['packages'].multiline(True)
     return tomlkit.dumps(copy)

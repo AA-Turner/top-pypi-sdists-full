@@ -155,9 +155,13 @@ def load(
 def _device_put_sharded(sharded_tree, devices):
   leaves, treedef = jax.tree.flatten(sharded_tree)
   n = leaves[0].shape[0]
-  return jax.device_put_sharded(
-      [jax.tree.unflatten(treedef, [l[i] for l in leaves]) for i in range(n)],
-      devices,
+  mesh = jax.sharding.Mesh(np.array(devices), ('_device_put_sharded',))
+  sharding = jax.NamedSharding(mesh, jax.P('_device_put_sharded'))
+  unflattened = [
+      jax.tree.unflatten(treedef, [l[i] for l in leaves]) for i in range(n)
+  ]
+  return jax.tree_util.tree_map(
+      lambda *xs: jax.device_put(np.stack(xs), sharding), *unflattened
   )
 
 
@@ -199,10 +203,10 @@ def _to_tfds_split(split: Split) -> tfds.Split:
   # competition, so it has been typical at DeepMind to consider the VALID
   # split the TEST split and to reserve 10k images from TRAIN for VALID.
   if split in (Split.TRAIN, Split.TRAIN_AND_VALID, Split.VALID):
-    return tfds.Split.TRAIN
+    return tfds.Split.TRAIN  # pyrefly: ignore[missing-attribute]
   else:
     assert split == Split.TEST
-    return tfds.Split.VALIDATION
+    return tfds.Split.VALIDATION  # pyrefly: ignore[missing-attribute]
 
 
 def _shard(split: Split, shard_index: int, num_shards: int) -> tuple[int, int]:

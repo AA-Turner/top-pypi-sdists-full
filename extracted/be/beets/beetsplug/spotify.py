@@ -1,18 +1,3 @@
-# This file is part of beets.
-# Copyright 2019, Rahul Ahuja.
-# Copyright 2022, Alok Saboo.
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-
 """Adds Spotify release and track search support to the autotagger.
 
 Also includes Spotify playlist construction.
@@ -305,8 +290,14 @@ class SpotifyPlugin(
                     method, url, params=params, retry_count=retry_count + 1
                 )
             if e.response.status_code == 503:
-                self._log.error("Service Unavailable.")
-                raise APIError("Service Unavailable.")
+                self._log.debug(
+                    "Service Unavailable. Retrying after {} seconds.",
+                    DEFAULT_WAITING_TIME,
+                )
+                time.sleep(DEFAULT_WAITING_TIME + 1)
+                return self._handle_response(
+                    method, url, params=params, retry_count=retry_count + 1
+                )
             if e.response.status_code == 502:
                 self._log.error("Bad Gateway.")
                 raise APIError("Bad Gateway.")
@@ -452,7 +443,7 @@ class SpotifyPlugin(
             data_url=track_data["external_urls"]["spotify"],
         )
 
-    def track_for_id(self, track_id: str) -> None | TrackInfo:
+    def track_for_id(self, track_id: str) -> TrackInfo | None:
         """Fetch a track by its Spotify ID or URL.
 
         Returns a TrackInfo object or None if the track is not found.

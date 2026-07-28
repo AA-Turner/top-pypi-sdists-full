@@ -1795,10 +1795,8 @@ def update_environment(
     else:
         if application_configs_file:
             if application_configs_data:
-                print(
-                    """Both application_configs_file and application_configs_data \
-are set. Will use application_configs_file as application_configs"""
-                )
+                print("""Both application_configs_file and application_configs_data \
+are set. Will use application_configs_file as application_configs""")
             application_configs = application_configs_file
             if "application_configs" in application_configs_file:
                 application_configs = application_configs_file["application_configs"]

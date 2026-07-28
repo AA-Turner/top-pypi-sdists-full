@@ -14,11 +14,17 @@ from pydantic import Field, PositiveFloat, field_validator, model_validator
 
 from tidy3d.config import config
 from tidy3d.constants import MICROMETER
-from tidy3d.exceptions import SetupError, Tidy3dImportError, format_chained_exception_message
+from tidy3d.exceptions import (
+    AdjointError,
+    SetupError,
+    Tidy3dImportError,
+    format_chained_exception_message,
+)
 from tidy3d.log import log
 
+from .autograd.path_utils import AutogradRoute, format_traced_path
 from .autograd.utils import contains, get_static
-from .base import Tidy3dBaseModel
+from .base import Tidy3dBaseModel, cached_property
 from .data.data_array import ScalarFieldDataArray
 from .geometry.base import Box, Geometry
 from .geometry.contour_conversion import (
@@ -97,7 +103,7 @@ def infer_structure_medium(
     if default_permittivity is None:
         raise ValueError(missing_message)
 
-    permittivity_use = float(default_permittivity)
+    permittivity_use = default_permittivity
     if not np.isfinite(permittivity_use):
         raise ValueError(f"'{permittivity_name}' must be finite.")
 
@@ -397,7 +403,6 @@ class Structure(AbstractStructure):
     medium: StructureMediumType = Field(
         title="Medium",
         description="Defines the electromagnetic properties of the structure's medium.",
-        discriminator=TYPE_TAG_STR,
     )
 
     def _priority(self, priority_mode: PriorityMode) -> int:
@@ -642,6 +647,27 @@ class Structure(AbstractStructure):
 
         return derivative_map
 
+    def _resolve_autograd_route(self, structure_path: tuple[Any, ...]) -> AutogradRoute:
+        """Resolve and validate a traced structure path for adjoint routing."""
+        if not structure_path:
+            raise AdjointError("Empty traced structure parameter encountered.")
+
+        med_or_geo = structure_path[0]
+        field_path = structure_path[1:]
+        if med_or_geo == "geometry":
+            self.geometry._resolve_autograd_route(field_path)
+            return AutogradRoute(local_path=structure_path)
+
+        if med_or_geo == "medium":
+            self.medium._resolve_autograd_route(field_path)
+            return AutogradRoute(local_path=structure_path)
+
+        parameter = format_traced_path(structure_path)
+        raise AdjointError(
+            f"Automatic differentiation with respect to structure parameter '{parameter}' is "
+            "not supported. Supported structure parameters start with 'geometry' or 'medium'."
+        )
+
     """ End autograd code."""
 
     def eps_comp(self, row: Axis, col: Axis, frequency: float, coords: Coords) -> complex:
@@ -792,6 +818,7 @@ class Structure(AbstractStructure):
         gds_dtype: NonNegativeInt = 0,
         gds_cell_name: str = "MAIN",
         pixel_exact: bool = False,
+        gds_precision: PositiveFloat = 1e-3,
     ) -> None:
         """Export a structure's planar slice to a .gds file.
 
@@ -818,11 +845,15 @@ class Structure(AbstractStructure):
             Name of the cell created in the .gds file to store the geometry.
         pixel_exact : bool = False
             If true export gds as pixel exact rectangles instead of gdstk contour if a custom medium is provided.
+        gds_precision : float = 1e-3
+            Coordinate precision for the written GDS file in micrometers. The default matches
+            the gdstk default of ``1e-9`` meters. If the requested precision is too fine for the
+            written slice coordinates, export raises :class:`.SetupError`. The minimum safe value
+            scales with the maximum absolute written planar coordinate as
+            ``max_abs_coord / (2**31 - 1)``.
         """
         try:
             import gdstk
-
-            library = gdstk.Library()
         except ImportError as e:
             raise Tidy3dImportError(
                 format_chained_exception_message(
@@ -831,9 +862,7 @@ class Structure(AbstractStructure):
                     e,
                 )
             ) from e
-        cell = library.new_cell(gds_cell_name)
-        self.to_gds(
-            cell,
+        polygons = self.to_gdstk(
             x=x,
             y=y,
             z=z,
@@ -843,6 +872,15 @@ class Structure(AbstractStructure):
             gds_dtype=gds_dtype,
             pixel_exact=pixel_exact,
         )
+        gds_precision = Geometry._validate_gds_precision(
+            polygons=polygons,
+            gds_precision=gds_precision,
+            context="Structure.to_gds_file()",
+        )
+        library = gdstk.Library(unit=1e-6, precision=gds_precision * 1e-6)
+        cell = library.new_cell(gds_cell_name)
+        if polygons:
+            cell.add(*polygons)
         fname = pathlib.Path(fname)
         fname.parent.mkdir(parents=True, exist_ok=True)
         library.write_gds(fname)
@@ -959,7 +997,7 @@ class Structure(AbstractStructure):
             missing_message=missing_message,
         )
 
-        sigma_val = float(smooth_sigma)
+        sigma_val = smooth_sigma
         return polyslabs_to_structures(
             solid_polyslabs=smooth_polyslabs(contour_data.solid_polyslabs, sigma_val),
             hole_polyslabs=smooth_polyslabs(contour_data.hole_polyslabs, sigma_val),
@@ -1039,11 +1077,23 @@ class MeshOverrideStructure(AbstractStructure):
         grid size along ``x``, ``y``, ``z`` directions, and a boolean on whether the override
         will be enforced.
 
+        The grid size can be specified directly through ``dl`` (an absolute grid size), or
+        relative to the structure through ``min_steps_per_size`` (the minimum number of grid steps
+        spanning the structure's bounding box along each dimension). When both ``dl`` and
+        ``min_steps_per_size`` are set along a dimension, the final grid size is the minimum
+        (finer) of the two.
+
     Example
     -------
     >>> from tidy3d import Box
     >>> box = Box(center=(0,0,1), size=(2, 2, 2))
     >>> struct_override = MeshOverrideStructure(geometry=box, dl=(0.1,0.2,0.3), name='override_box')
+
+    Refinement relative to the structure size, here at least 10 grid steps along each direction:
+
+    >>> struct_override = MeshOverrideStructure(
+    ...     geometry=box, min_steps_per_size=(10, 10, 10), name='override_box'
+    ... )
     """
 
     dl: tuple[
@@ -1051,9 +1101,28 @@ class MeshOverrideStructure(AbstractStructure):
         PositiveFloat | None,
         PositiveFloat | None,
     ] = Field(
+        (None, None, None),
         title="Grid Size",
-        description="Grid size along x, y, z directions.",
+        description="Grid size along x, y, z directions. Use ``None`` along a dimension to apply no "
+        "override there, or to leave the grid size to ``min_steps_per_size``. When both ``dl`` and "
+        "``min_steps_per_size`` are set along a dimension, the final grid size is the minimum "
+        "(finer) of the two.",
         json_schema_extra={"units": MICROMETER},
+    )
+
+    min_steps_per_size: tuple[
+        PositiveFloat | None,
+        PositiveFloat | None,
+        PositiveFloat | None,
+    ] = Field(
+        (None, None, None),
+        title="Minimum Steps Per Bounding Box Size",
+        description="Minimum number of grid steps spanning the structure's bounding box along x, "
+        "y, z directions. The grid size along a dimension is the bounding box size divided by this "
+        "value; it is ignored along dimensions where the bounding box size is zero or infinite. "
+        "Use ``None`` along a dimension to apply no override there. When both ``dl`` and "
+        "``min_steps_per_size`` are set along a dimension, the final grid size is the minimum "
+        "(finer) of the two.",
     )
 
     priority: int = Field(
@@ -1077,8 +1146,9 @@ class MeshOverrideStructure(AbstractStructure):
         title="Grid Size Choice In Structure Overlapping Region",
         description="In structure intersection region, grid size is decided by the latter added "
         "structure in the structure list when ``shadow=True``; or the structure of smaller grid size "
-        "when ``shadow=False``. If ``shadow=False``, and the structure doesn't refine the mesh, grid snapping to "
-        "the bounding box of the structure is disabled.",
+        "when ``shadow=False``. A ``shadow=False`` structure lowers the grid size in the regions it "
+        "overlaps, reusing a nearby existing grid line at its bounding box where possible instead of "
+        "always adding a new one.",
     )
 
     drop_outside_sim: bool = Field(
@@ -1088,6 +1158,35 @@ class MeshOverrideStructure(AbstractStructure):
         "structure takes effect along the dimensions where the projections of the structure "
         "and that of the simulation domain overlap.",
     )
+
+    @cached_property
+    def _dl(self) -> tuple[float | None, float | None, float | None]:
+        """Resolved grid size per axis used by the mesher, combining ``dl`` and
+        ``min_steps_per_size``. Along each axis it is the finer (minimum) of the explicit ``dl``
+        and the size implied by ``min_steps_per_size`` (bounding box size divided by
+        ``min_steps_per_size``, ignored when the bounding box size is zero or infinite); ``None``
+        when neither is specified.
+        """
+        # static (untraced) sizes: the mesh grid size feeds the mesher and must not carry
+        # autograd tracing, and the comparisons below are not stable on traced 'ArrayBox' values
+        bbox_size = get_static(self.geometry.bounding_box.size)
+        resolved = []
+        for dl_axis, min_steps_axis, size_axis in zip(self.dl, self.min_steps_per_size, bbox_size):
+            candidates = []
+            if dl_axis is not None:
+                candidates.append(dl_axis)
+            if min_steps_axis is not None and size_axis != 0 and np.isfinite(size_axis):
+                candidates.append(size_axis / min_steps_axis)
+            resolved.append(min(candidates) if candidates else None)
+        return tuple(resolved)
+
+    def _freeze_dl(self) -> Self:
+        """Return a copy with the resolved ``_dl`` baked into ``dl`` and ``min_steps_per_size``
+        cleared, pinning the grid size so it survives a later geometry resize. Without this a
+        ``min_steps_per_size`` override would coarsen as its bounding box grows (e.g. when a box is
+        expanded into an antenna array), unlike an equivalent explicit ``dl`` override which stays
+        fixed. Callers that resize an override's geometry should freeze first."""
+        return self.updated_copy(dl=self._dl, min_steps_per_size=(None, None, None))
 
     @field_validator("geometry")
     @classmethod
@@ -1102,6 +1201,18 @@ class MeshOverrideStructure(AbstractStructure):
                 return val.bounding_box
         return val
 
+    @field_validator("min_steps_per_size")
+    @classmethod
+    def _min_steps_per_size_finite(cls, val: tuple) -> tuple:
+        """Reject non-finite ``min_steps_per_size``: ``inf`` would imply a zero grid size
+        (``bounding_box_size / inf``) and silently drive the mesher into a zero-step path."""
+        if any(v is not None and not np.isfinite(v) for v in val):
+            raise ValueError(
+                "'min_steps_per_size' entries must be finite; use 'None' to apply no override "
+                "along a dimension."
+            )
+        return val
+
     @model_validator(mode="after")
     def _unshadowed_cannot_be_enforced(self) -> Self:
         """Unshadowed structure cannot be enforced."""
@@ -1109,6 +1220,31 @@ class MeshOverrideStructure(AbstractStructure):
             self._raise_validation_error_at_loc(
                 SetupError("A structure cannot be simultaneously enforced and unshadowed."),
                 "enforce",
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _warn_no_grid_override(self) -> Self:
+        """Warn when the override resolves to no grid size along any dimension.
+
+        This covers both the case where neither ``dl`` nor ``min_steps_per_size`` is set, and the
+        case where ``min_steps_per_size`` only falls on dimensions with a zero or infinite bounding
+        box size (and thus contributes no grid size).
+        """
+        if all(val is None for val in self._dl):
+            name_str = f" '{self.name}'" if self.name else ""
+            # anchor the warning to whichever field was actually set so the fix stays actionable
+            loc = (
+                "min_steps_per_size"
+                if any(val is not None for val in self.min_steps_per_size)
+                else "dl"
+            )
+            log.warning(
+                f"'MeshOverrideStructure'{name_str} sets no grid size along any dimension: "
+                "neither 'dl' nor an applicable 'min_steps_per_size' is provided "
+                "('min_steps_per_size' is ignored where the bounding box size is zero or "
+                "infinite). This override has no effect on the mesh and will be dropped.",
+                custom_loc=[loc],
             )
         return self
 

@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
+import shapely
 from pydantic import (
     Field,
     NonNegativeFloat,
@@ -48,10 +50,26 @@ if TYPE_CHECKING:
 # estimated minimal grid size
 MIN_STEP_BOUND_SCALE = 0.5
 
+# Minimum physically meaningful grid spacing in micrometers. Smaller values usually indicate
+# that input quantities were specified with the wrong unit scale.
+MIN_GRID_SPACING = 1e-6
+UNITS_HELP_URL = (
+    "https://docs.flexcompute.com/projects/tidy3d/en/latest/faq/docs/faq/"
+    "What-are-the-units-used-in-the-simulation.html"
+)
+
 # Default refinement factor in GridRefinement when both dl and refinement_factor are not defined
 DEFAULT_REFINEMENT_FACTOR = 2
 
-# Tolerance for distinguishing pec/grid intersections
+# Max passes when unioning same-grid-size in-plane overrides. Collapsing connected components to
+# bounding boxes can spawn new overlaps, so the union iterates to a fixpoint; this caps that loop
+# as a safety bound. Real geometries converge in a couple of passes; a leftover overlap after the
+# cap is harmless (same-``dl`` ``shadow=False`` boxes still mesh correctly), just not fully merged.
+INPLANE_OVERRIDE_UNION_MAX_ITERS = 5
+
+# Tolerance for distinguishing pec/grid intersections. Also the minimum in-plane extent a
+# geometry must have for small-geometry refinement to resolve it; below it the axis is skipped
+# as a near-zero sliver.
 GAP_MESHING_TOL = 1e-3
 
 CornersAndConvexity = tuple[list[ArrayFloat2D], list[ArrayFloat1D]]
@@ -61,6 +79,16 @@ DL_MIN_FROM_GAPS_FRACTION = 0.45
 
 # Threshold for warning when dl_min_from_gaps is very small relative to lateral grid size
 GAP_REFINEMENT_WARNING_THRESH = 0.1
+
+
+class _GeneratedGridSizeError(SetupError):
+    """Raised when a generated grid spacing is below the supported minimum."""
+
+    def __init__(self, message: str, grid_name: str, axis_name: str, min_size: float) -> None:
+        self.grid_name = grid_name
+        self.axis_name = axis_name
+        self.min_size = min_size
+        super().__init__(message)
 
 
 # ---------------------------------------------------------------------------
@@ -115,10 +143,13 @@ def _filter_override_structures_to_region(
                 filtered.append(struct.updated_copy(geometry=geometry, deep=False))
             continue
 
-        # MeshOverrideStructure: disable dl along axes where the structure
-        # doesn't overlap the region, rather than discarding it entirely.
+        # MeshOverrideStructure: disable the override along axes where the structure
+        # doesn't overlap the region, rather than discarding it entirely. Freeze the
+        # resolved grid size into 'dl' (clearing 'min_steps_per_size') first so disabling
+        # an axis is a simple 'dl[axis] = None'.
         bounds = struct.geometry.bounds
-        dl = list(struct.dl)
+        frozen = struct._freeze_dl()
+        dl = list(frozen.dl)
 
         for axis in range(3):
             if dl[axis] is None:
@@ -127,7 +158,7 @@ def _filter_override_structures_to_region(
                 dl[axis] = None
 
         if any(val is not None for val in dl):
-            filtered.append(struct.updated_copy(dl=tuple(dl)))
+            filtered.append(frozen.updated_copy(dl=tuple(dl)))
 
     return tuple(filtered)
 
@@ -431,11 +462,11 @@ class UniformGrid(GridSpec1d):
         """
         Ensure 'dl' is not too small.
         """
-        if val < 1e-7:
+        if val < MIN_GRID_SPACING:
             raise SetupError(
                 f"Uniform grid spacing 'dl' is {val} µm. "
                 "Please check your units! For more info on Tidy3D units, see: "
-                "https://docs.flexcompute.com/projects/tidy3d/en/latest/faq/docs/faq/What-are-the-units-used-in-the-simulation.html"
+                f"{UNITS_HELP_URL}"
             )
         return val
 
@@ -775,7 +806,7 @@ class AbstractAutoGrid(GridSpec1d):
         wavelength: float,
         symmetry: Symmetry,
         snapping_points: tuple[CoordinateOptional, ...],
-    ) -> tuple[np.ndarray, np.ndarray, Box, list]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Compute interval coordinates and max dl list from mesher.parse_structures
 
         Parameters
@@ -957,7 +988,7 @@ class QuasiUniformGrid(AbstractAutoGrid):
             dl = [self.dl, self.dl, self.dl]
             # skip override structures containing dl = None along axes
             if isinstance(structure, MeshOverrideStructure):
-                for ind, dl_axis in enumerate(structure.dl):
+                for ind, dl_axis in enumerate(structure._dl):
                     if dl_axis is None:
                         dl[ind] = None
             processed_structures.append(MeshOverrideStructure(geometry=structure.geometry, dl=dl))
@@ -1156,7 +1187,10 @@ class GridRefinement(Tidy3dBaseModel):
     num_cells: PositiveInt = Field(
         3,
         title="Number of Refined Grid Cells",
-        description="Number of grid cells in the refinement region.",
+        description="Sets the extent of the refinement region in units of the refined grid size "
+        "``dl``. When refining around a point, it is the width of the refined box "
+        "(``num_cells * dl``, centered on the point); when refining a region of finite extent, it "
+        "is the margin (``num_cells * dl`` per axis) by which the region's bounding box is grown.",
     )
 
     @property
@@ -1188,15 +1222,24 @@ class GridRefinement(Tidy3dBaseModel):
         return dl
 
     def override_structure(
-        self, center: CoordinateOptional, grid_size_in_vacuum: float, drop_outside_sim: bool
+        self,
+        center: CoordinateOptional,
+        size: Coordinate,
+        grid_size_in_vacuum: float,
+        drop_outside_sim: bool,
     ) -> MeshOverrideStructure:
-        """Generate override structure for mesh refinement.
+        """Generate override structure for mesh refinement around a point or a region.
+
+        Each refined axis is grown to ``size + num_cells * dl`` and centered on ``center``.
 
         Parameters
         ----------
         center : CoordinateOptional
-            Center of the override structure. `None` coordinate along an axis means refinement is not
-            applied along that axis.
+            Center of the override structure. A ``None`` coordinate along an axis means refinement
+            is not applied along that axis.
+        size : Coordinate
+            Extent of the region to refine along each axis (``0`` for a point). Ignored along axes
+            where ``center`` is ``None``.
         grid_size_in_vacuum : float
             Grid step size in vaccum.
         drop_outside_sim : bool
@@ -1205,8 +1248,8 @@ class GridRefinement(Tidy3dBaseModel):
         Returns
         -------
         MeshOverrideStructure
-            Unshadowed override structures for mesh refinement. If refinement doesn't need to be applied to an axis,
-            the override geometry has size=inf and dl=None along this axis.
+            Unshadowed override structures for mesh refinement. Along an axis where refinement is
+            not applied, the override geometry has size=inf and dl=None.
         """
 
         dl = self._grid_size(grid_size_in_vacuum)
@@ -1214,7 +1257,10 @@ class GridRefinement(Tidy3dBaseModel):
         dl_list = [None if axis_c is None else dl for axis_c in center]
         # override structure
         center_geo = [0 if axis_c is None else axis_c for axis_c in center]
-        size_geo = [inf if axis_c is None else dl * self.num_cells for axis_c in center]
+        size_geo = [
+            inf if axis_c is None else axis_s + dl * self.num_cells
+            for axis_c, axis_s in zip(center, size)
+        ]
         return MeshOverrideStructure(
             geometry=Box(center=center_geo, size=size_geo),
             dl=dl_list,
@@ -1292,7 +1338,28 @@ class LayerRefinementSpec(Box):
         default_factory=GridRefinement,
         title="Inplane Mesh Refinement Factor Around Corners",
         description="If not ``None`` and ``corner_finder`` is not ``None``, refine mesh around "
-        "corners of geometries specified by ``corner_finder``. ",
+        "corners of geometries specified by ``corner_finder``. The refined grid size is "
+        "the finer of this field and the effective in-plane edge refinement "
+        "(see ``in_plane_edge_refinement``).",
+    )
+
+    in_plane_edge_refinement: GridRefinement | Literal["mirror_corner"] | None = Field(
+        "mirror_corner",
+        title="Inplane Mesh Refinement Along Axis-Unaligned Edges",
+        description="Refine mesh along in-plane edges; enabled only when ``corner_finder`` "
+        "is not ``None``. ``'mirror_corner'`` (default) uses ``corner_refinement``'s grid size; "
+        "``None`` disables edge refinement; and a :class:`.GridRefinement` sets an explicit edge grid size. "
+        "Internally, we classify edges into axis-aligned edges (handled already by ``corner_refinement``), and "
+        "axis-unaligned edges. The classification is based on the edge angle "
+        "relative to a threshold value defined by ``corner_finder.axis_aligned_angle_threshold``.",
+    )
+
+    min_steps_per_geometry: PositiveFloat | None = Field(
+        2,
+        title="Minimum Grid Steps Across A Small Geometry",
+        description="If not ``None`` and ``corner_finder`` is not ``None``, sets the minimum "
+        "number of grid cells to place across each disjoint geometry made of the medium "
+        "specified by ``corner_finder``, ensuring small features are not under-resolved.",
     )
 
     refinement_inside_sim_only: bool = Field(
@@ -1307,7 +1374,8 @@ class LayerRefinementSpec(Box):
     gap_meshing_iters: NonNegativeInt = Field(
         1,
         title="Gap Meshing Iterations",
-        description="Number of recursive iterations for resolving thin gaps. "
+        description="If ``corner_finder`` is not ``None``, number of recursive iterations for "
+        "resolving thin gaps. "
         "The underlying algorithm detects gaps contained in a single cell and places a snapping plane at the gaps's centers.",
     )
 
@@ -1348,6 +1416,10 @@ class LayerRefinementSpec(Box):
         corner_finder: CornerFinderSpec | None | object = Undefined,
         corner_snapping: bool = True,
         corner_refinement: GridRefinement | None | object = Undefined,
+        in_plane_edge_refinement: GridRefinement
+        | Literal["mirror_corner"]
+        | None = "mirror_corner",
+        min_steps_per_geometry: PositiveFloat | None = 2,
         refinement_inside_sim_only: bool = True,
         gap_meshing_iters: NonNegativeInt = 1,
         dl_min_from_gap_width: bool = True,
@@ -1375,6 +1447,12 @@ class LayerRefinementSpec(Box):
             Placing grid snapping point at corners.
         corner_refinement : GridRefinement = GridRefinement()
             Inplane mesh refinement factor around corners.
+        in_plane_edge_refinement : GridRefinement | Literal["mirror_corner"] | None = "mirror_corner"
+            Inplane mesh refinement along axis-unaligned edges. ``"mirror_corner"`` uses
+            ``corner_refinement``'s grid size; ``None`` disables edge refinement.
+        min_steps_per_geometry : PositiveFloat | None = 2
+            Minimum number of grid cells across each small disjoint metal geometry. ``None``
+            disables small-geometry resolution.
         refinement_inside_sim_only : bool = True
             Apply refinement only to features inside simulation domain.
         gap_meshing_iters : bool = True
@@ -1406,6 +1484,8 @@ class LayerRefinementSpec(Box):
             corner_finder=corner_finder,
             corner_snapping=corner_snapping,
             corner_refinement=corner_refinement,
+            in_plane_edge_refinement=in_plane_edge_refinement,
+            min_steps_per_geometry=min_steps_per_geometry,
             refinement_inside_sim_only=refinement_inside_sim_only,
             gap_meshing_iters=gap_meshing_iters,
             dl_min_from_gap_width=dl_min_from_gap_width,
@@ -1424,6 +1504,10 @@ class LayerRefinementSpec(Box):
         corner_finder: CornerFinderSpec = Undefined,
         corner_snapping: bool = True,
         corner_refinement: GridRefinement = Undefined,
+        in_plane_edge_refinement: GridRefinement
+        | Literal["mirror_corner"]
+        | None = "mirror_corner",
+        min_steps_per_geometry: PositiveFloat | None = 2,
         refinement_inside_sim_only: bool = True,
         gap_meshing_iters: NonNegativeInt = 1,
         dl_min_from_gap_width: bool = True,
@@ -1453,6 +1537,12 @@ class LayerRefinementSpec(Box):
             Placing grid snapping point at corners.
         corner_refinement : GridRefinement = GridRefinement()
             Inplane mesh refinement factor around corners.
+        in_plane_edge_refinement : GridRefinement | Literal["mirror_corner"] | None = "mirror_corner"
+            Inplane mesh refinement along axis-unaligned edges. ``"mirror_corner"`` uses
+            ``corner_refinement``'s grid size; ``None`` disables edge refinement.
+        min_steps_per_geometry : PositiveFloat | None = 2
+            Minimum number of grid cells across each small disjoint metal geometry. ``None``
+            disables small-geometry resolution.
         refinement_inside_sim_only : bool = True
             Apply refinement only to features inside simulation domain.
         gap_meshing_iters : bool = True
@@ -1484,6 +1574,8 @@ class LayerRefinementSpec(Box):
             corner_finder=corner_finder,
             corner_snapping=corner_snapping,
             corner_refinement=corner_refinement,
+            in_plane_edge_refinement=in_plane_edge_refinement,
+            min_steps_per_geometry=min_steps_per_geometry,
             refinement_inside_sim_only=refinement_inside_sim_only,
             gap_meshing_iters=gap_meshing_iters,
             dl_min_from_gap_width=dl_min_from_gap_width,
@@ -1501,6 +1593,10 @@ class LayerRefinementSpec(Box):
         corner_finder: CornerFinderSpec = Undefined,
         corner_snapping: bool = True,
         corner_refinement: GridRefinement = Undefined,
+        in_plane_edge_refinement: GridRefinement
+        | Literal["mirror_corner"]
+        | None = "mirror_corner",
+        min_steps_per_geometry: PositiveFloat | None = 2,
         refinement_inside_sim_only: bool = True,
         gap_meshing_iters: NonNegativeInt = 1,
         dl_min_from_gap_width: bool = True,
@@ -1528,6 +1624,12 @@ class LayerRefinementSpec(Box):
             Placing grid snapping point at corners.
         corner_refinement : GridRefinement = GridRefinement()
             Inplane mesh refinement factor around corners.
+        in_plane_edge_refinement : GridRefinement | Literal["mirror_corner"] | None = "mirror_corner"
+            Inplane mesh refinement along axis-unaligned edges. ``"mirror_corner"`` uses
+            ``corner_refinement``'s grid size; ``None`` disables edge refinement.
+        min_steps_per_geometry : PositiveFloat | None = 2
+            Minimum number of grid cells across each small disjoint metal geometry. ``None``
+            disables small-geometry resolution.
         refinement_inside_sim_only : bool = True
             Apply refinement only to features inside simulation domain.
         gap_meshing_iters : bool = True
@@ -1558,6 +1660,8 @@ class LayerRefinementSpec(Box):
             corner_finder=corner_finder,
             corner_snapping=corner_snapping,
             corner_refinement=corner_refinement,
+            in_plane_edge_refinement=in_plane_edge_refinement,
+            min_steps_per_geometry=min_steps_per_geometry,
             refinement_inside_sim_only=refinement_inside_sim_only,
             gap_meshing_iters=gap_meshing_iters,
             dl_min_from_gap_width=dl_min_from_gap_width,
@@ -1573,6 +1677,170 @@ class LayerRefinementSpec(Box):
     def center_axis(self) -> float:
         """Gets the position of the center of the layer along the layer dimension."""
         return self.center[self.axis]
+
+    @property
+    def _edge_refinement(self) -> GridRefinement | None:
+        """In-plane edge refinement spec, or ``None`` when edge refinement is off.
+
+        Edge refinement requires ``corner_finder``. ``'mirror_corner'`` resolves to
+        ``corner_refinement`` (so the common one-knob path drives both corners and edges); ``None``
+        disables edge refinement; an explicit :class:`.GridRefinement` is used as-is.
+        """
+        if self.corner_finder is None:
+            return None
+        edge = self.in_plane_edge_refinement
+        if edge == "mirror_corner":
+            return self.corner_refinement
+        return edge
+
+    @property
+    def _inplane_merge_needed(self) -> bool:
+        """Whether any in-plane feature needs the merged metal geometries.
+
+        The merge requires ``corner_finder``; with it set, the merge is built when at least one
+        consumer is active: corner snapping, corner refinement, edge refinement, the feature-size
+        ``dl_min`` reduction (concave/convex/mixed resolution), small-geometry resolution
+        (``min_steps_per_geometry``), or gap meshing (``gap_meshing_iters``).
+        """
+        if self.corner_finder is None:
+            return False
+        return (
+            self.corner_snapping
+            or self.corner_refinement is not None
+            or self._edge_refinement is not None
+            or not self.corner_finder._no_min_dl_override
+            or self.min_steps_per_geometry is not None
+            or self.gap_meshing_iters > 0
+        )
+
+    def _corner_refinement(self, grid_size_in_vacuum: float) -> GridRefinement | None:
+        """Corner refinement spec at the finer of the corner and edge grid sizes.
+
+        Returns ``None`` when ``corner_finder`` is off or neither corner nor edge refinement is
+        active. ``corner_snapping`` is unaffected; this governs the override grid size only.
+        """
+        if self.corner_finder is None:
+            return None
+        corner = self.corner_refinement
+        edge = self._edge_refinement
+        if corner is None and edge is None:
+            return None
+        grid_sizes = []
+        if corner is not None:
+            grid_sizes.append(corner._grid_size(grid_size_in_vacuum))
+        if edge is not None:
+            grid_sizes.append(edge._grid_size(grid_size_in_vacuum))
+        # take the finer grid size; the corner's cell count drives the extent when it is active
+        num_cells = corner.num_cells if corner is not None else edge.num_cells
+        return GridRefinement(dl=min(grid_sizes), num_cells=num_cells)
+
+    @staticmethod
+    def _polygon_rings_2d(polygon: Shapely) -> list[ArrayFloat2D]:
+        """Open in-plane rings (exterior and any interiors) of a shapely polygon."""
+        rings = [np.asarray(polygon.exterior.coords, dtype=float)[:-1]]
+        for interior in polygon.interiors:
+            rings.append(np.asarray(interior.coords, dtype=float)[:-1])
+        return rings
+
+    def _edge_run_override_structure(
+        self, run_vertices: ArrayFloat2D, grid_size_in_vacuum: float
+    ) -> MeshOverrideStructure:
+        """One in-plane override over the bounding box of an axis-unaligned run, grown by the edge
+        refinement margin."""
+        mins = run_vertices.min(axis=0)
+        maxs = run_vertices.max(axis=0)
+        center = self.unpop_axis(None, tuple((mins + maxs) / 2), self.axis)
+        size = self.unpop_axis(0.0, tuple(maxs - mins), self.axis)
+        return self._edge_refinement.override_structure(
+            center, size, grid_size_in_vacuum, self.refinement_inside_sim_only
+        )
+
+    def _override_structures_edges(
+        self, grid_size_in_vacuum: float, merged_geos: list[tuple[Any, Shapely]]
+    ) -> list[MeshOverrideStructure]:
+        """Override structures refining the mesh along axis-unaligned in-plane edges.
+
+        Edge geometry comes from the merged metal polygons; axis-alignment is classified per
+        segment from their vertices, so this is independent of the corner-detection pass.
+        """
+        if self._edge_refinement is None:
+            return []
+        override_structures = []
+        for polygon in self.corner_finder._polygons_from_merged_geos(merged_geos):
+            for ring in self._polygon_rings_2d(polygon):
+                for run_vertices in self.corner_finder._axis_unaligned_runs(ring):
+                    override_structures.append(
+                        self._edge_run_override_structure(run_vertices, grid_size_in_vacuum)
+                    )
+        return override_structures
+
+    def _small_geometry_measurement_overrides(
+        self, grid: Grid, merged_geos: list[tuple[Any, Shapely]]
+    ) -> tuple[list[MeshOverrideStructure], float]:
+        """Overrides resolving small disjoint geometries, measured on the constructed grid.
+
+        For each disjoint geometry and in-plane axis, count the cells of ``grid`` fully contained
+        in the geometry's bounding box (the grid boundaries inside the box, minus one); where that
+        count is below ``min_steps_per_geometry`` the axis is refined to
+        ``extent / min_steps_per_geometry``. Unlike corner/edge refinement this runs *after* the
+        grid is built, so only features the fully-refined grid leaves under-resolved are refined —
+        a large geometry already spans enough cells and is skipped, with no explicit size threshold.
+
+        Returns ``(overrides, dl_min_from_small_geometry)`` where the second value is the smallest
+        emitted target grid size (``inf`` if nothing is emitted), used to lower the ``dl_min`` floor
+        before the final rebuild. Each override is the geometry bounding box, refining only the
+        failing in-plane axes (the passing in-plane axis and the normal axis are left ``None``),
+        emitted ``shadow=False`` with ``priority=-1`` so it stacks per axis with any overlapping
+        corner/edge override.
+        """
+        if self.min_steps_per_geometry is None or self.corner_finder is None:
+            return [], inf
+        _, tan_dims = Box.pop_axis((0, 1, 2), self.axis)
+        grid_boundaries = grid.boundaries.to_list
+        override_structures = []
+        dl_min = inf
+        for polygon in self.corner_finder._polygons_from_merged_geos(merged_geos):
+            umin, vmin, umax, vmax = polygon.bounds
+            bbox_min, bbox_max = (umin, vmin), (umax, vmax)
+            # per in-plane axis, the target grid size, or None where the geometry is already resolved
+            dl_2d = [None, None]
+            for axis2d in range(2):
+                extent = bbox_max[axis2d] - bbox_min[axis2d]
+                # skip near-zero extents (e.g. slivers from Shapely boolean ops): their
+                # vanishing dl would otherwise propagate to dl_min and trigger runaway refinement
+                if extent < GAP_MESHING_TOL:
+                    continue
+                # cells fully inside the bbox = grid boundaries lying within it, minus one
+                coords = np.asarray(grid_boundaries[tan_dims[axis2d]])
+                num_cells = (
+                    int(
+                        np.count_nonzero(
+                            (coords >= bbox_min[axis2d]) & (coords <= bbox_max[axis2d])
+                        )
+                    )
+                    - 1
+                )
+                # under-resolved axis: shrink the grid size to fit min_steps_per_geometry cells
+                if num_cells < self.min_steps_per_geometry:
+                    dl_axis = extent / self.min_steps_per_geometry
+                    dl_2d[axis2d] = dl_axis
+                    dl_min = min(dl_min, dl_axis)
+            if any(dl is not None for dl in dl_2d):
+                center = self.unpop_axis(
+                    self.center_axis, ((umin + umax) / 2, (vmin + vmax) / 2), self.axis
+                )
+                size = self.unpop_axis(inf, (umax - umin, vmax - vmin), self.axis)
+                dl = self.unpop_axis(None, tuple(dl_2d), self.axis)
+                override_structures.append(
+                    MeshOverrideStructure(
+                        geometry=Box(center=center, size=size),
+                        dl=dl,
+                        shadow=False,
+                        drop_outside_sim=self.refinement_inside_sim_only,
+                        priority=-1,
+                    )
+                )
+        return override_structures, dl_min
 
     def _is_inplane_bounded(self, geometry: Box) -> bool:
         """Whether the geometry is bounded in at least one of the inplane dimensions."""
@@ -1644,9 +1912,18 @@ class LayerRefinementSpec(Box):
             if self.bounds_refinement is not None:
                 dl_min = min(dl_min, self.bounds_refinement._grid_size(grid_size_in_vacuum))
 
-        # inplane dimension
+        # inplane dimension: corner refinement
         if self.corner_finder is not None and self.corner_refinement is not None:
             dl_min = min(dl_min, self.corner_refinement._grid_size(grid_size_in_vacuum))
+        # inplane dimension: edge refinement (independent of corner detection). The min over the
+        # corner and edge terms already reflects the upgraded effective corner grid size.
+        edge = self._edge_refinement
+        if edge is not None:
+            dl_min = min(dl_min, edge._grid_size(grid_size_in_vacuum))
+
+        # small-geometry resolution does not contribute to this static bound: its target grid size
+        # is known only after the grid is measured, so it lowers ``dl_min`` dynamically in the
+        # post-mesh measurement pass (see ``_small_geometry_measurement_overrides``).
 
         # min feature size
         if self.corner_finder is not None and not self.corner_finder._no_min_dl_override:
@@ -1778,7 +2055,7 @@ class LayerRefinementSpec(Box):
         list[tuple[Any, Shapely]]
             Merged geometries on the inplane plane.
         """
-        if self.corner_finder is None:
+        if not self._inplane_merge_needed:
             return []
 
         layer_geometry = self._layer_box(sim_bounds, boundary_type)
@@ -1983,22 +2260,152 @@ class LayerRefinementSpec(Box):
         cached_corners_and_convexity: CornersAndConvexity | None = None,
         cached_merged_geos: list[tuple[Any, Shapely]] | None = None,
     ) -> list[MeshOverrideStructure]:
-        """Inplane mesh override structures for refining mesh around corners."""
-        if self.corner_refinement is None:
-            return []
+        """Inplane mesh override structures.
 
-        return [
-            self.corner_refinement.override_structure(
-                corner, grid_size_in_vacuum, self.refinement_inside_sim_only
-            )
-            for corner in self._corners(
-                structure_list,
-                sim_bounds=sim_bounds,
-                boundary_type=boundary_type,
-                cached_corners_and_convexity=cached_corners_and_convexity,
-                cached_merged_geos=cached_merged_geos,
-            )
-        ]
+        Collects candidate overrides from the two pre-mesh in-plane sources — corner refinement
+        (coupled with edge) and edge refinement — then unions overlapping candidates that share a
+        grid size into one bounding box each. Candidates of different grid sizes are kept
+        separate; because every override is ``shadow=False`` the mesher resolves any overlap to the
+        smaller grid size per axis. Small-geometry resolution is a separate post-mesh measurement
+        pass and never enters this union.
+        """
+        # the merge is shared by corner detection and edge refinement, so compute it at most once
+        if cached_merged_geos is None:
+            merged_geos = self._merged_geos(structure_list, sim_bounds, boundary_type)
+        else:
+            merged_geos = cached_merged_geos
+
+        candidates = []
+
+        # corner refinement, at the finer of the corner/edge grid size
+        corner_refinement = self._corner_refinement(grid_size_in_vacuum)
+        if corner_refinement is not None:
+            candidates += [
+                corner_refinement.override_structure(
+                    corner, (0, 0, 0), grid_size_in_vacuum, self.refinement_inside_sim_only
+                )
+                for corner in self._corners(
+                    structure_list,
+                    sim_bounds=sim_bounds,
+                    boundary_type=boundary_type,
+                    cached_corners_and_convexity=cached_corners_and_convexity,
+                    cached_merged_geos=merged_geos,
+                )
+            ]
+
+        # edge refinement along axis-unaligned in-plane edges
+        if self._edge_refinement is not None:
+            candidates += self._override_structures_edges(grid_size_in_vacuum, merged_geos)
+
+        return self._union_inplane_overrides(candidates)
+
+    def _union_inplane_overrides(
+        self, candidates: list[MeshOverrideStructure]
+    ) -> list[MeshOverrideStructure]:
+        """Union overlapping in-plane overrides that share a grid size into disjoint bboxes.
+
+        Candidates are grouped by their (per-axis) target grid size; within a group, overlapping
+        boxes are merged (see ``_union_same_dl_overrides``) into pairwise non-overlapping
+        bounding-box overrides. Groups of different grid sizes are not merged.
+        """
+        if not candidates:
+            return []
+        # bucket candidates by their per-axis target grid size; only same-size boxes may merge
+        overrides_by_dl = defaultdict(list)
+        for candidate in candidates:
+            overrides_by_dl[tuple(candidate._dl)].append(candidate)
+        unioned = []
+        for dl, dl_overrides in overrides_by_dl.items():
+            unioned += self._union_same_dl_overrides(dl_overrides, dl)
+        return unioned
+
+    def _union_same_dl_overrides(
+        self, overrides: list[MeshOverrideStructure], dl: tuple
+    ) -> list[MeshOverrideStructure]:
+        """Merge overlapping same-grid-size boxes into non-overlapping bounding-box overrides.
+
+        Collapsing a connected component to its bounding box can itself overlap a box from another
+        component that none of the component's members touched directly: e.g. a long diagonal edge
+        run's bbox spans the whole patch and swallows the right-angle corner boxes. A single
+        connected-components pass would leave those bounding boxes overlapping but separate, so
+        iterate connected-components-then-bbox until the bounding boxes are pairwise disjoint. Each
+        pass that merges anything strictly reduces the box count, so this terminates; the iteration
+        is also capped at ``INPLANE_OVERRIDE_UNION_MAX_ITERS`` as a safety bound.
+        """
+        boxes_2d = [self._inplane_footprint_box(override.geometry) for override in overrides]
+        for _ in range(INPLANE_OVERRIDE_UNION_MAX_ITERS):
+            components = self._connected_components(boxes_2d)
+            # nothing merged this pass (every box is its own component) => no overlaps remain
+            if len(components) == len(boxes_2d):
+                break
+            # box_bounds[i] = (umin, vmin, umax, vmax) of box i
+            box_bounds = np.array([box.bounds for box in boxes_2d])
+            # each connected component collapses to the bounding box enclosing all its boxes
+            merged = []
+            for component in components:
+                component_bounds = box_bounds[component]
+                umin, vmin = component_bounds[:, 0].min(), component_bounds[:, 1].min()
+                umax, vmax = component_bounds[:, 2].max(), component_bounds[:, 3].max()
+                merged.append(shapely.box(umin, vmin, umax, vmax))
+            boxes_2d = merged
+        return [self._inplane_override_from_bbox(*box.bounds, dl) for box in boxes_2d]
+
+    def _inplane_footprint_box(self, geometry: Box) -> Shapely:
+        """In-plane (axis-popped) bounding-box footprint of an override geometry as a shapely box."""
+        rmin, rmax = geometry.bounds
+        _, (umin, vmin) = self.pop_axis(rmin, self.axis)
+        _, (umax, vmax) = self.pop_axis(rmax, self.axis)
+        return shapely.box(umin, vmin, umax, vmax)
+
+    @staticmethod
+    def _connected_components(boxes: list[Shapely]) -> list[list[int]]:
+        """Indices of connected components of touching/overlapping boxes via an RTree index."""
+        # Union-find over box indices. ``component_root[i]`` links box ``i`` toward the
+        # representative ("root") box of its component; boxes that share a root are one component.
+        num_boxes = len(boxes)
+        component_root = list(range(num_boxes))
+
+        def find_root(box_ind: int) -> int:
+            # Walk the links to the component's root, halving the path so future lookups are cheap.
+            while component_root[box_ind] != box_ind:
+                component_root[box_ind] = component_root[component_root[box_ind]]
+                box_ind = component_root[box_ind]
+            return box_ind
+
+        def merge_components(box_a: int, box_b: int) -> None:
+            # Point one component's root at the other's so both boxes end up under one root.
+            root_a, root_b = find_root(box_a), find_root(box_b)
+            if root_a != root_b:
+                component_root[root_a] = root_b
+
+        # The STRtree turns the all-pairs intersection test into a near-linear spatial query as the
+        # box count grows; merge the two boxes of every intersecting pair into one component.
+        tree = shapely.STRtree(boxes)
+        query_inds, tree_inds = tree.query(boxes, predicate="intersects")
+        for query_ind, tree_ind in zip(query_inds, tree_inds):
+            merge_components(int(query_ind), int(tree_ind))
+
+        # Bucket each box under its resolved root; every bucket is one connected component.
+        components = defaultdict(list)
+        for box_ind in range(num_boxes):
+            components[find_root(box_ind)].append(box_ind)
+        return list(components.values())
+
+    def _inplane_override_from_bbox(
+        self, umin: float, vmin: float, umax: float, vmax: float, dl: tuple
+    ) -> MeshOverrideStructure:
+        """A ``shadow=False`` in-plane override spanning a 2D bounding box at grid size ``dl``."""
+        center = self.unpop_axis(
+            self.center_axis, ((umin + umax) / 2, (vmin + vmax) / 2), self.axis
+        )
+        size = self.unpop_axis(inf, (umax - umin, vmax - vmin), self.axis)
+        return MeshOverrideStructure(
+            geometry=Box(center=center, size=size),
+            dl=list(dl),
+            shadow=False,
+            drop_outside_sim=self.refinement_inside_sim_only,
+            priority=-1,
+        )
 
     def _override_structures_along_axis(
         self, grid_size_in_vacuum: float
@@ -2028,6 +2435,7 @@ class LayerRefinementSpec(Box):
             refinement_structures = [
                 self.bounds_refinement.override_structure(
                     self._unpop_axis(ax_coord=self.bounds[index][self.axis], plane_coord=None),
+                    (0, 0, 0),
                     grid_size_in_vacuum,
                     drop_outside_sim=self.refinement_inside_sim_only,
                 )
@@ -2043,7 +2451,7 @@ class LayerRefinementSpec(Box):
                 )
                 combined_structure = MeshOverrideStructure(
                     geometry=Box.from_bounds(rmin=rmin, rmax=rmax),
-                    dl=refinement_structures[0].dl,
+                    dl=refinement_structures[0]._dl,
                     shadow=False,
                     drop_outside_sim=self.refinement_inside_sim_only,
                 )
@@ -2052,7 +2460,7 @@ class LayerRefinementSpec(Box):
                 ]
 
             # drop if the grid size is no greater than the one from "min_steps_along_axis"
-            if refinement_structures[0].dl[self.axis] <= dl:
+            if refinement_structures[0]._dl[self.axis] <= dl:
                 override_structures += refinement_structures
         return override_structures
 
@@ -2772,7 +3180,7 @@ class GridSpec(Tidy3dBaseModel):
             if isinstance(structure, Structure):
                 return True, True, True
 
-            for dl_axis, dl in enumerate(structure.dl):
+            for dl_axis, dl in enumerate(structure._dl):
                 if (not override_used[dl_axis]) and (dl is not None):
                     override_used[dl_axis] = True
         return tuple(override_used)
@@ -3060,6 +3468,31 @@ class GridSpec(Tidy3dBaseModel):
         `dl_min` (0 or None) is applied.
         """
 
+        return (
+            min(
+                self._estimated_min_dl_by_axis(
+                    wavelength=wavelength,
+                    structure_list=structure_list,
+                    sim_bounds=sim_bounds,
+                    boundary_types=boundary_types,
+                    cached_merged_geos=cached_merged_geos,
+                    lumped_elements=lumped_elements,
+                )
+            )
+            * MIN_STEP_BOUND_SCALE
+        )
+
+    def _estimated_min_dl_by_axis(
+        self,
+        wavelength: float,
+        structure_list: list[StructureType],
+        sim_bounds: tuple,
+        boundary_types: tuple[tuple[str, str], tuple[str, str], tuple[str, str]],
+        cached_merged_geos: list[list[tuple[Any, Shapely]]] | None = None,
+        lumped_elements: list[LumpedElementType] = (),
+        layer_refinement_scale: float = 1.0,
+    ) -> tuple[float, float, float]:
+        """Estimate minimum grid size per axis before full grid generation."""
         # split structure list into `Structure` and `MeshOverrideStructure`
         structures = [
             medium_str for medium_str in structure_list if isinstance(medium_str, Structure)
@@ -3067,40 +3500,45 @@ class GridSpec(Tidy3dBaseModel):
         mesh_structures = [
             mesh_str for mesh_str in structure_list if isinstance(mesh_str, MeshOverrideStructure)
         ]
+        for lumped_element in lumped_elements:
+            mesh_structures.extend(lumped_element.to_mesh_overrides())
 
-        min_dl = inf
-        # minimal grid size from MeshOverrideStructure
-        for structure in mesh_structures:
-            for dl in structure.dl:
-                if dl is not None and dl < min_dl:
-                    min_dl = dl
         # local simulation size derived from bounds
         sim_size_local = tuple(bmax - bmin for bmin, bmax in zip(*sim_bounds))
+        grids = (self.grid_x, self.grid_y, self.grid_z)
+        undefined_auto_axes = [
+            axis
+            for axis, grid in enumerate(grids)
+            if isinstance(grid, AutoGrid) and grid._undefined_dl_min
+        ]
 
         # from mesh specification
-        for grid in [self.grid_x, self.grid_y, self.grid_z]:
-            min_dl = min(min_dl, grid.estimated_min_dl(wavelength, structures, sim_size_local))
+        min_dl_by_axis = [
+            grid.estimated_min_dl(wavelength, structures, sim_size_local) for grid in grids
+        ]
+
+        # minimal grid size from MeshOverrideStructure
+        for structure in mesh_structures:
+            for axis, dl in enumerate(structure._dl):
+                if dl is not None:
+                    min_dl_by_axis[axis] = min(min_dl_by_axis[axis], dl)
 
         # from layer refinement specifications
-        if self.layer_refinement_used:
+        if self.layer_refinement_used and undefined_auto_axes:
             min_vacuum_dl = self._min_vacuum_dl_in_autogrid(wavelength, sim_size_local)
             for ind, layer in enumerate(self.layer_refinement_specs):
                 cached_merged = cached_merged_geos[ind] if cached_merged_geos is not None else None
-                min_dl = min(
-                    min_dl,
-                    layer.suggested_dl_min(
-                        min_vacuum_dl,
-                        structures,
-                        sim_bounds,
-                        boundary_types,
-                        cached_merged,
-                    ),
+                layer_dl_min = layer_refinement_scale * layer.suggested_dl_min(
+                    min_vacuum_dl,
+                    structures,
+                    sim_bounds,
+                    boundary_types,
+                    cached_merged,
                 )
-        # from lumped elements
-        for lumped_element in lumped_elements:
-            for override_structure in lumped_element.to_mesh_overrides():
-                min_dl = min(min_dl, min(override_structure.dl))
-        return min_dl * MIN_STEP_BOUND_SCALE
+                for axis in undefined_auto_axes:
+                    min_dl_by_axis[axis] = min(min_dl_by_axis[axis], layer_dl_min)
+
+        return tuple(min_dl_by_axis)
 
     def get_wavelength(self, sources: list[SourceType]) -> float:
         """Get wavelength for automatic mesh generation if needed."""
@@ -3175,6 +3613,92 @@ class GridSpec(Tidy3dBaseModel):
         )
 
         return grid
+
+    @staticmethod
+    def _generated_grid_size_error_message(grid_name: str, axis_name: str, min_size: float) -> str:
+        """Error message for generated grid cells below the supported minimum."""
+        return (
+            f"{grid_name} generated a minimum grid spacing of {min_size:.2e} µm "
+            f"along the '{axis_name}' axis, which is below the supported minimum "
+            f"of {MIN_GRID_SPACING:.1e} µm. Please check your units! For more info "
+            f"on Tidy3D units, see: {UNITS_HELP_URL}"
+        )
+
+    def _raise_generated_grid_size_error(
+        self, grid_name: str, axis_name: str, min_size: float
+    ) -> None:
+        """Raise a generated-grid spacing error with axis metadata."""
+        raise _GeneratedGridSizeError(
+            self._generated_grid_size_error_message(grid_name, axis_name, min_size),
+            grid_name,
+            axis_name,
+            min_size,
+        )
+
+    def _grid_spec_size_estimate_violation(
+        self,
+        wavelength: float,
+        structures: list[StructureType],
+        sim_bounds: tuple,
+    ) -> tuple[str, float, str] | None:
+        """Return the first generated-grid axis whose grid-spec estimate is too small."""
+        if not self.snapped_grid_used:
+            return None
+
+        sim_size = tuple(bmax - bmin for bmin, bmax in zip(*sim_bounds))
+        medium_structures = [
+            structure for structure in structures if isinstance(structure, Structure)
+        ]
+        min_dl_by_axis = [
+            grid.estimated_min_dl(wavelength, medium_structures, sim_size)
+            for grid in (self.grid_x, self.grid_y, self.grid_z)
+        ]
+
+        for axis, (grid_spec, min_size) in enumerate(
+            zip((self.grid_x, self.grid_y, self.grid_z), min_dl_by_axis)
+        ):
+            if not isinstance(grid_spec, AbstractAutoGrid):
+                continue
+            if sim_size[axis] == 0:
+                continue
+            if min_size >= MIN_GRID_SPACING:
+                continue
+            return "xyz"[axis], min_size, type(grid_spec).__name__
+
+        return None
+
+    def _generated_grid_size_violation(
+        self, grid: Grid, sim_size: tuple[float, float, float]
+    ) -> tuple[str, float, str] | None:
+        """Return the first generated-grid axis whose actual cell size is too small."""
+        if not self.snapped_grid_used:
+            return None
+
+        for axis, (grid_spec, sizes) in enumerate(
+            zip((self.grid_x, self.grid_y, self.grid_z), grid.sizes.to_list)
+        ):
+            if not isinstance(grid_spec, AbstractAutoGrid):
+                continue
+            if sim_size[axis] == 0:
+                continue
+
+            min_size = float(np.min(sizes))
+            if min_size >= MIN_GRID_SPACING:
+                continue
+            return "xyz"[axis], min_size, type(grid_spec).__name__
+
+        return None
+
+    def _validate_generated_grid_size(
+        self, grid: Grid, sim_size: tuple[float, float, float]
+    ) -> None:
+        """Error if a generated grid cell size is below the supported minimum."""
+        violation = self._generated_grid_size_violation(grid, sim_size)
+        if violation is None:
+            return
+
+        axis_name, min_size, grid_name = violation
+        self._raise_generated_grid_size_error(grid_name, axis_name, min_size)
 
     def _make_grid_and_snapping_lines(
         self,
@@ -3284,7 +3808,9 @@ class GridSpec(Tidy3dBaseModel):
             boundary_types=boundary_types,
             parse_structures_interval_coords=parse_structures_interval_coords,
             parse_structures_max_dl_list=parse_structures_max_dl_list,
+            all_structures=all_structures,
         )
+        self._validate_generated_grid_size(old_grid, sim_size=structures[0].geometry.size)
 
         # gap refinement only place snapping points, and decrease dl_min that only affects
         # snapping points insertion.
@@ -3364,6 +3890,7 @@ class GridSpec(Tidy3dBaseModel):
                     break
 
                 snapping_lines = snapping_lines + new_snapping_lines
+                dl_min_from_gaps = DL_MIN_FROM_GAPS_FRACTION * min_gap_width
 
                 new_grid = self._make_grid_one_iteration(
                     structures=structures,
@@ -3373,13 +3900,15 @@ class GridSpec(Tidy3dBaseModel):
                     num_pml_layers=num_pml_layers,
                     lumped_elements=lumped_elements,
                     internal_override_structures=internal_override_structures,
-                    internal_snapping_points=snapping_lines + internal_snapping_points,
-                    dl_min_from_gaps=DL_MIN_FROM_GAPS_FRACTION * min_gap_width,
+                    internal_snapping_points=snapping_lines + (internal_snapping_points or []),
+                    dl_min_from_gaps=dl_min_from_gaps,
                     structure_priority_mode=structure_priority_mode,
                     boundary_types=boundary_types,
                     parse_structures_interval_coords=parse_structures_interval_coords,
                     parse_structures_max_dl_list=parse_structures_max_dl_list,
+                    all_structures=all_structures,
                 )
+                self._validate_generated_grid_size(new_grid, sim_size=structures[0].geometry.size)
 
                 same = old_grid == new_grid
 
@@ -3391,6 +3920,59 @@ class GridSpec(Tidy3dBaseModel):
                     break
 
                 old_grid = new_grid
+
+            # Small-geometry resolution: measure the final gap-meshed grid and refine any disjoint
+            # metal geometry it leaves under-resolved, in one extra rebuild.
+            # Unlike corner/edge refinement these overrides are emitted post-mesh, not pre-mesh.
+            small_geometry_overrides = []
+            dl_min_from_small_geometry = inf
+            for ind_layer, layer_spec in enumerate(self.layer_refinement_specs):
+                if layer_spec.min_steps_per_geometry is None:
+                    continue
+                # reuse the merge gap meshing already consumed; never rerun it, no corner detection
+                if cached_merged_geos is not None:
+                    merged_geos = cached_merged_geos[ind_layer]
+                else:
+                    merged_geos = layer_spec._merged_geos(structures, sim_bounds, boundary_types)
+                layer_overrides, layer_dl_min = layer_spec._small_geometry_measurement_overrides(
+                    old_grid, merged_geos
+                )
+                small_geometry_overrides += layer_overrides
+                dl_min_from_small_geometry = min(dl_min_from_small_geometry, layer_dl_min)
+
+            if small_geometry_overrides:
+                # Lower dl_min as gap meshing does (via min) so sub-dl_min overrides are not
+                # clamped. The override set changed, so let parse/structures recompute (pass None).
+                dl_min_from_gaps = min(
+                    DL_MIN_FROM_GAPS_FRACTION * min_gap_width, dl_min_from_small_geometry
+                )
+                # Recompute the internal (corner/edge) overrides when the caller passed None, so the
+                # rebuild keeps them: passing a non-None list suppresses their recomputation in
+                # all_override_structures, which would drop in-plane refinement from the final mesh.
+                base_override_structures = internal_override_structures
+                if base_override_structures is None:
+                    base_override_structures = self.internal_override_structures(
+                        structures,
+                        wavelength,
+                        sim_bounds,
+                        lumped_elements,
+                        boundary_types,
+                    )
+                old_grid = self._make_grid_one_iteration(
+                    structures=structures,
+                    symmetry=symmetry,
+                    periodic=periodic,
+                    sources=sources,
+                    num_pml_layers=num_pml_layers,
+                    lumped_elements=lumped_elements,
+                    internal_override_structures=base_override_structures
+                    + small_geometry_overrides,
+                    internal_snapping_points=snapping_lines + (internal_snapping_points or []),
+                    dl_min_from_gaps=dl_min_from_gaps,
+                    structure_priority_mode=structure_priority_mode,
+                    boundary_types=boundary_types,
+                )
+                self._validate_generated_grid_size(old_grid, sim_size=structures[0].geometry.size)
 
         return old_grid, snapping_lines
 
@@ -3409,6 +3991,7 @@ class GridSpec(Tidy3dBaseModel):
         structure_priority_mode: PriorityMode = "equal",
         parse_structures_interval_coords: list[np.ndarray] | None = None,
         parse_structures_max_dl_list: list[np.ndarray] | None = None,
+        all_structures: list[StructureType] | None = None,
     ) -> Grid:
         """Make the entire simulation grid based on some simulation parameters.
 
@@ -3443,6 +4026,8 @@ class GridSpec(Tidy3dBaseModel):
         parse_structures_max_dl_list : Optional[List[np.ndarray]]
             If not None, pre-computed maximum grid spacing list from parsing structures for each dimension.
             List of length 3, one for each axis (x, y, z).
+        all_structures : Optional[List[StructureType]]
+            If not None, pre-computed original and override structures affecting the grid.
 
         Returns
         -------
@@ -3500,15 +4085,25 @@ class GridSpec(Tidy3dBaseModel):
             )
 
         sim_bounds = structures[0].geometry.bounds
-        all_structures = self._get_all_structures_affecting_grid(
-            structures,
-            wavelength,
-            lumped_elements,
-            boundary_types,
-            sim_bounds,
-            structure_priority_mode,
-            internal_override_structures,
+        if all_structures is None:
+            all_structures = self._get_all_structures_affecting_grid(
+                structures,
+                wavelength,
+                lumped_elements,
+                boundary_types,
+                sim_bounds,
+                structure_priority_mode,
+                internal_override_structures,
+            )
+
+        violation = self._grid_spec_size_estimate_violation(
+            wavelength=wavelength,
+            structures=all_structures,
+            sim_bounds=sim_bounds,
         )
+        if violation is not None:
+            axis_name, min_size, grid_name = violation
+            self._raise_generated_grid_size_error(grid_name, axis_name, min_size)
 
         # apply internal `dl_min` if any AutoGrid has unset `dl_min`
         update_dl_min = False

@@ -20,6 +20,10 @@ from abstra_internals.settings import Settings
 
 
 class HtmlOrJinja2SyntaxErrorsFound(LinterIssue):
+    title = "HTML and Jinja2 syntax errors"
+    type = "error"
+    fix_with_ai = True
+
     def __init__(self, file_path: Path, errors: List[str]):
         bullets = "\n".join(f"  - {err}" for err in errors)
         self.label = f"Errors in {file_path}:\n{bullets}"
@@ -63,8 +67,6 @@ def _display_path(file_path: Path, root: Path) -> Path:
 
 class HtmlAndJinja2Syntax(PathScopedLinterRule):
     label = "HTML and Jinja2 syntax errors"
-    type = "error"
-    fix_with_ai = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         project = (current_lint_context() or LintContext()).project

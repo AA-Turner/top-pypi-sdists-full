@@ -18,13 +18,17 @@ from tidy3d.components.geometry.base import Box
 from tidy3d.components.geometry.bound_ops import bounds_intersection, bounds_union
 from tidy3d.components.geometry.utils_2d import snap_coordinate_to_grid
 from tidy3d.components.index import SimulationMap
-from tidy3d.components.lumped_element import CircuitImpedanceModel, LinearLumpedElement
+from tidy3d.components.lumped_element import (
+    LinearLumpedElement,
+    _AdmittanceFitter,
+)
 from tidy3d.components.microwave.base import MicrowaveBaseModel
 from tidy3d.components.microwave.path_integrals.specs.impedance import (
     AutoImpedanceSpec,
     CustomImpedanceSpec,
 )
 from tidy3d.components.monitor import DirectivityMonitor, ModeMonitor
+from tidy3d.components.run_time_spec import RunTimeSpec
 from tidy3d.components.source.time import GaussianPulse
 from tidy3d.components.types import Complex, Coordinate
 from tidy3d.components.types.base import PriorityMode, discriminated_union
@@ -183,14 +187,15 @@ def _inject_fit_freqs_into_lumped_elements(
 ) -> list:
     """Inject frequency range into lumped elements that need it for structure conversion.
 
-    For each :class:`LinearLumpedElement` whose network is a :class:`CircuitImpedanceModel`
-    with :attr:`freq_range` ``None``, replaces the network with a copy whose
-    :attr:`freq_range` is set to ``(min(freqs), max(freqs))``. Other elements are returned
-    unchanged. Used by :class:`TerminalComponentModeler` so conversion to structures uses
-    the modeler's frequencies without adding a run_freqs field to the simulation.
+    For each :class:`LinearLumpedElement` whose network is an :class:`_AdmittanceFitter`
+    subclass (e.g. :class:`CircuitImpedanceModel`) with :attr:`freq_range` ``None``, replaces
+    the network with a copy whose :attr:`freq_range` is set to ``(min(freqs), max(freqs))``.
+    Other elements are returned unchanged. Used by :class:`TerminalComponentModeler` so
+    conversion to structures uses the modeler's frequencies without adding a run_freqs field
+    to the simulation.
 
     When ``freqs`` has only one distinct value (min == max), a narrow range around that
-    frequency is used so that :attr:`CircuitImpedanceModel.freq_range` validation
+    frequency is used so that :attr:`_AdmittanceFitter.freq_range` validation
     (0 < f_min < f_max) passes. If that single frequency is zero or negative,
     :exc:`ValueError` is raised.
 
@@ -204,8 +209,8 @@ def _inject_fit_freqs_into_lumped_elements(
     Returns
     -------
     list
-        New list with elements unchanged except those with CircuitImpedanceModel(freq_range=None),
-        which get a copy with freq_range set.
+        New list with elements unchanged except those with an _AdmittanceFitter network
+        where freq_range is None, which get a copy with freq_range set.
 
     Raises
     ------
@@ -218,19 +223,19 @@ def _inject_fit_freqs_into_lumped_elements(
         return list(lumped_elements)
     f_min, f_max = float(np.min(freqs_arr)), float(np.max(freqs_arr))
     if f_min == f_max:
-        # Single distinct frequency: use a narrow range so CircuitImpedanceModel.freq_range validator (f_min < f_max) passes
+        # Single distinct frequency: use a narrow range so _AdmittanceFitter.freq_range validator (f_min < f_max) passes
         f = f_min
         if f <= 0:
             raise ValueError(
                 "TerminalComponentModeler has a single frequency that is zero or negative; "
-                "CircuitImpedanceModel requires a positive frequency range. "
+                "admittance fitting requires a positive frequency range. "
                 "Provide at least two distinct positive frequencies, or a range with f_min > 0."
             )
         freq_range = (f * 0.99, f * 1.01)
     else:
         freq_range = (f_min, f_max)
     for el in lumped_elements:
-        if isinstance(el, LinearLumpedElement) and isinstance(el.network, CircuitImpedanceModel):
+        if isinstance(el, LinearLumpedElement) and isinstance(el.network, _AdmittanceFitter):
             net = el.network
             if net.freq_range is None:
                 new_network = net.model_copy(update={"freq_range": freq_range})
@@ -269,7 +274,7 @@ class DirectivityMonitorSpec(MicrowaveBaseModel):
         None,
         title="Monitor Name",
         description=f"Optional name for the auto-generated monitor. "
-        f"If not provided, defaults to '{AUTO_RADIATION_MONITOR_NAME}_' + index of the monitor in the list of radiation monitors.",
+        f"If not provided, defaults to ``{AUTO_RADIATION_MONITOR_NAME}_<N>`` where ``<N>`` is the index of the monitor in the list of radiation monitors.",
     )
 
     freqs: tuple[NonNegativeInt, ...] | None = Field(
@@ -367,7 +372,7 @@ class TerminalComponentModeler(AbstractComponentModeler, MicrowaveBaseModel):
             Microwave Theory Tech., vol. 13, no. 2, pp. 194-202, March 1965.
     """
 
-    ports: tuple[TerminalPortType, ...] = Field(
+    ports: tuple[discriminated_union(TerminalPortType), ...] = Field(
         (),
         title="Terminal Ports",
         description="Collection of lumped and wave ports associated with the network. "
@@ -804,7 +809,7 @@ class TerminalComponentModeler(AbstractComponentModeler, MicrowaveBaseModel):
             ax.annotate(
                 str(it["label"]),
                 xy=(x_conn, y_anchor),
-                xytext=(float(x_text), float(lane_y)),
+                xytext=(x_text, lane_y),
                 arrowprops=arrow_params,
                 annotation_clip=False,
                 **label_params,
@@ -1003,7 +1008,7 @@ class TerminalComponentModeler(AbstractComponentModeler, MicrowaveBaseModel):
             return
 
         ylim0, ylim1 = ax.get_ylim()
-        yrange = float(ylim1 - ylim0) if ylim1 != ylim0 else 1.0
+        yrange = ylim1 - ylim0 if ylim1 != ylim0 else 1.0
         lane_margin = 0.08 * yrange
 
         if placement == "top":
@@ -1441,12 +1446,23 @@ class TerminalComponentModeler(AbstractComponentModeler, MicrowaveBaseModel):
             port.to_load(snap_center=snap_centers[port.name]) for port in self._lumped_ports
         ]
 
-        # Add mesh overrides for any wave ports present
+        # Add mesh overrides and snapping points for any wave ports present.
+        # Port snaps are prepended so user-supplied snapping points retain
+        # precedence (see WavePort.to_mode_simulation for the same ordering).
         mesh_overrides = list(sim_intermediate.grid_spec.override_structures)
+        port_snapping_points: list = []
         for wave_port in self._wave_ports + self._terminal_wave_ports:
             if wave_port.num_grid_cells is not None:
                 mesh_overrides.extend(wave_port.to_mesh_overrides())
-        new_grid_spec = sim_intermediate.grid_spec.updated_copy(override_structures=mesh_overrides)
+                port_snapping_points.extend(wave_port.to_snapping_points())
+        snapping_points = [
+            *port_snapping_points,
+            *sim_intermediate.grid_spec.snapping_points,
+        ]
+        new_grid_spec = sim_intermediate.grid_spec.updated_copy(
+            override_structures=mesh_overrides,
+            snapping_points=snapping_points,
+        )
 
         # Update simulation (no monitors, no absorbers yet)
         sim = sim_intermediate.updated_copy(
@@ -1493,8 +1509,8 @@ class TerminalComponentModeler(AbstractComponentModeler, MicrowaveBaseModel):
         base_lumped = list(self.simulation.lumped_elements) + [
             port.to_load(snap_center=snap_centers[port.name]) for port in self._lumped_ports
         ]
-        # Inject modeler freqs into any CircuitImpedanceModel(freq_range=None) so conversion
-        # to structures uses this range without adding run_freqs to Simulation schema.
+        # Inject modeler freqs into any _AdmittanceFitter network with freq_range=None so
+        # conversion to structures uses this range without adding run_freqs to Simulation schema.
         new_lumped_elements = _inject_fit_freqs_into_lumped_elements(base_lumped, self.freqs)
 
         # Create absorbers (NOW with resolved mode_spec available)
@@ -1587,8 +1603,17 @@ class TerminalComponentModeler(AbstractComponentModeler, MicrowaveBaseModel):
         mnts_with_radiation = list(base_sim_tmp.monitors) + list(self._finalized_radiation_monitors)
         grid_spec = GridSpec.from_grid(base_sim_tmp.grid)
         grid_spec.attrs["from_grid_spec"] = base_sim_tmp.grid_spec.model_dump(mode="json")
+        updates = {"monitors": mnts_with_radiation, "grid_spec": grid_spec}
+        # Resolve a 'RunTimeSpec' run_time up front from the modeler's known excitation pulse, so
+        # base_sim carries a concrete, source-independent run_time (it has no port sources, so a
+        # 'RunTimeSpec' would otherwise resolve far too short: the source-pulse term vanishes and the
+        # in-medium index defaults to 1). Resolution depends only on geometry and media, which the
+        # monitor/grid updates do not change, so it is folded into the single 'updated_copy' below to
+        # validate just once. The per-port simulations inherit this value.
+        if isinstance(base_sim_tmp.run_time, RunTimeSpec):
+            updates["run_time"] = base_sim_tmp._resolve_run_time([self._source_time])
         # We skipped validations up to now, here we finally validate the base sim
-        return base_sim_tmp.updated_copy(monitors=mnts_with_radiation, grid_spec=grid_spec)
+        return base_sim_tmp.updated_copy(**updates)
 
     def _generate_radiation_monitor(
         self, simulation: Simulation, auto_spec: DirectivityMonitorSpec

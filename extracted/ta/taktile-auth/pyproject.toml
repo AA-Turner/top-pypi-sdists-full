@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "taktile-auth"
-version = "1.2.18"
+version = "1.2.19"
 description = "Auth Package for Taktile"
 readme = "PYPI.md"
 authors = ["Taktile GmbH <devops@taktile.com>"]
@@ -20,14 +20,9 @@ uuid6 = "^2025.0.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^9.0.3"
-black = "^26.3.1"
-isort = "^5.9.1"
-flake8 = "^7.0.0"
-pylint = "^2.8.3"
+ruff = "^0.14.14"
 mypy = "^1.8"
-flake8-print = "^5.0.0"
 types-requests = "^2.32.0"
-pylint-requests = "^0.1.1"
 pytest-cov = "^3.0.0"
 types-PyYAML = "^6.0.4"
 pytest-mock = "^3.7.0"
@@ -41,15 +36,9 @@ moto = { version = "^5.0", extras = ["dynamodb"] }
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.pylint.'MESSAGES CONTROL']
-extension-pkg-whitelist = ["pydantic"]
+[tool.ruff]
+line-length = 120
+target-version = "py310"
 
-[tool.pylint.'SIMILARITIES']
-ignore-imports = "yes"
-
-[tool.isort]
-profile = "black"
-line_length = 79
-
-[tool.black]
-line_length = 79
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "T20"]

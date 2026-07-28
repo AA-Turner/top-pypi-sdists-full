@@ -4,10 +4,13 @@ Migrated from the ``TestStatementsBase`` mixin (``statements.py``): each test
 method becomes a module-level function taking the ``roundtrip`` fixture, which
 runs it once per target in ``SHARED_TARGETS`` (model/json/xml/rdf). The 14
 "scruffy" cases opt out of the shared ``fmt`` fixture with their own explicit
-parametrization so the rdf param can be skipped (issue #217; see the
+parametrization so the rdf param can be skipped (permanent PROV-O
+representational limitation, see ``docs/reference/conformance.md``; the
 ``scruffy_fmt`` decorator below). The legacy mixin remains for the
 not-yet-migrated ``test_dot.py``.
 """
+
+import datetime
 
 import pytest
 
@@ -16,15 +19,22 @@ from prov.model import *
 EX_NS = Namespace("ex", "http://example.org/")
 EX2_NS = Namespace("ex2", "http://example2.org/")
 
+_TIME_2012 = datetime.datetime(
+    2012, 12, 3, 21, 8, 16, 686000, tzinfo=datetime.timezone.utc
+)
+
 # The 14 "scruffy" documents below add two relations sharing one identifier
 # but differing prov:time; PROV-O cannot represent this (both times serialize
 # onto the one qualified IRI, and deserialization then raises ProvException:
-# "Cannot have more than one value for attribute prov:time"). This is an
-# accepted PROV-O representational limitation, not a bug on a fix path, so the
-# rdf param is skipped rather than xfailed (design doc §2/§3, issue #217).
+# "Cannot have more than one value for attribute prov:time"). This is a
+# permanent, documented PROV-O representational limitation, not a bug on a
+# fix path, so the rdf param is skipped rather than xfailed — see
+# docs/reference/conformance.md for the full explanation of why no
+# conformant RDF encoding exists.
 RDF_SCRUFFY_SKIP = pytest.mark.skip(
     reason="PROV-O cannot represent same-identifier relations differing by "
-    "prov:time — accepted limitation, issue #217",
+    "prov:time — permanent, documented limitation, see "
+    "docs/reference/conformance.md",
 )
 
 # These functions opt out of the module-wide `fmt` fixture (see conftest.py)
@@ -1353,7 +1363,7 @@ def test_scruffy_generation_1(roundtrip):
         EX_NS["e1"],
         EX_NS["a1"],
         identifier=EX_NS["gen1"],
-        time=dateutil.parser.parse("2012-12-03T21:08:16.686Z"),
+        time=_TIME_2012,
     )
     document.entity(identifier=EX_NS["e1"])
     document.activity(identifier=EX_NS["a1"])
@@ -1373,7 +1383,7 @@ def test_scruffy_generation_2(roundtrip):
         EX_NS["e1"],
         EX_NS["a1"],
         identifier=EX_NS["gen1"],
-        time=dateutil.parser.parse("2012-12-03T21:08:16.686Z"),
+        time=_TIME_2012,
     )
     gen1.add_attributes([(EX_NS["tag2"], "hello-scruff-gen2")])
     gen2.add_attributes([(EX_NS["tag2"], "hi-scruff-gen2")])
@@ -1395,7 +1405,7 @@ def test_scruffy_invalidation_1(roundtrip):
         EX_NS["e1"],
         EX_NS["a1"],
         identifier=EX_NS["gen1"],
-        time=dateutil.parser.parse("2012-12-03T21:08:16.686Z"),
+        time=_TIME_2012,
     )
     document.entity(identifier=EX_NS["e1"])
     document.activity(identifier=EX_NS["a1"])
@@ -1415,7 +1425,7 @@ def test_scruffy_invalidation_2(roundtrip):
         EX_NS["e1"],
         EX_NS["a1"],
         identifier=EX_NS["gen1"],
-        time=dateutil.parser.parse("2012-12-03T21:08:16.686Z"),
+        time=_TIME_2012,
     )
     inv1.add_attributes([(EX_NS["tag2"], "hello")])
     inv2.add_attributes([(EX_NS["tag2"], "hi")])
@@ -1437,7 +1447,7 @@ def test_scruffy_usage_1(roundtrip):
         EX_NS["a1"],
         EX_NS["e1"],
         identifier=EX_NS["gen1"],
-        time=dateutil.parser.parse("2012-12-03T21:08:16.686Z"),
+        time=_TIME_2012,
     )
     document.entity(identifier=EX_NS["e1"])
     document.activity(identifier=EX_NS["a1"])
@@ -1457,7 +1467,7 @@ def test_scruffy_usage_2(roundtrip):
         EX_NS["a1"],
         EX_NS["e1"],
         identifier=EX_NS["gen1"],
-        time=dateutil.parser.parse("2012-12-03T21:08:16.686Z"),
+        time=_TIME_2012,
     )
     use1.add_attributes([(EX_NS["tag2"], "hello")])
     use2.add_attributes([(EX_NS["tag2"], "hi")])
@@ -1479,7 +1489,7 @@ def test_scruffy_start_1(roundtrip):
         EX_NS["a1"],
         EX_NS["e1"],
         identifier=EX_NS["gen1"],
-        time=dateutil.parser.parse("2012-12-03T21:08:16.686Z"),
+        time=_TIME_2012,
     )
     document.entity(identifier=EX_NS["e1"])
     document.activity(identifier=EX_NS["a1"])
@@ -1499,7 +1509,7 @@ def test_scruffy_start_2(roundtrip):
         EX_NS["a1"],
         EX_NS["e1"],
         identifier=EX_NS["gen1"],
-        time=dateutil.parser.parse("2012-12-03T21:08:16.686Z"),
+        time=_TIME_2012,
     )
     start1.add_attributes([(EX_NS["tag2"], "hello")])
     start2.add_attributes([(EX_NS["tag2"], "hi")])
@@ -1522,7 +1532,7 @@ def test_scruffy_start_3(roundtrip):
         EX_NS["a1"],
         EX_NS["e1"],
         identifier=EX_NS["gen1"],
-        time=dateutil.parser.parse("2012-12-03T21:08:16.686Z"),
+        time=_TIME_2012,
         starter=EX_NS["a2s"],
     )
     start1.add_attributes([(EX_NS["tag2"], "hello")])
@@ -1548,7 +1558,7 @@ def test_scruffy_start_4(roundtrip):
         EX_NS["a1"],
         EX_NS["e1"],
         identifier=EX_NS["gen1"],
-        time=dateutil.parser.parse("2012-12-03T21:08:16.686Z"),
+        time=_TIME_2012,
         starter=EX_NS["a2s"],
     )
     start1.add_attributes([(EX_NS["tag2"], "hello")])
@@ -1574,7 +1584,7 @@ def test_scruffy_end_1(roundtrip):
         EX_NS["a1"],
         EX_NS["e1"],
         identifier=EX_NS["gen1"],
-        time=dateutil.parser.parse("2012-12-03T21:08:16.686Z"),
+        time=_TIME_2012,
     )
     document.entity(identifier=EX_NS["e1"])
     document.activity(identifier=EX_NS["a1"])
@@ -1594,7 +1604,7 @@ def test_scruffy_end_2(roundtrip):
         EX_NS["a1"],
         EX_NS["e1"],
         identifier=EX_NS["gen1"],
-        time=dateutil.parser.parse("2012-12-03T21:08:16.686Z"),
+        time=_TIME_2012,
     )
     end1.add_attributes([(EX_NS["tag2"], "hello")])
     end2.add_attributes([(EX_NS["tag2"], "hi")])
@@ -1617,7 +1627,7 @@ def test_scruffy_end_3(roundtrip):
         EX_NS["a1"],
         EX_NS["e1"],
         identifier=EX_NS["gen1"],
-        time=dateutil.parser.parse("2012-12-03T21:08:16.686Z"),
+        time=_TIME_2012,
         ender=EX_NS["a2s"],
     )
     end1.add_attributes([(EX_NS["tag2"], "hello")])
@@ -1643,7 +1653,7 @@ def test_scruffy_end_4(roundtrip):
         EX_NS["a1"],
         EX_NS["e1"],
         identifier=EX_NS["gen1"],
-        time=dateutil.parser.parse("2012-12-03T21:08:16.686Z"),
+        time=_TIME_2012,
         ender=EX_NS["a2s"],
     )
     end1.add_attributes([(EX_NS["tag2"], "hello")])

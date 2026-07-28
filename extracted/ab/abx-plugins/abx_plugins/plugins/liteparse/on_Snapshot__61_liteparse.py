@@ -6,13 +6,19 @@
 Extract text from PDFs, Office documents, and images using LiteParse
 (the ``lit`` CLI by LlamaIndex, v2+).
 
-Scans the snapshot directory for documents produced by other plugins
-(``pdf``, ``responses``, ``staticfile``, ``wget``) and runs ``lit batch-parse``
+Scans the snapshot directory for downloaded documents produced by other plugins
+(``responses``, ``staticfile``, ``wget``) and runs ``lit batch-parse``
 on each supported file. Each source produces one ``<source-stem>.txt`` and
 ``<source-stem>.json`` directly in the plugin output dir — no merged
 ``content.txt`` or manifest. Search backends (ripgrep / sqlite FTS / sonic)
 auto-discover every ``.txt`` here, and the flat layout means each source's
 text is indexed exactly once.
+
+ArchiveBox's ``pdf/`` extractor output is intentionally not treated as input:
+those files are browser-printed captures of already-archived webpages, not
+source documents. Feeding them back into LiteParse duplicates existing HTML
+text extraction and makes all-plugin crawls spend minutes parsing generated
+PDFs for ordinary webpages.
 
 Tiny images (favicons, sprite thumbnails, etc.) are filtered out by
 ``LITEPARSE_MIN_IMAGE_DIMENSION`` so we don't waste OCR time on them.
@@ -135,20 +141,23 @@ def _content_digest(path: Path) -> str:
 
 def find_document_sources(
     min_image_dim: int = 0,
+    include_images: bool = True,
 ) -> list[tuple[Path, str]]:
     """Find documents produced by upstream plugins that LiteParse can parse.
 
-    Looks for PDFs in any pdf/ output directory, and any LiteParse-supported
-    file type under responses/, staticfile/, and wget/ trees (where downloaded
-    documents land regardless of MIME). Filters:
+    Looks for LiteParse-supported file types under responses/, staticfile/, and
+    wget/ trees (where downloaded documents land regardless of MIME). Filters:
       - resolved-path dedup (drops symlink duplicates)
       - content-hash dedup (drops same-bytes-different-paths duplicates)
       - image dimension filter (drops favicons/sprites/tracking pixels)
 
+    Images are only useful when OCR is enabled; when OCR is disabled we skip
+    them during source discovery instead of handing image-only inputs to
+    LiteParse just to produce empty output slowly.
+
     Returns ``(path, content_digest)`` so callers can re-use the digest for
     batch symlink naming without paying a second hash cost.
     """
-    pdf_globs = ("pdf/**/*.pdf", "*_pdf/**/*.pdf")
     document_roots = (
         "responses",
         "*_responses",
@@ -170,6 +179,8 @@ def find_document_sources(
         if resolved in seen_paths:
             return
         suffix = match.suffix.lower()
+        if suffix in IMAGE_EXTENSIONS and not include_images:
+            return
         if suffix in IMAGE_EXTENSIONS and _image_is_too_small(match, min_image_dim):
             return
         try:
@@ -183,10 +194,6 @@ def find_document_sources(
         found.append((match, digest))
 
     for base in (Path.cwd(), Path.cwd().parent):
-        for pattern in pdf_globs:
-            for match in base.glob(pattern):
-                consider(match)
-
         for root in document_roots:
             for root_dir in base.glob(root):
                 if not root_dir.is_dir():
@@ -478,7 +485,10 @@ def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
         )
 
     min_image_dim = int(config.LITEPARSE_MIN_IMAGE_DIMENSION or 0)
-    sources = find_document_sources(min_image_dim=min_image_dim)
+    sources = find_document_sources(
+        min_image_dim=min_image_dim,
+        include_images=bool(config.LITEPARSE_OCR_ENABLED),
+    )
     if not sources:
         return "noresults", "No document sources found"
 
@@ -555,7 +565,8 @@ def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
 
     workers = max(1, int(config.LITEPARSE_PARALLEL_WORKERS or 2))
     batch_waves = max(1, (len(batches) + workers - 1) // workers)
-    batch_timeout = max(1, int(timeout / batch_waves))
+    hook_cleanup_budget = max(1, int(timeout * 0.1))
+    batch_timeout = max(1, int((timeout - hook_cleanup_budget) / batch_waves))
 
     def _absorb_batch_results(results: list[tuple[int, Path, str, str]]) -> None:
         """Write per-source ``<name>.txt`` / ``<name>.json`` for one batch.

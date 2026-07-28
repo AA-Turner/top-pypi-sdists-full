@@ -45,18 +45,11 @@ class PermissionDefinition(pydantic.BaseModel):
     resource_definition: ResourceDefinition
 
     def build(self, *, actions: t.Set[Action], **kwargs: str) -> Permission:
-        extra_args = {
-            arg: "*"
-            for arg in set(self.resource_definition.args.keys()).difference(
-                kwargs
-            )
-        }
+        extra_args = {arg: "*" for arg in set(self.resource_definition.args.keys()).difference(kwargs)}
 
         return Permission(
             actions=actions,
-            resource=self.resource_definition.get_resource()(
-                **kwargs, **extra_args
-            ),
+            resource=self.resource_definition.get_resource()(**kwargs, **extra_args),
             resource_name=self.resource_definition.resource_name,
         )
 

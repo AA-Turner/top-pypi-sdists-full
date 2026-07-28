@@ -1425,7 +1425,7 @@ class Project:
         self, path: Optional[Path], ignore: bool = True
     ) -> Generator[Path, None, None]:
         if path is not None:
-            if not (ignore and self.is_ignored_path(path)):
+            if path.suffix == ".py" and not (ignore and self.is_ignored_path(path)):
                 yield path
             return
 

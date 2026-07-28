@@ -35,6 +35,7 @@ class AddPreffix(LinterFix):
 
 
 class ConflictingNameIssue(LinterIssue):
+    title = "Conflicting file name"
     type = "error"
     fixes = []
 
@@ -87,7 +88,6 @@ def reserved_names() -> List[str]:
 
 class ConflictingName(LinterRule):
     label = "Conflicting path"
-    type = "error"
 
     def find_issues(self) -> List[LinterIssue]:
         root = Settings.root_path

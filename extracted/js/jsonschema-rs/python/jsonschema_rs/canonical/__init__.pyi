@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import TypeAlias, final
 
 from . import json as json
@@ -54,15 +55,15 @@ class NumberView:
 
     __match_args__: tuple[str, ...]
     @property
-    def minimum(self) -> int | float | None: ...
+    def minimum(self) -> int | float | Decimal | None: ...
     @property
     def exclusive_minimum(self) -> bool: ...
     @property
-    def maximum(self) -> int | float | None: ...
+    def maximum(self) -> int | float | Decimal | None: ...
     @property
     def exclusive_maximum(self) -> bool: ...
     @property
-    def multiple_of(self) -> list[int | float]: ...
+    def multiple_of(self) -> list[int | float | Decimal]: ...
 
 @final
 class IntegerView:
@@ -74,7 +75,7 @@ class IntegerView:
     @property
     def maximum(self) -> int | None: ...
     @property
-    def multiple_of(self) -> list[int | float]: ...
+    def multiple_of(self) -> list[int | float | Decimal]: ...
 
 @final
 class ArrayView:
@@ -127,12 +128,44 @@ class ObjectView:
     def additional_properties(self) -> CanonicalSchema | None: ...
 
 @final
+class NotView:
+    """The exact complement of ``schema``."""
+
+    __match_args__: tuple[str, ...]
+    @property
+    def schema(self) -> CanonicalSchema: ...
+
+@final
+class AllOfView:
+    """A value matches iff every branch matches."""
+
+    __match_args__: tuple[str, ...]
+    @property
+    def branches(self) -> list[CanonicalSchema]: ...
+
+@final
 class AnyOfView:
     """A value matches iff at least one branch matches."""
 
     __match_args__: tuple[str, ...]
     @property
     def branches(self) -> list[CanonicalSchema]: ...
+
+@final
+class OneOfView:
+    """A value matches iff exactly one branch matches."""
+
+    __match_args__: tuple[str, ...]
+    @property
+    def branches(self) -> list[CanonicalSchema]: ...
+
+@final
+class ReferenceView:
+    """A symbolic JSON Schema reference."""
+
+    __match_args__: tuple[str, ...]
+    @property
+    def uri(self) -> str: ...
 
 @final
 class ConstView:
@@ -168,7 +201,11 @@ CanonicalViewType: TypeAlias = (
     | IntegerView
     | ArrayView
     | ObjectView
+    | NotView
+    | AllOfView
     | AnyOfView
+    | OneOfView
+    | ReferenceView
     | ConstView
     | EnumView
     | RawView

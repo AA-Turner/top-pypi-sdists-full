@@ -1,17 +1,3 @@
-# This file is part of beets.
-# Copyright 2016, Adrian Sampson.
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-
 """The Query type hierarchy for DBCore."""
 
 from __future__ import annotations
@@ -61,7 +47,9 @@ class InvalidQueryError(ParsingError):
     The query should be a unicode string or a list, which will be space-joined.
     """
 
-    def __init__(self, query, explanation):
+    def __init__(
+        self, query: str | Sequence[str] | Query | None, explanation: Exception
+    ) -> None:
         if isinstance(query, list):
             query = " ".join(query)
         message = f"'{query}': {explanation}"
@@ -75,7 +63,9 @@ class InvalidQueryArgumentValueError(ParsingError):
     query) InvalidQueryError can be raised.
     """
 
-    def __init__(self, what, expected, detail=None):
+    def __init__(
+        self, what: str, expected: str, detail: str | None = None
+    ) -> None:
         message = f"'{what}' is not {expected}"
         if detail:
             message = f"{message}: {detail}"
@@ -103,7 +93,7 @@ class Query(ABC):
         """
 
     @abstractmethod
-    def match(self, obj: Model):
+    def match(self, obj: Model) -> bool:
         """Check whether this query matches a given Model. Can be used to
         perform queries on arbitrary sets of Model.
         """
@@ -114,7 +104,7 @@ class Query(ABC):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         return type(self) is type(other)
 
     def __hash__(self) -> int:
@@ -150,7 +140,7 @@ class FieldQuery(Query, Generic[P]):
         """Return a set with field names that this query operates on."""
         return {self.field_name}
 
-    def __init__(self, field_name: str, pattern: P, fast: bool = True):
+    def __init__(self, field_name: str, pattern: P, fast: bool = True) -> None:
         self.table, _, self.field_name = field_name.rpartition(".")
         self.pattern = pattern
         self.fast = fast
@@ -165,7 +155,7 @@ class FieldQuery(Query, Generic[P]):
         return None, ()
 
     @classmethod
-    def value_match(cls, pattern: P, value: Any):
+    def value_match(cls, pattern: P, value: Any) -> bool:
         """Determine whether the value matches the pattern."""
         raise NotImplementedError
 
@@ -178,9 +168,9 @@ class FieldQuery(Query, Generic[P]):
             f"fast={self.fast})"
         )
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         return (
-            super().__eq__(other)
+            type(self) is type(other)
             and self.field_name == other.field_name
             and self.pattern == other.pattern
         )
@@ -205,7 +195,7 @@ class MatchQuery(FieldQuery[AnySQLiteType]):
 class NoneQuery(FieldQuery[None]):
     """A query that checks whether a field is null."""
 
-    def __init__(self, field, fast: bool = True):
+    def __init__(self, field: str, fast: bool = True) -> None:
         super().__init__(field, None, fast)
 
     def col_clause(self) -> tuple[str, Sequence[SQLiteType]]:
@@ -224,7 +214,7 @@ class StringFieldQuery(FieldQuery[P]):
     """
 
     @classmethod
-    def value_match(cls, pattern: P, value: Any):
+    def value_match(cls, pattern: P, value: Any) -> bool:
         """Determine whether the value matches the pattern. The value
         may have any type.
         """
@@ -385,7 +375,9 @@ class RegexpQuery(StringFieldQuery[Pattern[str]]):
     expression.
     """
 
-    def __init__(self, field_name: str, pattern: str, fast: bool = True):
+    def __init__(
+        self, field_name: str, pattern: str, fast: bool = True
+    ) -> None:
         pattern = self._normalize(pattern)
         try:
             pattern_re = re.compile(pattern)
@@ -417,7 +409,9 @@ class BooleanQuery(MatchQuery[int]):
     string reflecting a boolean.
     """
 
-    def __init__(self, field_name: str, pattern: bool, fast: bool = True):
+    def __init__(
+        self, field_name: str, pattern: bool, fast: bool = True
+    ) -> None:
         if isinstance(pattern, str):
             pattern = util.str2bool(pattern)
 
@@ -452,7 +446,9 @@ class NumericQuery(FieldQuery[str]):
             except ValueError:
                 raise InvalidQueryArgumentValueError(s, "an int or a float")
 
-    def __init__(self, field_name: str, pattern: str, fast: bool = True):
+    def __init__(
+        self, field_name: str, pattern: str, fast: bool = True
+    ) -> None:
         super().__init__(field_name, pattern, fast)
 
         parts = pattern.split("..", 1)
@@ -518,6 +514,11 @@ class InQuery(Generic[AnySQLiteType], FieldQuery[Sequence[AnySQLiteType]]):
     ) -> bool:
         return value in pattern
 
+    def __hash__(self) -> int:
+        # `pattern` is a sequence, so the base class hashing it directly
+        # raises for list patterns. Hash a tuple copy instead. See #5354.
+        return hash((self.field_name, tuple(self.pattern)))
+
 
 class CollectionQuery(Query):
     """An abstract query class that aggregates other queries. Can be
@@ -529,7 +530,7 @@ class CollectionQuery(Query):
         """Return a set with field names that this query operates on."""
         return reduce(or_, (sq.field_names for sq in self.subqueries))
 
-    def __init__(self, subqueries: Sequence[Query] = ()):
+    def __init__(self, subqueries: Sequence[Query] = ()) -> None:
         self.subqueries = subqueries
 
     # Act like a sequence.
@@ -537,13 +538,13 @@ class CollectionQuery(Query):
     def __len__(self) -> int:
         return len(self.subqueries)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: int) -> Query:
         return self.subqueries[key]
 
     def __iter__(self) -> Iterator[Query]:
         return iter(self.subqueries)
 
-    def __contains__(self, subq) -> bool:
+    def __contains__(self, subq: Query) -> bool:
         return subq in self.subqueries
 
     def clause_with_joiner(
@@ -567,8 +568,8 @@ class CollectionQuery(Query):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.subqueries!r})"
 
-    def __eq__(self, other) -> bool:
-        return super().__eq__(other) and self.subqueries == other.subqueries
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and self.subqueries == other.subqueries
 
     def __hash__(self) -> int:
         """Since subqueries are mutable, this object should not be hashable.
@@ -584,10 +585,10 @@ class MutableCollectionQuery(CollectionQuery):
 
     subqueries: MutableSequence[Query]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: int, value: Query) -> None:
         self.subqueries[key] = value
 
-    def __delitem__(self, key):
+    def __delitem__(self, key: int) -> None:
         del self.subqueries[key]
 
 
@@ -621,7 +622,7 @@ class NotQuery(Query):
         """Return a set with field names that this query operates on."""
         return self.subquery.field_names
 
-    def __init__(self, subquery):
+    def __init__(self, subquery: Query) -> None:
         self.subquery = subquery
 
     def clause(self) -> tuple[str | None, Sequence[SQLiteType]]:
@@ -638,8 +639,8 @@ class NotQuery(Query):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.subquery!r})"
 
-    def __eq__(self, other) -> bool:
-        return super().__eq__(other) and self.subquery == other.subquery
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, NotQuery) and self.subquery == other.subquery
 
     def __hash__(self) -> int:
         return hash(("not", hash(self.subquery)))
@@ -703,9 +704,9 @@ class Period:
         "w": 7,
         "d": 1,
     }
-    relative_re = "(?P<sign>[+|-]?)(?P<quantity>[0-9]+)(?P<timespan>[y|m|w|d])"
+    relative_re = "(?P<sign>[+-]?)(?P<quantity>[0-9]+)(?P<timespan>[ymwd])"
 
-    def __init__(self, date: datetime, precision: str):
+    def __init__(self, date: datetime, precision: str) -> None:
         """Create a period with the given date (a `datetime` object) and
         precision (a string, one of "year", "month", "day", "hour", "minute",
         or "second").
@@ -807,7 +808,7 @@ class DateInterval:
     A right endpoint of None means towards infinity.
     """
 
-    def __init__(self, start: datetime | None, end: datetime | None):
+    def __init__(self, start: datetime | None, end: datetime | None) -> None:
         if start is not None and end is not None and not start < end:
             raise ValueError(f"start date {start} is not before end date {end}")
         self.start = start
@@ -843,7 +844,9 @@ class DateQuery(FieldQuery[str]):
     using an ellipsis interval syntax similar to that of NumericQuery.
     """
 
-    def __init__(self, field_name: str, pattern: str, fast: bool = True):
+    def __init__(
+        self, field_name: str, pattern: str, fast: bool = True
+    ) -> None:
         super().__init__(field_name, pattern, fast)
         start, end = _parse_periods(pattern)
         self.interval = DateInterval.from_periods(start, end)
@@ -917,7 +920,9 @@ class SingletonQuery(FieldQuery[str]):
     and singleton:false, singleton:0 are handled consistently.
     """
 
-    def __new__(cls, field: str, value: str, *args, **kwargs):
+    def __new__(  # type: ignore[misc]
+        cls, field: str, value: str, *args: Any, **kwargs: Any
+    ) -> Query:
         query = NoneQuery("album_id")
         if util.str2bool(value):
             return query

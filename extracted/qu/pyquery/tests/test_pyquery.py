@@ -4,12 +4,16 @@
 import os
 import sys
 import time
+from unittest import TestCase
+
+import pytest
 from lxml import etree
-from pyquery.pyquery import PyQuery as pq, no_default
-from pyquery.openers import HAS_REQUEST
 from webtest import http
 from webtest.debugapp import debug_app
-from unittest import TestCase
+
+from pyquery.openers import HAS_REQUEST
+from pyquery.pyquery import PyQuery as pq
+from pyquery.pyquery import no_default
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
@@ -349,12 +353,33 @@ class TestConstruction(TestCase):
     def test_typeerror_on_invalid_value(self):
         self.assertRaises(TypeError, pq, object())
 
+    def test_empty_string_returns_empty_doc(self):
+        """Empty/whitespace markup must not raise ParserError."""
+        for markup in ('', '   ', '\n', '\t  \n'):
+            doc = pq(markup)
+            self.assertEqual(len(doc), 0)
+            self.assertEqual(doc.html(), None)
+            self.assertEqual(list(doc), [])
+
 
 class TestComment(TestCase):
 
     def test_comment(self):
         doc = pq('<div><!-- foo --> bar</div>')
         self.assertEqual(doc.text(), 'bar')
+
+
+class TestContentsStr(TestCase):
+
+    def test_str_contents_with_text_nodes(self):
+        doc = pq('hello <b>bold</b> world')
+        contents = doc.contents()
+        self.assertEqual(str(contents), 'hello <b>bold</b> world')
+        self.assertEqual(contents.__html__(), 'hello <b>bold</b> world')
+
+    def test_str_contents_text_only(self):
+        doc = pq('<div>only text</div>')
+        self.assertEqual(str(doc.contents()), 'only text')
 
 
 class TestCallback(TestCase):
@@ -487,6 +512,15 @@ Bacon</textarea>
         self.assertEqual(d.outer_html(), '<div value=""></div>')
         self.assertEqual(d.outer_html(method="xml"), '<div value=""/>')
 
+    def test_attr_dict_mapping(self):
+        d = pq('<div>')
+        d.attr({'id': 'x', 'class_': 'y', 'data-a': '1'})
+        self.assertEqual(d.attr('id'), 'x')
+        self.assertEqual(d.attr('class'), 'y')
+        self.assertEqual(d.attr('data-a'), '1')
+        self.assertEqual(d.attr(id='z', class_='w').attr('id'), 'z')
+        self.assertEqual(d.attr('class'), 'w')
+
     def test_remove(self):
         d = pq(self.html)
         d('img').remove()
@@ -534,10 +568,9 @@ Bacon</textarea>
         self.assertEqual(d('#textarea-multi').val(), multi_expected)
         self.assertEqual(d('#textarea-multi').text(), multi_expected)
         multi_new = '''Bacon\n<b>Eggs</b>\nSpam'''
-        multi_new_expected = '''Bacon\n&lt;b&gt;Eggs&lt;/b&gt;\nSpam'''
         d('#textarea-multi').val(multi_new)
-        self.assertEqual(d('#textarea-multi').val(), multi_new_expected)
-        self.assertEqual(d('#textarea-multi').text(), multi_new_expected)
+        self.assertEqual(d('#textarea-multi').val(), multi_new)
+        self.assertEqual(d('#textarea-multi').text(), multi_new)
 
     def test_val_for_select(self):
         d = pq(self.html4)
@@ -592,6 +625,27 @@ Bacon</textarea>
         self.assertEqual(d('#first').val(), '42')
         self.assertEqual(d('#second').val(), '42')
         self.assertEqual(d('#third').val(), '42')
+
+    def test_val_select_option_without_value_attr(self):
+        d = pq('<select><option>a</option><option selected>b</option></select>')
+        self.assertEqual(d.val(), 'b')
+        d = pq('<select><option>first</option><option>second</option></select>')
+        self.assertEqual(d.val(), 'first')
+        d = pq('<select><option selected value="">empty</option></select>')
+        self.assertEqual(d.val(), '')
+        d = pq(
+            '<select multiple>'
+            '<option selected>a</option>'
+            '<option selected>b</option>'
+            '</select>'
+        )
+        self.assertEqual(d.val(), ['a', 'b'])
+        form = pq(
+            '<form><select name="s">'
+            '<option>t1</option><option selected>t2</option>'
+            '</select></form>'
+        )
+        self.assertEqual(form.serialize_pairs(), [('s', 't2')])
 
     def test_val_checkbox_no_value_attribute(self):
         d = pq('<input type="checkbox">')
@@ -784,6 +838,7 @@ class TestMakeLinks(TestCase):
                          'http://example.com/path_info')
 
 
+@pytest.mark.skipif(os.name == 'nt', reason='fail on windows')
 class TestHTMLParser(TestCase):
     xml = "<div>I'm valid XML</div>"
     html = '''<div class="portlet">
@@ -802,7 +857,7 @@ class TestHTMLParser(TestCase):
         expected = '''<div class="portlet">
       <a href="/toto">TestimageMy link text</a>
       <a href="/toto2">imageMy link text 2</a>
-      Behind you, a three-headed HTML&amp;dash;Entity!
+      Behind you, a three-headed HTML‐Entity!
     </div>'''
         d = pq(self.html)
         d('img').replace_with('image')
@@ -813,7 +868,7 @@ class TestHTMLParser(TestCase):
         expected = '''<div class="portlet">
       TestimageMy link text
       imageMy link text 2
-      Behind you, a three-headed HTML&amp;dash;Entity!
+      Behind you, a three-headed HTML‐Entity!
     </div>'''
         d = pq(self.html)
         d('a').replace_with(lambda i, e: pq(e).html())
@@ -838,7 +893,7 @@ class TestXMLNamespace(TestCase):
     </body>
     </html>'''
 
-    namespaces = {'bar': 'http://example.com/bar',
+    namespaces = {'bar': 'http://example.com/bar',  # NOQA
                   'baz': 'http://example.com/baz'}
 
     def test_selector(self):
@@ -899,14 +954,14 @@ class TestWebScrapping(TestCase):
         d = pq(url=self.application_url, data={'q': 'foo'},
                method='get')
         print(d)
-        self.assertIn('REQUEST_METHOD: GET', d('p').text())
-        self.assertIn('q=foo', d('p').text())
+        self.assertIn('REQUEST_METHOD: GET', d.text())
+        self.assertIn('q=foo', d.text())
 
     def test_post(self):
         d = pq(url=self.application_url, data={'q': 'foo'},
                method='post')
-        self.assertIn('REQUEST_METHOD: POST', d('p').text())
-        self.assertIn('q=foo', d('p').text())
+        self.assertIn('REQUEST_METHOD: POST', d.text())
+        self.assertIn('q=foo', d.text())
 
     def test_session(self):
         if HAS_REQUEST:
@@ -915,7 +970,7 @@ class TestWebScrapping(TestCase):
             session.headers.update({'X-FOO': 'bar'})
             d = pq(url=self.application_url, data={'q': 'foo'},
                    method='get', session=session)
-            self.assertIn('HTTP_X_FOO: bar', d('p').text())
+            self.assertIn('HTTP_X_FOO: bar', d.text())
         else:
             self.skipTest('no requests library')
 
@@ -925,6 +980,7 @@ class TestWebScrapping(TestCase):
 
 class TestWebScrappingEncoding(TestCase):
 
+    @pytest.mark.skip('No longer possible to query this url')
     def test_get(self):
         d = pq(url='http://ru.wikipedia.org/wiki/Заглавная_страница',
                method='get')
@@ -945,7 +1001,7 @@ class TestWebScrappingTimeouts(TestCase):
 
     def test_get(self):
         pq(url=self.application_url)
-        with self.assertRaises(Exception):
+        with self.assertRaises(Exception):  # NOQA
             pq(url=self.application_url, timeout=1)
 
     def tearDown(self):

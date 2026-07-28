@@ -60,7 +60,7 @@ class Gitlab:
         order_by: Set order_by globally
         user_agent: A custom user agent to use for making HTTP requests.
         retry_transient_errors: Whether to retry after 500, 502, 503, 504
-            or 52x responses. Defaults to False.
+            or 52x responses, or after a request timeout. Defaults to False.
         keep_base_url: keep user-provided base URL for pagination if it
             differs from response headers
 
@@ -404,7 +404,7 @@ class Gitlab:
             The server version and server revision.
                 ('unknown', 'unknown') if the server doesn't perform as expected.
         """
-        if self._server_version is None:
+        if self._server_version in (None, "unknown"):
             try:
                 data = self.http_get("/version")
                 if isinstance(data, dict):
@@ -665,7 +665,7 @@ class Gitlab:
             obey_rate_limit: Whether to obey 429 Too Many Request
                                     responses. Defaults to True.
             retry_transient_errors: Whether to retry after 500, 502, 503, 504
-                or 52x responses. Defaults to False.
+                or 52x responses, or after a request timeout. Defaults to False.
             max_retries: Max retries after 429 or transient errors,
                                set to -1 to retry forever. Defaults to 10.
             extra_headers: Add and override HTTP headers for the request.
@@ -737,7 +737,11 @@ class Gitlab:
                     stream=streamed,
                     **opts,
                 )
-            except (requests.ConnectionError, requests.exceptions.ChunkedEncodingError):
+            except (
+                requests.ConnectionError,
+                requests.exceptions.ChunkedEncodingError,
+                requests.exceptions.Timeout,
+            ):
                 if retry.handle_retry():
                     continue
                 raise
@@ -793,7 +797,7 @@ class Gitlab:
             **kwargs: Extra options to send to the server (e.g. sudo)
 
         Returns:
-            A requests result object is streamed is True or the content type is
+            A requests result object if streamed is True or the content type is
             not json.
             The parsed json data otherwise.
 

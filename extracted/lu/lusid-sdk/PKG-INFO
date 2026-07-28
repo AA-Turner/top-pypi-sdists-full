@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lusid-sdk
-Version: 2.3.158
+Version: 2.3.159
 Summary: LUSID API
 License: MIT
 Keywords: OpenAPI,OpenAPI-Generator,LUSID API,lusid-sdk
@@ -902,6 +902,9 @@ Class | Method | HTTP request | Description
  - [BranchStepRequest](docs/BranchStepRequest.md)
  - [BreakCodeSource](docs/BreakCodeSource.md)
  - [Bucket](docs/Bucket.md)
+ - [BucketSetNode](docs/BucketSetNode.md)
+ - [BucketSetResult](docs/BucketSetResult.md)
+ - [BucketSetResultBucket](docs/BucketSetResultBucket.md)
  - [BucketedCashFlowRequest](docs/BucketedCashFlowRequest.md)
  - [BucketedCashFlowResponse](docs/BucketedCashFlowResponse.md)
  - [BucketingSchedule](docs/BucketingSchedule.md)
@@ -1759,6 +1762,8 @@ Class | Method | HTTP request | Description
  - [QuoteInstrumentIdType](docs/QuoteInstrumentIdType.md)
  - [QuoteSeriesId](docs/QuoteSeriesId.md)
  - [QuoteType](docs/QuoteType.md)
+ - [RateCurveShiftDefinition](docs/RateCurveShiftDefinition.md)
+ - [RateCurveShiftMode](docs/RateCurveShiftMode.md)
  - [RawVendorEvent](docs/RawVendorEvent.md)
  - [ReOpenPeriodDiaryEntryRequest](docs/ReOpenPeriodDiaryEntryRequest.md)
  - [RealisedGainLoss](docs/RealisedGainLoss.md)
@@ -1926,6 +1931,7 @@ Class | Method | HTTP request | Description
  - [ScalingMethodology](docs/ScalingMethodology.md)
  - [ScenarioDefinition](docs/ScenarioDefinition.md)
  - [ScenarioShiftDefinition](docs/ScenarioShiftDefinition.md)
+ - [ScenarioShiftType](docs/ScenarioShiftType.md)
  - [Schedule](docs/Schedule.md)
  - [ScheduleType](docs/ScheduleType.md)
  - [ScopeDefinition](docs/ScopeDefinition.md)
@@ -2020,6 +2026,7 @@ Class | Method | HTTP request | Description
  - [TermDepositPrincipalEvent](docs/TermDepositPrincipalEvent.md)
  - [TimeZoneConventions](docs/TimeZoneConventions.md)
  - [Timeline](docs/Timeline.md)
+ - [ToBeAnnounced](docs/ToBeAnnounced.md)
  - [TotalReturnSwap](docs/TotalReturnSwap.md)
  - [Touch](docs/Touch.md)
  - [TradeTicket](docs/TradeTicket.md)
@@ -2229,6 +2236,7 @@ Class | Method | HTTP request | Description
  - [VirtualDocument](docs/VirtualDocument.md)
  - [VirtualDocumentRow](docs/VirtualDocumentRow.md)
  - [VirtualRow](docs/VirtualRow.md)
+ - [VolatilitySwap](docs/VolatilitySwap.md)
  - [Warning](docs/Warning.md)
  - [WarrantsExerciseEvent](docs/WarrantsExerciseEvent.md)
  - [WeekendMask](docs/WeekendMask.md)

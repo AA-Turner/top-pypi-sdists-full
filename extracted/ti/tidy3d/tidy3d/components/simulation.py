@@ -18,11 +18,19 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from pydantic import (
+    ValidationError as PydanticValidationError,
+)
 
+from tidy3d.components.autograd.flux_monitor import (
+    build_flux_monitor_adjoint_layout,
+    is_flux_adjoint_helper_name,
+)
 from tidy3d.components.microwave.mode_spec import MicrowaveModeSpec
 from tidy3d.components.microwave.path_integrals.mode_plane_analyzer import ModePlaneAnalyzer
 from tidy3d.components.types.base import discriminated_union
-from tidy3d.constants import C_0, SECOND, fp_eps, inf
+from tidy3d.config import config
+from tidy3d.constants import C_0, GLANCING_CUTOFF, SECOND, fp_eps, inf
 from tidy3d.exceptions import (
     AdjointError,
     SetupError,
@@ -32,7 +40,12 @@ from tidy3d.exceptions import (
     format_chained_exception_message,
 )
 from tidy3d.log import log
-from tidy3d.packaging import disable_local_subpixel, supports_local_subpixel, tidy3d_extras
+from tidy3d.packaging import (
+    _check_tidy3d_extras_available,
+    disable_local_subpixel,
+    supports_local_subpixel,
+    tidy3d_extras,
+)
 from tidy3d.updater import Updater
 
 from .base import cached_property
@@ -54,6 +67,12 @@ from .boundary import (
     StablePML,
 )
 from .data.data_array import FreqDataArray, IndexedDataArray
+from .data.point_cloud import (
+    POINT_CLOUD_PERMITTIVITY_COMPONENTS,
+    point_cloud_nearest_sampled_cells_upper_bound,
+    point_cloud_num_sampled_grid_fields,
+    point_cloud_sampled_cells_upper_bound,
+)
 from .data.unstructured.tetrahedral import TetrahedralGridDataset
 from .data.unstructured.triangular import TriangularGridDataset
 from .diffraction import diffraction_monitor_storage_size, diffraction_order_grid_size
@@ -66,31 +85,42 @@ from .geometry.utils import (
     flatten_groups,
     traverse_geometries,
 )
-from .geometry.utils_2d import get_bounds, snap_coordinate_to_grid, subdivide
+from .geometry.utils_2d import (
+    choose_line_normal_axis,
+    get_bounds,
+    snap_coordinate_to_grid,
+    snap_to_dual_cell,
+    subdivide,
+)
 from .grid.grid import Coords, Grid
-from .grid.grid_spec import GridSpec, UniformGrid
-from .lumped_element import LumpedElementType
+from .grid.grid_spec import GridSpec, UniformGrid, _GeneratedGridSizeError
+from .lumped_element import LumpedElementType, RectangularLumpedElement
 from .medium import (
     AbstractCustomMedium,
     AbstractMedium,
     AbstractPerturbationMedium,
     AnisotropicMedium,
     AnisotropicMediumFromMedium2D,
+    CustomIsotropicMedium,
+    CustomMedium,
     FullyAnisotropicMedium,
     LossyMetalMedium,
     Medium,
     Medium2D,
     MediumType3D,
     PECMedium,
+    PMCMedium,
 )
 from .microwave.monitor import MicrowaveModeMonitor, MicrowaveModeSolverMonitor
 from .monitor import (
     AbstractFieldMonitor,
     AbstractFieldProjectionMonitor,
+    AbstractGaussianOverlapMonitor,
     AbstractModeMonitor,
     AbstractOverlapMonitor,
     AuxFieldTimeMonitor,
     DiffractionMonitor,
+    DipoleEmissionMonitor,
     DirectivityMonitor,
     FieldMonitor,
     FieldProjectionAngleMonitor,
@@ -100,8 +130,12 @@ from .monitor import (
     FreqMonitor,
     MediumMonitor,
     ModeMonitor,
+    ModeTimeMonitor,
     PermittivityMonitor,
+    PointCloudFieldMonitor,
+    PointCloudPermittivityMonitor,
     SurfaceIntegrationMonitor,
+    ThinLensOverlapMonitor,
     TimeMonitor,
 )
 from .run_time_spec import RunTimeSpec
@@ -117,19 +151,23 @@ from .source.field import (
     GaussianBeam,
     PlanarSource,
     PlaneWave,
+    ThinLensBeam,
 )
 from .source.frame import PECFrame
-from .source.time import ContinuousWave, CustomSourceTime
+from .source.time import ContinuousWave, CustomSourceTime, Pulse
 from .source.utils import SourceType
 from .structure import Structure
 from .subpixel_spec import SubpixelSpec
+from .thin_lens import MAX_THIN_LENS_SETUP_WORK_UNITS, thin_lens_pupil_grid_samples
 from .types import TYPE_TAG_STR, PermittivityComponent, Symmetry
 from .types.monitor import MonitorType, SurfaceMonitorType
 from .validators import (
     assert_objects_contained_in_sim_bounds,
     assert_objects_in_sim_bounds,
     call_wrapped_validator,
+    is_close_to_glancing_angle,
     named_obj_descr,
+    points_outside_bounds,
     validate_field_projection_monitors_2d,
     validate_mode_objects_symmetry,
 )
@@ -147,9 +185,12 @@ from .viz import (
     plot_sim_3d,
 )
 
+OpticalMediumExportKey = dict[str, Any] | None
+
 if TYPE_CHECKING:
     from collections.abc import Callable
     from os import PathLike
+    from typing import NoReturn
 
     from numpy.typing import NDArray
 
@@ -160,6 +201,7 @@ if TYPE_CHECKING:
     from .data.dataset import Dataset
     from .data.utils import CustomSpatialDataType
     from .grid.grid import Coords1D
+    from .material.types import StructureMediumType
     from .medium import MediumType
     from .monitor import Monitor
     from .source.field import ModeSource
@@ -176,6 +218,13 @@ if TYPE_CHECKING:
         InterpMethod,
         Shapely,
     )
+    from .types.time import SourceTimeType
+
+
+def _raise_setup_error(message: str) -> NoReturn:
+    """Raise a setup error from helper paths used outside post-init validation."""
+    raise SetupError(message)
+
 
 try:
     gdstk_available = True
@@ -222,6 +271,11 @@ FIXED_ANGLE_DT_SAFETY_FACTOR = 0.9
 # RF frequency warning
 RF_FREQ_WARNING = 300e9
 
+# thin-lens preprocessing path multiplicity
+THIN_LENS_SOURCE_SETUP_EVALUATIONS = 4
+THIN_LENS_MONITOR_SETUP_EVALUATIONS = 2
+THIN_LENS_FIELD_COMPONENTS = 6
+
 
 def validate_boundaries_for_zero_dims(
     warn_on_change: bool = True,
@@ -241,7 +295,7 @@ def validate_boundaries_for_zero_dims(
             if size_dim == 0:
                 axis = axis_names[dim]
                 num_absorbing_bdries = sum(
-                    isinstance(bnd, (AbsorberSpec, ABCBoundary, ModeABCBoundary))
+                    isinstance(bnd, AbsorberSpec | ABCBoundary | ModeABCBoundary)
                     for bnd in boundary
                 )
                 num_bloch_bdries = sum(isinstance(bnd, BlochBoundary) for bnd in boundary)
@@ -293,6 +347,62 @@ def validate_boundaries_for_zero_dims(
         return self
 
     return boundaries_for_zero_dims
+
+
+def _medium_can_be_lossy(medium: AbstractMedium) -> bool:
+    """Heuristic: True if ``medium`` may contribute to a lossy waveguide mode
+    (complex ``n_eff``). Used by :meth:`Simulation.complex_fields` to decide
+    whether to enable analytic-signal FDTD for lossy ``ModeTimeMonitor``
+    decomposition.
+
+    Classification (note: ``AbstractPerturbationMedium`` subclasses inherit
+    from a non-perturbation medium type via multiple inheritance, so they
+    fall through to the parent class's branch — the perturbation hasn't been
+    applied yet, so we treat the underlying medium as the source of truth):
+
+    - :class:`LossyMetalMedium` → True.
+    - :class:`AnisotropicMedium` (incl. ``CustomAnisotropicMedium``,
+      ``AnisotropicMediumFromMedium2D``): recurses on xx/yy/zz; True iff
+      any component is lossy.
+    - :class:`FullyAnisotropicMedium`: True iff any tensor entry of
+      conductivity is nonzero.
+    - :class:`CustomMedium`: True iff ``eps_dataset`` (when set) contains
+      any nonzero imaginary part on eps_xx/yy/zz, OR ``conductivity`` is
+      nonzero anywhere.
+    - :class:`CustomIsotropicMedium`: True iff ``conductivity`` is nonzero
+      anywhere.
+    - Other :class:`AbstractCustomMedium` (custom dispersive variants like
+      ``CustomPoleResidue``): conservative — True.
+    - :class:`Medium` (catches plain dielectrics + ``PerturbationMedium``):
+      True iff conductivity is nonzero.
+    - Dispersive / unknown media: conservative — True.
+    """
+    if isinstance(medium, LossyMetalMedium):
+        return True
+    if isinstance(medium, AnisotropicMedium):
+        return any(_medium_can_be_lossy(c) for c in (medium.xx, medium.yy, medium.zz))
+    if isinstance(medium, FullyAnisotropicMedium):
+        return bool(np.any(np.asarray(medium.conductivity) != 0))
+    if isinstance(medium, AbstractCustomMedium):
+        if isinstance(medium, CustomMedium):
+            ds = medium.eps_dataset
+            if ds is not None:
+                for comp in (ds.eps_xx, ds.eps_yy, ds.eps_zz):
+                    if np.any(np.imag(np.asarray(comp)) != 0):
+                        return True
+            cond = medium.conductivity
+            if cond is not None and np.any(np.asarray(cond) != 0):
+                return True
+            return False
+        if isinstance(medium, CustomIsotropicMedium):
+            cond = medium.conductivity
+            if cond is None:
+                return False
+            return bool(np.any(np.asarray(cond) != 0))
+        return True
+    if isinstance(medium, Medium):
+        return bool(np.any(np.asarray(medium.conductivity) != 0))
+    return True
 
 
 class AbstractYeeGridSimulation(AbstractSimulation, ABC):
@@ -441,7 +551,72 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
         self._validate_num_lumped_elements()
         self._check_3d_simulation_with_lumped_elements()
         self._validate_boundary_spec_symmetry()
+        self._validate_auto_grid_size()
         return self
+
+    def _grid_spec_for_auto_grid_size_validation(self) -> GridSpec:
+        """Grid specification used to estimate AutoGrid cell sizes."""
+        grid_spec = self.grid_spec
+        if grid_spec.auto_grid_used and grid_spec.wavelength is None and hasattr(self, "freqs"):
+            return grid_spec.updated_copy(wavelength=C_0 / np.max(self.freqs))
+        return grid_spec
+
+    def _layerrefinement_boundary_types(self) -> list[list[str | None]]:
+        """Boundary types for layer refinement."""
+        boundary_types = [[None, None], [None, None], [None, None]]
+        for dim, boundary in enumerate(self.boundary_spec.to_list):
+            for side, edge in enumerate(boundary):
+                if isinstance(edge, PECBoundary | PMCBoundary):
+                    boundary_types[dim][side] = "pec/pmc"
+                elif isinstance(edge, Periodic | BlochBoundary):
+                    boundary_types[dim][side] = "periodic"
+        return boundary_types
+
+    def _validate_auto_grid_size(self) -> Self:
+        """Error if generated grid estimates cell sizes below the supported minimum."""
+        grid_spec = self._grid_spec_for_auto_grid_size_validation()
+        if not grid_spec.snapped_grid_used:
+            return self
+
+        try:
+            _ = self.grid
+        except _GeneratedGridSizeError as err:
+            self._raise_validation_error_at_loc(
+                str(err),
+                "grid_spec",
+                f"grid_{err.axis_name}",
+            )
+        except PydanticValidationError as err:
+            generated_grid_error = self._generated_grid_size_validation_error(err)
+            if generated_grid_error is None:
+                raise
+
+            grid_axis, message = generated_grid_error
+            self._raise_validation_error_at_loc(message, "grid_spec", grid_axis)
+        return self
+
+    @staticmethod
+    def _generated_grid_size_validation_error(
+        err: PydanticValidationError,
+    ) -> tuple[str, str] | None:
+        """Return generated-grid error loc and message from a nested validation error."""
+        errors = err.errors(include_url=False)
+        if len(errors) != 1:
+            return None
+
+        error = errors[0]
+        loc = tuple(error.get("loc", ()))
+        msg = error.get("msg", "")
+        if (
+            len(loc) == 2
+            and loc[0] == "grid_spec"
+            and loc[1] in ("grid_x", "grid_y", "grid_z")
+            and "generated a minimum grid spacing" in msg
+            and "below the supported minimum" in msg
+        ):
+            return loc[1], msg
+
+        return None
 
     def _validate_num_lumped_elements(self) -> Self:
         """Error if too many lumped elements present."""
@@ -477,6 +652,21 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
 
     def _monitor_num_cells(self, monitor: Monitor) -> int:
         """Total number of cells included in monitor based on simulation grid."""
+
+        if isinstance(monitor, PointCloudFieldMonitor):
+            return point_cloud_sampled_cells_upper_bound(
+                num_cells=self.grid.num_cells,
+                symmetry=self.symmetry,
+                num_points=monitor.num_points,
+                num_fields=point_cloud_num_sampled_grid_fields(monitor.fields),
+            )
+        if isinstance(monitor, PointCloudPermittivityMonitor):
+            return point_cloud_nearest_sampled_cells_upper_bound(
+                num_cells=self.grid.num_cells,
+                symmetry=self.symmetry,
+                num_points=monitor.num_points,
+                num_components=len(POINT_CLOUD_PERMITTIVITY_COMPONENTS),
+            )
 
         def num_cells_in_monitor(monitor: Monitor) -> int:
             """Get the number of measurement cells in a monitor given the simulation grid and
@@ -1032,17 +1222,32 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
 
         return pml_thicknesses
 
+    def _pml_extrusion_clipping_bound_ind(self, axis: int, side: int) -> int | None:
+        """Grid-boundary index where the PML extrusion clipping inset reaches into the domain.
+
+        The "extrusion region" spans from the outer simulation boundary through the PML and an
+        additional :data:`CLIPPING_MARGIN` cells of interior. This method returns the inner-most
+        boundary index of that region (i.e., ``num_layers + CLIPPING_MARGIN`` on the minus side
+        and the analogous index counting from the far end on the plus side).
+
+        Returns ``None`` when there are no absorber layers on that side or the computed index
+        falls outside the grid. This helper does not check whether ``extrude_structures`` is
+        actually enabled — callers that only care when extrusion is active must gate separately.
+        """
+        n_layers = self.num_pml_layers[axis][side]
+        if n_layers == 0:
+            return None
+        n_bounds = len(self.grid.boundaries.to_list[axis])
+        if side == 0:
+            idx = n_layers + CLIPPING_MARGIN
+            return idx if idx < n_bounds else None
+        idx = n_bounds - 1 - n_layers - CLIPPING_MARGIN
+        return idx if idx >= 0 else None
+
     @cached_property
     def _internal_layerrefinement_boundary_types(self) -> list[list[str | None]]:
         """Boundary types for layer refinement."""
-        boundary_types = [[None, None], [None, None], [None, None]]
-        for dim, boundary in enumerate(self.boundary_spec.to_list):
-            for side, edge in enumerate(boundary):
-                if isinstance(edge, (PECBoundary, PMCBoundary)):
-                    boundary_types[dim][side] = "pec/pmc"
-                elif isinstance(edge, (Periodic, BlochBoundary)):
-                    boundary_types[dim][side] = "periodic"
-        return boundary_types
+        return self._layerrefinement_boundary_types()
 
     @cached_property
     def _internal_layerrefinement_merged_geos(self) -> list[tuple[Any, Shapely]]:
@@ -1173,7 +1378,7 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
         vlim: tuple[float, float] | None = None,
         override_structures_alpha: float = 1,
         snapping_points_alpha: float = 1,
-        finest_grid_region_alpha: float = 0.1,
+        finest_grid_region_alpha: float = 0,
         **kwargs: Any,
     ) -> Ax:
         """Plot the cell boundaries as lines on a plane defined by one nonzero x,y,z coordinate.
@@ -1194,8 +1399,9 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
             Opacity of the override structures.
         snapping_points_alpha : float = 1
             Opacity of the snapping points.
-        finest_grid_region_alpha : float = 0.1
-            Opacity of the shaded regions highlighting finest grid regions.
+        finest_grid_region_alpha : float = 0
+            Opacity of the shaded regions highlighting finest grid regions. Defaults to ``0``
+            (off); pass a nonzero value to opt in to drawing these regions.
         ax : matplotlib.axes._subplots.Axes = None
             Matplotlib axes to plot on, if not specified, one is created.
         **kwargs
@@ -1411,7 +1617,7 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
                 plot_params = plot_params_pmc.copy(deep=True)
             elif isinstance(boundary_edge, BlochBoundary):
                 plot_params = plot_params_bloch.copy(deep=True)
-            elif isinstance(boundary_edge, (ABCBoundary, ModeABCBoundary)):
+            elif isinstance(boundary_edge, ABCBoundary | ModeABCBoundary):
                 plot_params = plot_params_abc.copy(deep=True)
             else:
                 plot_params = PlotParams(alpha=0)
@@ -1491,19 +1697,6 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
         )
         return ax
 
-    # TODO: not yet supported
-    # def plot_3d(self, width=800, height=800) -> None:
-    #    """Render 3D plot of ``Simulation`` (in jupyter notebook only).
-    #    Parameters
-    #    ----------
-    #    width : float = 800
-    #        width of the 3d view dom's size
-    #    height : float = 800
-    #        height of the 3d view dom's size
-    #
-    #    """
-    #    return plot_sim_3d(self, width=width, height=height)
-
     @cached_property
     def _grid_and_snapping_lines(self) -> tuple[Grid, list[CoordinateOptional]]:
         """FDTD grid spatial locations and information.
@@ -1519,16 +1712,6 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
         structures = [Structure(geometry=self.geometry, medium=self.medium)]
         structures += self.static_structures
 
-        # Get boundary types (relevant for gap meshing)
-        boundary_types = [[None] * 2] * 3
-
-        for dim, boundary in enumerate(self.boundary_spec.to_list):
-            for side, edge in enumerate(boundary):
-                if isinstance(edge, (PECBoundary, PMCBoundary)):
-                    boundary_types[dim][side] = "pec/pmc"
-                elif isinstance(edge, (Periodic, BlochBoundary)):
-                    boundary_types[dim][side] = "periodic"
-
         grid, lines = self.grid_spec._make_grid_and_snapping_lines(
             structures=structures,
             symmetry=self.symmetry,
@@ -1538,7 +1721,7 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
             lumped_elements=self.lumped_elements,
             internal_snapping_points=self.internal_snapping_points,
             internal_override_structures=self.internal_override_structures,
-            boundary_types=boundary_types,
+            boundary_types=self._layerrefinement_boundary_types(),
             structure_priority_mode=self.scene.structure_priority_mode,
             cached_merged_geos=self._internal_layerrefinement_merged_geos,
         )
@@ -1618,7 +1801,7 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
         boundary with another PEC/PMC plane upon initialization."""
         periodic = []
         for bcs_1d in self.boundary_spec.to_list:
-            periodic.append(all(isinstance(bcs, (Periodic, BlochBoundary)) for bcs in bcs_1d))
+            periodic.append(all(isinstance(bcs, Periodic | BlochBoundary) for bcs in bcs_1d))
         return periodic
 
     @cached_property
@@ -1634,7 +1817,7 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
 
         for idx_i, boundary1d in enumerate(self.boundary_spec.to_list):
             for idx_j, boundary in enumerate(boundary1d):
-                if isinstance(boundary, (PML, StablePML, Absorber)):
+                if isinstance(boundary, PML | StablePML | Absorber):
                     num_layers[idx_i][idx_j] = boundary.num_layers
 
         return num_layers
@@ -1914,6 +2097,35 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
             or self.lumped_elements
         )
 
+    def _promote_line_lumped_element(
+        self, element: LumpedElementType, grid: Grid
+    ) -> LumpedElementType:
+        """Realize a one-dimensional (line) lumped element as a single-grid-cell-wide planar
+        element so it can flow through the regular :class:`.Medium2D` pipeline.
+
+        The normal axis is chosen so the resulting sheet straddles any material interface adjacent
+        to the line (see :func:`.choose_line_normal_axis`). The element is then sized and centered on
+        the lateral dual grid cell (the span between the two grid centers straddling the line), which
+        is the transverse footprint of the smallest planar lumped element and is preserved by the
+        later center-snap. With the lateral width equal to that dual cell ``dl_lateral`` and the
+        normal-direction averaging contributing ``1 / dl_normal``, the equivalent volumetric
+        admittance reduces to ``Y * length / (dl_lateral * dl_normal)`` -- the value expected for a
+        true 1D element."""
+        if not isinstance(element, RectangularLumpedElement) or not element._is_line:
+            return element
+        normal_axis = choose_line_normal_axis(
+            element.geometry, element.voltage_axis, list(self.static_structures), self.medium, grid
+        )
+        lateral_axis = 3 - element.voltage_axis - normal_axis
+        lateral_center, lateral_width = snap_to_dual_cell(
+            grid, element.center[lateral_axis], lateral_axis
+        )
+        new_center = list(element.center)
+        new_size = list(element.size)
+        new_center[lateral_axis] = lateral_center
+        new_size[lateral_axis] = lateral_width
+        return element.updated_copy(center=tuple(new_center), size=tuple(new_size))
+
     def _volumetric_structures_grid(self, grid: Grid) -> tuple[Structure]:
         """Generate a tuple of structures wherein any 2D materials are converted to 3D
         volumetric equivalents, using ``grid`` as the simulation grid."""
@@ -1956,13 +2168,18 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
             snapped_center = snap_coordinate_to_grid(grid, center, axis)
             return geom._update_from_bounds(bounds=(snapped_center, snapped_center), axis=axis)
 
-        # Convert lumped elements into structures
+        # Convert lumped elements into structures. One-dimensional (line) elements are first
+        # promoted to a single-grid-cell-wide planar element so they can be realized as a Medium2D.
         lumped_structures = []
         for lumped_element in self.lumped_elements:
+            # fail loud with a clear coarse-grid message before the resolution below would otherwise
+            # degenerate (zero-area probe / divide-by-zero) on a single-cell transverse axis
+            lumped_element._check_grid_size(grid)
+            element = self._promote_line_lumped_element(lumped_element, grid)
             strict_ineq = 3 * [False]
-            strict_ineq[lumped_element.normal_axis] = True
-            if self.geometry.contains(lumped_element.geometry, strict_inequality=strict_ineq):
-                lumped_structures += lumped_element.to_structures(self.grid)
+            strict_ineq[element.normal_axis] = True
+            if self.geometry.contains(element.geometry, strict_inequality=strict_ineq):
+                lumped_structures += element.to_structures(self.grid)
 
         # Begin volumetric structures grid
         all_structures = list(self.static_structures) + lumped_structures
@@ -2231,7 +2448,7 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
         if remove_outside_custom_mediums:
             # check for special treatment in case of PML
             if any(
-                any(isinstance(edge, (PML, StablePML, Absorber)) for edge in boundary)
+                any(isinstance(edge, PML | StablePML | Absorber) for edge in boundary)
                 for boundary in boundary_spec.to_list
             ):
                 # if we need to cut out outside custom medium we have to be careful about PML/Absorber
@@ -2359,8 +2576,17 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
 
         return structure
 
-    def _pec_frame_box(self, obj: AbstractModeSource | InternalAbsorber) -> tuple[Box, int, str]:
-        """Return pec bounding box, frame axis and object's direction."""
+    def _pec_frame_span_inds(
+        self, obj: AbstractModeSource | InternalAbsorber
+    ) -> tuple[np.ndarray, int, str]:
+        """Return grid-boundary index ranges ``[[beg, end], ...]`` the PEC frame covers,
+        its frame axis, and the object's direction.
+
+        Tangential axes use ``ModeSolver._snapped_mode_domain`` so the returned indices
+        match where the mode-solver PEC boundaries are actually placed; the injection
+        axis uses ``discretize_inds`` extended by ``frame.length`` cells for mode sources.
+        """
+        from tidy3d.components.geometry.utils import find_snap_location
         from tidy3d.components.mode.mode_solver import ModeSolver
 
         direction = obj.direction
@@ -2369,28 +2595,37 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
         else:
             axis = obj.size.index(0.0)
 
-        # Tangential axes: snap using same logic as mode solver PEC boundaries
         snapped = ModeSolver._snapped_mode_domain(self.grid, obj, axis)
+        coords = self.grid.boundaries.to_list
 
-        min_b, max_b = list(snapped.bounds[0]), list(snapped.bounds[1])
+        span_inds = np.zeros((3, 2), dtype=int)
+        for dim in range(3):
+            if dim == axis:
+                continue
+            span_inds[dim] = [
+                find_snap_location(coords[dim], snapped.bounds[0][dim], "lower"),
+                find_snap_location(coords[dim], snapped.bounds[1][dim], "upper"),
+            ]
 
-        # Injection axis: index-based extension by frame.length cells
-        span_inds_axis = self.grid.discretize_inds(obj, relax_precision=True)[axis]
-        coords_axis = self.grid.boundaries.to_list[axis]
+        ind_min, ind_max = self.grid.discretize_inds(obj, relax_precision=True)[axis]
         if isinstance(obj, AbstractModeSource):
             length = obj.frame.length
-            ind_min, ind_max = span_inds_axis
             if direction == "+":
                 ind_max += length - 1
             else:
                 ind_min -= length - 1
-            min_b[axis] = coords_axis[ind_min]
-            max_b[axis] = coords_axis[ind_max]
-        else:
-            min_b[axis] = coords_axis[span_inds_axis[0]]
-            max_b[axis] = coords_axis[span_inds_axis[1]]
+        span_inds[axis] = [ind_min, ind_max]
 
-        return (Box.from_bounds(min_b, max_b), axis, direction)
+        return span_inds, axis, direction
+
+    def _pec_frame_box(self, obj: AbstractModeSource | InternalAbsorber) -> tuple[Box, int, str]:
+        """Return pec bounding box, frame axis and object's direction."""
+        span_inds, axis, direction = self._pec_frame_span_inds(obj)
+        coords = self.grid.boundaries.to_list
+        box_bounds = [
+            [coords[dim][span_inds[dim][0]], coords[dim][span_inds[dim][1]]] for dim in range(3)
+        ]
+        return Box.from_bounds(*np.transpose(box_bounds)), axis, direction
 
     @cached_property
     def _modal_plane_frames(self) -> list[Structure]:
@@ -3203,9 +3438,9 @@ class Simulation(AbstractYeeGridSimulation):
     @model_validator(mode="after")
     def _run_after_validators(self) -> Self:
         """Run post-init validations in an explicit, dependency-aware order."""
-        super()._run_after_validators()
         call_wrapped_validator(validate_boundaries_for_zero_dims, self)
         self._validate_auto_grid_wavelength()
+        super()._run_after_validators()
         self._warn_3d_structures_missing_2d_yee_sampling_plane()
         call_wrapped_validator(
             assert_objects_in_sim_bounds, self, "sources", strict_inequality=True
@@ -3224,14 +3459,32 @@ class Simulation(AbstractYeeGridSimulation):
         self._bloch_with_symmetry()
         self._plane_wave_boundaries()
         self._bloch_boundaries_diff_mnt()
+        # Before the generic TFSF-boundary checks: a dipole-emission monitor requires a
+        # 3D simulation, and reporting that directly is clearer than the TFSF-touches-
+        # boundary error a 2D domain would otherwise raise first. No-op without a
+        # DipoleEmissionMonitor.
+        self._validate_dipole_emission_monitor_sources()
         self._tfsf_boundaries()
         self._tfsf_with_symmetry()
+        self._warn_fixed_angle_tfsf_normal_incidence()
+        self._validate_fixed_angle_tfsf_angle_theta()
+        self._validate_fixed_angle_tfsf_source_time_type()
+        self._validate_fixed_angle_tfsf_semi_infinite_injection_axis()
+        # Localization rejects non-decaying source times (and is evaluated
+        # before the long-run-time warning, which accesses ``self._run_time``;
+        # that evaluation is only well-defined once the sources are known to
+        # decay — see ``_validate_fixed_angle_tfsf_source_time_localization``).
+        self._validate_fixed_angle_tfsf_source_time_localization()
+        self._warn_fixed_angle_tfsf_long_run_time()
         self._check_fixed_angle_components()
         self._validate_frequency_mode_abc()
         self._validate_relax_courant_compatibility()
         self._validate_absorber_in_zero_dims()
+        self._validate_no_bloch_with_modal_decomposition()
+        self._validate_mode_time_monitor_freq_range()
         self._warn_monitor_mediums_frequency_range()
         self._warn_monitor_simulation_frequency_range()
+        self._validate_point_cloud_monitor_points_in_bounds()
         self._projection_monitors_boundaries()
         self._diffraction_monitor_boundaries()
         self._projection_monitors_homogeneous()
@@ -3270,7 +3523,7 @@ class Simulation(AbstractYeeGridSimulation):
         with log as consolidated_logger:
             for i, structure in enumerate(self.structures):
                 static_geometry = structure.geometry.to_static()
-                if isinstance(structure.medium, (Medium2D, AnisotropicMediumFromMedium2D)):
+                if isinstance(structure.medium, Medium2D | AnisotropicMediumFromMedium2D):
                     if any(
                         len(geom.zero_dims) == 1 and geom.zero_dims[0] == collapsed_axis
                         for geom in flatten_groups(static_geometry)
@@ -3392,7 +3645,7 @@ class Simulation(AbstractYeeGridSimulation):
                             source_ind,
                         )
                 else:
-                    num_bloch = sum(isinstance(bnd, (Periodic, BlochBoundary)) for bnd in boundary)
+                    num_bloch = sum(isinstance(bnd, Periodic | BlochBoundary) for bnd in boundary)
                     if num_bloch > 0:
                         self._check_bloch_vec(
                             source=source,
@@ -3432,7 +3685,7 @@ class Simulation(AbstractYeeGridSimulation):
                 boundary = boundaries[tan_dir]
 
                 # check the Bloch boundary + angled plane wave case
-                num_bloch = sum(isinstance(bnd, (Periodic, BlochBoundary)) for bnd in boundary)
+                num_bloch = sum(isinstance(bnd, Periodic | BlochBoundary) for bnd in boundary)
                 if num_bloch > 0:
                     self._check_bloch_vec(
                         source=source,
@@ -3501,8 +3754,77 @@ class Simulation(AbstractYeeGridSimulation):
                     src_idx,
                 )
 
+            # Periodic / Bloch boundaries along the injection axis are
+            # physically inconsistent with TFSF — the wave reaches the
+            # boundary and gets re-injected, breaking the assumption
+            # that the SF region is a pure scattered field.
+            inj_boundary = boundaries[norm_dir]
+            bad_inj = [bnd for bnd in inj_boundary if isinstance(bnd, BlochBoundary | Periodic)]
+            if bad_inj:
+                self._raise_validation_error_at_loc(
+                    f"The TFSF source at index '{src_idx}' cannot use 'BlochBoundary' or "
+                    f"'Periodic' on its injection axis '{['x', 'y', 'z'][norm_dir]}'; got "
+                    f"'{type(bad_inj[0]).__name__}'.",
+                    "sources",
+                    src_idx,
+                )
+
             for tan_dir in tan_dirs:
                 boundary = boundaries[tan_dir]
+
+                # Fixed-angle TFSF forbids ``BlochBoundary`` and ``Periodic``
+                # transverse boundaries (both imply an infinite-extent or
+                # periodic structure, which contradicts the isolated-scatterer
+                # model this path is designed for). The constant-in-plane-k
+                # TFSF (the default ``FixedInPlaneKSpec``) is what to use for
+                # periodic structures. 2D simulations: a transverse axis with
+                # ``sim.size[axis] == 0`` is the out-of-plane axis,
+                # conventionally Periodic and carrying no physical width — it
+                # is exempt from this rule.
+                if isinstance(source.angular_spec, FixedAngleSpec) and self.size[tan_dir] > 0:
+                    bad = [bnd for bnd in boundary if isinstance(bnd, BlochBoundary | Periodic)]
+                    if bad:
+                        self._raise_validation_error_at_loc(
+                            "Fixed-angle TFSF forbids 'BlochBoundary' and 'Periodic' transverse "
+                            f"boundaries; got '{type(bad[0]).__name__}' on dimension "
+                            f"'{['x', 'y', 'z'][tan_dir]}'. Fixed-angle TFSF models an isolated "
+                            "scatterer — for periodic structures with Bloch boundaries, use "
+                            "'FixedInPlaneKSpec' (angle exact only at the central frequency).",
+                            "sources",
+                            src_idx,
+                        )
+
+                # 2D simulations exempt the 0-size transverse axis from
+                # the absorbing-BC rule (the conventional out-of-plane
+                # ``Periodic`` axis carries no physical width), but the
+                # wave must still have no k-component along that axis —
+                # otherwise the ``Periodic`` BC + 0-size cell is
+                # physically inconsistent. ``BlochBoundary`` on the
+                # 0-width axis is already rejected upstream by
+                # ``_check_zero_dim_domain`` (Bloch's vector definition
+                # is incompatible with zero domain size), so no extra
+                # rejection is needed here.
+                if isinstance(source.angular_spec, FixedAngleSpec) and self.size[tan_dir] == 0:
+                    # ``Source._dir_vector`` is the wave's unit propagation
+                    # vector in lab frame; its ``tan_dir`` component is the
+                    # k-projection that must be ≈ 0 for the ``Periodic`` /
+                    # 0-size axis to be physically consistent. The 1e-12
+                    # tolerance is well below any user-meaningful angle (and
+                    # well above floating-point noise in (θ, φ)).
+                    k_proj = abs(float(source._dir_vector[tan_dir]))
+                    if k_proj > 1e-12:
+                        self._raise_validation_error_at_loc(
+                            "Fixed-angle TFSF in 2D requires the wave's "
+                            f"k-vector to have no component along the 0-size "
+                            f"axis '{['x', 'y', 'z'][tan_dir]}', but the "
+                            f"current (angle_theta, angle_phi, injection_axis) "
+                            f"give a projection of {k_proj:.3e}. Set angle_phi "
+                            "so the in-plane component points along the "
+                            "physical 2D plane (or use angle_theta=0 for "
+                            "normal incidence).",
+                            "sources",
+                            src_idx,
+                        )
 
                 # crossing may be allowed for periodic or Bloch boundaries, but not others
                 if (
@@ -3511,7 +3833,7 @@ class Simulation(AbstractYeeGridSimulation):
                 ):
                     # if the boundary is Bloch periodic, crossing is allowed, but check that the
                     # Bloch vector has been correctly set, similar to the check for plane waves
-                    num_bloch = sum(isinstance(bnd, (Periodic, BlochBoundary)) for bnd in boundary)
+                    num_bloch = sum(isinstance(bnd, Periodic | BlochBoundary) for bnd in boundary)
                     if num_bloch == 2:
                         self._check_bloch_vec(
                             source=source,
@@ -3534,6 +3856,236 @@ class Simulation(AbstractYeeGridSimulation):
 
         return self
 
+    def _warn_fixed_angle_tfsf_normal_incidence(self) -> Self:
+        """Warn if a fixed-angle TFSF is used at normal incidence (θ=0).
+        At θ=0 the fixed-angle TFSF path adds setup and per-step cost
+        without any physical benefit — the default ``FixedInPlaneKSpec``
+        (Bloch TFSF) is exactly equivalent and faster."""
+        for src_idx, source in enumerate(self.sources):
+            if (
+                isinstance(source, TFSF)
+                and isinstance(source.angular_spec, FixedAngleSpec)
+                and source.angle_theta == 0.0
+            ):
+                log.warning(
+                    f"TFSF source at index '{src_idx}' uses 'FixedAngleSpec' with "
+                    "angle_theta=0. At normal incidence the default "
+                    "'FixedInPlaneKSpec' (Bloch TFSF) is physically equivalent and "
+                    "runs faster. Consider switching unless you specifically need "
+                    "the fixed-angle path.",
+                    log_once=True,
+                )
+        return self
+
+    def _validate_fixed_angle_tfsf_angle_theta(self) -> Self:
+        """Fixed-angle TFSF source-amplitude normalization includes a
+        ``1/sqrt(cos(angle_theta))`` factor that is singular at
+        ``angle_theta = ±π/2`` and imaginary beyond, producing
+        ``inf``/``NaN`` injections. Reject ``angle_theta`` within
+        :data:`tidy3d.constants.GLANCING_CUTOFF` of any odd multiple of
+        ``π/2``."""
+        for src_idx, source in enumerate(self.sources):
+            if not (isinstance(source, TFSF) and isinstance(source.angular_spec, FixedAngleSpec)):
+                continue
+            if is_close_to_glancing_angle(source.angle_theta, GLANCING_CUTOFF):
+                cutoff_deg = float(np.rad2deg(GLANCING_CUTOFF))
+                self._raise_validation_error_at_loc(
+                    "Fixed-angle TFSF requires the source's propagation angle to be more "
+                    f"than ~{cutoff_deg:.1f}° away from glancing (i.e. |angle_theta| ≤ "
+                    f"π/2 − {GLANCING_CUTOFF:g} rad); got "
+                    f"angle_theta = {source.angle_theta:.4f} rad.",
+                    "sources",
+                    src_idx,
+                )
+        return self
+
+    def _validate_fixed_angle_tfsf_source_time_type(self) -> Self:
+        """Fixed-angle TFSF needs a ``Pulse`` source time with an
+        analytic ``amp_freq`` (uses ``fwidth`` and ``offset_time`` for
+        the bandwidth and offset, and the analytic frequency spectrum
+        for normalization). Reject other ``SourceTime`` subclasses,
+        and explicitly reject ``CustomSourceTime`` (a ``Pulse``
+        subclass but without an analytic ``amp_freq``).
+        """
+        for src_idx, source in enumerate(self.sources):
+            if not (isinstance(source, TFSF) and isinstance(source.angular_spec, FixedAngleSpec)):
+                continue
+            if isinstance(source.source_time, CustomSourceTime):
+                self._raise_validation_error_at_loc(
+                    "Fixed-angle TFSF does not support 'CustomSourceTime'; an analytic "
+                    "frequency-domain envelope is required. Use 'GaussianPulse' (or "
+                    "another analytic 'Pulse' subclass) instead.",
+                    "sources",
+                    src_idx,
+                )
+            if not isinstance(source.source_time, Pulse):
+                self._raise_validation_error_at_loc(
+                    "Fixed-angle TFSF requires a 'Pulse' source time (e.g. "
+                    f"'GaussianPulse'); got '{source.source_time.type}'.",
+                    "sources",
+                    src_idx,
+                )
+        return self
+
+    def _validate_fixed_angle_tfsf_semi_infinite_injection_axis(self) -> Self:
+        """Fixed-angle TFSF assumes its top and bottom (injection-axis)
+        faces sit in semi-infinite spaces along the injection axis:
+        on each side, the region between the box face and the
+        simulation edge must be a single medium. Reject otherwise.
+        """
+        # Include the simulation background as a virtual structure so
+        # ``intersecting_media`` catches vacuum/structure mixtures.
+        structure_bg = Structure(
+            geometry=Box(size=self.size, center=self.center),
+            medium=self.medium,
+        )
+        total_structures = [structure_bg, *list(self.structures or [])]
+        for src_idx, source in enumerate(self.sources):
+            if not (isinstance(source, TFSF) and isinstance(source.angular_spec, FixedAngleSpec)):
+                continue
+            axis = source.injection_axis
+            sim_lo, sim_hi = self.bounds[0][axis], self.bounds[1][axis]
+            box_lo, box_hi = source.bounds[0][axis], source.bounds[1][axis]
+            for side_label, z_far, z_near in (
+                ("-", sim_lo, box_lo),
+                ("+", box_hi, sim_hi),
+            ):
+                # Probe a column at the source's transverse extent,
+                # spanning from the box face out to the sim edge along
+                # the injection axis. Skip if the box face touches the
+                # sim edge (already caught by ``_tfsf_boundaries``).
+                if z_near - z_far <= 0:
+                    continue
+                probe_center = list(source.center)
+                probe_center[axis] = 0.5 * (z_far + z_near)
+                probe_size = list(source.size)
+                probe_size[axis] = z_near - z_far
+                probe = Box(center=tuple(probe_center), size=tuple(probe_size))
+                # Best-effort check: ``Scene.intersecting_media`` on a
+                # volumetric ``Box`` only recurses on its six surfaces,
+                # so a finite inclusion fully enclosed inside the
+                # probe (no surface contact) can slip through. A
+                # genuinely volume-aware test on a setup with up to
+                # ~10⁶ structures (e.g., a metalens) is too costly to
+                # run at validation time.
+                mediums = Scene.intersecting_media(probe, total_structures)
+                if len(mediums) > 1:
+                    self._raise_validation_error_at_loc(
+                        f"Fixed-angle TFSF source at index {src_idx} requires the region "
+                        f"between its '{side_label}' injection-axis box face and the "
+                        f"simulation edge along '{'xyz'[axis]}' to be a single medium "
+                        f"(semi-infinite space); got {len(mediums)} distinct media. Either "
+                        "extend the structures so they fill the full simulation extent "
+                        "along the injection axis (e.g. ``size=td.inf``), or move them "
+                        "fully inside the TFSF box.",
+                        "sources",
+                        src_idx,
+                    )
+        return self
+
+    def _validate_fixed_angle_tfsf_source_time_localization(self) -> Self:
+        """Fixed-angle TFSF requires the source pulse to have decayed by
+        the end of the simulation. Reject if ``|amp_time(run_time)| >
+        1e-4 · peak``, where peak is taken over a dense sample of the run
+        window (anchored at the pulse-center ``offset_time`` so a long
+        ``run_time`` with a short pulse doesn't skip the pulse peak).
+        Catches ``ContinuousWave`` (steady-state at ``run_time``) and
+        ``CustomSourceTime`` with non-decaying ends.
+
+        We do *not* check the source value at ``t = 0`` — a
+        ``GaussianPulse(offset=N)`` has analytic value ``exp(-N²/2) ·
+        peak`` at t=0, which is reproduced faithfully even when small
+        but non-zero. Users who want a cleaner ramp-up should increase
+        ``offset``.
+        """
+        EPS_REL = 1e-4
+        for src_idx, source in enumerate(self.sources):
+            if not (isinstance(source, TFSF) and isinstance(source.angular_spec, FixedAngleSpec)):
+                continue
+            st = source.source_time
+            # A source time with unbounded support (no finite ``end_time``,
+            # e.g. ``ContinuousWave``) can never satisfy the decay
+            # requirement. Reject it here with the actionable, source-localized
+            # error *before* evaluating ``self._run_time`` — for a
+            # ``RunTimeSpec`` that evaluation would otherwise raise the generic
+            # "could not compute source contributions" error first, making the
+            # failure mode depend on how ``run_time`` is represented.
+            if st.end_time() is None:
+                self._raise_validation_error_at_loc(
+                    "Fixed-angle TFSF requires 'source_time' to have decayed by "
+                    f"the end of the simulation, but '{st.type}' has unbounded "
+                    "time support. Use a localized source (e.g. 'GaussianPulse').",
+                    "sources",
+                    src_idx,
+                )
+            # Use the evaluated run time so a ``RunTimeSpec`` (not a plain
+            # float) is handled instead of raising ``TypeError`` here.
+            run_time = self._run_time
+            # Anchor the dense sample at `offset_time` so long-`run_time`
+            # sims with a short pulse (run_time >> twidth) don't skip the
+            # pulse peak entirely and report a spurious "peak ≈ 0".
+            t_dense = np.unique(
+                np.concatenate(
+                    [
+                        np.linspace(0.0, run_time, 256),
+                        np.array([float(st.offset_time)]),
+                    ]
+                )
+            )
+            amps = np.abs(np.asarray(st.amp_time(t_dense)))
+            peak = float(amps.max())
+            if peak <= 0:
+                continue
+            a_end = float(np.abs(np.atleast_1d(np.asarray(st.amp_time(run_time)))[0]))
+            if a_end / peak > EPS_REL:
+                self._raise_validation_error_at_loc(
+                    "Fixed-angle TFSF requires 'source_time' to have decayed "
+                    "by the end of the simulation. Got |amp_time(run_time)|/peak = "
+                    f"{a_end / peak:.2e} > {EPS_REL:.0e}. Use a longer "
+                    "'run_time' so the pulse tail fits inside, or a more "
+                    "localized source_time (e.g. 'GaussianPulse' instead "
+                    "of 'ContinuousWave').",
+                    "sources",
+                    src_idx,
+                )
+        return self
+
+    def _warn_fixed_angle_tfsf_long_run_time(self) -> Self:
+        """Warn if a fixed-angle TFSF source is used with a long
+        ``run_time`` / wide ``fwidth``. The fixed-angle TFSF path has
+        cost that scales as **`run_time ** 2`**: at long ``run_time`` the
+        source's per-step cost grows linearly with ``run_time``, on
+        top of the linear growth in the number of time steps. For
+        long sims this can put the simulation in a regime where the
+        TFSF source is more expensive than the FDTD time-stepping.
+        We warn the user so they can shorten ``run_time`` if their
+        field decay allows, or narrow ``source_time.fwidth`` if the
+        bandwidth is wider than needed."""
+        # Heuristic threshold on the dimensionless product
+        # `run_time · fwidth`. Empirically chosen so the warning
+        # fires roughly when the fixed-angle TFSF cost becomes
+        # comparable to the FDTD update cost.
+        RUN_TIME_FWIDTH_WARN_THRESHOLD = 500.0
+        for src_idx, source in enumerate(self.sources):
+            if not (isinstance(source, TFSF) and isinstance(source.angular_spec, FixedAngleSpec)):
+                continue
+            # Use the evaluated run time so a ``RunTimeSpec`` (not a plain
+            # float) is handled instead of raising ``TypeError`` here.
+            run_time = self._run_time
+            fwidth = float(source.source_time.fwidth)
+            if run_time * fwidth > RUN_TIME_FWIDTH_WARN_THRESHOLD:
+                log.warning(
+                    f"TFSF source at index '{src_idx}' uses 'FixedAngleSpec' with "
+                    f"'run_time' ({run_time:.2e} s) and 'source_time.fwidth' "
+                    f"({fwidth:.2e} Hz) in a regime where the fixed-angle TFSF "
+                    "cost scales as `run_time ** 2` and can become comparable to or "
+                    "larger than the FDTD time-stepping cost. Consider reducing "
+                    "'run_time' if the field decay allows, or narrowing "
+                    "'source_time.fwidth' if the bandwidth is wider than needed.",
+                    log_once=True,
+                )
+        return self
+
     def _tfsf_with_symmetry(self) -> Self:
         """Error if a TFSF source is applied with symmetry"""
         for source_ind, source in enumerate(self.sources):
@@ -3544,21 +4096,33 @@ class Simulation(AbstractYeeGridSimulation):
         return self
 
     @staticmethod
-    def _get_fixed_angle_sources(sources: tuple[SourceType, ...]) -> tuple[SourceType, ...]:
-        """Get list of plane wave sources with ``FixedAngleSpec``."""
+    def _get_periodic_fixed_angle_sources(
+        sources: tuple[SourceType, ...],
+    ) -> tuple[SourceType, ...]:
+        """Periodic fixed-angle :class:`PlaneWave` sources.
+
+        ``TFSF`` sources with ``FixedAngleSpec`` are intentionally
+        excluded — only a fixed-angle :class:`PlaneWave` is a periodic
+        fixed-angle source, and ``_check_fixed_angle_components``
+        prohibits combining the two.
+        """
 
         return [
-            source for source in sources if isinstance(source, PlaneWave) and source._is_fixed_angle
+            source
+            for source in sources
+            if isinstance(source, PlaneWave) and source._is_periodic_fixed_angle
         ]
 
     def _check_fixed_angle_components(self) -> Self:
         """Error if a fixed-angle plane wave is combined with other sources
         or fully anisotropic mediums or gain mediums."""
 
-        fixed_angle_sources = self._get_fixed_angle_sources(self.sources)
+        fixed_angle_sources = self._get_periodic_fixed_angle_sources(self.sources)
 
         if len(fixed_angle_sources) > 0:
-            if len(fixed_angle_sources) > 1:
+            # A fixed-angle PlaneWave must be the only source — no
+            # other sources of any type.
+            if len(self.sources) > 1:
                 self._raise_validation_error_at_loc(
                     "A fixed-angle plane wave source cannot be combined with other sources.",
                     "sources",
@@ -3607,6 +4171,21 @@ class Simulation(AbstractYeeGridSimulation):
 
         return self
 
+    @property
+    def _simple_bc(self) -> tuple[bool, bool, bool]:
+        """Per-axis flag: True when the axis carries no Periodic, Bloch, ABC, or ModeABC
+        boundary."""
+        simple = []
+        for axis_name in ("x", "y", "z"):
+            boundary = self.boundary_spec[axis_name]
+            simple.append(
+                not any(
+                    isinstance(b, Periodic | BlochBoundary | ABCBoundary | ModeABCBoundary)
+                    for b in (boundary.plus, boundary.minus)
+                )
+            )
+        return tuple(simple)
+
     def _validate_relax_courant_compatibility(self) -> Self:
         """Error if ``relax_courant`` is enabled with incompatible components."""
 
@@ -3643,12 +4222,22 @@ class Simulation(AbstractYeeGridSimulation):
         if any(s == 0 for s in self.size):
             incompatible.append("Zero-size (collapsed) simulation dimensions.")
 
+        for axis_name, num_cells in zip(("x", "y", "z"), self.grid.num_cells):
+            if num_cells <= 1:
+                incompatible.append(f"Single-cell {axis_name}-axis (quasi-2D simulation).")
+
         if boundary_spec is not None:
-            x_boundary = boundary_spec.x
-            if isinstance(x_boundary.plus, (Periodic, BlochBoundary)) or isinstance(
-                x_boundary.minus, (Periodic, BlochBoundary)
-            ):
-                incompatible.append("Periodic or Bloch boundary condition along x.")
+            if not any(self._simple_bc):
+                incompatible.append(
+                    "No axis free of Periodic, Bloch, ABC, and ModeABC boundary conditions "
+                    "(at least one such axis is required)."
+                )
+            for axis_name in ("x", "y", "z"):
+                axis_boundary = boundary_spec[axis_name]
+                if isinstance(axis_boundary.plus, ABCBoundary | ModeABCBoundary) or isinstance(
+                    axis_boundary.minus, ABCBoundary | ModeABCBoundary
+                ):
+                    incompatible.append(f"ABC or ModeABC boundary condition along {axis_name}.")
 
         if incompatible:
             detail = "\n".join(f"  - {item}" for item in incompatible)
@@ -3658,6 +4247,30 @@ class Simulation(AbstractYeeGridSimulation):
             )
 
         return self
+
+    def _check_source_freq_available(
+        self,
+        *,
+        no_source_error: str,
+        no_source_loc: tuple[object, ...],
+        multi_freq_warning: str,
+    ) -> None:
+        """Shared source-frequency availability check.
+
+        Used by objects that derive a single evaluation frequency from the simulation's
+        sources when none is given explicitly (``ModeABCBoundary`` / ``ABCBoundary`` and
+        ``ModeTimeMonitor``). Raises a loc-aware error (at ``no_source_loc``) when there are
+        no sources to derive the frequency from, and warns (``multi_freq_warning``) when the
+        sources do not share a common central frequency — the first source's central
+        frequency is then used.
+        """
+        sources = self.sources
+        if len(sources) == 0:
+            self._raise_validation_error_at_loc(no_source_error, *no_source_loc)
+
+        freq0s = [source.source_time._freq0 for source in sources]
+        if not all(math.isclose(freq0, freq0s[0]) for freq0 in freq0s):
+            log.warning(multi_freq_warning, capture=False)
 
     def _validate_frequency_mode_abc(self) -> Self:
         """Warn if ModeABCBoundary expects a frequency from a source, but there are multiple sources with different central frequencies."""
@@ -3683,22 +4296,17 @@ class Simulation(AbstractYeeGridSimulation):
         )
 
         if need_wavelength:
-            sources = self.sources
-
-            if len(sources) == 0:
-                self._raise_validation_error_at_loc(
+            self._check_source_freq_available(
+                no_source_error=(
                     "At least one 'ModeABCBoundary'/'ABCBoundary' needs specification of frequency at which the absorbed mode must be evaluated. "
-                    "Add at least one source or use parameter 'frequency' for 'ModeABCBoundary'.",
-                    "sources",
-                )
-
-            freq0s = [source.source_time._freq0 for source in sources]
-            if not all(math.isclose(freq0, freq0s[0]) for freq0 in freq0s):
-                log.warning(
+                    "Add at least one source or use parameter 'frequency' for 'ModeABCBoundary'."
+                ),
+                no_source_loc=("sources",),
+                multi_freq_warning=(
                     "At least one 'ModeABCBoundary' does not specify frequency at which the absorbed mode must be evaluated. "
-                    "The central frequency of the first source will be used.",
-                    capture=False,
-                )
+                    "The central frequency of the first source will be used."
+                ),
+            )
 
         return self
 
@@ -3717,6 +4325,56 @@ class Simulation(AbstractYeeGridSimulation):
                     abc_index,
                 )
 
+        return self
+
+    def _validate_no_bloch_with_modal_decomposition(self) -> Self:
+        """Reject Bloch boundaries combined with ``ModeTimeMonitor``.
+        ``Periodic`` boundaries remain supported.
+        """
+        if not any(
+            isinstance(boundary[0], BlochBoundary) for boundary in self.boundary_spec.to_list
+        ):
+            return self
+        message = (
+            "Bloch boundaries are not supported in combination with "
+            "'ModeTimeMonitor'. Use 'Periodic' boundaries instead, or remove "
+            "the 'ModeTimeMonitor'."
+        )
+        for idx, monitor in enumerate(self.monitors):
+            if isinstance(monitor, ModeTimeMonitor):
+                self._raise_validation_error_at_loc(message, "monitors", idx)
+        return self
+
+    def _validate_mode_time_monitor_freq_range(self) -> Self:
+        """Validate the solve frequency for ``ModeTimeMonitor``\\ s with ``freq_spec=None``.
+
+        A ``ModeTimeMonitor`` with ``freq_spec=None`` derives its single solve frequency from
+        the sources (the central frequency of the first source). Error if there are no sources
+        to derive it from; warn if the sources do not share a common central frequency.
+        """
+        needs_freq = [
+            idx
+            for idx, monitor in enumerate(self.monitors)
+            if isinstance(monitor, ModeTimeMonitor) and monitor.freq_spec is None
+        ]
+        if not needs_freq:
+            return self
+
+        idx = needs_freq[0]
+        self._check_source_freq_available(
+            no_source_error=(
+                f"'ModeTimeMonitor' '{self.monitors[idx].name}' has 'freq_spec=None', which "
+                "requires the simulation to contain at least one source to derive the "
+                "mode-sampling frequency from. Set 'freq_spec' explicitly for a "
+                "source-free simulation."
+            ),
+            no_source_loc=("monitors", idx),
+            multi_freq_warning=(
+                "At least one 'ModeTimeMonitor' does not specify 'freq_spec', the frequency at "
+                "which its mode profiles are solved. The central frequency of the first source "
+                "will be used."
+            ),
+        )
         return self
 
     @field_validator("sources")
@@ -3750,7 +4408,7 @@ class Simulation(AbstractYeeGridSimulation):
 
         with log as consolidated_logger:
             for i, structure in enumerate(val):
-                if isinstance(structure.medium, (Medium2D, AnisotropicMediumFromMedium2D)):
+                if isinstance(structure.medium, Medium2D | AnisotropicMediumFromMedium2D):
                     continue
                 for geom in flatten_groups(structure.geometry):
                     zero_dims = geom.zero_dims
@@ -3873,7 +4531,9 @@ class Simulation(AbstractYeeGridSimulation):
 
         with log as consolidated_logger:
             for monitor_index, monitor in enumerate(val):
-                if not isinstance(monitor, FreqMonitor):
+                if not isinstance(monitor, FreqMonitor) or isinstance(
+                    monitor, PermittivityMonitor | MediumMonitor | PointCloudPermittivityMonitor
+                ):
                     continue
 
                 freqs = np.array(monitor.freqs)
@@ -3885,6 +4545,174 @@ class Simulation(AbstractYeeGridSimulation):
                         custom_loc=["monitors", monitor_index, "freqs"],
                     )
         return self
+
+    def _validate_point_cloud_monitor_points_in_bounds(self) -> Self:
+        """Error if any point-cloud monitor point lies outside the simulation domain."""
+
+        if not self.monitors:
+            return self
+
+        bounds = np.asarray(self.bounds, dtype=float)
+        strict_inequality = np.asarray([size != 0 for size in self.size], dtype=bool)
+        for monitor_ind, monitor in enumerate(self.monitors):
+            if not isinstance(monitor, (PointCloudFieldMonitor, PointCloudPermittivityMonitor)):
+                continue
+
+            points = np.asarray(monitor.points.values, dtype=float)
+            outside = points_outside_bounds(points, bounds, strict_inequality)
+            if np.any(outside):
+                first_row = int(np.nonzero(outside)[0][0])
+                first_index = np.asarray(monitor.points.coords["index"].values)[first_row]
+                first_index = first_index.item() if hasattr(first_index, "item") else first_index
+                num_outside = int(np.count_nonzero(outside))
+                self._raise_validation_error_at_loc(
+                    f"Point-cloud monitor '{monitor.name}' has {num_outside} point(s) outside "
+                    "the simulation domain. The first outside point has index "
+                    f"{first_index} and coordinates {points[first_row].tolist()}.",
+                    "monitors",
+                    monitor_ind,
+                    "points",
+                )
+
+        return self
+
+    def _validate_dipole_emission_monitor_sources(self) -> Self:
+        """Error if dipole-emission monitors are not paired with the single TFSF source."""
+
+        if not self.monitors:
+            return self
+
+        dipole_emission_monitors = tuple(
+            (monitor_ind, monitor)
+            for monitor_ind, monitor in enumerate(self.monitors)
+            if isinstance(monitor, DipoleEmissionMonitor)
+        )
+        if not dipole_emission_monitors:
+            return self
+
+        if any(size == 0 for size in self.size):
+            self._raise_validation_error_at_loc(
+                "A simulation containing a DipoleEmissionMonitor must be three-dimensional. "
+                "The radiation intensity is a per-solid-angle quantity, so 2D simulations "
+                "(a zero-size dimension) are not supported.",
+                "size",
+            )
+
+        if len(self.sources) != 1 or not isinstance(self.sources[0], TFSF):
+            self._raise_validation_error_at_loc(
+                "A simulation containing a DipoleEmissionMonitor must contain exactly one "
+                "source, and that source must be a TFSF source.",
+                "sources",
+            )
+        source = self.sources[0]
+
+        if not isinstance(source.angular_spec, FixedAngleSpec):
+            self._raise_validation_error_at_loc(
+                "DipoleEmissionMonitor requires a TFSF source with FixedAngleSpec.",
+                "sources",
+                0,
+                "angular_spec",
+            )
+
+        cos_theta = float(np.cos(source.angle_theta))
+        if not np.isfinite(cos_theta) or cos_theta <= 0:
+            self._raise_validation_error_at_loc(
+                "DipoleEmissionMonitor requires a TFSF source with positive cos(angle_theta).",
+                "sources",
+                0,
+                "angle_theta",
+            )
+
+        for monitor_ind, monitor in enumerate(self.monitors):
+            if not isinstance(monitor, DipoleEmissionMonitor):
+                continue
+
+            self._dipole_emission_background_index(
+                source,
+                monitor.freqs,
+                validation_loc=("monitors", monitor_ind),
+            )
+
+            points = np.asarray(monitor.points.values, dtype=float)
+            bounds = np.asarray(source.bounds, dtype=float)
+            strict_inequality = np.asarray([size != 0 for size in source.size], dtype=bool)
+            outside = points_outside_bounds(points, bounds, strict_inequality)
+            if np.any(outside):
+                first_index = int(np.nonzero(outside)[0][0])
+                num_outside = int(np.count_nonzero(outside))
+                self._raise_validation_error_at_loc(
+                    f"Dipole-emission monitor '{monitor.name}' has {num_outside} point(s) "
+                    f"outside TFSF source '{source.name}'. The first outside point has index "
+                    f"{first_index} and coordinates {points[first_index].tolist()}.",
+                    "monitors",
+                    monitor_ind,
+                    "points",
+                )
+
+        return self
+
+    def _dipole_emission_tfsf_source(self) -> TFSF:
+        """Return the single TFSF source associated with a dipole-emission monitor."""
+        if len(self.sources) != 1 or not isinstance(self.sources[0], TFSF):
+            raise SetupError(
+                "DipoleEmissionMonitor postprocessing requires a simulation with exactly "
+                "one source, and that source must be a TFSF source."
+            )
+        return self.sources[0]
+
+    @staticmethod
+    def _dipole_emission_tfsf_injection_plane(source: TFSF) -> Box:
+        """Planar TFSF injection face used as the dipole-emission collection side."""
+        injection_plane_size = list(source.size)
+        injection_plane_size[source.injection_axis] = 0.0
+        return Box(center=tuple(source.injection_plane_center), size=tuple(injection_plane_size))
+
+    def _dipole_emission_tfsf_injection_medium(
+        self,
+        source: TFSF,
+        validation_loc: tuple[Any, ...] | None = None,
+    ) -> AbstractMedium:
+        """Return the single medium intersecting the TFSF injection face."""
+        injection_plane = self._dipole_emission_tfsf_injection_plane(source)
+        simulation_background = Structure(
+            geometry=Box(size=self.size, center=self.center),
+            medium=self.medium,
+        )
+        plane_media = Scene.intersecting_media(
+            injection_plane, [simulation_background, *list(self.structures or [])]
+        )
+        if len(plane_media) != 1:
+            message = (
+                "DipoleEmissionMonitor requires a homogeneous medium on the TFSF injection "
+                f"plane; found {len(plane_media)} media."
+            )
+            if validation_loc is not None:
+                self._raise_validation_error_at_loc(message, *validation_loc)
+            _raise_setup_error(message)
+        return next(iter(plane_media))
+
+    def _dipole_emission_background_index(
+        self,
+        source: TFSF,
+        freqs: ArrayFloat1D,
+        validation_loc: tuple[Any, ...] | None = None,
+    ) -> float:
+        """Validate and return the real nondispersive index on the TFSF injection side."""
+        medium = self._dipole_emission_tfsf_injection_medium(source, validation_loc)
+        background_n = np.asarray(medium.background_index_from_freqs(freqs), dtype=complex)
+        if not np.allclose(background_n.imag, 0.0):
+            message = "DipoleEmissionMonitor requires real TFSF injection-side refractive index."
+            if validation_loc is not None:
+                self._raise_validation_error_at_loc(message, *validation_loc)
+            _raise_setup_error(message)
+        if not np.allclose(background_n.real, background_n.real[0], rtol=1e-12, atol=0.0):
+            message = (
+                "DipoleEmissionMonitor requires nondispersive TFSF injection-side refractive index."
+            )
+            if validation_loc is not None:
+                self._raise_validation_error_at_loc(message, *validation_loc)
+            _raise_setup_error(message)
+        return float(background_n.real[0])
 
     def _diffraction_monitor_boundaries(self) -> Self:
         """If any :class:`.DiffractionMonitor` exists, ensure boundary conditions in the
@@ -3902,7 +4730,7 @@ class Simulation(AbstractYeeGridSimulation):
                 ]
                 # make sure the transverse boundaries are either periodic or Bloch
                 for boundary in boundaries:
-                    if not isinstance(boundary, (Periodic, BlochBoundary)):
+                    if not isinstance(boundary, Periodic | BlochBoundary):
                         self._raise_validation_error_at_loc(
                             f"The 'DiffractionMonitor' {monitor.name} requires periodic "
                             f"or Bloch boundaries along dimensions {n_x} and {n_y}.",
@@ -3932,7 +4760,7 @@ class Simulation(AbstractYeeGridSimulation):
 
         with log as consolidated_logger:
             for monitor_ind, monitor in enumerate(val):
-                if isinstance(monitor, (AbstractFieldProjectionMonitor, DiffractionMonitor)):
+                if isinstance(monitor, AbstractFieldProjectionMonitor | DiffractionMonitor):
                     mediums = self._call_with_validation_loc(
                         ["monitors", monitor_ind],
                         self._projection_monitor_mediums_in_bounds,
@@ -3966,7 +4794,10 @@ class Simulation(AbstractYeeGridSimulation):
         cls,
         center: Coordinate,
         size: Coordinate,
-        monitor: FieldMonitor | SurfaceIntegrationMonitor | DiffractionMonitor,
+        monitor: FieldMonitor
+        | SurfaceIntegrationMonitor
+        | DiffractionMonitor
+        | AbstractGaussianOverlapMonitor,
         structures: list[Structure],
     ) -> set[MediumType3D]:
         """Get media intersecting the in-domain portion of a projection surface or monitor."""
@@ -4135,7 +4966,7 @@ class Simulation(AbstractYeeGridSimulation):
                             "Boundary must be homogeneous. Make sure custom medium is uniform on the boundary.",
                         )
 
-                    if isinstance(list(mediums)[0], (AnisotropicMedium, FullyAnisotropicMedium)):
+                    if isinstance(list(mediums)[0], AnisotropicMedium | FullyAnisotropicMedium):
                         self._raise_validation_error_at_loc(
                             "An anisotropic medium is detected on an 'ABCBoundary'. "
                             "Boundary medium must be homogeneous and isotropic.",
@@ -4341,7 +5172,7 @@ class Simulation(AbstractYeeGridSimulation):
         structures = self.structures
         medium = self.medium
         for monitor_ind, monitor in enumerate(monitors):
-            if isinstance(monitor, (DiffractionMonitor, DirectivityMonitor)):
+            if isinstance(monitor, DiffractionMonitor | DirectivityMonitor):
                 medium_set = Scene.intersecting_media(monitor, structures)
                 medium = medium_set.pop() if medium_set else medium
                 freqs = np.array(monitor.freqs)
@@ -4415,7 +5246,8 @@ class Simulation(AbstractYeeGridSimulation):
                 )
                 if len(bounds) == 0:
                     self._raise_validation_error_at_loc(
-                        f"Surface monitor {mnt.name} does not cross any PEC or LossyMetalMedium structures.",
+                        f"Surface monitor {mnt.name} does not cross any PEC or lossy metal "
+                        "(LossyMetalMedium with penetrable=False) surface.",
                         "monitors",
                         monitor_ind,
                     )
@@ -4520,7 +5352,29 @@ class Simulation(AbstractYeeGridSimulation):
         # for each plane wave in the sources list
         with log as consolidated_logger:
             for source_id, source in enumerate(val):
-                if isinstance(source, (PlaneWave, GaussianBeam, AstigmaticGaussianBeam)):
+                # TFSF sources are checked at their injection plane:
+                # neither angular spec supports anisotropic source
+                # media.
+                if isinstance(source, TFSF):
+                    inj_size = list(source.size)
+                    inj_size[source.injection_axis] = 0.0
+                    media_probe = Box(center=source.injection_plane_center, size=tuple(inj_size))
+                    src_mediums = Scene.intersecting_media(media_probe, total_structures)
+                    if any(
+                        isinstance(m, AnisotropicMedium | FullyAnisotropicMedium)
+                        for m in src_mediums
+                    ):
+                        self._raise_validation_error_at_loc(
+                            "An anisotropic medium is detected on the injection plane of "
+                            f"a {source.type} source. Injection of {source.type} into "
+                            "anisotropic media is not currently supported — anisotropic "
+                            "structures fully inside the TFSF box are fine.",
+                            "sources",
+                            source_id,
+                        )
+                if isinstance(
+                    source, PlaneWave | GaussianBeam | AstigmaticGaussianBeam | ThinLensBeam
+                ):
                     mediums = Scene.intersecting_media(source, total_structures)
                     # make sure there is no more than one medium in the returned list
                     if len(mediums) > 1:
@@ -4540,7 +5394,7 @@ class Simulation(AbstractYeeGridSimulation):
                             source_id,
                         )
                     src_medium = list(mediums)[0]
-                    if isinstance(src_medium, (AnisotropicMedium, FullyAnisotropicMedium)):
+                    if isinstance(src_medium, AnisotropicMedium | FullyAnisotropicMedium):
                         self._raise_validation_error_at_loc(
                             f"An anisotropic medium is detected on plane intersecting a {source.type} "
                             f"source. Injection of {source.type} into anisotropic media currently is "
@@ -4557,7 +5411,7 @@ class Simulation(AbstractYeeGridSimulation):
                             custom_loc=["sources", source_id],
                         )
 
-                    if isinstance(source, PlaneWave) and source._is_fixed_angle:
+                    if isinstance(source, PlaneWave) and source._is_periodic_fixed_angle:
                         is_lossless_dieletric = (
                             isinstance(src_medium, Medium) and src_medium.conductivity == 0
                         )
@@ -4572,7 +5426,7 @@ class Simulation(AbstractYeeGridSimulation):
 
                     # check if broadband angled gaussian beam frequency variation is too fast
                     if (
-                        isinstance(source, (GaussianBeam, AstigmaticGaussianBeam))
+                        isinstance(source, GaussianBeam | AstigmaticGaussianBeam)
                         and np.abs(source.angle_theta) > 0
                         and source.num_freqs > 1
                     ):
@@ -4685,7 +5539,7 @@ class Simulation(AbstractYeeGridSimulation):
         """Warn when a source's use_colocated_integration doesn't match monitor settings."""
         with log as consolidated_logger:
             for src_idx, source in enumerate(self.sources):
-                if not isinstance(source, (PlanarSource, TFSF)):
+                if not isinstance(source, PlanarSource | TFSF):
                     continue
                 # CustomFieldSource doesn't use flux-based normalization (flux=1),
                 # so use_colocated_integration has no effect.
@@ -4693,10 +5547,12 @@ class Simulation(AbstractYeeGridSimulation):
                     continue
                 src_colocated = source.use_colocated_integration
                 for monitor in self.monitors:
-                    if not isinstance(monitor, (AbstractFieldMonitor, AbstractOverlapMonitor)):
+                    if not isinstance(monitor, AbstractFieldMonitor | AbstractOverlapMonitor):
                         continue
                     # Skip internally generated adjoint monitors (colocate=False by design)
-                    if monitor.name.startswith("adjoint_"):
+                    if monitor.name.startswith("adjoint_") or self._is_flux_adjoint_helper_monitor(
+                        monitor
+                    ):
                         continue
                     if monitor.use_colocated_integration != src_colocated:
                         consolidated_logger.warning(
@@ -4713,6 +5569,8 @@ class Simulation(AbstractYeeGridSimulation):
         self._validate_structures_not_at_edges()
         self._validate_no_structures_pml()
         self._validate_no_structures_close_to_pml()
+        self._validate_pec_frame_not_in_pml_extrusion()
+        self._validate_tfsf_has_grid_cells()
         self._validate_tfsf_nonuniform_grid()
         self._validate_tfsf_aux_sources()
         self._validate_nonlinear_specs()
@@ -4742,6 +5600,13 @@ class Simulation(AbstractYeeGridSimulation):
             if isinstance(monitor, FreqMonitor) and monitor.frequency_range[0] < RF_FREQ_WARNING:
                 return True
         return False
+
+    def requires_enterprise_license(self) -> bool:
+        """Whether the simulation uses features gated by the Enterprise license."""
+        if self.relax_courant:
+            return True
+
+        return any(isinstance(monitor, DipoleEmissionMonitor) for monitor in self.monitors)
 
     def _warn_rf_license(self) -> None:
         """
@@ -4832,7 +5697,7 @@ class Simulation(AbstractYeeGridSimulation):
                 )
 
         for imnt, monitor in enumerate(self.monitors):
-            if isinstance(monitor, AbstractModeMonitor):
+            if isinstance(monitor, (AbstractModeMonitor, ModeTimeMonitor)):
                 try:
                     validate_mode_object(mode_obj=monitor, msg_prefix=f"'monitors[{imnt}]'")
                 except Exception as e:
@@ -4928,42 +5793,20 @@ class Simulation(AbstractYeeGridSimulation):
         num_pml_layers = self.num_pml_layers
 
         def is_within_clipping_margin(axis_idx: int, struct_val: float, side_idx: int) -> bool:
-            """Check if structure is within ``CLIPPING_MARGIN`` cells from absorber start.
-
-            Returns True if structure is within ``CLIPPING_MARGIN`` cells from where the absorber starts.
-
-            Args:
-                axis_idx: Axis index (0=x, 1=y, 2=z)
-                struct_val: Structure boundary coordinate value
-                side_idx: Side index (0=min, 1=max)
-            """
-            if num_pml_layers[axis_idx][side_idx] == 0:
+            """Check if ``struct_val`` falls inside the ``CLIPPING_MARGIN`` inset, i.e. between
+            the absorber-domain interface and the inner edge of the extrusion region."""
+            clipping_bound_idx = self._pml_extrusion_clipping_bound_ind(axis_idx, side_idx)
+            if clipping_bound_idx is None:
                 return False
-
             grid_axis = grid_boundaries[axis_idx]
             num_layers = num_pml_layers[axis_idx][side_idx]
-
             if side_idx == 0:
-                # Absorber starts at cell index num_layers
-                # Extrusion clipping bound is at num_layers + CLIPPING_MARGIN
-                clipping_bound_idx = num_layers + CLIPPING_MARGIN
-                if clipping_bound_idx >= len(grid_axis):
-                    return False
                 absorber_start_coord = grid_axis[num_layers]
                 clipping_bound_coord = grid_axis[clipping_bound_idx]
-                # Structure is within clipping margin if it's between absorber start and clipping bound
                 return absorber_start_coord <= struct_val <= clipping_bound_coord
-            else:
-                # Absorber starts at cell index len(grid_axis) - num_layers - 1
-                # Extrusion clipping bound is at len(grid_axis) - num_layers - 1 - CLIPPING_MARGIN
-                absorber_start_idx = len(grid_axis) - num_layers - 1
-                clipping_bound_idx = absorber_start_idx - CLIPPING_MARGIN
-                if clipping_bound_idx < 0:
-                    return False
-                absorber_start_coord = grid_axis[absorber_start_idx]
-                clipping_bound_coord = grid_axis[clipping_bound_idx]
-                # Structure is within clipping margin if it's between clipping bound and absorber start
-                return clipping_bound_coord <= struct_val <= absorber_start_coord
+            absorber_start_coord = grid_axis[len(grid_axis) - num_layers - 1]
+            clipping_bound_coord = grid_axis[clipping_bound_idx]
+            return clipping_bound_coord <= struct_val <= absorber_start_coord
 
         with log as consolidated_logger:
 
@@ -5012,7 +5855,7 @@ class Simulation(AbstractYeeGridSimulation):
                         )
                         for axis, axis_idx, sim_val, struct_val, boundary in zipped:
                             # The test is required only for PML and stable PML
-                            if not isinstance(boundary[side_idx], (PML, StablePML)):
+                            if not isinstance(boundary[side_idx], PML | StablePML):
                                 continue
                             # Min side: struct_val > sim_val, Max side: struct_val < sim_val
                             if (
@@ -5029,12 +5872,107 @@ class Simulation(AbstractYeeGridSimulation):
                                 )
                                 warn(structure, istruct, axis + side_suffix, extrusion_flag)
 
-    def _validate_tfsf_nonuniform_grid(self) -> None:
-        """Warn if the grid is nonuniform along the directions tangential to the injection plane,
-        inside the TFSF box.
+    def _validate_pec_frame_not_in_pml_extrusion(self) -> None:
+        """Error if an automatically added PEC frame overlaps the PML extrusion region.
+
+        Works in grid-boundary index space: each PEC frame spans ``[beg, end]`` along every axis,
+        and each PML side with ``extrude_structures`` enabled forbids the index range covering
+        the PML plus an additional ``CLIPPING_MARGIN`` cells of interior (the clipping inset).
+        Touching counts as overlap.
         """
-        # if the grid is uniform in all directions, there's no need to proceed
-        if not (self.grid_spec.snapped_grid_used or self.grid_spec.custom_grid_used):
+        # Collect auto-added PEC frame index spans alongside the field/loc they originate from.
+        frames: list[tuple[np.ndarray, str, int, str]] = []
+        for src_idx, src in enumerate(self.sources):
+            if isinstance(src, AbstractModeSource) and isinstance(src.frame, PECFrame):
+                span_inds, _, _ = self._pec_frame_span_inds(src)
+                descr = (
+                    f"mode source '{src.name}'" if src.name else f"mode source at index {src_idx}"
+                )
+                frames.append((span_inds, "sources", src_idx, descr))
+        for abs_idx, absorber in enumerate(self._shifted_internal_absorbers):
+            span_inds, _, _ = self._pec_frame_span_inds(absorber)
+            frames.append(
+                (span_inds, "internal_absorbers", abs_idx, f"internal absorber at index {abs_idx}")
+            )
+        if not frames:
+            return
+
+        boundaries = self.boundary_spec.to_list
+        grid_boundaries = self.grid.boundaries.to_list
+
+        for axis in range(3):
+            n_bounds = len(grid_boundaries[axis])
+            for side in (0, 1):
+                bnd = boundaries[axis][side]
+                if not isinstance(bnd, AbsorberSpec) or not bnd.extrude_structures:
+                    continue
+                clip_ind = self._pml_extrusion_clipping_bound_ind(axis, side)
+                if clip_ind is None:
+                    continue
+                ext_lo, ext_hi = (0, clip_ind) if side == 0 else (clip_ind, n_bounds - 1)
+                for span_inds, field, loc, descr in frames:
+                    beg, end = span_inds[axis]
+                    if beg <= ext_hi and end >= ext_lo:
+                        axis_label = "xyz"[axis]
+                        side_label = f"{'-+'[side]}{axis_label}"
+                        self._raise_validation_error_at_loc(
+                            f"The automatically added PEC frame for {descr} overlaps the "
+                            f"{bnd.type} extrusion region on the '{side_label}' boundary. "
+                            f"The extrusion region extends {CLIPPING_MARGIN} grid cells beyond "
+                            f"the {bnd.type} into the simulation domain; increase the simulation "
+                            f"size along '{axis_label}', move the source/absorber away from "
+                            f"that boundary, or disable 'extrude_structures' on that side.",
+                            field,
+                            loc,
+                        )
+
+    def _validate_tfsf_has_grid_cells(self) -> None:
+        """Each TFSF source must contain at least one grid center on every
+        axis. Fixed-angle TFSF additionally needs at least two cells along
+        the injection axis inside the simulation's physical domain."""
+        for source_ind, source in enumerate(self.sources):
+            if not isinstance(source, TFSF):
+                continue
+            centers = self.grid.centers.to_list
+            tfsf_bounds = source.bounds
+            sim_bounds = self.bounds
+            for ind in range(3):
+                n_in = sum(
+                    1
+                    for center in centers[ind]
+                    if tfsf_bounds[0][ind] <= center <= tfsf_bounds[1][ind]
+                )
+                if n_in == 0:
+                    self._raise_validation_error_at_loc(
+                        f"TFSF source at index {source_ind} has no grid cells along the "
+                        f"'{'xyz'[ind]}' axis within its box. The source size or center is "
+                        f"too small relative to the grid spacing, or the box falls outside "
+                        f"the simulation domain.",
+                        "sources",
+                        source_ind,
+                    )
+            if isinstance(source.angular_spec, FixedAngleSpec):
+                inj = source.injection_axis
+                n_inj_phys = sum(
+                    1 for c in centers[inj] if sim_bounds[0][inj] <= c <= sim_bounds[1][inj]
+                )
+                if n_inj_phys < 2:
+                    self._raise_validation_error_at_loc(
+                        f"Fixed-angle TFSF source at index {source_ind} needs at least 2 "
+                        f"grid cells along its injection axis '{'xyz'[inj]}' inside the "
+                        f"simulation's physical domain (got {n_inj_phys}). Increase the "
+                        f"physical-domain extent along that axis, or refine the grid.",
+                        "sources",
+                        source_ind,
+                    )
+
+    def _validate_tfsf_nonuniform_grid(self) -> None:
+        """Warn (or error) if the grid is nonuniform along the directions tangential to the
+        injection plane, inside the TFSF box. A fixed-angle TFSF source requires a uniform
+        transverse grid and errors out; other TFSF sources only see degraded incident-field
+        cancellation, so we warn.
+        """
+        if not any(isinstance(source, TFSF) for source in self.sources):
             return
 
         with log as consolidated_logger:
@@ -5042,6 +5980,7 @@ class Simulation(AbstractYeeGridSimulation):
                 if not isinstance(source, TFSF):
                     continue
 
+                fixed_angle = isinstance(source.angular_spec, FixedAngleSpec)
                 centers = self.grid.centers.to_list
                 sizes = self.grid.sizes.to_list
                 tfsf_bounds = source.bounds
@@ -5060,15 +5999,27 @@ class Simulation(AbstractYeeGridSimulation):
 
                     # check if all the grid sizes are sufficiently unequal
                     if not np.all(np.isclose(sizes_in_tfsf, sizes_in_tfsf[0])):
-                        consolidated_logger.warning(
-                            f"The grid is nonuniform along the '{'xyz'[ind]}' axis, which may lead "
-                            "to sub-optimal cancellation of the incident field in the "
-                            "scattered-field region for the total-field scattered-field (TFSF) "
-                            f"source '{source.name}'. For best results, we recommended ensuring a "
-                            "uniform grid in both directions tangential to the TFSF injection "
-                            f"axis, '{'xyz'[source.injection_axis]}'.",
-                            custom_loc=["sources", source_ind],
-                        )
+                        if fixed_angle:
+                            self._raise_validation_error_at_loc(
+                                f"Fixed-angle TFSF requires a uniform transverse grid inside the "
+                                f"TFSF box, but the grid is nonuniform along the '{'xyz'[ind]}' "
+                                f"axis within the source region. Add a 'MeshOverrideStructure' "
+                                f"covering the TFSF box with a uniform 'dl' on the non-injection "
+                                f"axes to force uniform spacing, or remove the non-uniformity "
+                                f"from the structures intersecting the source.",
+                                "sources",
+                                source_ind,
+                            )
+                        else:
+                            consolidated_logger.warning(
+                                f"The grid is nonuniform along the '{'xyz'[ind]}' axis, which may lead "
+                                "to sub-optimal cancellation of the incident field in the "
+                                "scattered-field region for the total-field scattered-field (TFSF) "
+                                f"source '{source.name}'. For best results, we recommended ensuring a "
+                                "uniform grid in both directions tangential to the TFSF injection "
+                                f"axis, '{'xyz'[source.injection_axis]}'.",
+                                custom_loc=["sources", source_ind],
+                            )
 
     def _aux_tfsf_source(self, source: TFSF) -> PlaneWave:
         """Create the auxiliary plane wave source for a give TFSF source."""
@@ -5100,11 +6051,53 @@ class Simulation(AbstractYeeGridSimulation):
                 "dimension, or decrease the source size."
             )
 
-        # Note: broadband injection for TFSF not currently supported
+        # Pre-compensate the source-time so the unit-amplitude
+        # reference lands at the injection plane (the box face), not
+        # at the aux source plane that sits ``|offset|`` along the
+        # propagation direction. For lossless source-side media this
+        # is purely a phase shift; for lossy media it also pre-
+        # amplifies by ``exp(+Im(kz)·|offset|)`` to undo the decay
+        # over ``|offset|``. The medium at the injection plane is
+        # queried stacking-aware (a structure overlapping the source
+        # plane changes the local ``n``); fall back to ``self.medium``
+        # if multiple media are visible there.
+        source_time = source.source_time
+        injection_plane_size = list(source.size)
+        injection_plane_size[source.injection_axis] = 0.0
+        injection_plane_probe = Box(
+            center=tuple(source.injection_plane_center),
+            size=tuple(injection_plane_size),
+        )
+        injection_bg = Structure(
+            geometry=Box(size=self.size, center=self.center), medium=self.medium
+        )
+        plane_mediums = Scene.intersecting_media(
+            injection_plane_probe, [injection_bg, *list(self.structures or [])]
+        )
+        injection_medium = next(iter(plane_mediums)) if len(plane_mediums) == 1 else self.medium
+        try:
+            f0 = float(source_time._freq0)
+            n_complex = complex(injection_medium.background_index_from_freqs([f0])[0])
+        except (AttributeError, NotImplementedError):
+            n_complex = None
+        if n_complex is not None:
+            kz_continuum_at_f0 = (
+                (2.0 * np.pi * f0 / C_0) * n_complex * float(np.cos(source.angle_theta))
+            )
+            compensation = complex(np.exp(-1j * kz_continuum_at_f0 * abs(offset)))
+            amp_factor = float(np.abs(compensation))
+            phase_shift = float(np.angle(compensation))
+            if not (amp_factor == 1.0 and phase_shift == 0.0):
+                source_time = source_time.updated_copy(
+                    amplitude=amp_factor * source_time.amplitude,
+                    phase=source_time.phase + phase_shift,
+                )
+
+        # Note: broadband injection for TFSF not currently supported.
         return PlaneWave(
             size=source_size,
             center=source_center,
-            source_time=source.source_time,
+            source_time=source_time,
             angle_theta=source.angle_theta,
             angle_phi=source.angle_phi,
             pol_angle=source.pol_angle,
@@ -5177,10 +6170,16 @@ class Simulation(AbstractYeeGridSimulation):
         source_required: bool = True
             If ``True``, validation will fail in case no sources are found in the simulation.
         """
+        # run before super(): catches a degenerate (single-cell transverse axis) line element with a
+        # clear message, ahead of the finalized-simulation build that would otherwise surface it as a
+        # cryptic "zero volume" probe error
+        self._validate_lumped_element_grid_size()
         super().validate_pre_upload()
         log.begin_capture()
         self._validate_size()
         self._validate_monitor_size()
+        self._validate_gaussian_like_beam_backgrounds()
+        self._validate_thin_lens_setup_size()
         self._validate_modes_size()
         self._validate_num_cells_in_mode_objects()
         self._validate_datasets_not_none()
@@ -5195,6 +6194,9 @@ class Simulation(AbstractYeeGridSimulation):
 
     def _validate_size(self) -> None:
         """Ensures the simulation is within size limits before simulation is uploaded."""
+
+        if config.simulation.skip_size_checks:
+            return
 
         num_domain_cells_excluding_pml = self._num_non_pml_cells()
         if num_domain_cells_excluding_pml < WARN_SIM_DOMAIN_CELLS_EXCLUDING_PML:
@@ -5233,6 +6235,15 @@ class Simulation(AbstractYeeGridSimulation):
                 f"a maximum of {MAX_CELLS_TIMES_STEPS:.2e} are allowed."
             )
 
+    def _validate_lumped_element_grid_size(self) -> None:
+        """Ensure each lumped element resolves to a non-degenerate sheet on the simulation grid.
+
+        Mirrors the per-port :meth:`LumpedPort._check_grid_size` coarse-grid guard; in particular a
+        1D (line) element needs at least two cells along each transverse axis."""
+        grid = self.grid
+        for element in self.lumped_elements:
+            element._check_grid_size(grid)
+
     def _num_non_pml_cells(self) -> int:
         """Number of grid cells in the simulation domain excluding PML/absorber layers."""
         non_pml_cells_dim = []
@@ -5244,6 +6255,9 @@ class Simulation(AbstractYeeGridSimulation):
     def _validate_monitor_size(self) -> None:
         """Ensures the monitors aren't storing too much data before simulation is uploaded."""
 
+        if config.simulation.skip_size_checks:
+            return
+
         total_size_gb = 0
         with log as consolidated_logger:
             datas = self.monitors_data_size
@@ -5251,10 +6265,16 @@ class Simulation(AbstractYeeGridSimulation):
                 monitor_size_gb = monitor_size / 1e9
                 if monitor_size_gb > WARN_MONITOR_DATA_SIZE_GB:
                     consolidated_logger.warning(
-                        f"Monitor '{monitor_name}' estimated storage is {monitor_size_gb:1.2f}GB. "
+                        f"Estimated storage of {self._monitor_validation_label(monitor_name)} "
+                        f"is {monitor_size_gb:1.2f}GB. "
                         "Consider making it smaller, using fewer frequencies, or spatial or "
                         "temporal downsampling using 'interval_space' and 'interval', respectively.",
-                        custom_loc=["monitors", monitor_ind],
+                        custom_loc=[
+                            "monitors",
+                            self._monitor_validation_index(
+                                monitor_name=monitor_name, fallback_index=monitor_ind
+                            ),
+                        ],
                     )
 
                 total_size_gb += monitor_size_gb
@@ -5267,23 +6287,222 @@ class Simulation(AbstractYeeGridSimulation):
 
         # Some monitors store much less data than what is needed internally. Make sure that the
         # internal storage also does not exceed the limit.
-        for monitor in self.monitors:
+        for monitor_ind, monitor in enumerate(self.monitors):
             num_cells = self._monitor_num_cells(monitor)
             # intermediate storage needed, in GB
             solver_data = monitor._storage_size_solver(num_cells=num_cells, tmesh=self.tmesh) / 1e9
+            if (
+                isinstance(monitor, (PointCloudFieldMonitor, PointCloudPermittivityMonitor))
+                and self.precision == "double"
+            ):
+                solver_data *= 2
             if solver_data > MAX_MONITOR_INTERNAL_DATA_SIZE_GB:
-                raise SetupError(
-                    f"Estimated internal storage of monitor '{monitor.name}' is "
+                self._raise_validation_error_at_loc(
+                    f"Estimated internal storage of {self._monitor_validation_label(monitor)} is "
                     f"{solver_data:1.2f}GB, which is larger than the maximum allowed "
                     f"{MAX_MONITOR_INTERNAL_DATA_SIZE_GB:.2f}GB. Consider making it smaller, "
                     "using fewer frequencies, or spatial or temporal downsampling using "
-                    "'interval_space' and 'interval', respectively."
+                    "'interval_space' and 'interval', respectively.",
+                    "monitors",
+                    self._monitor_validation_index(
+                        monitor_name=monitor.name, fallback_index=monitor_ind
+                    ),
+                )
+
+    def _thin_lens_source_plane_cells(self, source: ThinLensBeam) -> int:
+        """Return discretized tangential source-plane cells for thin-lens setup sizing."""
+        normal_axis = source.size.index(0.0)
+        _, plane_inds = source.pop_axis([0, 1, 2], axis=normal_axis)
+        num_cells = self.discretize(source, extend=True).num_cells
+        return int(num_cells[plane_inds[0]] * num_cells[plane_inds[1]])
+
+    def _thin_lens_setup_work_units(
+        self,
+        *,
+        plane_cells: int,
+        num_plane_waves: int | tuple[int, int],
+        num_freqs: int,
+        num_evaluations: int = 1,
+    ) -> int:
+        """Return conservative thin-lens setup work units."""
+        return (
+            plane_cells
+            * thin_lens_pupil_grid_samples(num_plane_waves)
+            * num_freqs
+            * num_evaluations
+        )
+
+    @staticmethod
+    def _thin_lens_setup_work_limit(*, num_evaluations: int) -> int:
+        """Return path-specific thin-lens setup work cap."""
+        return num_evaluations * MAX_THIN_LENS_SETUP_WORK_UNITS
+
+    @staticmethod
+    def _thin_lens_monitor_setup_evaluations(monitor: ThinLensOverlapMonitor) -> int:
+        """Return number of angular-spectrum evaluations for thin-lens monitor setup."""
+        if monitor.colocate:
+            return THIN_LENS_MONITOR_SETUP_EVALUATIONS
+        return THIN_LENS_MONITOR_SETUP_EVALUATIONS * THIN_LENS_FIELD_COMPONENTS
+
+    @staticmethod
+    def _thin_lens_min_background_index(medium: AbstractMedium, freqs: ArrayFloat1D) -> float:
+        """Return the minimum effective real background index used by the thin-lens profile."""
+        background_n = np.asarray(medium.background_index_from_freqs(freqs), dtype=complex)
+        n_real = np.real(background_n)
+        n_effective = np.where(n_real <= 0, np.abs(background_n), n_real)
+        return float(np.min(n_effective))
+
+    def _validate_gaussian_like_beam_background_medium(
+        self,
+        *,
+        beam_obj: ThinLensBeam | AbstractGaussianOverlapMonitor,
+        mediums: set[MediumType3D],
+        freqs: ArrayFloat1D,
+        loc_root: str,
+        loc_ind: int,
+    ) -> None:
+        """Validate background assumptions used by Gaussian-like beam formulas."""
+        if len(mediums) > 1:
+            self._raise_validation_error_at_loc(
+                f"{len(mediums)} different mediums detected on plane intersecting a "
+                f"{beam_obj.type}. Plane must be homogeneous.",
+                loc_root,
+                loc_ind,
+            )
+        if len(mediums) < 1:
+            self._raise_validation_error_at_loc(
+                f"No medium detected on plane intersecting a {beam_obj.type}, "
+                "indicating an unexpected error. Please create a github issue so "
+                "that the problem can be investigated.",
+                loc_root,
+                loc_ind,
+            )
+
+        medium = next(iter(mediums))
+        if isinstance(medium, AnisotropicMedium | FullyAnisotropicMedium):
+            self._raise_validation_error_at_loc(
+                f"An anisotropic medium is detected on plane intersecting a {beam_obj.type}. "
+                f"{beam_obj.type} currently supports only isotropic background media.",
+                loc_root,
+                loc_ind,
+            )
+        if not medium.is_spatially_uniform:
+            log.warning(
+                f"Nonuniform custom medium detected on plane intersecting a {beam_obj.type}. "
+                "Gaussian-like overlap setup assumes a homogeneous background medium.",
+                custom_loc=[loc_root, loc_ind],
+            )
+
+        if not isinstance(beam_obj, ThinLensBeam | ThinLensOverlapMonitor):
+            return
+        min_background_index = self._thin_lens_min_background_index(medium, freqs)
+        if beam_obj.numerical_aperture >= min_background_index:
+            self._raise_validation_error_at_loc(
+                f"{beam_obj.type} 'numerical_aperture' ({beam_obj.numerical_aperture:.4g}) "
+                "must be less than the real background refractive index on its plane "
+                f"({min_background_index:.4g}).",
+                loc_root,
+                loc_ind,
+                "numerical_aperture",
+            )
+
+    def _validate_gaussian_like_beam_backgrounds(self) -> None:
+        """Validate Gaussian-like beam source and monitor background medium assumptions."""
+        structure_bg = Structure(
+            geometry=Box(size=self.size, center=self.center),
+            medium=self.medium,
+        )
+        total_structures = [structure_bg, *list(self.structures or [])]
+
+        for source_ind, source in enumerate(self.sources):
+            if not isinstance(source, ThinLensBeam):
+                continue
+            mediums = Scene.intersecting_media(source, total_structures)
+            self._validate_gaussian_like_beam_background_medium(
+                beam_obj=source,
+                mediums=mediums,
+                freqs=np.asarray(source.frequency_grid),
+                loc_root="sources",
+                loc_ind=source_ind,
+            )
+
+        for monitor_ind, monitor in enumerate(self.monitors):
+            if not isinstance(monitor, AbstractGaussianOverlapMonitor):
+                continue
+            mediums = self._call_with_validation_loc(
+                ["monitors", monitor_ind],
+                self._projection_monitor_mediums_in_bounds,
+                center=self.center,
+                size=self.size,
+                monitor=monitor,
+                structures=total_structures,
+            )
+            self._validate_gaussian_like_beam_background_medium(
+                beam_obj=monitor,
+                mediums=mediums,
+                freqs=np.asarray(monitor.freqs),
+                loc_root="monitors",
+                loc_ind=monitor_ind,
+            )
+
+    def _validate_thin_lens_setup_size(self) -> None:
+        """Reject thin-lens setups with excessive angular-spectrum preprocessing work."""
+
+        if config.simulation.skip_size_checks:
+            return
+
+        for source_ind, source in enumerate(self.sources):
+            if not isinstance(source, ThinLensBeam):
+                continue
+            num_freqs = max(1, np.asarray(source.frequency_grid).size)
+            plane_cells = self._thin_lens_source_plane_cells(source)
+            work_units = self._thin_lens_setup_work_units(
+                plane_cells=plane_cells,
+                num_plane_waves=source.num_plane_waves,
+                num_freqs=num_freqs,
+                num_evaluations=THIN_LENS_SOURCE_SETUP_EVALUATIONS,
+            )
+            work_limit = self._thin_lens_setup_work_limit(
+                num_evaluations=THIN_LENS_SOURCE_SETUP_EVALUATIONS
+            )
+            if work_units > work_limit:
+                self._raise_validation_error_at_loc(
+                    f"ThinLensBeam source has {work_units:.2e} estimated setup work units, "
+                    f"which exceeds the maximum allowed {work_limit:.2e}. "
+                    "Consider reducing 'num_plane_waves', source plane size, or source "
+                    "'num_freqs'.",
+                    "sources",
+                    source_ind,
+                )
+
+        for monitor_ind, monitor in enumerate(self.monitors):
+            if not isinstance(monitor, ThinLensOverlapMonitor):
+                continue
+            plane_cells = self._monitor_num_cells(monitor)
+            num_evaluations = self._thin_lens_monitor_setup_evaluations(monitor)
+            work_units = self._thin_lens_setup_work_units(
+                plane_cells=plane_cells,
+                num_plane_waves=monitor.num_plane_waves,
+                num_freqs=len(monitor.freqs),
+                num_evaluations=num_evaluations,
+            )
+            work_limit = self._thin_lens_setup_work_limit(num_evaluations=num_evaluations)
+            if work_units > work_limit:
+                self._raise_validation_error_at_loc(
+                    f"ThinLensOverlapMonitor has {work_units:.2e} estimated setup work units, "
+                    f"which exceeds the maximum allowed {work_limit:.2e}. "
+                    "Consider reducing 'num_plane_waves', monitor plane size, or monitor "
+                    "frequencies.",
+                    "monitors",
+                    monitor_ind,
                 )
 
     def _validate_modes_size(self) -> None:
         """Warn if mode sources or monitors have a large number of points."""
 
-        def warn_mode_size(monitor: AbstractModeMonitor, msg_header: str, custom_loc: list) -> None:
+        def warn_mode_size(
+            monitor: AbstractModeMonitor | ModeTimeMonitor, msg_header: str, custom_loc: list
+        ) -> None:
             """Warn if a mode component has a large number of points."""
             num_cells = np.prod(self.discretize_monitor(monitor).num_cells)
             if num_cells > WARN_MODE_NUM_CELLS:
@@ -5312,7 +6531,7 @@ class Simulation(AbstractYeeGridSimulation):
 
         with log as consolidated_logger:
             for mnt_ind, monitor in enumerate(self.monitors):
-                if isinstance(monitor, AbstractModeMonitor):
+                if isinstance(monitor, (AbstractModeMonitor, ModeTimeMonitor)):
                     msg_header = f"Mode monitor '{monitor.name}' "
                     custom_loc = ["monitors", mnt_ind]
                     warn_mode_size(monitor=monitor, msg_header=msg_header, custom_loc=custom_loc)
@@ -5343,15 +6562,18 @@ class Simulation(AbstractYeeGridSimulation):
                 check_num_cells(source, source.injection_axis, msg_header)
 
         for monitor in self.monitors:
-            if isinstance(monitor, ModeMonitor):
+            if isinstance(monitor, (ModeMonitor, ModeTimeMonitor)):
                 msg_header = f"Mode monitor '{monitor.name}' "
                 check_num_cells(monitor, monitor.normal_axis, msg_header)
 
     def _validate_time_monitors_num_steps(self) -> None:
         """Raise an error if non-0D time monitors have too many time steps."""
+        if config.simulation.skip_size_checks:
+            return
+
         for monitor in self.monitors:
             if (
-                not isinstance(monitor, (FieldTimeMonitor, AuxFieldTimeMonitor))
+                not isinstance(monitor, FieldTimeMonitor | AuxFieldTimeMonitor)
                 or len(monitor.zero_dims) == 3
             ):
                 continue
@@ -5383,24 +6605,61 @@ class Simulation(AbstractYeeGridSimulation):
         )
         sci_fmin, sci_fmax = self._scientific_notation(freq_min, freq_max)
 
-        for monitor in self.monitors:
-            if not isinstance(monitor, FreqMonitor):
+        for monitor_ind, monitor in enumerate(self.monitors):
+            if not isinstance(monitor, FreqMonitor) or isinstance(
+                monitor, PermittivityMonitor | MediumMonitor | PointCloudPermittivityMonitor
+            ):
                 continue
 
             freqs = np.array(monitor.freqs)
             if freqs.min() < freq_min or freqs.max() > freq_max:
-                raise SetupError(
-                    f"Frequency monitor '{monitor.name}' contains frequencies "
+                self._raise_validation_error_at_loc(
+                    f"Frequency {self._monitor_validation_label(monitor)} contains frequencies "
                     f"outside of the simulation frequency range ({sci_fmin}, {sci_fmax})"
-                    "(Hz) as defined by the sources."
+                    "(Hz) as defined by the sources.",
+                    "monitors",
+                    self._monitor_validation_index(
+                        monitor_name=monitor.name, fallback_index=monitor_ind
+                    ),
+                    "freqs",
                 )
+
+    @cached_property
+    def _flux_adjoint_helper_parent_names(self) -> dict[str, str]:
+        """Map internal flux-adjoint helper monitor names to user FluxMonitor names."""
+        layout, _ = build_flux_monitor_adjoint_layout(self.monitors)
+        return {
+            helper_name: helper_spec.flux_monitor_name
+            for helper_spec in layout.flux_helpers
+            for helper_name in helper_spec.helper_monitor_names
+        }
+
+    def _is_flux_adjoint_helper_monitor(self, monitor: Any) -> bool:
+        """Return ``True`` for an internal flux-adjoint helper monitor."""
+        return is_flux_adjoint_helper_name(monitor.name)
+
+    def _monitor_validation_label(self, monitor: Any | str) -> str:
+        """User-facing monitor label for validation warnings and errors."""
+        monitor_name = monitor if isinstance(monitor, str) else monitor.name
+        parent_name = self._flux_adjoint_helper_parent_names.get(monitor_name)
+        if parent_name is not None:
+            return f"hidden adjoint field helper for FluxMonitor '{parent_name}'"
+        return f"monitor '{monitor_name}'"
+
+    def _monitor_validation_index(self, *, monitor_name: str, fallback_index: int) -> int:
+        """User-facing monitor index for validation warnings."""
+        loc_name = self._flux_adjoint_helper_parent_names.get(monitor_name, monitor_name)
+        for monitor_index, monitor in enumerate(self.monitors):
+            if monitor.name == loc_name:
+                return monitor_index
+        return fallback_index
 
     def _validate_microwave_mode_specs(self) -> None:
         """Raise error if any microwave mode specifications with ``AutoImpedanceSpec`` will
         fail to instantiate.
         """
         for monitor in self.monitors:
-            if not isinstance(monitor, (MicrowaveModeMonitor, MicrowaveModeSolverMonitor)):
+            if not isinstance(monitor, MicrowaveModeMonitor | MicrowaveModeSolverMonitor):
                 continue
 
             monitor.mode_spec._validate_auto_impedance_setup(
@@ -5428,6 +6687,15 @@ class Simulation(AbstractYeeGridSimulation):
             else:
                 num_cells = self._monitor_num_cells(monitor)
                 storage_size = float(monitor.storage_size(num_cells=num_cells, tmesh=self.tmesh))
+            if isinstance(monitor, DipoleEmissionMonitor) and self.precision == "double":
+                storage_size *= 2
+            elif (
+                isinstance(monitor, (PointCloudFieldMonitor, PointCloudPermittivityMonitor))
+                and not isinstance(monitor, DipoleEmissionMonitor)
+                and self.precision == "double"
+            ):
+                points_size = np.asarray(monitor.points.values).nbytes
+                storage_size = points_size + 2 * (storage_size - points_size)
             data_size[monitor.name] = storage_size
         return data_size
 
@@ -5447,7 +6715,7 @@ class Simulation(AbstractYeeGridSimulation):
         pre-upload rather than at the time of definition. Also errors if any side wall
         intersects with a custom medium or a fully anisotropic media.
         """
-        for source in self.sources:
+        for source_idx, source in enumerate(self.sources):
             if not isinstance(source, TFSF):
                 continue
             # get all TFSF surfaces
@@ -5469,12 +6737,33 @@ class Simulation(AbstractYeeGridSimulation):
                     )
 
                     if any(
-                        isinstance(struct.medium, (AbstractCustomMedium, FullyAnisotropicMedium))
+                        isinstance(struct.medium, AbstractCustomMedium | FullyAnisotropicMedium)
                         for struct in intersecting_structs
                     ):
                         raise SetupError(
                             f"The surfaces of TFSF source '{source.name}' must not intersect any "
                             "structures containing a 'CustomMedium' or a 'FullyAnisotropicMedium'."
+                        )
+
+                    # Surface-BC media (``LossyMetalMedium``, ``PECMedium``, ``PMCMedium``)
+                    # are only rejected at sidewalls of a fixed-angle TFSF source; the
+                    # constant-in-plane-k TFSF supports them. Move the structure fully
+                    # inside the box, or switch the source to ``FixedInPlaneKSpec``.
+                    if isinstance(source.angular_spec, FixedAngleSpec) and any(
+                        isinstance(struct.medium, PECMedium | PMCMedium)
+                        or (
+                            isinstance(struct.medium, LossyMetalMedium)
+                            and not struct.medium.penetrable
+                        )
+                        for struct in intersecting_structs
+                    ):
+                        self._raise_validation_error_at_loc(
+                            f"Fixed-angle TFSF source '{source.name}' cannot have its sidewalls "
+                            "intersect a 'LossyMetalMedium', 'PECMedium', or 'PMCMedium'. Move the "
+                            "structure fully inside the TFSF box, or use 'FixedInPlaneKSpec' "
+                            "instead.",
+                            "sources",
+                            source_idx,
                         )
 
                     # if no structures intersect, just add a phantom associated with the simulation
@@ -5521,12 +6810,7 @@ class Simulation(AbstractYeeGridSimulation):
                         )
 
     def _warn_time_monitors_outside_run_time(self) -> None:
-        """Warn if time monitors start after the simulation run_time.
-        TODO: (remove this comment later) this is done as a pre-upload validator in view of a
-        planned change to allow ``run_time`` to accept a ``RunTimeSpec`` which would automatically
-        determine a run time based on simulation details. Then, we would have to access the
-        dynamically computed run_time e.g. through a ``_run_time`` cached property.
-        """
+        """Warn if time monitors start after the simulation run_time."""
         with log as consolidated_logger:
             for monitor in self.monitors:
                 if isinstance(monitor, TimeMonitor) and monitor.start > self._run_time:
@@ -5540,8 +6824,11 @@ class Simulation(AbstractYeeGridSimulation):
     def _with_adjoint_monitors(self, sim_fields_keys: list) -> Simulation:
         """Copy of self with adjoint field and permittivity monitors for every traced structure."""
 
+        _, flux_helper_monitors = build_flux_monitor_adjoint_layout(self.monitors)
         mnts_fld, mnts_eps = self._make_adjoint_monitors(sim_fields_keys=sim_fields_keys)
-        monitors = list(self.monitors) + list(mnts_fld) + list(mnts_eps)
+        monitors = (
+            list(self.monitors) + list(flux_helper_monitors) + list(mnts_fld) + list(mnts_eps)
+        )
         return self.copy(update={"monitors": monitors})
 
     def _make_adjoint_monitors(self, sim_fields_keys: list) -> tuple[list, list]:
@@ -5623,9 +6910,14 @@ class Simulation(AbstractYeeGridSimulation):
 
         freqs = set()
         for mnt in self.monitors:
-            # since we cannot differentiate through the FluxMonitor, we can ignore
-            # the frequencies it is tracking
-            if isinstance(mnt, FreqMonitor) and not isinstance(mnt, FluxMonitor):
+            # Flux monitors need hidden field helpers to be differentiable.
+            if isinstance(mnt, FluxMonitor):
+                if mnt.enable_adjoint:
+                    freqs.update(mnt.freqs)
+                continue
+            if isinstance(mnt, (PointCloudFieldMonitor, PointCloudPermittivityMonitor)):
+                continue
+            if isinstance(mnt, FreqMonitor):
                 freqs.update(mnt.freqs)
         freqs = sorted(freqs)
         return freqs
@@ -5639,28 +6931,35 @@ class Simulation(AbstractYeeGridSimulation):
         if not isinstance(self.run_time, RunTimeSpec):
             return self.run_time
 
+        return self._resolve_run_time([src.source_time for src in self.sources])
+
+    def _resolve_run_time(self, source_times: list[SourceTimeType]) -> float:
+        """Resolve a ``RunTimeSpec`` run time from explicit source time pulses.
+
+        Decoupled from ``self.sources`` so callers that know the excitation a priori (such as
+        a :class:`.AbstractComponentModeler`) can resolve the run time without attaching
+        sources to the simulation. Assumes ``self.run_time`` is a ``RunTimeSpec``.
+        """
         run_time_spec = self.run_time
 
-        # contribution from the time of of the source pulses
-        if not self.sources:
+        # contribution from the time of the source pulses
+        if not source_times:
             source_time = 0.0
             max_ref_ind = 1
         else:
-            source_times = [src.source_time.end_time() for src in self.sources]
-            source_times = [x for x in source_times if x is not None]
-            if not source_times:
+            end_times = [st.end_time() for st in source_times]
+            end_times = [x for x in end_times if x is not None]
+            if not end_times:
                 raise SetupError(
-                    "Could not compute source contributions to run time from 'RunTimeSpec'."
-                    "Please check all of your 'Source.source_time' and ensure that at least one "
-                    "has a decaying (non-DC) pulse profile to be able to compute the 'run_time'."
+                    "Could not resolve a concrete 'run_time' from the 'RunTimeSpec': at least one "
+                    "excitation must have a decaying (non-DC) pulse profile, so that its end time is "
+                    "defined."
                 )
-            source_time_max = np.max(source_times)
+            source_time_max = np.max(end_times)
             source_time = run_time_spec.source_factor * source_time_max
 
-            # get the maximum refractive index evaluated over each of all the source central frequencies
-            all_ref_inds = [
-                self.get_refractive_indices(src.source_time._freq0) for src in self.sources
-            ]
+            # get the maximum refractive index evaluated over each of the source central frequencies
+            all_ref_inds = [self.get_refractive_indices(st._freq0) for st in source_times]
             avg_ref_inds = [np.mean(np.array(n)) for n in all_ref_inds]
             max_ref_ind = np.max(avg_ref_inds, initial=1)
 
@@ -5720,11 +7019,12 @@ class Simulation(AbstractYeeGridSimulation):
     @cached_property
     def _fixed_angle_sources(self) -> tuple[SourceType, ...]:
         """List of plane wave sources with ``FixedAngleSpec``."""
-        return self._get_fixed_angle_sources(self.sources)
+        return self._get_periodic_fixed_angle_sources(self.sources)
 
     @cached_property
-    def _is_fixed_angle(self) -> bool:
-        """Whether the simulation contains fixed angle sources."""
+    def _is_periodic_fixed_angle(self) -> bool:
+        """Whether the simulation contains a periodic fixed-angle source —
+        i.e. a fixed-angle :class:`PlaneWave` with non-zero ``angle_theta``."""
         return len(self._fixed_angle_sources) > 0
 
     # candidate for removal in 3.0
@@ -5903,9 +7203,19 @@ class Simulation(AbstractYeeGridSimulation):
             bmin = (bmin[0], 0)
         clip = gdstk.rectangle(bmin, bmax)
 
-        polygons = []
+        optical_medium_export_key_cache: dict[
+            StructureMediumType | None, OpticalMediumExportKey
+        ] = {}
+        background_medium_key = self._optical_medium_export_key(
+            Structure._get_optical_medium(self.medium), optical_medium_export_key_cache
+        )
+
+        polygons_by_layer: dict[tuple[int, int], list] = {}
+        deferred_background_polygons_by_layer: dict[tuple[int, int], list] = {}
+        layer_has_filled_region: dict[tuple[int, int], bool] = {}
         for structure in self.scene.sorted_structures:
             gds_layer, gds_dtype = gds_layer_dtype_map.get(structure.medium, (0, 0))
+            structure_polygons = []
             for polygon in structure.to_gdstk(
                 x=x,
                 y=y,
@@ -5918,13 +7228,108 @@ class Simulation(AbstractYeeGridSimulation):
             ):
                 pmin, pmax = polygon.bounding_box()
                 if pmin[0] < bmin[0] or pmin[1] < bmin[1] or pmax[0] > bmax[0] or pmax[1] > bmax[1]:
-                    polygons.extend(
+                    structure_polygons.extend(
                         gdstk.boolean(clip, polygon, "and", layer=gds_layer, datatype=gds_dtype)
                     )
                 else:
-                    polygons.append(polygon)
+                    structure_polygons.append(polygon)
 
+            if not structure_polygons:
+                continue
+
+            layer_key = (gds_layer, gds_dtype)
+            layer_polygons = polygons_by_layer.get(layer_key, [])
+            if self._structure_exports_as_filled_region(
+                structure,
+                background_medium_key=background_medium_key,
+                optical_medium_export_key_cache=optical_medium_export_key_cache,
+            ):
+                if layer_polygons:
+                    polygons_by_layer[layer_key] = gdstk.boolean(
+                        layer_polygons,
+                        structure_polygons,
+                        "or",
+                        layer=gds_layer,
+                        datatype=gds_dtype,
+                    )
+                else:
+                    polygons_by_layer[layer_key] = structure_polygons
+                deferred_background_polygons_by_layer.pop(layer_key, None)
+                layer_has_filled_region[layer_key] = True
+            elif layer_has_filled_region.get(layer_key, False):
+                polygons_by_layer[layer_key] = gdstk.boolean(
+                    layer_polygons,
+                    structure_polygons,
+                    "not",
+                    layer=gds_layer,
+                    datatype=gds_dtype,
+                )
+            else:
+                deferred_polygons = deferred_background_polygons_by_layer.get(layer_key, [])
+                if deferred_polygons:
+                    deferred_background_polygons_by_layer[layer_key] = gdstk.boolean(
+                        deferred_polygons,
+                        structure_polygons,
+                        "or",
+                        layer=gds_layer,
+                        datatype=gds_dtype,
+                    )
+                else:
+                    deferred_background_polygons_by_layer[layer_key] = structure_polygons
+
+        for layer_key, deferred_polygons in deferred_background_polygons_by_layer.items():
+            if layer_has_filled_region.get(layer_key, False):
+                continue
+
+            gds_layer, gds_dtype = layer_key
+            layer_polygons = polygons_by_layer.get(layer_key, [])
+            if layer_polygons:
+                polygons_by_layer[layer_key] = gdstk.boolean(
+                    layer_polygons,
+                    deferred_polygons,
+                    "or",
+                    layer=gds_layer,
+                    datatype=gds_dtype,
+                )
+            else:
+                # Preserve legacy default-layer output for unmapped background structures when no
+                # filled region was accumulated on that layer.
+                polygons_by_layer[layer_key] = deferred_polygons
+
+        polygons = []
+        for layer_polygons in polygons_by_layer.values():
+            polygons.extend(layer_polygons)
         return polygons
+
+    @staticmethod
+    def _structure_exports_as_filled_region(
+        structure: Structure,
+        *,
+        background_medium_key: OpticalMediumExportKey,
+        optical_medium_export_key_cache: dict[StructureMediumType | None, OpticalMediumExportKey],
+    ) -> bool:
+        """Whether a structure should add or clear area on its export layer."""
+        return (
+            Simulation._optical_medium_export_key(
+                Structure._get_optical_medium(structure.medium), optical_medium_export_key_cache
+            )
+            != background_medium_key
+        )
+
+    @staticmethod
+    def _optical_medium_export_key(
+        medium: StructureMediumType | None,
+        cache: dict[StructureMediumType | None, OpticalMediumExportKey],
+    ) -> OpticalMediumExportKey:
+        """Normalized optical-medium key used for GDS export semantics."""
+        if medium in cache:
+            return cache[medium]
+        if medium is None:
+            cache[medium] = None
+            return None
+        exclude_fields = {"name", "attrs"}
+        cache[medium] = medium.model_dump(exclude=exclude_fields, round_trip=True)
+        return cache[medium]
 
     def to_gds(
         self,
@@ -5995,6 +7400,7 @@ class Simulation(AbstractYeeGridSimulation):
         | None = None,
         gds_cell_name: str = "MAIN",
         pixel_exact: bool = False,
+        gds_precision: PositiveFloat = 1e-3,
     ) -> None:
         """Append the simulation structures to a .gds cell.
 
@@ -6019,9 +7425,29 @@ class Simulation(AbstractYeeGridSimulation):
             Name of the cell created in the .gds file to store the geometry.
         pixel_exact : bool = False
             If true export gds as pixel exact rectangles instead of gdstk contour if a custom medium is provided.
+        gds_precision : float = 1e-3
+            Coordinate precision for the written GDS file in micrometers. The default matches
+            the gdstk default of ``1e-9`` meters. If the requested precision is too fine for the
+            written slice coordinates, export raises :class:`.SetupError`. The minimum safe value
+            scales with the maximum absolute written planar coordinate as
+            ``max_abs_coord / (2**31 - 1)``.
         """
         if gdstk_available:
-            library = gdstk.Library()
+            polygons = self.to_gdstk(
+                x=x,
+                y=y,
+                z=z,
+                permittivity_threshold=permittivity_threshold,
+                frequency=frequency,
+                gds_layer_dtype_map=gds_layer_dtype_map,
+                pixel_exact=pixel_exact,
+            )
+            gds_precision = Geometry._validate_gds_precision(
+                polygons=polygons,
+                gds_precision=gds_precision,
+                context="Simulation.to_gds_file()",
+            )
+            library = gdstk.Library(unit=1e-6, precision=gds_precision * 1e-6)
             reference = gdstk.Reference
             rotation = np.pi
         else:
@@ -6044,16 +7470,8 @@ class Simulation(AbstractYeeGridSimulation):
             outer_cell.add(reference(cell))
             outer_cell.add(reference(cell, x_reflection=True))
 
-        self.to_gds(
-            cell,
-            x=x,
-            y=y,
-            z=z,
-            permittivity_threshold=permittivity_threshold,
-            frequency=frequency,
-            gds_layer_dtype_map=gds_layer_dtype_map,
-            pixel_exact=pixel_exact,
-        )
+        if polygons:
+            cell.add(*polygons)
         fname = pathlib.Path(fname)
         fname.parent.mkdir(parents=True, exist_ok=True)
         library.write_gds(fname)
@@ -6094,7 +7512,7 @@ class Simulation(AbstractYeeGridSimulation):
     @cached_property
     def _dt_fixed_angle_reduction_factor(self) -> float:
         """Reduction in time step due to plane wave source with ``FixedAngleSpec``."""
-        if self._is_fixed_angle:
+        if self._is_periodic_fixed_angle:
             theta = self._fixed_angle_sources[0].angle_theta
             return (
                 FIXED_ANGLE_DT_SAFETY_FACTOR
@@ -6117,7 +7535,11 @@ class Simulation(AbstractYeeGridSimulation):
             )
             or len(self.internal_absorbers) > 0
         )
-        contain_sibc_structures = any(isinstance(medium, LossyMetalMedium) for medium in mediums)
+        # A penetrable lossy metal is solved as a regular medium, so it does not impose the
+        # SIBC courant restriction.
+        contain_sibc_structures = any(
+            isinstance(medium, LossyMetalMedium) and not medium.penetrable for medium in mediums
+        )
         return self.courant * self._subpixel.courant_ratio(
             contain_pec_structures=contain_pec_structures,
             contain_sibc_structures=contain_sibc_structures,
@@ -6143,17 +7565,14 @@ class Simulation(AbstractYeeGridSimulation):
         n_cfl = min(min(mat.n_cfl for mat in self.scene.mediums), 1)
 
         if self.relax_courant:
-            try:
-                from tidy3d_extras.extension import _relax_courant
-            except ImportError as exc:
-                raise ImportError(
-                    format_chained_exception_message(
-                        "'relax_courant' requires the 'tidy3d_extras' package to be installed",
-                        exc,
-                    )
-                ) from exc
-            dl_mins_xyz = [float(np.min(sizes)) for sizes in self.grid.sizes.to_list]
-            relax_ratio = _relax_courant(dl_mins=dl_mins_xyz)
+            _check_tidy3d_extras_available()
+            boundaries = self.grid.boundaries.to_list
+            relax_ratio = tidy3d_extras["mod"].extension._relax_courant(
+                coord_boundaries_x=boundaries[0],
+                coord_boundaries_y=boundaries[1],
+                coord_boundaries_z=boundaries[2],
+                simple_bc=self._simple_bc,
+            )
         else:
             relax_ratio = 1.0
 
@@ -6283,8 +7702,10 @@ class Simulation(AbstractYeeGridSimulation):
 
     @cached_property
     def complex_fields(self) -> bool:
-        """Whether complex fields are used in the simulation. Currently this only happens when there
-        are Bloch boundaries.
+        """Whether complex fields are used in the simulation.
+
+        Triggers on Bloch boundaries, complex-fields nonlinear models, or a
+        ``ModeTimeMonitor`` on a simulation that contains a lossy medium.
 
         Returns
         -------
@@ -6297,7 +7718,23 @@ class Simulation(AbstractYeeGridSimulation):
             if medium.nonlinear_spec is not None:
                 if any(model.complex_fields for model in medium._nonlinear_models):
                     return True
+        if self._has_lossy_mode_decomposition_feature:
+            return True
         return False
+
+    @cached_property
+    def _has_lossy_mode_decomposition_feature(self) -> bool:
+        """True iff the simulation contains a ``ModeTimeMonitor`` and any sim
+        medium can be lossy.
+        """
+        has_mtm = any(isinstance(m, ModeTimeMonitor) for m in self.monitors)
+        if not has_mtm:
+            return False
+        # `scene.mediums` covers structure mediums; the background medium is
+        # held separately on the simulation, so include it explicitly.
+        if _medium_can_be_lossy(self.medium):
+            return True
+        return any(_medium_can_be_lossy(medium) for medium in self.scene.mediums)
 
     @cached_property
     def nyquist_step(self) -> int:
@@ -6317,7 +7754,9 @@ class Simulation(AbstractYeeGridSimulation):
                 monitor.frequency_range[1]
                 for monitor in self.monitors
                 if isinstance(monitor, FreqMonitor)
-                and not isinstance(monitor, (PermittivityMonitor, MediumMonitor))
+                and not isinstance(
+                    monitor, PermittivityMonitor | MediumMonitor | PointCloudPermittivityMonitor
+                )
             ),
             default=0.0,
         )

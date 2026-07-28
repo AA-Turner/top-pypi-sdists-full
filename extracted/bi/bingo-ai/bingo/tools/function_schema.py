@@ -60,9 +60,9 @@ PYTHON_EXEC = {
 HTTP_REQUEST = {
     "name": "http_request",
     "description": (
-        "Send a structured HTTP request and return full response with headers. "
-        "Use when you need precise control over method, headers, body, and "
-        "want structured response parsing (status, headers dict, body)."
+        "Send an HTTP request to the TARGET and return full response with headers. "
+        "Provide only the path — the target domain is automatically prepended by the executor. "
+        "Use when you need precise control over method, headers, body."
     ),
     "parameters": {
         "type": "object",
@@ -72,9 +72,9 @@ HTTP_REQUEST = {
                 "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"],
                 "description": "HTTP method",
             },
-            "url": {
+            "path": {
                 "type": "string",
-                "description": "Full URL to request",
+                "description": "Request path on the target (e.g. /api/login, /admin/)",
             },
             "headers": {
                 "type": "object",
@@ -96,7 +96,7 @@ HTTP_REQUEST = {
                 "default": 30,
             },
         },
-        "required": ["method", "url"],
+        "required": ["method", "path"],
     },
 }
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 try:
     from pyoxigraph import (
         BlankNode as ox_BlankNode,
@@ -159,7 +161,7 @@ class DataGraph(rdf_Dataset):
 
     def register_custom_function(
         self,
-        function_name: str | rdf_IdentifiedNode,
+        function_name: Union[str, rdf_IdentifiedNode],
         rdflib_fn: Callable,
         oxigraph_fn: Callable,
         override: bool = False,
@@ -177,7 +179,7 @@ class DataGraph(rdf_Dataset):
 
 
 class RdfLibDataGraph(DataGraph):
-    locked_context: rdf_Graph | None
+    locked_context: Union[rdf_Graph, None]
     is_multi_graph: bool
     _store: rdflib_Store
     impl: Union[rdf_Dataset, rdf_Graph]

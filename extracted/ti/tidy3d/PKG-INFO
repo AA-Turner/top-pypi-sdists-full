@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tidy3d
-Version: 2.11.2
+Version: 2.12.0
 Summary: A fast FDTD solver
 Project-URL: Homepage, https://github.com/flexcompute/tidy3d
 Project-URL: Repository, https://github.com/flexcompute/tidy3d
@@ -20,7 +20,9 @@ Requires-Python: <3.15,>=3.10
 Requires-Dist: autograd<2.0.0,>=1.7.0
 Requires-Dist: boto3<2.0.0,>=1.28.0
 Requires-Dist: click<9.0.0,>=8.1.0
+Requires-Dist: cryptography==48.0.1; platform_system == 'Darwin' and platform_machine == 'x86_64'
 Requires-Dist: dask<2027.0.0,>=2025.12.0
+Requires-Dist: fastmcp<4,>=3.4.4
 Requires-Dist: filelock<4.0.0,>=3.20.1
 Requires-Dist: h5netcdf<2.0.0,>=1.0.2
 Requires-Dist: h5py<3.17,>=3.0.0; python_version < '3.14'
@@ -37,57 +39,57 @@ Requires-Dist: pyroots<0.6.0,>=0.5.0
 Requires-Dist: pyyaml<7.0.0,>=6.0.3
 Requires-Dist: requests<3.0.0,>=2.31.0
 Requires-Dist: responses<0.27.0,>=0.25.8
-Requires-Dist: rich<15.0,>=13.0
-Requires-Dist: scipy<2.0,>=1.14
-Requires-Dist: shapely<3.0,>=2.0
+Requires-Dist: rich<16.0,>=13.0
+Requires-Dist: scipy!=1.15.0,!=1.15.1,!=1.15.2,<2.0,>=1.14
+Requires-Dist: shapely<3.0,>=2.1.0
 Requires-Dist: toml<0.11.0,>=0.10.2
-Requires-Dist: tomlkit<0.15.0,>=0.13.2
+Requires-Dist: tomlkit<0.16.0,>=0.13.2
 Requires-Dist: typing-extensions<5.0.0,>=4.15.0
 Requires-Dist: xarray<2026.5.0,>=2023.08
 Provides-Extra: design
 Requires-Dist: bayesian-optimization<4.0.0,>=2.0.0; extra == 'design'
-Requires-Dist: pygad==3.3.1; extra == 'design'
+Requires-Dist: pygad==3.7.0; extra == 'design'
 Requires-Dist: pyswarms<2.0.0,>=1.3.0; extra == 'design'
 Provides-Extra: dev
 Requires-Dist: bayesian-optimization<4.0.0,>=2.0.0; extra == 'dev'
 Requires-Dist: cma<5.0.0,>=4.4.1; extra == 'dev'
+Requires-Dist: colour-science<0.5.0,>=0.4.7; (python_version >= '3.11') and extra == 'dev'
 Requires-Dist: coverage<8.0.0,>=7.13.1; extra == 'dev'
 Requires-Dist: diff-cover<11.0.0,>=10.1.0; extra == 'dev'
 Requires-Dist: dill<0.5.0,>=0.4.0; extra == 'dev'
 Requires-Dist: gdstk<1.1,>=0.9.49; extra == 'dev'
 Requires-Dist: grcwa<0.2.0,>=0.1.2; extra == 'dev'
+Requires-Dist: hvplot<1.0.0,>=0.12.0; extra == 'dev'
 Requires-Dist: ipython<9.0.0,>=8.38.0; extra == 'dev'
 Requires-Dist: jinja2<4.0.0,>=3.1.2; extra == 'dev'
+Requires-Dist: jupyter-bokeh<5.0.0,>=4.0.5; extra == 'dev'
 Requires-Dist: jupyter<2.0.0,>=1.1.1; extra == 'dev'
 Requires-Dist: libcst<2.0.0,>=1.5.0; extra == 'dev'
 Requires-Dist: memory-profiler<0.62.0,>=0.61.0; extra == 'dev'
-Requires-Dist: mypy==1.13.0; extra == 'dev'
 Requires-Dist: myst-parser<5.0.0,>=4.0.1; extra == 'dev'
 Requires-Dist: nbconvert<8.0.0,>=7.17.0; extra == 'dev'
 Requires-Dist: nbdime<5.0.0,>=4.0.2; extra == 'dev'
 Requires-Dist: nbsphinx<0.10.0,>=0.8.7; extra == 'dev'
 Requires-Dist: nest-asyncio<2.0.0,>=1.6.0; extra == 'dev'
-Requires-Dist: networkx<3.0.0,>=2.6.3; extra == 'dev'
+Requires-Dist: networkx<4.0.0,>=2.6.3; extra == 'dev'
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == 'dev'
-Requires-Dist: optax<0.3.0,>=0.2.2; extra == 'dev'
-Requires-Dist: orbax-checkpoint<0.11.33; extra == 'dev'
 Requires-Dist: pre-commit<5,>=4; extra == 'dev'
 Requires-Dist: psutil<8.0.0,>=7.2.1; extra == 'dev'
-Requires-Dist: pydata-sphinx-theme<0.16.0,>=0.13.3; extra == 'dev'
-Requires-Dist: pygad==3.3.1; extra == 'dev'
+Requires-Dist: pydata-sphinx-theme<0.20.0,>=0.13.3; extra == 'dev'
+Requires-Dist: pygad==3.7.0; extra == 'dev'
 Requires-Dist: pylint<5.0.0,>=4.0.4; extra == 'dev'
+Requires-Dist: pyrefly==1.1.1; extra == 'dev'
 Requires-Dist: pyswarms<2.0.0,>=1.3.0; extra == 'dev'
-Requires-Dist: pytest-cov<7.0.0,>=6.0.0; extra == 'dev'
+Requires-Dist: pytest-cov<8.0.0,>=6.0.0; extra == 'dev'
 Requires-Dist: pytest-env<2.0.0,>=1.1.5; extra == 'dev'
 Requires-Dist: pytest-testmon<3.0.0,>=2.1.3; extra == 'dev'
 Requires-Dist: pytest-timeout<3.0.0,>=2.4.0; extra == 'dev'
 Requires-Dist: pytest-xdist<4.0.0,>=3.6.1; extra == 'dev'
 Requires-Dist: pytest<10.0.0,>=8.1; extra == 'dev'
-Requires-Dist: pyvista<0.48.0,>=0.45; extra == 'dev'
-Requires-Dist: rtree==1.2.0; extra == 'dev'
+Requires-Dist: pyvista[jupyter]<0.48.0,>=0.45; extra == 'dev'
+Requires-Dist: rtree==1.4.1; extra == 'dev'
 Requires-Dist: ruff==0.14.1; extra == 'dev'
-Requires-Dist: sax<0.12,>=0.11; extra == 'dev'
-Requires-Dist: scikit-rf<2.0.0,>=1.9.0; extra == 'dev'
+Requires-Dist: scikit-rf<3.0.0,>=1.9.0; extra == 'dev'
 Requires-Dist: signac<3.0.0,>=2.3.0; extra == 'dev'
 Requires-Dist: sphinx-book-theme<2.0.0,>=1.0.1; extra == 'dev'
 Requires-Dist: sphinx-copybutton<0.6.0,>=0.5.2; extra == 'dev'
@@ -104,7 +106,7 @@ Requires-Dist: torch<3.0.0,>=2.2.0; (sys_platform == 'darwin') and extra == 'dev
 Requires-Dist: towncrier<26.0.0,>=25.8.0; extra == 'dev'
 Requires-Dist: tox<5.0.0,>=4.33.0; extra == 'dev'
 Requires-Dist: trame-vtk<3.0.0,>=2.0.0; extra == 'dev'
-Requires-Dist: trame-vuetify<3.0.0,>=2.0.0; extra == 'dev'
+Requires-Dist: trame-vuetify<4.0.0,>=2.0.0; extra == 'dev'
 Requires-Dist: trame<4.0.0,>=3.0.0; extra == 'dev'
 Requires-Dist: trimesh<5.0.0,>=4.6; extra == 'dev'
 Requires-Dist: vtk<10.0.0,>=9.6.0; extra == 'dev'
@@ -121,11 +123,8 @@ Requires-Dist: nbconvert<8.0.0,>=7.17.0; extra == 'docs'
 Requires-Dist: nbdime<5.0.0,>=4.0.2; extra == 'docs'
 Requires-Dist: nbsphinx<0.10.0,>=0.8.7; extra == 'docs'
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == 'docs'
-Requires-Dist: optax<0.3.0,>=0.2.2; extra == 'docs'
-Requires-Dist: orbax-checkpoint<0.11.33; extra == 'docs'
-Requires-Dist: pydata-sphinx-theme<0.16.0,>=0.13.3; extra == 'docs'
+Requires-Dist: pydata-sphinx-theme<0.20.0,>=0.13.3; extra == 'docs'
 Requires-Dist: pylint<5.0.0,>=4.0.4; extra == 'docs'
-Requires-Dist: sax<0.12,>=0.11; extra == 'docs'
 Requires-Dist: signac<3.0.0,>=2.3.0; extra == 'docs'
 Requires-Dist: sphinx-book-theme<2.0.0,>=1.0.1; extra == 'docs'
 Requires-Dist: sphinx-copybutton<0.6.0,>=0.5.2; extra == 'docs'
@@ -138,12 +137,12 @@ Requires-Dist: sphinx<9.0.0,>=6; extra == 'docs'
 Requires-Dist: sphinxemoji<0.4.0,>=0.3.2; extra == 'docs'
 Requires-Dist: tmm<0.3.0,>=0.2.0; extra == 'docs'
 Provides-Extra: extras
-Requires-Dist: tidy3d-extras==2.11.2; extra == 'extras'
+Requires-Dist: tidy3d-extras==2.12.0; extra == 'extras'
 Provides-Extra: gdstk
 Requires-Dist: gdstk<1.1,>=0.9.49; extra == 'gdstk'
 Provides-Extra: heatcharge
-Requires-Dist: networkx<3.0.0,>=2.6.3; extra == 'heatcharge'
-Requires-Dist: rtree==1.2.0; extra == 'heatcharge'
+Requires-Dist: networkx<4.0.0,>=2.6.3; extra == 'heatcharge'
+Requires-Dist: rtree==1.4.1; extra == 'heatcharge'
 Requires-Dist: trimesh<5.0.0,>=4.6; extra == 'heatcharge'
 Requires-Dist: vtk<10.0.0,>=9.6.0; extra == 'heatcharge'
 Provides-Extra: pytorch
@@ -153,30 +152,29 @@ Provides-Extra: pyvista
 Requires-Dist: nest-asyncio<2.0.0,>=1.6.0; extra == 'pyvista'
 Requires-Dist: pyvista<0.48.0,>=0.45; extra == 'pyvista'
 Requires-Dist: trame-vtk<3.0.0,>=2.0.0; extra == 'pyvista'
-Requires-Dist: trame-vuetify<3.0.0,>=2.0.0; extra == 'pyvista'
+Requires-Dist: trame-vuetify<4.0.0,>=2.0.0; extra == 'pyvista'
 Requires-Dist: trame<4.0.0,>=3.0.0; extra == 'pyvista'
 Requires-Dist: vtk<10.0.0,>=9.6.0; extra == 'pyvista'
 Provides-Extra: ruff
 Requires-Dist: ruff==0.14.1; extra == 'ruff'
 Provides-Extra: scikit-rf
-Requires-Dist: scikit-rf<2.0.0,>=1.9.0; extra == 'scikit-rf'
+Requires-Dist: scikit-rf<3.0.0,>=1.9.0; extra == 'scikit-rf'
 Provides-Extra: tests
-Requires-Dist: networkx<3.0.0,>=2.6.3; extra == 'tests'
-Requires-Dist: orbax-checkpoint<0.11.33; extra == 'tests'
+Requires-Dist: networkx<4.0.0,>=2.6.3; extra == 'tests'
 Requires-Dist: pre-commit<5,>=4; extra == 'tests'
 Requires-Dist: psutil<8.0.0,>=7.2.1; extra == 'tests'
 Requires-Dist: pylint<5.0.0,>=4.0.4; extra == 'tests'
-Requires-Dist: pytest-cov<7.0.0,>=6.0.0; extra == 'tests'
+Requires-Dist: pytest-cov<8.0.0,>=6.0.0; extra == 'tests'
 Requires-Dist: pytest-env<2.0.0,>=1.1.5; extra == 'tests'
 Requires-Dist: pytest-testmon<3.0.0,>=2.1.3; extra == 'tests'
 Requires-Dist: pytest-timeout<3.0.0,>=2.4.0; extra == 'tests'
 Requires-Dist: pytest-xdist<4.0.0,>=3.6.1; extra == 'tests'
 Requires-Dist: pytest<10.0.0,>=8.1; extra == 'tests'
-Requires-Dist: rtree==1.2.0; extra == 'tests'
+Requires-Dist: rtree==1.4.1; extra == 'tests'
 Requires-Dist: trimesh<5.0.0,>=4.6; extra == 'tests'
 Provides-Extra: trimesh
-Requires-Dist: networkx<3.0.0,>=2.6.3; extra == 'trimesh'
-Requires-Dist: rtree==1.2.0; extra == 'trimesh'
+Requires-Dist: networkx<4.0.0,>=2.6.3; extra == 'trimesh'
+Requires-Dist: rtree==1.4.1; extra == 'trimesh'
 Requires-Dist: trimesh<5.0.0,>=4.6; extra == 'trimesh'
 Provides-Extra: vtk
 Requires-Dist: vtk<10.0.0,>=9.6.0; extra == 'vtk'
@@ -260,43 +258,55 @@ To get started, our documentation has a lot of [examples](https://docs.flexcompu
 
 ## FlexAgent MCP
 
-FlexAgent adds an AI-assisted layer on top of Tidy3D via the Model Context Protocol (MCP); read more about [AI-assisted simulation in Tidy3D](https://hs.flexcompute.com/news/ai-assisted-simulation-in-tidy3d-ushering-in-a-new-era-of-photonic-design). Install `tidy3d-mcp` directly when you want that experience outside the Tidy3D extensions for [Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=Flexcompute.tidy3d) and [Cursor](https://open-vsx.org/extension/Flexcompute/tidy3d). This repo also ships native plugin packaging for Claude Code and Gemini CLI.
-
-These commands assume [uv](https://docs.astral.sh/uv/getting-started/installation/) is installed on your machine.
-
-**Codex CLI / IDE**
-
-```bash
-codex mcp add tidy3d -- uvx tidy3d-mcp
-```
+FlexAgent connects AI clients to Tidy3D through the Model Context Protocol (MCP). For AI coding agents, install the Tidy3D plugin from the Flexcompute plugin marketplace. The plugin provides Tidy3D guidance and MCP registration; for now, configure MCP clients to launch the Python package runtime through `uvx tidy3d mcp`.
 
 **Claude Code**
 
-Add the Tidy3D marketplace, then install the plugin:
+In Claude Code:
 
-```bash
-claude plugin marketplace add https://github.com/flexcompute/tidy3d
-claude plugin install tidy3d@tidy3d
+```text
+/plugin marketplace add flexcompute/plugin-marketplace
+/plugin install tidy3d@flexcompute
 ```
 
-**Gemini CLI**
+If Claude Code is already running, reload plugins after installation:
 
-Install the extension from this repo:
-
-```bash
-gemini extensions install https://github.com/flexcompute/tidy3d
+```text
+/reload-plugins
 ```
 
-**Cursor CLI / IDE**
+**Codex**
 
-Cursor reuses the same schema across the editor and `cursor-agent`. Configure `.cursor/mcp.json` (per-project) or `~/.cursor/mcp.json` (global) and then run `cursor-agent mcp list` to verify:
+Add the Flexcompute marketplace:
+
+```bash
+codex plugin marketplace add flexcompute/plugin-marketplace
+```
+
+Then open Codex, run `/plugins`, choose the Flexcompute marketplace, and install Tidy3D.
+
+Configure Tidy3D through `uvx`:
+
+```bash
+uvx tidy3d configure
+```
+
+You can also set `SIMCLOUD_APIKEY` instead of running the configure command.
+
+For advanced manual MCP setup, launch the server directly:
+
+```bash
+uvx tidy3d mcp
+```
+
+For raw MCP client config, run the same command:
 
 ```json
 {
   "mcpServers": {
     "tidy3d": {
       "command": "uvx",
-      "args": ["tidy3d-mcp"]
+      "args": ["tidy3d", "mcp"]
     }
   }
 }
@@ -310,7 +320,6 @@ Cursor reuses the same schema across the editor and `cursor-agent`. Configure `.
 | Source Code       | https://github.com/flexcompute/tidy3d           |
 | Notebooks Source  | https://github.com/flexcompute/tidy3d-notebooks |
 | FAQ Source Code   | https://github.com/flexcompute/tidy3d-faq       |
-
 
 ## Issues / Feedback / Bug Reporting
 

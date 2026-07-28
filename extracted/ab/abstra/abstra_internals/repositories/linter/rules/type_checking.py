@@ -16,6 +16,10 @@ from abstra_internals.repositories.linter.models import (
 
 
 class TypeCheckIssue(LinterIssue):
+    title = "Type checking"
+    type = "warning"
+    fix_with_ai = True
+
     def __init__(self, filename: str, messages: List[str]) -> None:
         super().__init__()
         count = len(messages)
@@ -27,8 +31,6 @@ class TypeCheckIssue(LinterIssue):
 
 class TypeCheckingRule(PathScopedLinterRule):
     label = "Type checking"
-    type = "warning"
-    fix_with_ai = True
 
     # If Pyrefly stays mute for this many consecutive files, stop the pass:
     # each unanswered file costs a full request timeout, so a dead/mute server

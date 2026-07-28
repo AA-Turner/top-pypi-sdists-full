@@ -418,7 +418,7 @@ TrainedModelStatusType = Literal[
 ]
 TrainingDatasetStatusType = Literal["ACTIVE"]
 TrainingInputModeType = Literal["FastFile", "File", "Pipe"]
-WorkerComputeTypeType = Literal["CR.1X", "CR.4X"]
+WorkerComputeTypeType = Literal["CR.1X", "CR.4X", "CR.8X"]
 CleanRoomsMLServiceName = Literal["cleanroomsml"]
 ServiceName = Literal[
     "accessanalyzer",

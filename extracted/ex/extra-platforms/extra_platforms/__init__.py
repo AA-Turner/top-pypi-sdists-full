@@ -64,7 +64,7 @@ from .ci_data import (
     CODEBUILD,
     GITHUB_CI,
     GITLAB_CI,
-    GUIX_BUILD,
+    HERMETIC_BUILD,
     HEROKU_CI,
     TEAMCITY,
     TRAVIS_CI,
@@ -130,8 +130,8 @@ from .detection import (
     is_gnome_terminal,
     is_gnu_screen,
     is_guix,
-    is_guix_build,
     is_haiku,
+    is_hermetic_build,
     is_heroku_ci,
     is_hurd,
     is_hyper,
@@ -410,7 +410,7 @@ Pytest optional.
 """
 
 
-__version__ = "13.4.0"
+__version__ = "13.5.1"
 
 
 def _initialize_group_detection_functions() -> None:
@@ -619,8 +619,8 @@ __all__ = (
     "GNU_SCREEN",
     "GPU_TERMINALS",
     "GUIX",
-    "GUIX_BUILD",
     "HAIKU",
+    "HERMETIC_BUILD",
     "HEROKU_CI",
     "HURD",
     "HYPER",
@@ -819,8 +819,8 @@ __all__ = (
     "is_gnu_screen",
     "is_gpu_terminals",
     "is_guix",
-    "is_guix_build",
     "is_haiku",
+    "is_hermetic_build",
     "is_heroku_ci",
     "is_hurd",
     "is_hyper",

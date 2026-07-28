@@ -85,6 +85,8 @@ from .type_defs import (
     BatchGetCustomEntityTypesResponseTypeDef,
     BatchGetDataQualityResultRequestTypeDef,
     BatchGetDataQualityResultResponseTypeDef,
+    BatchGetDataQualityRulesetEvaluationRunRequestTypeDef,
+    BatchGetDataQualityRulesetEvaluationRunResponseTypeDef,
     BatchGetDevEndpointsRequestTypeDef,
     BatchGetDevEndpointsResponseTypeDef,
     BatchGetIterableFormsRequestTypeDef,
@@ -780,6 +782,16 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/batch_get_data_quality_result.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#batch_get_data_quality_result)
+        """
+
+    def batch_get_data_quality_ruleset_evaluation_run(
+        self, **kwargs: Unpack[BatchGetDataQualityRulesetEvaluationRunRequestTypeDef]
+    ) -> BatchGetDataQualityRulesetEvaluationRunResponseTypeDef:
+        """
+        Retrieves the details of multiple evaluation runs in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/batch_get_data_quality_ruleset_evaluation_run.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#batch_get_data_quality_ruleset_evaluation_run)
         """
 
     def batch_get_dev_endpoints(

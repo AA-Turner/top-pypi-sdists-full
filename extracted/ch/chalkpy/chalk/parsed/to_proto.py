@@ -937,6 +937,20 @@ class ToProtoConverter:
                     f.unversioned_attribute_name if hasattr(f, "unversioned_attribute_name") else None
                 ),
                 auxiliary_namespace=f.auxiliary_namespace,
+                # Mirror the scalar serializer (convert_scalar_feature): the redundant
+                # default-version alias is already flagged no_display=True during version
+                # expansion (feature_set_decorator.py), and version metadata lets consumers
+                # tell the default version from non-default ones (and render the count) for
+                # versioned windowed features.
+                no_display=f.no_display,
+                version=(
+                    pb.VersionInfo(
+                        default=f.version.default,
+                        maximum=f.version.maximum,
+                    )
+                    if f.version
+                    else None
+                ),
             )
         )
 

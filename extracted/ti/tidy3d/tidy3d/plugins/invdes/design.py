@@ -69,7 +69,7 @@ class AbstractInverseDesign(InvdesBaseModel, abc.ABC):
 
     task_name: str = Field(
         title="Task Name",
-        description="Task name to use in the objective function when running the ``JaxSimulation``.",
+        description="Task name to use in the objective function when running the simulation.",
     )
 
     verbose: bool = Field(
@@ -243,7 +243,7 @@ class InverseDesign(AbstractInverseDesign):
             )
 
     def is_output_monitor(self, monitor: td.Monitor) -> bool:
-        """Whether a monitor is added to the ``JaxSimulation`` as an ``output_monitor``."""
+        """Whether a monitor is added to the objective output monitors."""
 
         output_mnt_types = td.components.simulation.OutputMonitorTypes
 
@@ -284,7 +284,7 @@ class InverseDesign(AbstractInverseDesign):
         # construct mesh override structures and a new grid spec, if applicable
         grid_spec = self.simulation.grid_spec
         mesh_override_structure = self.design_region.mesh_override_structure
-        if mesh_override_structure:
+        if mesh_override_structure is not None:
             override_structures = list(self.simulation.grid_spec.override_structures)
             override_structures += [mesh_override_structure]
             grid_spec = grid_spec.updated_copy(override_structures=override_structures)

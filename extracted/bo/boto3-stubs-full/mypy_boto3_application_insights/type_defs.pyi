@@ -166,25 +166,18 @@ class CreateComponentRequestTypeDef(TypedDict):
     ComponentName: str
     ResourceList: Sequence[str]
 
-CreateLogPatternRequestTypeDef = TypedDict(
-    "CreateLogPatternRequestTypeDef",
-    {
-        "ResourceGroupName": str,
-        "PatternSetName": str,
-        "PatternName": str,
-        "Pattern": str,
-        "Rank": int,
-    },
-)
-LogPatternTypeDef = TypedDict(
-    "LogPatternTypeDef",
-    {
-        "PatternSetName": NotRequired[str],
-        "PatternName": NotRequired[str],
-        "Pattern": NotRequired[str],
-        "Rank": NotRequired[int],
-    },
-)
+class CreateLogPatternRequestTypeDef(TypedDict):
+    ResourceGroupName: str
+    PatternSetName: str
+    PatternName: str
+    Pattern: str
+    Rank: int
+
+class LogPatternTypeDef(TypedDict):
+    PatternSetName: NotRequired[str]
+    PatternName: NotRequired[str]
+    Pattern: NotRequired[str]
+    Rank: NotRequired[int]
 
 class DeleteApplicationRequestTypeDef(TypedDict):
     ResourceGroupName: str
@@ -385,16 +378,12 @@ class UpdateComponentRequestTypeDef(TypedDict):
     NewComponentName: NotRequired[str]
     ResourceList: NotRequired[Sequence[str]]
 
-UpdateLogPatternRequestTypeDef = TypedDict(
-    "UpdateLogPatternRequestTypeDef",
-    {
-        "ResourceGroupName": str,
-        "PatternSetName": str,
-        "PatternName": str,
-        "Pattern": NotRequired[str],
-        "Rank": NotRequired[int],
-    },
-)
+class UpdateLogPatternRequestTypeDef(TypedDict):
+    ResourceGroupName: str
+    PatternSetName: str
+    PatternName: str
+    Pattern: NotRequired[str]
+    Rank: NotRequired[int]
 
 class UpdateProblemRequestTypeDef(TypedDict):
     ProblemId: str

@@ -11,9 +11,9 @@ from typing import TYPE_CHECKING, Dict, List, MutableMapping, Optional, Tuple, U
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from bumpversion.scm.models import SCMInfo  # NOQA: TC001
+from bumpversion.scm.models import SCMInfo  # ruff: ignore[typing-only-first-party-import]
 from bumpversion.ui import get_indented_logger
-from bumpversion.versioning.models import VersionComponentSpec  # NOQA: TC001
+from bumpversion.versioning.models import VersionComponentSpec  # ruff: ignore[typing-only-first-party-import]
 
 if TYPE_CHECKING:  # pragma: no-coverage
     from bumpversion.versioning.models import VersionSpec
@@ -143,7 +143,7 @@ class Config(BaseSettings):
 
     @property
     def resolved_filemap(self) -> Dict[str, List[FileChange]]:
-        """Return the cached resolved filemap."""
+        """The cached resolved filemap."""
         if self._resolved_filemap is None:
             self._resolved_filemap = self._resolve_filemap()
         return self._resolved_filemap
@@ -166,7 +166,7 @@ class Config(BaseSettings):
 
     @property
     def files_to_modify(self) -> List[FileChange]:
-        """Return a list of files to modify."""
+        """A list of files to modify."""
         files_not_excluded = [filename for filename in self.resolved_filemap if filename not in self.excluded_paths]
         inclusion_set = set(self.included_paths) | set(files_not_excluded)
         return list(
@@ -177,13 +177,13 @@ class Config(BaseSettings):
 
     @property
     def version_config(self) -> VersionConfig:
-        """Return the version configuration."""
+        """The version configuration."""
         from bumpversion.versioning.version_config import VersionConfig
 
         return VersionConfig(self.parse, self.serialize, self.search, self.replace, self.parts)
 
     def version_spec(self, version: Optional[str] = None) -> VersionSpec:
-        """Return the version specification."""
+        """The version specification."""
         from bumpversion.versioning.models import VersionSpec
 
         return VersionSpec(self.parts)

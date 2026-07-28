@@ -328,10 +328,9 @@ class RabbitMQConsumer(Consumer):
                     try:
                         queue_message = self._deserialize(body)
                         queue_message.delivery_tag = method.delivery_tag
-                        if isinstance(queue_message, QueueMessage):
-                            queue_message.redelivered = bool(
-                                getattr(method, "redelivered", False)
-                            )
+                        queue_message.redelivered = bool(
+                            getattr(method, "redelivered", False)
+                        )
                         # ACK é responsabilidade do caller via threadsafe_ack()
                         yield queue_message
                     except Exception as e:
@@ -709,6 +708,9 @@ class RabbitMQFanoutConsumer(Consumer):
                     try:
                         queue_message = self._deserialize(body)
                         queue_message.delivery_tag = method.delivery_tag
+                        queue_message.redelivered = bool(
+                            getattr(method, "redelivered", False)
+                        )
                         yield queue_message
                     except Exception as e:
                         AbstraLogger.error(

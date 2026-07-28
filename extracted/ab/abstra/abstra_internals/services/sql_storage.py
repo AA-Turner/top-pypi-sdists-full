@@ -1,9 +1,6 @@
 import dataclasses
-import errno
 import json
-import os
 import shutil
-import sys
 import threading
 import time
 from contextlib import contextmanager
@@ -17,67 +14,13 @@ from abstra_json_sql.tables import Column, ColumnType, Table
 from abstra_internals.interface.sdk.tables.utils import serialize
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.settings import Settings
+from abstra_internals.utils.file_lock import create_file_lock
 from abstra_internals.utils.serializable import Serializable
 
 T = TypeVar("T", bound=Serializable)
 
 MAX_RETRIES = 5
 BASE_DELAY = 0.05
-LOCK_TIMEOUT = 30
-
-
-if sys.platform == "win32":
-    from filelock import FileLock
-
-    def _create_file_lock(lock_path: str) -> FileLock:
-        return FileLock(lock_path, timeout=LOCK_TIMEOUT)
-
-else:
-    import fcntl
-
-    class _PosixFileLock:
-        """Cross-process lock using fcntl.lockf() (POSIX byte-range locks).
-
-        Unlike flock(), POSIX locks are properly supported by NFSv4 and EFS,
-        providing reliable mutual exclusion across pods sharing a filesystem.
-        """
-
-        def __init__(self, lock_path: str, timeout: float = LOCK_TIMEOUT):
-            self._lock_path = lock_path
-            self._timeout = timeout
-            self._fd: Optional[int] = None
-
-        def acquire(self) -> None:
-            self._fd = os.open(self._lock_path, os.O_CREAT | os.O_RDWR)
-            deadline = time.monotonic() + self._timeout
-            while True:
-                try:
-                    fcntl.lockf(self._fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    return
-                except OSError as e:
-                    if e.errno not in (errno.EACCES, errno.EAGAIN):
-                        os.close(self._fd)
-                        self._fd = None
-                        raise
-                    if time.monotonic() >= deadline:
-                        os.close(self._fd)
-                        self._fd = None
-                        raise TimeoutError(
-                            f"Could not acquire lock {self._lock_path} "
-                            f"within {self._timeout}s"
-                        )
-                    time.sleep(0.05)
-
-        def release(self) -> None:
-            if self._fd is not None:
-                try:
-                    fcntl.lockf(self._fd, fcntl.LOCK_UN)
-                finally:
-                    os.close(self._fd)
-                    self._fd = None
-
-    def _create_file_lock(lock_path: str) -> _PosixFileLock:
-        return _PosixFileLock(lock_path)
 
 
 class SqlStorage(Generic[T]):
@@ -99,7 +42,7 @@ class SqlStorage(Generic[T]):
     def _locked(self):
         """Acquire both thread lock (intra-process) and file lock (cross-process)."""
         with self._thread_lock:
-            lock = _create_file_lock(self._lock_path)
+            lock = create_file_lock(self._lock_path)
             lock.acquire()
             try:
                 yield

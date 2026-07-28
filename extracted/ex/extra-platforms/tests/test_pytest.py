@@ -15,8 +15,8 @@
 from __future__ import annotations
 
 import ast
+import re
 import subprocess
-import warnings
 from itertools import chain
 from pathlib import Path
 
@@ -54,6 +54,7 @@ from extra_platforms import (
     is_windows,
     is_x86_64,
 )
+from extra_platforms._deprecated import DEPRECATED_ALIASES, REMOVAL_VERSION
 from extra_platforms.pytest import (
     _DeferredCondition,
     skip_aarch64,
@@ -160,41 +161,21 @@ def test_type_annotations():
     )
 
 
+# Registry-derived: every alias in DEPRECATED_ALIASES["extra_platforms.pytest"]
+# is exercised, so a new entry cannot slip in without test coverage.
 @pytest.mark.parametrize(
     "deprecated_id,replacement_id",
-    [
-        ("skip_tumbleweed", "skip_opensuse"),
-        ("unless_tumbleweed", "unless_opensuse"),
-    ],
+    sorted(DEPRECATED_ALIASES["extra_platforms.pytest"].items()),
 )
 def test_deprecated_decorator_aliases(deprecated_id, replacement_id):
     """Deprecated decorators resolve to their replacement and emit a warning."""
     with pytest.deprecated_call(
-        match=f"{deprecated_id} is deprecated and will be removed in "
-        f"extra-platforms 14.0.0, use {replacement_id} instead."
+        match=f"{re.escape(deprecated_id)} is deprecated and will be removed in "
+        f"extra-platforms {re.escape(REMOVAL_VERSION)}, "
+        f"use {re.escape(replacement_id)} instead."
     ):
         assert getattr(extra_platforms.pytest, deprecated_id) is getattr(
             extra_platforms.pytest, replacement_id
-        )
-
-
-@pytest.mark.parametrize(
-    "alias_id,target_id",
-    [
-        ("skip_hermetic_build", "skip_guix_build"),
-        ("unless_hermetic_build", "unless_guix_build"),
-    ],
-)
-def test_hermetic_build_aliases(alias_id, target_id):
-    """Hermetic-build aliases resolve to the guix-build decorators, silently.
-
-    ``is_guix_build()`` keys on ``HOME=/homeless-shelter``, which Nixpkgs and
-    other hermetic builders set too, so these aliases read honestly.
-    """
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")  # a DeprecationWarning would fail here
-        assert getattr(extra_platforms.pytest, alias_id) is getattr(
-            extra_platforms.pytest, target_id
         )
 
 

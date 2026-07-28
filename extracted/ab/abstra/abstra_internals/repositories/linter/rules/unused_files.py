@@ -31,6 +31,9 @@ class DeleteFile(LinterFix):
 
 
 class UnusedFileFound(LinterIssue):
+    title = "There are files that are not used by any stage"
+    type = "warning"
+
     def __init__(self, relative_path: Path, absolute_path: Path) -> None:
         self.label = f"The file {relative_path} is not used by any stage"
         self.fixes = [DeleteFile(absolute_path)]
@@ -38,7 +41,6 @@ class UnusedFileFound(LinterIssue):
 
 class UnusedFiles(LinterRule):
     label = "There are files that are not used by any stage"
-    type = "warning"
 
     def find_issues(self) -> List[LinterIssue]:
         project = (current_lint_context() or LintContext()).project

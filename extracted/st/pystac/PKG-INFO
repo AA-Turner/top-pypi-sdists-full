@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pystac
-Version: 1.15.1
+Version: 1.15.2
 Summary: Python library for working with the SpatioTemporal Asset Catalog (STAC) specification
 Project-URL: Documentation, https://pystac.readthedocs.io
 Project-URL: Repository, https://github.com/stac-utils/pystac

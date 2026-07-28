@@ -1,21 +1,21 @@
 Metadata-Version: 2.4
 Name: koheesio
-Version: 0.10.6
+Version: 0.11.0
 Summary: The steps-based Koheesio framework
 Project-URL: Documentation, https://github.com/Nike-Inc/koheesio#readme
 Project-URL: Issues, https://github.com/Nike-Inc/koheesio/issues
 Project-URL: Source, https://github.com/Nike-Inc/koheesio
 Project-URL: Project, https://github.com/orgs/Nike-Inc/projects/4
-Author: Danny Meijer, Mikita Sakalouski, Maxim Mityutko, Tone Vanden Bergh, Pariksheet Barapatre, Riccardo Iacomini
+Author-email: Danny Meijer <danny.meijer@nike.com>, Mikita Sakalouski <38785549+mikita-sakalouski@users.noreply.github.com>, Maxim Mityutko <43565398+maxim-mityutko@users.noreply.github.com>, Tone Vanden Bergh <60358854+ToneVDB@users.noreply.github.com>, Pariksheet Barapatre <pbarapatre@gmail.com>, Riccardo Iacomini <iacomini.riccardo@gmail.com>, Brend Braeckmans <72923643+BrendBraeckmans@users.noreply.github.com>, Bruno De Deken <dedekenbruno@gmail.com>, Nathan Melis <nathanmelis@gmail.com>, Tyler Richardett <tyler.richardett@gmail.com>, Federica Emiliani <federica.emiliani1984@gmail.com>, Louis-Paul Vlx <90868690+louis-paulvlx@users.noreply.github.com>, Tomasz Zaremba <tomasz@zaremba.it>
 License-Expression: Apache-2.0
 License-File: LICENSE.txt
+Keywords: data-engineering,data-pipeline,data-processing,data-quality,data-transformation,data-validation,etl,modular,pydantic,pyspark,reusable,software-engineering,spark,step-based,workflow
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -68,13 +68,11 @@ Requires-Dist: pymdown-extensions>=10.7.0; extra == 'docs'
 Provides-Extra: excel
 Requires-Dist: openpyxl>=3.0.0; extra == 'excel'
 Provides-Extra: pandas
-Requires-Dist: numpy<2.0.0; extra == 'pandas'
-Requires-Dist: pandas-stubs; extra == 'pandas'
-Requires-Dist: pandas>=1.3; extra == 'pandas'
-Requires-Dist: setuptools; extra == 'pandas'
+Requires-Dist: pyspark[pandas-on-spark]>=3.2.0; extra == 'pandas'
 Provides-Extra: pyspark
 Requires-Dist: pyarrow>13; extra == 'pyspark'
 Requires-Dist: pyspark>=3.2.0; extra == 'pyspark'
+Requires-Dist: setuptools; (python_version >= '3.12') and extra == 'pyspark'
 Provides-Extra: pyspark-connect
 Requires-Dist: pyspark[connect]>=3.5; extra == 'pyspark-connect'
 Provides-Extra: se
@@ -87,8 +85,7 @@ Provides-Extra: tableau
 Requires-Dist: tableauhyperapi>=0.0.19484; extra == 'tableau'
 Requires-Dist: tableauserverclient>=0.25; extra == 'tableau'
 Provides-Extra: test
-Requires-Dist: aioresponses; extra == 'test'
-Requires-Dist: chispa; extra == 'test'
+Requires-Dist: chispa>=0.10.1; extra == 'test'
 Requires-Dist: coverage[toml]; extra == 'test'
 Requires-Dist: flaky; extra == 'test'
 Requires-Dist: freezegun; extra == 'test'

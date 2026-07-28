@@ -14,9 +14,10 @@ class DiagPreconditioner(Preconditioner):
 
     def build(self):
         xp = self.get_array_module()
-        self.diagonal = self.SMatrix.compute_hessian_diagonal().astype(xp.float32)
-        max_val = xp.max(self.diagonal)
-        self.diagonal = self.diagonal + max_val * self.damping_factor
+        with self.get_device_context():
+            self.diagonal = self.SMatrix.compute_hessian_diagonal().astype(xp.float32)
+            max_val = xp.max(self.diagonal)
+            self.diagonal = self.diagonal + max_val * self.damping_factor
 
     def apply_inverse(self, x):
 

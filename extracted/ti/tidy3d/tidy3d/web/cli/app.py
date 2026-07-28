@@ -12,6 +12,8 @@ import click
 from tidy3d.web.cli.cache import cache_group
 from tidy3d.web.cli.config import config_group, configure
 from tidy3d.web.cli.constants import TIDY3D_DIR
+from tidy3d.web.cli.diagnostics import troubleshoot_group
+from tidy3d.web.cli.mcp import mcp_command
 
 from .develop.index import develop
 
@@ -40,6 +42,8 @@ def convert(lsf_file: Any, new_file: Any) -> None:
 
 tidy3d_cli.add_command(configure)
 tidy3d_cli.add_command(convert)
+tidy3d_cli.add_command(troubleshoot_group)
 tidy3d_cli.add_command(develop)
+tidy3d_cli.add_command(mcp_command)
 tidy3d_cli.add_command(config_group, name="config")
 tidy3d_cli.add_command(cache_group)

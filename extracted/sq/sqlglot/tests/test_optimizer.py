@@ -529,6 +529,50 @@ class TestOptimizer(unittest.TestCase):
             "SELECT y AS y FROM x",
         )
 
+        # Aliases derived from quoted projections keep their exact spelling, even for
+        # dialects that fold quoted identifiers (e.g. Trino), so that running this rule
+        # without `normalize_identifiers` doesn't desync the alias from its source
+        self.assertEqual(
+            optimizer.qualify_columns.qualify_columns(
+                parse_one('SELECT "C1" FROM t', read="trino"),
+                schema={},
+                infer_schema=False,
+                dialect="trino",
+            ).sql(dialect="trino"),
+            'SELECT "C1" AS "C1" FROM t',
+        )
+
+        self.assertEqual(
+            optimizer.qualify_columns.qualify_columns(
+                parse_one('SELECT ("C1") FROM t', read="trino"),
+                schema={},
+                infer_schema=False,
+                dialect="trino",
+            ).sql(dialect="trino"),
+            'SELECT ("C1") AS "C1" FROM t',
+        )
+
+        self.assertEqual(
+            optimizer.qualify_columns.qualify_columns(
+                parse_one('SELECT t.s."Ff" FROM t', read="duckdb"),
+                schema={"t": {"s": 'STRUCT("Ff" INT)'}},
+                dialect="duckdb",
+            ).sql(dialect="duckdb"),
+            'SELECT t.s."Ff" AS "Ff" FROM t',
+        )
+
+        # Same for unquoted identifiers: folding only the derived alias would leave the
+        # outer scope unable to resolve (and qualify) references to the inner output
+        self.assertEqual(
+            optimizer.qualify_columns.qualify_columns(
+                parse_one("SELECT Cc FROM (SELECT Cc FROM t) AS s", read="snowflake"),
+                schema={},
+                infer_schema=False,
+                dialect="snowflake",
+            ).sql(dialect="snowflake"),
+            "SELECT s.Cc AS Cc FROM (SELECT Cc AS Cc FROM t) AS s",
+        )
+
         self.assertEqual(
             optimizer.qualify.qualify(
                 parse_one(

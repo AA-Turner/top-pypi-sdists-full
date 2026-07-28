@@ -1,3 +1,4 @@
+import gc
 import json
 import os
 import re
@@ -35,6 +36,10 @@ from abstra_internals.controllers.execution.executor_types import (
     RunSnippetRequest,
     ShutdownRequest,
     WarmupRequest,
+)
+from abstra_internals.controllers.execution.snippet_packages import (
+    add_smartchat_packages_to_path,
+    ensure_snippet_requirements,
 )
 from abstra_internals.controllers.main import MainController
 from abstra_internals.entities.execution import ClientContext
@@ -215,6 +220,15 @@ def handle_warmup(
                 )
 
         state.warmup_complete = True
+
+        # Freeze the post-warmup heap (imported modules, controller, repos, SDK)
+        # into gc's permanent generation. Executors are long-lived and reused, so
+        # the per-execution gc.collect() in ExecutionController would otherwise
+        # rescan the entire heap every run (~400ms on warm web-editor executors,
+        # where clear_local_modules re-imports churn the object graph). After
+        # freeze it only scans objects created since warmup.
+        gc.collect()
+        gc.freeze()
 
         warmup_time = time.time() - warmup_start
 
@@ -515,7 +529,11 @@ def handle_run_snippet(
     snippet_dir.mkdir(parents=True, exist_ok=True)
     snippet_file = snippet_dir / f"{uuid4()}.py"
 
+    overlay_added = False
     try:
+        ensure_snippet_requirements(request.requirements)
+        overlay_added = add_smartchat_packages_to_path()
+
         snippet_file.write_text(request.code, encoding="utf-8")
 
         if state.controller is None:
@@ -541,13 +559,16 @@ def handle_run_snippet(
                 error=result.get("error"),
                 execution_time=total_time,
                 logs=logs,
+                overlay_added=overlay_added,
             )
         )
 
     except Exception as e:
         AbstraLogger.error(f"[Executor] Snippet execution failed: {e}")
         AbstraLogger.capture_exception(e)
-        response_queue.put(ExecutorResponse(success=False, error=str(e)))
+        response_queue.put(
+            ExecutorResponse(success=False, error=str(e), overlay_added=overlay_added)
+        )
     finally:
         _close_leaked_agent_tools()
         if snippet_file.exists():

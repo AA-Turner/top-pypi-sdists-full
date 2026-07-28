@@ -5,6 +5,7 @@ class PolicyApiMock:
     def __init__(self):
         self.mock_get_challenge_decision = MagicMock()
         self.mock_get_enrollment_decision = MagicMock()
+        self.mock_get_token_create_details = MagicMock()
         self.mock_map_attributes = MagicMock()
 
     def get_challenge_decision(self, *args, **kwargs):
@@ -18,6 +19,12 @@ class PolicyApiMock:
         This method mocks the original api PolicyApi.get_enrollment_decision with MagicMock.
         """
         return self.mock_get_enrollment_decision(self, *args, **kwargs)
+
+    def get_token_create_details(self, *args, **kwargs):
+        """
+        This method mocks the original api PolicyApi.get_token_create_details with MagicMock.
+        """
+        return self.mock_get_token_create_details(self, *args, **kwargs)
 
     def map_attributes(self, *args, **kwargs):
         """

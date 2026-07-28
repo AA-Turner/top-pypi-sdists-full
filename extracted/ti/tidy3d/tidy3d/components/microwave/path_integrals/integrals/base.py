@@ -54,14 +54,38 @@ class AxisAlignedPathIntegral(AxisAlignedPathIntegralSpec):
         min_bound = self.bounds[0][self.main_axis]
         max_bound = self.bounds[1][self.main_axis]
 
+        # Samples within floating-point tolerance of either bound are boundary samples: this
+        # handles Yee half-cell artifacts at PEC interfaces, where a sample landing within
+        # precision of the boundary carries a half-cell-averaged value, not a true interior one.
+        coord_values = scalar_field.coords[coord].values
+        on_boundary = np.isclose(coord_values, min_bound, rtol=fp_eps, atol=fp_eps) | np.isclose(
+            coord_values, max_bound, rtol=fp_eps, atol=fp_eps
+        )
+        interior = (coord_values > min_bound) & (coord_values < max_bound) & ~on_boundary
+
         if self.extrapolate_to_endpoints:
-            # Remove field outside the boundaries
-            scalar_field = scalar_field.sel({coord: slice(min_bound, max_bound)})
-            # Ignore values on the boundary (sel is inclusive)
-            scalar_field = scalar_field.drop_sel({coord: (min_bound, max_bound)}, errors="ignore")
-            coordinates = scalar_field.coords[coord].values
+            # Integrate interior samples only; the boundary samples are re-extrapolated to the corners.
+            keep = interior
+            empty_error = (
+                "Cannot extrapolate to the endpoints: the integration path has no field "
+                "samples strictly inside its bounds. The path likely spans too few grid "
+                "cells; refine the grid or set 'extrapolate_to_endpoints=False'."
+            )
         else:
-            coordinates = scalar_field.coords[coord].sel({coord: slice(min_bound, max_bound)})
+            # Box rule: also keep the boundary samples (held flat to the corners below); only
+            # samples a full half-cell or more outside the bounds are dropped as out-of-loop.
+            keep = interior | on_boundary
+            empty_error = (
+                "The integration path has no field samples within its bounds. The path likely "
+                "spans too few grid cells; refine the grid."
+            )
+        scalar_field = scalar_field.isel({coord: np.flatnonzero(keep)})
+        coordinates = scalar_field.coords[coord].values
+        if coordinates.size == 0:
+            raise DataError(empty_error)
+        # Clamp tolerance-accepted boundary samples onto the exact bound so the augmented
+        # integration grid below stays monotonic and no sliver outside the path is integrated.
+        coordinates = np.clip(coordinates, min_bound, max_bound)
 
         # Integration is along the original coordinates plus ensure that
         # endpoints corresponding to the precise bounds of the port are included
@@ -70,10 +94,8 @@ class AxisAlignedPathIntegral(AxisAlignedPathIntegralSpec):
         coords_interp = np.concatenate((coords_interp, [max_bound]))
         coords_interp = {coord: coords_interp}
 
-        # Use extrapolation for the 2 additional endpoints, unless there is only a single sample point
-        method = "linear"
-        if len(coordinates) == 1 and self.extrapolate_to_endpoints:
-            method = "nearest"
+        # Nearest endpoints give the centered (box) rule; linear extrapolates them (trapezoidal).
+        method = "linear" if self.extrapolate_to_endpoints and len(coordinates) > 1 else "nearest"
         scalar_field = scalar_field.interp(
             coords_interp, method=method, kwargs={"fill_value": "extrapolate"}
         )
@@ -177,7 +199,7 @@ class Custom2DPathIntegral(Custom2DPathIntegralSpec):
         v_field_name = f"{field}{dim2}"
 
         # Validate that fields are present
-        em_field._check_fields_stored([h_field_name, v_field_name])  # type: ignore[list-item]
+        em_field._check_fields_stored([h_field_name, v_field_name])
 
         # Select fields lying on the plane
         plane_indexer = {dim3: self.position}

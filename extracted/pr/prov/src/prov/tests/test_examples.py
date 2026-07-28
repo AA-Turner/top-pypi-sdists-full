@@ -12,13 +12,5 @@ from prov.tests import examples
 
 
 def test_all_examples(roundtrip, fmt):
-    for name, build in examples.tests:
-        # The "datatypes" example packs a mixed-XSD-datatype attribute set
-        # onto one entity, the same shape that loses fidelity across an RDF
-        # round trip as issue #218 (see test_attributes.py's
-        # RDF_DATATYPE_XFAIL); the pre-migration test_rdf.py loop skipped
-        # this example outright (`if name in ["datatypes"]: continue`).
-        # Preserved here, scoped to the rdf target only.
-        if fmt == "rdf" and name == "datatypes":
-            continue
+    for _name, build in examples.tests:
         roundtrip(build())

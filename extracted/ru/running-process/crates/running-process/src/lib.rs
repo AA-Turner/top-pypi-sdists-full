@@ -119,11 +119,15 @@ pub use observer::{
     ObserverEvent, ObserverEventKind, ObserverSubscriber,
 };
 #[cfg(feature = "originator-scan")]
-pub use originator::{find_processes_by_originator, OriginatorProcessInfo};
+pub use originator::{
+    find_declared_daemon_pids, find_processes_by_originator, OriginatorProcessInfo,
+};
 pub use rust_debug::{render_rust_debug_traces, RustDebugScopeGuard};
 pub use spawn::{
-    spawn, spawn_daemon, spawn_daemon_with_clear_env, spawn_daemon_with_env_policy,
-    spawn_with_env_policy, DaemonChild, EnvironmentPolicy, SpawnStdio, SpawnedChild, StdioSource,
+    spawn, spawn_daemon, spawn_daemon_breaking_away_from_job,
+    spawn_daemon_breaking_away_with_env_policy, spawn_daemon_with_clear_env,
+    spawn_daemon_with_env_policy, spawn_with_env_policy, DaemonChild, EnvironmentPolicy,
+    SpawnStdio, SpawnedChild, StdioSource, DAEMON_MARKER_ENV_VAR,
 };
 pub use terminal_graphics::{
     current_terminal_capabilities, current_terminal_capabilities_with_timeout,
@@ -136,12 +140,12 @@ pub use types::{
     StreamEvent, StreamKind,
 };
 
-pub(crate) use helpers::{exit_code, feed_chunk, kill_drain_deadline, log_spawned_child_pid};
 #[cfg(unix)]
 pub(crate) use helpers::{
     child_signal_disposition, child_try_wait_error_is_retryable, completed_reap_after_signal,
     poll_mutex_until, with_child_lock_for_signal, ChildSignalDisposition,
 };
+pub(crate) use helpers::{exit_code, feed_chunk, kill_drain_deadline, log_spawned_child_pid};
 #[cfg(unix)]
 pub use unix::{unix_set_priority, unix_signal_process, unix_signal_process_group, UnixSignal};
 #[cfg(windows)]

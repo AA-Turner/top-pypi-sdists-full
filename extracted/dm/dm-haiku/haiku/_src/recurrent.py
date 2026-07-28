@@ -124,11 +124,14 @@ def static_unroll(core, input_sequence, initial_state, time_major=True):
   time_axis = 0 if time_major else 1
   num_steps = jax.tree.leaves(input_sequence)[0].shape[time_axis]
   state = initial_state
+
+  # Using jnp.unstack allows JAX to use an efficient VJP rule for the slicing.
+  input_sequence, treedef = jax.tree.flatten(input_sequence)
+  input_sequence = [jnp.unstack(x, axis=time_axis) for x in input_sequence]
+
   for t in range(num_steps):
-    if time_major:
-      inputs = jax.tree.map(lambda x, _t=t: x[_t], input_sequence)
-    else:
-      inputs = jax.tree.map(lambda x, _t=t: x[:, _t], input_sequence)
+    inputs = [x[t] for x in input_sequence]
+    inputs = jax.tree.unflatten(treedef, inputs)
     outputs, state = core(inputs, state)
     output_sequence.append(outputs)
 
@@ -211,11 +214,11 @@ def dynamic_unroll(core,
   if not time_major:
     output_sequence = _swap_batch_time(output_sequence)
     if return_all_states:
-      state_sequence = _swap_batch_time(state_sequence)
+      state_sequence = _swap_batch_time(state_sequence)  # pyrefly: ignore[unbound-name]
 
   if return_all_states:
-    return output_sequence, state_sequence
-  return output_sequence, last_state
+    return output_sequence, state_sequence  # pyrefly: ignore[unbound-name]
+  return output_sequence, last_state  # pyrefly: ignore[unbound-name]
 
 
 def add_batch(nest, batch_size: int | None):
@@ -257,6 +260,8 @@ class VanillaRNN(RNNCore):
     self.double_bias = double_bias
 
   def __call__(self, inputs, prev_state):
+    inputs = jnp.asarray(inputs)
+    prev_state = jnp.asarray(prev_state)
     input_to_hidden = hk.Linear(self.hidden_size)
     # TODO(b/173771088): Consider changing default to double_bias=False.
     hidden_to_hidden = hk.Linear(self.hidden_size, with_bias=self.double_bias)
@@ -326,6 +331,8 @@ class LSTM(RNNCore):
       inputs: jax.Array,
       prev_state: LSTMState,
   ) -> tuple[jax.Array, LSTMState]:
+    inputs = jnp.asarray(inputs)
+    prev_state = jax.tree.map(jnp.asarray, prev_state)
     if len(inputs.shape) > 2 or not inputs.shape:
       raise ValueError("LSTM input must be rank-1 or rank-2.")
     x_and_h = jnp.concatenate([inputs, prev_state.hidden], axis=-1)
@@ -407,6 +414,8 @@ class ConvNDLSTM(RNNCore):
       inputs,
       state: LSTMState,
   ) -> tuple[jax.Array, LSTMState]:
+    inputs = jnp.asarray(inputs)
+    state = jax.tree.map(jnp.asarray, state)
     input_to_hidden = hk.ConvND(
         num_spatial_dims=self.num_spatial_dims,
         output_channels=4 * self.output_channels,
@@ -436,7 +445,7 @@ class ConvNDLSTM(RNNCore):
 
 
 class Conv1DLSTM(ConvNDLSTM):  # pylint: disable=empty-docstring
-  __doc__ = ConvNDLSTM.__doc__.replace("``num_spatial_dims``", "1")
+  __doc__ = ConvNDLSTM.__doc__.replace("``num_spatial_dims``", "1")  # pyrefly: ignore[missing-attribute]
 
   def __init__(
       self,
@@ -464,7 +473,7 @@ class Conv1DLSTM(ConvNDLSTM):  # pylint: disable=empty-docstring
 
 
 class Conv2DLSTM(ConvNDLSTM):  # pylint: disable=empty-docstring
-  __doc__ = ConvNDLSTM.__doc__.replace("``num_spatial_dims``", "2")
+  __doc__ = ConvNDLSTM.__doc__.replace("``num_spatial_dims``", "2")  # pyrefly: ignore[missing-attribute]
 
   def __init__(
       self,
@@ -492,7 +501,7 @@ class Conv2DLSTM(ConvNDLSTM):  # pylint: disable=empty-docstring
 
 
 class Conv3DLSTM(ConvNDLSTM):  # pylint: disable=empty-docstring
-  __doc__ = ConvNDLSTM.__doc__.replace("``num_spatial_dims``", "3")
+  __doc__ = ConvNDLSTM.__doc__.replace("``num_spatial_dims``", "3")  # pyrefly: ignore[missing-attribute]
 
   def __init__(
       self,
@@ -556,6 +565,8 @@ class GRU(RNNCore):
     self.b_init = b_init or jnp.zeros
 
   def __call__(self, inputs, state):
+    inputs = jnp.asarray(inputs)
+    state = jnp.asarray(state)
     if inputs.ndim not in (1, 2):
       raise ValueError("GRU input must be rank-1 or rank-2.")
 
@@ -647,6 +658,9 @@ class ResetCore(RNNCore):
       Tuple of the wrapped core's ``output, next_state``.
     """
     inputs, should_reset = inputs
+    inputs = jax.tree.map(jnp.asarray, inputs)
+    should_reset = jax.tree.map(jnp.asarray, should_reset)
+    state = jax.tree.map(jnp.asarray, state)
     if jax.tree_util.treedef_is_leaf(jax.tree.structure(should_reset)):
       # Equivalent to not tree.is_nested, but with support for Jax extensible
       # pytrees.

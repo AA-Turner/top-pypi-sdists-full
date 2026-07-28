@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from math import isclose
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import autograd.numpy as anp
 import numpy as np
@@ -11,6 +11,8 @@ import shapely
 from pydantic import Field, model_validator
 
 from tidy3d.components.autograd import TracedSize1D, get_static
+from tidy3d.components.autograd.path_utils import indexed_traced_paths, traced_paths
+from tidy3d.components.autograd.types import PathType
 from tidy3d.components.base import cached_property, keyed_cache
 from tidy3d.components.geometry import base
 from tidy3d.components.geometry.mesh import TriangleMesh
@@ -131,6 +133,11 @@ class Sphere(base.Centered, base.Circular):
     -------
     >>> b = Sphere(center=(1,2,3), radius=2)
     """
+
+    _traced_supported_paths: ClassVar[tuple[PathType, ...]] = traced_paths(
+        "radius",
+        *indexed_traced_paths("center", 3),
+    )
 
     radius: TracedSize1D = Field(
         title="Radius",
@@ -351,14 +358,6 @@ class Sphere(base.Centered, base.Circular):
 
     def _compute_derivatives(self, derivative_info: DerivativeInfo) -> AutogradFieldMap:
         """Compute adjoint derivatives using smooth sphere surface samples."""
-        valid_paths = {("radius",), *{("center", i) for i in range(3)}}
-        for path in derivative_info.paths:
-            if path not in valid_paths:
-                raise ValueError(
-                    f"No derivative defined w.r.t. 'Sphere' field '{path}'. "
-                    "Supported fields are 'radius' and 'center'."
-                )
-
         if not derivative_info.paths:
             return {}
 
@@ -682,6 +681,13 @@ class Cylinder(base.Centered, base.Circular, base.Planar):
     * `Photonic crystal waveguide polarization filter <../../../notebooks/PhotonicCrystalWaveguidePolarizationFilter.html>`_
     """
 
+    _traced_supported_paths: ClassVar[tuple[PathType, ...]] = traced_paths(
+        "length",
+        "radius",
+        "sidewall_angle",
+        *indexed_traced_paths("center", 3),
+    )
+
     # Provide more explanations on where radius is defined
     radius: TracedSize1D = Field(
         title="Radius",
@@ -812,9 +818,9 @@ class Cylinder(base.Centered, base.Circular, base.Planar):
         vjps = {}
         for path in derivative_info.paths:
             if path == ("length",):
-                vjp_top = vjps_polyslab.get(("slab_bounds", 0), 0.0)
-                vjp_bot = vjps_polyslab.get(("slab_bounds", 1), 0.0)
-                vjps[path] = vjp_top - vjp_bot
+                vjp_bottom = vjps_polyslab.get(("slab_bounds", 0), 0.0)
+                vjp_top = vjps_polyslab.get(("slab_bounds", 1), 0.0)
+                vjps[path] = 0.5 * (vjp_top - vjp_bottom)
 
             elif path == ("radius",):
                 # transform polyslab vertices derivatives into radius derivative
@@ -843,20 +849,13 @@ class Cylinder(base.Centered, base.Circular, base.Planar):
                         vjps_vertices_ys = vjps_polyslab[("vertices",)][:, 1]
                         vjps[path] = np.sum(vjps_vertices_ys)
                 else:
-                    vjp_top = vjps_polyslab.get(("slab_bounds", 0), 0.0)
-                    vjp_bot = vjps_polyslab.get(("slab_bounds", 1), 0.0)
-                    vjps[path] = vjp_top + vjp_bot
+                    vjp_bottom = vjps_polyslab.get(("slab_bounds", 0), 0.0)
+                    vjp_top = vjps_polyslab.get(("slab_bounds", 1), 0.0)
+                    vjps[path] = vjp_bottom + vjp_top
 
             elif path == ("sidewall_angle",):
                 # direct mapping: cylinder angle equals polyslab angle
                 vjps[path] = vjps_polyslab.get(("sidewall_angle",), 0.0)
-
-            else:
-                raise NotImplementedError(
-                    f"Differentiation with respect to 'Cylinder' '{path}' field not supported. "
-                    "If you would like this feature added, please feel free to raise "
-                    "an issue on the tidy3d front end repository."
-                )
 
         return vjps
 

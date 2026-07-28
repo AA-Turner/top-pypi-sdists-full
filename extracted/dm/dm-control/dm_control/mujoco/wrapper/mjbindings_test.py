@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 
-"""Tests for mjbindings."""
-
 from absl.testing import absltest
 from absl.testing import parameterized
 from dm_control.mujoco.wrapper.mjbindings import constants
@@ -27,7 +25,7 @@ class MjbindingsTest(parameterized.TestCase):
       ('mjdata', 'xpos', ('nbody', 3)),
       ('mjmodel', 'geom_type', ('ngeom',)),
       # Fields with identifiers in mjxmacro that are resolved at compile-time.
-      ('mjmodel', 'actuator_dynprm', ('nu', constants.mjNDYN)),
+      ('mjmodel', 'actuator_dynprm', ('nactuator', constants.mjNDYN)),
       # Fields with multiple named indices.
       ('mjmodel', 'key_qpos', ('nkey', 'nq')),
   )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyproject-fmt
-Version: 2.25.4
+Version: 2.26.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -34,18 +34,8 @@ Apply a consistent format to your ``pyproject.toml`` file with comment support. 
 Recent Changes
 ~~~~~~~~~~~~~~~~
 
-- 🐛 fix(build): vendor only git-tracked common sources by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#419 <https://github.com/tox-dev/toml-fmt/pull/419>`_
-- 🧪 test: run 3.15t everywhere by default by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#416 <https://github.com/tox-dev/toml-fmt/pull/416>`_
-- 👷 ci: run the test suite on Python 3.15 by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#415 <https://github.com/tox-dev/toml-fmt/pull/415>`_
-- Replace prettier with mdformat and yamlfmt by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#413 <https://github.com/tox-dev/toml-fmt/pull/413>`_
-- Update Rust dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#411 <https://github.com/tox-dev/toml-fmt/pull/411>`_
-- Update Python dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#412 <https://github.com/tox-dev/toml-fmt/pull/412>`_ <a id="2.25.3"></a>
+- ✨ feat(pyproject-fmt): order tool.pyproject-fmt config keys by `@gaborbernat <https://github.com/gaborbernat>`_ in
+  `#421 <https://github.com/tox-dev/toml-fmt/pull/421>`_ <a id="2.25.4"></a>
 
 Philosophy
 ----------
@@ -1899,6 +1889,41 @@ of tables, last).
 (display order in the rendered changelog).
 
 **Sorted arrays:** ``ignore`` (file globs to skip).
+
+``[tool.pyproject-fmt]``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The formatter's own configuration table.
+
+
+Keys are ordered to match the documented configuration sequence; the ``expand_tables``, ``collapse_tables``, and
+``skip_wrap_for_keys`` lists are sorted and deduplicated.
+
+
+**Key ordering:** ``column_width`` → ``indent`` → ``keep_full_version`` →
+``generate_python_version_classifiers`` → ``max_supported_python`` → ``table_format`` → ``sub_table_spacing`` →
+``separate_root_table`` → ``expand_tables`` → ``collapse_tables`` → ``skip_wrap_for_keys``. Unrecognized keys are
+appended alphabetically.
+
+**Sorted arrays:** ``expand_tables``, ``collapse_tables``, ``skip_wrap_for_keys``. Each is matched as a set, so
+sorting and dropping byte-identical duplicates leaves behavior unchanged. Duplicate removal keeps case variants
+distinct, matching the case-sensitive lookups these lists feed.
+
+.. code-block:: toml
+
+   # Before
+   [tool.pyproject-fmt]
+   keep_full_version = true
+   column_width = 120
+   skip_wrap_for_keys = ["b", "a", "a"]
+   indent = 4
+
+   # After
+   [tool.pyproject-fmt]
+   column_width = 120
+   indent = 4
+   keep_full_version = true
+   skip_wrap_for_keys = [ "a", "b" ]
 
 Other Tables
 ~~~~~~~~~~~~

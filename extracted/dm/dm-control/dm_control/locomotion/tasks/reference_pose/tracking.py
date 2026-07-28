@@ -81,7 +81,7 @@ def _strip_reference_prefix(dictionary: Mapping[Text, Any],
     The dictionary with the modified keys and original values (and unchanged
     keys specified by keep_prefixes).
   """
-  keep_prefixes = keep_prefixes or []
+  keep_prefixes = keep_prefixes or []  # pyrefly: ignore[bad-assignment]
   new_dictionary = dict()
   for key in dictionary:
     if key.startswith(prefix):
@@ -89,7 +89,7 @@ def _strip_reference_prefix(dictionary: Mapping[Text, Any],
       # note that this will not copy the underlying array.
       new_dictionary[key_without_prefix] = dictionary[key]
     else:
-      for keep_prefix in keep_prefixes:
+      for keep_prefix in keep_prefixes:  # pyrefly: ignore[not-iterable]
         if key.startswith(keep_prefix):
           new_dictionary[key] = dictionary[key]
 
@@ -269,7 +269,7 @@ class ReferencePosesTask(composer.Task, metaclass=abc.ABCMeta):
     self._clip_reference_features = _strip_reference_prefix(  # pytype: disable=wrong-arg-types
         self._clip_reference_features,
         'walker/',
-        keep_prefixes=self._prop_prefixes)
+        keep_prefixes=self._prop_prefixes)  # pyrefly: ignore[bad-argument-type]
 
     positions = []
     quaternions = []
@@ -315,7 +315,7 @@ class ReferencePosesTask(composer.Task, metaclass=abc.ABCMeta):
               clip_id,
               start_step=clip_start_step,
               end_step=_MAX_END_STEP) for clip_id, clip_start_step in zip(
-                  self._dataset.ids, self._dataset.start_steps)
+                  self._dataset.ids, self._dataset.start_steps)  # pyrefly: ignore[bad-argument-type]
       ]
       # infer clip end steps to set sampling distribution
       self._dataset.end_steps = tuple(clip.end_step for clip in self._all_clips)
@@ -395,7 +395,7 @@ class ReferencePosesTask(composer.Task, metaclass=abc.ABCMeta):
     self._start_probabilities = []
     dataset = self._dataset
     for clip_number, (start, end, weight) in enumerate(
-        zip(dataset.start_steps, dataset.end_steps, dataset.weights)):
+        zip(dataset.start_steps, dataset.end_steps, dataset.weights)):  # pyrefly: ignore[bad-argument-type]
       # length - required lookahead - minimum number of steps
       last_possible_start = end - self._max_ref_step - self._min_steps
 
@@ -458,8 +458,8 @@ class ReferencePosesTask(composer.Task, metaclass=abc.ABCMeta):
       logging.info('Loading clip %s', clip_id)
       self._all_clips[self._current_clip_index] = self._loader.get_trajectory(
           clip_id,
-          start_step=self._dataset.start_steps[self._current_clip_index],
-          end_step=self._dataset.end_steps[self._current_clip_index],
+          start_step=self._dataset.start_steps[self._current_clip_index],  # pyrefly: ignore[unsupported-operation]
+          end_step=self._dataset.end_steps[self._current_clip_index],  # pyrefly: ignore[unsupported-operation]
           zero_out_velocities=False)
     self._current_clip = self._all_clips[self._current_clip_index]
     self._clip_reference_features = self._current_clip.as_dict()
@@ -469,9 +469,9 @@ class ReferencePosesTask(composer.Task, metaclass=abc.ABCMeta):
     # clip_start_step:clip_end_step. However start_step is in
     # [clip_start_step:clip_end_step]. Hence we subtract clip_start_step to
     # obtain a valid index for the reference features.
-    self._time_step = start_step - self._dataset.start_steps[
+    self._time_step = start_step - self._dataset.start_steps[  # pyrefly: ignore[unsupported-operation]
         self._current_clip_index]
-    self._current_start_time = (start_step - self._dataset.start_steps[
+    self._current_start_time = (start_step - self._dataset.start_steps[  # pyrefly: ignore[unsupported-operation]
         self._current_clip_index]) * self._current_clip.dt
     self._last_step = len(
         self._clip_reference_features['joints']) - self._max_ref_step - 1
@@ -879,7 +879,7 @@ class MultiClipMocapTracking(ReferencePosesTask):
         termination_error_threshold=termination_error_threshold,
         prop_termination_error_threshold=prop_termination_error_threshold,
         min_steps=min_steps,
-        dataset=dataset,
+        dataset=dataset,  # pyrefly: ignore[bad-argument-type]
         reward_type=reward_type,
         physics_timestep=physics_timestep,
         always_init_at_clip_start=always_init_at_clip_start,
@@ -956,7 +956,7 @@ class PlaybackTask(ReferencePosesTask):
   def _get_clip_to_track(self, random_state: np.random.RandomState):
     self._current_clip_index = (self._current_clip_index + 1) % self._num_clips
 
-    start_step = self._dataset.start_steps[self._current_clip_index]
+    start_step = self._dataset.start_steps[self._current_clip_index]  # pyrefly: ignore[unsupported-operation]
     clip_id = self._dataset.ids[self._current_clip_index]
     logging.info('Showing clip %d of %d, clip id %s',
                  self._current_clip_index+1, self._num_clips, clip_id)
@@ -966,21 +966,21 @@ class PlaybackTask(ReferencePosesTask):
       logging.info('Loading clip %s', clip_id)
       self._all_clips[self._current_clip_index] = self._loader.get_trajectory(
           clip_id,
-          start_step=self._dataset.start_steps[self._current_clip_index],
-          end_step=self._dataset.end_steps[self._current_clip_index],
+          start_step=self._dataset.start_steps[self._current_clip_index],  # pyrefly: ignore[unsupported-operation]
+          end_step=self._dataset.end_steps[self._current_clip_index],  # pyrefly: ignore[unsupported-operation]
           zero_out_velocities=False)
     self._current_clip = self._all_clips[self._current_clip_index]
-    self._clip_reference_features = self._current_clip.as_dict()
+    self._clip_reference_features = self._current_clip.as_dict()  # pyrefly: ignore[missing-attribute]
     self._clip_reference_features = _strip_reference_prefix(
         self._clip_reference_features, 'walker/')
     # The reference features are already restricted to
     # clip_start_step:clip_end_step. However start_step is in
     # [clip_start_step:clip_end_step]. Hence we subtract clip_start_step to
     # obtain a valid index for the reference features.
-    self._time_step = start_step - self._dataset.start_steps[
+    self._time_step = start_step - self._dataset.start_steps[  # pyrefly: ignore[unsupported-operation]
         self._current_clip_index]
-    self._current_start_time = (start_step - self._dataset.start_steps[
-        self._current_clip_index]) * self._current_clip.dt
+    self._current_start_time = (start_step - self._dataset.start_steps[  # pyrefly: ignore[unsupported-operation]
+        self._current_clip_index]) * self._current_clip.dt  # pyrefly: ignore[missing-attribute]
     self._last_step = len(
         self._clip_reference_features['joints']) - self._max_ref_step - 1
     logging.info('Mocap %s at step %d with remaining length %d.', clip_id,

@@ -23,6 +23,10 @@ ABSTRA_PATH_RE = re.compile(r"(^|[\"'/\\\s])\.abstra([/\\]|$)")
 
 
 class AbstraDirReferenceFound(LinterIssue):
+    title = "Avoid hardcoding '.abstra' internal paths"
+    type = "warning"
+    fix_with_ai = True
+
     def __init__(self, file: str, line: int, literal: str):
         self.label = (
             f"{file}:{line} hardcodes an internal '.abstra' path: '{literal}'. "
@@ -35,8 +39,6 @@ class AbstraDirReferenceFound(LinterIssue):
 
 class AbstraDirReference(PathScopedLinterRule):
     label: str = "Avoid hardcoding '.abstra' internal paths"
-    type: str = "warning"
-    fix_with_ai: bool = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         project = (current_lint_context() or LintContext()).project

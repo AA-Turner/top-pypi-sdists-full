@@ -50,7 +50,6 @@ class _FakeCheck:
             "label": "label of %s" % self.name,
             "type": self.type,
             "issues": self.issues,
-            "fixWithAi": False,
         }
 
 

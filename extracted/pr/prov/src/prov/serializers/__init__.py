@@ -1,4 +1,4 @@
-from __future__ import annotations  # needed for | type annotations in Python < 3.10
+from __future__ import annotations  # defer eval: TYPE_CHECKING names in signatures
 
 import io
 from abc import ABC, abstractmethod
@@ -57,7 +57,6 @@ class Serializer(ABC):
             **args: Format-specific serialization options, passed through by
                 subclasses.
         """
-        pass  # pragma: no cover -- abstract body, never executed directly
 
     @abstractmethod
     def deserialize(self, stream: io.IOBase, **args: Any) -> ProvDocument:
@@ -74,13 +73,10 @@ class Serializer(ABC):
         Returns:
             The deserialized :class:`~prov.model.ProvDocument`.
         """
-        pass  # pragma: no cover -- abstract body, never executed directly
 
 
 class DoNotExist(Error):
     """Exception for the case a serializer is not available."""
-
-    pass
 
 
 class Registry:
@@ -103,11 +99,11 @@ class Registry:
         The insertion order is kept as ``json, rdf, provn, xml`` (the
         historic order when all extras are present) because
         :func:`prov.read`'s format auto-detection iterates
-        ``Registry.serializers`` in order and several tests
-        (``test_read_auto_detects_rdf``,
-        ``test_read_auto_detect_of_xml_hits_uncaught_rdf_syntax_error``,
-        ``test_read_on_unparseable_content_raises_bad_syntax``) pin the
-        exact candidate tried second.
+        ``Registry.serializers`` in order and
+        ``test_read_auto_detect_with_broken_tell_degrades_to_no_rewind``
+        pins JSON as the first candidate tried — a non-seekable stream can
+        only attempt the first format, so JSON must remain first for JSON
+        content to be auto-detected on broken streams.
         """
         from prov.serializers.provjson import ProvJSONSerializer
         from prov.serializers.provn import ProvNSerializer
@@ -153,7 +149,9 @@ def get(format_name: str) -> type[Serializer]:
     if Registry.serializers is None:
         Registry.load_serializers()
     serializers = Registry.serializers
-    assert serializers is not None  # load_serializers() always populates it
+    # load_serializers() (just above) always populates Registry.serializers.
+    if serializers is None:  # pragma: no cover
+        raise AssertionError("Registry.serializers is not populated")
     try:
         return serializers[format_name]
     except KeyError as e:

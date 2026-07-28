@@ -16,6 +16,7 @@ from seeq.base import util
 from seeq.sdk import *
 from seeq.spy import _common
 from seeq.spy import _login
+from seeq.spy import _shared_definition_constants
 from seeq.spy._errors import *
 from seeq.spy._redaction import request_safely
 from seeq.spy._session import Session
@@ -304,7 +305,10 @@ class Workstep(Item):
         self._set_timezone(value)
 
     def _get_timezone(self):
+        # Matches WorksheetStore.storeName in client/packages/webserver/app/src/worksheet/worksheet.store.ts.
         worksheet_store = self._get_store('sqWorksheetStore')
+        # Matches WorksheetState.timezone in client/packages/webserver/app/src/worksheet/worksheet.store.ts.
+        # TypeScript's type checker protects against a silent rename.
         timezone = _common.get(worksheet_store, 'timezone')
         return timezone
 
@@ -354,7 +358,11 @@ class WorkstepForAnalysisOrRoom(Workstep):
         See worksheet properties "display_range" for docs
         :return:
         """
+        # Matches DurationStore.storeName in client/packages/webserver/app/src/trendData/duration.store.ts.
         duration_store = self._get_store('sqDurationStore')
+        # These match DurationStoreState.displayRange, .investigateRange, and .autoUpdate (used elsewhere in this
+        # file) in client/packages/webserver/app/src/trendData/duration.store.ts. TypeScript's type checker
+        # protects against a silent rename.
         display_range = _common.get(duration_store, 'displayRange', default=dict())
         if not display_range:
             return None
@@ -616,6 +624,10 @@ class AnalysisWorkstep(WorkstepForAnalysisOrRoom):
         """
         workstep_stores = self.get_workstep_stores()
 
+        # Matches TableBuilderStore.storeName in client/packages/webserver/app/src/tableBuilder/tableBuilder.store.ts
+        # and TrendMetricStore.storeName in client/packages/webserver/app/src/trendData/trendMetric.store.ts.
+        # 'headers'/'scorecardHeaders'/'mode' below are frontend property names on those stores' state.
+        # TypeScript's type checker protects against a silent rename.
         table_builder_stores = _common.get(workstep_stores, 'sqTableBuilderStore', default=dict(), assign_default=True)
         headers = _common.get(table_builder_stores, 'headers', default=dict(), assign_default=True)
         if 'type' in headers:
@@ -657,10 +669,10 @@ class AnalysisWorkstep(WorkstepForAnalysisOrRoom):
             mode_headers['type'] = self._table_date_display_user_to_workstep[date_display]
 
     _table_date_display_user_to_workstep = {
-        None: 'none',
-        'Start': 'start',
-        'End': 'end',
-        'Start And End': 'startEnd'
+        None: _shared_definition_constants.TABLE_BUILDER_HEADER_TYPE.NONE,
+        'Start': _shared_definition_constants.TABLE_BUILDER_HEADER_TYPE.START,
+        'End': _shared_definition_constants.TABLE_BUILDER_HEADER_TYPE.END,
+        'Start And End': _shared_definition_constants.TABLE_BUILDER_HEADER_TYPE.START_END
     }
 
     _table_date_display_workstep_to_user = {v: k for k, v in _table_date_display_user_to_workstep.items()}
@@ -1173,6 +1185,9 @@ class AnalysisWorkstep(WorkstepForAnalysisOrRoom):
 
         return store_map[store_name]
 
+    # The values below (not the user-facing keys) are frontend property names, not SPy-synced constants; they
+    # match SeriesStoreItem fields in client/packages/webserver/app/src/trendData/trendSeries.store.ts.
+    # TypeScript's type checker protects against a silent rename.
     _workstep_display_user_to_workstep = {
         'Color': 'color',
         'Line Style': 'dashStyle',
@@ -1195,29 +1210,31 @@ class AnalysisWorkstep(WorkstepForAnalysisOrRoom):
     _workstep_display_workstep_to_user = dict((v, k) for k, v in _workstep_display_user_to_workstep.items())
 
     _workstep_sampleDisplay_user_to_workstep = {
-        'Line': 'line',
-        'Line and Sample': 'lineAndSample',
-        'Samples': 'sample',
-        'Bars': 'bar',
+        'Line': _shared_definition_constants.SAMPLE_OPTIONS.LINE,
+        'Line and Sample': _shared_definition_constants.SAMPLE_OPTIONS.LINE_AND_SAMPLE,
+        'Samples': _shared_definition_constants.SAMPLE_OPTIONS.SAMPLES,
+        'Bars': _shared_definition_constants.SAMPLE_OPTIONS.BAR,
     }
 
     _workstep_sampleDisplay_workstep_to_user = dict((v, k) for k, v in _workstep_sampleDisplay_user_to_workstep.items())
 
     _workstep_dashStyle_user_to_workstep = {
-        'Solid': 'Solid',
-        'Short Dash': 'ShortDash',
-        'Short Dash-Dot': 'ShortDashDot',
-        'Short Dash-Dot-Dot': 'ShortDashDotDot',
-        'Dot': 'Dot',
-        'Dash': 'Dash',
-        'Long Dash': 'LongDash',
-        'Dash-Dot': 'DashDot',
-        'Long Dash-Dot': 'LongDashDot',
-        'Long Dash-Dot-Dot': 'LongDashDotDot',
+        'Solid': _shared_definition_constants.DASH_STYLES.SOLID,
+        'Short Dash': _shared_definition_constants.DASH_STYLES.SHORT_DASH,
+        'Short Dash-Dot': _shared_definition_constants.DASH_STYLES.SHORT_DASH_DOT,
+        'Short Dash-Dot-Dot': _shared_definition_constants.DASH_STYLES.SHORT_DASH_DOT_DOT,
+        'Dot': _shared_definition_constants.DASH_STYLES.DOT,
+        'Dash': _shared_definition_constants.DASH_STYLES.DASH,
+        'Long Dash': _shared_definition_constants.DASH_STYLES.LONG_DASH,
+        'Dash-Dot': _shared_definition_constants.DASH_STYLES.DASH_DOT,
+        'Long Dash-Dot': _shared_definition_constants.DASH_STYLES.LONG_DASH_DOT,
+        'Long Dash-Dot-Dot': _shared_definition_constants.DASH_STYLES.LONG_DASH_DOT_DOT,
     }
 
     _workstep_dashStyle_workstep_to_user = dict((v, k) for k, v in _workstep_dashStyle_user_to_workstep.items())
 
+    # 'Right'/'Left' map to a boolean on the frontend (rightAxis), not a string, so there's no string value to
+    # drift out of sync here.
     _workstep_rightAxis_user_to_workstep = {
         'Right': True,
         'Left': False,
@@ -1226,8 +1243,8 @@ class AnalysisWorkstep(WorkstepForAnalysisOrRoom):
     _workstep_rightAxis_workstep_to_user = dict((v, k) for k, v in _workstep_rightAxis_user_to_workstep.items())
 
     _workstep_yAxisType_user_to_workstep = {
-        'Linear': 'linear',
-        'Logarithmic': 'logarithmic',
+        'Linear': _shared_definition_constants.Y_AXIS_TYPES.LINEAR,
+        'Logarithmic': _shared_definition_constants.Y_AXIS_TYPES.LOGARITHMIC,
     }
 
     _workstep_yAxisType_workstep_to_user = dict((v, k) for k, v in _workstep_yAxisType_user_to_workstep.items())
@@ -1391,26 +1408,28 @@ class AnalysisWorkstep(WorkstepForAnalysisOrRoom):
         worksheet_store['viewKey'] = self._view_key_user_to_workstep[view]
 
     _view_key_user_to_workstep = {
-        'Table': 'TABLE',
-        'Scorecard': 'TABLE',
-        'Treemap': 'TREEMAP',
-        'Scatter Plot': 'SCATTER_PLOT',
-        'Trend': 'TREND',
-        'Asset Group Editor': 'ASSET_GROUP_EDITOR'
+        'Table': _shared_definition_constants.WORKSHEET_VIEW.TABLE,
+        'Scorecard': _shared_definition_constants.WORKSHEET_VIEW.TABLE,
+        'Treemap': _shared_definition_constants.WORKSHEET_VIEW.TREEMAP,
+        'Scatter Plot': _shared_definition_constants.WORKSHEET_VIEW.SCATTER_PLOT,
+        'Trend': _shared_definition_constants.WORKSHEET_VIEW.TREND,
+        'Asset Group Editor': _shared_definition_constants.WORKSHEET_VIEW.ASSET_GROUP_EDITOR
     }
     _view_key_workstep_to_user = {
         k.upper().replace(' ', '_'): v.title().replace('_', ' ')
         for k, v in _view_key_user_to_workstep.items()
     }
 
+    # Most strings below are frontend property names; see TableBuilderState in
+    # client/packages/webserver/app/src/tableBuilder/tableBuilder.store.ts.
     _default_table_state = {
         'headers': {
             'condition': {
-                'type': 'startEnd',
+                'type': _shared_definition_constants.TABLE_BUILDER_HEADER_TYPE.START_END,
                 'format': 'lll'
             },
             'simple': {
-                'type': 'startEnd',
+                'type': _shared_definition_constants.TABLE_BUILDER_HEADER_TYPE.START_END,
                 'format': 'lll'
             }
         },

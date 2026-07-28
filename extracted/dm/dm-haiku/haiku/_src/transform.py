@@ -34,8 +34,6 @@ class hk:
   MutableParams = typing.MutableParams
   MutableState = typing.MutableState
 # pylint: enable=invalid-name
-# TODO(slebedev): This makes the module non-forkable.
-PRNGKey = typing.PRNGKey
 del typing
 
 T = TypeVar("T")
@@ -170,7 +168,7 @@ def without_state(f: TransformedWithState) -> Transformed:
           "`hk.transform_with_state`.")
     return params
 
-  init_fn.__signature__ = sig_remove_state(inspect.signature(f.init))
+  init_fn.__signature__ = sig_remove_state(inspect.signature(f.init))  # pyrefly: ignore[missing-attribute]
 
   def apply_fn(params, *args, **kwargs):
     if "state" in kwargs:
@@ -187,7 +185,7 @@ def without_state(f: TransformedWithState) -> Transformed:
           "`hk.transform_with_state`.")
     return out
 
-  apply_fn.__signature__ = sig_remove_state(
+  apply_fn.__signature__ = sig_remove_state(  # pyrefly: ignore[missing-attribute]
       sig_replace_leading_parameters(
           inspect.signature(f.apply), 2, [
               inspect.Parameter(
@@ -233,7 +231,7 @@ def with_empty_state(f: Transformed) -> TransformedWithState:
     state = data_structures.to_haiku_dict({})
     return params, state
 
-  init_fn.__signature__ = sig_add_state(inspect.signature(f.init))
+  init_fn.__signature__ = sig_add_state(inspect.signature(f.init))  # pyrefly: ignore[missing-attribute]
 
   def apply_fn(
       params: hk.Params, state: hk.State | None, *args, **kwargs
@@ -241,9 +239,9 @@ def with_empty_state(f: Transformed) -> TransformedWithState:
     del state
     out = f.apply(params, *args, **kwargs)
     state = data_structures.to_haiku_dict({})
-    return out, state
+    return out, state  # pyrefly: ignore[bad-return]
 
-  apply_fn.__signature__ = sig_add_state(sig_replace_leading_parameters(
+  apply_fn.__signature__ = sig_add_state(sig_replace_leading_parameters(  # pyrefly: ignore[missing-attribute]
       inspect.signature(f.apply), 1, [
           inspect.Parameter(
               "param",
@@ -413,12 +411,12 @@ def transform_with_state(f) -> TransformedWithState:
   f_sig = inspect.signature(f)
 
   def init_fn(
-      rng: PRNGKey | int | None,
+      rng: jax.Array | int | None,
       *args,
       **kwargs,
   ) -> tuple[hk.MutableParams, hk.MutableState]:
     """Initializes your function collecting parameters and state."""
-    rng = to_prng_sequence(rng, err_msg=INIT_RNG_ERROR)
+    rng = to_prng_sequence(rng, err_msg=INIT_RNG_ERROR)  # pyrefly: ignore[bad-assignment]
     with base.new_context(rng=rng) as ctx:
       try:
         f(*args, **kwargs)
@@ -426,12 +424,12 @@ def transform_with_state(f) -> TransformedWithState:
         raise jax.errors.UnexpectedTracerError(unexpected_tracer_hint) from e
     return ctx.collect_params(), ctx.collect_initial_state()
 
-  init_fn.__signature__ = inspect.Signature(
+  init_fn.__signature__ = inspect.Signature(  # pyrefly: ignore[missing-attribute]
       parameters=[
           inspect.Parameter(
               "rng",
               inspect.Parameter.POSITIONAL_OR_KEYWORD,
-              annotation=Optional[Union[PRNGKey, int]],
+              annotation=Optional[Union[jax.Array, int]],
           ),
       ]
       + list(f_sig.parameters.values()),
@@ -442,7 +440,7 @@ def transform_with_state(f) -> TransformedWithState:
   def apply_fn(
       params: hk.Params | None,
       state: hk.State | None,
-      rng: PRNGKey | int | None,
+      rng: jax.Array | int | None,
       *args,
       **kwargs,
   ) -> tuple[Any, hk.MutableState]:
@@ -450,7 +448,7 @@ def transform_with_state(f) -> TransformedWithState:
     uses_state = state is not None
     params = check_mapping("params", params)
     state = check_mapping("state", state)
-    rng = to_prng_sequence(
+    rng = to_prng_sequence(  # pyrefly: ignore[bad-assignment]
         rng,
         err_msg=(APPLY_RNG_STATE_ERROR if uses_state else APPLY_RNG_ERROR))
     with base.new_context(params=params, state=state, rng=rng) as ctx:
@@ -460,14 +458,14 @@ def transform_with_state(f) -> TransformedWithState:
         raise jax.errors.UnexpectedTracerError(unexpected_tracer_hint) from e
     return out, ctx.collect_state()
 
-  apply_fn.__signature__ = sig_add_state(inspect.Signature(
+  apply_fn.__signature__ = sig_add_state(inspect.Signature(  # pyrefly: ignore[missing-attribute]
       parameters=[
           inspect.Parameter("params", inspect.Parameter.POSITIONAL_OR_KEYWORD,
                             annotation=Optional[hk.Params]),
           inspect.Parameter("state", inspect.Parameter.POSITIONAL_OR_KEYWORD,
                             annotation=Optional[hk.State]),
           inspect.Parameter("rng", inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                            annotation=Optional[Union[PRNGKey, int]]),
+                            annotation=Optional[Union[jax.Array, int]]),
       ] + list(f_sig.parameters.values()),
       return_annotation=f_sig.return_annotation,
       __validate_parameters__=False
@@ -496,12 +494,12 @@ def check_mapping(name: str, mapping: T | None) -> T:
   """Cleans inputs to apply_fn, providing better errors."""
   if mapping is None:
     # Convert None to empty dict.
-    mapping = dict()
+    mapping = dict()  # pyrefly: ignore[bad-assignment]
   if not isinstance(mapping, Mapping):
     if type(mapping).__name__ == "_DictWrapper":
       # TensorFlow's checkpointing infrastructure replaces `dict` instances on
       # `tf.Module`s with a type that is not a `Mapping` instance.
-      return mapping
+      return mapping  # pyrefly: ignore[bad-return]
 
     raise TypeError(f"{name} argument does not appear valid. It should be a "
                     f"mapping but is of type {type(mapping)}. "

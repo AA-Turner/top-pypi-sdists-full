@@ -511,6 +511,7 @@ class CompletionsCreateRequestInputs(BaseModel):
     logprobs: bool | None = None
     top_logprobs: int | None = None
     parallel_tool_calls: bool | None = None
+    reasoning_effort: str | None = None
     extra_headers: dict | None = None
     # soon to be deprecated params by OpenAI
     functions: list | None = None
@@ -1327,6 +1328,7 @@ class FeedbackQueryReq(BaseModelStrict):
 class FeedbackQueryRes(BaseModel):
     # Note: this is not a list of Feedback because user can request any fields.
     result: list[dict[str, Any]]
+    total_count: int = Field(ge=0)
 
 
 class FeedbackPurgeReq(BaseModelStrict):
@@ -1735,7 +1737,7 @@ ExportJobStatus = Literal["running", "done", "error"]
 class ExportStartReq(BaseModelStrict):
     project_id: str = Field(examples=["entity/project"])
     targets: list[str] = Field(
-        description="Export target names resolved against the server-side registry, e.g. ['calls', 'objects', 'feedback']."
+        description="Supported server-side export targets, e.g. ['calls', 'objects', 'feedback']."
     )
     wb_user_id: str | None = Field(None, description=WB_USER_ID_DESCRIPTION)
 
@@ -1838,6 +1840,8 @@ class CostQueryOutput(BaseModel):
     llm_id: str | None = Field(default=None, examples=["gpt4"])
     prompt_token_cost: float | None = Field(default=None, examples=[1.0])
     completion_token_cost: float | None = Field(default=None, examples=[1.0])
+    cache_read_input_token_cost: float | None = Field(default=None, examples=[1.0])
+    cache_creation_input_token_cost: float | None = Field(default=None, examples=[1.0])
     prompt_token_cost_unit: str | None = Field(default=None, examples=["USD"])
     completion_token_cost_unit: str | None = Field(default=None, examples=["USD"])
     effective_date: datetime.datetime | None = Field(

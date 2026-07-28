@@ -124,6 +124,17 @@ class SimulationConfig(ConfigSection):
         ),
     )
 
+    skip_size_checks: bool = Field(
+        False,
+        title="Skip size checks",
+        description=(
+            "Skip client-side simulation and monitor size checks before upload. "
+            "This is not intended to be changed by cloud users, and cloud servers still reject "
+            "simulations that violate the default cloud limits."
+        ),
+        json_schema_extra={"persist": True},
+    )
+
 
 @register_section("microwave")
 class MicrowaveConfig(ConfigSection):
@@ -170,7 +181,7 @@ class AdjointConfig(ConfigSection):
     )
 
     minimum_spacing_fraction: float = Field(
-        1e-2,
+        1e-3,
         title="Minimum spacing fraction",
         description=(
             "Minimum normalized spacing allowed when constructing adaptive finite-difference "
@@ -374,31 +385,32 @@ class RunConfig(ConfigSection):
     solver_version: str | None = Field(
         None,
         title="Solver version",
-        description="Default solver version to use for web runs.",
+        description="Internal usage only. Default solver version to use for web runs.",
     )
 
     worker_group: str | None = Field(
         None,
         title="Worker group",
-        description="Default worker group to use for web runs.",
+        description="Internal usage only. Default worker group to use for web runs.",
     )
 
     simulation_type: str = Field(
         "tidy3d",
         title="Simulation type",
-        description="Default simulation type label for uploaded tasks.",
+        description="Internal usage only. Default simulation type label for uploaded tasks.",
     )
 
     additional_payload: dict[str, Any] | None = Field(
         None,
         title="Additional payload",
-        description="Additional submit payload serialized to JSON and sent under 'additionalPayload'.",
+        description="Internal usage only. Additional submit payload serialized to JSON and sent "
+        "under 'additionalPayload'.",
     )
 
     pay_type: str = Field(
         "AUTO",
         title="Payment type",
-        description="Default payment type for web runs.",
+        description="Internal usage only. Default payment type for web runs.",
     )
 
     @field_validator("pay_type", mode="before")
@@ -584,8 +596,8 @@ class WebConfig(ConfigSection):
     def build_api_url(self, path: str) -> str:
         """Join the configured API endpoint with a request path."""
 
-        base = str(self.api_endpoint or "")
-        path_str = str(path or "")
+        base = self.api_endpoint or ""
+        path_str = path or ""
         if not base:
             return path_str.lstrip("/")
         if not path_str:

@@ -49,7 +49,7 @@ description: |
   steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
     - uses: ./.github/actions/mssql-native-deps   # connector-local action
-    - uses: atlanhq/application-sdk/.github/actions/connector-integration-tests@v3.23.1
+    - uses: atlanhq/application-sdk/.github/actions/connector-integration-tests@v3.24.0
       with:
         app-name: mssql
   ```
@@ -388,12 +388,22 @@ runs:
         echo "exit_code=$TEST_EXIT_CODE" >> "$GITHUB_OUTPUT"
         exit "$TEST_EXIT_CODE"
 
+    # NOTE: the test-readiness scorecard is NOT emitted here. Post tier-split
+    # this job's junit is integration-only; the scorecard is produced by the
+    # dedicated `scorecard` aggregation job in tests-reusable.yaml, which
+    # combines this job's integration evidence with the unit job's. This job
+    # just uploads its junit + coverage.json (below) for that job to consume.
     - name: Upload test results
       if: always()
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
       with:
         name: integration-test-results
-        path: results/
+        # coverage.json is written at the repo root by --cov-report=json; include
+        # it alongside results/ so the scorecard aggregation job can read the
+        # integration tier's coverage.
+        path: |
+          results/
+          coverage.json
         retention-days: 14
 
     - name: Cleanup

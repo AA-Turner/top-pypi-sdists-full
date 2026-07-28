@@ -151,12 +151,12 @@ class ConvND(hk.Module):
     if isinstance(padding, str):
       self.padding = padding.upper()
     elif hk.pad.is_padfn(padding):
-      self.padding = hk.pad.create_from_padfn(padding=padding,
+      self.padding = hk.pad.create_from_padfn(padding=padding,  # pyrefly: ignore[bad-argument-type]
                                               kernel=self.kernel_shape,
                                               rate=self.kernel_dilation,
                                               n=self.num_spatial_dims)
     else:
-      self.padding = hk.pad.create_from_tuple(padding, self.num_spatial_dims)
+      self.padding = hk.pad.create_from_tuple(padding, self.num_spatial_dims)  # pyrefly: ignore[bad-argument-type]
 
   def __call__(
       self,
@@ -177,6 +177,7 @@ class ConvND(hk.Module):
         unbatched, or an array of shape ``[N, spatial_dims, output_channels]``
         and rank-N+2 if batched.
     """
+    inputs = jnp.asarray(inputs)
     unbatched_rank = self.num_spatial_dims + 1
     allowed_ranks = [unbatched_rank, unbatched_rank + 1]
     if inputs.ndim not in allowed_ranks:
@@ -574,6 +575,7 @@ class ConvNDTranspose(hk.Module):
         unbatched, or an array of shape ``[N, spatial_dims, output_channels]``
         and rank-N+2 if batched.
     """
+    inputs = jnp.asarray(inputs)
     unbatched_rank = self.num_spatial_dims + 1
     allowed_ranks = [unbatched_rank, unbatched_rank + 1]
     if inputs.ndim not in allowed_ranks:
@@ -606,8 +608,8 @@ class ConvNDTranspose(hk.Module):
       input_shape = (
           inputs.shape[2:] if self.channel_index == 1 else inputs.shape[1:-1])
       padding = tuple(map(
-          lambda i, o, k, s: compute_adjusted_padding(i, o, k, s, self.padding),
-          input_shape, self.output_shape, self.kernel_shape, self.stride))
+          lambda i, o, k, s: compute_adjusted_padding(i, o, k, s, self.padding),  # pyrefly: ignore[bad-argument-type]
+          input_shape, self.output_shape, self.kernel_shape, self.stride))  # pyrefly: ignore[bad-argument-type]
 
     out = lax.conv_transpose(inputs,
                              w,

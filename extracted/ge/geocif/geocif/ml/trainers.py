@@ -403,12 +403,10 @@ def auto_train(
                 model = MERF(regr, max_iterations=10)
 
         elif model_name == "oblique":
-            from treeple import ExtraObliqueRandomForestRegressor, ExtraObliqueRandomForestClassifier
-            n_features = X_train.shape[1]
-            oblique_cls = ExtraObliqueRandomForestRegressor if model_type == "REGRESSION" else ExtraObliqueRandomForestClassifier
-            model = oblique_cls(
-                n_estimators=1500, max_depth=20, max_features=n_features**2,
-                feature_combinations=n_features, n_jobs=-1, random_state=42
+            raise ValueError(
+                "model = 'oblique' relies on `treeple`, which was removed from geocif "
+                "(compiled backend with no aarch64/ARM wheels). Pick another model in "
+                "[DEFAULT] models = [...] (e.g. catboost, tabpfn, cubist)."
             )
         elif model_name == "tabpfn":
             from tabpfn import TabPFNRegressor
@@ -580,45 +578,12 @@ def auto_train(
                 verbose=False,
             )
         elif model_name == "desreg":
-            try:
-                from desReg.des.DESRegression import DESRegression
-            except ImportError as exc:
-                raise ImportError(
-                    "model = 'desreg' requires desReg, which is an OPTIONAL "
-                    "geocif extra (held out because it's an obscure package "
-                    "with historical install quirks). Install with:\n"
-                    "    pip install geocif[desreg]\n"
-                    "Or pick a different model in [DEFAULT] models = [...]."
-                ) from exc
-            from tabpfn_extensions.post_hoc_ensembles.sklearn_interface import AutoTabPFNRegressor
-            from catboost import CatBoostRegressor
-
-            model_catboost = CatBoostRegressor(**hyperparams, cat_features=cat_features)
-
-            # Identify the column indices for cat_features in X_train
-            if cat_features is None:
-                cat_feature_indices = []
-            else:
-                cat_feature_indices = [X_train.columns.get_loc(col) for col in cat_features if
-                    col in X_train.columns]
-            model_tabpfn = AutoTabPFNRegressor(max_time=600,
-                                               # categorical_feature_indices=cat_feature_indices,
-                                               ignore_pretraining_limits=True)
-            
-            import ydf
-            templates = ydf.GradientBoostedTreesLearner.hyperparameter_templates()
-            task = ydf.Task.REGRESSION if model_type == "REGRESSION" else ydf.Task.CLASSIFICATION
-            model_ydf = ydf.GradientBoostedTreesLearner(
-                label=target_col, task=task,
-                growing_strategy='BEST_FIRST_GLOBAL',
-                categorical_algorithm='RANDOM',
-                split_axis='SPARSE_OBLIQUE',
-                sparse_oblique_normalization='MIN_MAX',
-                sparse_oblique_num_projections_exponent=2.0
+            raise ValueError(
+                "model = 'desreg' builds a DES ensemble that includes `ydf`, which "
+                "was removed from geocif (Yggdrasil/Bazel backend — no aarch64 wheels, "
+                "unbuildable on ARM). Pick another model in [DEFAULT] models = [...] "
+                "(e.g. catboost, tabpfn, cubist)."
             )
-            hyperparams = templates["benchmark_rank1v1"]
-
-            model = DESRegression(regressors_list=[model_catboost, model_ydf])
         elif model_name == "ngboost":
             if model_type == "REGRESSION":
                 from ngboost import NGBRegressor
@@ -635,19 +600,11 @@ def auto_train(
                 # Initialize and train NGBoost classifier
                 model = NGBClassifier(Dist=k_categorical(3), Score=LogScore, natural_gradient=True)
         elif model_name == "ydf":
-            import ydf
-            templates = ydf.GradientBoostedTreesLearner.hyperparameter_templates()
-            task = ydf.Task.REGRESSION if model_type == "REGRESSION" else ydf.Task.CLASSIFICATION
-            model = ydf.GradientBoostedTreesLearner(
-                label=target_col, task=task,
-                growing_strategy='BEST_FIRST_GLOBAL',
-                categorical_algorithm='RANDOM',
-                split_axis='SPARSE_OBLIQUE',
-                sparse_oblique_normalization='MIN_MAX',
-                sparse_oblique_num_projections_exponent=2.0,
-                validation_ratio=0.0,
+            raise ValueError(
+                "model = 'ydf' relies on `ydf` (Yggdrasil / Bazel build), which was "
+                "removed from geocif (no aarch64/ARM wheels, unbuildable on ARM). Pick "
+                "another model in [DEFAULT] models = [...] (e.g. catboost, tabpfn, cubist)."
             )
-            hyperparams = templates["benchmark_rank1v1"]
 
         elif model_name == "linear":
             from sklearn.linear_model import LassoCV, LogisticRegressionCV

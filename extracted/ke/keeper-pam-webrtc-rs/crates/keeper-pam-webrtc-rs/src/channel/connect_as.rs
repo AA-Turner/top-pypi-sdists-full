@@ -19,6 +19,7 @@ pub(crate) struct ConnectAsUser {
     pub(crate) public_key: Option<String>,
     pub(crate) passphrase: Option<String>,
     pub(crate) domain: Option<String>,
+    #[serde(alias = "connectdatabase", alias = "connectDatabase")]
     pub connect_database: Option<String>,
     pub distinguished_name: Option<String>,
     pub(crate) totp: Option<String>,
@@ -100,7 +101,31 @@ fn decrypt_and_parse(encoded: &str, auth_key: Option<&[u8]>) -> Option<serde_jso
     let nonce = AesNonce::from_slice(nonce_bytes);
     let cipher = Aes256Gcm::new_from_slice(key).ok()?;
     let plaintext = cipher.decrypt(nonce, ciphertext).ok()?;
-    serde_json::from_slice(&plaintext).ok()
+    // KDB-98: the Python gateway gzip-compresses the JSON plaintext when that
+    // shrinks it (so large tokens fit under the RBI browser's URL limit), and
+    // KeeperDB inflates by sniffing the gzip magic (`1f 8b`). Uncompressed JSON
+    // begins with `{`, so mirror that: inflate when the magic is present,
+    // otherwise parse the plaintext directly.
+    let json_bytes = if plaintext.starts_with(&[0x1f, 0x8b]) {
+        use std::io::Read as _;
+        // Bound inflation to guard against a decompression bomb. A connect-as
+        // credentials blob is small (well under this even with large tokens);
+        // anything larger is malformed or hostile, so fail the patch (which
+        // leaves the URL unchanged) rather than inflate unbounded.
+        const MAX_INFLATED_LEN: u64 = 1 << 20; // 1 MiB
+        let mut out = Vec::new();
+        flate2::read::GzDecoder::new(&plaintext[..])
+            .take(MAX_INFLATED_LEN + 1)
+            .read_to_end(&mut out)
+            .ok()?;
+        if out.len() as u64 > MAX_INFLATED_LEN {
+            return None;
+        }
+        out
+    } else {
+        plaintext
+    };
+    serde_json::from_slice(&json_bytes).ok()
 }
 
 /// AES-256-GCM encrypt a JSON string and return a URL-safe no-pad base64 string.
@@ -109,7 +134,20 @@ fn encrypt_to_url_param(json: &str, key: &[u8]) -> Option<String> {
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
     let cipher = Aes256Gcm::new_from_slice(key).ok()?;
     let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
-    let ciphertext = cipher.encrypt(&nonce, json.as_bytes()).ok()?;
+    // KDB-98: mirror Python's `_aes_gcm_encrypt` — gzip the JSON when that is
+    // smaller than the raw bytes so large payloads stay under the RBI URL limit.
+    // KeeperDB sniffs the gzip magic to inflate; uncompressed JSON (`{`) stays
+    // backward-compatible, so fall back to raw bytes when compression doesn't help.
+    let raw = json.as_bytes();
+    let plaintext = {
+        use std::io::Write as _;
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
+        match encoder.write_all(raw).and_then(|_| encoder.finish()) {
+            Ok(compressed) if compressed.len() < raw.len() => compressed,
+            _ => raw.to_vec(),
+        }
+    };
+    let ciphertext = cipher.encrypt(&nonce, plaintext.as_slice()).ok()?;
     let mut wire = nonce.to_vec();
     wire.extend_from_slice(&ciphertext);
     Some(URL_SAFE_NO_PAD.encode(&wire))
@@ -408,5 +446,173 @@ mod tests {
         // Non-credential fields survive
         assert_eq!(creds["type"], "Postgres");
         assert_eq!(creds["host"], "db.example.com");
+    }
+
+    // --- Encrypted (AES-256-GCM) + gzip blob tests (KDB-98) ---
+
+    fn creds_param(url: &str) -> String {
+        url.split_once('?')
+            .unwrap()
+            .1
+            .split('&')
+            .find_map(|p| p.strip_prefix("credentials="))
+            .unwrap()
+            .to_string()
+    }
+
+    fn decrypt_raw(param: &str, key: &[u8]) -> Vec<u8> {
+        use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+        let wire = URL_SAFE_NO_PAD.decode(param).unwrap();
+        let (nonce_bytes, ct) = wire.split_at(AES_GCM_NONCE_LEN);
+        let cipher = Aes256Gcm::new_from_slice(key).unwrap();
+        cipher
+            .decrypt(AesNonce::from_slice(nonce_bytes), ct)
+            .unwrap()
+    }
+
+    fn inflate_if_gzip(bytes: Vec<u8>) -> Vec<u8> {
+        if bytes.starts_with(&[0x1f, 0x8b]) {
+            use std::io::Read as _;
+            let mut out = Vec::new();
+            flate2::read::GzDecoder::new(&bytes[..])
+                .read_to_end(&mut out)
+                .unwrap();
+            out
+        } else {
+            bytes
+        }
+    }
+
+    /// Build a URL whose `credentials=` blob is AES-256-GCM over GZIP-compressed
+    /// JSON — exactly what the Python gateway's `_aes_gcm_encrypt` emits.
+    fn make_encrypted_gzip_url(
+        key: &[u8],
+        username: &str,
+        password: &str,
+        database: &str,
+    ) -> String {
+        use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+        use std::io::Write as _;
+        let creds = serde_json::json!({
+            "type": "MariaDB",
+            "username": username,
+            "password": password,
+            "host": "127.0.0.1",
+            "local": "en_US",
+            "database": database,
+            "port": 33306,
+            // Long, compressible field so gzip is genuinely smaller than raw,
+            // guaranteeing the compressed wire format is exercised.
+            "user_id": "a".repeat(128)
+        });
+        let raw = creds.to_string().into_bytes();
+        let mut enc = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
+        enc.write_all(&raw).unwrap();
+        let compressed = enc.finish().unwrap();
+        assert!(
+            compressed.len() < raw.len(),
+            "fixture must exercise gzip path"
+        );
+        let cipher = Aes256Gcm::new_from_slice(key).unwrap();
+        let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+        let ct = cipher.encrypt(&nonce, compressed.as_slice()).unwrap();
+        let mut wire = nonce.to_vec();
+        wire.extend_from_slice(&ct);
+        format!(
+            "http://127.0.0.1:8080/login?credentials={}&login&mode=dark",
+            URL_SAFE_NO_PAD.encode(&wire)
+        )
+    }
+
+    #[test]
+    fn patch_encrypted_gzip_blob_updates_credentials() {
+        // Regression (KDB-98): the Python gateway AES-GCM-encrypts GZIP-compressed
+        // JSON. Before the inflate fix, decrypt_and_parse ran serde_json on the raw
+        // gzip bytes, failed, and patch returned the URL unchanged -> empty creds
+        // reached KeeperDB -> auth failure. Verify the blob is decrypted, inflated,
+        // patched with the ConnectAs values, and re-encrypted.
+        let key = [7u8; 32];
+        let url = make_encrypted_gzip_url(&key, "", "", "");
+        let patched = patch_keeperdb_url_credentials(
+            &url,
+            Some("root"),
+            Some("s3cr3t!"),
+            Some("mydb"),
+            Some(&key),
+        );
+        assert_ne!(
+            patched, url,
+            "encrypted blob must be re-written, not returned unchanged"
+        );
+        let creds: serde_json::Value =
+            serde_json::from_slice(&inflate_if_gzip(decrypt_raw(&creds_param(&patched), &key)))
+                .unwrap();
+        assert_eq!(creds["username"], "root");
+        assert_eq!(creds["password"], "s3cr3t!");
+        assert_eq!(creds["database"], "mydb");
+        assert_eq!(creds["type"], "MariaDB");
+    }
+
+    #[test]
+    fn encrypt_to_url_param_uses_gzip_and_roundtrips() {
+        // A compressible payload must take the gzip branch, and decrypt_and_parse
+        // must inflate it back to the original JSON.
+        let key = [9u8; 32];
+        let json = serde_json::json!({
+            "type": "MariaDB",
+            "database": "d",
+            "token": "x".repeat(400)
+        })
+        .to_string();
+        let param = encrypt_to_url_param(&json, &key).unwrap();
+        // Stored plaintext is gzip (magic present before inflate).
+        assert_eq!(&decrypt_raw(&param, &key)[..2], &[0x1f, 0x8b]);
+        let round = decrypt_and_parse(&param, Some(&key)).unwrap();
+        assert_eq!(round["database"], "d");
+        assert_eq!(round["token"], "x".repeat(400));
+    }
+
+    #[test]
+    fn encrypt_to_url_param_skips_gzip_when_not_smaller() {
+        // Tiny payloads don't compress; the plaintext stays raw JSON (`{`) and
+        // still round-trips.
+        let key = [3u8; 32];
+        let param = encrypt_to_url_param(r#"{"a":1}"#, &key).unwrap();
+        assert_eq!(decrypt_raw(&param, &key)[0], b'{');
+        assert_eq!(decrypt_and_parse(&param, Some(&key)).unwrap()["a"], 1);
+    }
+
+    #[test]
+    fn connect_as_user_deserializes_connect_database_aliases() {
+        // Regression: the vault sends the DB field as `connectdatabase`
+        // (lowercase-joined) or `connectDatabase` (camelCase). Without the serde
+        // alias these silently deserialized to None and the DB never reached the URL.
+        let a: ConnectAsUser =
+            serde_json::from_str(r#"{"username":"root","connectdatabase":"mydb"}"#).unwrap();
+        assert_eq!(a.connect_database.as_deref(), Some("mydb"));
+        let b: ConnectAsUser = serde_json::from_str(r#"{"connectDatabase":"other"}"#).unwrap();
+        assert_eq!(b.connect_database.as_deref(), Some("other"));
+        let c: ConnectAsUser = serde_json::from_str(r#"{"connect_database":"snake"}"#).unwrap();
+        assert_eq!(c.connect_database.as_deref(), Some("snake"));
+    }
+
+    #[test]
+    fn decrypt_and_parse_rejects_decompression_bomb() {
+        use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+        use std::io::Write as _;
+        let key = [5u8; 32];
+        // 2 MiB of highly compressible data inflates past the 1 MiB cap.
+        let huge = vec![b'a'; 2 * 1024 * 1024];
+        let mut enc = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
+        enc.write_all(&huge).unwrap();
+        let compressed = enc.finish().unwrap();
+        let cipher = Aes256Gcm::new_from_slice(&key).unwrap();
+        let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+        let ct = cipher.encrypt(&nonce, compressed.as_slice()).unwrap();
+        let mut wire = nonce.to_vec();
+        wire.extend_from_slice(&ct);
+        let param = URL_SAFE_NO_PAD.encode(&wire);
+        // Exceeds the inflate cap -> None (patch leaves the URL unchanged).
+        assert!(decrypt_and_parse(&param, Some(&key)).is_none());
     }
 }

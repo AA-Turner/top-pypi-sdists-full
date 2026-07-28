@@ -16,6 +16,7 @@ from requests import HTTPError, RequestException, Session
 from .api_base import ConfluenceSessionShared
 from .api_types import (
     ConfluenceAttachment,
+    ConfluenceComment,
     ConfluenceContentProperty,
     ConfluenceContentVersion,
     ConfluenceIdentifiedContentProperty,
@@ -190,6 +191,40 @@ class ConfluenceSessionV2(ConfluenceSessionShared):
             else:
                 raise
 
+    @property
+    @override
+    def supports_attachment_content_properties(self) -> bool:
+        return True
+
+    @override
+    def get_content_property_for_attachment(self, attachment_id: str, key: str) -> ConfluenceIdentifiedContentProperty | None:
+        path = f"/attachments/{attachment_id}/properties"
+        results = self._fetch_v2(path, query={"key": key})
+        properties = json_to_object(list[ConfluenceIdentifiedContentProperty], results)
+        if len(properties) == 1:
+            return properties.pop()
+        else:
+            return None
+
+    @override
+    def update_content_property_for_attachment(self, attachment_id: str, property: ConfluenceContentProperty) -> None:
+        old_property = self.get_content_property_for_attachment(attachment_id, property.key)
+        if old_property is None:
+            path = f"/attachments/{attachment_id}/properties"
+            self._post(ConfluenceVersion.VERSION_2, path, property, ConfluenceIdentifiedContentProperty)
+        elif old_property.value != property.value:
+            path = f"/attachments/{attachment_id}/properties/{old_property.id}"
+            self._put(
+                ConfluenceVersion.VERSION_2,
+                path,
+                ConfluenceVersionedContentProperty(
+                    key=property.key,
+                    value=property.value,
+                    version=ConfluenceContentVersion(number=old_property.version.number + 1),
+                ),
+                ConfluenceIdentifiedContentProperty,
+            )
+
     @override
     def get_page_properties_by_title(self, title: str, *, space_id: str | None = None, space_key: str | None = None) -> ConfluencePageProperties:
         LOGGER.info("Looking up page with title: %s", title)
@@ -355,3 +390,10 @@ class ConfluenceSessionV2(ConfluenceSessionShared):
             ),
             ConfluenceIdentifiedContentProperty,
         )
+
+    @override
+    def get_comments(self, page_id: str) -> list[ConfluenceComment]:
+        path = f"/pages/{page_id}/inline-comments"
+        query = {"body-format": "storage", "status": "current"}
+        items = self._fetch_v2(path, query)
+        return [json_to_object(ConfluenceComment, item) for item in items]

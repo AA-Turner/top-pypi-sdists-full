@@ -5,6 +5,7 @@ A CI test verifies this file matches the live AST scan of the tools/ package.
 """
 
 TOOL_MODULE_INDEX = {
+    "act_in_debug_window": "browser_debug_tools",
     "analyze_portal_component_update": "portal_tools",
     "analyze_widget_performance": "performance_tools",
     "approve_change": "change_tools",
@@ -35,6 +36,7 @@ TOOL_MODULE_INDEX = {
     "get_uncommitted_changes": "portal_dev_tools",
     "get_widget_bundle": "portal_tools",
     "get_widget_instance": "portal_management_tools",
+    "inspect_debug_window": "browser_debug_tools",
     "manage_catalog": "catalog_tools",
     "manage_change": "change_tools",
     "manage_changeset": "changeset_tools",
@@ -55,6 +57,7 @@ TOOL_MODULE_INDEX = {
     "manage_user": "user_tools",
     "manage_widget_dependency": "widget_dependency_tools",
     "manage_workflow": "workflow_tools",
+    "open_debug_window": "browser_debug_tools",
     "preview_portal_component_update": "portal_tools",
     "query_local_graph": "local_graph_tools",
     "reject_change": "change_tools",

@@ -21,6 +21,13 @@ import matplotlib.animation as animation
 from typing import Optional, List
 from IPython.display import HTML
 
+# Check for CuPy availability
+try:
+    import cupy as cp
+    CUPY_AVAILABLE = True
+except ImportError:
+    cp = None
+    CUPY_AVAILABLE = False
 
 # ============================================================================
 # ALGORITHM FORMULAS (for error messages and documentation)
@@ -296,12 +303,19 @@ class AlgebraicRecon(Recon):
         self.maxSaves = maxSaves
         self.denominatorThreshold = denominatorThreshold
         self.isComplexRecon = isComplexRecon
+
         if device is None:
-            device = config.select_best_gpu()
-            if device is None:
-                self.device = 'cpu'
+            self.device = f'gpu:{config.select_best_gpu()}' if CUPY_AVAILABLE else 'cpu'
+        else:
+            if type(device) is not str:
+                print(f"[AOT-biomaps] Error occurred while setting device. Must be 'cpu' or 'gpu:<index>'. Falling back to auto-detection.")
+                self.device = f'gpu:{config.select_best_gpu()}' if CUPY_AVAILABLE else 'cpu'
+            elif device not in ['cpu'] and not device.startswith('gpu:'):
+                print(f"[AOT-biomaps] Error occurred while setting device. Must be 'cpu' or 'gpu:<index>'. Falling back to auto-detection.")
+                self.device = f'gpu:{config.select_best_gpu()}' if CUPY_AVAILABLE else 'cpu'
             else:
-                self.device = f'gpu:{device}'
+                self.device = device
+
         self.SMatrix = None
         self.smatrixType = smatrixType
         self.sparseThreshold = sparseThreshold
@@ -1985,8 +1999,8 @@ class AlgebraicRecon(Recon):
 
         im0 = axs[0, 0].imshow(image, cmap='hot', vmin=vmin, vmax=vmax, extent=extent, aspect='equal')
         axs[0, 0].set_title(title_recon)
-        axs[0, 0].set_xlabel("x (mm)")
-        axs[0, 0].set_ylabel("z (mm)")
+        axs[0, 0].set_xlabel("X (mm)")
+        axs[0, 0].set_ylabel("Z (mm)")
         axs[0, 0].tick_params(axis='both', which='major')
 
         # Plot ground truth if available
@@ -1995,8 +2009,8 @@ class AlgebraicRecon(Recon):
 
             im1 = axs[0, 1].imshow(ground_truth, cmap='hot', vmin=gt_vmin, vmax=gt_vmax, extent=extent, aspect='equal')
             axs[0, 1].set_title(title_gt)
-            axs[0, 1].set_xlabel("x (mm)")
-            axs[0, 1].set_ylabel("z (mm)")
+            axs[0, 1].set_xlabel("X (mm)")
+            axs[0, 1].set_ylabel("Z (mm)")
             axs[0, 1].tick_params(axis='both', which='major')
 
         plt.subplots_adjust(bottom=0.15, wspace=0.3)

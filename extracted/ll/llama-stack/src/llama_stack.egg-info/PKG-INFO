@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama_stack
-Version: 0.7.2
+Version: 0.7.3
 Summary: Open-source, OpenAI-compatible API server with pluggable providers for any model and any infrastructure
 Author-email: Meta Llama <llama-oss@meta.com>
 License: MIT
@@ -17,7 +17,7 @@ Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: PyYAML>=6.0
-Requires-Dist: aiohttp>=3.13.3
+Requires-Dist: aiohttp>=3.14.0
 Requires-Dist: fastapi<1.0,>=0.115.0
 Requires-Dist: fire
 Requires-Dist: httpx
@@ -26,15 +26,15 @@ Requires-Dist: jsonschema
 Requires-Dist: llama-stack-api
 Requires-Dist: openai>=2.5.0
 Requires-Dist: prompt-toolkit
-Requires-Dist: python-dotenv
-Requires-Dist: pyjwt[crypto]>=2.12.0
+Requires-Dist: python-dotenv>=1.2.2
+Requires-Dist: pyjwt[crypto]>=2.13.0
 Requires-Dist: pydantic>=2.11.9
 Requires-Dist: rich
 Requires-Dist: structlog>=24.1.0
 Requires-Dist: termcolor
 Requires-Dist: tiktoken
 Requires-Dist: h11>=0.16.0
-Requires-Dist: python-multipart>=0.0.22
+Requires-Dist: python-multipart>=0.0.27
 Requires-Dist: uvicorn>=0.34.0
 Requires-Dist: opentelemetry-sdk>=1.30.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.30.0
@@ -45,13 +45,13 @@ Requires-Dist: sqlalchemy[asyncio]>=2.0.41
 Requires-Dist: starlette>=0.49.1
 Requires-Dist: psycopg2-binary
 Requires-Dist: tornado>=6.5.3
-Requires-Dist: urllib3>=2.6.3
+Requires-Dist: urllib3>=2.7.0
 Requires-Dist: oracledb>=3.4.1
 Requires-Dist: oci>=2.165.0
 Requires-Dist: numpy>=2.3.2
 Requires-Dist: mcp>=1.23.0
 Provides-Extra: client
-Requires-Dist: llama-stack-client==0.7.2; extra == "client"
+Requires-Dist: llama-stack-client==0.7.3; extra == "client"
 Provides-Extra: starter
 Requires-Dist: aiohttp; extra == "starter"
 Requires-Dist: aiosqlite; extra == "starter"
@@ -76,13 +76,13 @@ Requires-Dist: httpx; extra == "starter"
 Requires-Dist: langdetect; extra == "starter"
 Requires-Dist: matplotlib; extra == "starter"
 Requires-Dist: mcp>=1.23.0; extra == "starter"
-Requires-Dist: nltk>=3.9.4; extra == "starter"
+Requires-Dist: nltk>=3.10.0; extra == "starter"
 Requires-Dist: numpy; extra == "starter"
 Requires-Dist: ollama; extra == "starter"
 Requires-Dist: opentelemetry-exporter-otlp-proto-http; extra == "starter"
 Requires-Dist: opentelemetry-sdk; extra == "starter"
 Requires-Dist: pandas; extra == "starter"
-Requires-Dist: pillow; extra == "starter"
+Requires-Dist: pillow>=12.3.0; extra == "starter"
 Requires-Dist: psycopg2-binary; extra == "starter"
 Requires-Dist: pymilvus[milvus-lite]>=2.4.10; extra == "starter"
 Requires-Dist: pymongo; extra == "starter"

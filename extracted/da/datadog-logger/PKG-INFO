@@ -1,18 +1,19 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: datadog-logger
-Version: 1.0.2
+Version: 1.0.3
 Summary: Python logging handler for DataDog events
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Author: uStudio Developers
 Author-email: dev@ustudio.com
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.10
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: datadog (>=0.45.0)
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: datadog (>=0.52.2)
 Description-Content-Type: text/markdown
 
 # DataDog Logger #

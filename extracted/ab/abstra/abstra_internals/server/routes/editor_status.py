@@ -1,6 +1,7 @@
 import flask
 import flask_sock
 
+from abstra_internals.controllers.editor_restart import EditorRestartController
 from abstra_internals.controllers.editor_status_events import (
     EditorStatusEventController,
 )
@@ -28,10 +29,24 @@ def get_editor_bp():
     @bp.post("/update-abstra")
     @editor_usage
     def _update_abstra():
-        # Upgrade the abstra package (or, on Windows, open the release notes).
-        # On non-Windows this restarts the editor, so the process may exit
-        # before responding — the frontend expects the drop and reconnects.
+        # On web this stages the new version into an inactive slot (no restart —
+        # the user restarts later via /restart). On non-web it upgrades in place
+        # and restarts, so the process may exit before responding — the frontend
+        # expects the drop and reconnects. On Windows it opens the release notes.
         EditorUpdateController.trigger_update()
+        # Reached only on the staged (deferred) path — the immediate path exits
+        # the process above. Push the fresh state so the button flips from
+        # "Update Abstra" to "Restart editor" without waiting for a reconnect.
+        EditorStatusEventController.broadcast()
+        return {"success": True}
+
+    @bp.post("/restart")
+    @editor_usage
+    def _restart():
+        # Apply whatever is pending (flip the staged slot if any) and restart.
+        # The process exits before responding — the frontend shows the overlay
+        # and reconnects.
+        EditorRestartController.restart_now()
         return {"success": True}
 
     return bp

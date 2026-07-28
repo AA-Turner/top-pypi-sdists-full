@@ -5,7 +5,6 @@ from agilicus.output.table import format_table
 from agilicus.command_helpers import Command
 from . import deployments
 
-
 cmd = Command()
 
 

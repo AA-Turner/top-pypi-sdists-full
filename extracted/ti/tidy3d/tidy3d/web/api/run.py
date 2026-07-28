@@ -4,12 +4,13 @@ import typing
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from tidy3d.components.types.workflow import WorkflowDataType, WorkflowType
+from tidy3d.components.types.workflow import WorkflowDataType, WorkflowOperationType
 from tidy3d.config import config
 from tidy3d.log import get_logging_console
 from tidy3d.web.api.autograd.autograd import run as run_autograd
 from tidy3d.web.api.autograd.autograd import run_async
 from tidy3d.web.api.container import DEFAULT_DATA_DIR
+from tidy3d.web.api.container_utils import flatten_container, validate_mapping_key
 from tidy3d.web.api.run_options import log_deprecated_run_args
 from tidy3d.web.api.tidy3d_stub import task_type_name_of
 from tidy3d.web.api.webapi import default_data_filename
@@ -20,7 +21,10 @@ if TYPE_CHECKING:
     from tidy3d.web.core.types import PayType
 
 RunInput: typing.TypeAlias = (
-    WorkflowType | list["RunInput"] | tuple["RunInput", ...] | dict[typing.Hashable, "RunInput"]
+    WorkflowOperationType
+    | list["RunInput"]
+    | tuple["RunInput", ...]
+    | dict[typing.Hashable, "RunInput"]
 )
 
 RunOutput: typing.TypeAlias = (
@@ -31,29 +35,28 @@ RunOutput: typing.TypeAlias = (
 )
 
 
+def _validate_run_mapping_key(key: object) -> None:
+    """Reject unhashable keys and simulation objects in run containers."""
+    validate_mapping_key(key)
+    if isinstance(key, WorkflowOperationType):
+        raise ValueError("Dict keys must not be simulations.")
+
+
 def _collect_by_hash(
     node: RunInput,
-    found: dict[str, WorkflowType] | None = None,
-) -> dict[str, WorkflowType]:
+) -> dict[str, WorkflowOperationType]:
     """Traverses the structure and collects all simulations into a `{hash: sim}` mapping.
     The latest occurrence of the same hash overwrites the previous one — which is fine
     since identical objects share the same hash."""
-    if found is None:
-        found = {}
-    if isinstance(node, WorkflowType):
-        found[node._hash_self()] = node
-        return found
-    if isinstance(node, (list, tuple)):
-        for v in node:
-            _collect_by_hash(v, found)
-        return found
-    if isinstance(node, dict):
-        if any(isinstance(k, WorkflowType) for k in node.keys()):
-            raise ValueError("Dict keys must not be simulations.")
-        for v in node.values():
-            _collect_by_hash(v, found)
-        return found
-    raise TypeError(f"Unsupported element in container: {type(node)!r}")
+    return typing.cast(
+        dict[str, WorkflowOperationType],
+        flatten_container(
+            node,
+            is_leaf=lambda value: isinstance(value, WorkflowOperationType),
+            validate_dict_key=_validate_run_mapping_key,
+            leaf_id=lambda _path, simulation: simulation._hash_self(),
+        ),
+    )
 
 
 def _reconstruct_by_hash(node: RunInput, h2data: dict[str, WorkflowDataType]) -> RunOutput:
@@ -65,21 +68,21 @@ def _reconstruct_by_hash(node: RunInput, h2data: dict[str, WorkflowDataType]) ->
     """
     seen = set()
 
-    def _recur(n: RunInput) -> RunOutput:
-        if isinstance(n, WorkflowType):
-            h = n._hash_self()
-            data = h2data[h]
-            if h in seen:
+    def _recur(item: RunInput) -> RunOutput:
+        if isinstance(item, WorkflowOperationType):
+            hash_value = item._hash_self()
+            data = h2data[hash_value]
+            if hash_value in seen:
                 return data.copy()
-            seen.add(h)
+            seen.add(hash_value)
             return data
-        if isinstance(n, tuple):
-            return tuple(_recur(v) for v in n)
-        if isinstance(n, list):
-            return [_recur(v) for v in n]
-        if isinstance(n, dict):
-            return {k: _recur(v) for k, v in n.items()}
-        raise TypeError(f"Unsupported element in reconstruction: {type(n)!r}")
+        if isinstance(item, tuple):
+            return tuple(_recur(value) for value in item)
+        if isinstance(item, list):
+            return [_recur(value) for value in item]
+        if isinstance(item, dict):
+            return {key: _recur(value) for key, value in item.items()}
+        raise TypeError(f"Unsupported element in reconstruction: {type(item)!r}")
 
     return _recur(node)
 
@@ -150,12 +153,14 @@ def run(
     progress_callback_download : Optional[Callable[[float], None]] = None
         Callback invoked with byte counts during download (single-run path only).
     solver_version : Optional[str] = None
-        Target solver version. If ``None``, uses ``td.config.run.solver_version``.
+        Deprecated direct argument for internal use only. Internal workflows should set
+        ``td.config.run.solver_version`` instead; external users should leave unset.
     worker_group : Optional[str] = None
-        Worker group to target. If ``None``, uses ``td.config.run.worker_group``.
+        Deprecated direct argument for worker group targeting, for internal use only. Internal
+        workflows should set ``td.config.run.worker_group`` instead; external users should leave
+        unset.
     simulation_type : Optional[str] = None
-        Simulation type label passed through to the runners. If ``None``, uses
-        ``td.config.run.simulation_type``.
+        Internal simulation type label; external users should leave unset.
     parent_tasks : Optional[List[str]] = None
         Parent task IDs, if any.
     local_gradient : Optional[bool] = None
@@ -168,7 +173,8 @@ def run(
     reduce_simulation : {"auto", True, False} = "auto"
         Whether to reduce structures to the simulation domain (mode solver only).
     pay_type : Optional[Union[PayType, str]] = None
-        Payment method selection. If ``None``, uses ``td.config.run.pay_type``.
+        Deprecated direct argument for internal use only. Internal workflows should set
+        ``td.config.run.pay_type`` instead; external users should leave unset.
     priority : Optional[int] = None
         Queue priority for vGPU (1 = lowest, 10 = highest).
     max_workers : Optional[int] = None
@@ -202,9 +208,10 @@ def run(
     - For each simulation, a mode-solver compatibility patch is applied so that
       the returned data exposes expected convenience attributes.
     - ``progress_callback_*`` are only used in the single-run code path.
-    - Passing run options directly is deprecated. Set defaults via
-      ``td.config.run`` and ``td.config.vgpu`` instead. Non-``None`` values
-      passed here override the config for this call.
+    - Passing ``solver_version``, ``worker_group``, ``pay_type``, ``priority``,
+      and vGPU options directly is deprecated. Set defaults via ``td.config.run``
+      and ``td.config.vgpu`` instead. Non-``None`` values passed here override
+      the config for this call.
 
     Raises
     ------
@@ -243,7 +250,7 @@ def run(
     tidy3d.web.api.autograd.autograd.run_async
         Underlying autograd batch submission implementation.
     """
-    h2sim: dict[str, WorkflowType] = _collect_by_hash(simulation)
+    h2sim = _collect_by_hash(simulation)
     if not h2sim:
         raise ValueError("No simulation data found in simulation input.")
 

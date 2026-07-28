@@ -14,6 +14,7 @@ __all__ = [
     'AlgorithmHyperParameterTuningJobObjectiveType',
     'AppResourceSpecInstanceType',
     'AppType',
+    'ClusterAutoPatchConfigPatchingStrategy',
     'ClusterAutoScalingConfigAutoScalerType',
     'ClusterAutoScalingConfigMode',
     'ClusterDeepHealthCheckType',
@@ -21,6 +22,7 @@ __all__ = [
     'ClusterNetworkInterfaceInterfaceType',
     'ClusterNodeProvisioningMode',
     'ClusterNodeRecovery',
+    'ClusterOrchestratorSlurmConfigSlurmConfigStrategy',
     'ClusterSharedEnvironmentConfigFSxLustreDeletionPolicy',
     'ClusterSlurmConfigNodeType',
     'ClusterStatus',
@@ -380,6 +382,15 @@ class AppType(_builtins.str, Enum):
     CANVAS = "Canvas"
 
 
+@pulumi.type_token("aws-native:sagemaker:ClusterAutoPatchConfigPatchingStrategy")
+class ClusterAutoPatchConfigPatchingStrategy(_builtins.str, Enum):
+    """
+    The patching strategy that determines when and how instances are patched. WhenIdle patches instances as they become idle. WhenAllIdle patches all instances when they are all idle.
+    """
+    WHEN_IDLE = "WhenIdle"
+    WHEN_ALL_IDLE = "WhenAllIdle"
+
+
 @pulumi.type_token("aws-native:sagemaker:ClusterAutoScalingConfigAutoScalerType")
 class ClusterAutoScalingConfigAutoScalerType(_builtins.str, Enum):
     """
@@ -440,6 +451,16 @@ class ClusterNodeRecovery(_builtins.str, Enum):
     """
     AUTOMATIC = "Automatic"
     NONE = "None"
+
+
+@pulumi.type_token("aws-native:sagemaker:ClusterOrchestratorSlurmConfigSlurmConfigStrategy")
+class ClusterOrchestratorSlurmConfigSlurmConfigStrategy(_builtins.str, Enum):
+    """
+    The strategy for managing Slurm configuration on the cluster.
+    """
+    OVERWRITE = "Overwrite"
+    MANAGED = "Managed"
+    MERGE = "Merge"
 
 
 @pulumi.type_token("aws-native:sagemaker:ClusterSharedEnvironmentConfigFSxLustreDeletionPolicy")

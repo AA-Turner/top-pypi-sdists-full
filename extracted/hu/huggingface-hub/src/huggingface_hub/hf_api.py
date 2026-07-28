@@ -35,7 +35,6 @@ from urllib.parse import quote
 import httpcore
 import httpx
 from tqdm.auto import tqdm as base_tqdm
-from tqdm.contrib.concurrent import thread_map
 
 from . import constants
 from ._buckets import (
@@ -76,6 +75,8 @@ from ._jobs_api import (
     JobStage,
     ScheduledJobInfo,
     _create_job_spec,
+    _default_job_name_from_image,
+    _default_job_name_from_script,
     _derive_job_volume_name,
 )
 from ._space_api import (
@@ -130,6 +131,7 @@ from .utils import (
     get_session,
     get_token,
     hf_raise_for_status,
+    hf_thread_map,
     http_backoff,
     logging,
     paginate,
@@ -422,7 +424,7 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: str | None = None) -> tuple
 
     # Check if repo type is known (mapping "spaces" => "space" + empty value => `None`)
     if repo_type in constants.REPO_TYPES_MAPPING:
-        repo_type = constants.REPO_TYPES_MAPPING[repo_type]
+        repo_type = constants.REPO_TYPES_MAPPING[repo_type]  # type: ignore
     if repo_type == "":
         repo_type = None
     if repo_type not in constants.REPO_TYPES_WITH_KERNEL and repo_type != "bucket":
@@ -4693,10 +4695,11 @@ class HfApi:
             if exist_ok and err.response.status_code == 409:
                 # Repo already exists and `exist_ok=True`
                 pass
-            elif exist_ok and err.response.status_code in (401, 403):
+            elif exist_ok and err.response.status_code in (401, 402, 403):
                 # 401 -> if JWT token without create repo scope
+                # 402 -> if payment required (e.g. if Gradio/Docker Space and free user)
                 # 403 -> if no write permission on the namespace
-                # In both cases, repo might already exist
+                # In all 3 cases, repo might already exist
                 try:
                     self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
                     if repo_type is None or repo_type == constants.REPO_TYPE_MODEL:
@@ -6693,6 +6696,7 @@ class HfApi:
         repo_type: str | None = None,
         revision: str | None = None,
         token: bool | str | None = None,
+        timeout: float | None = constants.HF_HUB_DOWNLOAD_TIMEOUT,
     ) -> SafetensorsRepoMetadata:
         """
         Parse metadata for a safetensors repo on the Hub.
@@ -6719,6 +6723,10 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
+            timeout (`float`, *optional*, defaults to 10):
+                How many seconds to wait for the server to send data before giving up, passed to each request that
+                fetches a safetensors file header. Set to `None` to disable the timeout (not recommended, as a stalled
+                connection can hang the call indefinitely).
 
         Returns:
             [`SafetensorsRepoMetadata`]: information related to safetensors repo.
@@ -6770,6 +6778,7 @@ class HfApi:
                 repo_type=repo_type,
                 revision=revision,
                 token=token,
+                timeout=timeout,
             )
             return SafetensorsRepoMetadata(
                 metadata=None,
@@ -6804,10 +6813,15 @@ class HfApi:
 
             def _parse(filename: str) -> None:
                 files_metadata[filename] = self.parse_safetensors_file_metadata(
-                    repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, token=token
+                    repo_id=repo_id,
+                    filename=filename,
+                    repo_type=repo_type,
+                    revision=revision,
+                    token=token,
+                    timeout=timeout,
                 )
 
-            thread_map(
+            hf_thread_map(
                 _parse,
                 set(weight_map.values()),
                 desc="Parse safetensors files",
@@ -6834,6 +6848,7 @@ class HfApi:
         repo_type: str | None = None,
         revision: str | None = None,
         token: bool | str | None = None,
+        timeout: float | None = constants.HF_HUB_DOWNLOAD_TIMEOUT,
     ) -> SafetensorsFileMetadata:
         """
         Parse metadata from a safetensors file on the Hub.
@@ -6858,6 +6873,9 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
+            timeout (`float`, *optional*, defaults to 10):
+                How many seconds to wait for the server to send data before giving up. Set to `None` to disable the
+                timeout (not recommended, as a stalled connection can hang the call indefinitely).
 
         Returns:
             [`SafetensorsFileMetadata`]: information related to a safetensors file.
@@ -6881,7 +6899,7 @@ class HfApi:
         # We assume fetching 100kb is faster than making 2 GET requests. Therefore we always fetch the first 100kb to
         # avoid the 2nd GET in most cases.
         # See https://github.com/huggingface/huggingface_hub/pull/1855#discussion_r1404286419.
-        response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"})
+        response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"}, timeout=timeout)
         hf_raise_for_status(response)
 
         # 2. Parse and validate metadata size using shared helper
@@ -6891,7 +6909,9 @@ class HfApi:
         if metadata_size <= 100000:
             metadata_as_bytes = response.content[8 : 8 + metadata_size]
         else:  # 3.b. Request full metadata
-            response = get_session().get(url, headers={**_headers, "range": f"bytes=8-{metadata_size + 7}"})
+            response = get_session().get(
+                url, headers={**_headers, "range": f"bytes=8-{metadata_size + 7}"}, timeout=timeout
+            )
             hf_raise_for_status(response)
             metadata_as_bytes = response.content
 
@@ -9997,7 +10017,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 Namespace of the collection to create (username or org). Will default to the owner name.
             description (`str`, *optional*):
-                Description of the collection to create.
+                Description of the collection to create. The maximum size for a description is 150 characters.
             private (`bool`, *optional*):
                 Whether the collection should be private or not. Defaults to `False` (i.e. public collection).
             exists_ok (`bool`, *optional*):
@@ -10068,7 +10088,7 @@ class HfApi:
             title (`str`):
                 Title of the collection to update.
             description (`str`, *optional*):
-                Description of the collection to update.
+                Description of the collection to update. The maximum size for a description is 150 characters.
             position (`int`, *optional*):
                 New position of the collection in the list of collections of the user.
             private (`bool`, *optional*):
@@ -11844,7 +11864,7 @@ class HfApi:
 
             name (`str`, *optional*):
                 A name for the Job. Stored as the `name` label. Cannot be passed together with a `name` key in
-                `labels`. Names do not have to be unique.
+                `labels`. Names do not have to be unique. Defaults to a name derived from image and command (with a short hash suffix).
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -11904,6 +11924,8 @@ class HfApi:
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
+        if name is None and not (labels and "name" in labels):
+            name = _default_job_name_from_image(image, command)
         job_spec = _create_job_spec(
             image=image,
             command=command,
@@ -12483,7 +12505,7 @@ class HfApi:
 
             name (`str`, *optional*):
                 A name for the Job. Stored as the `name` label. Cannot be passed together with a `name` key in
-                `labels`. Names do not have to be unique.
+                `labels`. Names do not have to be unique. Defaults to a name derived from script and its arguments (with a short hash suffix).
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -12554,6 +12576,9 @@ class HfApi:
         image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
         env = env or {}
         secrets = secrets or {}
+
+        if name is None and not (labels and "name" in labels):
+            name = _default_job_name_from_script(script, script_args or [])
 
         # Build command
         command, env, secrets, extra_volumes = self._create_uv_command_env_and_secrets(
@@ -12643,7 +12668,7 @@ class HfApi:
 
             name (`str`, *optional*):
                 A name for the scheduled Job. Stored as the `name` label. Cannot be passed together with a `name`
-                key in `labels`. Names do not have to be unique.
+                key in `labels`. Names do not have to be unique. Defaults to a name derived from image and command (with a short hash suffix).
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -12693,6 +12718,8 @@ class HfApi:
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
+        if name is None and not (labels and "name" in labels):
+            name = _default_job_name_from_image(image, command)
 
         # prepare payload to send to HF Jobs API
         job_spec = _create_job_spec(
@@ -13038,7 +13065,7 @@ class HfApi:
 
             name (`str`, *optional*):
                 A name for the scheduled Job. Stored as the `name` label. Cannot be passed together with a `name`
-                key in `labels`. Names do not have to be unique.
+                key in `labels`. Names do not have to be unique. Defaults to a name derived from script and its arguments (with a short hash suffix).
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -13091,6 +13118,9 @@ class HfApi:
             ```
         """
         image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
+        if name is None and not (labels and "name" in labels):
+            name = _default_job_name_from_script(script, script_args or [])
+
         # Build command
         command, env, secrets, extra_volumes = self._create_uv_command_env_and_secrets(
             script=script,
@@ -13931,7 +13961,7 @@ class HfApi:
                 )
                 all_adds.append((local_path, target_path))
 
-            thread_map(_download_and_collect, pending_downloads, desc="Downloading text files for copy")
+            hf_thread_map(_download_and_collect, pending_downloads, desc="Downloading text files for copy")
 
         # Send copies first (no upload needed), then adds (may need upload)
         if all_copies:

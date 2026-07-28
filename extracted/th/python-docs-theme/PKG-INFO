@@ -1,11 +1,14 @@
 Metadata-Version: 2.4
 Name: python-docs-theme
-Version: 2026.4
+Version: 2026.7
 Summary: The Sphinx theme for the CPython docs and related projects
+Project-URL: Issue tracker, https://github.com/python/python-docs-theme/issues
+Project-URL: Code, https://github.com/python/python-docs-theme
+Project-URL: Download, https://pypi.org/project/python-docs-theme/
+Project-URL: Homepage, https://github.com/python/python-docs-theme/
 Author: Python Docs Sphinx Theme maintainers
-Requires-Python: >=3.12
-Description-Content-Type: text/markdown
 License-Expression: PSF-2.0
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Sphinx :: Theme
 Classifier: Intended Audience :: Developers
@@ -18,12 +21,9 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Documentation
 Classifier: Topic :: Software Development :: Documentation
-License-File: LICENSE
+Requires-Python: >=3.12
 Requires-Dist: sphinx>=7.3
-Project-URL: Code, https://github.com/python/python-docs-theme
-Project-URL: Download, https://pypi.org/project/python-docs-theme/
-Project-URL: Homepage, https://github.com/python/python-docs-theme/
-Project-URL: Issue tracker, https://github.com/python/python-docs-theme/issues
+Description-Content-Type: text/markdown
 
 # Python Docs Sphinx Theme
 
@@ -65,4 +65,3 @@ See a demo of the CPython docs using this theme:
 The kitchen sink is a showcase of every Sphinx feature:
 
 - https://sphinx-themes.org/sample-sites/python-docs-theme/kitchen-sink/
-

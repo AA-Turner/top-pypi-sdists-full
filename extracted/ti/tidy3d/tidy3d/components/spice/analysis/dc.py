@@ -4,10 +4,11 @@ This class defines standard SPICE electrical_analysis types (electrical simulati
 
 from __future__ import annotations
 
-from pydantic import Field, PositiveFloat, PositiveInt
+from pydantic import Field, PositiveFloat, PositiveInt, model_validator
 
 from tidy3d.components.base import Tidy3dBaseModel
 from tidy3d.constants import KELVIN
+from tidy3d.log import log
 
 
 class ChargeToleranceSpec(Tidy3dBaseModel):
@@ -17,13 +18,15 @@ class ChargeToleranceSpec(Tidy3dBaseModel):
     Example
     -------
     >>> import tidy3d as td
-    >>> charge_settings = td.ChargeToleranceSpec(abs_tol=1e8, rel_tol=1e-10, max_iters=30)
+    >>> charge_settings = td.ChargeToleranceSpec()
     """
 
     abs_tol: PositiveFloat = Field(
         default=1e10,
         title="Absolute tolerance.",
-        description="Absolute tolerance used as stop criteria when converging towards a solution.",
+        description="Absolute tolerance used as stop criteria when converging towards a solution. "
+        "This is honored by the legacy solver only; on the accelerated (default) solver, "
+        "``rel_tol`` is the effective convergence criterion.",
     )
 
     rel_tol: PositiveFloat = Field(
@@ -33,7 +36,7 @@ class ChargeToleranceSpec(Tidy3dBaseModel):
     )
 
     max_iters: PositiveInt = Field(
-        default=30,
+        default=120,
         title="Maximum number of iterations.",
         description="Indicates the maximum number of iterations to be run. "
         "The solver will stop either when this maximum of iterations is met "
@@ -47,6 +50,70 @@ class ChargeToleranceSpec(Tidy3dBaseModel):
         "are ramped up until they reach their specified value. This parameter "
         "determines how many of this iterations it takes to reach full values.",
     )
+
+    max_pseudo_steps: PositiveInt = Field(
+        default=60,
+        title="Maximum pseudo steps.",
+        description="Maximum number of pseudo time steps used per physical step "
+        "in the drift-diffusion solver.",
+    )
+
+    cfl_number: PositiveFloat = Field(
+        default=1e9,
+        title="CFL number.",
+        description="CFL multiplier used in the drift-diffusion solver. "
+        "Controls the pseudo time step size and acts as the upper bound "
+        "of the adaptive CFL controller.",
+    )
+
+    cfl_min: PositiveFloat | None = Field(
+        default=None,
+        title="Minimum CFL number.",
+        description="Lower bound of the adaptive CFL controller in the drift-diffusion "
+        "solver. When ``None`` (default), the solver uses ``cfl_number * 1e-6`` so "
+        "behaviour matches setups that predate this field. Setting ``cfl_min`` equal "
+        "to ``cfl_number`` effectively runs the solver with a constant CFL (no "
+        "adaptive backoff).",
+    )
+
+    preconditioner_iterations: PositiveInt = Field(
+        default=50,
+        title="Preconditioner iterations.",
+        description="Maximum number of preconditioner iterations in "
+        "the linear solver of the drift-diffusion solver.",
+    )
+
+    @model_validator(mode="after")
+    def _warn_non_default_solver_params(self) -> ChargeToleranceSpec:
+        """Warn when solver parameters differ from their defaults."""
+        field_names = (
+            "max_pseudo_steps",
+            "cfl_number",
+            "cfl_min",
+            "preconditioner_iterations",
+        )
+        fields = type(self).model_fields
+        changed = [name for name in field_names if getattr(self, name) != fields[name].default]
+        if changed:
+            log.warning(
+                f"Non-default values detected for {', '.join(changed)} in "
+                "'ChargeToleranceSpec'. Settings different than the defaults can lead to "
+                "long simulation times, lack of convergence, and divergence."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _warn_cfl_min_above_max(self) -> ChargeToleranceSpec:
+        """Warn when ``cfl_min`` exceeds ``cfl_number`` (the adaptive-CFL upper bound)."""
+        if self.cfl_min is not None and self.cfl_min > self.cfl_number:
+            log.warning(
+                f"'cfl_min' ({self.cfl_min}) is greater than 'cfl_number' "
+                f"({self.cfl_number}) in 'ChargeToleranceSpec'. The adaptive CFL "
+                "controller expects cfl_min <= cfl_number; with these bounds "
+                "inverted the controller will clamp to the (smaller) upper bound "
+                "every step and the solver may not behave as intended."
+            )
+        return self
 
 
 class SteadyChargeDCAnalysis(Tidy3dBaseModel):
@@ -63,10 +130,12 @@ class SteadyChargeDCAnalysis(Tidy3dBaseModel):
     convergence_dv: PositiveFloat = Field(
         default=1.0,
         title="Bias step.",
-        description="By default, a solution is computed at 0 bias. If a bias different than "
-        "0 is requested through a voltage source, the charge solver will start at 0 and increase bias "
-        "at `convergence_dv` intervals until the required bias is reached. This is, therefore, a "
-        "convergence parameter in DC computations.",
+        description="Maximum bias step used to aid convergence in DC computations. "
+        "The accelerated solver applies it only to multi-voltage sweeps: where the gap "
+        "between consecutive sweep voltages exceeds `convergence_dv`, intermediate "
+        "warm-start bias points are inserted (and excluded from the output); a "
+        "single-voltage simulation is solved directly. The legacy solver instead ramps "
+        "every requested bias from 0 in `convergence_dv` increments.",
     )
 
     fermi_dirac: bool = Field(

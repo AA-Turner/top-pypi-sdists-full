@@ -14,10 +14,7 @@ def parse_permission_args(resource_str: str) -> t.Dict[str, str]:
     """
     # Check for multiple argument blocks
     if resource_str.count("{") > 1:
-        raise ValueError(
-            f"Invalid permission string '{resource_str}'. "
-            "Multiple argument blocks found"
-        )
+        raise ValueError(f"Invalid permission string '{resource_str}'. Multiple argument blocks found")
     if ",{" not in resource_str:
         return {}
 
@@ -33,10 +30,7 @@ def parse_permission_args(resource_str: str) -> t.Dict[str, str]:
     if args_str:
         for arg in args_str.split(","):
             if "=" not in arg:
-                raise ValueError(
-                    f"Invalid argument format in '{resource_str}'. "
-                    "Expected key=value"
-                )
+                raise ValueError(f"Invalid argument format in '{resource_str}'. Expected key=value")
             key, value = arg.split("=")
             args[key.strip()] = value.strip()
 

@@ -6,9 +6,11 @@ import typing as t
 
 import pydantic
 
-from taktile_auth.enums import Wildcard
+from taktile_auth.enums import Action, Wildcard
 
 PARTIAL_RE = re.compile(r"(^[^\*]*$)|(^[^\*]*\*$)")
+
+BASE_ACTIONS = {Action.read.value, Action.write.value, Action.delete.value}
 
 
 def is_full_wildcard(v: str) -> str:
@@ -61,11 +63,19 @@ class Resource(pydantic.BaseModel):
 class ResourceDefinition(pydantic.BaseModel):
     resource_name: str
     args: t.Dict[str, Wildcard]
+    additional_actions: t.List[Action] = []
+
+    @property
+    def allowed_actions(self) -> t.Set[str]:
+        return BASE_ACTIONS | {action.value for action in self.additional_actions}
+
+    def assert_actions_allowed(self, actions: t.Iterable[str]) -> None:
+        invalid_actions = set(actions) - self.allowed_actions
+        if invalid_actions:
+            raise ValueError(f"Actions {sorted(invalid_actions)} not allowed for resource '{self.resource_name}'")
 
     def get_resource(self) -> t.Type[Resource]:
-        return make_resource(
-            resource_name=self.resource_name, args=HDict(self.args)
-        )
+        return make_resource(resource_name=self.resource_name, args=HDict(self.args))
 
 
 class HDict(dict):  # type: ignore
@@ -90,9 +100,7 @@ def make_resource(resource_name: str, args: HDict) -> t.Type[Resource]:
     fields: t.Any = {field_name: (str, ...) for field_name in args.keys()}
     validators = {
         f"{field_name}_validator": (
-            pydantic.validator(field_name, allow_reuse=True)(
-                WILDCARD_CHECK[check]
-            )  # type: ignore
+            pydantic.validator(field_name, allow_reuse=True)(WILDCARD_CHECK[check])  # type: ignore
         )
         for field_name, check in args.items()
     }

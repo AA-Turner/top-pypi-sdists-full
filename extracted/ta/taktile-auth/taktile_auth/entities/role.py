@@ -37,22 +37,14 @@ class Role(pydantic.BaseModel):
 
         """
         direct_perms = {perm for perm in self.permissions}
-        indirect_perms = {
-            perm
-            for role in self.sub_roles
-            for perm in role.get_all_permissions()
-        }
+        indirect_perms = {perm for role in self.sub_roles for perm in role.get_all_permissions()}
         all_perms = direct_perms.union(indirect_perms)
 
-        deduplicate_dict: t.Dict[t.Tuple[str, Resource], t.Set[Action]] = (
-            defaultdict(set)
-        )
+        deduplicate_dict: t.Dict[t.Tuple[str, Resource], t.Set[Action]] = defaultdict(set)
         for perm in all_perms:
-            deduplicate_dict[(perm.resource_name, perm.resource)] = (
-                deduplicate_dict[(perm.resource_name, perm.resource)].union(
-                    perm.actions
-                )
-            )
+            deduplicate_dict[(perm.resource_name, perm.resource)] = deduplicate_dict[
+                (perm.resource_name, perm.resource)
+            ].union(perm.actions)
 
         return {
             Permission(actions=actions, resource=res, resource_name=name)
@@ -71,9 +63,7 @@ Role.update_forward_refs()
 
 class RoleDefinition(pydantic.BaseModel):
     name: str
-    permission_definitions: t.List[
-        t.Tuple[t.Set[Action], PermissionDefinition, PermissionArgs]
-    ]
+    permission_definitions: t.List[t.Tuple[t.Set[Action], PermissionDefinition, PermissionArgs]]
     args: t.List[str]
     sub_role_definitions: t.List["RoleDefinition"]
 
@@ -90,21 +80,14 @@ class RoleDefinition(pydantic.BaseModel):
             # permission args take precedence
             merged_args = {**kwargs, **perm_args}
             perm = permission_definition.build(actions=actions, **merged_args)
-            perm_map[perm.resource] = perm_map[perm.resource].union(
-                perm.actions
-            )
+            perm_map[perm.resource] = perm_map[perm.resource].union(perm.actions)
         sub_roles = []
         for sub_role_definition in self.sub_role_definitions:
-            extra_args = {
-                arg: "*"
-                for arg in set(sub_role_definition.args).difference(self.args)
-            }
+            extra_args = {arg: "*" for arg in set(sub_role_definition.args).difference(self.args)}
             sub_role = sub_role_definition.build(**kwargs, **extra_args)
             sub_roles.append(sub_role)
             for perm in sub_role.permissions:
-                perm_map[perm.resource] = perm_map[perm.resource].union(
-                    perm.actions
-                )
+                perm_map[perm.resource] = perm_map[perm.resource].union(perm.actions)
         permissions = []
         for resource, actions in perm_map.items():
             permissions.append(

@@ -1,4 +1,3 @@
-from __future__ import division
 from utm.error import OutOfRangeError
 
 # For most use cases in this module, numpy is indistinguishable
@@ -256,7 +255,7 @@ def from_latlon(latitude, longitude, force_zone_number=None, force_zone_letter=N
         zone_letter = force_zone_letter
 
     if force_northern is None:
-        northern = (zone_letter >= 'N')
+        northern = (zone_letter.upper() >= 'N')
     else:
         northern = force_northern
 

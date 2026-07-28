@@ -107,6 +107,12 @@ FailedToClone = bool
 MICROBATCH_EVENT_TIME_START_KEY = "__microbatch_event_time_start"
 MICROBATCH_EVENT_TIME_END_KEY = "__microbatch_event_time_end"
 
+# Semantic-extras key used to fold the hash of a node's persisted documentation (relation
+# and/or column descriptions, when persist_docs is enabled) into the cache key. This ensures
+# that a docs-only change triggers an execution so the new descriptions are written to the
+# target table, even when the query result is otherwise unchanged.
+PERSISTED_DOCS_HASH_KEY = "__persisted_docs_hash"
+
 
 # Additional model configs that impact data outcomes and should be included in hash calculations
 SEMANTIC_EXTRAS_CONFIG_KEYS = (
@@ -1237,6 +1243,7 @@ class RunCache:
             for key in SEED_SEMANTIC_EXTRAS_CONFIG_KEYS
             if key in node_config
         }
+        semantic_extras.update(self._persisted_docs_semantic_extras(node))
         last_modified_epoch = self._get_last_modified_epoch(self._node_to_table(node))
         return sql_service_models.SubmitValuesRequest(
             target_table=node.relation_name or "",
@@ -1382,7 +1389,7 @@ class RunCache:
                 default_schema=self._adapter_ext.DEFAULT_SCHEMA_NAME,
                 execution_type=execution_type,
                 sql=sql,
-                semantic_extras={},
+                semantic_extras=self._persisted_docs_semantic_extras(node),
                 freshness_tolerance_seconds=0,
                 lenient_dependencies=set(),
                 tolerate_nondeterminism=True,
@@ -1484,6 +1491,7 @@ class RunCache:
             start, end = microbatch_window
             semantic_extras[MICROBATCH_EVENT_TIME_START_KEY] = start.isoformat()
             semantic_extras[MICROBATCH_EVENT_TIME_END_KEY] = end.isoformat()
+        semantic_extras.update(self._persisted_docs_semantic_extras(node))
         return sql_service_models.SubmitEnrichedSQLRequest(
             tables=table_infos,
             query_dependencies=query_dependencies,
@@ -1546,6 +1554,24 @@ class RunCache:
             "dbt_node_fqn": ".".join(node.fqn),
             "dbt_node_unique_id": unique_id,
         }
+
+    def _persisted_docs_semantic_extras(
+        self, node: ModelOrSnapshotOrTestOrSeedNode
+    ) -> t.Dict[str, str]:
+        """Build the persisted-docs semantic extra for a node.
+
+        When ``persist_docs`` is enabled for a node, its relation and/or column descriptions
+        are written to the target table. A change to those descriptions does not alter the
+        query result, so without this extra the cache would report a no-op and the updated
+        docs would never be persisted. Folding the docs hash into ``semantic_extras`` forces
+        an execution whenever the documentation changes. Returns an empty mapping when the
+        node has no persisted docs.
+        """
+        calculator = create_node_hash_calculator(node, self._manifest)
+        docs_hash = calculator.node_persisted_docs_hash
+        if docs_hash is None:
+            return {}
+        return {PERSISTED_DOCS_HASH_KEY: docs_hash}
 
     def _build_dbt_node_state(self, node: ModelOrSnapshotOrTestNode) -> shared_models.DbtNodeState:
         calculator = create_node_hash_calculator(node, self._manifest)

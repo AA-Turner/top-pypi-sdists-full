@@ -18,6 +18,8 @@ from tidy3d.components.tcad.types import (
     MobilityModelType,
     RecombinationModelType,
 )
+from tidy3d.components.types import TYPE_TAG_STR
+from tidy3d.components.types.base import discriminated_union
 from tidy3d.constants import CONDUCTIVITY, ELECTRON_VOLT, PERCMCUBE, PERMITTIVITY
 from tidy3d.log import log
 
@@ -86,6 +88,14 @@ class ChargeConductorMedium(AbstractChargeMedium):
         title="Electric conductivity",
         description="Electric conductivity of material.",
         json_schema_extra={"units": CONDUCTIVITY},
+    )
+
+    work_function: PositiveFloat | None = Field(
+        None,
+        title="Work function",
+        description="Metal work function :math:`W` [eV]. Required on the metal "
+        "side of a Schottky contact.",
+        json_schema_extra={"units": ELECTRON_VOLT},
     )
 
 
@@ -251,12 +261,15 @@ class SemiconductorMedium(AbstractChargeMedium):
         - Isothermal by default at T=300K; self-heating available through analysis spec
         - Steady-state DC and small-signal AC analyses supported
         - Dopants are considered to be fully ionized
+        - Schottky contacts available via ``VoltageBC(model="schottky_mott")``; see :class:`.VoltageBC`.
 
     Note
     ----
         - Both :math:`N_a` and :math:`N_d` can be specified using one or more doping boxes.
-          Contributions from multiple boxes are summed. Use :class:`.CustomDoping` to add a
-          :class:`.SpatialDataArray` custom profile to other doping boxes.
+          Boxes that overlap in space have their concentrations summed. Boxes that only
+          share a boundary (abut) do not double the concentration there; the box listed
+          last in the list takes precedence on that shared boundary. Use :class:`.CustomDoping`
+          to add a :class:`.SpatialDataArray` custom profile to other doping boxes.
         - Default values for parameters and models are those appropriate for Silicon.
         - The current implementation is a good approximation for non-degenerate semiconductors.
 
@@ -283,20 +296,49 @@ class SemiconductorMedium(AbstractChargeMedium):
         json_schema_extra={"units": ELECTRON_VOLT},
     )
 
+    electron_affinity: PositiveFloat | None = Field(
+        None,
+        title="Electron affinity",
+        description=":math:`\\chi` Electron affinity [eV]. Required on the "
+        "semiconductor side of a Schottky contact, and used by the accelerated "
+        "charge solver for semiconductor heterojunction band offsets.",
+        json_schema_extra={"units": ELECTRON_VOLT},
+    )
+
+    richardson_electron: PositiveFloat | None = Field(
+        None,
+        title="Electron Richardson constant",
+        description=":math:`A^*_n` Electron Richardson constant "
+        "[A/(cm^2 K^2)]. Used by accelerated charge thermionic transport for "
+        "Schottky contacts and semiconductor heterojunctions.",
+    )
+
+    richardson_hole: PositiveFloat | None = Field(
+        None,
+        title="Hole Richardson constant",
+        description=":math:`A^*_p` Hole Richardson constant [A/(cm^2 K^2)]. "
+        "Used by accelerated charge thermionic transport for Schottky contacts "
+        "and semiconductor heterojunctions.",
+    )
+
     mobility_n: MobilityModelType = Field(
+        discriminator=TYPE_TAG_STR,
         title="Mobility model for electrons",
         description="Mobility model for electrons",
     )
 
     mobility_p: MobilityModelType = Field(
+        discriminator=TYPE_TAG_STR,
         title="Mobility model for holes",
         description="Mobility model for holes",
     )
 
-    R: tuple[RecombinationModelType, ...] = Field(
+    R: tuple[discriminated_union(RecombinationModelType), ...] = Field(
         (),
         title="Generation-Recombination models",
-        description="Array containing the R models to be applied to the material.",
+        description="Array containing the R models to be applied to the material. "
+        "At most one Shockley-Read-Hall (:class:`.ShockleyReedHallRecombination`) model "
+        "may be specified per medium; if several are provided only the last one is used.",
     )
 
     delta_E_g: BandGapNarrowingModelType | None = Field(
@@ -306,26 +348,32 @@ class SemiconductorMedium(AbstractChargeMedium):
         json_schema_extra={"units": ELECTRON_VOLT},
     )
 
-    N_a: tuple[DopingBoxType, ...] | list[DopingBoxType] | SpatialDataArray | NonNegativeFloat = (
-        Field(
-            (),
-            title="Doping: Acceptor concentration",
-            description="Concentration of acceptor impurities, which create mobile holes, resulting in p-type material. "
-            "Can be specified as a single float for uniform doping, a :class:`SpatialDataArray` for a custom profile, "
-            "or a tuple/list of geometric shapes to define specific doped regions.",
-            json_schema_extra={"units": PERCMCUBE},
-        )
+    N_a: (
+        tuple[discriminated_union(DopingBoxType), ...]
+        | list[discriminated_union(DopingBoxType)]
+        | SpatialDataArray
+        | NonNegativeFloat
+    ) = Field(
+        (),
+        title="Doping: Acceptor concentration",
+        description="Concentration of acceptor impurities, which create mobile holes, resulting in p-type material. "
+        "Can be specified as a single float for uniform doping, a :class:`SpatialDataArray` for a custom profile, "
+        "or a tuple/list of geometric shapes to define specific doped regions.",
+        json_schema_extra={"units": PERCMCUBE},
     )
 
-    N_d: tuple[DopingBoxType, ...] | list[DopingBoxType] | SpatialDataArray | NonNegativeFloat = (
-        Field(
-            (),
-            title="Doping: Donor concentration",
-            description="Concentration of donor impurities, which create mobile electrons, resulting in n-type material. "
-            "Can be specified as a single float for uniform doping, a :class:`SpatialDataArray` for a custom profile, "
-            "or a tuple/list of geometric shapes to define specific doped regions.",
-            json_schema_extra={"units": PERCMCUBE},
-        )
+    N_d: (
+        tuple[discriminated_union(DopingBoxType), ...]
+        | list[discriminated_union(DopingBoxType)]
+        | SpatialDataArray
+        | NonNegativeFloat
+    ) = Field(
+        (),
+        title="Doping: Donor concentration",
+        description="Concentration of donor impurities, which create mobile electrons, resulting in n-type material. "
+        "Can be specified as a single float for uniform doping, a :class:`SpatialDataArray` for a custom profile, "
+        "or a tuple/list of geometric shapes to define specific doped regions.",
+        json_schema_extra={"units": PERCMCUBE},
     )
 
     # DEPRECATION VALIDATORS

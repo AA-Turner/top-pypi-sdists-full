@@ -7,8 +7,6 @@ PROV-DM: http://www.w3.org/TR/prov-dm/
 PROV-JSON: https://openprovenance.org/prov-json/
 """
 
-from __future__ import annotations  # needed for | type annotations in Python < 3.10
-
 import datetime as datetime
 import io as io
 import itertools as itertools
@@ -22,8 +20,6 @@ from collections.abc import Callable as Callable, Iterable as Iterable
 from io import IOBase as IOBase
 from typing import Any as Any, Union as Union
 from urllib.parse import urlparse as urlparse
-
-import dateutil as dateutil
 
 from prov import Error as Error, serializers as serializers
 from prov.constants import *
@@ -47,9 +43,11 @@ from prov.model.records import (
     XSD_DATATYPE_PARSERS as XSD_DATATYPE_PARSERS,
     ActivityRef as ActivityRef,
     AgentRef as AgentRef,
+    AttributePair as AttributePair,
     DatetimeOrStr as DatetimeOrStr,
     EntityRef as EntityRef,
-    GenrationRef as GenrationRef,
+    GenerationRef as GenerationRef,
+    InfluencerRef as InfluencerRef,
     Literal as Literal,
     NameValuePair as NameValuePair,
     NSCollection as NSCollection,
@@ -78,12 +76,15 @@ from prov.model.records import (
     ProvRelation as ProvRelation,
     ProvSpecialization as ProvSpecialization,
     ProvStart as ProvStart,
+    ProvUnificationError as ProvUnificationError,
     ProvUsage as ProvUsage,
     ProvWarning as ProvWarning,
     QualifiedNameCandidate as QualifiedNameCandidate,
     RecordAttributesArg as RecordAttributesArg,
+    StreamOrPath as StreamOrPath,
     SupportedXSDParsedTypes as SupportedXSDParsedTypes,
     UsageRef as UsageRef,
+    canonical_xsd_datatype as canonical_xsd_datatype,
     encoding_provn_value as encoding_provn_value,
     first as first,
     parse_boolean as parse_boolean,

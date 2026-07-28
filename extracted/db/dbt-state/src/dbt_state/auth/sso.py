@@ -49,6 +49,21 @@ THEME = Theme(
 """The Rich console theme to use in the CLI"""
 
 
+def _warn_config_dir_not_writable(path: Path, error: OSError) -> None:
+    """Warn that the dbt State config directory cannot be written to.
+
+    Credentials are cached in this directory, so an unwritable path means the CLI has to
+    re-authenticate on every invocation, but it never prevents the current invocation from
+    authenticating.
+    """
+    events.fire_warn_event_suboptimal(
+        "Unable to write to the dbt State config directory ({}): {}. Credentials cannot be cached, "
+        "so authentication is repeated on every invocation",
+        str(path),
+        str(error),
+    )
+
+
 @dataclass
 class Org:
     org_id: str
@@ -117,8 +132,12 @@ class SsoAuth:
         self._configured_org_id = org_id
         self._dbt_platform_tokens = dbt_platform_tokens or []
 
-        if not auth_json_path.exists():
+        try:
             auth_json_path.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            # a read-only or foreign-owned home directory (common in containers running as an
+            # arbitrary uid) must not prevent authentication, only credential caching
+            _warn_config_dir_not_writable(auth_json_path, e)
         self._auth_json_path = auth_json_path
 
         self._session = OAuth2Session(
@@ -376,10 +395,14 @@ class SsoAuth:
             return self._update_token_info(self._session.token)
         except AuthenticationError:
             raise
-        except Exception:
+        except Exception as e:
+            # this also catches failures unrelated to the credentials themselves (e.g. no network
+            # egress to the auth service), so log the cause for debugging, but keep it out of the
+            # user-facing message where an arbitrary exception string would only confuse
+            events.fire_debug_event("Client credentials login failed: {}", str(e))
             raise AuthenticationError(
                 "Error logging in with client credentials. Please make sure that the DBT_ENGINE_STATE_OAUTH_CLIENT_ID and DBT_ENV_SECRET_STATE_OAUTH_CLIENT_SECRET environment variables (or associated file-based config) are set to the right values"
-            )
+            ) from e
 
     def _exchange_dbt_platform_token_for_state_token(self) -> t.Dict:
         # try all of them, the first one that works wins
@@ -497,9 +520,13 @@ class SsoAuth:
         """
         auth_file = self._auth_json_file
 
-        with auth_file.open("w", encoding="utf-8") as fd:
-            json.dump(data, fd)
-        os.chmod(auth_file, stat.S_IWUSR | stat.S_IRUSR)
+        try:
+            with auth_file.open("w", encoding="utf-8") as fd:
+                json.dump(data, fd)
+            os.chmod(auth_file, stat.S_IWUSR | stat.S_IRUSR)
+        except OSError as e:
+            # the token is already usable in memory, so a failed write only costs us the cache
+            _warn_config_dir_not_writable(auth_file, e)
 
     def _update_token_info(self, token: t.Dict) -> t.Dict:
         id_token = token["id_token"]

@@ -387,7 +387,7 @@ SupportedS3RegionType = Literal[
 SyntheticDataColumnTypeType = Literal["CATEGORICAL", "NUMERICAL"]
 TargetProtectedJobStatusType = Literal["CANCELLED"]
 TargetProtectedQueryStatusType = Literal["CANCELLED"]
-WorkerComputeTypeType = Literal["CR.1X", "CR.4X"]
+WorkerComputeTypeType = Literal["CR.1X", "CR.4X", "CR.8X"]
 CleanRoomsServiceServiceName = Literal["cleanrooms"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -680,6 +680,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",

@@ -55,10 +55,11 @@ class Renderer {
     std::vector<std::byte> pixels(width * height * 3);
     {
       py::gil_scoped_release no_gil;
-      impl_->Render(
-          model.get(), data.get(), perturb ? perturb.value().get() : nullptr,
-          camera ? camera.value().get() : nullptr,
-          vis_option ? vis_option.value().get() : nullptr, width, height, pixels);
+      impl_->Render(model.get(), data.get(),
+                    perturb ? perturb.value().get() : nullptr,
+                    camera ? camera.value().get() : nullptr,
+                    vis_option ? vis_option.value().get() : nullptr, width,
+                    height, pixels);
     }
     return pybind11::bytes((const char*)pixels.data(), pixels.size());
   }
@@ -75,7 +76,7 @@ class Renderer {
 
 }  // namespace mujoco::python
 
-PYBIND11_MODULE(renderer, m) {
+PYBIND11_MODULE(renderer, m, pybind11::mod_gil_not_used()) {
   pybind11::module_::import("mujoco._structs");
   pybind11::class_<mujoco::python::Renderer>(m, "Renderer")
       .def(pybind11::init<const std::string&>())

@@ -1,11 +1,3 @@
-"""
-SMatrix_CSR.py
-
-CSR (Compressed Sparse Row) sparse matrix construction and operations.
-Supports both REAL and COMPLEX fields via `isComplexSMatrix` flag.
-Supports both CPU (NumPy) and GPU (CuPy) implementations.
-"""
-
 import os
 import warnings
 import numpy as np
@@ -54,105 +46,105 @@ class SMatrix_CSR(SMatrix):
         self.col_ind_gpu = None
         self.values_gpu = None
 
-
     def _allocate_gpu(self):
         """Allocate and fill the CSR matrix on GPU using 1-Pass PCIe strategy."""
-        num_rows = self.N * self.T
-        num_cols = self.Z * self.X
-        br = self.block_rows
-        dtype = self._get_dtype()
-        cp_dtype = self._get_cp_dtype()
+        with cp.cuda.Device(self.gpu_index):
+            num_rows = self.N * self.T
+            num_cols = self.Z * self.X
+            br = self.block_rows
+            dtype = self._get_dtype()
+            cp_dtype = self._get_cp_dtype()
 
-        # Initialize global row pointer
-        self.row_ptr = np.zeros(num_rows + 1, dtype=np.int64)
+            # Initialize global row pointer
+            self.row_ptr = np.zeros(num_rows + 1, dtype=np.int64)
 
-        # Temporary lists to hold local blocks of sparse data
-        col_ind_list = []
-        values_list = []
+            # Temporary lists to hold local blocks of sparse data
+            col_ind_list = []
+            values_list = []
 
-        dense_block_host = np.empty((br, num_cols), dtype=dtype)
-        count_nnz_kernel_name = "count_nnz_rows_kernel__COMPLEX" if self.isComplexSMatrix else "count_nnz_rows_kernel__REAL"
-        fill_csr_kernel_name = "fill_kernel__CSR__COMPLEX" if self.isComplexSMatrix else "fill_kernel__CSR__REAL"
-        count_nnz_kernel = self.sparse_mod.get_function(count_nnz_kernel_name)
-        fill_csr_kernel = self.sparse_mod.get_function(fill_csr_kernel_name)
-        block_size = 256
+            dense_block_host = np.empty((br, num_cols), dtype=dtype)
+            count_nnz_kernel_name = "count_nnz_rows_kernel__COMPLEX" if self.isComplexSMatrix else "count_nnz_rows_kernel__REAL"
+            fill_csr_kernel_name = "fill_kernel__CSR__COMPLEX" if self.isComplexSMatrix else "fill_kernel__CSR__REAL"
+            count_nnz_kernel = self.sparse_mod.get_function(count_nnz_kernel_name)
+            fill_csr_kernel = self.sparse_mod.get_function(fill_csr_kernel_name)
+            block_size = 256
 
-        for b in trange(0, num_rows, br, desc=f'[AOT-biomaps] Filling CSR (GPU - {"Complex" if self.isComplexSMatrix else "Real"})'):
-            current_rows = min(br, num_rows - b)
+            for b in trange(0, num_rows, br, desc=f'[AOT-biomaps] Filling CSR ({"Complex" if self.isComplexSMatrix else "Real"}) --- device: {self.device.upper()}'):
+                current_rows = min(br, num_rows - b)
 
-            sorted_keys = sorted(list(self.experiment.AcousticFields_demodulated.keys()))
+                sorted_keys = sorted(list(self.experiment.AcousticFields_demodulated.keys()))
 
-            for r in range(current_rows):
-                global_row = b + r
-                if self.isComplexSMatrix:
-                    n_idx = global_row // self.T
-                    key = sorted_keys[n_idx]
-                    dense_block_host[r] = self.experiment.AcousticFields_demodulated[key][global_row % self.T].flatten()
-                else:
-                    n_idx = global_row // self.T
-                    t_idx = global_row % self.T
-                    dense_block_host[r] = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
+                for r in range(current_rows):
+                    global_row = b + r
+                    if self.isComplexSMatrix:
+                        n_idx = global_row // self.T
+                        key = sorted_keys[n_idx]
+                        dense_block_host[r] = self.experiment.AcousticFields_demodulated[key][global_row % self.T].flatten()
+                    else:
+                        n_idx = global_row // self.T
+                        t_idx = global_row % self.T
+                        dense_block_host[r] = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
 
-            # 1. Send dense data to GPU ONCE
-            dense_block_gpu = cp.asarray(dense_block_host[:current_rows], dtype=cp_dtype)
-            row_nnz_gpu = cp.zeros(current_rows, dtype=np.int32)
+                # 1. Send dense data to GPU ONCE
+                dense_block_gpu = cp.asarray(dense_block_host[:current_rows], dtype=cp_dtype)
+                row_nnz_gpu = cp.zeros(current_rows, dtype=np.int32)
 
-            grid = ((current_rows + block_size - 1) // block_size, 1, 1)
+                grid = ((current_rows + block_size - 1) // block_size, 1, 1)
 
-            # 2. Count NNZ
-            count_nnz_kernel(
-                grid=grid, block=(block_size, 1, 1),
-                args=[dense_block_gpu, row_nnz_gpu, np.int32(current_rows), np.int32(num_cols),
-                      np.float32(self.relative_threshold)]
-            )
-            cp.cuda.Stream.null.synchronize()
-
-            # 3. Compute local offsets
-            row_nnz_host = cp.asnumpy(row_nnz_gpu)
-            local_row_ptr = np.zeros(current_rows + 1, dtype=np.int64)
-            local_row_ptr[1:] = np.cumsum(row_nnz_host)
-            local_nnz = int(local_row_ptr[-1])
-
-            # Accumulate into global row_ptr
-            self.row_ptr[b + 1 : b + current_rows + 1] = self.row_ptr[b] + local_row_ptr[1:]
-
-            if local_nnz > 0:
-                # 4. Fill local CSR exactly where the data lives
-                local_row_ptr_gpu = cp.asarray(local_row_ptr)
-                local_col_ind_gpu = cp.empty(local_nnz, dtype=np.uint32)
-                local_values_gpu = cp.empty(local_nnz, dtype=cp_dtype)
-
-                fill_csr_kernel(
+                # 2. Count NNZ
+                count_nnz_kernel(
                     grid=grid, block=(block_size, 1, 1),
-                    args=[dense_block_gpu, local_row_ptr_gpu, local_col_ind_gpu, local_values_gpu,
-                          np.int32(current_rows), np.int32(num_cols),
-                          np.float32(self.relative_threshold), np.int64(local_nnz)]
+                    args=[dense_block_gpu, row_nnz_gpu, np.int32(current_rows), np.int32(num_cols),
+                          np.float32(self.relative_threshold)]
                 )
                 cp.cuda.Stream.null.synchronize()
 
-                # 5. Bring compressed data back to CPU
-                col_ind_list.append(cp.asnumpy(local_col_ind_gpu))
-                values_list.append(cp.asnumpy(local_values_gpu))
+                # 3. Compute local offsets
+                row_nnz_host = cp.asnumpy(row_nnz_gpu)
+                local_row_ptr = np.zeros(current_rows + 1, dtype=np.int64)
+                local_row_ptr[1:] = np.cumsum(row_nnz_host)
+                local_nnz = int(local_row_ptr[-1])
 
-        self.total_nnz = int(self.row_ptr[-1])
+                # Accumulate into global row_ptr
+                self.row_ptr[b + 1 : b + current_rows + 1] = self.row_ptr[b] + local_row_ptr[1:]
 
-        # 6. Concatenate locally constructed CSR blocks
-        if self.total_nnz > 0:
-            self.h_col_ind = np.concatenate(col_ind_list)
-            self.h_values = np.concatenate(values_list)
-        else:
-            self.h_col_ind = np.array([], dtype=np.uint32)
-            self.h_values = np.array([], dtype=dtype)
+                if local_nnz > 0:
+                    # 4. Fill local CSR exactly where the data lives
+                    local_row_ptr_gpu = cp.asarray(local_row_ptr)
+                    local_col_ind_gpu = cp.empty(local_nnz, dtype=np.uint32)
+                    local_values_gpu = cp.empty(local_nnz, dtype=cp_dtype)
 
-        # 7. Final unified GPU transfer for operations
-        self.row_ptr_gpu = cp.asarray(self.row_ptr)
-        self.col_ind_gpu = cp.asarray(self.h_col_ind)
-        self.values_gpu = cp.asarray(self.h_values, dtype=cp_dtype)
+                    fill_csr_kernel(
+                        grid=grid, block=(block_size, 1, 1),
+                        args=[dense_block_gpu, local_row_ptr_gpu, local_col_ind_gpu, local_values_gpu,
+                              np.int32(current_rows), np.int32(num_cols),
+                              np.float32(self.relative_threshold), np.int64(local_nnz)]
+                    )
+                    cp.cuda.Stream.null.synchronize()
 
-        del self.h_col_ind
-        del self.h_values
-        self.h_col_ind = None
-        self.h_values = None
+                    # 5. Bring compressed data back to CPU
+                    col_ind_list.append(cp.asnumpy(local_col_ind_gpu))
+                    values_list.append(cp.asnumpy(local_values_gpu))
+
+            self.total_nnz = int(self.row_ptr[-1])
+
+            # 6. Concatenate locally constructed CSR blocks
+            if self.total_nnz > 0:
+                self.h_col_ind = np.concatenate(col_ind_list)
+                self.h_values = np.concatenate(values_list)
+            else:
+                self.h_col_ind = np.array([], dtype=np.uint32)
+                self.h_values = np.array([], dtype=dtype)
+
+            # 7. Final unified GPU transfer for operations
+            self.row_ptr_gpu = cp.asarray(self.row_ptr)
+            self.col_ind_gpu = cp.asarray(self.h_col_ind)
+            self.values_gpu = cp.asarray(self.h_values, dtype=cp_dtype)
+
+            del self.h_col_ind
+            del self.h_values
+            self.h_col_ind = None
+            self.h_values = None
 
     def _allocate_cpu(self):
         """Allocate and fill the CSR matrix on CPU."""
@@ -162,7 +154,7 @@ class SMatrix_CSR(SMatrix):
 
         self.row_ptr = np.zeros(num_rows + 1, dtype=np.int64)
 
-        for global_row in trange(num_rows, desc=f'[AOT-biomaps] Counting NNZ (CPU - {"Complex" if self.isComplexSMatrix else "Real"})'):
+        for global_row in trange(num_rows, desc=f'[AOT-biomaps] Counting NNZ ({"Complex" if self.isComplexSMatrix else "Real"}) --- device: CPU'):
             if self.isComplexSMatrix:
                 n_idx = global_row // self.T
                 key = list(self.experiment.AcousticFields_demodulated.keys())[n_idx]
@@ -182,7 +174,7 @@ class SMatrix_CSR(SMatrix):
         self.h_values = np.zeros(self.total_nnz, dtype=dtype)
 
         ptr = 0
-        for global_row in trange(num_rows, desc=f'[AOT-biomaps] Filling CSR (CPU - {"Complex" if self.isComplexSMatrix else "Real"})'):
+        for global_row in trange(num_rows, desc=f'[AOT-biomaps] Filling CSR ({"Complex" if self.isComplexSMatrix else "Real"}) --- device: CPU'):
             if self.isComplexSMatrix:
                 n_idx = global_row // self.T
                 key = list(self.experiment.AcousticFields_demodulated.keys())[n_idx]
@@ -206,18 +198,19 @@ class SMatrix_CSR(SMatrix):
         ZX = self.Z * self.X
 
         if check_gpu_available(self):
-            col_sum_gpu = cp.zeros(ZX, dtype=np.float32)
-            acc_kernel_name = "accumulate_columns_atomic__COMPLEX" if self.isComplexSMatrix else "accumulate_columns_atomic__REAL"
-            acc_kernel = self.sparse_mod.get_function(acc_kernel_name)
-            threads = 256
-            blocks = (self.total_nnz + threads - 1) // threads
+            with cp.cuda.Device(self.gpu_index):
+                col_sum_gpu = cp.zeros(ZX, dtype=np.float32)
+                acc_kernel_name = "accumulate_columns_atomic__COMPLEX" if self.isComplexSMatrix else "accumulate_columns_atomic__REAL"
+                acc_kernel = self.sparse_mod.get_function(acc_kernel_name)
+                threads = 256
+                blocks = (self.total_nnz + threads - 1) // threads
 
-            acc_kernel(
-                grid=(blocks, 1), block=(threads, 1, 1),
-                args=[self.values_gpu, self.col_ind_gpu, np.int64(self.total_nnz), col_sum_gpu]
-            )
-            cp.cuda.Stream.null.synchronize()
-            norm = cp.asnumpy(col_sum_gpu)
+                acc_kernel(
+                    grid=(blocks, 1), block=(threads, 1, 1),
+                    args=[self.values_gpu, self.col_ind_gpu, np.int64(self.total_nnz), col_sum_gpu]
+                )
+                cp.cuda.Stream.null.synchronize()
+                norm = cp.asnumpy(col_sum_gpu)
         else:
             norm = np.zeros(ZX, dtype=np.float32)
             for i in range(self.total_nnz):
@@ -228,7 +221,8 @@ class SMatrix_CSR(SMatrix):
         self.norm_factor_inv = (1.0 / norm).astype(np.float32)
 
         if CUPY_AVAILABLE:
-            self.norm_factor_inv_gpu = cp.asarray(self.norm_factor_inv)
+            with cp.cuda.Device(self.gpu_index):
+                self.norm_factor_inv_gpu = cp.asarray(self.norm_factor_inv)
 
     def forward_projection(self, theta: Union[np.ndarray, "cp.ndarray"]) -> Union[np.ndarray, "cp.ndarray"]:
         """Perform forward projection: q = A * theta."""
@@ -236,23 +230,24 @@ class SMatrix_CSR(SMatrix):
         cp_dtype = self._get_cp_dtype()
 
         if check_gpu_available(self):
-            theta_gpu = cp.asarray(theta, dtype=cp_dtype) if not isinstance(theta, cp.ndarray) else theta
-            if theta_gpu.dtype != cp_dtype:
-                theta_gpu = theta_gpu.astype(cp_dtype)
-            q_gpu = cp.zeros(self.N * self.T, dtype=cp_dtype)
+            with cp.cuda.Device(self.gpu_index):
+                theta_gpu = cp.asarray(theta, dtype=cp_dtype) if not isinstance(theta, cp.ndarray) else theta
+                if theta_gpu.dtype != cp_dtype:
+                    theta_gpu = theta_gpu.astype(cp_dtype)
+                q_gpu = cp.zeros(self.N * self.T, dtype=cp_dtype)
 
-            proj_kernel_name = "forward_projection_kernel__CSR__COMPLEX" if self.isComplexSMatrix else "forward_projection_kernel__CSR__REAL"
-            proj_kernel = self.sparse_mod.get_function(proj_kernel_name)
-            threads = 256
-            blocks = (self.N * self.T + threads - 1) // threads
+                proj_kernel_name = "forward_projection_kernel__CSR__COMPLEX" if self.isComplexSMatrix else "forward_projection_kernel__CSR__REAL"
+                proj_kernel = self.sparse_mod.get_function(proj_kernel_name)
+                threads = 256
+                blocks = (self.N * self.T + threads - 1) // threads
 
-            proj_kernel(
-                grid=(blocks, 1), block=(threads, 1, 1),
-                args=[q_gpu.data.ptr, self.values_gpu, self.row_ptr_gpu, self.col_ind_gpu,
-                      theta_gpu.data.ptr, np.int32(self.N * self.T)]
-            )
-            cp.cuda.Stream.null.synchronize()
-            return q_gpu
+                proj_kernel(
+                    grid=(blocks, 1), block=(threads, 1, 1),
+                    args=[q_gpu.data.ptr, self.values_gpu, self.row_ptr_gpu, self.col_ind_gpu,
+                          theta_gpu.data.ptr, np.int32(self.N * self.T)]
+                )
+                cp.cuda.Stream.null.synchronize()
+                return q_gpu
         else:
             theta_cpu = np.asarray(theta, dtype=dtype) if not isinstance(theta, np.ndarray) else theta
             if isinstance(theta_cpu, cp.ndarray):
@@ -273,23 +268,24 @@ class SMatrix_CSR(SMatrix):
         cp_dtype = self._get_cp_dtype()
 
         if check_gpu_available(self):
-            e_gpu = cp.asarray(e, dtype=cp_dtype) if not isinstance(e, cp.ndarray) else e
-            if e_gpu.dtype != cp_dtype:
-                e_gpu = e_gpu.astype(cp_dtype)
-            c_gpu = cp.zeros(self.Z * self.X, dtype=cp_dtype)
+            with cp.cuda.Device(self.gpu_index):
+                e_gpu = cp.asarray(e, dtype=cp_dtype) if not isinstance(e, cp.ndarray) else e
+                if e_gpu.dtype != cp_dtype:
+                    e_gpu = e_gpu.astype(cp_dtype)
+                c_gpu = cp.zeros(self.Z * self.X, dtype=cp_dtype)
 
-            backproj_kernel_name = "backward_projection_kernel__CSR__COMPLEX" if self.isComplexSMatrix else "backward_projection_kernel__CSR__REAL"
-            backproj_kernel = self.sparse_mod.get_function(backproj_kernel_name)
-            threads = 256
-            blocks = (self.N * self.T + threads - 1) // threads
+                backproj_kernel_name = "backward_projection_kernel__CSR__COMPLEX" if self.isComplexSMatrix else "backward_projection_kernel__CSR__REAL"
+                backproj_kernel = self.sparse_mod.get_function(backproj_kernel_name)
+                threads = 256
+                blocks = (self.N * self.T + threads - 1) // threads
 
-            backproj_kernel(
-                grid=(blocks, 1), block=(threads, 1, 1),
-                args=[c_gpu.data.ptr, self.values_gpu, self.row_ptr_gpu, self.col_ind_gpu,
-                      e_gpu.data.ptr, np.int32(self.N * self.T)]
-            )
-            cp.cuda.Stream.null.synchronize()
-            return c_gpu
+                backproj_kernel(
+                    grid=(blocks, 1), block=(threads, 1, 1),
+                    args=[c_gpu.data.ptr, self.values_gpu, self.row_ptr_gpu, self.col_ind_gpu,
+                          e_gpu.data.ptr, np.int32(self.N * self.T)]
+                )
+                cp.cuda.Stream.null.synchronize()
+                return c_gpu
         else:
             e_cpu = np.asarray(e, dtype=dtype) if not isinstance(e, np.ndarray) else e
             if isinstance(e_cpu, cp.ndarray):
@@ -344,21 +340,23 @@ class SMatrix_CSR(SMatrix):
 
     def _free_specific(self):
         """Free all GPU memory allocated by CSR."""
-        attrs = ['col_ind_gpu', 'values_gpu', 'row_ptr_gpu', 'norm_factor_inv_gpu']
-        for attr in attrs:
-            gpu_mem = getattr(self, attr, None)
-            if gpu_mem is not None:
-                try:
-                    setattr(self, attr, None)
-                    if hasattr(gpu_mem, 'free'):
-                        gpu_mem.free()
-                    del gpu_mem
-                except Exception as e:
-                    warnings.warn(f"[AOT-biomaps] Error freeing {attr}: {e}")
+        if check_gpu_available(self):
+            with cp.cuda.Device(self.gpu_index):
+                attrs = ['col_ind_gpu', 'values_gpu', 'row_ptr_gpu', 'norm_factor_inv_gpu']
+                for attr in attrs:
+                    gpu_mem = getattr(self, attr, None)
+                    if gpu_mem is not None:
+                        try:
+                            setattr(self, attr, None)
+                            if hasattr(gpu_mem, 'free'):
+                                gpu_mem.free()
+                            del gpu_mem
+                        except Exception as e:
+                            warnings.warn(f"[AOT-biomaps] Error freeing {attr}: {e}")
 
-        if CUPY_AVAILABLE:
-            cp._default_memory_pool.free_all_blocks()
-            cp.cuda.Stream.null.synchronize()
+                if CUPY_AVAILABLE:
+                    cp.get_default_memory_pool().free_all_blocks()
+                    cp.cuda.Stream.null.synchronize()
         
     def compute_hessian_diagonal(self):
         """
@@ -367,10 +365,10 @@ class SMatrix_CSR(SMatrix):
         ZX = self.Z * self.X
 
         if check_gpu_available(self):
-            diag = cp.zeros(ZX, dtype=cp.float32)
-            cupyx.scatter_add(diag, self.col_ind_gpu.astype(cp.int32), cp.abs(self.values_gpu) ** 2)
-            return diag
-
+            with cp.cuda.Device(self.gpu_index):
+                diag = cp.zeros(ZX, dtype=cp.float32)
+                cupyx.scatter_add(diag, self.col_ind_gpu.astype(cp.int32), cp.abs(self.values_gpu) ** 2)
+                return diag
         else:
             diag = np.zeros(ZX, dtype=np.float32)
             np.add.at(diag, self.h_col_ind.astype(np.int64), np.abs(self.h_values) ** 2)
@@ -384,12 +382,13 @@ class SMatrix_CSR(SMatrix):
         max_val = 0.0
         
         if check_gpu_available(self) and self.values_gpu is not None:
-            max_val = float(cp.max(cp.abs(self.values_gpu)))
-            if max_val > 0:
-                self.values_gpu /= max_val
-                # Check for the existence of the CPU cache (which is sometimes deleted in _allocate_gpu)
-                if getattr(self, 'h_values', None) is not None:
-                    self.h_values /= max_val
+            with cp.cuda.Device(self.gpu_index):
+                max_val = float(cp.max(cp.abs(self.values_gpu)))
+                if max_val > 0:
+                    self.values_gpu /= max_val
+                    # Check for the existence of the CPU cache (which is sometimes deleted in _allocate_gpu)
+                    if getattr(self, 'h_values', None) is not None:
+                        self.h_values /= max_val
         elif getattr(self, 'h_values', None) is not None:
             max_val = float(np.max(np.abs(self.h_values)))
             if max_val > 0:
@@ -414,27 +413,28 @@ class SMatrix_CSR(SMatrix):
         NT = int(self.N * self.T)
         
         if is_gpu:
-            col_sums = cp.zeros(ZX, dtype=cp.float32)
-            row_sums = cp.zeros(NT, dtype=cp.float32)
-            
-            abs_vals = cp.abs(self.values_gpu)
-            valid = abs_vals != 0
-            
-            # Column sums (|A|^T * 1)
-            cupyx.scatter_add(col_sums, self.col_ind_gpu[valid].astype(cp.int32), abs_vals[valid].astype(cp.float32))
-            
-            # Row sums (|A| * 1) via segment reduction over row_ptr
-            row_ptr_host = cp.asnumpy(self.row_ptr_gpu)
-            abs_vals_host = cp.asnumpy(abs_vals)
-            row_sums_host = np.zeros(NT, dtype=np.float32)
-            for i in trange(NT, desc="[AOT-biomaps] Computing row and column sums (GPU)"):
-                start = row_ptr_host[i]
-                end = row_ptr_host[i+1]
-                if end > start:
-                    row_sums_host[i] = np.sum(abs_vals_host[start:end])
-            row_sums = cp.asarray(row_sums_host)
-            
-            return row_sums, col_sums
+            with cp.cuda.Device(self.gpu_index):
+                col_sums = cp.zeros(ZX, dtype=cp.float32)
+                row_sums = cp.zeros(NT, dtype=cp.float32)
+                
+                abs_vals = cp.abs(self.values_gpu)
+                valid = abs_vals != 0
+                
+                # Column sums (|A|^T * 1)
+                cupyx.scatter_add(col_sums, self.col_ind_gpu[valid].astype(cp.int32), abs_vals[valid].astype(cp.float32))
+                
+                # Row sums (|A| * 1) via segment reduction over row_ptr
+                row_ptr_host = cp.asnumpy(self.row_ptr_gpu)
+                abs_vals_host = cp.asnumpy(abs_vals)
+                row_sums_host = np.zeros(NT, dtype=np.float32)
+                for i in trange(NT, desc="[AOT-biomaps] Computing row and column sums (GPU)"):
+                    start = row_ptr_host[i]
+                    end = row_ptr_host[i+1]
+                    if end > start:
+                        row_sums_host[i] = np.sum(abs_vals_host[start:end])
+                row_sums = cp.asarray(row_sums_host)
+                
+                return row_sums, col_sums
         else:
             col_sums = np.zeros(ZX, dtype=np.float32)
             row_sums = np.zeros(NT, dtype=np.float32)

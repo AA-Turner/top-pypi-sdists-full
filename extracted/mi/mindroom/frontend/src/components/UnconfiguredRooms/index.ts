@@ -1,1 +1,0 @@
-export { UnconfiguredRooms } from "./UnconfiguredRooms";

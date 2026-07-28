@@ -9,6 +9,7 @@ import autograd.numpy as anp
 from pydantic import Field, model_validator
 
 from tidy3d.components.base import cached_property
+from tidy3d.components.boundary import BlochBoundary, Periodic
 from tidy3d.components.geometry.base import Box
 from tidy3d.components.medium import Medium, MediumType3D
 from tidy3d.components.scene import Scene
@@ -20,7 +21,7 @@ from tidy3d.components.validators import (
     assert_unique_names,
     call_wrapped_validator,
 )
-from tidy3d.components.viz import add_ax_if_none, equal_aspect, plot_params_symmetry
+from tidy3d.components.viz import add_ax_if_none, equal_aspect, plot_params_symmetry, plot_scene_3d
 from tidy3d.exceptions import Tidy3dKeyError
 from tidy3d.log import log
 from tidy3d.version import __version__
@@ -218,26 +219,14 @@ class AbstractSimulation(Box, ABC):
 
                 for idx, (sim_val, struct_val) in enumerate(zip(sim_bounds, struct_bounds)):
                     if anp.isclose(sim_val, struct_val):
-                        # Check if extrusion is enabled for this boundary
                         # Index 0-2: min bounds for x, y, z → boundaries[axis][0] (minus side)
                         # Index 3-5: max bounds for x, y, z → boundaries[axis][1] (plus side)
                         axis_idx = idx % 3
                         side_idx = idx // 3
 
-                        extrusion_enabled = False
-                        if boundaries is not None:
-                            try:
-                                boundary_edge = boundaries[axis_idx][side_idx]
-                                if (
-                                    hasattr(boundary_edge, "extrude_structures")
-                                    and boundary_edge.extrude_structures
-                                ):
-                                    extrusion_enabled = True
-                            except (IndexError, AttributeError):
-                                pass
-
-                        # Skip warning if extrusion is enabled
-                        if extrusion_enabled:
+                        if not self._warn_if_structure_touches_boundary(
+                            boundaries, axis_idx, side_idx
+                        ):
                             continue
 
                         consolidated_logger.warning(
@@ -247,6 +236,24 @@ class AbstractSimulation(Box, ABC):
                             "use td.inf as a size variable instead to make this explicit.",
                             custom_loc=["structures", istruct],
                         )
+
+    @staticmethod
+    def _warn_if_structure_touches_boundary(boundaries: Any, axis_idx: int, side_idx: int) -> bool:
+        """Return whether a structure touching a boundary should emit a warning."""
+        if boundaries is None:
+            return True
+
+        try:
+            boundary_edge = boundaries[axis_idx][side_idx]
+        except (IndexError, TypeError):
+            return True
+
+        if isinstance(boundary_edge, (Periodic, BlochBoundary)):
+            return False
+
+        return not (
+            hasattr(boundary_edge, "extrude_structures") and boundary_edge.extrude_structures
+        )
 
     def _validate_scene(self) -> Self:
         _ = self.scene
@@ -678,71 +685,6 @@ class AbstractSimulation(Box, ABC):
             reverse=reverse,
         )
 
-    @equal_aspect
-    @add_ax_if_none
-    def plot_structures_heat_conductivity(
-        self,
-        x: float | None = None,
-        y: float | None = None,
-        z: float | None = None,
-        alpha: float | None = None,
-        cbar: bool = True,
-        reverse: bool = False,
-        ax: Ax = None,
-        hlim: tuple[float, float] | None = None,
-        vlim: tuple[float, float] | None = None,
-    ) -> Ax:
-        """Plot each of simulation's structures on a plane defined by one nonzero x,y,z coordinate.
-        The permittivity is plotted in grayscale based on its value at the specified frequency.
-
-        Parameters
-        ----------
-        x : float = None
-            position of plane in x direction, only one of x, y, z must be specified to define plane.
-        y : float = None
-            position of plane in y direction, only one of x, y, z must be specified to define plane.
-        z : float = None
-            position of plane in z direction, only one of x, y, z must be specified to define plane.
-        freq : float = None
-            Frequency to evaluate the relative permittivity of all mediums.
-            If not specified, evaluates at infinite frequency.
-        reverse : bool = False
-            If ``False``, the highest permittivity is plotted in black.
-            If ``True``, it is plotteed in white (suitable for black backgrounds).
-        cbar : bool = True
-            Whether to plot a colorbar for the relative permittivity.
-        alpha : float = None
-            Opacity of the structures being plotted.
-            Defaults to the structure default alpha.
-        ax : matplotlib.axes._subplots.Axes = None
-            Matplotlib axes to plot on, if not specified, one is created.
-        hlim : tuple[float, float] = None
-            The x range if plotting on xy or xz planes, y range if plotting on yz plane.
-        vlim : tuple[float, float] = None
-            The z range if plotting on xz or yz planes, y plane if plotting on xy plane.
-
-        Returns
-        -------
-        matplotlib.axes._subplots.Axes
-            The supplied or created matplotlib axes.
-        """
-
-        hlim, vlim = Scene._get_plot_lims(
-            bounds=self.simulation_bounds, x=x, y=y, z=z, hlim=hlim, vlim=vlim
-        )
-
-        return self.scene.plot_structures_heat_conductivity(
-            cbar=cbar,
-            alpha=alpha,
-            ax=ax,
-            x=x,
-            y=y,
-            z=z,
-            hlim=hlim,
-            vlim=vlim,
-            reverse=reverse,
-        )
-
     @classmethod
     def from_scene(cls, scene: Scene, **kwargs: Any) -> AbstractSimulation:
         """Create a simulation from a :class:`~tidy3d.Scene` instance. Must provide additional parameters
@@ -772,4 +714,6 @@ class AbstractSimulation(Box, ABC):
             height of the 3d view dom's size
 
         """
-        return self.scene.plot_3d(width=width, height=height)
+        return plot_scene_3d(
+            self.scene, width=width, height=height, size=self.size, center=self.center
+        )

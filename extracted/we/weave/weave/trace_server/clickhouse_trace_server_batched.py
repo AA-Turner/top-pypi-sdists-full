@@ -45,6 +45,7 @@ from weave.shared.trace_server_interface_util import (
 from weave.trace_server import (
     ch_sentinel_values,
     constants,
+    export,
     object_creation_utils,
     usage_utils,
 )
@@ -58,7 +59,10 @@ from weave.trace_server import trace_server_interface as tsi
 # GenAI / Agent observability imports
 from weave.trace_server.agents.clickhouse import AgentQueryHandler, AgentWriteHandler
 from weave.trace_server.agents.completion_spans import build_completion_span
-from weave.trace_server.agents.kafka_events import ScoreAgentSpansEvent
+from weave.trace_server.agents.kafka_events import (
+    EmbedAgentSpansEvent,
+    ScoreAgentSpansEvent,
+)
 from weave.trace_server.agents.schema import AgentSpanCHInsertable
 from weave.trace_server.agents.types import (
     AgentConversationChatReq,
@@ -543,8 +547,12 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
 
     @property
     def kafka_producer(self) -> KafkaProducer | None:
-        """Lazily initialize the Kafka producer, only if online eval is enabled."""
-        if not wf_env.wf_enable_online_eval():
+        """Lazily initialize the producer when an event consumer is enabled."""
+        if not (
+            wf_env.wf_enable_online_eval()
+            or wf_env.wf_enable_agent_scoring()
+            or wf_env.wf_enable_agent_insights()
+        ):
             return None
         if self._kafka_producer is not None:
             return self._kafka_producer
@@ -5895,7 +5903,11 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
             return tsi.EvalResultsQueryRes(
                 rows=[], total_rows=0, summary=empty_summary, warnings=[]
             )
-        return self._eval_results_via_cte(req, eval_root_ids)
+        result = self._eval_results_via_cte(req, eval_root_ids)
+        result.warnings.extend(
+            eval_helpers.hydrate_eval_agent_span_refs(self, req.project_id, result.rows)
+        )
+        return result
 
     def _eval_results_via_cte(
         self,
@@ -6768,6 +6780,14 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
         return tsi.FeedbackCreateBatchRes(res=results)
 
     def feedback_query(self, req: tsi.FeedbackQueryReq) -> tsi.FeedbackQueryRes:
+        count_query = TABLE_FEEDBACK.select()
+        count_query = count_query.project_id(req.project_id)
+        count_query = count_query.fields(["count(*)"])
+        count_query = count_query.where(req.query)
+        prepared_count = count_query.prepare()
+        count_result = self._query(prepared_count.sql, prepared_count.parameters)
+        total_count = int(count_result.result_rows[0][0])
+
         query = TABLE_FEEDBACK.select()
         query = query.project_id(req.project_id)
         query = query.fields(req.fields)
@@ -6783,7 +6803,7 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
         for row in result:
             if "created_at" in row and isinstance(row["created_at"], datetime.datetime):
                 row["created_at"] = ensure_datetimes_have_tz(row["created_at"])
-        return tsi.FeedbackQueryRes(result=result)
+        return tsi.FeedbackQueryRes(result=result, total_count=total_count)
 
     def feedback_purge(self, req: tsi.FeedbackPurgeReq) -> tsi.FeedbackPurgeRes:
         # TODO: Instead of passing conditions to DELETE FROM,
@@ -7348,25 +7368,54 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
             self.ch_client, self._async_insert_settings(), self
         ).insert_otel_spans(req)
 
-        # Return early without emitting kafka events if online eval or agent scoring are disabled
-        if not wf_env.wf_enable_online_eval() or not wf_env.wf_enable_agent_scoring():
+        scoring_enabled = wf_env.wf_enable_agent_scoring()
+        insights_enabled = wf_env.wf_enable_agent_insights()
+        if not (scoring_enabled or insights_enabled):
             return res
 
-        # Emit for each row that produces a valid event type
+        producer = self.kafka_producer
         for row in span_rows:
-            if event := ScoreAgentSpansEvent.from_row(row):
-                event.emit(self.kafka_producer)
+            if scoring_enabled and (event := ScoreAgentSpansEvent.from_row(row)):
+                event.emit(producer)
+            if insights_enabled and (event := EmbedAgentSpansEvent.from_row(row)):
+                event.emit(producer)
 
         # Flush kafka producer
-        if span_rows and self.kafka_producer:
+        if span_rows and producer:
             try:
-                self.kafka_producer.flush(0)
+                producer.flush(0)
             except Exception:
                 logger.exception(
                     "Failed to flush Kafka producer during OTel span ingest"
                 )
 
         return res
+
+    def export_start(self, req: tsi.ExportStartReq) -> tsi.ExportStartRes:
+        calls_read_table = ReadTable.CALLS_COMPLETE
+        if "calls" in req.targets:
+            calls_read_table = self.table_routing_resolver.resolve_read_table(
+                req.project_id, self.ch_client
+            )
+        job_id = export.start_export(
+            lambda: self._mint_client(
+                send_receive_timeout=export.EXPORT_MAX_EXECUTION_SECONDS
+            ),
+            self.file_storage_client,
+            req.project_id,
+            req.targets,
+            calls_read_table,
+        )
+        return tsi.ExportStartRes(job_id=job_id)
+
+    def export_status(self, req: tsi.ExportStatusReq) -> tsi.ExportStatusRes:
+        return export.get_export_status(
+            self.ch_client,
+            self.file_storage_client,
+            req.project_id,
+            req.job_id,
+            wf_env.wf_clickhouse_query_log_cluster(),
+        )
 
     # Private Methods
     @property

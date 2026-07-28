@@ -10,7 +10,7 @@
 
 #include "constants.hpp"
 
-#include "echion/strings.h"
+#include "echion/task_name.h"
 #include "echion/timing.h"
 
 #include <Python.h>
@@ -74,8 +74,25 @@ class Sampler
     std::vector<PyThreadState> thread_candidates;
     void adapt_sampling_interval();
 
+    // Rolling window for p_stable: ring buffer of process_delta values (us CPU per adapt window).
+    // p_stable is the p-th percentile of this buffer, giving a stable estimate of app CPU usage
+    // that doesn't collapse to zero during brief idle periods.
+    std::vector<double> process_delta_window;
+    size_t process_delta_window_head = 0;
+
+    // Baseline CPU budget (us per adapt window) corresponding to an absolute floor overhead.
+    // Derived from baseline_core_pct at configuration time; keeps the profiler sampling even
+    // when app CPU is near 0.
+    double baseline_cpu_us_per_adapt_window = 0.0;
+
+    // Percentile (0..1) used for p_stable; configurable, default p95.
+    double p_stable_percentile_frac = 0.95;
+
     // Fast-copy startup warmup in seconds.
     double fast_copy_warmup_seconds = 15.0;
+
+    // Rolling window duration in seconds; controls the ring buffer capacity.
+    uint32_t p_stable_window_s = 600;
 
     // Tracks whether the sampler was running when prefork was called,
     // so that postfork_parent/restart_after_fork can restore it.
@@ -104,7 +121,7 @@ class Sampler
     void link_tasks(PyObject* parent, PyObject* child);
     void weak_link_tasks(PyObject* parent, PyObject* child);
     void sampling_thread(const uint64_t seq_num);
-    void track_greenlet(uintptr_t greenlet_id, StringTable::Key name, PyObject* frame);
+    void track_greenlet(uintptr_t greenlet_id, TaskName name, PyObject* frame);
     void untrack_greenlet(uintptr_t greenlet_id);
     void link_greenlets(uintptr_t parent, uintptr_t child);
     void update_greenlet_frame(uintptr_t greenlet_id, PyObject* frame);
@@ -124,6 +141,15 @@ class Sampler
     }
     void set_max_threads_per_sample(unsigned int value) { max_threads_per_sample = value; }
 
+    void set_baseline_core_pct(double value)
+    {
+        baseline_cpu_us_per_adapt_window = value * 0.01 * g_adaptive_sampling_interval_us;
+    }
+
+    void set_p_stable_window_s(uint32_t value) { p_stable_window_s = value; }
+
+    void set_p_stable_percentile(double percentile) { p_stable_percentile_frac = percentile / 100.0; }
+
     void set_fast_copy_warmup_seconds(double value) { fast_copy_warmup_seconds = value; }
 
     // Delegates to the StackRenderer to clear its caches after fork
@@ -138,5 +164,8 @@ class Sampler
     // Restart the sampler after fork if it was running
     void restart_after_fork();
 };
+
+void
+seed_fast_copy_profiler_stats();
 
 } // namespace Datadog

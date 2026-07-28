@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib as mpl
 from IPython.display import HTML
+from scipy.ndimage import zoom
 
 # Optional cupy import for GPU acceleration
 try:
@@ -210,6 +211,33 @@ class Experiment(ABC):
                     raise ValueError("[AOT-biomaps] fieldDataPath must be provided when overwrite is True.")
                 if self.params.acoustic['typeSim'] != TypeSim.SIMPLE_SIM.value:
                     field.save_field(fieldDataPath, formatSave=self.FormatSave)
+    
+    def uniform_size(self, withTumor=True):
+        """
+        Zoom only the AO signals (Times, N) to match the minimal temporal size of AcousticFields.
+        """
+        if not self.AcousticFields:
+            raise ValueError("[AOT-biomaps] AcousticFields is empty. Cannot uniform size.")
+
+        # Determine the minimal temporal shape across all acoustic fields
+        min_temp_shape = np.min([field.field.shape[0] for field in self.AcousticFields])
+
+        # Select the AO signal to zoom
+        AO_signal = self.AOsignal_withTumor if withTumor else self.AOsignal_withoutTumor
+        if AO_signal is None:
+            raise ValueError("[AOT-biomaps] AO signal is None. Cannot uniform size.")
+
+        # Calculate zoom factor for the temporal axis (axis=0)
+        original_temp_shape = AO_signal.shape[0]
+        zoom_factor = min_temp_shape / original_temp_shape
+
+        # Apply zoom only on the temporal axis (axis=0)
+        zoomed_AO_signal = zoom(AO_signal, zoom=(zoom_factor, 1), order=3)
+
+        if withTumor:
+            self.AOsignal_withTumor = zoomed_AO_signal
+        else:
+            self.AOsignal_withoutTumor = zoomed_AO_signal
 
     def generate_random_absorbers(self,N_min=0, N_max=5, min_radius_mm=0.5, max_radius_mm=5, min_amplitude=0, max_amplitude=1, seed=None):
         if seed is not None:

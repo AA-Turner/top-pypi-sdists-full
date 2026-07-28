@@ -3,30 +3,23 @@ from typing import List
 from abstra_internals.repositories.linter.models import LinterRule
 
 from .abstra_dir_reference import AbstraDirReference
+from .bundle_analyzer import BundleAnalyzer
 from .conflicting_name import ConflictingName
-from .conflicting_path import ConflictingPath
 from .css_syntax import CssSyntax
 from .deprecated_functions import DeprecatedFunctionUsage
-from .duplicate_package_in_requirements import DuplicatePackagesInRequirements
-from .env_in_bundle import EnvInBundle
-from .file_outside_project import FileOutsideProjectRoot
 from .html_and_jinja2_syntax import HtmlAndJinja2Syntax
-from .imports_requirements_analyzer import ImportsRequirementsAnalyzer
+from .imports_analyzer import ImportsAnalyzer
 from .internal_page_reference import InternalPageReference
 from .invalid_package_in_requirements import InvalidPackageInRequirements
-from .job_schedule_validity import JobScheduleValidity
 from .js_syntax import JsSyntax
-from .local_package_in_requirements import LocalPackageInRequirements
 from .main_block_in_stage import MainBlockInStage
-from .missing_abstra_in_requirements import MissingAbstraInRequirements
-from .missing_entrypoint import MissingEntrypoint
 from .missing_env import MissingEnv
 from .missing_render_in_page import MissingRenderInPage
-from .psycopg2 import Psycopg2MustBeBinary
+from .requirements_analyzer import RequirementsAnalyzer
 from .send_task_without_transition import SendTaskWithoutTransition
+from .stage_analyzer import StageAnalyzer
 from .syntax_errors import SyntaxErrors
 from .type_checking import TypeCheckingRule
-from .venv_in_bundle import VenvInBundle
 
 # --- Rule instances (shared across groups) ---
 
@@ -38,18 +31,11 @@ _main_block_in_stage = MainBlockInStage()
 _send_task_without_transition = SendTaskWithoutTransition()
 _conflicting_name = ConflictingName()
 _type_checking = TypeCheckingRule()
-_duplicate_packages = DuplicatePackagesInRequirements()
+_requirements_analyzer = RequirementsAnalyzer()
 _invalid_package = InvalidPackageInRequirements()
-_local_package = LocalPackageInRequirements()
-_missing_abstra = MissingAbstraInRequirements()
-_psycopg2 = Psycopg2MustBeBinary()
-_conflicting_path = ConflictingPath()
-_file_outside_project = FileOutsideProjectRoot()
-_missing_entrypoint = MissingEntrypoint()
-_job_schedule_validity = JobScheduleValidity()
-_env_in_bundle = EnvInBundle()
-_venv_in_bundle = VenvInBundle()
-_imports_analyzer = ImportsRequirementsAnalyzer()
+_stage_analyzer = StageAnalyzer()
+_bundle_analyzer = BundleAnalyzer()
+_imports_analyzer = ImportsAnalyzer()
 _html_and_jinja2_syntax = HtmlAndJinja2Syntax()
 _css_syntax = CssSyntax()
 _js_syntax = JsSyntax()
@@ -69,39 +55,31 @@ run_after_py_change: List[LinterRule] = [
     _send_task_without_transition,
     _conflicting_name,
     _type_checking,
-    _missing_entrypoint,
-    _file_outside_project,
+    _stage_analyzer,
     _imports_analyzer,
     _abstra_dir_reference,
     _internal_page_reference,
 ]
 
 run_after_requirements_change: List[LinterRule] = [
-    _duplicate_packages,
+    _requirements_analyzer,
     _invalid_package,
-    _local_package,
-    _missing_abstra,
-    _psycopg2,
 ]
 
 run_after_abstra_json_change: List[LinterRule] = [
-    _conflicting_path,
-    _file_outside_project,
-    _missing_entrypoint,
+    _stage_analyzer,
     _send_task_without_transition,
-    _job_schedule_validity,
 ]
 
 run_after_env_or_gitignore_change: List[LinterRule] = [
-    _env_in_bundle,
-    _venv_in_bundle,
+    _bundle_analyzer,
     _missing_env,
 ]
 
 run_after_package_install: List[LinterRule] = [
     _imports_analyzer,
     _conflicting_name,
-    _missing_abstra,
+    _requirements_analyzer,
 ]
 
 run_after_html_change: List[LinterRule] = [

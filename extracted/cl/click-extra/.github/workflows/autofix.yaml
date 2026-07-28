@@ -1,0 +1,18 @@
+---
+name: 🪄 Autofix
+"on":
+  workflow_dispatch:
+  schedule:
+    - cron: "27 4 * * 1"
+  push:
+    branches:
+      - main
+
+jobs:
+
+  autofix:
+    uses: kdeldycke/repomatic/.github/workflows/autofix.yaml@2b89c62f0953d8ef59d0d023085a9323f6c32f1d # v7.3.0
+    secrets:
+      REPOMATIC_NOTIFICATIONS_PAT: ${{ secrets.REPOMATIC_NOTIFICATIONS_PAT }}
+      REPOMATIC_PAT: ${{ secrets.REPOMATIC_PAT }}
+      VIRUSTOTAL_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}

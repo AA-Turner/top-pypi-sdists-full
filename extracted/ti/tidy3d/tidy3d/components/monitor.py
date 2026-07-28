@@ -3,18 +3,20 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 import numpy as np
 from pydantic import (
     Field,
     NonNegativeFloat,
+    NonNegativeInt,
     PositiveFloat,
     PositiveInt,
     field_validator,
     model_validator,
 )
 
+from tidy3d.components.types import TYPE_TAG_STR
 from tidy3d.constants import HERTZ, MICROMETER, RADIAN, SECOND, inf
 from tidy3d.exceptions import SetupError, ValidationError
 from tidy3d.log import log
@@ -27,6 +29,13 @@ from .autograd.parallel_adjoint_bases import (
 )
 from .base import Tidy3dBaseModel, cached_property
 from .base_sim.monitor import AbstractMonitor
+from .data.data_array import PointDataArray
+from .data.point_cloud import (
+    POINT_CLOUD_PERMITTIVITY_COMPONENTS,
+    POINT_CLOUD_STENCIL_CORNERS_PER_FIELD,
+    canonicalize_point_cloud_points,
+    point_cloud_num_sampled_grid_fields,
+)
 from .diffraction import (
     DIFFRACTION_POLARIZATIONS,
     bloch_vec_at_freq,
@@ -40,7 +49,10 @@ from .diffraction import (
 from .medium import MediumType
 from .microwave.base import MicrowaveBaseModel
 from .mode_spec import ModeSpec
+from .thin_lens import AbstractThinLens
 from .types import (
+    ArrayFloat1D,
+    ArrayFloat2D,
     AuxField,
     Axis,
     BoxSurface,
@@ -50,6 +62,7 @@ from .types import (
     EMSurfaceField,
     FreqArray,
     ObsGridArray,
+    PointCloudFieldComponent,
 )
 from .validators import (
     assert_plane,
@@ -68,12 +81,16 @@ if TYPE_CHECKING:
 
     from .autograd.parallel_adjoint_bases import DiffractionAdjointBasis, ParallelAdjointBasis
     from .simulation import Simulation
-    from .types import ArrayFloat1D, Ax, Bound, FreqBound, Size
+    from .types import Ax, Bound, FreqBound, Size
 
 BYTES_REAL = 4
 BYTES_COMPLEX = 8
 WARN_NUM_FREQS = 2000
 WARN_NUM_MODES = 100
+MAX_POINT_CLOUD_FIELD_MONITOR_POINTS = 10_000_000
+MAX_POINT_CLOUD_PERMITTIVITY_MONITOR_POINTS = 10_000_000
+DIPOLE_EMISSION_FIELD_COMPONENTS = ("Ex", "Ey", "Ez")
+DIPOLE_EMISSION_DIPOLE_AXES = ("x", "y", "z")
 
 # Field projection windowing factor that determines field decay at the edges of surface field
 # projection monitors. A value of 15 leads to a decay of < 1e-3x in field amplitude.
@@ -184,8 +201,8 @@ class Monitor(AbstractMonitor):
         True,
         title="Use Colocated Integration",
         description="Whether to use colocated fields for flux, dot products, and overlap "
-        "integrals. Hard-coded to ``True`` for most monitor types. Can be toggled on field "
-        "and overlap monitors.",
+        "integrals. Hard-coded to ``True`` for most monitor types. Can be toggled on field, "
+        "overlap, and flux monitors.",
     )
 
     @property
@@ -323,7 +340,7 @@ class TimeMonitor(Monitor, ABC):
         # If monitor.stop is None, record until the end
         t_stop = self.stop
         if t_stop is None:
-            tind_end = int(tmesh.size)
+            tind_end = tmesh.size
             t_stop = tmesh[-1]
         else:
             tend = np.nonzero(tmesh <= t_stop)[0]
@@ -702,7 +719,11 @@ class AbstractGaussianOverlapMonitor(AbstractOverlapMonitor):
         """Size of monitor storage given the number of points after discretization."""
         # store complex amplitudes for +/- directions
         num_dirs = 2
-        return BYTES_COMPLEX * len(self.freqs) * num_dirs
+        amps_size = BYTES_COMPLEX * len(self.freqs) * num_dirs
+        fields_size = 0
+        if self.store_fields_direction is not None:
+            fields_size = BYTES_COMPLEX * num_cells * len(self.freqs) * 6
+        return amps_size + fields_size
 
 
 class GaussianOverlapMonitor(AbstractGaussianOverlapMonitor):
@@ -788,6 +809,10 @@ class AstigmaticGaussianOverlapMonitor(AbstractGaussianOverlapMonitor):
     )
 
 
+class ThinLensOverlapMonitor(AbstractThinLens, AbstractGaussianOverlapMonitor):
+    """:class:`~tidy3d.Monitor` that records amplitudes from decomposition onto a thin-lens beam."""
+
+
 class FieldMonitor(AbstractFieldMonitor, FreqMonitor):
     """:class:`~tidy3d.Monitor` that records electromagnetic fields in the frequency domain.
 
@@ -846,6 +871,272 @@ class FieldMonitor(AbstractFieldMonitor, FreqMonitor):
             monitor_name=self.name,
             monitor_index=monitor_index,
             data_path_prefix=("data", monitor_index),
+        )
+
+
+class PointCloudFieldMonitor(FreqMonitor):
+    """:class:`~tidy3d.Monitor` that records electromagnetic fields at arbitrary points.
+
+    The monitor stores field components indexed by point and frequency. Point coordinates are
+    supplied as a :class:`.PointDataArray` with dimensions ``("index", "axis")`` and shape
+    ``(num_points, 3)``. Point-cloud E and H fields are sampled from native field values,
+    equivalent to point :class:`FieldMonitor` objects with ``colocate=False``. Point-cloud
+    ``Dx``, ``Dy``, and ``Dz`` components are reconstructed as ``D / epsilon_0``, where
+    ``epsilon_0`` is the vacuum permittivity. ``Dx`` uses raw ``Ex`` samples and the x-direction
+    relative permittivity, ``Dy`` uses raw ``Ey`` samples and the y-direction relative
+    permittivity, and ``Dz`` uses raw ``Ez`` samples and the z-direction relative permittivity.
+    The reconstructed values have the same units as E fields. Off-diagonal permittivity
+    components are ignored; solver logs warn if they are sampled for D reconstruction.
+
+    Example
+    -------
+    >>> points = PointDataArray(
+    ...     [[0.0, 0.0, 0.0], [0.1, 0.2, 0.3]],
+    ...     coords={"index": [0, 1], "axis": [0, 1, 2]},
+    ... )
+    >>> monitor = PointCloudFieldMonitor(
+    ...     points=points,
+    ...     fields=["Ex", "Hy"],
+    ...     freqs=[200e12],
+    ...     name="point_cloud",
+    ... )
+    """
+
+    _skip_sim_bounds_intersection_validation: ClassVar[bool] = True
+
+    center: Coordinate = Field(
+        (0.0, 0.0, 0.0),
+        title="Derived Center",
+        description="Bounding-box center derived from the point cloud coordinates.",
+        json_schema_extra={"units": MICROMETER, "doc_hidden": True},
+    )
+
+    size: tuple[NonNegativeFloat, NonNegativeFloat, NonNegativeFloat] = Field(
+        (0.0, 0.0, 0.0),
+        title="Derived Size",
+        description="Bounding-box size derived from the point cloud coordinates.",
+        json_schema_extra={"units": MICROMETER, "doc_hidden": True},
+    )
+
+    points: PointDataArray = Field(
+        ...,
+        title="Points",
+        description="Point coordinates at which fields are recorded. The array must have "
+        "dimensions ``('index', 'axis')`` and shape ``(num_points, 3)``.",
+        json_schema_extra={"units": MICROMETER},
+    )
+
+    fields: tuple[PointCloudFieldComponent, ...] = Field(
+        ["Ex", "Ey", "Ez", "Hx", "Hy", "Hz"],
+        title="Field Components",
+        description="Collection of field components to store in the monitor.",
+    )
+
+    interval_space: tuple[Literal[1], Literal[1], Literal[1]] = Field(
+        (1, 1, 1),
+        title="Spatial Interval",
+        description="Point-cloud field monitors do not support spatial downsampling.",
+    )
+
+    colocate: Literal[False] = Field(
+        False,
+        title="Colocate Fields",
+        description="Point-cloud field monitors do not support field colocation. E and H "
+        "components are sampled from native Yee-grid field values; D components are "
+        "reconstructed as D / epsilon_0 from raw E samples and matching directional relative "
+        "permittivity.",
+    )
+
+    @field_validator("points")
+    @classmethod
+    def _validate_points(cls, val: PointDataArray) -> PointDataArray:
+        """Validate point-cloud coordinates and assign canonical coordinates when omitted."""
+        return canonicalize_point_cloud_points(
+            val,
+            empty_error="Point-cloud monitors require at least one point.",
+            max_num_points=MAX_POINT_CLOUD_FIELD_MONITOR_POINTS,
+            require_real=True,
+            require_finite=True,
+            cast_to_float=True,
+            preserve_index=True,
+        )
+
+    @field_validator("fields")
+    @classmethod
+    def _validate_unique_fields(
+        cls, val: tuple[PointCloudFieldComponent, ...]
+    ) -> tuple[PointCloudFieldComponent, ...]:
+        """Reject duplicate point-cloud field components before sparse reconstruction."""
+        if len(set(val)) != len(val):
+            raise ValueError("Point-cloud field monitor components must be unique.")
+        return val
+
+    @staticmethod
+    def _geometry_from_points(
+        points: PointDataArray,
+    ) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+        """Compute inherited box geometry from point-cloud bounds."""
+        point_values = np.asarray(points.values, dtype=float)
+        rmin = point_values.min(axis=0)
+        rmax = point_values.max(axis=0)
+        center = tuple(float(val) for val in (rmin + rmax) / 2)
+        size = tuple(float(val) for val in rmax - rmin)
+        return center, size
+
+    @model_validator(mode="after")
+    def _derive_geometry_from_points(self) -> Self:
+        """Keep inherited box geometry consistent with the point-cloud bounds."""
+
+        center, size = self._geometry_from_points(self.points)
+        for field_name, derived_value in (("center", center), ("size", size)):
+            if field_name in self.model_fields_set and not np.allclose(
+                getattr(self, field_name), derived_value
+            ):
+                log.warning(
+                    f"PointCloudFieldMonitor '{self.name}' derives '{field_name}' from "
+                    f"'points'; the supplied '{field_name}' value will be ignored.",
+                    custom_loc=[field_name],
+                )
+
+        # ``center`` and ``size`` are inherited box-monitor fields, but for point-cloud monitors
+        # they are derived metadata used by existing monitor bounds paths, not user-controlled
+        # inputs. Normal validation keeps them synchronized; ``validate=False`` callers accept
+        # the usual risk that derived fields may become stale.
+        object.__setattr__(self, "center", center)
+        object.__setattr__(self, "size", size)
+        return self
+
+    @property
+    def num_points(self) -> int:
+        """Number of points sampled by this monitor."""
+        return self.points.sizes["index"]
+
+    def storage_size(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
+        """Size of monitor storage given the number of point-cloud samples."""
+        del num_cells, tmesh
+        points_size = np.asarray(self.points.values).nbytes
+        fields_size = BYTES_COMPLEX * self.num_points * len(self.freqs) * len(self.fields)
+        return points_size + fields_size
+
+    def _storage_size_solver(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
+        """Size of intermediate data recorded by the monitor during a solver run."""
+        del tmesh
+        if len(self.fields) == 0:
+            return 0
+
+        raw_field_components_factor = 0
+        if any(comp[0] in ("E", "D") for comp in self.fields):
+            raw_field_components_factor += 3
+        if any(comp[0] == "H" for comp in self.fields):
+            raw_field_components_factor += 3
+
+        storage_size = BYTES_COMPLEX * num_cells * len(self.freqs) * raw_field_components_factor
+
+        num_d_fields = point_cloud_num_sampled_grid_fields(
+            field for field in self.fields if field[0] == "D"
+        )
+        if num_d_fields:
+            num_d_stencil_cells = (
+                POINT_CLOUD_STENCIL_CORNERS_PER_FIELD * self.num_points * num_d_fields
+            )
+            num_d_cells = min(num_cells, num_d_stencil_cells)
+            storage_size += BYTES_COMPLEX * num_d_cells * len(self.freqs) * 3
+
+        return storage_size
+
+
+class DipoleEmissionMonitor(PointCloudFieldMonitor):
+    """:class:`~tidy3d.Monitor` for dipole-emission radiation intensity.
+
+    This monitor samples the reciprocal electric field at candidate dipole
+    positions and stores the angular radiation intensity for x-, y-, and
+    z-oriented electric dipoles. By default, the result is summed over all
+    sampled positions using ``position_weights``. Use ``store_position_indexes``
+    to additionally retain radiation intensity at selected individual positions.
+
+    A simulation containing this monitor must contain exactly one
+    :class:`.TFSF` source, and every sampled point must lie inside the TFSF box.
+    The TFSF source defines the reciprocal plane-wave direction and
+    normalization used to reduce the sampled fields.
+
+    This monitor is typically created automatically by
+    :class:`tidy3d.plugins.dipole_emission.DipoleEmissionStudy`.
+    """
+
+    fields: tuple[Literal["Ex"], Literal["Ey"], Literal["Ez"]] = Field(
+        DIPOLE_EMISSION_FIELD_COMPONENTS,
+        title="Field Components",
+        description="Electric-field components used to evaluate Cartesian dipole orientations.",
+        json_schema_extra={"doc_hidden": True},
+    )
+
+    position_weights: ArrayFloat1D | ArrayFloat2D = Field(
+        ...,
+        title="Position Weights",
+        description=(
+            "Nonnegative weights used when summing radiation intensity over sampled dipole "
+            "positions. Provide one weight per point, or one weight per point and Cartesian "
+            "dipole axis."
+        ),
+    )
+
+    store_position_indexes: tuple[NonNegativeInt, ...] = Field(
+        (),
+        title="Stored Position Indexes",
+        description=(
+            "Zero-based indexes into ``points`` for positions whose individual radiation "
+            "intensity should be stored in addition to the summed result."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _validate_dipole_emission_metadata(self) -> Self:
+        """Validate reduction metadata dimensions."""
+        position_weights = np.asarray(self.position_weights, dtype=float)
+        if position_weights.shape not in ((self.num_points,), np.asarray(self.points.values).shape):
+            self._raise_validation_error_at_loc(
+                "'position_weights' must have one value per point or match the shape of 'points'.",
+                "position_weights",
+            )
+        if not np.all(np.isfinite(position_weights)) or np.any(position_weights < 0):
+            self._raise_validation_error_at_loc(
+                "'position_weights' must contain finite nonnegative values.",
+                "position_weights",
+            )
+        if not np.any(position_weights > 0):
+            self._raise_validation_error_at_loc(
+                "'position_weights' must not be all zero (no emitters).",
+                "position_weights",
+            )
+
+        if len(set(self.store_position_indexes)) != len(self.store_position_indexes):
+            self._raise_validation_error_at_loc(
+                "'store_position_indexes' must not contain duplicates.",
+                "store_position_indexes",
+            )
+        if self.store_position_indexes and max(self.store_position_indexes) >= self.num_points:
+            self._raise_validation_error_at_loc(
+                "'store_position_indexes' entries must be valid point indexes.",
+                "store_position_indexes",
+            )
+
+        return self
+
+    def storage_size(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
+        """Size of reduced dipole-emission data downloaded from this monitor."""
+        del num_cells, tmesh
+        num_position_sets = 1 + len(self.store_position_indexes)
+        return BYTES_REAL * num_position_sets * len(DIPOLE_EMISSION_DIPOLE_AXES) * len(self.freqs)
+
+    @property
+    def _to_solver_monitor(self) -> PointCloudFieldMonitor:
+        """Monitor definition used by the solver to record reciprocal electric fields."""
+        return PointCloudFieldMonitor(
+            points=self.points,
+            fields=self.fields,
+            freqs=self.freqs,
+            apodization=self.apodization,
+            name=self.name,
         )
 
 
@@ -1005,9 +1296,133 @@ class PermittivityMonitor(AbstractMediumPropertyMonitor):
         return BYTES_COMPLEX * num_cells * len(self.freqs) * 3
 
 
+class PointCloudPermittivityMonitor(AbstractMediumPropertyMonitor):
+    """:class:`~tidy3d.Monitor` that records permittivity for arbitrary requested points.
+
+    The monitor samples diagonal permittivity components using nearest-neighbor selection on each
+    component's native Yee-grid location. Stored point coordinates are the requested coordinates,
+    not the snapped component-grid sampling locations. This monitor records the diagonal entries
+    of the permittivity tensor, matching :class:`.PermittivityMonitor`. Point order and duplicate
+    points are preserved.
+    """
+
+    _skip_sim_bounds_intersection_validation: ClassVar[bool] = True
+
+    center: Coordinate = Field(
+        (0.0, 0.0, 0.0),
+        title="Derived Center",
+        description="Bounding-box center derived from the point cloud coordinates.",
+        json_schema_extra={"units": MICROMETER, "doc_hidden": True},
+    )
+
+    size: tuple[NonNegativeFloat, NonNegativeFloat, NonNegativeFloat] = Field(
+        (0.0, 0.0, 0.0),
+        title="Derived Size",
+        description="Bounding-box size derived from the point cloud coordinates.",
+        json_schema_extra={"units": MICROMETER, "doc_hidden": True},
+    )
+
+    points: PointDataArray = Field(
+        ...,
+        title="Points",
+        description="Requested point coordinates for point-cloud permittivity sampling. The array "
+        "must have dimensions ``('index', 'axis')`` and shape ``(num_points, 3)``. Values are "
+        "sampled from each component's nearest native Yee-grid location, which may differ from "
+        "these requested coordinates.",
+        json_schema_extra={"units": MICROMETER},
+    )
+
+    interval_space: tuple[Literal[1], Literal[1], Literal[1]] = Field(
+        (1, 1, 1),
+        title="Spatial Interval",
+        description="Point-cloud permittivity monitors do not support spatial downsampling.",
+    )
+
+    @field_validator("points")
+    @classmethod
+    def _validate_points(cls, val: PointDataArray) -> PointDataArray:
+        """Validate point-cloud coordinates and assign canonical coordinates when omitted."""
+        return canonicalize_point_cloud_points(
+            val,
+            empty_error="Point-cloud permittivity monitors require at least one point.",
+            max_num_points=MAX_POINT_CLOUD_PERMITTIVITY_MONITOR_POINTS,
+            require_real=True,
+            require_finite=True,
+            cast_to_float=True,
+            preserve_index=True,
+        )
+
+    @model_validator(mode="after")
+    def _derive_geometry_from_points(self) -> Self:
+        """Keep inherited box geometry consistent with the point-cloud bounds."""
+
+        center, size = PointCloudFieldMonitor._geometry_from_points(self.points)
+        for field_name, derived_value in (("center", center), ("size", size)):
+            if field_name in self.model_fields_set and not np.allclose(
+                getattr(self, field_name), derived_value
+            ):
+                log.warning(
+                    f"PointCloudPermittivityMonitor '{self.name}' derives '{field_name}' from "
+                    f"'points'; the supplied '{field_name}' value will be ignored.",
+                    custom_loc=[field_name],
+                )
+
+        object.__setattr__(self, "center", center)
+        object.__setattr__(self, "size", size)
+        return self
+
+    @property
+    def num_points(self) -> int:
+        """Number of points sampled by this monitor."""
+        return self.points.sizes["index"]
+
+    def storage_size(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
+        """Size of monitor storage given the number of point-cloud samples."""
+        points_size = self.points.values.nbytes
+        components_size = (
+            BYTES_COMPLEX
+            * self.num_points
+            * len(self.freqs)
+            * len(POINT_CLOUD_PERMITTIVITY_COMPONENTS)
+        )
+        return points_size + components_size
+
+    def _storage_size_solver(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
+        """Size of intermediate data recorded by the monitor during a solver run."""
+        return (
+            BYTES_COMPLEX * num_cells * len(self.freqs) * len(POINT_CLOUD_PERMITTIVITY_COMPONENTS)
+        )
+
+
 class SurfaceIntegrationMonitor(Monitor, ABC):
     """Abstract class for monitors that perform surface integrals during the solver run, as in
     flux and near to far transformations."""
+
+    use_colocated_integration: bool = Field(
+        True,
+        title="Use Colocated Integration",
+        description="Selects the surface-integration scheme. If ``True`` (default), the integral "
+        "is computed from fields colocated to the grid cell boundaries (primal nodes). If "
+        "``False``, it is computed directly on the native Yee-staggered grid: the tangential "
+        "field components stay at their tangential positions.",
+    )
+
+    colocate: bool = Field(
+        True,
+        title="Colocate Fields",
+        description="Governed by ``use_colocated_integration`` and not set independently for "
+        "surface-integration monitors: it mirrors that value, so the solver records colocated "
+        "fields exactly when the integration is colocated.",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _colocate_follows_integration(cls, data: Any) -> Any:
+        """``colocate`` is derived from ``use_colocated_integration`` for surface-integration
+        monitors (it is not a user knob), giving every consumer a single source of truth."""
+        if isinstance(data, dict):
+            data = {**data, "colocate": data.get("use_colocated_integration", True)}
+        return data
 
     normal_dir: Direction | None = Field(
         None,
@@ -1115,6 +1530,57 @@ class FluxMonitor(AbstractFluxMonitor, FreqMonitor):
 
     * `THz integrated demultiplexer/filter based on a ring resonator <../../notebooks/THzDemultiplexerFilter.html>`_
     """
+
+    enable_adjoint: bool = Field(
+        False,
+        title="Enable Adjoint",
+        description="Enable adjoint differentiation for this flux monitor. When ``True``, "
+        "autograd forward runs store hidden tangential field data on this monitor's "
+        "integration surface(s) for all requested frequencies. This can increase task "
+        "storage, memory use, and local download size. Defaults to ``False`` to avoid "
+        "this cost for observational flux monitors.",
+    )
+
+    @staticmethod
+    def _adjoint_tangential_field_components(surface: SurfaceIntegrationMonitor) -> tuple[str, ...]:
+        """Field components needed for adjoint flux reconstruction on a planar surface."""
+        tangential_dims = ["x", "y", "z"]
+        tangential_dims.pop(surface.zero_dims[0])
+        return tuple(field + dim for field in ("E", "H") for dim in tangential_dims)
+
+    def _make_adjoint_field_monitor(
+        self,
+        *,
+        surface: SurfaceIntegrationMonitor,
+        name: str,
+    ) -> FieldMonitor:
+        """Hidden field monitor used to reconstruct this flux monitor in autograd. It follows
+        the parent's integration scheme so the differentiated frontend flux functional matches
+        the stored solver flux."""
+        return FieldMonitor(
+            center=surface.center,
+            size=surface.size,
+            freqs=self.freqs,
+            apodization=self.apodization,
+            fields=self._adjoint_tangential_field_components(surface),
+            name=name,
+            colocate=self.use_colocated_integration,
+            use_colocated_integration=self.use_colocated_integration,
+        )
+
+    @model_validator(mode="after")
+    def _validate_adjoint_surfaces_exist(self) -> Self:
+        """Adjoint tracking requires at least one surface for hidden field storage."""
+        if self.enable_adjoint and not self.integration_surfaces:
+            self._raise_validation_error_at_loc(
+                SetupError(
+                    f"FluxMonitor '{self.name}' has 'enable_adjoint=True' but no "
+                    "integration surfaces. Remove at least one entry from 'exclude_surfaces' "
+                    "or set 'enable_adjoint=False' for this monitor."
+                ),
+                "exclude_surfaces",
+            )
+        return self
 
     def storage_size(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
         """Size of monitor storage given the number of points after discretization."""
@@ -1237,7 +1703,7 @@ class ModeMonitor(AbstractModeMonitor):
         self, simulation: Simulation, monitor_index: int
     ) -> list[ParallelAdjointBasis]:
         """Return parallel adjoint bases for mode monitor amplitudes."""
-        freqs = [float(freq) for freq in self._stored_freqs]
+        freqs = list(self._stored_freqs)
         directions = ("+", "-")
         mode_indices = range(self.mode_spec.num_modes)
         return _build_mode_bases(
@@ -1294,10 +1760,8 @@ class ModeSolverMonitor(AbstractModeMonitor):
             object.__setattr__(self, "store_fields_direction", direction)
         elif store_fields_direction != direction:
             self._raise_validation_error_at_loc(
-                ValidationError(
-                    f"The values of 'direction' ({direction}) and 'store_fields_direction' "
-                    f"({store_fields_direction}) must be equal."
-                ),
+                f"The values of 'direction' ({direction}) and 'store_fields_direction' "
+                f"({store_fields_direction}) must be equal.",
                 "store_fields_direction",
             )
         return self
@@ -1310,6 +1774,116 @@ class ModeSolverMonitor(AbstractModeMonitor):
         if self.mode_spec.precision == "double":
             return 2 * bytes_single
         return bytes_single
+
+
+class ModeTimeMonitor(TimeMonitor, PlanarMonitor):
+    """:class:`~tidy3d.Monitor` that records time-domain modal amplitudes at a waveguide
+    cross-section.
+
+    Notes
+    -----
+
+        Records a complex-valued modal amplitude time series at the monitor plane
+        for each mode and propagation direction. The set of monitored modes is the
+        first ``mode_spec.num_modes`` modes returned by the mode solver.
+
+        When the simulation contains lossy media within the mode plane region, the
+        presence of a ``ModeTimeMonitor`` causes the simulation cost to approximately
+        double, because complex-valued field storage is needed to accurately project
+        onto modes with complex effective indices.
+
+    Example
+    -------
+    >>> mode_spec = ModeSpec(num_modes=3)
+    >>> monitor = ModeTimeMonitor(
+    ...     center=(1,2,3),
+    ...     size=(2,2,0),
+    ...     start=1e-13,
+    ...     stop=5e-13,
+    ...     mode_spec=mode_spec,
+    ...     name='mode_time')
+
+    See Also
+    --------
+
+    :class:`ModeMonitor`
+        Frequency-domain mode monitor using DFT overlap.
+
+    :class:`FluxTimeMonitor`
+        Time-domain total flux monitor.
+    """
+
+    mode_spec: ModeSpec = Field(
+        default_factory=ModeSpec,
+        title="Mode Specification",
+        description="Parameters to feed to mode solver which determine modes measured by monitor.",
+    )
+
+    freq_spec: PositiveFloat | None = Field(
+        None,
+        title="Frequency Specification",
+        description="Single frequency at which the mode profiles are solved for the time-domain "
+        "modal decomposition. If ``None``, the central frequency of the first source is used (so "
+        "at least one source is required).",
+    )
+
+    interval: Literal[1] = Field(
+        1,
+        title="Time Interval",
+        description="Sampling rate of the monitor: number of time steps between each measurement. "
+        "Currently must be ``1`` (downsampling of time-domain modal amplitudes is not yet "
+        "supported).",
+    )
+
+    colocate: Literal[False] = Field(
+        False,
+        title="Colocate Fields",
+        description="Hard-coded to ``False``: ``ModeTimeMonitor`` overlaps Yee-native fields "
+        "against per-component primal / dual mode profiles, so colocation to the primal "
+        "grid is not used.",
+    )
+
+    use_colocated_integration: Literal[False] = Field(
+        False,
+        title="Use Colocated Integration",
+        description="Hard-coded to ``False``: overlap weights are built from per-axis primal × "
+        "dual cell widths, matching the Yee-staggered field sampling.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_no_rotated_plane(self) -> Self:
+        """ModeTimeMonitor doesn't support rotated mode planes yet."""
+        if abs(self.mode_spec.angle_theta) > 0 and self.mode_spec.angle_rotation:
+            self._raise_validation_error_at_loc(
+                "'ModeTimeMonitor' does not yet support rotated mode planes "
+                f"('angle_rotation=True' with 'angle_theta={self.mode_spec.angle_theta}'). "
+                "Use 'angle_theta=0' or set 'angle_rotation=False'.",
+                "mode_spec",
+            )
+        return self
+
+    def storage_size(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
+        """Size of the final ``modeAmps`` payload returned to the user."""
+        num_steps = self.num_steps(tmesh)
+        num_modes = self.mode_spec.num_modes
+        num_dirs = 2
+        return BYTES_COMPLEX * num_steps * num_modes * num_dirs
+
+    def _storage_size_solver(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
+        """Solver-side memory footprint for this monitor."""
+        num_modes = self.mode_spec.num_modes
+        num_dirs = 2
+
+        # Per-point sampled E + H (3 complex components each) plus per-point mode
+        # weights for the feedthrough overlap.
+        per_pt = num_cells * (
+            6 * BYTES_COMPLEX + num_modes * num_dirs * 4 * BYTES_COMPLEX + BYTES_COMPLEX
+        )
+
+        # Final payload (running modeAmps over all sampled timesteps).
+        payload = self.storage_size(num_cells=num_cells, tmesh=tmesh)
+
+        return per_pt + payload
 
 
 class FieldProjectionSurface(Tidy3dBaseModel):
@@ -1356,6 +1930,22 @@ class AbstractFieldProjectionMonitor(SurfaceIntegrationMonitor, FreqMonitor):
     """:class:`~tidy3d.Monitor` that samples electromagnetic near fields in the frequency domain
     and projects them to a given set of observation points.
     """
+
+    colocate: Literal[True] = Field(
+        True,
+        title="Colocate Fields",
+        description="Field projection evaluates the equivalent surface currents from fields "
+        "colocated to the grid boundaries (i.e. primal grid nodes), so colocation cannot be "
+        "disabled for field-projection monitors.",
+    )
+
+    use_colocated_integration: Literal[True] = Field(
+        True,
+        title="Use Colocated Integration",
+        description="Field projection always integrates colocated surface currents; the "
+        "native-Yee surface integration is not yet supported for field-projection monitors. "
+        "The inherited validator derives ``colocate=True`` from this.",
+    )
 
     custom_origin: Coordinate | None = Field(
         None,
@@ -1407,6 +1997,7 @@ class AbstractFieldProjectionMonitor(SurfaceIntegrationMonitor, FreqMonitor):
 
     medium: MediumType | None = Field(
         None,
+        discriminator=TYPE_TAG_STR,
         title="Projection medium",
         description="Medium through which to project fields. Generally, the fields should be "
         "projected through the same medium as the one in which this monitor is placed, and "
@@ -1691,6 +2282,11 @@ class DirectivityMonitor(MicrowaveBaseModel, FieldProjectionAngleMonitor, FluxMo
     ...     phi=np.linspace(0, 2*np.pi, 20),
     ... )
     """
+
+    # DirectivityMonitor inherits FluxMonitor for backend flux bookkeeping, but
+    # DirectivityData.flux is not wired into the flux-adjoint bridge. Keep this
+    # as a ClassVar so Pydantic does not expose a no-op public field/schema entry.
+    enable_adjoint: ClassVar[bool] = False
 
     far_field_approx: Literal[True] = Field(
         True,
@@ -2104,21 +2700,21 @@ class SurfaceFieldMonitor(AbstractSurfaceMonitor, FreqMonitor):
 
         :class:`SurfaceFieldMonitor` objects operate by running a discrete Fourier transform of the fields at a given set of
         frequencies to perform the calculation "in-place" with the time stepping. These monitors are designed
-        to record fields on PEC (:class:`PECMedium`) and lossy metal (:class:`LossyMetalMedium`) surfaces,
-        storing the normal E and tangential H fields.
+        to record fields on PEC (:class:`PECMedium`) and lossy metal (:class:`LossyMetalMedium`) with
+        ``penetrable=False``, storing the normal E and tangential H fields.
 
     Example
     -------
     >>> import tidy3d as td
-    >>> old_logging_level = td.config.logging_level
-    >>> td.config.logging_level = "ERROR"
+    >>> old_logging_level = td.config.logging.level
+    >>> td.config.logging.level = "ERROR"
     >>> monitor = SurfaceFieldMonitor(
     ...     center=(1,2,3),
     ...     size=(2,2,2),
     ...     fields=['E', 'H'],
     ...     freqs=[250e12, 300e12],
     ...     name='surface_monitor')
-    >>> td.config.logging_level = old_logging_level
+    >>> td.config.logging.level = old_logging_level
     """
 
     def storage_size(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
@@ -2166,7 +2762,7 @@ class SurfaceFieldTimeMonitor(AbstractSurfaceMonitor, TimeMonitor):
     -----
 
         :class:`SurfaceFieldTimeMonitor` objects are best used to monitor the time dependence of the fields
-        on PEC (:class:`PECMedium`) and lossy metal (:class:`LossyMetalMedium`) surfaces. They can also be used to create
+        on PEC (:class:`PECMedium`) and lossy metal (:class:`LossyMetalMedium`) with ``penetrable=False``. They can also be used to create
         “animations” of the field pattern evolution.
 
         To create an animation, we need to capture the frames at different time instances of the simulation. This can
@@ -2178,8 +2774,8 @@ class SurfaceFieldTimeMonitor(AbstractSurfaceMonitor, TimeMonitor):
     Example
     -------
     >>> import tidy3d as td
-    >>> old_logging_level = td.config.logging_level
-    >>> td.config.logging_level = "ERROR"
+    >>> old_logging_level = td.config.logging.level
+    >>> td.config.logging.level = "ERROR"
     >>> monitor = SurfaceFieldTimeMonitor(
     ...     center=(1,2,3),
     ...     size=(2,2,2),
@@ -2188,7 +2784,7 @@ class SurfaceFieldTimeMonitor(AbstractSurfaceMonitor, TimeMonitor):
     ...     stop=5e-13,
     ...     interval=2,
     ...     name='movie_monitor')
-    >>> td.config.logging_level = old_logging_level
+    >>> td.config.logging.level = old_logging_level
     """
 
     def storage_size(self, num_cells: int, tmesh: ArrayFloat1D) -> int:

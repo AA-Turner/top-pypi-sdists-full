@@ -12,6 +12,7 @@ from tidy3d.constants import MICROMETER, SECOND, VOLT, WATT
 from tidy3d.exceptions import SetupError, ValidationError
 
 from .base import Tidy3dBaseModel
+from .types.base import discriminated_union
 
 if TYPE_CHECKING:
     from .medium import AbstractMedium
@@ -347,7 +348,7 @@ class NonlinearSpec(ABC, Tidy3dBaseModel):
     >>> medium = Medium(permittivity=2, nonlinear_spec=nonlinear_spec)
     """
 
-    models: tuple[NonlinearModelType, ...] = Field(
+    models: tuple[discriminated_union(NonlinearModelType), ...] = Field(
         (),
         title="Nonlinear models",
         description="The nonlinear models present in this nonlinear spec. "
@@ -416,3 +417,6 @@ class NonlinearSpec(ABC, Tidy3dBaseModel):
                         )
                     n0 = model.n0
         return val
+
+
+NonlinearSpecType = discriminated_union(NonlinearSpec | NonlinearSusceptibility)

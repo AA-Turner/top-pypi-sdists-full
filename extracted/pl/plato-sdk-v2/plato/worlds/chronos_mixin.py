@@ -122,6 +122,10 @@ class ChronosSessionMixin:
 
         self._session_id = self.chronos.session_id
         os.environ["SESSION_ID"] = self.chronos.session_id
+        # Default sandboxes started inside this world (world process or its
+        # agents) to attach to the Chronos session so their envs are tracked
+        # and managed with it. setdefault keeps an explicit 0 override intact.
+        os.environ.setdefault("PLATO_SANDBOX_ATTACH_SESSION", "1")
 
         if self.chronos.otel_url:
             agent_otel_url = self.chronos.otel_url

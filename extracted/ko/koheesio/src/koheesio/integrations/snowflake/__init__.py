@@ -85,45 +85,52 @@ __all__ = [
 
 
 def __check_access_snowflake_config_dir() -> bool:
-    """Check if the Snowflake configuration directory is accessible
+    """Check if the Snowflake configuration directory is accessible.
+
+    Assumes `snowflake-connector-python` is already importable — callers must
+    resolve the missing-dependency case before invoking this (see
+    `safe_import_snowflake_connector`).
 
     Returns
     -------
     bool
-        True if the Snowflake configuration directory is accessible, otherwise False
-
-    Raises
-    ------
-    RuntimeError
-        If `snowflake-connector-python` is not installed
+        True if the Snowflake configuration directory is accessible, otherwise False.
     """
     check_result = False
 
     try:
-        from snowflake.connector.sf_dirs import _resolve_platform_dirs  # noqa: F401
+        from snowflake.connector.sf_dirs import _resolve_platform_dirs
 
         _resolve_platform_dirs().user_config_path
         check_result = True
     except PermissionError as e:
-        warn(f"Snowflake configuration directory is not accessible. Please check the permissions.Catched error: {e}")
-    except (ImportError, ModuleNotFoundError) as e:
-        raise RuntimeError(
-            "You need to have the `snowflake-connector-python` package installed to use the Snowflake steps that are"
-            "based around SnowflakeRunQueryPython. You can install this in Koheesio by adding `koheesio[snowflake]` to "
-            "your package dependencies.",
-        ) from e
+        warn(f"Snowflake configuration directory is not accessible. Please check the permissions. Caught error: {e}")
 
     return check_result
 
 
 def safe_import_snowflake_connector() -> Optional[ModuleType]:
-    """Validate that the Snowflake connector is installed
+    """Validate that the Snowflake connector is installed.
 
     Returns
     -------
     Optional[ModuleType]
-        The Snowflake connector module if it is installed, otherwise None
+        The Snowflake connector module if it is installed, otherwise None.
     """
+    try:
+        # Resolve the connector first so a missing package produces the
+        # documented `warn -> return None` contract, instead of surfacing as
+        # a RuntimeError from the config-dir probe below (see #253 CI thread).
+        from snowflake import connector as snowflake_connector
+    except (ImportError, ModuleNotFoundError):
+        warn(
+            "You need to have the `snowflake-connector-python` package installed to use the Snowflake steps that are "
+            "based around SnowflakeRunQueryPython. You can install this in Koheesio by adding `koheesio[snowflake]` to "
+            "your package dependencies.",
+            UserWarning,
+        )
+        return None
+
     is_accessable_sf_conf_dir = __check_access_snowflake_config_dir()
 
     if not is_accessable_sf_conf_dir and on_databricks():
@@ -133,19 +140,7 @@ def safe_import_snowflake_connector() -> Optional[ModuleType]:
     elif not is_accessable_sf_conf_dir:
         raise PermissionError("Snowflake configuration directory is not accessible. Please check the permissions.")
 
-    try:
-        # Keep the import here as it is perfroming resolution of snowflake configuration directory
-        from snowflake import connector as snowflake_connector
-
-        return snowflake_connector
-    except (ImportError, ModuleNotFoundError):
-        warn(
-            "You need to have the `snowflake-connector-python` package installed to use the Snowflake steps that are"
-            "based around SnowflakeRunQueryPython. You can install this in Koheesio by adding `koheesio[snowflake]` to "
-            "your package dependencies.",
-            UserWarning,
-        )
-        return None
+    return snowflake_connector
 
 
 SF_DEFAULT_PARAMS = {"sfCompress": "on", "continue_on_error": "off"}
@@ -201,8 +196,12 @@ class SnowflakeBaseModel(BaseModel, ExtraParamsMixin, ABC):  # type: ignore[misc
         examples=["example.snowflakecomputing.com"],
     )
     user: str = Field(default=..., alias="sfUser", description="Login name for the Snowflake user")
-    password: Optional[SecretStr] = Field(default=None, alias="sfPassword", description="Password for the Snowflake user")
-    private_key: Optional[SecretStr] = Field(default=None, alias="pem_private_key", description="PEM private key for the Snowflake user")
+    password: Optional[SecretStr] = Field(
+        default=None, alias="sfPassword", description="Password for the Snowflake user"
+    )
+    private_key: Optional[SecretStr] = Field(
+        default=None, alias="pem_private_key", description="PEM private key for the Snowflake user"
+    )
     role: str = Field(
         default=..., alias="sfRole", description="The default security role to use for the session after connecting"
     )
@@ -236,9 +235,7 @@ class SnowflakeBaseModel(BaseModel, ExtraParamsMixin, ABC):  # type: ignore[misc
         if not self.password and not self.private_key:
             raise ValueError("You must provide either 'password' or 'private_key'.")
         if self.password and self.private_key:
-            raise ValueError(
-                "You must provide either 'password' or 'private_key', not both."
-            )
+            raise ValueError("You must provide either 'password' or 'private_key', not both.")
         return self
 
     @property
@@ -283,7 +280,7 @@ class SnowflakeBaseModel(BaseModel, ExtraParamsMixin, ABC):  # type: ignore[misc
             exclude=exclude_set,
         )
 
-        fields.update({ "sfSchema" if by_alias else "schema": self.sfSchema })
+        fields.update({"sfSchema" if by_alias else "schema": self.sfSchema})
 
         # handle schema and password
         if self.password:
@@ -414,7 +411,6 @@ class SnowflakeRunQueryPython(SnowflakeStep):
             raise RuntimeError("Snowflake connector is not installed. Please install `snowflake-connector-python`.")
 
         sf_options = self.get_options()
-
 
         _conn = self._snowflake_connector.connect(**sf_options)
         self.log.info(f"Connected to Snowflake account: {sf_options['account']}")

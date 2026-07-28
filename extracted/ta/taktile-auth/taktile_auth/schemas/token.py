@@ -29,6 +29,8 @@ class TaktileIdToken(BaseModel):
     iat: int
     roles: t.List[str]
     actor_name: str | None = None
+    workspace_id: str | None = None
+    org_id: str | None = None
 
     @classmethod
     def build_role(cls, role_signature: str) -> Role:
@@ -48,9 +50,7 @@ class TaktileIdToken(BaseModel):
 
         # First, get the resource arguments from the path
         resource_args = permission.get("resource_args", [])
-        for i, key in enumerate(
-            RESOURCES[permission["resource_name"]].args.keys()
-        ):
+        for i, key in enumerate(RESOURCES[permission["resource_name"]].args.keys()):
             if i < len(resource_args):
                 resource_vals[key] = resource_args[i]
 
@@ -59,15 +59,11 @@ class TaktileIdToken(BaseModel):
 
         return Permission(
             actions=set(permission["actions"]),
-            resource=RESOURCES[permission["resource_name"]].get_resource()(
-                **resource_vals
-            ),
+            resource=RESOURCES[permission["resource_name"]].get_resource()(**resource_vals),
             resource_name=permission["resource_name"],
         )
 
-    def _is_allowed(
-        self, permission_str: str, roles: t.Generator[Role, None, None]
-    ) -> None:
+    def _is_allowed(self, permission_str: str, roles: t.Generator[Role, None, None]) -> None:
         permission = self.build_permission(permission_str)
         if not any(permission in role for role in roles):
             raise InsufficientRightsException
@@ -75,11 +71,7 @@ class TaktileIdToken(BaseModel):
     @property
     def auth_roles(self) -> t.List[Role]:
         # only filter roles that are defined in the ROLES dict
-        return [
-            self.build_role(role)
-            for role in self.roles
-            if role.split("/")[0] in ROLES
-        ]
+        return [self.build_role(role) for role in self.roles if role.split("/")[0] in ROLES]
 
     @property
     def user_id(self) -> UUID4:
@@ -135,9 +127,7 @@ class TaktileIdToken(BaseModel):
             for arg in sub_def.args:
                 if arg not in sub_args:
                     sub_args[arg] = "*"
-            results.extend(
-                cls._filter_one_role(sub_def, sub_args, filters, target_roles)
-            )
+            results.extend(cls._filter_one_role(sub_def, sub_args, filters, target_roles))
         return results
 
     def filter_roles(
@@ -180,30 +170,18 @@ class TaktileIdToken(BaseModel):
             role_def = ROLES[role_name]
             role_args_str = role_str.partition("/")[2]
             role_args_list = role_args_str.split(",") if role_args_str else []
-            candidates.append(
-                (role_def, dict(zip(role_def.args, role_args_list)))
-            )
+            candidates.append((role_def, dict(zip(role_def.args, role_args_list))))
 
-        target_roles = (
-            frozenset(role_names) if role_names is not None else None
-        )
+        target_roles = frozenset(role_names) if role_names is not None else None
         expanded: t.List[t.Tuple[RoleDefinition, t.Dict[str, str]]] = []
         for role_def, role_kwargs in candidates:
-            expanded.extend(
-                self._filter_one_role(
-                    role_def, role_kwargs, filters, target_roles
-                )
-            )
+            expanded.extend(self._filter_one_role(role_def, role_kwargs, filters, target_roles))
         candidates = expanded
 
         seen: t.Set[str] = set()
         results: t.List[Role] = []
         for role_def, role_kwargs in candidates:
-            key = (
-                role_def.name
-                + "/"
-                + ",".join(role_kwargs.get(a, "*") for a in role_def.args)
-            )
+            key = role_def.name + "/" + ",".join(role_kwargs.get(a, "*") for a in role_def.args)
             if key not in seen:
                 seen.add(key)
                 results.append(role_def.build(**role_kwargs))
@@ -220,11 +198,7 @@ class TaktileIdToken(BaseModel):
             for p in permission:
                 self._is_allowed(
                     p,
-                    (
-                        self.build_role(role)
-                        for role in self.roles
-                        if role.split("/")[0] in ROLES
-                    ),
+                    (self.build_role(role) for role in self.roles if role.split("/")[0] in ROLES),
                 )
         except InsufficientRightsException:
             allowed = False

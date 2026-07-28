@@ -27,14 +27,14 @@ jobs:
         python: ['3.10', 3.11, 3.12]
 
     steps:
-    - uses: actions/checkout@v6.0.2
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
 
     - name: Set up rust
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: stable
+        toolchain: 1.97.1
 
     - uses: actions/setup-python@v6
       name: Install Python ${{ matrix.python }}
@@ -254,7 +254,7 @@ jobs:
     needs: build_wheels
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6.0.2
+      uses: actions/checkout@v7
       with:
         fetch-depth: 0
 
@@ -335,14 +335,14 @@ jobs:
     runs-on: ubuntu-22.04
     name: clippy
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 1
       - name: Install rust
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-          toolchain: stable-2025-08-07-x86_64-unknown-linux-gnu
+          toolchain: 1.97.1-x86_64-unknown-linux-gnu
       - name: clippy
         run: |
           # Add --all-targets as a separate step
@@ -354,7 +354,7 @@ jobs:
     runs-on: ubuntu-22.04
     name: typing
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 1
       - uses: actions/setup-python@v6
@@ -374,14 +374,14 @@ jobs:
     runs-on: ubuntu-22.04
     name: cargo fmt
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 1
       - name: Install rust
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-          toolchain: stable-2025-08-07-x86_64-unknown-linux-gnu
+          toolchain: 1.97.1-x86_64-unknown-linux-gnu
       - name: cargo fmt
         run: cargo fmt --all -- --files-with-diff --check
 
@@ -389,13 +389,13 @@ jobs:
     runs-on: ubuntu-22.04
     name: Unit tests
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 1
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
-            toolchain: stable
+            toolchain: 1.97.1
             components: rustfmt, clippy
       - name: cargo test
         run: cargo test
@@ -403,10 +403,10 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7
       - uses: actions-rs/toolchain@v1
         with:
-            toolchain: stable
+            toolchain: 1.97.1
       - name: Install coverage tools
         run: |
           sudo apt-get update

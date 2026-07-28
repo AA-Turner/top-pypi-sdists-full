@@ -16,6 +16,8 @@ class Action(ExtendedEnum):
     read = "r"
     write = "w"
     delete = "d"
+    execute = "execute"
+    deploy = "deploy"
 
 
 class Wildcard(ExtendedEnum):

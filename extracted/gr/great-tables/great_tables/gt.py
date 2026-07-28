@@ -26,6 +26,7 @@ from ._formats import (
     fmt_markdown,
     fmt_nanoplot,
     fmt_number,
+    fmt_number_si,
     fmt_partsper,
     fmt_percent,
     fmt_roman,
@@ -68,6 +69,7 @@ from ._options import (
 from ._pipe import pipe
 from ._render import infer_render_env_defaults
 from ._render_checks import _render_check
+from ._rm import rm_footnotes, rm_header, rm_source_notes, rm_spanners, rm_stubhead
 from ._source_notes import tab_source_note
 from ._spanners import (
     cols_hide,
@@ -94,6 +96,7 @@ from ._tab_create_modify import (
     text_replace,
     text_transform,
 )
+from ._tab_stub_indent import tab_stub_indent
 from ._tbl_data import _get_cell, _set_cell, n_rows
 from ._utils import _migrate_unformatted_to_output
 from ._utils_render_html import (
@@ -114,7 +117,7 @@ __all__ = ["GT"]
 # =============================================================================
 # Helper for text transforms
 # =============================================================================
-def _apply_text_transforms(data: "GT", body: "Body") -> "Body":
+def _apply_text_transforms(data: GT, body: Body) -> Body:
     """Apply all registered text transforms to the body cells."""
     from ._tbl_data import is_na
 
@@ -142,7 +145,7 @@ def _apply_text_transforms(data: "GT", body: "Body") -> "Body":
     return body
 
 
-def _apply_text_transforms_stub(data: "GT", stub: "Stub", body: "Body") -> tuple["Stub", "Body"]:
+def _apply_text_transforms_stub(data: GT, stub: Stub, body: Body) -> tuple[Stub, Body]:
     """Apply text transforms targeting loc.stub() and loc.row_groups()."""
 
     from ._gt_data import ColInfoTypeEnum, GroupRows, Stub
@@ -189,7 +192,7 @@ def _apply_text_transforms_stub(data: "GT", stub: "Stub", body: "Body") -> tuple
     return stub, body
 
 
-def _apply_text_transforms_boxhead(data: "GT") -> "Boxhead":
+def _apply_text_transforms_boxhead(data: GT) -> Boxhead:
     """Apply text transforms targeting loc.column_labels()."""
     from ._gt_data import Boxhead
 
@@ -368,6 +371,7 @@ class GT(
     fmt_engineering = fmt_engineering
     fmt_currency = fmt_currency
     fmt_bytes = fmt_bytes
+    fmt_number_si = fmt_number_si
     fmt_duration = fmt_duration
     fmt_roman = fmt_roman
     fmt_date = fmt_date
@@ -421,8 +425,15 @@ class GT(
     tab_spanner = tab_spanner
     tab_spanner_delim = tab_spanner_delim
     tab_stubhead = tab_stubhead
+    tab_stub_indent = tab_stub_indent
     tab_style = tab_style
     tab_options = tab_options
+
+    rm_header = rm_header
+    rm_stubhead = rm_stubhead
+    rm_source_notes = rm_source_notes
+    rm_footnotes = rm_footnotes
+    rm_spanners = rm_spanners
     text_transform = text_transform
     text_replace = text_replace
     text_case_match = text_case_match

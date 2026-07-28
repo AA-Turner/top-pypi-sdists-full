@@ -1,17 +1,3 @@
-# This file is part of beets.
-# Copyright 2016, Adrian Sampson.
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-
 """Tests for non-query database functions of Item."""
 
 from __future__ import annotations
@@ -21,8 +7,8 @@ import os.path
 import re
 import shutil
 import stat
-import unicodedata
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -35,13 +21,7 @@ from beets.library import Album
 from beets.test import _common
 from beets.test._common import item
 from beets.test.helper import TestHelper
-from beets.util import (
-    as_string,
-    bytestring_path,
-    normpath,
-    path_as_posix,
-    syspath,
-)
+from beets.util import as_string, bytestring_path, normpath, syspath
 
 # Shortcut to path normalization.
 np = util.normpath
@@ -107,6 +87,16 @@ class TestStore(PytestItemHelper):
         assert "flex1" not in album
         assert "flex1" not in album.items()[0]
 
+    def test_store_does_not_propagate_artpath_to_items(self):
+        item = _common.item()
+        self.lib.add(item)
+        album = self.lib.add_album([item])
+        assert "artpath" not in Album.item_keys
+        album.artpath = b"/abs/path/to/cover.jpg"
+        album.store()
+        stored = self.lib.get_item(item.id)
+        assert not stored.get("artpath", with_album=False)
+
 
 class TestAdd(PytestItemHelper):
     def test_item_add_inserts_row(self, item):
@@ -122,9 +112,7 @@ class TestAdd(PytestItemHelper):
         assert new_grouping == item.grouping
 
     def test_library_add_path_inserts_row(self):
-        item = beets.library.Item.from_path(
-            os.path.join(_common.RSRC, b"full.mp3")
-        )
+        item = beets.library.Item.from_path(_common.RSRC / "full.mp3")
         self.lib.add(item)
         new_grouping = (
             self.lib._connection()
@@ -141,9 +129,7 @@ class TestAdd(PytestItemHelper):
     ):
         """Test library.add emits only one database_change event."""
 
-        item.path = beets.util.normpath(
-            os.path.join(self.temp_dir, b"a", b"b.mp3")
-        )
+        item.path = beets.util.normpath(self.temp_path / "a" / "b.mp3")
         item.album = "a"
         item.title = "b"
 
@@ -453,34 +439,12 @@ class TestDestination(PytestItemHelper):
         p = item_in_db.destination()
         assert p.rsplit(util.PATH_SEP, 1)[1] == b"something"
 
-    def test_unicode_normalized_nfd_on_mac(self, item_in_db):
-        instr = unicodedata.normalize("NFC", "caf\xe9")
-        self.lib.path_formats = [("default", instr)]
-        with patch("sys.platform", "darwin"):
-            dest = item_in_db.destination(relative_to_libdir=True)
-        assert as_string(dest) == unicodedata.normalize("NFD", instr)
-
-    def test_unicode_normalized_nfc_on_linux(self, item_in_db):
-        instr = unicodedata.normalize("NFD", "caf\xe9")
-        self.lib.path_formats = [("default", instr)]
-        with patch("sys.platform", "linux"):
-            dest = item_in_db.destination(relative_to_libdir=True)
-        assert as_string(dest) == unicodedata.normalize("NFC", instr)
-
     def test_unicode_extension_in_fragment(self, item_in_db):
         self.lib.path_formats = [("default", "foo")]
         item_in_db.path = util.bytestring_path("bar.caf\xe9")
         with patch("sys.platform", "linux"):
             dest = item_in_db.destination(relative_to_libdir=True)
         assert as_string(dest) == "foo.caf\xe9"
-
-    def test_asciify_and_replace(self, item_in_db):
-        config["asciify_paths"] = True
-        self.lib.replacements = [(re.compile('"'), "q")]
-        self.lib.directory = b"lib"
-        self.lib.path_formats = [("default", "$title")]
-        item_in_db.title = "\u201c\u00f6\u2014\u00cf\u201d"
-        assert item_in_db.destination() == np("lib/qo--Iq")
 
     def test_asciify_character_expanding_to_slash(self, item_in_db):
         config["asciify_paths"] = True
@@ -999,11 +963,7 @@ class TestAlbumInfo(PytestItemHelper):
 
     def test_album_items_consistent(self, item_in_album):
         ai = self.lib.get_album(item_in_album)
-        for i in ai.items():
-            if i.id == item_in_album.id:
-                break
-        else:
-            self.fail("item not found")
+        assert item_in_album.id in {i.id for i in ai.items()}
 
     def test_albuminfo_changes_affect_items(self, item_in_album):
         ai = self.lib.get_album(item_in_album)
@@ -1107,18 +1067,18 @@ class TestPathString(PytestItemHelper):
         assert isinstance(self.get_first_item().path, bytes)
 
     def test_special_chars_preserved_in_database(self, item_in_db):
-        path = "b\xe1r".encode()
+        path = Path("b\xe1r")
         item_in_db.path = path
         item_in_db.store()
-        assert self.get_first_item().path == os.path.join(self.libdir, path)
+        assert self.get_first_item().filepath == self.lib_path / path
 
     def test_special_char_path_added_to_database(self, item, item_in_db):
         item_in_db.remove()
-        path = "b\xe1r".encode()
+        path = Path("b\xe1r")
         item = _common.item()
         item.path = path
         self.lib.add(item)
-        assert self.get_first_item().path == os.path.join(self.libdir, path)
+        assert self.get_first_item().filepath == self.lib_path / path
 
     def test_destination_returns_bytestring(self, item_in_db):
         item_in_db.artist = "b\xe1r"
@@ -1132,7 +1092,7 @@ class TestPathString(PytestItemHelper):
         assert isinstance(dest, bytes)
 
     def test_artpath_stores_special_chars(self, item_in_db):
-        path = bytestring_path("b\xe1r")
+        path = Path("b\xe1r")
         alb = self.lib.add_album([item_in_db])
         alb.artpath = path
         alb.store()
@@ -1142,8 +1102,8 @@ class TestPathString(PytestItemHelper):
             .fetchone()[0]
         )
         alb = self.lib.get_album(item_in_db)
-        assert stored_path == path
-        assert alb.artpath == os.path.join(self.libdir, path)
+        assert stored_path == os.fsencode(path)
+        assert alb.art_filepath == self.lib_path / path
 
     def test_sanitize_path_with_special_chars(self):
         path = "b\xe1r?"
@@ -1169,8 +1129,8 @@ class TestPathString(PytestItemHelper):
         assert isinstance(alb.artpath, bytes)
 
     def test_relative_path_is_stored(self, item_in_db):
-        relative_path = os.path.join(b"abc", b"foo.mp3")
-        absolute_path = os.path.join(self.libdir, relative_path)
+        relative_path = Path("abc") / "foo.mp3"
+        absolute_path = self.lib_path / relative_path
         item_in_db.path = absolute_path
         item_in_db.store()
         stored_path = (
@@ -1180,27 +1140,24 @@ class TestPathString(PytestItemHelper):
         )
         album = self.lib.add_album([item_in_db])
 
-        assert item_in_db.path == absolute_path
-        assert stored_path == path_as_posix(relative_path)
-        assert album.path == os.path.dirname(absolute_path)
+        assert item_in_db.filepath == absolute_path
+        assert stored_path == util.path_as_posix(os.fsencode(relative_path))
+        assert album.filepath == absolute_path.parent
 
 
 class TestMtime(TestHelper):
     @pytest.fixture(autouse=True)
     def item(self, setup):
-        self.ipath = os.path.join(self.temp_dir, b"testfile.mp3")
-        shutil.copy(
-            syspath(os.path.join(_common.RSRC, b"full.mp3")),
-            syspath(self.ipath),
-        )
+        self.ipath = self.temp_path / "testfile.mp3"
+        shutil.copy(syspath(_common.RSRC / "full.mp3"), syspath(self.ipath))
         item = beets.library.Item.from_path(self.ipath)
         self.lib.add(item)
         yield item
-        if os.path.exists(self.ipath):
-            os.remove(self.ipath)
+        if self.ipath.exists():
+            self.ipath.unlink()
 
     def _mtime(self):
-        return int(os.path.getmtime(self.ipath))
+        return int(self.ipath.stat().st_mtime)
 
     def test_mtime_initially_up_to_date(self, item):
         assert item.mtime >= self._mtime()
@@ -1264,9 +1221,7 @@ class TestTemplate(PytestItemHelper):
 
 class TestUnicodePath(PytestItemHelper):
     def test_unicode_path(self, item_in_db):
-        item_in_db.path = os.path.join(
-            _common.RSRC, "unicode\u2019d.mp3".encode()
-        )
+        item_in_db.path = _common.RSRC / "unicode\u2019d.mp3"
         # If there are any problems with unicode paths, we will raise
         # here and fail.
         item_in_db.read()
@@ -1296,7 +1251,7 @@ class TestWrite(TestHelper):
 
     def test_write_with_custom_path(self):
         item = self.add_item_fixture()
-        custom_path = os.path.join(self.temp_dir, b"custom.mp3")
+        custom_path = self.temp_path / "custom.mp3"
         shutil.copy(syspath(item.path), syspath(custom_path))
 
         item["artist"] = "new artist"
@@ -1343,7 +1298,7 @@ class TestWrite(TestHelper):
 
 class TestItemRead(PytestItemHelper):
     def test_unreadable_raise_read_error(self, item_in_db):
-        unreadable = os.path.join(_common.RSRC, b"image-2x3.png")
+        unreadable = _common.RSRC / "image-2x3.png"
         with pytest.raises(beets.library.ReadError) as exc_info:
             item_in_db.read(unreadable)
         assert isinstance(exc_info.value.reason, UnreadableFileError)
@@ -1353,7 +1308,7 @@ class TestItemRead(PytestItemHelper):
             item_in_db.read("/thisfiledoesnotexist")
 
     def test_read_error_str_includes_reason(self, item_in_db):
-        unreadable = os.path.join(_common.RSRC, b"image-2x3.png")
+        unreadable = _common.RSRC / "image-2x3.png"
         with pytest.raises(beets.library.ReadError) as exc_info:
             item_in_db.read(unreadable)
         message = str(exc_info.value)

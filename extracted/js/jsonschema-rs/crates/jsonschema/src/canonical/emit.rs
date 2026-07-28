@@ -4,18 +4,33 @@ use referencing::Draft;
 use serde_json::{json, Map, Value};
 
 use crate::{
-    canonical::ir::{
-        ArrayLeaf, BoundCardinality, CanonicalJson, ContainsFacet, Divisors, IntegerLeaf,
-        NumberLeaf, ObjectLeaf, Schema, SchemaKind, StringLeaf,
+    canonical::{
+        ir::{
+            ArrayLeaf, BoundCardinality, CanonicalJson, ContainsFacet, Divisors, IntegerLeaf,
+            NumberLeaf, ObjectLeaf, Schema, SchemaKind, StringLeaf,
+        },
+        DefinitionMap, CANONICAL_REFERENCE_PREFIX,
     },
     JsonTypeSet,
 };
 
-pub(crate) fn to_json_schema(root: &Schema, draft: Draft) -> Value {
+const CANONICAL_REFERENCE_SEGMENT: &percent_encoding::AsciiSet =
+    &percent_encoding::CONTROLS.add(b'%');
+
+/// The one-key object `{key: value}`. `json!` would re-copy an already-built `Value` through
+/// `to_value` at every level of the recursion.
+fn keyed(key: &str, value: Value) -> Value {
+    let mut map = Map::new();
+    map.insert(key.to_owned(), value);
+    Value::Object(map)
+}
+
+pub(crate) fn to_json_schema(root: &Schema, draft: Draft, definitions: &DefinitionMap) -> Value {
     let value = emit(root.kind(), draft);
     if matches!(root.kind(), SchemaKind::Raw(_)) {
         return value;
     }
+    let value = attach_definitions(value, definitions, draft);
     match schema_uri(draft) {
         Some(uri) => with_schema_uri(value, uri),
         None => value,
@@ -31,9 +46,9 @@ fn emit(kind: &SchemaKind, draft: Draft) -> Value {
         // `{"const": null}` is identical to `{"type": "null"}` - prefer the type form.
         SchemaKind::Const(value) if value.as_value().is_null() => json!({"type": "null"}),
         SchemaKind::Const(value) if matches!(draft, Draft::Draft4) => {
-            json!({"enum": [value.to_value()]})
+            keyed("enum", Value::Array(vec![value.to_value()]))
         }
-        SchemaKind::Const(value) => json!({"const": value.to_value()}),
+        SchemaKind::Const(value) => keyed("const", value.to_value()),
         SchemaKind::Enum(values) => emit_enum(values.as_slice()),
         SchemaKind::String(leaf) => emit_string(leaf.get()),
         SchemaKind::Integer(leaf) => emit_integer(leaf.get()),
@@ -55,14 +70,80 @@ fn emit(kind: &SchemaKind, draft: Draft) -> Value {
             map.insert("type".into(), Value::String(ty.to_string()));
             Value::Object(map)
         }
-        SchemaKind::AnyOf(branches) => json!({
-            "anyOf": branches
-                .as_slice()
-                .iter()
-                .map(|branch| emit(branch.kind(), draft))
-                .collect::<Vec<_>>()
-        }),
+        SchemaKind::Not(schema) => keyed("not", emit(schema.kind(), draft)),
+        SchemaKind::AllOf(branches) => keyed("allOf", emit_branches(branches.as_slice(), draft)),
+        SchemaKind::AnyOf(branches) => keyed("anyOf", emit_branches(branches.as_slice(), draft)),
+        SchemaKind::OneOf(branches) => keyed("oneOf", emit_branches(branches, draft)),
+        SchemaKind::Reference(uri) => emit_reference(uri, draft),
         SchemaKind::Raw(value) => value.get().clone(),
+    }
+}
+
+fn emit_branches(branches: &[Schema], draft: Draft) -> Value {
+    Value::Array(
+        branches
+            .iter()
+            .map(|branch| emit(branch.kind(), draft))
+            .collect(),
+    )
+}
+
+fn emit_reference(uri: &str, draft: Draft) -> Value {
+    if !uri.starts_with(CANONICAL_REFERENCE_PREFIX) {
+        return keyed("$ref", Value::String(uri.to_owned()));
+    }
+    let mut reference = format!("#/{}/", definition_keyword(draft));
+    let mut segment = String::with_capacity(uri.len());
+    referencing::write_escaped_str(&mut segment, uri);
+    reference.extend(percent_encoding::utf8_percent_encode(
+        &segment,
+        CANONICAL_REFERENCE_SEGMENT,
+    ));
+    keyed("$ref", Value::String(reference))
+}
+
+fn attach_definitions(mut value: Value, definitions: &DefinitionMap, draft: Draft) -> Value {
+    if definitions.is_empty() {
+        return value;
+    }
+    let Value::Object(root) = &mut value else {
+        return value;
+    };
+    let generated_keyword = definition_keyword(draft);
+    for (keyword, prefix) in [("$defs", "#/$defs/"), ("definitions", "#/definitions/")] {
+        let mut entries: Map<_, _> = definitions
+            .iter()
+            .filter_map(|(uri, schema)| {
+                definition_name(uri, prefix).map(|name| (name, emit(schema.kind(), draft)))
+            })
+            .collect();
+        if keyword == generated_keyword {
+            for (uri, schema) in definitions {
+                if uri.starts_with(CANONICAL_REFERENCE_PREFIX) {
+                    entries.insert(uri.to_string(), emit(schema.kind(), draft));
+                }
+            }
+        }
+        if !entries.is_empty() {
+            root.insert(keyword.into(), Value::Object(entries));
+        }
+    }
+    value
+}
+
+fn definition_name(uri: &str, prefix: &str) -> Option<String> {
+    let encoded = uri.strip_prefix(prefix)?;
+    let decoded = percent_encoding::percent_decode_str(encoded)
+        .decode_utf8()
+        .ok()?;
+    Some(referencing::unescape_segment(&decoded).into_owned())
+}
+
+const fn definition_keyword(draft: Draft) -> &'static str {
+    if matches!(draft, Draft::Draft4 | Draft::Draft6 | Draft::Draft7) {
+        "definitions"
+    } else {
+        "$defs"
     }
 }
 
@@ -86,7 +167,7 @@ fn emit_string(leaf: &StringLeaf) -> Value {
         patterns => conjuncts.extend(
             patterns
                 .iter()
-                .map(|pattern| json!({ "pattern": pattern.as_ref() })),
+                .map(|pattern| keyed("pattern", Value::String(pattern.to_string()))),
         ),
     }
     match leaf.formats.as_slice() {
@@ -97,7 +178,7 @@ fn emit_string(leaf: &StringLeaf) -> Value {
         formats => conjuncts.extend(
             formats
                 .iter()
-                .map(|format| json!({ "format": format.as_ref() })),
+                .map(|format| keyed("format", Value::String(format.to_string()))),
         ),
     }
     // A media type and an encoding sharing one schema object decode-then-check under the runtime
@@ -117,7 +198,7 @@ fn emit_string(leaf: &StringLeaf) -> Value {
         media_types => conjuncts.extend(
             media_types
                 .iter()
-                .map(|media_type| json!({ "contentMediaType": media_type.as_ref() })),
+                .map(|media_type| keyed("contentMediaType", Value::String(media_type.to_string()))),
         ),
     }
     match leaf.content_encodings.as_slice() {
@@ -131,7 +212,7 @@ fn emit_string(leaf: &StringLeaf) -> Value {
         encodings => conjuncts.extend(
             encodings
                 .iter()
-                .map(|encoding| json!({ "contentEncoding": encoding.as_ref() })),
+                .map(|encoding| keyed("contentEncoding", Value::String(encoding.to_string()))),
         ),
     }
     if !conjuncts.is_empty() {
@@ -333,7 +414,11 @@ fn finite_keys(names: &Schema) -> Option<Vec<String>> {
         | SchemaKind::Number(_)
         | SchemaKind::Array(_)
         | SchemaKind::Object(_)
+        | SchemaKind::Not(_)
+        | SchemaKind::AllOf(_)
         | SchemaKind::AnyOf(_)
+        | SchemaKind::OneOf(_)
+        | SchemaKind::Reference(_)
         | SchemaKind::Raw(_) => None,
     }
 }
@@ -379,9 +464,10 @@ fn emit_enum(values: &[CanonicalJson]) -> Value {
     if let Some(set) = SchemaKind::finite_values_saturated_domain(values) {
         return emit_multi_type(set);
     }
-    json!({
-        "enum": values.iter().map(CanonicalJson::to_value).collect::<Vec<_>>()
-    })
+    keyed(
+        "enum",
+        Value::Array(values.iter().map(CanonicalJson::to_value).collect()),
+    )
 }
 
 /// Emit a type set as `{"type": "x"}` for a singleton or `{"type": [...]}` otherwise.
@@ -389,7 +475,7 @@ fn emit_multi_type(set: JsonTypeSet) -> Value {
     // `set.iter()` yields in canonical order (null, boolean, integer, ...).
     let mut names = set.iter().map(|ty| ty.to_string());
     match (names.next(), names.next()) {
-        (Some(only), None) => json!({"type": only}),
+        (Some(only), None) => keyed("type", Value::String(only)),
         (first, second) => {
             let names: Vec<Value> = first
                 .into_iter()
@@ -397,7 +483,7 @@ fn emit_multi_type(set: JsonTypeSet) -> Value {
                 .chain(names)
                 .map(Value::String)
                 .collect();
-            json!({"type": names})
+            keyed("type", Value::Array(names))
         }
     }
 }

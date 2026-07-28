@@ -40,9 +40,11 @@ from abstra_internals.repositories.linter.models import (
     normalize_linter_path,
 )
 from abstra_internals.repositories.linter.repository import (
-    BLOCKING_TYPES,
+    RUN_SUCCESS,
     LinterRepository,
+    LinterRunGate,
     LocalLinterRepository,
+    check_is_blocking,
 )
 from abstra_internals.repositories.linter.sidecar.protocol import (
     PROTOCOL_VERSION,
@@ -121,8 +123,13 @@ class _MirrorFix(LinterFix):
 
 class _MirrorIssue(LinterIssue):
     def __init__(self, data: dict):
+        self.title = data.get("title", "")
         self.label = data.get("label", "")
         self.fixes = [_MirrorFix(f) for f in data.get("fixes", [])]
+        # Severity is mandatory per-issue; default to the blocking type if an
+        # older sender omits it (fail-safe — err toward blocking a deploy).
+        self.type = data.get("type", "error")
+        self.fix_with_ai = bool(data.get("fixWithAi", False))
         self.path = None
 
 
@@ -130,9 +137,7 @@ def _check_from_dict(data: dict) -> LinterCheck:
     return LinterCheck(
         name=data.get("name", ""),
         label=data.get("label", ""),
-        type=data.get("type", "warning"),
         issues=[_MirrorIssue(i) for i in data.get("issues", [])],
-        fix_with_ai=bool(data.get("fixWithAi", False)),
         status=data.get("status", "ok"),
     )
 
@@ -201,6 +206,10 @@ class SidecarLinterRepository(LinterRepository):
         # thread, so readers always see a consistent snapshot.
         self._mirror_lock = threading.Lock()
         self.checks: List[LinterCheck] = []
+        # Editor-side run state (the debounce lives here, not in the child), so
+        # the deploy gate can wait for a scheduled/in-flight lint and then trust
+        # the mirror. Failed maps to the degraded flag.
+        self.run_gate = LinterRunGate()
 
         atexit.register(self.stop)
 
@@ -217,9 +226,12 @@ class SidecarLinterRepository(LinterRepository):
         return self.checks
 
     def update_checks(self, revalidate_caches: bool = False) -> List[LinterCheck]:
+        self.run_gate.mark_pending()
         try:
             self._request("run_all", {"revalidate_caches": revalidate_caches})
+            self.run_gate.mark_success()
         except SidecarUnavailableError as e:
+            self.run_gate.mark_failed()
             AbstraLogger.warning(
                 f"[LinterSidecar] update_checks degraded (stale mirror): {e}"
             )
@@ -236,9 +248,12 @@ class SidecarLinterRepository(LinterRepository):
                 else None
             ),
         }
+        self.run_gate.mark_pending()
         try:
             self._request("run_rules", params)
+            self.run_gate.mark_success()
         except SidecarUnavailableError as e:
+            self.run_gate.mark_failed()
             AbstraLogger.warning(
                 f"[LinterSidecar] update_specific_checks degraded (stale mirror): {e}"
             )
@@ -262,21 +277,20 @@ class SidecarLinterRepository(LinterRepository):
         self._maybe_execute_process_action(result)
 
     def get_blocking_checks(self) -> List[LinterCheck]:
-        # A failed blocking check blocks too (fail-closed, same policy as a
-        # dead sidecar): the rule crashed, so "no issues" was never verified.
-        return [
-            check
-            for check in self.checks
-            if check.type in BLOCKING_TYPES
-            and (check.issues or check.status == "failed")
-        ]
+        return [check for check in self.checks if check_is_blocking(check)]
 
     def get_blocking_checks_for_deploy(self) -> List[LinterCheck]:
-        # The deploy gate MUST verify blocking issues, but a slow or unavailable
-        # linter must never HARD-BLOCK a publish. Ask the sidecar with a bounded
-        # timeout; if the child can't answer in time (or is down), recompute the
-        # gate in-process — same rule stack, parallel fan-out, no request
-        # timeout — so the deploy is still verified instead of failed.
+        # Wait for any scheduled/in-flight lint to settle, then trust the
+        # editor-side mirror if the last pass succeeded — the editor keeps it
+        # fresh on every change, so no re-lint (and no RPC) at deploy.
+        self.run_gate.wait_settled(self._deploy_gate_timeout)
+        if self.run_gate.status == RUN_SUCCESS and not self.degraded and self.checks:
+            return self.get_blocking_checks()
+
+        # Never verified, last pass failed, or the child is degraded: the gate
+        # MUST verify but must never HARD-BLOCK a publish. Ask the child with a
+        # bounded timeout; if it can't answer (or is down), recompute in-process
+        # — same rule stack, parallel fan-out — so the deploy is still verified.
         try:
             result = self._request(
                 "blocking_checks_for_deploy", timeout=self._deploy_gate_timeout

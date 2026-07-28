@@ -62,7 +62,7 @@ def get_pep621_info(config_file: Optional[Pathlike] = None) -> Optional[PEP621In
 
 def find_config_file(explicit_file: Optional[Pathlike] = None) -> Union[Path, None]:
     """
-    Find the configuration file, if it exists.
+    Find the configuration file if it exists.
 
     If no explicit configuration file is passed, it will search in several files to
     find its configuration.
@@ -88,7 +88,7 @@ def find_config_file(explicit_file: Optional[Pathlike] = None) -> Union[Path, No
 
 def read_config_file(config_file: Optional[Pathlike] = None) -> Dict[str, Any]:
     """
-    Read the configuration file, if it exists.
+    Read the configuration file if it exists.
 
     If no explicit configuration file is passed, it will search in several files to
     find its configuration.
@@ -100,12 +100,12 @@ def read_config_file(config_file: Optional[Pathlike] = None) -> Dict[str, Any]:
         A dictionary of read key-values
     """
     if not config_file:
-        logger.info("No configuration file found.")
+        logger.warning("No configuration file found.")
         return {}
 
     config_path = Path(config_file)
     if not config_path.exists():
-        logger.info("Configuration file not found: %s.", config_path)
+        logger.warning("Configuration file not found: %s.", config_path)
         return {}
 
     logger.info("Reading config file: %s", config_file)
@@ -116,7 +116,7 @@ def read_config_file(config_file: Optional[Pathlike] = None) -> Dict[str, Any]:
     elif config_path.suffix == ".toml":
         return read_toml_file(config_path)
     else:
-        logger.info("Unknown config file suffix: %s. Using defaults.", config_path.suffix)
+        logger.warning("Unknown config file suffix: %s. Using defaults.", config_path.suffix)
         return {}
 
 

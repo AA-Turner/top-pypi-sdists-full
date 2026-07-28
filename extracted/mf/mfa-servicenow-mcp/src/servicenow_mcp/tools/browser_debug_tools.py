@@ -1,0 +1,689 @@
+"""The three tools behind the shared debug window.
+
+The split is by side effect rather than by verb:
+
+``open_debug_window``   the only tool that can put a window on the user's screen
+``inspect_debug_window`` reads whatever window is already there, or reports none
+``act_in_debug_window``  drives that window — clicks, types, waits
+
+That asymmetry is the design. A read tool that opens windows on demand means a
+window appears every time the model wants to check something, so inspecting and
+acting both use ``find_window`` (never launches) while opening uses
+``ensure_window`` (idempotent, rate-capped). Everything else — session
+isolation, the launch claim, the unsaved-input guard, the single auto-login
+attempt — lives in servicenow_mcp.browser as deterministic code rather than as
+instructions the model is asked to follow.
+
+Acting is classified as a WRITE (write_guards.MUTATING_TOOL_NAMES), because a
+click on Save in an authenticated session creates a record just as surely as
+the Table API would. The window's session is its own, so that write is
+attributed to whoever the window is signed in as — which is exactly why
+inspect reports that user back.
+
+Running JavaScript is graded in two, because "read a value off the page" and
+"run a script in someone's session" are not the same request:
+
+``inspect_debug_window(evaluate=...)``  one EXPRESSION, value returned. A
+    statement body is a parse error, not a silent success. It cannot be
+    promised side-effect-free (``fetch(...)`` is an expression), so the
+    argument itself flips the call to a write for the allow_writes gate —
+    see write_guards.ARG_TRIGGERED_WRITE_ARGS.
+``act_in_debug_window`` action ``eval``  arbitrary source, and therefore
+    confirm='approve' AND confirm_eval='approve'.
+
+Impersonation is a step, not a tool, for the same reason: testing "what does
+this user see" is never one call. It changes the whole window's session — which
+every MCP session and the person watching the screen share — so both tools
+report who the window is afterwards, and open_debug_window says so on the way in
+when it reuses a window someone left impersonating. See browser/impersonate.py.
+
+Closing is not a tool: the user closes the window with the mouse, and a closed
+window is simply reopened on the next explicit request.
+"""
+
+import logging
+import os
+import time
+from typing import Any, Dict, List, Literal, Optional
+
+from pydantic import BaseModel, Field
+
+from ..auth.auth_manager import AuthManager
+from ..browser._launch_lock import LaunchBusy
+from ..browser._offload import PlaywrightUnavailable
+from ..browser.actions import EVAL_ACTION, MAX_ACTIONS, act, normalize
+from ..browser.badge import profile_label
+from ..browser.capture import MAX_WATCH_SECONDS, NoPageFound, arm, capture, navigate
+from ..browser.cursor import resolve_after_seq, write_cursor
+from ..browser.impersonate import END_IMPERSONATION_ACTION, IMPERSONATE_ACTION
+from ..browser.impersonate import describe_detected as describe_impersonation
+from ..browser.impersonate import read_marker
+from ..browser.launch_budget import LaunchBudgetExceeded, budget_status
+from ..browser.login import auto_login
+from ..browser.login import describe as describe_login
+from ..browser.login import saved_credentials
+from ..browser.mfa_trust import harvest_from_profile as harvest_trust_from_profile
+from ..browser.mfa_trust import read_store as read_trust
+from ..browser.mfa_trust import seed_profile as seed_trust_profile
+from ..browser.mfa_trust import store_path as mfa_store_path
+from ..browser.mfa_trust import write_store as write_trust
+from ..browser.reaper import reap_idle_windows
+from ..browser.report import compact
+from ..browser.session import api_username, describe_window_user
+from ..browser.window import (
+    _cache_root,
+    ensure_window,
+    find_window,
+    window_artifacts_dir,
+    window_cursor_path,
+    window_history_path,
+    window_impersonation_path,
+    window_login_path,
+)
+from ..utils.config import ServerConfig
+from ..utils.registry import register_tool
+
+logger = logging.getLogger(__name__)
+
+SCREENSHOT_MODES = ("none", "viewport", "full", "element")
+
+# The second approval for the eval action. Same shape as the publish-class
+# double confirm in write_guards: one flag for "this is a write", a separate
+# one for "this specific write is the dangerous kind".
+CONFIRM_EVAL_VALUE = "approve"
+
+# Enough selectors to compare a broken element against its parent and a sibling
+# without turning the response into a stylesheet.
+MAX_STYLE_SELECTORS = 5
+
+
+def _numbered(steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Steps with their 1-based position, so a rejection can name which one."""
+    return [{**step, "step": index} for index, step in enumerate(steps, start=1)]
+
+
+class OpenDebugWindowParams(BaseModel):
+    url: Optional[str] = Field(
+        default=None, description="Page to open. Relative paths resolve against the instance."
+    )
+    width: int = Field(default=1440, description="Window width in pixels.")
+    height: int = Field(default=900, description="Window height in pixels.")
+    discard_unsaved_input: bool = Field(
+        default=False,
+        description="Allow navigating away from a form with unsaved input.",
+    )
+    new_tab: bool = Field(
+        default=False,
+        description="Open in a new tab, leaving the current page untouched.",
+    )
+
+
+class DebugAction(BaseModel):
+    """One step. The enum below is the whole vocabulary.
+
+    ``eval`` is in it, and it is the only member that is not a thing a person
+    could do with a mouse — which is why it costs a second approval
+    (``confirm_eval``) on top of the tool's own confirm.
+
+    ``impersonate`` / ``end_impersonation`` are things a person does with the
+    mouse (the avatar menu), and they are steps for the same reason the rest
+    are: "be that user, open the page, click Save" is one intention. They reload
+    the current page in place — see browser/impersonate.py.
+    """
+
+    action: Literal[
+        "click",
+        "double_click",
+        "fill",
+        "select",
+        "check",
+        "uncheck",
+        "hover",
+        "press",
+        "scroll_to",
+        "wait_for",
+        "wait",
+        "eval",
+        "impersonate",
+        "end_impersonation",
+    ]
+    selector: Optional[str] = Field(
+        default=None, description="CSS, text=..., or xpath=... Frames are searched too."
+    )
+    value: Optional[str] = Field(
+        default=None,
+        description="fill text, select option, eval JS, or who to impersonate (name works).",
+    )
+    key: Optional[str] = Field(default=None, description="Key for press, e.g. Enter.")
+    ms: Optional[int] = Field(default=None, description="Pause length for action='wait'.")
+    timeout_ms: Optional[int] = Field(default=None, description="Per-step timeout. Default 10000.")
+    state: Optional[str] = Field(
+        default=None, description="For wait_for: visible (default) or hidden."
+    )
+
+
+class ActInDebugWindowParams(BaseModel):
+    actions: List[DebugAction] = Field(
+        description="Steps in order. Stops at the first failure and reports it."
+    )
+    settle_ms: int = Field(
+        default=500, description="Pause after the last step so the page can react."
+    )
+    screenshot: str = Field(default="none", description="none | viewport | full | element.")
+    selector: Optional[str] = Field(
+        default=None, description="CSS selector for screenshot='element'."
+    )
+    since_last: bool = Field(default=True, description="Only events newer than the last read.")
+    confirm_eval: Optional[str] = Field(
+        default=None, description="Required ('approve') when any step is action='eval'."
+    )
+    discard_unsaved_input: bool = Field(
+        default=False,
+        description="Allow impersonate/end_impersonation to reload a form holding input.",
+    )
+
+
+class InspectDebugWindowParams(BaseModel):
+    watch_seconds: float = Field(
+        default=0,
+        description="Record while the user clicks. 0 reads what already happened.",
+    )
+    screenshot: str = Field(
+        default="none", description="none | viewport | full | element (needs selector)."
+    )
+    selector: Optional[str] = Field(
+        default=None, description="CSS selector for screenshot='element'."
+    )
+    styles: List[str] = Field(
+        default_factory=list,
+        description="Selectors to report computed layout styles and box for.",
+    )
+    since_last: bool = Field(default=True, description="Only events newer than the last inspect.")
+    after_seq: Optional[int] = Field(
+        default=None, description="Read from this event sequence instead of the cursor."
+    )
+    evaluate: Optional[str] = Field(
+        default=None,
+        description="A JS expression to read from the page. Statements need act's eval.",
+    )
+
+
+def _resolve_url(config: ServerConfig, url: Optional[str]) -> str:
+    if not url:
+        return ""
+    if url.startswith(("http://", "https://")):
+        return url
+    base = str(config.instance_url or "").rstrip("/")
+    return f"{base}/{url.lstrip('/')}" if base else url
+
+
+def _window_account(config: ServerConfig, auth_manager: AuthManager, state: Any) -> str:
+    """The user this window SIGNED IN as — not necessarily who it is right now.
+
+    The badge draws anyone else as an impersonation, so this has to be the real
+    account: while impersonating, the page itself no longer knows it. The marker
+    holds the answer it read before the switch; the configured browser login is
+    the answer for a window nobody has impersonated in. An OAuth or API-key
+    profile has neither, and the badge simply names whoever is signed in.
+    """
+    marker = read_marker(window_impersonation_path(auth_manager), state.started_at)
+    if marker and marker.get("original"):
+        return str(marker["original"])
+    return (saved_credentials(config) or ("", ""))[0]
+
+
+def _login_profile_dir(auth_manager: AuthManager, config: ServerConfig) -> str:
+    """The auth layer's Chromium profile — the one that has already been through MFA.
+
+    Read through the frozen class's own helpers rather than rebuilt here, so a
+    change to how it keys profiles cannot silently point this at the wrong one.
+    Returns '' when the profile cannot be located, which every caller treats as
+    "no shortcut available" rather than as an error.
+    """
+    browser_config = getattr(getattr(config, "auth", None), "browser", None)
+    resolver = getattr(auth_manager, "_resolve_user_data_dir", None)
+    if callable(resolver) and browser_config is not None:
+        try:
+            return str(resolver(browser_config))
+        except Exception as exc:  # noqa: BLE001 - fall through to the default
+            logger.debug("Could not resolve the login profile dir: %s", exc)
+    default = getattr(auth_manager, "_get_default_user_data_dir", None)
+    if callable(default):
+        try:
+            return str(default())
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Could not read the default login profile dir: %s", exc)
+    return ""
+
+
+def _window_identity(state: Any, config: ServerConfig) -> Dict[str, Any]:
+    """Always echo which window this is.
+
+    Two instances mean two windows, and acting on the wrong one is the failure
+    this repo guards against everywhere else. The on-screen badge answers it for
+    the user; this answers it for the model.
+    """
+    return {"instance_target": state.instance_host or str(config.instance_url or "")}
+
+
+@register_tool(
+    name="open_debug_window",
+    params=OpenDebugWindowParams,
+    description="Open a visible browser window on the user's screen for shared debugging. Reuses an open one.",
+    serialization="raw_dict",
+    return_type=dict,
+)
+def open_debug_window(
+    config: ServerConfig,
+    auth_manager: AuthManager,
+    params: OpenDebugWindowParams,
+) -> Dict[str, Any]:
+    target_url = _resolve_url(config, params.url)
+
+    # Before the population grows, retire whatever is provably unused. Never
+    # fatal: an unusable reaper must not stand between the user and a window.
+    try:
+        retired = reap_idle_windows(auth_manager)
+    except Exception as exc:  # noqa: BLE001 - housekeeping, not the job
+        logger.debug("Could not reap idle debug windows: %s", exc)
+        retired = []
+
+    # Reported on EVERY path, including the failures: a window that vanished
+    # from the user's screen has to be accounted for even when the call that
+    # retired it then went on to fail.
+    housekeeping: Dict[str, Any] = {"closed_idle_windows": retired} if retired else {}
+
+    try:
+        state, opened = ensure_window(
+            auth_manager,
+            url=target_url,
+            viewport=(max(320, params.width), max(240, params.height)),
+        )
+    except (LaunchBudgetExceeded, LaunchBusy) as exc:
+        return {"success": False, "error": str(exc), **housekeeping}
+    except PlaywrightUnavailable as exc:
+        return {"success": False, "error": str(exc), **housekeeping}
+    except (RuntimeError, TimeoutError, OSError) as exc:
+        logger.warning("Could not open the debug window: %s", exc)
+        return {"success": False, "error": str(exc), **housekeeping}
+
+    result: Dict[str, Any] = {
+        "success": True,
+        "opened": opened,
+        "reused": not opened,
+        **_window_identity(state, config),
+        **housekeeping,
+    }
+
+    # The badge shows the PROFILE and the account, not the address — the
+    # address bar is directly above it. See browser/badge.py.
+    profile = profile_label(config)
+    account = _window_account(config, auth_manager, state)
+
+    # A brand new window navigates via the command line; an existing one has to
+    # be told, and that is where unsaved input can be destroyed.
+    if target_url and not opened:
+        try:
+            moved = navigate(
+                state,
+                url=target_url,
+                profile=profile,
+                account=account,
+                allow_discard=params.discard_unsaved_input,
+                new_tab=params.new_tab,
+            )
+        except (NoPageFound, RuntimeError, TimeoutError) as exc:
+            return {**result, "success": False, "error": str(exc)}
+        if not moved.get("navigated"):
+            basis = moved.get("input_basis")
+            # new_tab is offered FIRST: it keeps the input and gets the page
+            # open, where discarding trades one for the other.
+            hint = (
+                "Fields hold input. Use new_tab=true to open this alongside without "
+                "touching them, or discard_unsaved_input=true to navigate anyway."
+            )
+            if basis == "guessed":
+                hint += (
+                    " Note: no keystroke was actually observed — these fields merely "
+                    "differ from their HTML defaults, which a widget initializing "
+                    "itself also does. Likely a false alarm."
+                )
+            return {
+                **result,
+                "navigated": False,
+                "url": moved.get("url"),
+                "blocked_by_unsaved_input": moved.get("blocked_by_unsaved_input"),
+                "input_basis": basis,
+                "hint": hint,
+            }
+        result["url"] = moved.get("url")
+        if moved.get("new_tab"):
+            result["new_tab"] = True
+            result["tabs"] = moved.get("tabs")
+    elif target_url:
+        result["url"] = target_url
+
+    # One MFA challenge per account per machine, not one per Chromium profile.
+    # Resolved before arming so the cookie is already in the shared store when
+    # the login below needs it. See browser/mfa_trust.py.
+    # Keyed by the LOGIN account, never by whoever the window is impersonating:
+    # the device trust belongs to the person who answered the challenge.
+    trust_path = mfa_store_path(
+        _cache_root(auth_manager),
+        str(config.instance_url or ""),
+        (saved_credentials(config) or ("", ""))[0],
+    )
+    trust_cookie = read_trust(trust_path)
+    if trust_cookie is None:
+        # Nothing shared yet: ask the login profile, which has very likely been
+        # challenged already. Read-only, headless, skipped if it is in use.
+        harvested = harvest_trust_from_profile(
+            _login_profile_dir(auth_manager, config),
+            state.instance_host,
+            executable_path=state.executable_path,
+        )
+        if write_trust(trust_path, harvested):
+            trust_cookie = harvested
+
+    # Arm the collector NOW, not on the first inspect. Otherwise the submit
+    # that caused the bug happens before anything is watching it.
+    try:
+        armed = arm(state, profile=profile, account=account, trust_path=trust_path)
+        result["recording"] = bool(armed.get("armed"))
+        armed_trust_updated = bool(armed.get("trust_updated"))
+        if not armed.get("armed"):
+            result["recording_note"] = (
+                f"Not recording yet ({armed.get('reason')}). Open a page in the window; "
+                "inspect_debug_window will arm it on the next call."
+            )
+    except (PlaywrightUnavailable, RuntimeError, TimeoutError, OSError) as exc:
+        logger.info("Could not arm the debug collector yet: %s", exc)
+        result["recording"] = False
+        armed_trust_updated = False
+
+    # Sign the window in with what the server already knows, once per window.
+    # Runs after arming so the login round-trip is itself recorded, and after
+    # navigation so the form it looks at is the one on the target page.
+    # A challenge answered in the WINDOW does not reach the login profile on
+    # its own — two profiles, two jars. Closed here, and only when the shared
+    # value actually changed, so this costs a headless launch about once per
+    # remembered-browser lifetime rather than once per open.
+    if armed_trust_updated:
+        seed_trust_profile(
+            _login_profile_dir(auth_manager, config),
+            read_trust(trust_path),
+            executable_path=state.executable_path,
+        )
+        trust_cookie = read_trust(trust_path)
+
+    login = auto_login(
+        state,
+        credentials=saved_credentials(config),
+        marker_path=window_login_path(auth_manager),
+        trust_cookie=trust_cookie,
+    )
+    if login.get("status") not in (None, "no_credentials", "no_login_form", "no_page"):
+        result["auto_login"] = login.get("status")
+    login_note = describe_login(login)
+
+    used, allowance = budget_status(window_history_path(auth_manager))
+    if used >= allowance - 1:
+        result["launch_budget"] = f"{used}/{allowance} recent launches"
+
+    # Reusing a window that someone left impersonating is the surprise this
+    # feature could most easily cause — the page looks normal and every ACL is
+    # somebody else's. Say it on the way in, not after the confusing result.
+    marker = read_marker(window_impersonation_path(auth_manager), state.started_at)
+    if marker:
+        result["impersonating"] = {
+            "as": marker.get("as"),
+            "original": marker.get("original") or None,
+        }
+        result["impersonation_note"] = (
+            f"This window is impersonating '{marker.get('as')}'. Use "
+            "act_in_debug_window action='end_impersonation' to go back to "
+            f"'{marker.get('original') or 'the signed-in account'}'."
+        )
+
+    if login_note:
+        result["hint"] = login_note
+    elif opened:
+        result["hint"] = (
+            "This window has its own ServiceNow session, so it may ask for login once. "
+            "Sign in there; impersonating or logging out here cannot affect MCP API calls."
+        )
+    return result
+
+
+@register_tool(
+    name="inspect_debug_window",
+    params=InspectDebugWindowParams,
+    description="Read the shared debug window: console errors, XHR, duplicates, screenshot, CSS, JS expression. Never opens one.",
+    serialization="raw_dict",
+    return_type=dict,
+)
+def inspect_debug_window(
+    config: ServerConfig,
+    auth_manager: AuthManager,
+    params: InspectDebugWindowParams,
+) -> Dict[str, Any]:
+    if params.screenshot not in SCREENSHOT_MODES:
+        return {
+            "success": False,
+            "error": f"screenshot must be one of: {', '.join(SCREENSHOT_MODES)}.",
+        }
+    if params.screenshot == "element" and not params.selector:
+        return {"success": False, "error": "screenshot='element' requires a selector."}
+
+    state = find_window(auth_manager)
+    if state is None:
+        # Deliberately does NOT open one. See the module docstring.
+        return {
+            "success": False,
+            "window_open": False,
+            "error": "No debug window is open. Call open_debug_window first.",
+        }
+
+    cursor_path = window_cursor_path(auth_manager)
+    after_seq = resolve_after_seq(
+        cursor_path, since_last=params.since_last, explicit=params.after_seq
+    )
+    artifacts_dir = window_artifacts_dir(auth_manager)
+    shot_path = (
+        os.path.join(artifacts_dir, f"shot-{int(time.time() * 1000)}.png")
+        if params.screenshot != "none"
+        else ""
+    )
+
+    try:
+        raw = capture(
+            state,
+            profile=profile_label(config),
+            account=_window_account(config, auth_manager, state),
+            after_seq=after_seq,
+            watch_seconds=min(float(params.watch_seconds), MAX_WATCH_SECONDS),
+            screenshot=params.screenshot,
+            selector=params.selector,
+            style_selectors=params.styles[:MAX_STYLE_SELECTORS],
+            screenshot_path=shot_path,
+            evaluate_expression=params.evaluate,
+        )
+    except (NoPageFound, PlaywrightUnavailable) as exc:
+        return {"success": False, "window_open": True, "error": str(exc)}
+    except (RuntimeError, TimeoutError, ValueError, OSError) as exc:
+        logger.warning("Debug window inspection failed: %s", exc)
+        return {"success": False, "window_open": True, "error": str(exc)}
+
+    report = compact(raw, artifacts_dir=artifacts_dir)
+    write_cursor(cursor_path, report.get("next_seq", 0))
+
+    identity = describe_window_user(raw.get("effective_user"), api_username(config))
+    result: Dict[str, Any] = {
+        "success": True,
+        "window_open": True,
+        **_window_identity(state, config),
+        **report,
+    }
+    if identity.get("window_user"):
+        result["window_user"] = identity["window_user"]
+
+    # Someone else's impersonation is still this window's session: the batch
+    # that started it may have run in another MCP session entirely, so a read
+    # has to say so rather than let "why is this user denied?" be investigated
+    # against the wrong account.
+    impersonation = describe_impersonation(
+        raw.get("effective_user"),
+        read_marker(window_impersonation_path(auth_manager), state.started_at),
+    )
+    if impersonation:
+        result["impersonating"] = impersonation
+
+    if identity.get("note"):
+        result["session_note"] = identity["note"]
+    elif not identity.get("window_user"):
+        result["session_note"] = (
+            "Could not read a signed-in user from the page — the window may still "
+            "need a login, or the page is not a ServiceNow UI."
+        )
+
+    if raw.get("evaluation"):
+        result["evaluation"] = raw["evaluation"]
+
+    if len(params.styles) > MAX_STYLE_SELECTORS:
+        result["styles_omitted"] = len(params.styles) - MAX_STYLE_SELECTORS
+    return result
+
+
+@register_tool(
+    name="act_in_debug_window",
+    params=ActInDebugWindowParams,
+    description="Drive the open debug window: click, fill, select, wait, eval, impersonate. Reports what steps caused.",
+    serialization="raw_dict",
+    return_type=dict,
+)
+def act_in_debug_window(
+    config: ServerConfig,
+    auth_manager: AuthManager,
+    params: ActInDebugWindowParams,
+) -> Dict[str, Any]:
+    if params.screenshot not in SCREENSHOT_MODES:
+        return {
+            "success": False,
+            "error": f"screenshot must be one of: {', '.join(SCREENSHOT_MODES)}.",
+        }
+    if params.screenshot == "element" and not params.selector:
+        return {"success": False, "error": "screenshot='element' requires a selector."}
+
+    try:
+        steps = normalize([action.model_dump() for action in params.actions])
+    except ValueError as exc:
+        # Rejected before the browser is touched: a batch that would fail
+        # halfway leaves the page in a state nobody planned.
+        return {"success": False, "error": str(exc), "max_actions": MAX_ACTIONS}
+
+    # Running code is a bigger ask than clicking, so it takes its own approval
+    # on top of the tool's. The tool-level confirm means "drive the page"; this
+    # one means "run this source, which can do anything the signed-in user can".
+    eval_steps = [step["step"] for step in _numbered(steps) if step["action"] == EVAL_ACTION]
+    if eval_steps and str(params.confirm_eval or "").strip().lower() != CONFIRM_EVAL_VALUE:
+        return {
+            "success": False,
+            "error": (
+                f"Step(s) {eval_steps} run arbitrary JavaScript in the signed-in window. "
+                f"That needs confirm_eval='{CONFIRM_EVAL_VALUE}' in addition to confirm. "
+                "Show the user the source first — it can do anything they can."
+            ),
+            "eval_steps": eval_steps,
+        }
+
+    state = find_window(auth_manager)
+    if state is None:
+        return {
+            "success": False,
+            "window_open": False,
+            "error": "No debug window is open. Call open_debug_window first.",
+        }
+
+    cursor_path = window_cursor_path(auth_manager)
+    after_seq = resolve_after_seq(cursor_path, since_last=params.since_last)
+    artifacts_dir = window_artifacts_dir(auth_manager)
+    shot_path = (
+        os.path.join(artifacts_dir, f"shot-{int(time.time() * 1000)}.png")
+        if params.screenshot != "none"
+        else ""
+    )
+
+    try:
+        raw = act(
+            state,
+            profile=profile_label(config),
+            account=_window_account(config, auth_manager, state),
+            actions=steps,
+            after_seq=after_seq,
+            settle_ms=params.settle_ms,
+            screenshot=params.screenshot,
+            selector=params.selector,
+            screenshot_path=shot_path,
+            session={
+                # Everything the impersonation steps need, resolved here where
+                # the config and the auth manager are — actions.py stays a page
+                # driver that knows nothing about profiles.
+                "marker_path": window_impersonation_path(auth_manager),
+                "started_at": state.started_at,
+                "instance_host": state.instance_host,
+                "login_user": (saved_credentials(config) or ("", ""))[0],
+                "allow_discard": params.discard_unsaved_input,
+            },
+        )
+    except (NoPageFound, PlaywrightUnavailable) as exc:
+        return {"success": False, "window_open": True, "error": str(exc)}
+    except (RuntimeError, TimeoutError, ValueError, OSError) as exc:
+        logger.warning("Driving the debug window failed: %s", exc)
+        return {"success": False, "window_open": True, "error": str(exc)}
+
+    report = compact(raw, artifacts_dir=artifacts_dir)
+    write_cursor(cursor_path, report.get("next_seq", 0))
+
+    failed_step = raw.get("failed_step")
+    result: Dict[str, Any] = {
+        # A failed step is not a failed call: the report below is how the
+        # caller finds out WHY the click missed.
+        "success": failed_step is None,
+        "window_open": True,
+        **_window_identity(state, config),
+        "steps": raw.get("steps", []),
+        **report,
+    }
+    if failed_step is not None:
+        result["failed_step"] = failed_step
+        result["skipped_steps"] = raw.get("skipped", 0)
+    if raw.get("dialogs"):
+        # Accepted, not dismissed — see browser/actions.py. Always reported,
+        # because "a confirm box appeared and was answered" changes what the
+        # click actually did.
+        result["dialogs"] = raw["dialogs"]
+
+    # A session step changed WHO the window is, and one window is shared by
+    # every MCP session and by the person watching it. Never let that be a
+    # silent side effect of a batch.
+    if any(step["action"] in (IMPERSONATE_ACTION, END_IMPERSONATION_ACTION) for step in steps):
+        result["window_user"] = (raw.get("effective_user") or {}).get("user")
+        # Short on purpose: window_user above already names the user, so this
+        # only has to carry what the name alone does not say.
+        result["session_note"] = (
+            "Whole window, every MCP session, until end_impersonation. API calls unaffected."
+        )
+    return result
+
+
+__all__ = [
+    "ActInDebugWindowParams",
+    "DebugAction",
+    "InspectDebugWindowParams",
+    "MAX_STYLE_SELECTORS",
+    "OpenDebugWindowParams",
+    "SCREENSHOT_MODES",
+    "act_in_debug_window",
+    "inspect_debug_window",
+    "open_debug_window",
+]

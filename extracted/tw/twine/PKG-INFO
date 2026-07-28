@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: twine
-Version: 6.2.0
+Version: 7.0.0
 Summary: Collection of utilities for publishing packages on PyPI
 Author-email: Donald Stufft and individual contributors <donald@stufft.io>
 License-Expression: Apache-2.0
@@ -18,24 +18,23 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: readme-renderer>=35.0
 Requires-Dist: requests>=2.20
 Requires-Dist: requests-toolbelt!=0.9.0,>=0.8.0
 Requires-Dist: urllib3>=1.26.0
-Requires-Dist: importlib-metadata>=3.6; python_version < "3.10"
 Requires-Dist: keyring>=21.2.0; platform_machine != "ppc64le" and platform_machine != "s390x"
 Requires-Dist: rfc3986>=1.4.0
-Requires-Dist: rich>=12.0.0
-Requires-Dist: packaging>=24.0
+Requires-Dist: rich>=14.3.3
+Requires-Dist: packaging>=26.1
 Requires-Dist: id
 Provides-Extra: keyring
 Requires-Dist: keyring>=21.2.0; extra == "keyring"

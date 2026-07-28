@@ -8,8 +8,6 @@ from abstra_internals.repositories.linter.models import (
 
 class MissingTaskSchemaForAgentTarget(LinterRule):
     label = "Agent target stages should have task_schema defined"
-    type = "warning"
-    fix_with_ai = True
 
     def find_issues(self) -> List[LinterIssue]:
         # Agents are now scripts (migration 018), so this rule no longer applies.

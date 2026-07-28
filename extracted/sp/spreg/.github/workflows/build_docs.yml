@@ -18,7 +18,7 @@
      strategy:
        matrix:
          os: ['ubuntu-latest']
-         environment-file: [ci/314-latest.yaml]
+         environment-file: [ci/314-numba-latest.yaml]
          experimental: [false]
      defaults:
        run:
@@ -31,7 +31,7 @@
            fetch-depth: 0 # Fetch all history for all branches and tags.
  
        - name: Setup micromamba
-         uses: mamba-org/setup-micromamba@v2
+         uses: mamba-org/setup-micromamba@v3
          with:
            environment-file: ${{ matrix.environment-file }}
            micromamba-version: 'latest'

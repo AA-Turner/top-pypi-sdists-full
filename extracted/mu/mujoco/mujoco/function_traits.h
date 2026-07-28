@@ -223,7 +223,7 @@ struct mj_parse {
 struct mj_encode {
   static constexpr char name[] = "mj_encode";
   static constexpr char doc[] = "Encode spec/model to a file using a registered encoder. Returns the number of bytes written on success, -1 on failure.";
-  using type = int (const mjSpec *, const mjModel *, const char *, const char *, const mjVFS *, char *, int);
+  using type = mjtSize (const mjSpec *, const mjModel *, const char *, const char *, const mjVFS *, char *, int);
   static constexpr auto param_names = std::make_tuple("s", "m", "filename", "content_type", "vfs", "error", "error_sz");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -536,6 +536,17 @@ struct mjv_copyData {
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mjv_copyData;
+  }
+};
+
+struct mj_resetCtrl {
+  static constexpr char name[] = "mj_resetCtrl";
+  static constexpr char doc[] = "Reset ctrl to neutral values: zero, except quaternion inputs which reset to the identity.";
+  using type = void (const mjModel *, mjData *);
+  static constexpr auto param_names = std::make_tuple("m", "d");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mj_resetCtrl;
   }
 };
 
@@ -1606,6 +1617,17 @@ struct mj_id2name {
   }
 };
 
+struct mj_actuatorInputName {
+  static constexpr char name[] = "mj_actuatorInputName";
+  static constexpr char doc[] = "Get name of actuator input, determined by the actuator type and input signature; return NULL if the actuator type defines no input names.";
+  using type = const char * (const mjModel *, int, int);
+  static constexpr auto param_names = std::make_tuple("m", "id", "input");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mj_actuatorInputName;
+  }
+};
+
 struct mj_fullM {
   static constexpr char name[] = "mj_fullM";
   static constexpr char doc[] = "Convert sparse inertia matrix into full (i.e. dense) matrix.";
@@ -2005,8 +2027,8 @@ struct mjv_alignToCamera {
 struct mjv_moveCamera {
   static constexpr char name[] = "mjv_moveCamera";
   static constexpr char doc[] = "Move camera with mouse; action is mjtMouse.";
-  using type = void (const mjModel *, int, mjtNum, mjtNum, const mjvScene *, mjvCamera *);
-  static constexpr auto param_names = std::make_tuple("m", "action", "reldx", "reldy", "scn", "cam");
+  using type = void (const mjModel *, int, mjtNum, mjtNum, mjvCamera *);
+  static constexpr auto param_names = std::make_tuple("m", "action", "reldx", "reldy", "cam");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mjv_moveCamera;
@@ -2263,6 +2285,28 @@ struct mjr_defaultContext {
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mjr_defaultContext;
+  }
+};
+
+struct mjr_defaultRendererInfo {
+  static constexpr char name[] = "mjr_defaultRendererInfo";
+  static constexpr char doc[] = "Set default mjrRendererInfo.";
+  using type = void (mjrRendererInfo *);
+  static constexpr auto param_names = std::make_tuple("info");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjr_defaultRendererInfo;
+  }
+};
+
+struct mjr_getRendererInfo {
+  static constexpr char name[] = "mjr_getRendererInfo";
+  static constexpr char doc[] = "Get active renderer information.";
+  using type = void (mjrRendererInfo *);
+  static constexpr auto param_names = std::make_tuple("info");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjr_getRendererInfo;
   }
 };
 
@@ -3984,7 +4028,7 @@ struct mjd_transitionFD {
 
 struct mjd_inverseFD {
   static constexpr char name[] = "mjd_inverseFD";
-  static constexpr char doc[] = "Finite differenced Jacobians of (force, sensors) = mj_inverse(state, acceleration)   All outputs are optional. Output dimensions (transposed w.r.t Control Theory convention):     DfDq: (nv x nv)     DfDv: (nv x nv)     DfDa: (nv x nv)     DsDq: (nv x nsensordata)     DsDv: (nv x nsensordata)     DsDa: (nv x nsensordata)     DmDq: (nv x nM)   single-letter shortcuts:     inputs: q=qpos, v=qvel, a=qacc     outputs: f=qfrc_inverse, s=sensordata, m=qM   notes:     optionally computes mass matrix Jacobian DmDq     flg_actuation specifies whether to subtract qfrc_actuator from qfrc_inverse";
+  static constexpr char doc[] = "Finite differenced Jacobians of (force, sensors) = mj_inverse(state, acceleration)   All outputs are optional. Output dimensions (transposed w.r.t Control Theory convention):     DfDq: (nv x nv)     DfDv: (nv x nv)     DfDa: (nv x nv)     DsDq: (nv x nsensordata)     DsDv: (nv x nsensordata)     DsDa: (nv x nsensordata)     DmDq: (nv x nC)   single-letter shortcuts:     inputs: q=qpos, v=qvel, a=qacc     outputs: f=qfrc_inverse, s=sensordata, m=M   notes:     optionally computes mass matrix Jacobian DmDq     flg_actuation specifies whether to subtract qfrc_actuator from qfrc_inverse";
   using type = void (const mjModel *, mjData *, mjtNum, mjtBool, mjtNum *, mjtNum *, mjtNum *, mjtNum *, mjtNum *, mjtNum *, mjtNum *);
   static constexpr auto param_names = std::make_tuple("m", "d", "eps", "flg_actuation", "DfDq", "DfDv", "DfDa", "DsDq", "DsDv", "DsDa", "DmDq");
 
@@ -4221,6 +4265,17 @@ struct mju_readResource {
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mju_readResource;
+  }
+};
+
+struct mju_writeResource {
+  static constexpr char name[] = "mju_writeResource";
+  static constexpr char doc[] = "Write resource data via its resource provider, return bytes written or -1 on error.";
+  using type = mjtSize (const char *, const void *, mjtSize, const mjVFS *, char *, size_t);
+  static constexpr auto param_names = std::make_tuple("name", "buffer", "nbytes", "vfs", "error", "nerror");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mju_writeResource;
   }
 };
 
@@ -4617,6 +4672,17 @@ struct mjs_setToVelocity {
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mjs_setToVelocity;
+  }
+};
+
+struct mjs_setToOrientation {
+  static constexpr char name[] = "mjs_setToOrientation";
+  static constexpr char doc[] = "Set actuator to orientation servo.";
+  using type = const char * (mjsActuator *, double, double (*)[1], double (*)[1], int);
+  static constexpr auto param_names = std::make_tuple("actuator", "kp", "kv", "dampratio", "ctrlspec");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return *reinterpret_cast<type*>(&::mjs_setToOrientation);
   }
 };
 

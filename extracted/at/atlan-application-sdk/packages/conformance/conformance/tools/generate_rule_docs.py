@@ -134,7 +134,8 @@ _SERIES_META: list[SeriesMeta] = [
             "`suite.checks.entrypoint` (P017–P018, scans test files too), "
             "`suite.checks.client_seam` (P019), "
             "`suite.checks.determinism` (P020–P024, P031), "
-            "`suite.checks.app_name_alignment` (P025) "
+            "`suite.checks.app_name_alignment` (P025), "
+            "`suite.checks.sdr` (P029/P030, P037/P038/P039) "
             "(all AST-based / cross-artifact)"
         ),
         suppression_example="# conformance: ignore[P001] intentional: generic cleanup payload",
@@ -161,8 +162,10 @@ _SERIES_META: list[SeriesMeta] = [
             "`suite.checks.test_quality` (T005-T009), "
             "`suite.checks.test_structure` (T010-T013), "
             "`suite.checks.coverage_config` (T014-T015), "
-            "`suite.checks.e2e_deployment_name` (T016), and "
-            "`suite.checks.e2e_agent_spec` (T017) (AST/TOML/YAML-based)"
+            "`suite.checks.e2e_deployment_name` (T016), "
+            "`suite.checks.e2e_agent_spec` (T017), "
+            "`suite.checks.integration_deselect` (T018), and "
+            "`suite.checks.asyncio_loop_scope` (T019) (AST/TOML/YAML-based)"
         ),
         suppression_example=(
             "# conformance: ignore[T001] intentional: marked dynamically via add_marker"

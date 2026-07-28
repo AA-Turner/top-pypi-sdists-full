@@ -26,6 +26,10 @@ INTERNAL_PAGE_RE = re.compile(r"/_pages?[/-][^\s\"'<>)]*")
 
 
 class InternalPageReferenceFound(LinterIssue):
+    title = "Avoid linking to internal page addresses"
+    type = "warning"
+    fix_with_ai = True
+
     def __init__(self, file: str, line: int, literal: str):
         self.label = (
             f"{file}:{line}: the link '{literal}' points to an internal address "
@@ -37,8 +41,6 @@ class InternalPageReferenceFound(LinterIssue):
 
 class InternalPageReference(PathScopedLinterRule):
     label: str = "Avoid linking to internal page addresses"
-    type: str = "warning"
-    fix_with_ai: bool = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         project = (current_lint_context() or LintContext()).project

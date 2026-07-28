@@ -116,7 +116,7 @@ class SidecarLifecycleTest(unittest.TestCase):
         names = {c.name for c in checks}
         self.assertIn("CssSyntax", names)
         self.assertIn("SyntaxErrors", names)
-        self.assertIn("MissingAbstraInRequirements", names)
+        self.assertIn("RequirementsAnalyzer", names)
         css = next(c for c in checks if c.name == "CssSyntax")
         self.assertEqual(len(css.issues), 1)
 

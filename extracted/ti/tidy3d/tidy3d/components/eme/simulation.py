@@ -26,7 +26,7 @@ from tidy3d.components.simulation import (
     Simulation,
     validate_boundaries_for_zero_dims,
 )
-from tidy3d.components.types import Axis, FreqArray
+from tidy3d.components.types import TYPE_TAG_STR, Axis, FreqArray
 from tidy3d.components.types.base import discriminated_union
 from tidy3d.components.validators import (
     MIN_FREQUENCY,
@@ -35,9 +35,10 @@ from tidy3d.components.validators import (
     validate_freqs_not_empty,
 )
 from tidy3d.components.viz import add_ax_if_none, equal_aspect
+from tidy3d.config import config
 from tidy3d.constants import C_0, fp_eps, inf
 from tidy3d.exceptions import SetupError, ValidationError
-from tidy3d.log import log
+from tidy3d.log import NoOpProgress, Progress, get_logging_console, log
 
 from .grid import EMECompositeGrid, EMEExplicitGrid, EMEGridSpecType
 from .monitor import (
@@ -57,6 +58,9 @@ from .sweep import (
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from contextlib import AbstractContextManager
+    from types import TracebackType
+    from typing import Protocol
 
     from pydantic import NonNegativeInt, PositiveInt
 
@@ -68,6 +72,7 @@ if TYPE_CHECKING:
     from tidy3d.components.medium import MediumType3D
     from tidy3d.components.mode.data.sim_data import ModeSimulationData
     from tidy3d.components.mode.simulation import ModeSimulation
+    from tidy3d.components.mode_spec import ModeSpec
     from tidy3d.components.monitor import Monitor
     from tidy3d.components.structure import Structure
     from tidy3d.components.types import (
@@ -88,10 +93,17 @@ if TYPE_CHECKING:
         EMEStageCellModes,
         EMEStageCellOverlap,
         EMEStageCellSMatrix,
+        EMEStageInterfaceDiagnostics,
         EMEStageInterfaceOverlap,
         EMEStageInterfaceSMatrix,
     )
     from .grid import EMEGrid, EMEGridSpec
+
+    class _ProgressLike(Protocol):
+        def add_task(self, *args: Any, **kwargs: Any) -> object | None: ...
+
+        def update(self, task_id: object | None, *args: Any, **kwargs: Any) -> None: ...
+
 
 # maximum numbers of simulation parameters
 WARN_MONITOR_DATA_SIZE_GB = 10
@@ -153,6 +165,49 @@ def _stack_sweep_points(arrays: list[EMESMatrixDataArray]) -> EMESMatrixDataArra
         for a in arrays
     ]
     return xr.concat(reindexed, dim="sweep_index")
+
+
+class _ProgressContext:
+    """Multi-phase ``rich`` progress bar for the EME local staged pipeline.
+
+    Wraps :func:`tidy3d.log.Progress` with one task per declared phase. Phases
+    with ``total == 0`` are skipped to avoid showing already-done bars for
+    pipeline steps that have no work to do.
+    """
+
+    def __init__(self, show_progress: bool, phases: list[tuple[str, int]]) -> None:
+        self._show_progress = show_progress
+        self._phases = [(name, total) for name, total in phases if total > 0]
+        self._task_ids: dict[str, object | None] = {}
+        self._cm: AbstractContextManager[_ProgressLike] | None = None
+        self._progress: _ProgressLike | None = None
+
+    def __enter__(self) -> _ProgressContext:
+        # Skip get_logging_console() on the disabled path: that helper auto-installs
+        # the default console handler if one is missing, which would silently
+        # re-enable stdout logging after an explicit progress=False call.
+        if self._show_progress:
+            self._cm = Progress(console=get_logging_console(), show_progress=True)
+        else:
+            self._cm = NoOpProgress()
+        progress = self._cm.__enter__()
+        self._progress = progress
+        for name, total in self._phases:
+            self._task_ids[name] = progress.add_task(description=name, total=total)
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        if self._cm is not None:
+            self._cm.__exit__(exc_type, exc_val, tb)
+
+    def tick(self, phase: str, n: int = 1) -> None:
+        if self._progress is not None and phase in self._task_ids:
+            self._progress.update(self._task_ids[phase], advance=n)
 
 
 class EMESimulation(AbstractYeeGridSimulation):
@@ -234,7 +289,7 @@ class EMESimulation(AbstractYeeGridSimulation):
     >>> from tidy3d import Box, Medium, Structure, C_0, inf
     >>> from tidy3d import EMEModeSpec, EMEUniformGrid, GridSpec
     >>> from tidy3d import EMEFieldMonitor
-    >>> lambda0 = 1550e-9
+    >>> lambda0 = 1.55
     >>> freq0 = C_0 / lambda0
     >>> sim_size = 3*lambda0, 3*lambda0, 3*lambda0
     >>> waveguide_size = (lambda0/2, lambda0, inf)
@@ -279,6 +334,7 @@ class EMESimulation(AbstractYeeGridSimulation):
     )
 
     eme_grid_spec: EMEGridSpecType = Field(
+        discriminator=TYPE_TAG_STR,
         title="EME Grid Specification",
         description="Specification for the EME propagation grid. "
         "The simulation is divided into cells in the propagation direction; "
@@ -349,6 +405,16 @@ class EMESimulation(AbstractYeeGridSimulation):
         "The results are stored in 'EMESimulationData.coeffs'.",
     )
 
+    eme_diagnostics: bool = Field(
+        False,
+        title="EME Diagnostics",
+        description="Whether to compute and store per-interface physical residual "
+        "diagnostics (incident-normalized squared tangential E/H residuals, their "
+        "non-PML-aperture counterparts, and the power conservation defect). "
+        "Adds disk and CPU cost per interface/sweep point, especially for large mode "
+        "counts; the results are stored in 'EMESimulationData.diagnostics'.",
+    )
+
     normalize: bool = Field(
         True,
         title="Normalize Scattering Matrix",
@@ -365,6 +431,7 @@ class EMESimulation(AbstractYeeGridSimulation):
 
     sweep_spec: EMESweepSpecType | None = Field(
         None,
+        discriminator=TYPE_TAG_STR,
         title="EME Sweep Specification",
         description="Specification for a parameter sweep to be performed during the EME "
         "propagation step. The results are stored "
@@ -787,6 +854,21 @@ class EMESimulation(AbstractYeeGridSimulation):
             **kwargs,
         )
 
+    def _internal_mode_spec(self, cell_index: int) -> ModeSpec:
+        """ModeSpec used for the underlying cell mode solve.
+
+        The mode solve keeps all sorted modes so the interface matching
+        equations can use the full test basis. User-facing trial filtering
+        from ``sort_spec.keep_modes`` is applied later during propagation.
+        """
+        eme_mode_spec = self.eme_grid.mode_specs[cell_index]
+        mode_spec = eme_mode_spec._to_mode_spec()
+        sort_spec = mode_spec.sort_spec
+        if sort_spec is not None and sort_spec.keep_modes != "all":
+            sort_spec = sort_spec.updated_copy(keep_modes="all", deep=False, validate=False)
+            mode_spec = mode_spec.updated_copy(sort_spec=sort_spec, deep=False, validate=False)
+        return mode_spec
+
     @property
     def mode_solver_monitors(self) -> list[ModeSolverMonitor]:
         """A list of mode solver monitors at the cell centers.
@@ -795,7 +877,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         monitors = []
         freqs = list(self.freqs)
         mode_planes = self.eme_grid.mode_planes
-        mode_specs = [eme_mode_spec._to_mode_spec() for eme_mode_spec in self.eme_grid.mode_specs]
+        mode_specs = [self._internal_mode_spec(i) for i in range(self.eme_grid.num_cells)]
         for i in range(self.eme_grid.num_cells):
             monitor = ModeSolverMonitor(
                 center=mode_planes[i].center,
@@ -804,6 +886,10 @@ class EMESimulation(AbstractYeeGridSimulation):
                 freqs=freqs,
                 mode_spec=mode_specs[i],
                 colocate=False,
+                # EME integrates overlaps/flux on the native Yee grid; declare it so
+                # consumers that honor `use_colocated_integration` (smatrix_in_basis,
+                # the staging convention) default to Yee rather than colocated.
+                use_colocated_integration=False,
             )
             monitors.append(monitor)
         return monitors
@@ -967,6 +1053,9 @@ class EMESimulation(AbstractYeeGridSimulation):
 
     def _validate_sweep_spec_size(self) -> None:
         """Make sure sweep spec is not too large."""
+        if config.simulation.skip_size_checks:
+            return
+
         if self.sweep_spec is None:
             return
         num_sweep = self.sweep_spec.num_sweep
@@ -998,6 +1087,16 @@ class EMESimulation(AbstractYeeGridSimulation):
                     "sweep_spec",
                     "num_modes",
                 )
+            for mode_spec in self.eme_grid.mode_specs:
+                sort_spec = mode_spec.sort_spec
+                if sort_spec is not None and isinstance(sort_spec.keep_modes, int):
+                    self._raise_validation_error_at_loc(
+                        "ModeSortSpec.keep_modes as an integer cannot be combined with "
+                        "EMEModeSweep because both set a propagation-mode count. Use "
+                        "EMEModeSweep.num_modes for the sweep and keep "
+                        "ModeSortSpec.keep_modes as 'all' or 'filtered'.",
+                        "sweep_spec",
+                    )
         elif isinstance(self.sweep_spec, EMELengthSweep):
             scale_factors_shape = self.sweep_spec.scale_factors.shape
             if len(scale_factors_shape) > 2:
@@ -1099,7 +1198,7 @@ class EMESimulation(AbstractYeeGridSimulation):
                 (
                     medium
                     for medium in mediums
-                    if isinstance(medium, (AnisotropicMedium, FullyAnisotropicMedium))
+                    if isinstance(medium, AnisotropicMedium | FullyAnisotropicMedium)
                 ),
                 key=hash,
             )
@@ -1132,7 +1231,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         real_rotations = cell_center_rotations_from_lengths(
             real_lengths, eme_grid.mode_specs, normal_axis=self.axis
         )
-        virtual_cell_indices = tuple(int(ind) for ind in eme_grid_spec.virtual_cell_indices)
+        virtual_cell_indices = tuple(ind for ind in eme_grid_spec.virtual_cell_indices)
         virtual_lengths = np.asarray(
             [real_lengths[ind] for ind in virtual_cell_indices], dtype=float
         )
@@ -1300,7 +1399,7 @@ class EMESimulation(AbstractYeeGridSimulation):
     def _validate_anisotropic_bend_repetitions(self) -> Self:
         """Reject repeated bent units when each repetition would need a distinct anisotropy frame."""
         if not any(
-            isinstance(medium, (AnisotropicMedium, FullyAnisotropicMedium))
+            isinstance(medium, AnisotropicMedium | FullyAnisotropicMedium)
             for medium in self.scene.mediums
         ):
             return self
@@ -1483,6 +1582,9 @@ class EMESimulation(AbstractYeeGridSimulation):
 
     def _validate_size(self) -> None:
         """Ensures the simulation is within size limits before simulation is uploaded."""
+        if config.simulation.skip_size_checks:
+            return
+
         num_freqs = len(self.freqs)
         if num_freqs > MAX_NUM_FREQS:
             raise SetupError(
@@ -1508,6 +1610,9 @@ class EMESimulation(AbstractYeeGridSimulation):
 
     def _validate_monitor_size(self) -> None:
         """Ensures the monitors aren't storing too much data before simulation is uploaded."""
+
+        if config.simulation.skip_size_checks:
+            return
 
         total_size_gb = 0
         with log as consolidated_logger:
@@ -1562,7 +1667,13 @@ class EMESimulation(AbstractYeeGridSimulation):
         # Make sure that internal storage from mode solvers also does not exceed the limit.
         for monitor in self.mode_solver_monitors:
             num_cells = self._monitor_num_cells(monitor)
-            solver_data = (monitor.storage_size(num_cells=num_cells, tmesh=0)) / 1e9
+            solver_bytes = monitor.storage_size(num_cells=num_cells, tmesh=0)
+            # ``precision='auto'`` may promote to double precision at solve time; count it
+            # conservatively (matching the runtime overlap estimator) so a promoted job cannot
+            # slip past this internal-storage limit.
+            if monitor.mode_spec.precision == "auto":
+                solver_bytes *= 2
+            solver_data = solver_bytes / 1e9
             if solver_data > MAX_MONITOR_INTERNAL_DATA_SIZE_GB:
                 raise SetupError(
                     f"Estimated internal storage of monitor '{monitor.name}' is "
@@ -1574,6 +1685,8 @@ class EMESimulation(AbstractYeeGridSimulation):
 
     def _validate_modes_size(self) -> None:
         """Warn if mode sources or monitors have a large number of points."""
+        if config.simulation.skip_size_checks:
+            return
 
         def warn_mode_size(monitor: AbstractModeMonitor, msg_header: str, custom_loc: list) -> None:
             """Warn if a mode component has a large number of points."""
@@ -1637,6 +1750,11 @@ class EMESimulation(AbstractYeeGridSimulation):
                         sweep_spec=self.sweep_spec,
                     )
                 )
+                # EME serializes recorded modes, fields, and coefficients as complex128 regardless
+                # of the cell mode-spec precision (single, double, or auto), while ``storage_size``
+                # uses a complex64 baseline -- so double it. (``ModeSolverMonitor.storage_size``
+                # downcasts single to complex64, but the EME monitor writers do not.)
+                storage_size *= 2
             else:
                 storage_size = float(monitor.storage_size(num_cells=num_cells, tmesh=0))
             data_size[monitor.name] = storage_size
@@ -1972,11 +2090,67 @@ class EMESimulation(AbstractYeeGridSimulation):
             lengths = lengths * np.asarray(self.sweep_spec.scale_factors[sweep_index], dtype=float)
         return list(lengths)
 
-    def _num_modes_override(self, sweep_index: int | None) -> int | None:
-        """Optional mode-count override for mode sweeps."""
-        if sweep_index is None or not isinstance(self.sweep_spec, EMEModeSweep):
-            return None
-        return int(self.sweep_spec.num_modes[sweep_index])
+    def _num_trial_modes(self, sweep_index: int | None, cell_index: int) -> int:
+        """Propagation-mode count for a cell at a given sweep point.
+
+        Combines the per-cell ``EMEModeSpec`` cap with any integer
+        ``sort_spec.keep_modes`` cap and any ``EMEModeSweep`` per-point count.
+        ``keep_modes="filtered"`` is applied later by the trial filter mask.
+        """
+        mode_spec = self.eme_grid.mode_specs[cell_index]
+        cell_num_modes = int(mode_spec.num_modes)
+        sort_spec = mode_spec.sort_spec
+        keep_modes = sort_spec.keep_modes if sort_spec is not None else "all"
+        static_cap = keep_modes if isinstance(keep_modes, int) else cell_num_modes
+        if isinstance(self.sweep_spec, EMEModeSweep) and sweep_index is not None:
+            return min(int(self.sweep_spec.num_modes[sweep_index]), static_cap)
+        return static_cap
+
+    def _cell_overlap_with_trial_filter_mask(
+        self, cell_overlap: EMEStageCellOverlap
+    ) -> EMEStageCellOverlap:
+        """Ensure cached/manual cell overlaps carry any required trial filter."""
+        if cell_overlap.filter_mask is not None:
+            return cell_overlap
+
+        mode_spec = self.eme_grid.mode_specs[cell_overlap.cell_index]
+        n_complex_da = cell_overlap.n_complex
+        n_complex = np.asarray(n_complex_da.to_numpy())
+        mode_axis = n_complex_da.dims.index("mode_index")
+        reduce_axes = tuple(axis for axis in range(n_complex.ndim) if axis != mode_axis)
+
+        trial_mask = np.ones(n_complex.shape[mode_axis], dtype=bool)
+        finite = np.isfinite(n_complex.real) & np.isfinite(n_complex.imag)
+        not_increasing = n_complex.imag >= -float(mode_spec.increasing_mode_tolerance)
+        trial_mask &= np.all(finite & not_increasing, axis=reduce_axes)
+
+        sort_spec = mode_spec.sort_spec
+        if sort_spec is not None and sort_spec.keep_modes == "filtered":
+            if sort_spec.filter_key == "n_eff":
+                filter_metric = n_complex.real
+            elif sort_spec.filter_key == "k_eff":
+                filter_metric = n_complex.imag
+            else:
+                raise ValidationError(
+                    "Cell overlap for cell_index="
+                    f"{cell_overlap.cell_index} does not carry the propagation "
+                    "filter mask required by ModeSortSpec.keep_modes='filtered' "
+                    f"with filter_key='{sort_spec.filter_key}'. Recompute overlaps "
+                    "for the current simulation before computing EME S-matrices."
+                )
+            if sort_spec.filter_order == "over":
+                sort_keep = filter_metric >= sort_spec.filter_reference
+            else:
+                sort_keep = filter_metric <= sort_spec.filter_reference
+            trial_mask &= np.all(sort_keep, axis=reduce_axes)
+
+        if bool(np.all(trial_mask)):
+            return cell_overlap
+        return cell_overlap.updated_copy(
+            filter_mask=tuple(bool(keep) for keep in trial_mask),
+            deep=False,
+            validate=False,
+        )
 
     def _raise_if_stage_freqs_mismatch(self, freqs: Any, origin: str) -> None:
         """Reject stage artifacts whose frequency grid disagrees with ``self.freqs``.
@@ -2009,7 +2183,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         callers of the explicit per-stage methods would silently get a "sweep" whose
         points are all evaluated at the base frequency. Callers should either drop
         the ``EMEFreqSweep`` and list target frequencies directly in ``freqs``
-        (typically with ``EMEModeSpec.interp_spec``), or use the remote backend.
+        (typically with ``EMEModeSpec.interp_spec``), or run the EME simulation normally.
         """
         if isinstance(self.sweep_spec, EMEFreqSweep):
             raise SetupError(
@@ -2024,8 +2198,8 @@ class EMESimulation(AbstractYeeGridSimulation):
         ``propagate`` and the per-element stage methods return only the device
         S-matrix (an :class:`EMESMatrixDataset`), so ``self.monitors`` — including
         :class:`EMEFieldMonitor`, :class:`EMEModeSolverMonitor`,
-        :class:`EMECoefficientMonitor`, etc. — are silently dropped. Only the
-        remote backend populates EME monitor data.
+        :class:`EMECoefficientMonitor`, etc. — are silently dropped. A normal
+        EME simulation run populates EME monitor data.
 
         The message is f-composed before being handed to ``log.warning`` so that
         ``log_once``'s cache key is the fully interpolated string (monitor names
@@ -2050,8 +2224,8 @@ class EMESimulation(AbstractYeeGridSimulation):
         message = (
             f"Local EME propagation returns only the device S-matrix. The "
             f"{len(self.monitors)} monitor(s) configured on this simulation "
-            f"({descs}) will be dropped; run the simulation through the remote "
-            f"backend instead if you need monitor data."
+            f"({descs}) will be dropped; run the EME simulation normally if "
+            f"you need monitor data."
         )
         log.warning(message, log_once=True)
 
@@ -2079,7 +2253,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         supported by the local path because subpixel averaging is applied
         before the bend rotation and does not yet handle fully
         anisotropic tensors.  Use ``bend_medium_frame="co_rotating"`` or
-        the remote backend path instead.
+        run the EME simulation normally instead.
 
         Returns
         -------
@@ -2112,7 +2286,7 @@ class EMESimulation(AbstractYeeGridSimulation):
                     "before the bend rotation and currently does not handle fully "
                     "anisotropic tensors. Use 'bend_medium_frame=\"co_rotating\"', "
                     "avoid bends on cells intersecting anisotropic media, or run "
-                    "the simulation through the remote backend instead."
+                    "the EME simulation normally instead."
                 )
 
         shared_kwargs = {
@@ -2135,10 +2309,11 @@ class EMESimulation(AbstractYeeGridSimulation):
                 ModeSimulation(
                     **shared_kwargs,
                     plane=Box(center=mode_planes[i].center, size=mode_planes[i].size),
-                    mode_spec=mode_specs[i]._to_mode_spec(),
+                    mode_spec=self._internal_mode_spec(i),
                     freqs=list(self.freqs),
                     direction="+",
                     colocate=False,
+                    use_colocated_integration=False,
                 )
             )
 
@@ -2149,8 +2324,8 @@ class EMESimulation(AbstractYeeGridSimulation):
     ) -> EMEStageCellModes:
         """Validate, filter, and stamp mode data for one cell.
 
-        Checks that frequencies match, drops NaN and increasing modes,
-        and returns a stamped :class:`.EMEStageCellModes`.
+        Checks that frequencies match, drops NaN modes, and returns a
+        stamped :class:`.EMEStageCellModes`.
         See :meth:`propagate` for the one-shot alternative.
 
         Parameters
@@ -2183,12 +2358,47 @@ class EMESimulation(AbstractYeeGridSimulation):
                 f"Expected ModeSimulationData or ModeSolverData, got {type(mode_data).__name__}."
             )
 
-        sim_freqs = np.array(self.freqs)
-        mode_freqs = modes.n_complex.f.values
-        if not np.allclose(mode_freqs, sim_freqs, rtol=1e-10):
+        # Accept a reduced interpolation basis (interp_spec with reduce_data=True) stored on the
+        # cell's sampling grid, and keep it reduced: the overlap kernels interpolate the overlaps
+        # onto modes.monitor.freqs with the basis's interp_spec method (the backend's path). Accept
+        # only when that monitor metadata matches this cell, else it stages onto the wrong grid.
+        sim_freqs = np.asarray(self.freqs, dtype=float)
+        mode_freqs = np.asarray(modes.n_complex.f.values, dtype=float)
+        target_freqs = np.asarray(modes.monitor.freqs, dtype=float)
+        cell_mode_spec = self._internal_mode_spec(cell_index)
+        sampling_freqs = np.asarray(
+            cell_mode_spec._sampling_freqs_mode_solver_data(freqs=list(sim_freqs)), dtype=float
+        )
+
+        def _freqs_match(actual: np.ndarray, expected: np.ndarray) -> bool:
+            return actual.shape == expected.shape and np.allclose(actual, expected, rtol=1e-10)
+
+        data_interp_spec = getattr(modes.monitor.mode_spec, "interp_spec", None)
+        cell_interp_spec = cell_mode_spec.interp_spec
+        stored_full = _freqs_match(mode_freqs, sim_freqs)
+        stored_reduced = (
+            _freqs_match(mode_freqs, sampling_freqs)
+            and _freqs_match(target_freqs, sim_freqs)
+            and data_interp_spec is not None
+            and cell_interp_spec is not None
+            and data_interp_spec.method == cell_interp_spec.method
+        )
+        if not (stored_full or stored_reduced):
+            cell_method = cell_interp_spec.method if cell_interp_spec is not None else None
+            accepted = f"the full simulation frequencies {sim_freqs}"
+            if not _freqs_match(sampling_freqs, sim_freqs):
+                accepted += (
+                    f", or this cell's reduced interpolation sampling grid {sampling_freqs} "
+                    f"targeting {sim_freqs}"
+                    + (f" with interpolation method '{cell_method}'" if cell_method else "")
+                )
+            data_method = getattr(data_interp_spec, "method", None)
             raise ValidationError(
-                f"Mode data for cell {cell_index} has frequencies {mode_freqs} "
-                f"that do not match simulation frequencies {sim_freqs}."
+                f"Mode data for cell {cell_index} does not match this cell's interpolation basis "
+                f"('interp_spec'): it must be stored on {accepted}, but was stored at {mode_freqs} "
+                f"targeting {target_freqs}"
+                + (f" with interpolation method '{data_method}'" if data_method else "")
+                + ". Use mode data produced by 'EMESimulation.mode_simulations' for this simulation."
             )
 
         # Verify the supplied mode data is for this cell's mode plane. Without this
@@ -2211,8 +2421,23 @@ class EMESimulation(AbstractYeeGridSimulation):
                 f"EME cell order; see 'EMESimulation.mode_simulations'."
             )
 
+        expected_num_modes = self._internal_mode_spec(cell_index).num_modes
+        actual_num_modes = len(modes.n_complex.mode_index)
+        if actual_num_modes < expected_num_modes:
+            raise ValidationError(
+                f"Mode data for cell {cell_index} has {actual_num_modes} modes, "
+                f"but at least {expected_num_modes} are required. Pre-truncating modes "
+                f"via 'sort_spec.keep_modes' before staging is not supported; pass mode "
+                f"data produced by 'EMESimulation.mode_simulations'."
+            )
+
         tol = self.eme_grid.mode_specs[cell_index].increasing_mode_tolerance
-        modes = filter_modes(modes, increasing_mode_tolerance=tol, cell_index=cell_index)
+        modes = filter_modes(
+            modes,
+            increasing_mode_tolerance=tol,
+            cell_index=cell_index,
+            drop_increasing=False,
+        )
         return EMEStageCellModes(cell_index=cell_index, modes=modes)
 
     def compute_cell_overlap(self, cell_modes: EMEStageCellModes) -> EMEStageCellOverlap:
@@ -2236,12 +2461,20 @@ class EMESimulation(AbstractYeeGridSimulation):
         self._warn_if_local_ignores_monitors()
         from tidy3d_extras.eme import compute_cell_overlap
 
-        return compute_cell_overlap(cell_modes)
+        mode_spec = self.eme_grid.mode_specs[cell_modes.cell_index]
+        return compute_cell_overlap(
+            cell_modes,
+            sort_spec=mode_spec.sort_spec,
+            increasing_mode_tolerance=mode_spec.increasing_mode_tolerance,
+        )
 
     def compute_interface_overlap(
         self,
         left_modes: EMEStageCellModes,
         right_modes: EMEStageCellModes,
+        left_overlap: EMEStageCellOverlap | None = None,
+        right_overlap: EMEStageCellOverlap | None = None,
+        include_diagnostic_metrics: bool | None = None,
     ) -> EMEStageInterfaceOverlap:
         """Compute cross-cell overlaps for one interface.
 
@@ -2253,6 +2486,13 @@ class EMESimulation(AbstractYeeGridSimulation):
         left_modes, right_modes : :class:`.EMEStageCellModes`
             Staged modes for the two cells forming this interface,
             matching a pair from :attr:`cell_index_pairs`.
+        left_overlap, right_overlap : :class:`.EMEStageCellOverlap` or None
+            Cell overlap stages for the same two cells.
+        include_diagnostic_metrics : bool or None, optional
+            When ``True`` and both cell overlaps are provided, also include the
+            per-interface full and non-PML-aperture tangential-field metric
+            matrices used by :meth:`compute_interface_diagnostics`. When ``None``
+            (default), this follows :attr:`eme_diagnostics`.
 
         Returns
         -------
@@ -2264,11 +2504,21 @@ class EMESimulation(AbstractYeeGridSimulation):
         self._warn_if_local_ignores_monitors()
         from tidy3d_extras.eme import compute_interface_overlap
 
-        return compute_interface_overlap(left_modes, right_modes)
+        if include_diagnostic_metrics is None:
+            include_diagnostic_metrics = self.eme_diagnostics
+
+        return compute_interface_overlap(
+            left_modes,
+            right_modes,
+            left_overlap=left_overlap,
+            right_overlap=right_overlap,
+            stage_diagnostic_metrics=include_diagnostic_metrics,
+        )
 
     def compute_overlaps(
         self,
         mode_data: Sequence[ModeSimulationData | ModeSolverData],
+        progress: bool = True,
     ) -> tuple[list[EMEStageCellOverlap], list[EMEStageInterfaceOverlap]]:
         """Stage modes and compute all per-cell and per-interface overlaps.
 
@@ -2284,6 +2534,9 @@ class EMESimulation(AbstractYeeGridSimulation):
         mode_data : Sequence[:class:`.ModeSimulationData` | :class:`.ModeSolverData`]
             One mode result per EME cell, in cell order.  Typically
             ``[ms.run_local() for ms in sim.mode_simulations]``.
+        progress : bool
+            If ``True`` (default), show a ``rich`` progress bar on the logging
+            console.
 
         Returns
         -------
@@ -2292,8 +2545,6 @@ class EMESimulation(AbstractYeeGridSimulation):
         interface_overlaps : list[:class:`.EMEStageInterfaceOverlap`]
             One per interface, in the order of :attr:`cell_index_pairs`.
         """
-        # Fail before doing the per-cell overlap integrals on a sweep type we
-        # cannot propagate through later.
         self._raise_if_freq_sweep_local()
         self._warn_if_local_ignores_monitors()
 
@@ -2301,24 +2552,45 @@ class EMESimulation(AbstractYeeGridSimulation):
         if len(mode_data) != num_cells:
             raise ValidationError(f"Expected {num_cells} mode data entries, got {len(mode_data)}.")
 
-        cell_modes = [self.stage_cell_modes(mode_data[i], cell_index=i) for i in range(num_cells)]
+        num_interfaces = len(self.cell_index_pairs)
+        with _ProgressContext(
+            progress,
+            phases=[
+                ("stage_cell_modes", num_cells),
+                ("compute_cell_overlap", num_cells),
+                ("compute_interface_overlap", num_interfaces),
+            ],
+        ) as pc:
+            cell_modes: list[EMEStageCellModes] = []
+            for i in range(num_cells):
+                cell_modes.append(self.stage_cell_modes(mode_data[i], cell_index=i))
+                pc.tick("stage_cell_modes")
 
-        cell_overlaps: list[EMEStageCellOverlap] = []
-        for cm in cell_modes:
-            cell_overlaps.append(self.compute_cell_overlap(cm))
+            cell_overlaps: list[EMEStageCellOverlap] = []
+            for cm in cell_modes:
+                cell_overlaps.append(self.compute_cell_overlap(cm))
+                gc.collect()
+                pc.tick("compute_cell_overlap")
+
+            modes_by_idx = {cm.cell_index: cm for cm in cell_modes}
+            overlaps_by_idx = {co.cell_index: co for co in cell_overlaps}
+            interface_overlaps: list[EMEStageInterfaceOverlap] = []
+            for li, ri in self.cell_index_pairs:
+                interface_overlaps.append(
+                    self.compute_interface_overlap(
+                        modes_by_idx[li],
+                        modes_by_idx[ri],
+                        overlaps_by_idx[li],
+                        overlaps_by_idx[ri],
+                        include_diagnostic_metrics=self.eme_diagnostics,
+                    )
+                )
+                gc.collect()
+                pc.tick("compute_interface_overlap")
+
+            # Release mode field data — no longer needed after overlaps
+            del cell_modes, modes_by_idx, overlaps_by_idx
             gc.collect()
-
-        modes_by_idx = {cm.cell_index: cm for cm in cell_modes}
-        interface_overlaps: list[EMEStageInterfaceOverlap] = []
-        for li, ri in self.cell_index_pairs:
-            interface_overlaps.append(
-                self.compute_interface_overlap(modes_by_idx[li], modes_by_idx[ri])
-            )
-            gc.collect()
-
-        # Release mode field data — no longer needed after overlaps
-        del cell_modes, modes_by_idx
-        gc.collect()
 
         return cell_overlaps, interface_overlaps
 
@@ -2351,6 +2623,7 @@ class EMESimulation(AbstractYeeGridSimulation):
             cell_overlap.n_complex.f.values,
             f"cell overlap for cell_index={cell_overlap.cell_index}",
         )
+        cell_overlap = self._cell_overlap_with_trial_filter_mask(cell_overlap)
         from tidy3d_extras.eme import compute_cell_smatrix
 
         if sweep_index != 0 and not self._sweep_cells:
@@ -2368,10 +2641,11 @@ class EMESimulation(AbstractYeeGridSimulation):
         # S-matrix does not depend on the sweep point). ``compute_smatrix``
         # validates against the same formula.
         stamped_sweep_index = sweep_index if self._sweep_cells else 0
+        cell_index = cell_overlap.cell_index
         return compute_cell_smatrix(
             cell_overlap,
-            length=lengths[cell_overlap.cell_index],
-            num_modes_override=self._num_modes_override(sweep_index),
+            length=lengths[cell_index],
+            num_trial=self._num_trial_modes(sweep_index, cell_index),
             sweep_index=stamped_sweep_index,
         )
 
@@ -2415,6 +2689,8 @@ class EMESimulation(AbstractYeeGridSimulation):
         self._raise_if_stage_freqs_mismatch(
             interface_overlap.O12.f.values, f"interface overlap at pair {pair}"
         )
+        left_overlap = self._cell_overlap_with_trial_filter_mask(left_overlap)
+        right_overlap = self._cell_overlap_with_trial_filter_mask(right_overlap)
         from tidy3d_extras.eme import compute_interface_smatrix
 
         if sweep_index != 0 and not self._sweep_interfaces:
@@ -2430,13 +2706,55 @@ class EMESimulation(AbstractYeeGridSimulation):
         # EMEPeriodicitySweep) with 0 so they can be computed once and reused
         # across sweep points.
         stamped_sweep_index = sweep_index if self._sweep_interfaces else 0
+        left_cell_index = left_overlap.cell_index
+        right_cell_index = right_overlap.cell_index
         return compute_interface_smatrix(
             left_overlap,
             right_overlap,
             interface_overlap,
+            num_trial1=self._num_trial_modes(sweep_index, left_cell_index),
+            num_trial2=self._num_trial_modes(sweep_index, right_cell_index),
             constraint=self.constraint,
-            num_modes_override=self._num_modes_override(sweep_index),
             sweep_index=stamped_sweep_index,
+        )
+
+    def compute_interface_diagnostics(
+        self,
+        left_overlap: EMEStageCellOverlap,
+        right_overlap: EMEStageCellOverlap,
+        interface_overlap: EMEStageInterfaceOverlap,
+        interface_smatrix: EMEStageInterfaceSMatrix,
+    ) -> EMEStageInterfaceDiagnostics:
+        """Compute tangential field residual diagnostics for one interface S-matrix.
+
+        The supplied ``interface_overlap`` must carry diagnostic field metrics — i.e. it
+        must have been produced by :meth:`compute_interface_overlap` with both
+        cell overlaps and ``include_diagnostic_metrics=True``. The convenience
+        :meth:`compute_overlaps` path stages these metrics when
+        :attr:`eme_diagnostics` is ``True``.
+        """
+        from tidy3d.packaging import check_tidy3d_extras_licensed_feature
+
+        check_tidy3d_extras_licensed_feature("local_eme")
+        self._warn_if_local_ignores_monitors()
+        pair = (interface_overlap.cell_index, interface_overlap.right_cell_index)
+        self._raise_if_stage_freqs_mismatch(
+            left_overlap.n_complex.f.values, f"left cell overlap at pair {pair}"
+        )
+        self._raise_if_stage_freqs_mismatch(
+            right_overlap.n_complex.f.values, f"right cell overlap at pair {pair}"
+        )
+        self._raise_if_stage_freqs_mismatch(
+            interface_overlap.O12.f.values, f"interface overlap at pair {pair}"
+        )
+        self._raise_if_stage_freqs_mismatch(
+            interface_smatrix.S11.f.values, f"interface smatrix at pair {pair}"
+        )
+
+        from tidy3d_extras.eme import compute_interface_diagnostics
+
+        return compute_interface_diagnostics(
+            left_overlap, right_overlap, interface_overlap, interface_smatrix
         )
 
     def compute_smatrix(
@@ -2477,11 +2795,6 @@ class EMESimulation(AbstractYeeGridSimulation):
 
         from .data.dataset import EMESMatrixDataset
 
-        # Reject staged inputs built at a different frequency grid or at a different
-        # sweep point than this call. Sweep-invariant stages are stamped with 0
-        # so a single object can be reused across every sweep point — under
-        # ``EMELengthSweep`` the interface S-matrix is invariant, under
-        # ``EMEPeriodicitySweep`` both cell and interface stages are invariant.
         expected_cell_stamp = sweep_index if self._sweep_cells else 0
         expected_iface_stamp = sweep_index if self._sweep_interfaces else 0
         for cs in cell_smatrices:
@@ -2527,8 +2840,10 @@ class EMESimulation(AbstractYeeGridSimulation):
         if self.normalize:
             if not co_by_idx:
                 raise SetupError("'cell_overlaps' is required when 'normalize' is True.")
-            flux1 = co_by_idx[first_idx].complex_flux.to_numpy()
-            flux2 = co_by_idx[last_idx].complex_flux.to_numpy()
+            mi_in_1 = cs_by_idx[first_idx].S11.mode_index_in.values
+            mi_in_2 = cs_by_idx[last_idx].S22.mode_index_in.values
+            flux1 = co_by_idx[first_idx].complex_flux.sel(mode_index=mi_in_1).to_numpy()
+            flux2 = co_by_idx[last_idx].complex_flux.sel(mode_index=mi_in_2).to_numpy()
             port_flux = (flux1, flux2)
 
         from tidy3d_extras.eme import prepare_and_compute_smatrix
@@ -2575,6 +2890,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         self,
         cell_overlaps: list[EMEStageCellOverlap],
         interface_overlaps: list[EMEStageInterfaceOverlap],
+        progress: bool = True,
     ) -> EMESMatrixDataset:
         """Propagate to the device S-matrix using pre-computed overlaps.
 
@@ -2595,6 +2911,9 @@ class EMESimulation(AbstractYeeGridSimulation):
         interface_overlaps : list[:class:`.EMEStageInterfaceOverlap`]
             One per interface, in the order of :attr:`cell_index_pairs`,
             typically from :meth:`compute_overlaps`.
+        progress : bool
+            If ``True`` (default), show a ``rich`` progress bar on the logging
+            console.
 
         Returns
         -------
@@ -2616,10 +2935,6 @@ class EMESimulation(AbstractYeeGridSimulation):
             )
 
         overlaps_by_idx = {co.cell_index: co for co in cell_overlaps}
-        # Key interface overlaps by their stamped (left, right) pair rather than
-        # positional zip with ``cell_index_pairs`` so the list can survive an
-        # HDF5 round-trip / cache reload in any order, and so periodicity sweeps
-        # that contain two pairs sharing a left cell stay distinguishable.
         iface_overlaps_by_pair = {
             (io.cell_index, io.right_cell_index): io for io in interface_overlaps
         }
@@ -2638,26 +2953,43 @@ class EMESimulation(AbstractYeeGridSimulation):
         cell_sms: list[EMEStageCellSMatrix] | None = None
         iface_sms: list[EMEStageInterfaceSMatrix] | None = None
 
-        per_point = []
-        for sweep_idx in range(num_sweep):
-            if cell_sms is None or self._sweep_cells:
-                cell_sms = [
-                    self.compute_cell_smatrix(co, sweep_index=sweep_idx) for co in cell_overlaps
-                ]
-            if iface_sms is None or self._sweep_interfaces:
-                iface_sms = [
-                    self.compute_interface_smatrix(
-                        overlaps_by_idx[li],
-                        overlaps_by_idx[ri],
-                        iface_overlaps_by_pair[(li, ri)],
-                        sweep_index=sweep_idx,
-                    )
-                    for (li, ri) in self.cell_index_pairs
-                ]
-            per_point.append(
-                self.compute_smatrix(cell_overlaps, cell_sms, iface_sms, sweep_index=sweep_idx)
-            )
-            gc.collect()
+        # Total per-phase work matches the actual invocation count under sweep
+        # invariance: when ``_sweep_cells`` is False the cell smatrices run only
+        # at sweep_idx=0; same for interfaces.
+        num_cell_sweeps = num_sweep if self._sweep_cells else 1
+        num_iface_sweeps = num_sweep if self._sweep_interfaces else 1
+        with _ProgressContext(
+            progress,
+            phases=[
+                ("compute_cell_smatrix", num_cells * num_cell_sweeps),
+                ("compute_interface_smatrix", num_interfaces * num_iface_sweeps),
+                ("compute_smatrix", num_sweep),
+            ],
+        ) as pc:
+            per_point = []
+            for sweep_idx in range(num_sweep):
+                if cell_sms is None or self._sweep_cells:
+                    cell_sms = []
+                    for co in cell_overlaps:
+                        cell_sms.append(self.compute_cell_smatrix(co, sweep_index=sweep_idx))
+                        pc.tick("compute_cell_smatrix")
+                if iface_sms is None or self._sweep_interfaces:
+                    iface_sms = []
+                    for li, ri in self.cell_index_pairs:
+                        iface_sms.append(
+                            self.compute_interface_smatrix(
+                                overlaps_by_idx[li],
+                                overlaps_by_idx[ri],
+                                iface_overlaps_by_pair[(li, ri)],
+                                sweep_index=sweep_idx,
+                            )
+                        )
+                        pc.tick("compute_interface_smatrix")
+                per_point.append(
+                    self.compute_smatrix(cell_overlaps, cell_sms, iface_sms, sweep_index=sweep_idx)
+                )
+                pc.tick("compute_smatrix")
+                gc.collect()
 
         if len(per_point) == 1:
             ds = per_point[0]
@@ -2687,6 +3019,7 @@ class EMESimulation(AbstractYeeGridSimulation):
     def propagate(
         self,
         mode_data: Sequence[ModeSimulationData | ModeSolverData],
+        progress: bool = True,
     ) -> EMESMatrixDataset:
         """Propagate modes through the device to compute the full S-matrix.
 
@@ -2704,18 +3037,41 @@ class EMESimulation(AbstractYeeGridSimulation):
         To override constraint, normalize, or sweep_spec, use
         ``sim.updated_copy(...)`` before calling.
 
+        ``propagate`` returns only the S-matrix. When
+        :attr:`eme_diagnostics` is ``True``, use the explicit staged methods
+        (:meth:`compute_overlaps`, :meth:`compute_interface_smatrix`, and
+        :meth:`compute_interface_diagnostics`) or a normal EME simulation run
+        to obtain diagnostic data.
+
         Parameters
         ----------
         mode_data : Sequence[:class:`.ModeSimulationData` | :class:`.ModeSolverData`]
             One mode result per EME cell, in cell order.  Typically
             ``[ms.run_local() for ms in sim.mode_simulations]``.
+        progress : bool
+            If ``True`` (default), show a ``rich`` progress bar on the logging
+            console. Forwarded to :meth:`compute_overlaps` and
+            :meth:`propagate_from_overlaps`.
 
         Returns
         -------
         :class:`.EMESMatrixDataset`
         """
-        cell_overlaps, interface_overlaps = self.compute_overlaps(mode_data)
-        return self.propagate_from_overlaps(cell_overlaps, interface_overlaps)
+        sim = self
+        if self.eme_diagnostics:
+            log.warning(
+                "'EMESimulation.propagate' returns only the S-matrix, so "
+                "'eme_diagnostics=True' is ignored in this one-shot local path. "
+                "Use the explicit staged methods or a normal EME simulation run to obtain "
+                "diagnostic data.",
+                log_once=True,
+            )
+            # ``propagate`` returns only the S-matrix. Keep diagnostic metric staging
+            # for explicit staged workflows that can consume it via
+            # ``compute_interface_diagnostics``.
+            sim = self.updated_copy(eme_diagnostics=False, deep=False)
+        cell_overlaps, interface_overlaps = sim.compute_overlaps(mode_data, progress=progress)
+        return self.propagate_from_overlaps(cell_overlaps, interface_overlaps, progress=progress)
 
     def smatrix_in_basis(
         self,
@@ -2726,6 +3082,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         ],
         modes1: ElectromagneticFieldData | ModeSolverData | ModeSimulationData | None = None,
         modes2: ElectromagneticFieldData | ModeSolverData | ModeSimulationData | None = None,
+        skip_gram_normalization: bool = False,
     ) -> EMESMatrixDataset:
         """Express a locally propagated S-matrix in another modal basis.
 
@@ -2745,6 +3102,15 @@ class EMESimulation(AbstractYeeGridSimulation):
         modes1, modes2 : :class:`.ElectromagneticFieldData`, :class:`.ModeSolverData`, or
             :class:`.ModeSimulationData`, optional
             New modal bases at port 1 and port 2.
+        skip_gram_normalization : bool = False
+            If ``False`` (default), normalize the change of basis so it is
+            correct even for bases that are not orthonormal (linear combinations
+            of port modes, modes on a different grid, or custom fields). If
+            ``True``, skip the Gram normalization and use the plain overlap
+            contraction; this is correct only when the port and new bases each
+            have identity self-overlap in this method's overlap convention, and
+            otherwise merely recovers the pre-normalization behavior (which may
+            be incorrect).
 
         Returns
         -------
@@ -2804,10 +3170,10 @@ class EMESimulation(AbstractYeeGridSimulation):
                 )
             return filtered
 
-        port_modes1_for_kernel = (
+        port_modes1_for_overlap = (
             _filter_port(port_modes1, port_cell_1, "port 1") if modes1 is not None else port_modes1
         )
-        port_modes2_for_kernel = (
+        port_modes2_for_overlap = (
             _filter_port(port_modes2, port_cell_2, "port 2") if modes2 is not None else port_modes2
         )
 
@@ -2819,7 +3185,7 @@ class EMESimulation(AbstractYeeGridSimulation):
                 return None
             if isinstance(modes, ModeSimulationData):
                 return modes.modes_raw
-            if isinstance(modes, (ElectromagneticFieldData, ModeSolverData)):
+            if isinstance(modes, ElectromagneticFieldData | ModeSolverData):
                 return modes
             raise ValidationError(
                 f"'{name}' must be ElectromagneticFieldData, ModeSolverData, "
@@ -2829,8 +3195,9 @@ class EMESimulation(AbstractYeeGridSimulation):
 
         return _extras_smatrix_in_basis(
             smatrix=smatrix,
-            port_modes1=port_modes1_for_kernel,
-            port_modes2=port_modes2_for_kernel,
+            port_modes1=port_modes1_for_overlap,
+            port_modes2=port_modes2_for_overlap,
             new_modes1=_unwrap_new(modes1, "modes1"),
             new_modes2=_unwrap_new(modes2, "modes2"),
+            skip_gram_normalization=skip_gram_normalization,
         )

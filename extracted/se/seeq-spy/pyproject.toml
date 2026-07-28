@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "seeq-spy"
-version = "202.2"
+version = "202.3"
 description = "Easy-to-use Python interface for Seeq"
 readme = "README.md"
 requires-python = ">=3.8"

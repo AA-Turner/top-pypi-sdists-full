@@ -1,22 +1,6 @@
-# This file is part of beets.
-# Copyright 2016, Thomas Scholtes.
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-
-
 import importlib
 import itertools
 import logging
-import os
 import pkgutil
 import sys
 from typing import ClassVar
@@ -116,7 +100,7 @@ class TestEvents(PluginImportHelper):
             if not msg.startswith("Sending event:")
         ]
         assert logs == [
-            f"Album: {displayable_path(os.path.join(self.import_dir, b'album'))}",
+            f"Album: {self.import_path / 'album'}",
             f"  {displayable_path(self.import_media[0].path)}",
             f"  {displayable_path(self.import_media[1].path)}",
         ]

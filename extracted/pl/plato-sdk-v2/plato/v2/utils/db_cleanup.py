@@ -104,7 +104,9 @@ class DatabaseCleaner:
                 async def cleanup_db(config: DbConfigResponse) -> tuple[str, DatabaseCleanupResult]:
                     db_name = config.db_database
                     try:
-                        result = await self._cleanup_single_database(env.job_id, config, http_client, api_key)
+                        result = await self._cleanup_single_database(
+                            env.job_id, config, http_client, api_key, mesh_ip=env.mesh_ip
+                        )
                         logger.debug(f"[cleanup] {env.alias}/{db_name}: truncated {result.tables_truncated}")
                         return db_name, result
                     except Exception as e:
@@ -140,6 +142,7 @@ class DatabaseCleaner:
         config: DbConfigResponse,
         http_client: httpx.AsyncClient,
         api_key: str,
+        mesh_ip: str | None = None,
     ) -> DatabaseCleanupResult:
         """Truncate audit_log for a single database.
 
@@ -154,7 +157,7 @@ class DatabaseCleaner:
             s.bind(("127.0.0.1", 0))
             local_port = s.getsockname()[1]
 
-        tunnel = Tunnel(job_id=job_id, remote_port=config.db_port, local_port=local_port)
+        tunnel = Tunnel(job_id=job_id, remote_port=config.db_port, local_port=local_port, mesh_ip=mesh_ip)
         try:
             tunnel.start()
             await asyncio.sleep(0.5)  # Let tunnel accept loop settle

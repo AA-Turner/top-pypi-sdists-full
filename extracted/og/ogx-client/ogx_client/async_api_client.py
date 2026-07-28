@@ -62,7 +62,7 @@ class AsyncApiClient:
             self.default_headers[header_name] = header_value
 
         # Set default User-Agent
-        self.default_headers['User-Agent'] = 'OpenAPI-Generator/1.2.1/python'
+        self.default_headers['User-Agent'] = 'OpenAPI-Generator/1.2.2/python'
 
         self.cookie = cookie
 
